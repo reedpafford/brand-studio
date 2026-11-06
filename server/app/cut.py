@@ -31,7 +31,7 @@ from app import (
 from app.db import utcnow
 from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
 from app.models.files import StoredFile
-from app.models.jobs import WAITING, Job
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.models.songs import SongTake
 
@@ -358,6 +358,25 @@ def newest(db: Session, project: Project) -> FinalVideo | None:
     """The newest cut made (the one that plays)."""
     return db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id)
                      .order_by(FinalVideo.id.desc()).limit(1))  # fmt: skip
+
+
+def next_number(db: Session, project: Project, playing: FinalVideo | None) -> int:
+    """Cut N is the Nth cut handed over (S3-12): a person's, or one the director delivered.
+    The director making its own cut again in the run that made it, before it delivers, keeps
+    that cut's number: the new one replaces it."""
+    from app import director
+    from app.routes.jobs import BY_DIRECTOR, DIRECTOR_TOOL
+
+    if playing is None:
+        return 1
+    run = director.turns(db, project) if DIRECTOR_TOOL.get() else []
+    made = db.scalar(select(Job).where(Job.project_id == project.id,
+                                       Job.status == JobStatus.succeeded,
+                                       Job.input["step"].as_string() == STEP)
+                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
+    draft = (bool(run) and made is not None and made.id > run[0].id and made.input.get(BY_DIRECTOR)
+             and (made.output or {}).get("file_ids", [None])[0] == playing.file_id)  # fmt: skip
+    return playing.number if draft else playing.number + 1
 
 
 def making(db: Session, project: Project) -> Job | None:

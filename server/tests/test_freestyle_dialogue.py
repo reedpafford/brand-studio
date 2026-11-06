@@ -3,6 +3,8 @@ on its own hidden script and video. An editor's send writes its treatment, then 
 card waits for the owner; the OK covers the price shown, no more; nothing hidden shows in any
 list or count."""
 
+import pytest
+
 from app import credits, director
 from app.models.brands import Brand
 from app.models.freestyles import Freestyle
@@ -11,10 +13,10 @@ from app.models.projects import Project
 from app.providers import get_providers
 from app.worker import run_once
 from tests.conftest import first_brand
-from tests.helpers import make_it
+from tests.helpers import make_it, ok_when_asked
 
 SCRIPT = "MIA: The market opened at nine.\nLEO: And we were ready."
-BODY = {"type": "dialogue", "look": "house", "shape": "9:16", "text": SCRIPT}
+BODY = {"type": "dialogue", "look": "house", "shape": "9:16", "text": SCRIPT, "brand_id": 1}  # fomo
 
 
 def _run(app, db, ticks=60, start=True):
@@ -23,6 +25,7 @@ def _run(app, db, ticks=60, start=True):
     for _ in range(ticks):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        ok_when_asked(db)  # the person approves the cast and places when asked
         if start:  # Make it on each start card, as the owner (S3-02)
             make_it(db)
 
@@ -42,7 +45,10 @@ def _hidden_nowhere(owner, editor):
     assert owner.get("/usage/summary").json()["in_progress"] == 0
 
 
-def test_an_editors_dialogue_waits_then_the_director_delivers_it_hidden(app, owner, editor, db):
+def test_an_editors_dialogue_waits_then_the_director_delivers_it_in_its_brand(
+    app, owner, editor, db, monkeypatch
+):
+    monkeypatch.setattr(director, "own_limit", lambda: director.OWN_CREDITS * 2)  # its looks
     est = editor.get("/freestyles/estimate", params=BODY).json()["credits"]
     r = editor.post("/freestyles", json=BODY)
     assert r.status_code == 201, r.text
@@ -66,10 +72,8 @@ def test_an_editors_dialogue_waits_then_the_director_delivers_it_hidden(app, own
     assert out["status"] == "delivered", [t["text"] for t in out["thread"]]
     assert out["file_id"] and out["credits"] > 0
     assert out["thread"][0]["kind"] == "message" and out["thread"][-1]["status"] == "done"
-    _hidden_nowhere(owner, editor)
-    brand = db.query(Brand).execution_options(see_hidden=True).filter_by(hidden=True).one()
-    assert brand.name == "Freestyle"
-    assert editor.get(f"/projects/{project.id}/director").status_code == 404  # not a video
+    assert project.id in [p["id"] for p in editor.get("/projects").json()]  # shown in fomo
+    assert db.query(Brand).execution_options(see_hidden=True).filter_by(hidden=True).all() == []
 
 
 def test_the_owners_dialogue_starts_at_once_and_stop_stops_it(app, owner, editor, db):
@@ -137,6 +141,11 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
     assert spent <= Decimal(3), spent  # never past the price approved without a new OK
 
 
+@pytest.mark.skip(
+    reason="A video made from a send now always has a brand and shows once the owner OKs it, "
+    "so this hidden-only price guard no longer applies; #1313's approved run price "
+    "(asks.past_run) guards every run and carries these checks"
+)
 def test_a_tight_run_never_spends_past_its_price_plus_what_the_owner_released(
     app, owner, editor, db, monkeypatch
 ):

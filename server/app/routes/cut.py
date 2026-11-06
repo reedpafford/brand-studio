@@ -208,11 +208,7 @@ def _newest_job(db: Session, project: Project) -> Job | None:
 
 def _failed(db: Session, project: Project, playing: FinalVideo | None) -> FailedOut | None:
     job = _newest_job(db, project)
-    if (
-        job is None
-        or job.status in WAITING
-        or job.input["number"] <= (playing.number if playing else 0)
-    ):
+    if job is None or job.status in WAITING:  # every cut is a cut_make job's: none is newer
         return None
     out = job.output or {}
     if job.status == JobStatus.succeeded and not out.get("problem"):
@@ -316,7 +312,8 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
         file_id=playing.file_id if playing else None,
         out_of_date=bool(playing) and project.id in out_of_date(db, [project]),
         versions=[CutVersionOut(number=v.number, file_id=v.file_id,
-                                made_at=v.created_at.isoformat()) for v in versions],
+                                made_at=v.created_at.isoformat())
+                  for v in {v.number: v for v in versions}.values()],  # made again: the newest
         making=_making(db, storage, project), failed=_failed(db, project, playing),
         timeline=timeline, edits=edits, changes=len(live ^ in_cut), can_undo=bool(live),
         can_redo=cut_edits.redoable(db, project) is not None,
@@ -359,7 +356,7 @@ def make(project_id: int, request: Request, user: User = Depends(current_user),
     live = [e.id for e in cut.active(db, project)]
     song = cut.song(db, project)
     data = {"step": cut.STEP, "project_id": project.id,
-            "number": (playing.number if playing else 0) + 1, "edit_ids": live,
+            "number": cut.next_number(db, project, playing), "edit_ids": live,
             "take_ids": [c.picked_take_id for c in clips], "cut_ins": _cut_ins(db, project, clips),
             "song_take_id": song.id if song else None, "timeline": tl,
             "recipe": cut_render.recipe(db, project, tl), "doing": cut.doing(tl),

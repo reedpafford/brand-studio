@@ -50,6 +50,11 @@ def start(
 
     if reason := blocked(db, frame, newest):
         raise HTTPException(409, reason)
+    from app import cast_gate
+
+    known = storyboard.assets(db, project)  # its still waits for the cast and places OK: say
+    shown = cast_gate.refs(db, project, newest.data, [frame.shot_id], frame.reference_ids, known)
+    cast_gate.require(db, project, shown, known)  # so before paying for the rewrite
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
     if any(j.input.get("step") == "storyboard" or j.input.get("frame_id") == frame.id
            or j.input.get("redo_frame_id") == frame.id for j in pending):  # fmt: skip

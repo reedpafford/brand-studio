@@ -166,7 +166,7 @@ def then_direct(db: Session, script: Script) -> None:
                          created_by_id=user.id))  # fmt: skip
     fs.up_to = run_price(db, draft, project)
     said, at = f"Make it from {script.title}, {HOW[then['mode']]}.", utcnow().isoformat()
-    what = {"project": project.id, "draft": draft.id, "show": True}
+    what = {"project": project.id, "draft": draft.id}
     script.reel = {**script.reel, THEN: {**then, "started": True}}  # before the run holds it
     db.flush()
     turn = director.start(db, user, project, hold="" if user.is_owner else WRITTEN, frozen=False,

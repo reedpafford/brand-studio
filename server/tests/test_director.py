@@ -11,7 +11,7 @@ from app.models.projects import Project
 from app.providers import get_providers
 from app.providers.fake_local import _tag
 from app.worker import run_once
-from tests.helpers import make_it, with_sheet
+from tests.helpers import make_it, ok_when_asked, with_sheet
 from tests.test_cast_roles import _video
 
 
@@ -22,6 +22,7 @@ def _run(app, db, ticks=60, start=True):
     for _ in range(ticks):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        ok_when_asked(db)  # the person approves the cast and places when asked
         if start:  # Make it on each start card, as the owner (S3-02)
             make_it(db)
 
@@ -203,11 +204,16 @@ def test_a_wait_with_nothing_being_made_reads_the_video_again(app, db, owner, ed
     assert out["ended"] == "It stopped: it waited twice with nothing being made."
 
 
-def test_a_video_with_no_shots_gets_its_plan_made_and_approved_first(app, db, owner, editor):
+def test_a_video_with_no_shots_gets_its_plan_made_and_approved_first(
+    app, db, owner, editor, monkeypatch
+):
     """QA on #1087: a video whose script has no shots waits on its own plan; `plan` makes the
     plan, then approves it (which makes the shots), as the Plan step does."""
     from tests.test_script_library import SCRIPT, _make
 
+    # Its looks, the cast and places OK and three watches pass the 75 credits on the stand-ins:
+    # that wait is test_director_limit's, not this test's
+    monkeypatch.setattr(director, "own_limit", lambda: director.OWN_CREDITS * 2)
     app.state.settings.fake_providers = True
     made = _make(owner, text=SCRIPT)
     base = f"/scripts/{made['id']}"
@@ -215,7 +221,7 @@ def test_a_video_with_no_shots_gets_its_plan_made_and_approved_first(app, db, ow
     owner.post(f"{base}/publish")
     pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
     owner.post(f"/projects/{pid}/director")  # never held: the plan steps alone
-    _run(app, db)
+    _run(app, db, ticks=120)
     out = editor.get(f"/projects/{pid}/director").json()
     results = [t["result"] for t in out["turns"]]
     assert "Approved the plan; making the shots." in results, results
@@ -301,6 +307,7 @@ def test_a_job_of_its_own_that_fails_never_leaves_the_run_hanging(app, db, owner
     owner.post(f"/projects/{pid}/director")
     for _ in range(60):
         run_once(db, providers, app.state.storage)
+        ok_when_asked(db)
         db.expire_all()
         make_it(db)
     out = owner.get(f"/projects/{pid}/director").json()
@@ -327,6 +334,7 @@ def test_an_item_that_keeps_failing_is_tried_twice_more_then_the_run_says_so(
     owner.post(f"/projects/{pid}/director")
     for _ in range(40):
         run_once(db, providers, app.state.storage)
+        ok_when_asked(db)
         db.expire_all()
         make_it(db)
     out = owner.get(f"/projects/{pid}/director").json()
@@ -636,6 +644,7 @@ def _second_turn(app, db, owner, editor, monkeypatch, when: str):
     editor.post(f"/projects/{pid}/director")
     for _ in range(30):
         run_once(db, providers, app.state.storage)
+        ok_when_asked(db)
         db.expire_all()
         make_it(db)
     return pid, calls
@@ -692,6 +701,7 @@ def test_a_stop_while_the_next_turn_is_made_holds(app, db, owner, editor, monkey
     editor.post(f"/projects/{pid}/director")
     for _ in range(30):
         run_once(db, providers, app.state.storage)
+        ok_when_asked(db)
         db.expire_all()
         make_it(db)
     out = editor.get(f"/projects/{pid}/director").json()
@@ -866,6 +876,7 @@ def test_each_note_is_new_to_exactly_one_turn_and_one_paid_redo(app, db, owner, 
     sent = False
     for _ in range(60):  # the note lands mid-run, once clip 1 has its prompt
         run_once(db, providers, app.state.storage)
+        ok_when_asked(db)
         db.expire_all()
         make_it(db)
         if not sent and any(t["tool"] == "make_take" for t in editor.get(url).json()["turns"]):

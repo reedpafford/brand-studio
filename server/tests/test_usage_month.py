@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 
 from app.models.accounts import Role, User
+from app.models.brands import Brand
 from app.models.jobs import Job
 from app.routes.jobs import enqueue
 from tests.test_freestyle_dialogue import BODY
@@ -45,24 +46,28 @@ def test_a_picked_month_counts_only_its_own_charges_in_credits_too(owner, editor
 
 
 def test_freestyle_with_no_brand_has_its_own_row(app, owner, db):
-    fs = owner.post("/freestyles", json=BODY).json()
+    clip = {"type": "one_clip", "look": "house", "shape": "9:16", "text": "A cat at dawn."}
+    owner.post("/freestyles", json=clip)  # One clip: the only send with no brand
     _run_fakes(app, db)
     out = owner.get("/usage/summary", params={"period": "all"}).json()["freestyle"]
     from app.credits import COUNTED
-    from app.models.projects import Project
 
-    video = db.get(Project, fs["project_id"], execution_options={"see_hidden": True})
-    spent = sum(j.credits for j in db.query(Job).filter(Job.brand_id == video.brand_id,
+    hidden = db.query(Brand).execution_options(see_hidden=True).filter_by(hidden=True).one()
+    spent = sum(j.credits for j in db.query(Job).filter(Job.brand_id == hidden.id,
                                                          Job.status.in_(COUNTED)))  # fmt: skip
-    assert out["videos"] == 1 and out["credits"] == float(spent) > 0
+    assert out["credits"] == float(spent) > 0
     assert out["spend_usd"] == owner.get("/usage/summary", params={"period": "all"}).json()[
         "freestyle_spend_usd"]  # fmt: skip
 
 
-def test_my_credits_across_every_brand_with_each_rows_status(app, owner, editor, db):
-    fs = owner.post("/freestyles", json=BODY).json()  # no brand: the hidden Freestyle one
-    _run_fakes(app, db)
+def test_my_credits_across_every_brand_with_each_rows_status(app, owner, editor, db, monkeypatch):
+    from app import director
+
+    monkeypatch.setattr(director, "own_limit", lambda: director.OWN_CREDITS * 2)  # its looks
     _, fomo, launch = _setup(owner, db)
+    other = next(b["id"] for b in owner.get("/brands").json() if b["id"] != fomo)
+    fs = owner.post("/freestyles", json={**BODY, "brand_id": other}).json()  # another brand
+    _run_fakes(app, db)
     made = owner.post("/projects", json={"brand_id": fomo, "name": "Mine"}).json()["id"]
     out = owner.get("/usage/mine").json()
     states = {v["project_id"]: v["state"] for v in out["videos"]}

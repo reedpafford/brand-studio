@@ -354,6 +354,24 @@ def price_of(db: Session, project: Project) -> Decimal:
     return budget(db, project) if project.hidden or draft is None else run_price(db, draft, project)
 
 
+def run_up_to(db: Session, project: Project) -> Decimal:
+    """The "up to" of the run under way or delivered: the price its Make it approved (with any
+    OK at the director's own limit, rule 34), so the header, the start card, the run's card and
+    its note say one figure; before any Make it, the price a new run would show. A freestyle's
+    video, hidden or in its brand, reads its sends' approved total, as its header does."""
+    from app import asks
+    from app.credits import approved
+    from app.models.freestyles import Freestyle
+
+    fs = db.scalar(select(Freestyle).where(Freestyle.project_id == project.id))
+    if fs is not None and fs.up_to is not None:
+        return approved(db, fs)
+    if project.hidden:
+        return price_of(db, project)
+    got = asks.approved_run(db, project)
+    return got[0] if got else price_of(db, project)
+
+
 def spent(db: Session, project: Project, since: datetime,
           until: datetime | None = None) -> tuple[Decimal, Decimal]:  # fmt: skip
     """(credits charged, real dollars) on the video from `since` to `until`: a run's spend."""
@@ -414,7 +432,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     total, made = len(cells), sum(c["state"] in DONE for c in cells)
     redone = sum(c["changed"] for c in cells)
     charged, usd = spent(db, project, start)
-    up_to = price_of(db, project)
+    up_to = run_up_to(db, project)
     if how == "delivered":
         head = ("delivered", _took(turns), _n(total, "clip") + (
             f" · {redone} redone after watching" if redone else ""), "done")  # fmt: skip

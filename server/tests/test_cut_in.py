@@ -10,7 +10,7 @@ from PIL import Image
 
 from app.cut_in import apply
 from tests.conftest import make_cut, png, upload
-from tests.helpers import with_sheet
+from tests.helpers import approve_cast, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_clip_takes import FakeSeedance, _mp4, _work
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
@@ -71,6 +71,7 @@ def approved(app, db, editor, setup):  # noqa: F811
     editor.post(f"{base}/clips/prompts")
     _run(app, db, FakeClaude(_answer(mom, setup["screen"], _prompt())))
     clip = editor.get(f"{base}/clips").json()[0]
+    approve_cast(editor, base)
     editor.post(f"{base}/clips/{clip['id']}/generate")
     _work(app, db, FakeSeedance([_mp4("red")]))
     editor.post(f"{base}/clips/{clip['id']}/approve")

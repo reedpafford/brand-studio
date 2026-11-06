@@ -14,7 +14,7 @@ from app.providers.fake_local import FakeWriter, hear_take
 from app.providers.local import LocalProvider
 from app.worker import run_once
 from tests.conftest import make_cut, run_writer
-from tests.helpers import shot
+from tests.helpers import approve_cast, shot
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
@@ -283,6 +283,7 @@ def test_the_look_gets_the_brands_screen_rules_and_this_videos_outfit(app, db, e
     mom = next(r["id"] for r in clip["references"] if r["id"].startswith("char:"))
     project.outfits = {mom: "mustard trench coat"}
     shot(db, screen_ids=[f"screen:{screen.id}"])
+    approve_cast(editor, setup["project"])  # her outfit changed: the OK again
     editor.post(f"/projects/{setup['project']}/clips/{clip['id']}/generate")
     _work(app, db, FakeSeedance([_mp4("red")]))
     _listen(app, db)
