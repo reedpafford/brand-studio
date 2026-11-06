@@ -117,6 +117,15 @@ def _found(row: ItemCheck | None) -> list[dict]:
     return [f for i, f in enumerate(row.findings or []) if i not in gone] if row else []
 
 
+def _set_aside(turns: list[Job]) -> datetime | None:
+    """A "Start the plan again" run's press, once its old takes were set aside (S3-08): takes
+    made before it, unless picked again, aren't a clip's made take on its card."""
+    from app import director
+
+    run = turns[-1].input.get(RUN) if turns else None
+    return director._pressed(run) if run and run.get(director.UNPICKED) else None
+
+
 class _Video:
     """Everything the record reads, in a fixed number of queries however many clips."""
 
@@ -136,9 +145,12 @@ class _Video:
                        if have and c["id"] not in have]  # fmt: skip
         ids = [c.id for c in self.clips if c.id]
         self.takes: dict[int, list[ClipTake]] = defaultdict(list)
+        aside = _set_aside(turns)  # Start the plan again: takes from before the press don't count
+        picks = {c.picked_take_id for c in self.clips}
         for t in db.scalars(select(ClipTake).where(ClipTake.clip_id.in_(ids))
                             .order_by(ClipTake.number)):  # fmt: skip
-            self.takes[t.clip_id].append(t)
+            if not (aside and t.created_at < aside and t.id not in picks):
+                self.takes[t.clip_id].append(t)
         tids = [t.id for ts in self.takes.values() for t in ts]
         self.checks: dict[int, dict[str, ItemCheck]] = defaultdict(dict)  # the newest of each
         for c in db.scalars(select(ItemCheck).where(ItemCheck.target.in_(("take", "words")),

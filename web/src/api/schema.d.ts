@@ -4196,6 +4196,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/director/plan-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Again
+         * @description "Start the plan again" (S3-08): a new run, as Make it starts one (its treatment first,
+         *     then its start card), that plans the whole video again after Make it instead of carrying
+         *     on from its shots. What was made stays (earlier plans and takes); 409 while a run goes on.
+         */
+        post: operations["plan_again_projects__project_id__director_plan_again_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/director/messages": {
         parameters: {
             query?: never;
@@ -21270,6 +21292,37 @@ export interface operations {
         };
     };
     start_projects__project_id__director_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_again_projects__project_id__director_plan_again_post: {
         parameters: {
             query?: never;
             header?: never;
