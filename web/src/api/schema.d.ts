@@ -7183,6 +7183,8 @@ export interface components {
             credits: number;
             /** Usd */
             usd?: number | null;
+            /** About Usd */
+            about_usd?: number | null;
         };
         /** Counts */
         Counts: {
@@ -7384,6 +7386,8 @@ export interface components {
              * @default 0
              */
             run_price: number;
+            /** Run Expected Usd */
+            run_expected_usd?: number | null;
             /**
              * Spent
              * @default 0
@@ -8106,6 +8110,8 @@ export interface components {
              * @default false
              */
             actual: boolean;
+            /** Listed Usd */
+            listed_usd?: number | null;
             /**
              * Unreported
              * @default false
@@ -10388,6 +10394,8 @@ export interface components {
             spent_usd: number | null;
             /** Actual Usd */
             actual_usd?: number | null;
+            /** Listed Usd */
+            listed_usd?: number | null;
             /**
              * Unreported
              * @default false
@@ -10395,6 +10403,11 @@ export interface components {
             unreported: boolean;
             /** Expected Usd */
             expected_usd?: number | null;
+            /**
+             * Cost
+             * @default
+             */
+            cost: string;
             /** Changed */
             changed: components["schemas"]["ChangedClipOut"][];
             stopped: components["schemas"]["RunStoppedOut"] | null;
@@ -11093,6 +11106,11 @@ export interface components {
             total: number;
             /** Carry On */
             carry_on: string;
+            /**
+             * Free
+             * @default false
+             */
+            free: boolean;
         };
         /** SamePair */
         SamePair: {

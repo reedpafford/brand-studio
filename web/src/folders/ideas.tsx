@@ -117,5 +117,6 @@ export function costText(cost: Cost | null | undefined) {
   if (!cost) return "";
   const credits = cost.kind === "up_to" ? wholeCredits(cost.credits) : Math.round(cost.credits); // a most is never rounded down
   const amount = cost.usd != null ? `$${cost.usd.toFixed(2)}` : `${credits} cr`;
+  if (cost.about_usd != null) return cost.usd ? `${amount} so far · about $${cost.about_usd.toFixed(2)}` : `about $${cost.about_usd.toFixed(2)}`; // the owner's uncapped site
   return cost.kind === "up_to" ? `up to ${amount}` : cost.kind === "so_far" ? `${amount} so far` : amount;
 }

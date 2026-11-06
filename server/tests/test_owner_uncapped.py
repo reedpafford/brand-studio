@@ -3,12 +3,14 @@ monetary hold, every price before a press is what it will probably cost ("About 
 (estimate)"), and what's spent is the providers' own (Usage.cost_usd). Editors' holds are
 exactly as before, and with the setting off nothing changes."""
 
+import json
 from decimal import Decimal
 
 import pytest
 
-from app import credits, delivery, ideas
+from app import asks, credits, director, ideas
 from app.models.accounts import User
+from app.models.asks import Ask
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
@@ -102,34 +104,101 @@ def test_the_header_reads_the_providers_spend_and_never_a_budget(app, db, owner,
     assert ideas.head(db, reed, db.get(Project, pid)).budget is None
 
 
-def test_the_delivery_note_says_what_the_run_really_cost(app, db, owner, editor, on):
+def test_the_note_says_what_the_run_really_cost_and_keeps_no_dollars(app, db, owner, editor, on):
+    """QA on #1396: the note is kept on the delivery job, which any teammate can read
+    (GET /jobs): it keeps only its run's times; the owner's dollars are read when he reads it."""
     pid, _ = _video(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     _run(app, db)
     note = next(m for m in owner.get(f"/projects/{pid}/director").json()["thread"]
                 if m.get("note"))["note"]  # fmt: skip
-    assert note["cost"].endswith("spent on this run (the providers' own charges)") or (
-        "not reported yet" in note["cost"])  # fmt: skip
+    assert note["cost"].startswith("$") and " spent on this run" in note["cost"]
     assert "up to" not in note["cost"]
     theirs = next(m for m in editor.get(f"/projects/{pid}/director").json()["thread"]
                   if m.get("note"))["note"]  # fmt: skip
-    assert "credits used of up to" in theirs["cost"]  # never dollars or the actual to an editor
-    kept = {**delivery.BLANK, "actual_usd": 1.5, "unreported": True, "spent": 1, "up_to": 2}
-    assert delivery.shown(kept, owner=True)["cost"] == (
-        "$1.50 spent on this run (the providers' own charges), and some cost not reported yet"
+    assert "credits used of up to" in theirs["cost"] and theirs["spent_usd"] is None
+    for job in editor.get("/jobs", params={"project_id": pid}).json():  # what an editor can read
+        kept = json.dumps(job)
+        assert "actual_usd" not in kept and "listed" not in kept and "cost_usd" not in kept
+    kept = next(j for j in db.query(Job).filter(Job.project_id == pid)
+                if j.input.get("result") == "Delivered.")  # the deliver turn  # fmt: skip
+    assert (
+        set(kept.output["note"]) >= {"since", "until"} and "actual_usd" not in kept.output["note"]
     )
 
 
-def test_an_unreported_cost_is_said(app, db, owner, editor):
+def test_spend_counts_list_prices_and_sent_jobs_and_says_so(app, db, owner, editor):
+    """QA on #1396: estimated Usage rows (a provider with no reported figure) count, at list
+    price, and are said; a job sent with no Usage row (a dropped connection) counts at its
+    price; only a job still running is "not reported yet"."""
     pid, _ = _video(app, owner, editor, db)
-    job = db.query(Job).filter(Job.project_id == pid).first() or Job(
-        workspace_id=1, created_by_id=1, kind="video", provider="replicate", input={},
-        project_id=pid, credits=Decimal(3), status=JobStatus.running)  # fmt: skip
-    job.status = JobStatus.running
-    db.add(job)
+    base = {"workspace_id": 1, "created_by_id": 1, "project_id": pid, "input": {}}
+    told = Job(**base, kind="speech", provider="replicate", credits=Decimal(30),
+               status=JobStatus.succeeded, provider_ref="p1")  # fmt: skip
+    listed = Job(**base, kind="speech", provider="replicate", credits=Decimal(30),
+                 status=JobStatus.succeeded, provider_ref="p2")  # fmt: skip
+    dropped = Job(**base, kind="video", provider="replicate", credits=Decimal(10),
+                  status=JobStatus.failed, provider_ref="p3")  # fmt: skip
+    db.add_all([told, listed, dropped])
+    db.flush()
+    use = {"workspace_id": 1, "provider": "replicate", "kind": "speech", "units": Decimal(1),
+           "unit": "call"}  # fmt: skip
+    db.add_all(
+        [
+            Usage(**use, job_id=told.id, cost_usd=Decimal("1.00"), estimated=False),
+            Usage(**use, job_id=listed.id, cost_usd=Decimal("3.00"), estimated=True),
+        ]
+    )
     db.commit()
-    real, pending = credits.actual_usd(db, pid)
-    assert pending and real == 0
+    got = credits.actual_usd(db, pid)
+    rate = credits.USD_PER_CREDIT
+    assert got.usd == (Decimal("4.00") + 10 * rate).quantize(Decimal("0.01")) and not got.pending
+    assert got.listed == (Decimal("3.00") + 10 * rate).quantize(Decimal("0.01"))
+    assert got.words("on this video").endswith(f"${got.listed:.2f} of it at list price")
+    going = Job(**base, kind="video", provider="replicate", credits=Decimal(10),
+                status=JobStatus.running, provider_ref="p4")  # fmt: skip
+    db.add(going)
+    db.commit()
+    assert credits.actual_usd(db, pid).pending  # only a running job is not reported yet
+    assert credits.actual_usd(db, pid).words("on this video").endswith(", more not reported yet")
+
+
+def test_the_owner_carries_on_the_same_run_whatever_it_used(app, db, owner, editor, on):
+    """QA on #1396: once a run had used its approved price, Carry on started a new run with a
+    start card, and the press said "Carry on · up to $5.99 more". Uncapped, it's the same run."""
+    from tests.test_carry_on import _stop, _until
+
+    pid, _ = _video(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _until(app, db, pid)
+    _stop(owner, db, app, pid)
+    project = db.get(Project, pid)
+    card = db.query(Job).filter(Job.project_id == pid, Job.input[asks.START].as_boolean()
+                                ).order_by(Job.id.desc()).first()  # fmt: skip
+    card.input = {**card.input, "price": "0"}  # the run used all of its approved price
+    db.commit()
+    stopped = owner.get(f"/projects/{pid}/director/progress").json()["stopped"]
+    assert stopped["free"] is True and stopped["carry_on"] == ""  # just "Carry on"
+    before = director.turns(db, project)[-1].input[director.RUN]["id"]
+    starts = db.query(Ask).filter(Ask.project_id == pid, Ask.kind == "start").count()
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    db.expire_all()
+    assert director.turns(db, project)[-1].input[director.RUN]["id"] == before  # the same run
+    assert db.query(Ask).filter(Ask.project_id == pid, Ask.kind == "start").count() == starts
+
+
+def test_make_it_again_and_the_list_card_read_the_estimate_and_the_spend(app, db, owner, editor,
+                                                                         on):  # fmt: skip
+    pid, _ = _video(app, owner, editor, db)
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert out["run_expected_usd"] > 0  # "Make it again · about $X", in dollars
+    assert editor.get(f"/projects/{pid}/director").json()["run_expected_usd"] is None
+    reed, _ = _people(db)
+    project = db.get(Project, pid)
+    known = ideas.facts(db, [project])
+    status = ideas.statuses(db, reed, [project], known)[pid]
+    cost = ideas._cost(db, reed, project, status, known)
+    assert cost.kind == "so_far" and cost.about_usd and cost.usd == 0  # the header's figures
 
 
 def test_live_refuses_to_start_uncapped():

@@ -130,7 +130,7 @@ def carry_on(db: Session, user: User, project: Project) -> Job:
     if _carry_waiting(db, project):
         db.rollback()
         raise HTTPException(409, CARRY_WAITING)
-    left = run_progress.carry_left(db, project)
+    left = run_progress.carry_left(db, project, whole=uncapped(user))  # uncapped: whatever's left
     if left is None:
         db.rollback()
         return start(db, user, project, hold=asks.start_hold(db, user, project))
