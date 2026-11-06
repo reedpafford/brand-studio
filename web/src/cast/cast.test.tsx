@@ -421,3 +421,13 @@ test("Reed 8: the earlier presenter comes back free, with Undo", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.filter((x) => x.key === "POST /projects/50/host/back")).toHaveLength(2));
 });
+
+test("only the video's maker or the owner approves the cast and places; others see the state, read only", async () => {
+  setViewport(1440);
+  const set = gate([item("char:5", "Marcus")], { waiting: ["Marcus"], can_approve: false });
+  server(editor, [role({ sheet_status: "needs_approval" })], { "GET /projects/50/cast": [200, set] });
+  open();
+  expect(await screen.findByText("Check the cast and places together.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Approve cast & places" })).toBeNull();
+  expect(screen.getByText("Whoever made this video, or the owner, approves the cast and places.")).toBeInTheDocument();
+});

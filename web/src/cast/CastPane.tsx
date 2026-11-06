@@ -926,7 +926,8 @@ export function CastPane({ p, head, progress }: PaneProps) {
               Locked looks are used as they are in every shot. The sheet sets the face, and the outfit unless this video sets its own.
             </p>
           )}
-          {gate && waiting && (
+          {gate && waiting && gate.can_approve === false && <p className="text-sm text-muted">Whoever made this video, or the owner, approves the cast and places.</p>}
+          {gate && waiting && gate.can_approve !== false && (
             <div className={`sticky -bottom-5 z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-border bg-surface px-5 pt-3 pb-5 ${phone ? "flex-col items-stretch" : ""}`}>
               {!phone && <span className="flex-1 text-sm text-muted">{[counts, changed.length && gate.approved_at ? `${changed.length} change${changed.length === 1 ? "" : "s"} · ${gate.items.length - changed.length} still approved` : ""].filter(Boolean).join(" · ")}</span>}
               <Button icon={Check} busy={approve.isPending} disabled={gate.state === "not_ready" || gate.waiting.length === 0} reason={gate.state === "not_ready" ? `Not ready yet: ${gate.not_ready.map((x) => x.why).join("; ")}.` : gate.waiting.length === 0 ? "Nothing new to approve." : null} onClick={() => approve.mutate(gate)}>

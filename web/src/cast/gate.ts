@@ -38,6 +38,7 @@ export type Cast = {
   paused_clips: string[];
   update: { stills: string[]; clips: string[]; credits: number; clips_credits?: number; kept_items?: { kind: "still" | "clip"; id: string; by: string; at: string }[] };
   previews?: { credits: number; usd: number | null; budget_credits: number; budget_usd: number | null };
+  can_approve?: boolean; // the video's maker or the owner; others see the state, read only
 };
 
 /** The checkpoint, or null on a server without it yet (then the cards show their own states). */
