@@ -155,3 +155,8 @@
 | 2026-11-06 | FOMO-House-Builder | Same batch: Claude (cast reads, breakdowns, storyboards, clip prompts, checks) | | | 4.24 (app job records) | Reed ("ya up the budget") |
 | 2026-11-06 | FOMO-House-Builder | Same batch: images (Guru look + stills) | | | 1.24 (app job records) | Reed ("ya up the budget") |
 | 2026-11-06 | FOMO-House-Builder | Strawberries batch total. Not included: job 2718 (project 80 clip prompts, est. 0.93), stuck "running" since 02:10 UTC; add it if it bills after a worker restart | | 30.00 cap (builder's, Reed named no amount) | 21.21 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Reed rejected the Strawberries batch; redo as "Declined" (30 s) with WAN 3.0: live site project 85 (a Seedance redo stopped before any clips: cast read, breakdown, looks, storyboard, stills, prompts), jobs 2801–2813 | | | 1.31 (app job records) | Reed (relayed by FOMO-House-Builder; same batch) |
+| 2026-11-06 | FOMO-House-Builder | "Declined": KIE Suno instrumental bed (task 9e89c3a3…), 12 KIE credits | 1 request | | 0.06 | Reed (same batch) |
+| 2026-11-06 | FOMO-House-Builder | "Declined": Replicate alibaba/wan-3, a 5 s 480p test + 17 clips at 720p (112 s at 0.07/s). **10 clips were wasted duplicates from a builder bug** (parallel jobs shared one temp request file; fixed) | 117 s | | 7.67 | Reed (same batch) |
+| 2026-11-06 | FOMO-House-Builder | "Declined": Replicate google/nano-banana, 7 first-frame images | 7 images | | 0.27 | Reed (same batch) |
+| 2026-11-06 | FOMO-House-Builder | Strawberries + "Declined" batch total. **0.52 over the builder's own 30 cap**; paid work stopped | | 30.00 cap | 30.52 | Reed |
