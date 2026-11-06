@@ -153,7 +153,7 @@ def heard_cut(db: Session, job: Job) -> None:
     units = len(strips) + 2  # "up to": a look a picture, the words and the facts; its own limit
     look = estimate(db, project.workspace_id, KIND, Decimal(units), data)
     run = (data["director_run"] or {}).get("id")
-    wait = past_own(db, project, run, look)
+    wait = past_own(db, project, run, look, user)
     data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
     wait = wait or past_approved(db, project, user, look)
     enqueue(db, user, KIND, data, units=units, project=project, provider="claude",

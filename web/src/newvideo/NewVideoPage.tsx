@@ -33,7 +33,8 @@ export const row = "flex flex-wrap items-center gap-2 border-t border-border px-
 /** The press's label (rules 34, 36): the owner sees the most in dollars, an editor in credits; a held send goes to the owner. */
 export function pressWords(owner: boolean, est: Estimate | undefined, go = "Make it") {
   const held = !owner && !!est?.held;
-  const most = !est ? "" : owner && est.usd != null ? `up to ${usd(est.usd)}` : `up to ${creditsLabel(est.credits)}`;
+  // The owner's uncapped test site (Reed, 6 Nov): what it will probably cost, never a most.
+  const most = !est ? "" : est.expected && est.usd != null ? `about ${usd(est.usd)}` : owner && est.usd != null ? `up to ${usd(est.usd)}` : `up to ${creditsLabel(est.credits)}`;
   return { label: held ? "Send to the owner" : go, most, held };
 }
 
@@ -49,6 +50,7 @@ export function Under({ owner, est, phone }: { owner: boolean; est: Estimate | u
       </span>
     );
   }
+  if (est.expected) return <span className="text-xs text-muted">An estimate of what it will probably cost. Nothing stops it at a limit here; what it really spends shows on the video.</span>;
   if (phone) return <span className="text-xs text-muted">The most it can charge, redos included</span>;
   return <span className="text-xs text-muted">{owner ? "Most it can charge, including redos and the director’s time. Usually less." : "Inside this video’s budget, so it starts straight away."}</span>;
 }
