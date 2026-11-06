@@ -644,8 +644,6 @@ def _undrawn(db: Session, project: Project, slot) -> LibraryItem | None:
 def missing_places(db: Session, project: Project) -> list[LibraryItem]:
     """The places made for this video that its newest shots show with no look drawn or being
     drawn: the director's make_looks draws them (from the uploaded photo, if one was given)."""
-    from app.routes.library import _waiting_sheets
-
     bd = _newest(db, project)
     refs = {s.get("place_id") for sc in (bd.data["scenes"] if bd else []) for s in sc["shots"]}
     items = [db.get(LibraryItem, int(r.split(":")[1])) for r in sorted(r for r in refs if r)]
