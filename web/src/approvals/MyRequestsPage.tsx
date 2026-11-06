@@ -6,8 +6,7 @@ import { fileUrl } from "../api/upload";
 import { Button, EmptyState, pressLabel, useToast } from "../components";
 import { refreshJobs } from "../jobs/refresh";
 import { serverTime } from "../time";
-import { useMyRequests, what } from "./HeldRequests";
-import type { Job } from "./useHeld";
+import { useMyRequests, what, type Job } from "./HeldRequests";
 
 const time = (iso: string) => serverTime(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const weekAgo = () => Date.now() - 7 * 24 * 3600_000;

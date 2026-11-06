@@ -19,12 +19,13 @@ from tests.test_script_library import _make
 def test_the_cards_come_from_the_guides_with_their_test_samples(owner, monkeypatch):
     looks = {x["id"]: x for x in owner.get("/looks").json()}
     assert looks["claymation"]["test_clip"] and looks["claymation"]["test_still"]
-    assert looks["house"]["test_still"] and not looks["house"]["test_clip"]  # a site still only
+    assert looks["house"]["test_still"] and looks["house"]["test_clip"]  # a site-made fomo clip
+    assert not looks["house"]["test_tag"]  # the site's own output: no "Test sample" tag
     assert {"card", "broll"} <= set(looks["house"])
     clip = owner.get("/looks/claymation/test-sample.mp4")
     assert clip.status_code == 200 and clip.headers["content-type"] == "video/mp4"
     assert owner.get("/looks/house/test-sample.jpg").headers["content-type"] == "image/jpeg"
-    assert owner.get("/looks/house/test-sample.mp4").status_code == 404
+    assert owner.get("/looks/house/test-sample.mp4").status_code == 200
     assert owner.get("/looks/claymation/test-sample.gif").status_code == 404
     assert owner.get("/looks/nope/test-sample.mp4").status_code == 422
     hidden = [{**s, "hidden": s["id"] == "paper"} for s in guides.styles()]

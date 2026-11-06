@@ -12,8 +12,8 @@ Revises: n39
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n40"
-down_revision = "n39"
+revision = "n41"
+down_revision = "n40"
 branch_labels = None
 depends_on = None
 

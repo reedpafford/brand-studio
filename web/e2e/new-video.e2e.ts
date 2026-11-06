@@ -64,9 +64,9 @@ test("an editor sends a script for approval from New video, the owner approves i
   await expect(ed.getByText(`From script ${title} · version A`)).toBeVisible();
   await expect(ed.getByText(/\$/)).toHaveCount(0);
 
-  await page.goto("/approvals");
-  const row = page.getByRole("listitem").filter({ hasText: `asked by ${name}` });
-  await row.getByRole("button", { name: /^Approve/ }).click();
+  await page.goto("/approvals"); // S9-01: the send's start card, "Dee's new video · up to $X"
+  const row = page.getByRole("listitem").filter({ hasText: `${name}’s new video · up to $` });
+  await row.getByRole("button", { name: "Approve and start" }).click();
   await expect(row).toHaveCount(0);
 
   await expect(ed).toHaveURL(/\/b\/\d+\/videos\/\d+$/, { timeout: 30_000 }); // its video is real from the owner's OK

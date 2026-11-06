@@ -6038,6 +6038,11 @@ export interface components {
             generate?: components["schemas"]["AskPrice"] | null;
             clone?: components["schemas"]["AskPrice"] | null;
             /**
+             * Clone To
+             * @default
+             */
+            clone_to: string;
+            /**
              * Options
              * @default []
              */
@@ -7575,6 +7580,30 @@ export interface components {
             /** Still File Id */
             still_file_id: number | null;
         };
+        /**
+         * HeldSend
+         * @description A press held for the owner outside any video: songs, narration or music on a script, or
+         *     an editor's Quick clip past their week (approve or decline through the job routes).
+         */
+        HeldSend: {
+            /** Job Id */
+            job_id: number;
+            brand: components["schemas"]["NamedBrand"] | null;
+            /** What */
+            what: string;
+            /** Made By */
+            made_by: string;
+            up_to: components["schemas"]["AskPrice"];
+            /** Held */
+            held: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Script Id */
+            script_id?: number | null;
+        };
         /** HostOut */
         HostOut: {
             /** On */
@@ -8956,6 +8985,11 @@ export interface components {
             sent_at: string;
             /** Held */
             held: string;
+            /**
+             * What
+             * @default
+             */
+            what: string;
         };
         /** Montage */
         Montage: {
@@ -9139,6 +9173,8 @@ export interface components {
             questions: components["schemas"]["NeedsYouRow"][];
             /** Money */
             money: components["schemas"]["NeedsYouRow"][];
+            /** Sends */
+            sends: components["schemas"]["HeldSend"][];
             /** Stuck */
             stuck: components["schemas"]["StuckVideo"][];
         };
@@ -9158,6 +9194,16 @@ export interface components {
             still_file_id: number | null;
             /** Made By */
             made_by: string;
+            /**
+             * Send
+             * @default false
+             */
+            send: boolean;
+            /**
+             * About
+             * @default
+             */
+            about: string;
         };
         /** NewInviteOut */
         NewInviteOut: {
@@ -10721,8 +10767,6 @@ export interface components {
             } | null;
             /** Presenter */
             presenter?: ("talks" | "corner" | "acts") | null;
-            /** Narration Only */
-            narration_only?: boolean | null;
             /** Voice */
             voice?: string | null;
             /** Undo */
@@ -10765,11 +10809,6 @@ export interface components {
             presenter?: string | null;
             /** Presenter Now */
             presenter_now?: ("talks" | "corner" | "acts") | null;
-            /**
-             * Narration Only
-             * @default false
-             */
-            narration_only: boolean;
             /** Voice */
             voice?: string | null;
         };
@@ -11302,14 +11341,26 @@ export interface components {
             /** Current */
             current: boolean;
         };
-        /** StuckFix */
+        /**
+         * StuckFix
+         * @description The one press, as the video's own stuck card has it (run_progress): `again` makes the
+         *     clip's take again, `redraw` its still, `carry_on` starts the run again from where it
+         *     stopped, `split` cuts a clip too long for its model (its breakdown's `problem`); `chat`,
+         *     or any other, opens the video's chat.
+         */
         StuckFix: {
+            /** Kind */
+            kind: string;
             /** Label */
             label: string;
-            /** Method */
-            method: string | null;
-            /** Path */
-            path: string;
+            /** Price */
+            price?: string | null;
+            /** Clip Id */
+            clip_id?: number | null;
+            /** Frame Id */
+            frame_id?: number | null;
+            /** Problem */
+            problem?: string | null;
         };
         /** StuckVideo */
         StuckVideo: {
@@ -12102,8 +12153,6 @@ export interface components {
             } | null;
             /** Presenter */
             presenter?: ("talks" | "corner" | "acts") | null;
-            /** Narration Only */
-            narration_only?: boolean | null;
             /** Voice */
             voice?: string | null;
         };

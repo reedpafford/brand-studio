@@ -46,7 +46,6 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
     shapes: ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"],
     flavours,
     changes: [], // a version has no video yet: nothing switched, no presenter or voice of its own
-    narration_only: false,
   };
 }
 

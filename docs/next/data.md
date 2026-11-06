@@ -53,7 +53,8 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n37 | The director's questions and money OKs (v6 piece B, S4-01 to S4-04): new `asks` {workspace_id, project_id, run (the director run that asked), kind (cast, presenter, voice, place, product, brand_item, story, question, start, budget, own, plan), topic, subject, question, why, describe, choices JSON `[]`, pick, decide_at, state (open, uploading, answered, not_needed), answer JSON, answered_by_id, answered_at, rounds JSON `[]` (Generate options' jobs), job_ids JSON `[]` (a money card's held jobs), closed}. Downgrade drops it | v6-ask | — |
 | n38 | The model each clip is made with, who switched a video's settings, how its presenter appears, its Omni voice and narrator (v6 F, S-gaps-05 V1, Reed's L3 and 4 Nov answers): `project_clips.model` (JSON, nullable: `{id, why, by, speaks}`, the director's model for that clip; null: the video's); `projects.settings_log` (JSON list, default []: `{field, was, now, by, by_id, why, at}` per switch; a person's own choice wins over the director's); `projects.presenter` (String(20), nullable: talks, corner or acts; null: the style's start); `projects.omni_voice` (String(300), nullable: the talker's voice described to Omni, the same in every clip); `projects.narration_only` (Boolean, nullable); `projects.voice` (String(60), nullable: "stock:<key>" or "voice:<id>", a person's narrator for this video); `host_pieces.how` (String(20), nullable: the way of appearing a host take was made for). Downgrade drops them | v6-models | — |
 | n39 | The director's watch of each take and host piece (rule 11): `clip_takes.watch` and `host_pieces.watch`, nullable JSON: what it found looking at it and what it did (kept, remade, waiting for the owner's OK or flagged), with the remake's "up to". Downgrade drops it | v6-watch | — |
-| n40 | Approve cast & places (Reed, 4 Nov, S-gaps-07): `projects.cast_ok`, nullable JSON, what the person making the video approved, each character and place as its stills and takes are made with (`{"items": {ref: {sig, item, version, file}}, "by", "at", "asked"}`, app/cast_gate.py); a still or take that shows something new or changed waits for it. Data step: every drawn look made for one video is marked usable (its video's OK covers it, no per-card approval); downgrade drops the column and leaves those | v6-castgate | — |
+| n40 | A narrated video keeps its narration throughout (Reed, 5 Nov): drops `projects.omni_voice` and `projects.narration_only` (no talker speaks on Omni in it). Downgrade adds them back, empty | v6-models | — |
+| n41 | Approve cast & places (Reed, 4 Nov, S-gaps-07): `projects.cast_ok`, nullable JSON, what the person making the video approved, each character and place as its stills and takes are made with (`{"items": {ref: {sig, item, version, file}}, "by", "at", "asked"}`, app/cast_gate.py); a still or take that shows something new or changed waits for it. Data step: every drawn look made for one video is marked usable (its video's OK covers it, no per-card approval); downgrade drops the column and leaves those | v6-castgate | — |
 
 ## Merge order (the chain on `next`)
 
@@ -99,7 +100,8 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 35 | n37 | #1313 | n36 | On `next` |
 | 36 | n38 | #1327 | n37 | On `next` |
 | 37 | n39 | #1308 | n38 | On `next` |
-| 38 | n40 | #1331 | n39 | On its PR |
+| 38 | n40 | #1346 | n39 | On `next` |
+| 39 | n41 | #1331 | n40 | On its PR |
 
 ## 1. Song ads
 

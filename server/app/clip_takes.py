@@ -82,7 +82,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "aspect_ratio": project.aspect_ratio,
         "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
     }, {k: v for k, v in files.items() if v})  # fmt: skip
-    take, sent = model_map.fit(model, take, sent, model_map.speech(db, project, clip))  # Omni
+    take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
     return {
         "step": "clip_take",
         "project_id": project.id,
@@ -95,9 +95,6 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
                 db, project, images, model.id, (clip.song_slice or {}).get("sung_shots")
             ),
             **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
-            **(
-                {"speaks": True} if model_map.speaks(clip, project) else {}
-            ),  # on Omni, in its voice
             "cast": cast_gate.stamp(
                 db, project, shown, known
             ),  # as approved: a change makes it old
@@ -526,29 +523,23 @@ def _probe(folder: Path, name: str, stream: str, entries: str) -> str:
     ).stdout.strip()  # fmt: skip
 
 
-def _narrated_mix(folder: Path, lengths: list[float], music: bool, fade: str,
-                  spoken: dict[int, tuple[float, float]] | None = None) -> list[str]:  # fmt: skip
+def _narrated_mix(folder: Path, lengths: list[float], music: bool, fade: str) -> list[str]:
     """Each take's own sound (silence if it has none), the narration on top, the music under
-    it ducked by the voice, made loud enough and faded. `spoken`: a clip whose talker says its
-    lines on Omni (app/model_map) keeps its own sound at full, and the narration is muted from
-    `start` to `end` of the cut, only while those lines are said (Reed, 4 Nov)."""
-    n, total, spoken = len(lengths), sum(lengths), spoken or {}
-    mute = "".join(f",volume=enable='between(t,{a:.3f},{b:.3f})':volume=0"
-                   for a, b in spoken.values())  # fmt: skip
+    it ducked by the voice, made loud enough and faded."""
+    n, total = len(lengths), sum(lengths)
     takes = [f"[{i}:a]{SAME},atrim=duration={d},asetpts=PTS-STARTPTS,apad=whole_dur={d},"
-             f"volume={1 if i in spoken else TAKES}[a{i}]"
-             if _probe(folder, f"{i}.mp4", "a:0", "index")
+             f"volume={TAKES}[a{i}]" if _probe(folder, f"{i}.mp4", "a:0", "index")
              else f"anullsrc=r=44100:cl=stereo,atrim=duration={d}[a{i}]"
              for i, d in enumerate(lengths)]  # fmt: skip
     joined = "".join(f"[a{i}]" for i in range(n))
     voice = f"[{n}:a]{SAME},atrim=duration={total},apad=whole_dur={total}"
     graph = [*takes, f"{joined}concat=n={n}:v=0:a=1[takes]"]
-    if music:  # the music ducks under the narration's words, said or muted (an Omni line)
-        graph += [f"{voice},asplit=2[said][key]", f"[said]anull{mute}[voice]",
+    if music:
+        graph += [f"{voice},asplit=2[voice][key]",
                   f"[{n + 1}:a]{SAME},atrim=duration={total},volume={MUSIC}[bed]",
                   f"[bed][key]{DUCK}[under]"]  # fmt: skip
     else:
-        graph.append(f"{voice}{mute}[voice]")
+        graph.append(f"{voice}[voice]")
     parts = "[takes][voice][under]" if music else "[takes][voice]"
     graph.append(f"{parts}amix=inputs={3 if music else 2}:normalize=0:duration=first,{LOUD},"
                  f"aresample=44100,afade=t=out:{fade}[a]")  # fmt: skip
@@ -583,7 +574,6 @@ def _length(folder: Path, name: str) -> float:
 def song_cut(
     videos: list[bytes], lengths: list[float], song: bytes,
     narrated: bool = False, music: bytes | None = None,
-    spoken: dict[int, tuple[float, float]] | None = None,
 ) -> bytes:  # fmt: skip
     """A song video (flows V6, free): each picked take cut to its piece of the song, counting
     from its start (a short one slowed to fill it, never sped up: Song-Producer), joined in
@@ -606,7 +596,7 @@ def song_cut(
                  for n, d in enumerate(lengths)]  # fmt: skip
         joined = "".join(f"[v{n}]" for n in range(len(videos)))
         fade = f"st={max(total - FADE, 0):.2f}:d={FADE}"
-        sound = (_narrated_mix(folder, lengths, music is not None, fade, spoken) if narrated else [
+        sound = (_narrated_mix(folder, lengths, music is not None, fade) if narrated else [
             f"[{len(videos)}:a]atrim=duration={total},asetpts=PTS-STARTPTS,"
             f"apad=whole_dur={total},afade=t=out:{fade}[a]"])  # fmt: skip
         graph = ";".join(
