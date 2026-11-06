@@ -202,7 +202,8 @@ def save_sheet(db: Session, job: Job) -> None:
     if is_checked(item):
         after = Decimal(job.input.get("after_check", "0"))
         auto = bool(job.input.get("auto_made"))
-        check_fit(db, user, item, redo=not job.input.get("changed"), after=after, auto=auto)
+        check_fit(db, user, item, redo=not job.input.get("changed"), after=after, auto=auto,
+                  director=bool(job.input.get("by_director")))  # fmt: skip
 
 
 def check_fit(
@@ -214,6 +215,7 @@ def check_fit(
     auto=False,
     slot=None,
     pressed=False,
+    director=False,
 ) -> None:
     """Does the new sheet read as its description (age, gender, job)? One cheap Claude look
     (prompts/look_fit.md, effort low), paid like the sheet; the sheet shows as still being
@@ -235,6 +237,7 @@ def check_fit(
         "files": {"reference_images": [item.sheet_file_id]},
         "fit_images_to": 1024,
         "auto_made": auto,
+        **({"by_director": True} if director else {}),  # a director's look: its run's check
     }
     if slot:
         data["text_for"] = {"slot_id": slot.id, "sheet_file_id": item.sheet_file_id,

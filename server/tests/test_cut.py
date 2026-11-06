@@ -196,7 +196,7 @@ def _music_that_stops_early_fails_with_one_click_fixes(app, db, owner, presenter
     failed = owner.get(f"{presenter}/cut").json()
     assert failed["number"] == n and failed["making"] is None
     assert failed["failed"]["why"].startswith(
-        f"Cut {n + 1} couldn't be made: the music file stops at 0:01, and the cut runs to 0:07"
+        f"Cut {n + 1} couldn’t be made: the music file stops at 0:01, and the cut runs to 0:07"
     )
     assert failed["failed"]["why"].endswith("Nothing was charged.")
     assert failed["failed"]["fixes"] == ["loop_music", "remove_music"]
@@ -272,6 +272,42 @@ def test_only_its_maker_or_the_owner_edits_it(app, db, editor, outsider, approve
             ("POST", f"{base}/cut/edits", {"kind": "retime", "piece": "c1"}),
         ],
     )
+
+
+def test_the_director_making_its_cut_again_keeps_its_number_past_a_failed_try(
+    app,
+    db,
+    editor,
+    approved,  # noqa: F811
+):
+    """S3-12: Cut N is the Nth cut handed over. The director's cut in its own run, not yet
+    delivered, keeps its number when it's made again, even after a try that couldn't be made;
+    a person's cut takes the next."""
+    from app.models.jobs import Job, JobStatus
+    from app.routes.jobs import BY_DIRECTOR, DIRECTOR_TOOL
+
+    base, _ = approved
+    project = db.get(Project, int(base.rsplit("/", 1)[1]))
+    turn = {"step": director.STEP, director.RUN: {"id": "r1"}}
+    db.add(Job(workspace_id=project.workspace_id, project_id=project.id, kind="write-claude",
+               provider="claude", input=turn, status=JobStatus.running))  # fmt: skip
+    db.commit()
+    assert make_cut(app, db, editor, base).json()["number"] == 1
+    made = db.query(Job).filter(Job.project_id == project.id).order_by(Job.id.desc()).first()
+    made.input = {**made.input, BY_DIRECTOR: True}  # the director's own, in run r1
+    db.add(Job(workspace_id=project.workspace_id, project_id=project.id, kind="video",
+               provider="local", input={"step": cut.STEP, "number": 1, BY_DIRECTOR: True},
+               status=JobStatus.succeeded, output={"problem": "It stops early."}))  # fmt: skip
+    db.commit()
+    why = editor.get(f"{base}/cut").json()["failed"]["why"]
+    assert why == "Cut 1 couldn’t be made again: It stops early. Nothing was charged."
+    playing = cut.newest(db, project)
+    token = DIRECTOR_TOOL.set(True)
+    try:
+        assert cut.next_number(db, project, playing) == 1  # made again: still its Cut 1
+    finally:
+        DIRECTOR_TOOL.reset(token)
+    assert cut.next_number(db, project, playing) == 2  # a person's Make the cut: the next
 
 
 def test_the_music_dips_under_each_line_and_rises_between_or_stays_down():
