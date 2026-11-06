@@ -111,7 +111,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 clip = re.sub(r"^(clip\s*|c)", "", str(clip or "").strip(), flags=re.I)
                 return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
-            held, asked = 0, watch_cut.redo_findings(db, project)  # what the cut's watch found
+            held, asked = 0, watch_cut.redo_findings(db, project, run)  # what the cut's watch found
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=decision.get("note") or "")

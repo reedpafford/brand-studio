@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from app import guides, host, p_video, song_breakdown, talker
+from app import director_song, guides, host, p_video, song_breakdown, song_takes, talker
 from app.catalogue import get_model
 from app.models.accounts import User
 from app.models.clips import FinalVideo
@@ -235,3 +235,11 @@ def test_a_saved_presenter_is_in_the_cast_with_its_own_voice_before_make_it(app,
     assert row["kind"] == "character" and row["name"] == "Mark"
     cast = owner.get(f"/projects/{pid}/cast").json()
     assert [i["library_item_id"] for i in cast["items"] if i["kind"] == "character"] == [mark["id"]]
+    # QA (#1395): the director names Sarah (director.md's first narration); his own voice is
+    # kept, so the narration is read in the voice the Cast tab showed
+    video = db.get(Project, pid, execution_options={"see_hidden": True})
+    me = db.get(User, video.created_by_id)
+    made = director_song.run(db, me, video, {"tool": "narration", "voice": "Sarah"}, {})
+    assert made == "Making the narration.", made
+    (take,) = song_takes.for_video(db, video)
+    assert take.voice == "Roger" == owner.get(f"/projects/{pid}/host").json()["voice"]

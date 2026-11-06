@@ -382,8 +382,7 @@ def _cast(db: Session, project: Project, slots: list, face) -> str:
         take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
         # the voice its narration was read in; before one, the one it will be (director_song;
         # a voice card's answer is the video's picked voice)
-        ref = ((take.voice if take is not None else "") or voices.picked(db, project)
-               or director_song._voice(db, project))  # fmt: skip
+        ref = (take.voice if take is not None else "") or director_song.narrator(db, project)
         voice = voices.named(db, project.workspace_id, ref, project.brand_id)
         if voice is not None:  # the brand's own, or its style's, listed with them (S8-04, L4)
             names.append(f"the {voice.kind} voice")  # "the cloned voice"

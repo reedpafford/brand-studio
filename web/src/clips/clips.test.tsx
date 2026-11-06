@@ -72,7 +72,13 @@ test("S6-01: a short video opens as cards: each clip's length, state and what it
 test("S6-03: Swap B-roll on a clip in the cut offers the cut editor's choices and swaps it, free", async () => {
   setViewport(1440);
   const swaps = [{ kind: "in_cut", take_id: 32, label: "In the cut", file_id: 532, poster_file_id: null }, { kind: "take", take_id: 31, label: "Take 1", file_id: 531, poster_file_id: null }];
-  const calls = server(owner, 24, { "GET /projects/50/cut": [200, cutOut()], "GET /projects/50/cut/swaps/c3": [200, swaps], "POST /projects/50/cut/edits": [201, cutOut()] });
+  const swap = { id: 7, kind: "swap", said: "Swapped clip 3", at: 0, director: false, by: "Reed", undone: false, applies: true, in_cut: false };
+  const calls = server(owner, 24, {
+    "GET /projects/50/cut": [200, cutOut()],
+    "GET /projects/50/cut/swaps/c3": [200, swaps],
+    "POST /projects/50/cut/edits": [201, cutOut({ edits: [{ ...swap, id: 6 }, swap] })],
+    "POST /projects/50/cut/edits/7/undo": [200, cutOut()],
+  });
   open("&clip=c3");
   const c = await screen.findByRole("region", { name: "Clip 3" });
   await userEvent.click(await within(c).findByRole("button", { name: "Swap B-roll · free" }));
@@ -81,6 +87,9 @@ test("S6-03: Swap B-roll on a clip in the cut offers the cut editor's choices an
   await userEvent.click(within(list).getByRole("button", { name: "Swap for Take 1" }));
   await vi.waitFor(() => expect(calls.find((x) => x.key === "POST /projects/50/cut/edits")?.body).toEqual({ snap: false, kind: "swap", piece: "c3", take_id: 31 }));
   expect(await screen.findByText("Swapped for Take 1, free. Make the cut in the Cut tab to see it.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" })); // the toast's: this swap, the newest edit
+  expect(await screen.findByText("Swap undone.")).toBeInTheDocument();
+  expect(calls.some((x) => x.key === "POST /projects/50/cut/edits/7/undo")).toBe(true);
 });
 
 test("S6-02 / S6-03: one clip open: what the watch found and did, its stills and takes, model and why, words, cost, prompt and priced presses", async () => {
