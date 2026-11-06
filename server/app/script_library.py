@@ -201,6 +201,15 @@ def own_jobs(db: Session, script: Script) -> list[Job]:
 HISTORY = 20  # earlier texts kept per version (Producer, 2026-10-25)
 
 
+def house(script: Script, text: str) -> str:
+    """A person's words as the script keeps them: a screenplay's speakers in the house's
+    "MAYA: …" form (check.screenplay), so its cast, its speakers and its spoken words are read
+    as any script's. A song's lyrics as they are ("CHORUS" is no one)."""
+    from app.prompts import check
+
+    return text if script.kind == "song" else check.screenplay(text)
+
+
 def keep_text(db: Session, draft: ScriptDraft, new_text: str, source: str, user_id=None) -> None:
     """Keep a version's current words before they're replaced, for its history: the newest
     HISTORY texts, the oldest dropped."""

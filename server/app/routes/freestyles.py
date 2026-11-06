@@ -214,6 +214,7 @@ def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, 
                     published=True, hidden=hide, created_by_id=user.id)  # fmt: skip
     db.add(script)
     db.flush()
+    text = lib.house(script, text)  # a pasted screenplay's speakers (video 233)
     draft = ScriptDraft(script_id=script.id, slot=0, text=text, status="approved",
                         approved_at=utcnow(), approved_by_id=user.id)  # fmt: skip
     db.add(draft)

@@ -513,7 +513,7 @@ def create_script(
         script.look = looks.DEFAULT
     db.add(script)
     db.flush()
-    db.add(ScriptDraft(script_id=script.id, slot=0, text=body.text.strip()))
+    db.add(ScriptDraft(script_id=script.id, slot=0, text=lib.house(script, body.text.strip())))
     db.commit()
     return _out(db, script)
 
@@ -573,7 +573,7 @@ def create_many(
         )
         db.add(script)
         db.flush()
-        db.add(ScriptDraft(script_id=script.id, slot=0, text=item.text.strip()))
+        db.add(ScriptDraft(script_id=script.id, slot=0, text=lib.house(script, item.text.strip())))
         made.append(script)
         if url:  # each its own free prep job; the reel worker fetches them one at a time
             prepare(db, user, script, {"source": "link", "url": url}, {"url": url})
@@ -713,14 +713,15 @@ def write_draft(
     if not draft:
         draft = ScriptDraft(script_id=script.id, slot=slot)
         db.add(draft)
-    lib.keep_text(db, draft, body.text, "edit", user.id)
+    text = lib.house(script, body.text)  # a pasted screenplay's speakers (video 233)
+    lib.keep_text(db, draft, text, "edit", user.id)
     if draft.rewritten:  # the "Was:" marks follow their lines until approval
-        draft.rewritten = rewritten.follow(draft.text or "", body.text, draft.rewritten)
-    if script.kind == "song" and len(body.text.strip()) > music.MAX_OWN_LYRICS:
+        draft.rewritten = rewritten.follow(draft.text or "", text, draft.rewritten)
+    if script.kind == "song" and len(text.strip()) > music.MAX_OWN_LYRICS:
         raise HTTPException(422, music.TOO_LONG)
     if body.style_line and len(body.style_line) > music.MAX_OWN_STYLE:
         raise HTTPException(422, music.STYLE_TOO_LONG)
-    draft.text, draft.target_seconds = body.text, body.target_seconds
+    draft.text, draft.target_seconds = text, body.target_seconds
     for song_field in ("style_line", "singer", "spoken_end_line"):  # song ads; None: as is
         if (value := getattr(body, song_field)) is not None:
             setattr(draft, song_field, value)

@@ -551,6 +551,66 @@ def product_shown(text: str, brand: str, products: list[dict]) -> str | None:
 
 
 SPEAKER = re.compile(r"^\s*[A-Z][A-Z .'-]*(?:\([^)]*\))?:")  # "NATE:" or "NATE (V.O.):"
+# A screenplay's speaker (video 233): the name alone on its line in capitals, maybe "(V.O.)",
+# "(O.S.)" or "(CONT'D)", her words on the lines under it.
+CUE = re.compile(
+    r"([A-Z][A-Z .'-]{0,29}?)\s*(\((?:V\.?\s?O|O\.?\s?[SC])\.?\))?\s*(?:\(CONT['’]?D\))?"
+)
+DIRECTION = re.compile(r"\([^)]*\)")  # "(quietly)": how it's said, never words
+NOT_CUES = set(  # headings, transitions, camera and song words: never a speaker's name
+    "INT EXT I/E CUT FADE DISSOLVE SMASH MATCH CLOSE WIDE ANGLE INSERT POV ON TO IN OUT BACK "
+    "MONTAGE SERIES LATER CONTINUOUS INTERCUT TITLE SUPER END BLACK SCENE FLASHBACK SHOT SHOTS "
+    "DAY NIGHT MORNING EVENING CTA TEXT CAPTION SFX MUSIC SOUND NOTE BEAT CHORUS VERSE BRIDGE "
+    "HOOK INTRO OUTRO".split()
+)
+
+
+def _cue(line: str) -> str | None:
+    """The house label a screenplay's speaker line gives ("MAYA (V.O.)" is "MAYA (V.O.)"), or
+    None: a heading, a transition ("CUT TO:", "FADE OUT.") or a camera direction never is."""
+    m = CUE.fullmatch(line.strip())
+    if not m or m[1].endswith(".") or set(re.split(r"[\s.]+", m[1])) & NOT_CUES:
+        return None
+    return m[1] + (f" {m[2]}" if m[2] else "")
+
+
+def _labelled(line: str) -> bool:
+    """A house speaker's line ("MAYA: …"); "CUT TO:" or "SUPER: …" is a direction."""
+    m = SPEAKER.match(line)
+    name = DIRECTION.sub("", m[0]).strip(" :") if m else ""
+    return bool(name and re.search(r"[A-Za-z]", line[m.end() :]) and _cue(name))
+
+
+def screenplay(text: str) -> str:
+    """A script pasted as a screenplay, in the house's form (video 233: "MAYA" alone on a line
+    had no cast, and every line was heard): each speaker's words are one "MAYA: …" line, and a
+    line in brackets ("(quietly)") stays on its own line, as direction. Headings and action
+    are as they were. A script with speakers' labels already, or none, is returned as it is."""
+    lines = text.splitlines()
+    if any(_labelled(x) for x in lines):
+        return text
+    out, i, changed = [], 0, False
+    while i < len(lines):
+        label, j = _cue(lines[i]), i + 1
+        while label and j < len(lines) and lines[j].strip() and not _cue(lines[j]):
+            j += 1  # her lines, to the blank line or the next speaker
+        block = [x.strip() for x in lines[i + 1 : j]]
+        if not label or all(DIRECTION.fullmatch(x) for x in block):
+            out.append(lines[i])
+            i += 1
+            continue
+        words: list[str] = []
+        for x in [*block, ""]:
+            if x and not DIRECTION.fullmatch(x):
+                words.append(x)
+                continue
+            if words:
+                out.append(f"{label}: {' '.join(words)}")
+                words = []
+            if x:
+                out.append(x)
+        i, changed = j, True
+    return "\n".join(out) if changed else text
 
 
 def _spoken(line: str) -> str:

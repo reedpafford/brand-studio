@@ -1380,3 +1380,58 @@ def test_a_look_past_the_videos_budget_asks_for_all_the_hold_judged(app, db, own
     assert m["past"]["usd"] > 0 and m["past"]["usd"] == round(total - m["budget"]["usd"], 2)
     assert card["question"].endswith(f"That goes {_said(m['past'], True)} past the budget.")
     assert sheet.input.get(asks.PAST_PRICE) is None  # the video's budget, not a run's price
+
+
+def test_a_role_card_with_no_subject_casts_the_role_its_topic_names(app, db, owner, editor):
+    """Video 233: "Who plays Maya?" came with topic "Maya" and no subject, and Maya was no role
+    (a screenplay's "MAYA" line), so Use option 1 did nothing and nothing said so. The topic
+    names the role; one the script lacks is added, in the shots that show her, with the look."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.models.breakdowns import BreakdownVersion
+
+    pid, kid = _video(app, owner, editor, db)
+    row = db.query(BreakdownVersion).filter_by(project_id=pid).order_by(BreakdownVersion.id.desc())
+    bd = row.first()
+    bd.data["scenes"][0]["shots"][1]["action"] = "Maya hands Nate the dip."
+    flag_modified(bd, "data")
+    db.commit()
+    project = db.get(Project, pid)
+    db.add(Ask(workspace_id=project.workspace_id, project_id=pid, kind="cast", topic="Maya",
+               subject="", question="Who plays Maya?"))  # fmt: skip
+    db.commit()
+    ask = db.query(Ask).order_by(Ask.id.desc()).first()
+    r = owner.post(f"/asks/{ask.id}/answer", json={"how": "saved", "option": f"item:{kid}"})
+    assert r.status_code == 200, r.text
+    assert "unused" not in r.json()["answer"]
+    db.expire_all()
+    maya = db.query(ScriptCastSlot).filter_by(role="Maya").one()
+    assert db.get(Project, pid).slot_cast[str(maya.id)] == kid
+    shots = row.first().data["scenes"][0]["shots"]
+    assert f"char:{kid}" in shots[1]["character_ids"]  # in the shot that shows her
+    assert f"char:{kid}" not in shots[0]["character_ids"]
+    said = asks.asked(
+        db,
+        db.get(Project, pid),
+        None,
+        {**QUESTION, "kind": "cast", "subject": "", "topic": "Nate", "question": "Nate?"},
+    )
+    assert said == "Asked: Nate?"
+    assert db.query(Ask).order_by(Ask.id.desc()).first().subject == "Nate"  # from the topic
+
+
+def test_a_role_card_that_cant_be_used_says_so(app, db, owner, editor):
+    """Never silent: a look picked on a card that says whose it is nowhere isn't used, and the
+    answer says so in plain words (and the director reads why)."""
+    pid, kid = _video(app, owner, editor, db)
+    project = db.get(Project, pid)
+    db.add(Ask(workspace_id=project.workspace_id, project_id=pid, kind="cast", topic="",
+               subject="", question="Who plays them?"))  # fmt: skip
+    db.commit()
+    ask = db.query(Ask).order_by(Ask.id.desc()).first()
+    r = owner.post(f"/asks/{ask.id}/answer", json={"how": "saved", "option": f"item:{kid}"})
+    unused = "This wasn't used: the question doesn't say whose look it is. Tell the director who "
+    assert r.json()["answer"]["unused"] == unused + "it's for."
+    db.expire_all()
+    (read,) = [a for a in asks.for_director(db, project) if a["ask_id"] == ask.id]
+    assert read["answer"] == f"Kid ({unused}it's for.)"
