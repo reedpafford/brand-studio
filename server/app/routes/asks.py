@@ -72,6 +72,7 @@ class MoneyCard(BaseModel):
     clips: list[HeldClip] = []
     sent_at: UtcTime
     held: str  # the hold's own words
+    what: str = ""  # past the budget: what it makes, "Redo clips 9 and 12" (Needs you's title)
 
 
 class AskOut(BaseModel):
@@ -212,8 +213,8 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
             top, spent = run  # the price approved is this run's budget (S3-06)
         money.spent, money.budget = _price(user, spent), _price(user, top)
         money.past = _price(user, max(Decimal(0), spent + more - top))
-        money.clips = _clips(db, project, held)
-        card.question = f"{_what(db, held)}? That goes {_said(money.past)} past the budget."
+        money.clips, money.what = _clips(db, project, held), _what(db, held)
+        card.question = f"{money.what}? That goes {_said(money.past)} past the budget."
         notes = " ".join(dict.fromkeys(j.input["note"] for j in held
                                        if isinstance(j.input.get("note"), str)))  # fmt: skip
         if owner:  # the total is the sum of the figures shown, each rounded up
