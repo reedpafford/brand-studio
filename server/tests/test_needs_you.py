@@ -21,7 +21,8 @@ def test_a_video_says_what_waits_on_its_editor_first_thing_first(owner, editor, 
         db.add(StoryboardFrame(project_id=pid, breakdown_id=bd.id, clip_id="c1", shot_id=shot,
                                prompt="p", file_id=upload(editor)))  # fmt: skip
     db.commit()
-    assert _row(editor, pid)["waiting_on"] == "2 stills ready to check"
+    # Drawn stills wait on no one: V6 has no per-still Approve (QA wave 2), as clips (M2)
+    assert (_row(editor, pid)["needs_you"], _row(editor, pid)["waiting_on"]) == (False, None)
     db.add(ProjectClip(project_id=pid, breakdown_id=bd.id, clip_id="c1", seconds=5, prompt="p",
                        picked_take_id=None))  # fmt: skip
     db.commit()
@@ -29,10 +30,7 @@ def test_a_video_says_what_waits_on_its_editor_first_thing_first(owner, editor, 
     row = _row(editor, pid)
     assert row["needs_you"] and row["waiting_on"] == "A still didn't finish"
 
-    _job(db, pid, JobStatus.succeeded, step="frame")  # tried again: back to the stills
-    for frame in db.query(StoryboardFrame):
-        frame.approved = True
-    db.commit()
+    _job(db, pid, JobStatus.succeeded, step="frame")  # tried again: nothing waits, unapproved
     assert _row(editor, pid)["waiting_on"] is None
     assert _row(editor, pid)["needs_you"] is False
 
@@ -60,10 +58,13 @@ def test_an_advisory_check_or_an_unknown_step_never_hides_what_waits(owner, edit
     db.add(Job(workspace_id=project.workspace_id, kind="check-claude", provider="claude",
                input={"step": "item_check"}, project_id=pid, credits=0,
                status=JobStatus.failed))  # fmt: skip
+    db.add(BreakdownVersion(project_id=pid, script_version=bd.script_version, source="edit",
+                            data=bd.data, created_by_id=bd.created_by_id))  # fmt: skip
     db.commit()
-    assert _row(editor, pid)["waiting_on"] == "1 still ready to check"
+    waits = "Changes are waiting: bring it up to date"
+    assert _row(editor, pid)["waiting_on"] == waits
     _job(db, pid, JobStatus.failed, step="something_new")
-    assert _row(editor, pid)["waiting_on"] == "1 still ready to check"
+    assert _row(editor, pid)["waiting_on"] == waits
     _job(db, pid, JobStatus.failed, step="song_timing")
     assert _row(editor, pid)["waiting_on"] == "The song's timing didn't finish"
 

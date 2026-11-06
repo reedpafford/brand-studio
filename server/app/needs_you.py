@@ -1,7 +1,7 @@
 """Which videos wait on their editor (audit M6, the Videos home's Needs you group): the one
 thing to do first, in plain words. Free and read-only, in a fixed handful of queries for the
-whole list. In order: a run that didn't finish, a look to approve, work ready to check, then
-a step out of date."""
+whole list. In order: a run that didn't finish, a look to approve, then a step out of date.
+A made still or take never waits on a person: V6 has no per-still or per-clip Approve."""
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -63,18 +63,12 @@ def waiting_on(
     plan = dict(db.execute(select(BreakdownVersion.project_id, func.max(BreakdownVersion.id))
                            .where(BreakdownVersion.project_id.in_(ids))
                            .group_by(BreakdownVersion.project_id)).all())  # fmt: skip
-    ready, behind = {}, set()  # current work to check; work made for an older plan
+    behind = set()  # work made for an older plan (Reed on #1329, Flow-QA M2: never "to check")
     for model, made in ((StoryboardFrame, StoryboardFrame.file_id),
                         (ProjectClip, ProjectClip.picked_take_id)):  # fmt: skip
-        rows = db.execute(select(model.project_id, model.breakdown_id, model.approved)
+        rows = db.execute(select(model.project_id, model.breakdown_id)
                           .where(model.project_id.in_(ids), made.is_not(None))).all()  # fmt: skip
-        for pid, bd, approved in rows:
-            if bd != plan.get(pid):
-                behind.add(pid)
-            elif not approved and model is StoryboardFrame:  # a clip's take in the cut is never
-                # "to check": V6 has no per-clip Approve (Reed on #1329; Flow-QA M2)
-                ready.setdefault(pid, {}).setdefault(model, 0)
-                ready[pid][model] += 1
+        behind |= {pid for pid, bd in rows if bd != plan.get(pid)}
     from app import plans
 
     ready_plan = {p.id for p in projects if p.id in ids and plans.status(db, p) == "ready"}
@@ -89,10 +83,6 @@ def waiting_on(
             out[pid] = "Check the scene plan"
         elif looks.get(pid):
             out[pid] = f"Approve {_count(looks[pid], 'look', 'looks')}"
-        elif counts := ready.get(pid):
-            kinds = ((StoryboardFrame, "still", "stills"), (ProjectClip, "clip", "clips"))
-            parts = [_count(counts[m], one, many) for m, one, many in kinds if m in counts]
-            out[pid] = f"{' and '.join(parts)} ready to check"
         elif pid in behind or pid in old:
             out[pid] = "Changes are waiting: bring it up to date"
     return out
