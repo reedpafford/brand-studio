@@ -817,3 +817,14 @@ test("S3-12: a failed cut says why in Watch with its way forward, and the cut be
   await userEvent.click(within(panel).getByRole("button", { name: "Loop the music to fit · free" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/cut/fix")?.body).toEqual({ fix: "loop_music" }));
 });
+
+test("S3-12: the director making Cut 1 again before it delivers adds no second Cut 1 to the switch", async () => {
+  setViewport(1440);
+  const again = cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }], making: { number: 1, percent: 40, doing: "", about_seconds: 20, changes: 0 } });
+  server(owner, null, run({ status: "running" }), { "GET /projects/50/cut": [200, again], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByRole("heading", { name: "Final cut" })).toBeInTheDocument();
+  expect(within(panel).queryByRole("radiogroup", { name: "Which cut" })).toBeNull();
+  expect(within(panel).queryByText(/stays watchable/)).toBeNull();
+});

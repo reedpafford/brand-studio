@@ -98,8 +98,12 @@ const and = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).
 
 /** Cut 1 | Cut 2 · making (S3-12): the cuts made so far, each watchable, and the next while it's made. The cut before stays
  *  watchable until the new one is ready, and what the new one replaces shows as going out of date. */
+/** The next cut while it's made; not the director making its own cut again before it delivers (same number). */
+const nextCut = (cut: Cut) => (cut.making && !cut.versions.some((v) => v.number === cut.making?.number) ? cut.making : null);
+
 function CutSwitch({ cut, picked, onPick }: { cut: Cut; picked: number | null; onPick: (n: number) => void }) {
-  if (cut.versions.length < 2 && !cut.making) return null;
+  const making = nextCut(cut);
+  if (cut.versions.length < 2 && !making) return null;
   const tab = "flex items-center rounded-sm px-3 py-1 text-sm max-lg:min-h-control";
   return (
     <div className="flex flex-col gap-3">
@@ -109,14 +113,14 @@ function CutSwitch({ cut, picked, onPick }: { cut: Cut; picked: number | null; o
             {`Cut ${v.number}`}
           </button>
         ))}
-        {cut.making && (
+        {making && (
           <span role="radio" aria-checked={false} aria-disabled className={`${tab} text-muted`}>
-            {`Cut ${cut.making.number} · making`}
+            {`Cut ${making.number} · making`}
           </span>
         )}
       </div>
-      {cut.making && cut.number != null && <p className="text-sm text-muted">{`Cut ${cut.number} stays watchable until Cut ${cut.making.number} is ready.`}</p>}
-      {cut.making && cut.going.length > 0 && (
+      {making && cut.number != null && <p className="text-sm text-muted">{`Cut ${cut.number} stays watchable until Cut ${making.number} is ready.`}</p>}
+      {making && cut.going.length > 0 && (
         <div className="flex flex-col gap-2 border-t border-border pt-3">
           <h3 className="text-xs font-semibold text-muted">Going out of date</h3>
           <ul className="flex flex-wrap gap-2">
@@ -210,7 +214,7 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={pick} />}
           <div className="flex flex-col gap-1 max-sm:hidden">
-            {!(live && (live.versions.length > 1 || live.making)) && <h2 className="text-lg font-semibold">Final cut</h2>}
+            {!(live && (live.versions.length > 1 || nextCut(live))) && <h2 className="text-lg font-semibold">Final cut</h2>}
             <p className="text-sm tabular-nums text-muted">{older ? `Cut ${older.number} · made ${serverTime(older.made_at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : [media.seconds > 0 && mmss(media.seconds), p.aspect_ratio, `${progress.clips.total} clip${progress.clips.total === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
           </div>
           <div className="flex flex-col gap-2">
