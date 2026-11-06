@@ -136,7 +136,7 @@ def _recast(owner, editor, db, pid, name):
     return other
 
 
-def test_a_recast_rewrites_the_frames_for_free_and_redraws_the_stills_within_budget(
+def test_a_recast_rewrites_the_frames_for_free_and_its_stills_wait_for_the_cast_ok(
     owner, editor, db
 ):
     pid, _, kid = _video(owner, editor, db)
@@ -149,6 +149,24 @@ def test_a_recast_rewrites_the_frames_for_free_and_redraws_the_stills_within_bud
     assert frame.reference_ids == [f"char:{leo}"] and frame.prompt == "Leo at the table, eyes down."
     stills = editor.get(f"/projects/{pid}/storyboard").json()
     assert stills[0]["stale"] is False  # the frame follows the new breakdown version
+    assert (stills[0]["still_stale"], stills[0]["approved"]) == (True, False)  # out of date
+    assert db.query(Job).count() == jobs  # Leo is new here: nothing is drawn before the OK
+    note = editor.get(f"/projects/{pid}").json()["cast_redraw"]["redraw_refused"]
+    assert note["reason"] == "Leo waits for the cast and places OK. Approve them in Cast to go on."
+
+
+def test_a_recast_to_an_approved_look_redraws_the_stills_within_budget(
+    owner, editor, db, monkeypatch
+):
+    from app import cast_gate
+
+    monkeypatch.setattr(cast_gate, "require", lambda *a, **k: None)  # the OK covers Leo
+    pid, _, kid = _video(owner, editor, db)
+    with_sheet(db, kid)
+    frame = _still(db, editor, pid, kid)
+    jobs = db.query(Job).count()
+    _recast(owner, editor, db, pid, "Leo")
+    stills = editor.get(f"/projects/{pid}/storyboard").json()
     assert (stills[0]["redrawn"], stills[0]["approved"]) == (True, False)  # needs Approve again
     redraws = db.query(Job).filter(Job.kind == "image").all()
     assert db.query(Job).count() == jobs + 1 and redraws[-1].input["frame_id"] == frame.id
@@ -157,7 +175,10 @@ def test_a_recast_rewrites_the_frames_for_free_and_redraws_the_stills_within_bud
     assert "usd" not in str(note)  # credits, never dollars
 
 
-def test_a_recast_past_the_budget_redraws_nothing_and_says_why(owner, editor, db):
+def test_a_recast_past_the_budget_redraws_nothing_and_says_why(owner, editor, db, monkeypatch):
+    from app import cast_gate
+
+    monkeypatch.setattr(cast_gate, "require", lambda *a, **k: None)  # the OK covers Leo
     pid, _, kid = _video(owner, editor, db)
     with_sheet(db, kid)
     frame = _still(db, editor, pid, kid)
@@ -238,8 +259,10 @@ def test_a_name_said_in_dialogue_doesnt_put_them_in_the_shot():
 def test_a_refused_redraw_never_breaks_the_cast(owner, editor, db, monkeypatch):
     from fastapi import HTTPException
 
+    from app import cast_gate
     from app.routes import jobs
 
+    monkeypatch.setattr(cast_gate, "require", lambda *a, **k: None)  # the OK covers Leo
     pid, _, kid = _video(owner, editor, db)
     with_sheet(db, kid)
     _still(db, editor, pid, kid)

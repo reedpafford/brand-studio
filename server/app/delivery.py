@@ -9,7 +9,7 @@ when nothing is open."""
 import math
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import watch_report
@@ -18,7 +18,7 @@ from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
-from app.run_progress import RUN, _found, _model, price_of, runs, said, spent, watched
+from app.run_progress import RUN, _found, _model, run_up_to, runs, said, spent, watched
 
 NOTHING = "Nothing. It’s ready to post."  # only when nothing is open (`open_items`)
 LOOK_FIRST = "Nothing yet, but look at what remains uncertain before you post it."
@@ -33,8 +33,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     turns = runs(db, project)[job.input[RUN]["id"]]
     cut = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id)
                     .order_by(FinalVideo.id.desc()).limit(1))  # fmt: skip
-    number = db.scalar(select(func.count()).where(
-        FinalVideo.project_id == project.id, FinalVideo.id <= cut.id)) if cut else 0  # fmt: skip
+    number = cut.number if cut else 0  # Cut N as the switch and the editor name it
     spans = _spans(db, cut)
     credits, _ = spent(db, project, turns[0].created_at)
     rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
@@ -45,7 +44,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "unsure": " ".join(x for x in (said(decision.get("unsure") or ""),
                                            watch_report.doubts(db, project)) if x),
             "needs": said(decision.get("needs") or ""),
-            "spent": float(credits), "up_to": float(price_of(db, project)),
+            "spent": float(credits), "up_to": float(run_up_to(db, project)),
             "since": turns[0].created_at.isoformat(), "until": utcnow().isoformat(),
             "cut": number, "clips": len(spans),
             "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip

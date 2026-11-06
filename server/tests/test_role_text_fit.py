@@ -47,9 +47,7 @@ def test_an_approved_look_puts_its_roles_words_right(app, owner, editor, db):
     assert '<role_text name="Biscuit, the golden dog">golden retriever' in check.input["prompt"]
     _run(app, db, FakeClaude(BULLDOG))
     db.expire_all()
-    assert _row(editor, pid, slot)["text_fit"] is None  # not until the look is approved
-    editor.post(f"/library/character/{look}/sheet/approve")
-    row = _row(editor, pid, slot)
+    row = _row(editor, pid, slot)  # a look made for the video is its own once drawn
     assert row["text_fit"] == {
         "seen": "The approved look shows a French bulldog.",
         "name": "Biscuit, the French bulldog", "description": BULLDOG["role_description"],

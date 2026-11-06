@@ -76,7 +76,7 @@ function CutPane(props: PaneProps) {
   if (!cut.data && progress.clips.total === 0) return <Empty title="The cut plays here when it’s ready">{SOON}</Empty>;
   // Every clip approved and no cut yet: the editor puts it together the first time this opens, for free.
   const editor = <CutEditor projectId={p.id} aspect={p.aspect_ratio} projectName={props.head?.title ?? p.name} auto={!viewOnly} />;
-  if (!cut.data || live?.making?.number === 1) return editor;
+  if (!cut.data || (live?.making && !live.number)) return editor; // the first cut is being made
   if (viewOnly) return <CutWatch {...props} />;
   return (
     <div className="space-y-4">

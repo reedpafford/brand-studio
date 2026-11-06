@@ -67,10 +67,10 @@ def _places(db: Session, project: Project) -> str:
             LibraryItem.archived.is_(False),
         )
     )
-    lines = [
+    lines = [  # the brand's places, and those made for this video only (rule 12)
         f"place:{p.id} | {p.name} | {p.notes}"
         for p in items
-        if any(b.id == project.brand_id for b in p.brands)
+        if p.owner_project_id == project.id or any(b.id == project.brand_id for b in p.brands)
     ]
     return "\n".join(lines)
 

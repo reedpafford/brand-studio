@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { makeIt, onBrand, signIn } from "./helpers";
+import { approveCastWhenReady, makeIt, onBrand, signIn } from "./helpers";
 
 // DECISIONS #1066 (with #1143): the director's own turns never count toward the video's budget. After one normal run the
 // steps' cost bar is not over budget for that, and says the director's time apart, in credits.
 test("at 390, after one director run the cost bar leaves the director's time out of the budget and says it apart", async ({ page, browser, baseURL }) => {
   test.setTimeout(240_000);
   await signIn(page, "reed@example.com");
+  approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await onBrand(page, "fomo");
   const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
   const fomo = brands.find((b) => b.name === "fomo")!.id;

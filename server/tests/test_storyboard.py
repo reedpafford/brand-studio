@@ -12,7 +12,7 @@ from app.models.storyboards import StoryboardFrame
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import PNG, upload
-from tests.helpers import assert_hidden, assert_no_dollars, with_sheet
+from tests.helpers import approve_cast, assert_hidden, assert_no_dollars, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_replicate import BASE
@@ -163,6 +163,7 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     editor.post(url, json={})
     screen = f"screen:{setup['screen']}"
     _run(app, db, FakeClaude(_frames(f"char:{mom['id']}", screen)))
+    approve_cast(editor, setup["project"])  # the person's OK on the cast
     frame = editor.get(url).json()[0]
 
     job = editor.post(f"{url}/frames/{frame['id']}/render")
@@ -195,7 +196,11 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
 
     kitchen = editor.post(
         "/library/place",
-        json={"name": "Kitchen", "image_file_ids": [upload(editor)]},
+        json={
+            "name": "Kitchen",
+            "image_file_ids": [upload(editor)],
+            "brand_ids": [editor.get(f"/projects/{setup['project']}").json()["brand_id"]],
+        },
     ).json()["id"]
     bd = db.get(BreakdownVersion, frame_breakdown(db, frame["id"]))
     data = copy.deepcopy(bd.data)
@@ -205,6 +210,7 @@ def test_render_a_frame_still(app, db, editor, setup):  # noqa: F811
     r = editor.post(f"{url}/frames/{frame['id']}/render")
     assert (r.status_code, r.json()["detail"]) == (422, "Approve Kitchen's sheet first.")
     with_sheet(db, kitchen)
+    approve_cast(editor, setup["project"])  # the kitchen is new here: one more OK
     fid = frame["id"]
     assert editor.post(f"{url}/frames/{fid}/approve").json()["approved"] is True
     assert editor.delete(f"{url}/frames/{fid}/approve").json()["approved"] is False
@@ -272,6 +278,7 @@ def test_each_frame_says_what_one_still_costs(app, db, editor, setup):  # noqa: 
     url = f"/projects/{setup['project']}/storyboard"
     editor.post(url, json={})
     _run(app, db, FakeClaude(_frames(f"char:{mom}", f"screen:{setup['screen']}")))
+    approve_cast(editor, setup["project"])  # the person's OK on the cast
     price = still_price(db, db.get(Project, setup["project"]))
     assert price >= 1 and {f["still_credits"] for f in editor.get(url).json()} == {price}
 
@@ -308,6 +315,7 @@ def test_a_word_the_image_model_may_refuse_never_blocks_and_a_refusal_says_so(
     url = f"/projects/{setup['project']}/storyboard"
     editor.post(url, json={})
     _run(app, db, FakeClaude(_frames(f"char:{mom['id']}", f"screen:{setup['screen']}")))
+    approve_cast(editor, setup["project"])  # the person's OK on the cast
     frame = editor.get(url).json()[0]
     edited = {"prompt": frame["prompt"] + " Mom's dog has a bloody paw.",
               "reference_ids": frame["reference_ids"]}  # fmt: skip
