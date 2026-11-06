@@ -200,8 +200,12 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
     elif how == "describe" and ask.kind == "voice":  # "Describe it": the nearest app voice
         from app import voices
 
+        role = _slot(db, project, ask.subject)  # whoever it's for: "He talks…", the role's words
+        item = db.get(LibraryItem, role.library_item_id) if role and role.library_item_id else None
+        about = " ".join(filter(None, (ask.question, ask.why, role and role.description,
+                                       item and item.short_description)))  # fmt: skip
         made = voices.describe(db, user, project.brand_id, body.get("text") or "",
-                               body.get("name") or "")  # fmt: skip
+                               body.get("name") or "", about)  # fmt: skip
         uses = voices.ABOUT[voices.app_voice(made)][0]
         data = {"how": how, "text": made.description, "option": f"voice:{made.id}",
                 "name": made.name, "uses": uses}  # fmt: skip

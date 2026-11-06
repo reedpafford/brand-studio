@@ -17,7 +17,7 @@ export type Way = "talks" | "corner" | "acts";
 /** v6-models' per-video presenter field (SettingsOut.presenter / presenter_now; POST /settings takes `presenter`). */
 type WithPresenter = { presenter?: Way | null; presenter_now?: Way | null; voice?: string | null };
 /** A voice as GET /brands/{id}/voices lists it (#1314; `sample_url` is an API path the web puts /api before). */
-type Voice = { id: number | null; name: string; stock_key: string | null; provider: string; description: string; sample_url: string | null; preview_file_id: number | null; sample_file_id: number | null };
+type Voice = { id: number | null; name: string; kind?: string; uses?: string | null; stock_key: string | null; provider: string; description: string; sample_url: string | null; preview_file_id: number | null; sample_file_id: number | null };
 type Voices = { voices: Voice[]; clone_credits: number; clone_usd: number | null };
 
 export const WAYS: { id: Way; title: string; made: string; line: string; now: string }[] = [
@@ -68,7 +68,7 @@ function VoiceRow({ v, on, onPick }: { v: Voice; on: boolean; onPick?: () => voi
         ) : (
           <span className="text-sm font-semibold">{v.name}</span>
         )}
-        <span className="truncate text-xs text-muted">{[v.description, PROVIDER[v.provider] ?? v.provider].filter(Boolean).join(" · ")}</span>
+        <span className="truncate text-xs text-muted">{(v.kind === "described" ? [`Described: “${v.description}”`, v.uses && `${v.uses}’s voice`] : [v.description, PROVIDER[v.provider] ?? v.provider]).filter(Boolean).join(" · ")}</span>
       </span>
     </div>
   );

@@ -550,6 +550,11 @@ def test_describe_it_saves_a_brand_voice_read_in_the_nearest_app_voice(app, db, 
     again = editor.post(f"/asks/{other.id}/answer", json=same)
     assert again.json()["answer"]["option"] == f"voice:{voice.id}"  # the same words: reused
     assert db.query(Voice).filter_by(kind="described").count() == 1
+    mark = _ask(db, pid, {"kind": "voice", "subject": "Mark", "question": "Which voice should Mark "
+                          "have?", "why": "He talks for the whole 30 s."})  # fmt: skip
+    him = editor.post(f"/asks/{mark.id}/answer", json={"how": "describe",
+                                                        "text": "Late 40s, tired"})  # fmt: skip
+    assert him.json()["answer"]["uses"] == "Roger"  # S4-01: Mark gets a man's voice
 
 
 def test_a_product_shot_answer_picks_that_product_for_the_video(app, db, owner, editor):

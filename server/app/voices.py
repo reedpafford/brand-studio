@@ -92,10 +92,14 @@ WORDS = {  # a description's words, as those tones
 }  # fmt: skip
 WOMAN = ("woman", "female", "lady", "girl", "she", "her", "mom", "mother", "gal", "mum")
 MAN = ("man", "male", "guy", "he", "him", "his", "dad", "father", "boy", "dude", "gentleman")
-OLDER = ("old", "older", "elderly", "mature", "senior", "grandma", "grandpa", "middle-aged")
+OLDER = ("older", "elderly", "mature", "senior", "grandma", "grandpa", "middle-aged",
+         "grandmother", "grandfather")  # fmt: skip
+OLD = re.compile(r"\bold\s+(?:wo)?man\b|\bold\s+(?:lady|guy|gentleman)\b")  # "an old man"
 YOUNGER = ("young", "younger", "teen", "teenage", "youthful", "kid")
 NO_DESCRIPTION = "Say what the voice sounds like, e.g. \u201clate 40s, tired, warm\u201d."
 DESCRIBED = "Described voice"
+APP_VOICE_GONE = ("The app voice {name} was read in isn't offered any more. Describe it again or "
+                  "pick another voice.")  # fmt: skip
 
 # A style's own voice, in every workspace (made the first time voices are read)
 STYLE_VOICES = (
@@ -226,16 +230,26 @@ def _ages(text: str) -> list[int]:
             for when, n, decade in found]  # fmt: skip
 
 
-def closest(text: str) -> str:
+def _gender(words: set[str]) -> str:
+    return ("woman" if words & set(WOMAN) and not words & set(MAN) else
+            "man" if words & set(MAN) and not words & set(WOMAN) else "")  # fmt: skip
+
+
+def _words(text: str) -> set[str]:
+    return set(re.findall(r"[a-z]+(?:-[a-z]+)*", text.lower()))
+
+
+def closest(text: str, about: str = "") -> str:
     """The app voice nearest a description ("late 40s, tired, warm"), free and the same every
-    time: its gender if one is said (never the other), its age ("older" from 45 or words like
-    "older"), then each tone the words name. A tie goes to the earlier voice in narration's
-    order, so a description that names nothing gets the narrator's default."""
-    said = re.findall(r"[a-z]+(?:-[a-z]+)*", text.lower())
-    words, ages = set(said), _ages(text)
-    gender = ("woman" if words & set(WOMAN) and not words & set(MAN) else
-              "man" if words & set(MAN) and not words & set(WOMAN) else "")  # fmt: skip
-    older = bool(words & set(OLDER)) or any(a >= 45 for a in ages)
+    time: its gender if one is said, else the gender of whoever it's for (`about`: the card's
+    question and why, the role's description: "He talks…"), never the other; its age ("older"
+    from 45, or words like "older"; "a 35 year old" is 35); then each tone the words name. A
+    tie goes to the earlier voice in narration's order, so words that name nothing get the
+    narrator's default."""
+    words, ages = _words(text), _ages(text)
+    gender = _gender(words) or _gender(_words(about))
+    aged = re.sub(r"\b\d+[\s-]*(?:years?|yrs?)?[\s-]*old\b", "", text.lower())  # "35 year old"
+    older = bool(words & set(OLDER) or OLD.search(aged)) or any(a >= 45 for a in ages)
     younger = bool(words & set(YOUNGER)) or any(a < 30 for a in ages)
     tones = {tone for tone, names in WORDS.items() if words & set(names)}
 
@@ -248,21 +262,32 @@ def closest(text: str) -> str:
     return max(keys, key=lambda k: (score(k), -keys.index(k)))
 
 
-def describe(db: Session, user: User, brand_id: int, text: str, name: str = "") -> Voice:
+def describe(db: Session, user: User, brand_id: int, text: str, name: str = "",
+             about: str = "") -> Voice:  # fmt: skip
     """A voice described in words, saved to the brand (Reed, 6 Nov): no new voice is made (no
-    model, no paid call); it's read in the app voice nearest the words (`closest`), with that
-    voice's free sample. The same words in this brand are the voice already saved."""
+    model, no paid call); it's read in the app voice nearest the words (`closest`, `about`
+    whoever it's for), with that voice's free sample. As a clone's are: the same words, or
+    the same name, in this brand are the voice already saved (a removed one comes back), and
+    a new name given with the same words renames it."""
     said = " ".join(text.split())[:500]
     if not said:
         raise HTTPException(422, NO_DESCRIPTION)
-    for voice in db.scalars(select(Voice).where(
-            Voice.workspace_id == user.workspace_id, Voice.brand_id == brand_id,
-            Voice.kind == "described", Voice.archived_at.is_(None))):  # fmt: skip
-        if voice.description.lower() == said.lower():
-            return voice
-    key = closest(said)
+    named_as = name.strip()[:120]
+    rows = db.scalars(select(Voice).where(
+        Voice.workspace_id == user.workspace_id, Voice.brand_id == brand_id,
+        Voice.kind == "described").order_by(Voice.archived_at.is_not(None),
+                                            Voice.id.desc())).all()  # fmt: skip
+    same = next((v for v in rows if v.description.lower() == said.lower()), None) or next(
+        (v for v in rows if named_as and v.archived_at is None
+         and v.name.strip().lower() == named_as.lower()), None)  # fmt: skip
+    if same is not None:
+        same.archived_at = None
+        if named_as and same.description.lower() == said.lower():
+            same.name = named_as
+        return same
+    key = closest(said, about)
     voice = Voice(workspace_id=user.workspace_id, brand_id=brand_id, kind="described",
-                  name=(name.strip() or DESCRIBED)[:120], description=said,
+                  name=named_as or DESCRIBED, description=said,
                   provider="elevenlabs" if key in ELEVENLABS else "minimax",
                   provider_voice_id=key, created_by_id=user.id)  # fmt: skip
     db.add(voice)
@@ -490,6 +515,8 @@ def narration_job(db: Session, workspace_id: int, brand_id: int | None, script: 
         raise HTTPException(422, NO_VOICE)
     if voice.archived_at is not None:
         raise HTTPException(422, REMOVED.format(name=voice.name))
+    if voice.kind == "described" and not app_voice(voice):
+        raise HTTPException(422, APP_VOICE_GONE.format(name=voice.name))
     if key := app_voice(voice):  # described: read in its app voice, as that voice is read
         try:
             return {**narration.job(script, key, note, emotion, reading, speed),
@@ -517,7 +544,7 @@ def used(db: Session, job: Job) -> None:
 def failed(db: Session, job: Job) -> None:
     """A narration in a cloned voice MiniMax no longer has: the voice is lost, said plainly."""
     voice = db.get(Voice, job.input.get("saved_voice") or 0)
-    if voice is None or not VOICE_GONE.search(job.error_detail or ""):
+    if voice is None or voice.kind != "cloned" or not VOICE_GONE.search(job.error_detail or ""):
         return
     voice.lost_at = utcnow()
     job.error = LOST.format(name=voice.name, credits=clone_credits(db, voice.workspace_id))
@@ -567,5 +594,7 @@ def for_director(db: Session, workspace_id: int, brand_id: int | None,
         return None
     status, why = state(db, voice)
     ends = expires_at(voice)
+    key = app_voice(voice)
     return {"name": voice.name, "kind": voice.kind, "state": status, "why": why,
-            "expires_at": ends.isoformat() if ends else None}  # fmt: skip
+            "expires_at": ends.isoformat() if ends else None,
+            **({"read_as": ABOUT[key][0]} if key else {})}  # fmt: skip

@@ -423,9 +423,17 @@ def test_a_description_picks_the_nearest_app_voice_the_same_way_every_time():
         "young guy, chatty": "English_FriendlyPerson",
         "confident woman": "English_ConfidentWoman",
         "a 25 year old woman, warm": "Sarah",  # young: never the older lady
+        "a 35 year old woman, warm": "Sarah",  # "year old" is an age, not "older"
+        "40, warm woman": "Sarah",
+        "48 year old woman, warm": "English_Graceful_Lady",
+        "an old friend, warm": "Sarah",  # an old friend isn't old
+        "an old woman, warm": "English_Graceful_Lady",
         "British accent": "Sarah",  # nothing it knows: the narrator's default
     }
     assert {said: voices.closest(said) for said in picks} == picks
+    mark = "Which voice should Mark have? He talks for the whole 30 s."  # board S4-01's card
+    assert voices.closest("Late 40s, tired, warm", mark) == "Roger"  # a man: never a woman's
+    assert voices.closest("Late 40s, tired, warm") == "English_Graceful_Lady"  # no one said
     assert all(voices.closest("late 40s, tired, warm") == picks["late 40s, tired, warm"]
                for _ in range(3))  # fmt: skip
 
@@ -448,7 +456,11 @@ def test_a_described_voice_is_the_brands_and_is_read_in_its_app_voice(db, owner)
     db.commit()
     (row,) = [v for v in _saved(owner, brand) if v["id"] == dana.id]
     assert (row["kind"], row["stock_key"], row["uses"], row["state"]) == (
-        "described", "English_Upbeat_Woman", "Upbeat Woman", "ready")  # fmt: skip
+        "described",
+        None,
+        "Upbeat Woman",
+        "ready",
+    )  # never taken for the app voice itself
     assert row["sample_url"] == "/voices/samples/English_Upbeat_Woman.mp3"
     said = f"voice:{dana.id}"
     assert voices.usable(db, user.workspace_id, brand, said)
@@ -460,6 +472,19 @@ def test_a_described_voice_is_the_brands_and_is_read_in_its_app_voice(db, owner)
         **narration.job(WORDS, "Sarah"),
         "saved_voice": sarah.id,
     }  # an ElevenLabs voice too
+    assert voices.for_director(db, user.workspace_id, brand, said)["read_as"] == "Upbeat Woman"
     assert db.query(Job).count() == 0  # nothing made, nothing charged
+    renamed = voices.describe(db, user, brand, "late 30s, dry, quick", "Dana Q")
+    assert renamed.id == dana.id and renamed.name == "Dana Q"  # the same words: renamed
+    assert voices.describe(db, user, brand, "something else", "Dana Q").id == dana.id  # a name
+    dana.archived_at = utcnow()
+    db.commit()
+    back = voices.describe(db, user, brand, "late 30s, dry, quick")
+    assert back.id == dana.id and back.archived_at is None  # a removed one comes back
+    dana.provider_voice_id = "Gone_Voice"  # an app voice no longer offered
+    db.commit()
+    with pytest.raises(HTTPException) as gone:
+        voices.narration_job(db, user.workspace_id, brand, WORDS, said)
+    assert gone.value.detail == voices.APP_VOICE_GONE.format(name=dana.name)
     with pytest.raises(HTTPException):
         voices.describe(db, user, brand, "   ")

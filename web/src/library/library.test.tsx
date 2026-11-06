@@ -5,6 +5,7 @@ import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
 import { setViewport } from "../test/viewport";
 import { owner, editor } from "../test/people";
+import { voiceOf } from "./Voices";
 
 type Routes = Record<string, [number, unknown]>;
 const brands = [{ id: 1, name: "Resilia", colours: ["#2F6B4F"] }, { id: 2, name: "Iron Paws", colours: [] }];
@@ -269,6 +270,14 @@ test("S8-04: a described voice is the brand's own, said in its words, and plays 
   expect(within(list).getByText("Described: “late 30s, dry, quick” · Upbeat Woman’s voice")).toBeInTheDocument();
   expect(list.querySelector("audio[src='/api/voices/samples/English_Upbeat_Woman.mp3']")).not.toBeNull();
   expect(within(list).getByText(/’s own · uploaded, cloned or described, saved on purpose$/)).toBeInTheDocument();
+});
+
+test("a described voice never stands in for the app voice it's read in", () => {
+  const dana = voice({ id: 5, name: "Dana", kind: "described", description: "late 40s", brand_id: 1, uses: "Graceful Lady" });
+  const lady = voice({ name: "Graceful Lady", stock_key: "English_Graceful_Lady" });
+  const list = [dana, lady] as Parameters<typeof voiceOf>[1];
+  expect(voiceOf({ voice_stock_key: "English_Graceful_Lady" }, list)?.name).toBe("Graceful Lady");
+  expect(voiceOf({ voice_id: 5 }, list)?.name).toBe("Dana");
 });
 
 test("an editor's Clone says credits, never dollars", async () => {

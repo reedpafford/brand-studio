@@ -27,8 +27,8 @@ class VoiceOut(BaseModel):
     id: int | None  # null: an app voice (they're in the code, never saved to a brand)
     name: str
     kind: Literal["stock", "cloned", "described"]
-    stock_key: str | None  # an app voice's key; a described voice: the app voice it's read in
-    uses: str | None = None  # a described voice: that app voice's name ("Graceful Lady")
+    stock_key: str | None  # an app voice's key (null for every saved voice)
+    uses: str | None = None  # a described voice: the app voice it's read in ("Graceful Lady")
     provider: str  # elevenlabs | minimax | omni
     description: str
     look: str | None  # a style's own voice (for every brand), e.g. "dr-pickle"
@@ -64,7 +64,7 @@ def _url(name: str | None) -> str | None:
 def _out(db: Session, voice: Voice, used: dict) -> VoiceOut:
     state, why = voices.state(db, voice)
     key = voices.app_voice(voice)
-    return VoiceOut(id=voice.id, name=voice.name, kind=voice.kind, stock_key=key,
+    return VoiceOut(id=voice.id, name=voice.name, kind=voice.kind, stock_key=None,
                     uses=voices.ABOUT[key][0] if key else None,
                     provider=voice.provider, description=voice.description, look=voice.look,
                     brand_id=voice.brand_id, sample_file_id=voice.sample_file_id,
