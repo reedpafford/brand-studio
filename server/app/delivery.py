@@ -275,28 +275,33 @@ def shown(db: Session, project: Project, note: dict | None, owner: bool) -> dict
 
 
 READY = re.compile(
-    r"\bready[\s-]+(?:to[\s-]+(?:post|publish|share|upload)|for[\s-]+(?:posting|you[\s-]+to"
-    r"[\s-]+post)|to[\s-]+be[\s-]+posted)\b|\bgood[\s-]+to[\s-]+go\b|\ball[\s-]+set\b"
-    r"|\byou[\s-]+can[\s-]+post\b|\b(?:it|that)(?:'|’)?s[\s-]+ready\b|\bit[\s-]+is[\s-]+ready\b"
-    r"|\bnothing(?:[\s-]+else)?(?:[\s-]+is)?[\s-]+(?:needed|left|required)\b",
+    r"\bready[\s-]+(?:to[\s-]+(?:post|publish|share|upload|go|be[\s-]+(?:posted|shared))|for"
+    r"[\s-]+(?:posting|upload(?:ing)?|you(?:[\s-]+to[\s-]+post)?))\b|\bgood[\s-]+to[\s-]+(?:go|post)\b"
+    r"|\ball[\s-]+set\b|\b(?:go[\s-]+ahead[\s-]+and|feel[\s-]+free[\s-]+to|you[\s-]+can)[\s-]+post\b"
+    r"|\b(?:it|that|everything|the[\s-]+(?:cut|video))(?:(?:'|’)s|[\s-]+is)[\s-]+ready\b",
     re.I,
 )
-ASK = re.compile(r"\?|\b(?:once|after|when|if|until|unless|before)\b", re.I)  # an ask, kept
+FILLER = re.compile(r"(?i)[\W\s]*(?:(?:nothing|none|no|else|more|action|needed|required|left|to|do|"
+                    r"approve|at|this|time|is|it|it's|it’s|then|so|and|now|you|you're|you’re|"
+                    r"from|me|n/a|ready|post|posted|posting|share|shared|upload|go|be)\b"
+                    r"[\W\s]*)*")  # fmt: skip  # words that ask for nothing
 LOOK = "Look at what remains uncertain before you post it."
+NOT_YET = "Not ready to post yet."
 
 
 def needs(said_: str, unsettled: bool) -> str:
     """What I need from you, as the server lets it stand (Reed: a cut that exists isn't ready
-    to post): "ready to post" only when nothing is open or uncertain; else never, whatever the
-    director wrote. A sentence that only says it's ready goes; an ask (a question, or one with
-    a condition: "once you OK clip 1") stays whole, followed by LOOK."""
+    to post). With nothing open or uncertain, the director's words stand. Otherwise it never
+    reads as ready: words that only say it's ready (or ask nothing) become LOOK_FIRST; a real
+    ask is kept word for word, after NOT_YET when it mentions being ready, then LOOK."""
     if not unsettled:
         return said_ or NOTHING
-    kept = [x for x in re.split(r"(?<=[.!?])\s+", re.sub(r"\s+", " ", said_ or "").strip())
-            if x and not (READY.search(x) and not ASK.search(x))]  # fmt: skip
-    kept = [x for x in kept if not re.fullmatch(r"(?i)(?:nothing|none)[.!]?", x)]
-    asks = " ".join(x if x[-1] in ".!?" else f"{x}." for x in kept)
-    return f"{asks} {LOOK}" if asks else LOOK_FIRST
+    text = re.sub(r"\s+", " ", said_ or "").strip()
+    if FILLER.fullmatch(READY.sub(" ", text)):
+        return LOOK_FIRST
+    if not re.search(r"[.!?][\"”’)]?$", text):
+        text += "."
+    return " ".join(x for x in (NOT_YET if READY.search(text) else "", text, LOOK) if x)
 
 
 def plain(note: dict) -> str:
