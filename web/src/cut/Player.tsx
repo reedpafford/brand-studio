@@ -57,20 +57,20 @@ export function Player({
           step={0.1}
           value={Math.min(at, length)}
           onChange={(e) => onTime(Number(e.target.value))}
-          className="h-[3px] w-full cursor-pointer accent-white"
+          className="h-[3px] w-full cursor-pointer accent-white max-lg:-my-5 max-lg:h-11" // a 44px hit area on a phone, the same thin bar
         />
         <div className="flex items-center gap-2.5 text-xs font-medium tabular-nums">
-          <button type="button" aria-label={playing ? "Pause" : "Play"} onClick={toggle}>
+          <button type="button" className={HIT} aria-label={playing ? "Pause" : "Play"} onClick={toggle}>
             {playing ? <Pause size={16} strokeWidth={1.75} aria-hidden /> : <Play size={16} strokeWidth={1.75} aria-hidden />}
           </button>
           <span>
             {clock(at)} / {clock(length)}
           </span>
           <span className="grow" />
-          <button type="button" aria-label={muted ? "Sound on" : "Sound off"} onClick={() => setMuted(!muted)}>
+          <button type="button" className={HIT} aria-label={muted ? "Sound on" : "Sound off"} onClick={() => setMuted(!muted)}>
             {muted ? <VolumeX size={16} strokeWidth={1.75} aria-hidden /> : <Volume2 size={16} strokeWidth={1.75} aria-hidden />}
           </button>
-          <button type="button" aria-label="Full screen" onClick={() => void video.current?.requestFullscreen?.()}>
+          <button type="button" className={HIT} aria-label="Full screen" onClick={() => void video.current?.requestFullscreen?.()}>
             <Maximize2 size={16} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
@@ -78,6 +78,9 @@ export function Player({
     </div>
   );
 }
+
+/** A 44px hit area round a 16px icon on a phone; the look stays the same. */
+const HIT = "grid shrink-0 place-items-center max-lg:-m-3.5 max-lg:size-11";
 
 /** The words under the player (S7-01): said, the one now, still to come. A click on a word plays from it. */
 export function Words({
