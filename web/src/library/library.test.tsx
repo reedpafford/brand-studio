@@ -5,6 +5,7 @@ import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
 import { setViewport } from "../test/viewport";
 import { owner, editor } from "../test/people";
+import { voiceOf } from "./Voices";
 
 type Routes = Record<string, [number, unknown]>;
 const brands = [{ id: 1, name: "Resilia", colours: ["#2F6B4F"] }, { id: 2, name: "Iron Paws", colours: [] }];
@@ -258,6 +259,25 @@ test("S8-04 / L4: the brand's own voices, then every app voice with its free sam
   await userEvent.type(within(list).getByLabelText("Name"), "Kim");
   await userEvent.click(within(list).getByRole("button", { name: "Clone · up to $3.00" }));
   await vi.waitFor(() => expect(posted(calls, "POST /brands/1/voices/clone")).toEqual({ name: "Kim", description: "", sample_file_id: 80 }));
+});
+
+test("S8-04: a described voice is the brand's own, said in its words, and plays its app voice's free sample", async () => {
+  const dana = voice({ id: 5, name: "Dana", kind: "described", provider: "minimax", description: "late 30s, dry, quick", brand_id: 1, stock_key: "English_Upbeat_Woman", uses: "Upbeat Woman", sample_url: "http://localhost:8000/voices/samples/English_Upbeat_Woman.mp3" });
+  fakeServer(server(owner, { "GET /brands/1/voices": [200, { ...voices, voices: [dana, ...voices.voices] }] }));
+  renderApp("/b/1/library/presenters");
+  const list = await screen.findByRole("region", { name: "Voices" });
+  expect(await within(list).findByText("Dana")).toBeInTheDocument();
+  expect(within(list).getByText("Described: “late 30s, dry, quick” · Upbeat Woman’s voice")).toBeInTheDocument();
+  expect(list.querySelector("audio[src='/api/voices/samples/English_Upbeat_Woman.mp3']")).not.toBeNull();
+  expect(within(list).getByText(/’s own · uploaded, cloned or described, saved on purpose$/)).toBeInTheDocument();
+});
+
+test("a described voice never stands in for the app voice it's read in", () => {
+  const dana = voice({ id: 5, name: "Dana", kind: "described", description: "late 40s", brand_id: 1, uses: "Graceful Lady" });
+  const lady = voice({ name: "Graceful Lady", stock_key: "English_Graceful_Lady" });
+  const list = [dana, lady] as Parameters<typeof voiceOf>[1];
+  expect(voiceOf({ voice_stock_key: "English_Graceful_Lady" }, list)?.name).toBe("Graceful Lady");
+  expect(voiceOf({ voice_id: 5 }, list)?.name).toBe("Dana");
 });
 
 test("an editor's Clone says credits, never dollars", async () => {

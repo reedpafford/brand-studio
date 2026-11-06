@@ -204,3 +204,52 @@ def test_a_narrated_takes_voices_are_muted_at_once(db, monkeypatch):
                           findings=[{"kind": "voiced", "span": [0.5, 1.8]}])  # fmt: skip
     take_words._mute_voices(db, row)
     assert take.made_with["mutes"] == [[0.5, 1.8]]
+
+
+def test_the_stand_in_hears_each_line_at_a_speaking_pace_inside_its_take():
+    """QA (S4): the stand-in's words sit where a person says them, always inside the take, so
+    the cut editor keeps every word through its edits on a stand-in video."""
+    from app.providers.fake_local import _timed
+
+    short = [f"Look at the dip {n}." for n in range(1, 9)]  # 8 short lines in a 14 s take
+    heard = _timed(short, 14.0)
+    words = [w for line in heard for w in line["words"]]
+    assert words[0]["start"] == 0.5 and words[-1]["end"] <= 13.6  # inside, with a tail
+    assert all(a["end"] <= b["start"] for a, b in zip(words, words[1:], strict=False))
+    roomy = _timed(["Fomo made me rich!", "No way."], 8.0)
+    first = roomy[0]
+    assert first["end"] - first["start"] == pytest.approx(4 / 3.4, abs=0.02)  # 3.4 words a second
+    assert roomy[1]["start"] - first["end"] == pytest.approx(0.7, abs=0.02)  # then a pause
+    squeezed = _timed(short, 4.0)  # a take shorter than its lines: they're said faster
+    assert squeezed[-1]["words"][-1]["end"] <= 3.6
+
+
+def test_a_stand_in_dialogue_cut_trims_undoes_and_redoes_without_losing_a_word(
+    app, db, owner, editor, monkeypatch
+):
+    """QA (S4, the board's path): on a stand-in video from a published script with many short
+    lines, the cut editor's trim goes through (it said "would lose the word" when the
+    stand-in heard its words past the take's end), and Undo and Redo work."""
+    from decimal import Decimal
+
+    from app.routes import freestyles
+    from tests.test_freestyle_dialogue import _run
+    from tests.test_new_video import _published
+
+    lines = [f"{'MIA' if n % 2 else 'LEO'}: Look at the dip {n}." for n in range(1, 9)]
+    script = "\n".join(["SCENE 1 — INT. KITCHEN — DAY", *lines])
+    app.state.settings.fake_providers = True
+    monkeypatch.setattr("app.item_checks.on", lambda: True)  # as on the test site
+    monkeypatch.setattr(freestyles, "budget", lambda db, project: Decimal(10_000))
+    fs = editor.post("/freestyles", json={"shape": "9:16", "script_id": _published(owner, script)})
+    _run(app, db, ticks=200)
+    base = f"/projects/{fs.json()['project_id']}"
+    assert editor.get(f"{base}/director").json()["status"] == "delivered"
+    (piece,) = editor.get(f"{base}/cut").json()["timeline"]["pieces"]
+    trim = {"kind": "trim", "piece": piece["id"], "end": round(piece["end"] - 0.2, 2), "snap": True}
+    made = editor.post(f"{base}/cut/edits", json=trim)
+    assert made.status_code == 201, made.text
+    assert editor.post(f"{base}/cut/undo").status_code in (200, 201)
+    assert editor.get(f"{base}/cut").json()["can_redo"]
+    assert editor.post(f"{base}/cut/redo").status_code in (200, 201)
+    assert editor.get(f"{base}/cut").json()["changes"] == 1  # the trim, back

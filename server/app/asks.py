@@ -197,6 +197,18 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
             "before": project.voice,  # the video's voice before: back if the clone is withdrawn
             **({"reused": True} if made.provider_voice_id else {}),
         }  # the brand's, no charge
+    elif how == "describe" and ask.kind == "voice":  # "Describe it": the nearest app voice
+        from app import voices
+
+        role = _slot(db, project, ask.subject)  # whoever it's for: "He talks…", the role's words
+        item = db.get(LibraryItem, role.library_item_id) if role and role.library_item_id else None
+        about = " ".join(filter(None, (ask.question, ask.why, role and role.description,
+                                       item and item.short_description)))  # fmt: skip
+        made = voices.describe(db, user, project.brand_id, body.get("text") or "",
+                               body.get("name") or "", about)  # fmt: skip
+        uses = voices.ABOUT[voices.app_voice(made)][0]
+        data = {"how": how, "text": made.description, "option": f"voice:{made.id}",
+                "name": made.name, "uses": uses}  # fmt: skip
     elif how == "choice" and ask.kind == "story":
         found = next((c for c in ask.choices if c["key"] == body.get("choice")), None)
         if found is None:

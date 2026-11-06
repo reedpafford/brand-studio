@@ -366,9 +366,6 @@ def test_one_ideas_header_status_used_up_to_budget_folder_and_what_it_is(app, ow
     top = float(p.budget_credits + director.OWN_CREDITS)  # the budget, the director's limit beside
     assert working["up_to"]["credits"] == top
     assert working["budget"]["credits"] == float(p.budget_credits)
-    _job(db, pid, JobStatus.needs_owner_approval, credits=5)  # a step past the budget
-    held = editor.get(f"/projects/{pid}/idea").json()  # with no run approved: its % is of the
-    assert held["status"]["kind"] == "waiting" and held["up_to"] is None  # budget (#1380 QA)
     assert owner.get("/projects/999999/idea").status_code == 404
 
 

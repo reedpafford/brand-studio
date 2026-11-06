@@ -297,8 +297,7 @@ class Head(BaseModel):
     title: str
     status: Status
     spent: Money  # every charge on the video so far, the director's own included
-    up_to: Money | None  # the most the run the owner approved may charge; None: not known yet,
-    # or past the budget with no run approved (its header's % is of the budget)
+    up_to: Money | None  # the most the run the owner approved may charge; None: not known yet
     budget: Money  # the video's budget (a step past it waits for the owner's OK)
     folder: Named | None  # None: Unsorted
     format: str  # "Presenter"; "" for a video with no script
@@ -337,8 +336,6 @@ def head(db: Session, user: User, p: Project) -> Head:
     top: Decimal | None
     if (fs is not None and fs.up_to) or asks.approved_total(db, p) or status.reason == START:
         top = run_progress.spent(db, p)[1]  # one figure with the start, run card and note
-    elif status.kind == "waiting":  # past the budget with no run approved: of the budget, as
-        top = None  # its card says "past the budget" (QA on #1380)
     else:
         top = _most(p, known)
     script = narration.video_script(db, p)
