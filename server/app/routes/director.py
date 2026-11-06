@@ -53,7 +53,8 @@ class DeliveryNoteOut(BaseModel):
     spent: float  # credits the whole video had charged at this cut, as its header (S3-12)
     up_to: float  # the video's "up to", in credits, never below `spent`
     spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
-    cut: int  # Cut 1, Cut 2, … (S3-12: "Delivery note · Cut 1 · 0:58 · $9.84")
+    cut: int | None = None  # Cut 1, Cut 2, … (S3-12: "Delivery note · Cut 1 · 0:58 · $9.84");
+    # None on a note kept before cuts were numbered
     seconds: float  # the cut's length
     clips: int
 
