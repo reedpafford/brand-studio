@@ -88,6 +88,7 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     plans the whole video again instead of carrying on from its shots (`fresh`)."""
     if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
+    _close_carry(db, project)  # a Carry on still waiting for the owner isn't needed now
     again = {FRESH: utcnow().isoformat()} if fresh else _replanning(db, project)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id, "ok": False,
            "hold": hold, **again}  # fmt: skip
@@ -98,6 +99,91 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
         project.director_chat = [{**m, "run": run["id"]} if n in left else m
                                  for n, m in enumerate(project.director_chat)]  # fmt: skip
     return _turn(db, user, project, run, extra=extra)
+
+
+CARRIES = asks.CARRIES  # in a carried-on run's held turn: the run's own approved price
+CARRY_HOLD = "Waiting for the owner's OK to carry on after their Stop."
+WAS_STOPPED = "was_stopped"  # on a turn a person's Stop ended, once the run carried on
+
+
+CARRY_WAITING = "Waiting for the owner's OK to carry on."
+
+
+def carry_on(db: Session, user: User, project: Project) -> Job:
+    """Carry on (S3-08): the run a person stopped goes on where it left off, the same run
+    (rule 34: its price, holds, counts, notes and the director's own limits are its own), under
+    the owner's existing OK and with no new start card, while its own approved price has
+    something left (`run_progress.carry_left`); a step past it waits for the owner as any does
+    (`asks.past_run`). A Stop the owner made holds an editor's Carry on for the owner, on a
+    card for the rest of that price: the run stays stopped until the owner says yes
+    (`resume`, as its turn starts), and a decline or withdraw leaves it as it was. With
+    nothing of it left, or the run stopped before its Make it, it's a new run with its own
+    start card. Checked under the video's lock, and the Stop lifted with its turn queued in
+    one commit (a failed turn takes it all back)."""
+    from app import run_progress
+
+    lock(db, Project, project.id)
+    db.refresh(project)
+    if why := blocked(db, project):
+        db.rollback()
+        raise HTTPException(409, why)
+    if _carry_waiting(db, project):
+        db.rollback()
+        raise HTTPException(409, CARRY_WAITING)
+    left = run_progress.carry_left(db, project)
+    if left is None:
+        db.rollback()
+        return start(db, user, project, hold=asks.start_hold(db, user, project))
+    rows = turns(db, project)
+    stopped = next(j for j in reversed(rows) if j.input.get(run_progress.STOPPED_BY))
+    by = db.get(User, stopped.input[run_progress.STOPPED_BY])
+    run = dict(rows[-1].input[RUN])
+    if notes := set(leftover(db, project)):  # what was said since the Stop: it reads them
+        project.director_chat = [{**m, "run": run["id"]} if n in notes else m
+                                 for n, m in enumerate(project.director_chat)]  # fmt: skip
+    held = CARRY_HOLD if by and by.is_owner and not user.is_owner else ""
+    if not held:
+        resume(db, project, run["id"])  # it goes on now
+    try:
+        return _turn(db, user, project, run, carry=(held, left) if held else None)
+    except Exception:
+        db.rollback()  # the Stop, the notes and the turn: none of it happened
+        raise
+
+
+def resume(db: Session, project: Project, run_id: str) -> None:
+    """The Stop stays on record on its turn (`WAS_STOPPED`, with when it carried on), no
+    longer the run's end: the run goes on. Not committed here."""
+    now = utcnow().isoformat()
+    for j in turns(db, project):
+        if j.input[RUN]["id"] == run_id and j.input.get("ended"):
+            was = {k: j.input.get(k) for k in ("ended", "stopped_by", "stopped_at")}
+            j.input = {**{k: v for k, v in j.input.items() if k not in was},
+                       WAS_STOPPED: {**was, "carried_at": now}}  # fmt: skip
+
+
+NEW_RUN = "A new run started, so this isn't needed."
+
+
+def _close_carry(db: Session, project: Project) -> None:
+    """A new run on the video: an editor's Carry on still waiting for the owner's OK goes, its
+    card no longer needed (never a press that does nothing). Nothing was charged for it."""
+    held = _carry_waiting(db, project)
+    if held is None:
+        return
+    held.status, held.finished_at = JobStatus.cancelled, utcnow()
+    for ask in db.scalars(select(Ask).where(Ask.project_id == project.id, Ask.kind == "start")):
+        if held.id in (ask.job_ids or []):
+            ask.state, ask.closed = "not_needed", NEW_RUN
+
+
+def _carry_waiting(db: Session, project: Project) -> Job | None:
+    """A Carry on held for the owner's OK on this video, if any."""
+    return db.scalar(select(Job).where(Job.project_id == project.id,
+                                       Job.input["step"].as_string() == STEP,
+                                       Job.input[CARRIES].as_string().is_not(None),
+                                       Job.status == JobStatus.needs_owner_approval)
+                     .limit(1))  # fmt: skip
 
 
 def say(db: Session, user: User, project: Project, text: str, files: list[int] = ()) -> None:
@@ -738,7 +824,7 @@ def _end(job: Job, why: str, result: str = "") -> None:
 
 
 def _turn(db: Session, user: User, project: Project, run: dict, *,
-          extra: dict | None = None) -> Job:  # fmt: skip
+          extra: dict | None = None, carry: tuple[str, Decimal] | None = None) -> Job:  # fmt: skip
     from app.routes.jobs import enqueue
 
     last = next(reversed(turns(db, project)), None)
@@ -767,6 +853,13 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         hold = run.get("hold") or ""
         data = {**data, **_carried(db, project, run), START: True, asks.HOLD: hold}
         wait = hold or START_HELD
+    elif carry:  # carrying on after the owner's Stop: their OK first, for the rest of its price
+        from app.routes.jobs import PRICE
+
+        price = asks.approved_run(db, project)[0]  # its own, with its OKs at its own limit
+        data = {**data, START: True, asks.HOLD: carry[0], PRICE: str(carry[1]),
+                CARRIES: str(price)}  # fmt: skip
+        wait = carry[0]
     elif before:  # its plan: charged as it costs; past the allowance, the owner's OK first
         from app.credits import estimate
 
@@ -861,6 +954,11 @@ def refresh(db: Session, job: Job) -> bool:
     before the call: the worker then makes no call (nothing is charged)."""
     project = db.get(Project, job.project_id)
     db.refresh(job)
+    if job.input.get(CARRIES) and not job.input.get("ended"):  # a Carry on the owner OK'd:
+        lock(db, Project, project.id)  # the stopped run goes on from here
+        resume(db, project, job.input[RUN]["id"])
+        db.commit()
+        db.refresh(job)
     if job.input.get("ended") or over(db, job.input[RUN]["id"]):
         return False
     asked = turn_input(db, project, job.input[RUN], job.id)  # given to this turn as it starts
