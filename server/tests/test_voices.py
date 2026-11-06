@@ -409,3 +409,57 @@ def test_a_clone_on_02_hd_refuses_sounds_in_the_scripts_own_words_too(db, owner)
     with pytest.raises(HTTPException, match="sounds"):
         voices.narration_job(db, ws, None, "Your gut is a mess. (breath) Resilia fixes it.",
                              f"voice:{pickle.id}")  # fmt: skip
+
+
+def test_a_description_picks_the_nearest_app_voice_the_same_way_every_time():
+    """Reed, 6 Nov: "Describe it" makes no voice; the words pick the nearest app voice by its
+    own descriptors (gender, age, tone), with no model call."""
+    picks = {
+        "late 40s, tired, warm": "English_Graceful_Lady",  # older, warm
+        "late 30s, dry, quick": "English_Upbeat_Woman",  # quick: upbeat
+        "deep male voice": "Austin",
+        "tired dad in his 50s": "Roger",  # a man, relaxed; no older man to prefer
+        "calm man, serious": "English_Trustworth_Man",
+        "young guy, chatty": "English_FriendlyPerson",
+        "confident woman": "English_ConfidentWoman",
+        "a 25 year old woman, warm": "Sarah",  # young: never the older lady
+        "British accent": "Sarah",  # nothing it knows: the narrator's default
+    }
+    assert {said: voices.closest(said) for said in picks} == picks
+    assert all(voices.closest("late 40s, tired, warm") == picks["late 40s, tired, warm"]
+               for _ in range(3))  # fmt: skip
+
+
+def test_a_described_voice_is_the_brands_and_is_read_in_its_app_voice(db, owner):
+    """A described voice is saved to the brand with its words, played with its app voice's
+    free sample, usable for a video, and narrated as that app voice: never cloned, nothing
+    paid."""
+    from app.models.accounts import User
+
+    brand = first_brand(owner)
+    user = db.query(User).order_by(User.id).first()  # the owner
+    dana = voices.describe(db, user, brand, "  late 30s,  dry, quick ", "Dana")
+    db.commit()
+    assert (dana.kind, dana.description, dana.provider_voice_id) == (
+        "described", "late 30s, dry, quick", "English_Upbeat_Woman")  # fmt: skip
+    assert voices.describe(db, user, brand, "Late 30s, dry, quick").id == dana.id  # the same
+    plain = voices.describe(db, user, brand, "deep male voice")
+    assert plain.name == "Described voice" and plain.provider_voice_id == "Austin"
+    db.commit()
+    (row,) = [v for v in _saved(owner, brand) if v["id"] == dana.id]
+    assert (row["kind"], row["stock_key"], row["uses"], row["state"]) == (
+        "described", "English_Upbeat_Woman", "Upbeat Woman", "ready")  # fmt: skip
+    assert row["sample_url"] == "/voices/samples/English_Upbeat_Woman.mp3"
+    said = f"voice:{dana.id}"
+    assert voices.usable(db, user.workspace_id, brand, said)
+    made = voices.narration_job(db, user.workspace_id, brand, WORDS, said, emotion="calm")
+    expected = narration.job(WORDS, "English_Upbeat_Woman", "", "calm")
+    assert made == {**expected, "saved_voice": dana.id}
+    sarah = voices.describe(db, user, brand, "warm narrator")
+    assert voices.narration_job(db, user.workspace_id, brand, WORDS, f"voice:{sarah.id}") == {
+        **narration.job(WORDS, "Sarah"),
+        "saved_voice": sarah.id,
+    }  # an ElevenLabs voice too
+    assert db.query(Job).count() == 0  # nothing made, nothing charged
+    with pytest.raises(HTTPException):
+        voices.describe(db, user, brand, "   ")

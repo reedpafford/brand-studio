@@ -790,7 +790,7 @@ test("S3-07: an editor's change after a delivery waits with its own price from i
 
 test("S4-01: a voice card plays its samples free; Clone it once says it's saved to the brand's voices before its price", async () => {
   setViewport(1440);
-  const voice = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [{ id: "stock:roger", name: "Roger", note: "Relaxed, mid", file_id: null, used_in: 3, sample_url: "/voices/sample/roger.mp3" }], pick: "stock:roger", generate: null, clone: price(30, 3), can: ["reply", "saved", "clone"] });
+  const voice = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [{ id: "stock:roger", name: "Roger", note: "Relaxed, mid", file_id: null, used_in: 3, sample_url: "/voices/sample/roger.mp3" }], pick: "stock:roger", generate: null, clone: price(30, 3), can: ["describe", "saved", "clone"] });
   server(owner, null, run({ thread: [asked()] }), cards(voice));
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
@@ -800,10 +800,35 @@ test("S4-01: a voice card plays its samples free; Clone it once says it's saved 
   expect(within(card).getByRole("button", { name: "Use Roger" })).toBeInTheDocument();
 });
 
+test("S4-01: Describe it saves a voice to the brand from words, read free in the nearest app voice", async () => {
+  setViewport(1440);
+  const voice = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [], pick: null, generate: null, clone: price(30, 3), can: ["describe", "clone"] });
+  const done = { ...voice, state: "answered", answer: { how: "describe", option: "voice:9", name: "Dana", text: "late 40s, tired, warm", uses: "Graceful Lady" }, answered_by: "Reed", answered_at: later, can: ["describe", "clone"] };
+  const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(voice), "POST /asks/7/answer": [200, done] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  await userEvent.click(within(card).getByRole("button", { name: /^Describe it/ }));
+  await userEvent.type(within(card).getByRole("textbox", { name: "What the voice sounds like" }), "late 40s, tired, warm");
+  await userEvent.type(within(card).getByRole("textbox", { name: "Its name (optional)" }), "Dana");
+  expect(within(card).getByText("The nearest app voice reads it, free. It’s saved to Resilia’s voices to use again.")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Save and use it" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "describe", text: "late 40s, tired, warm", name: "Dana" }));
+});
+
+test("S4-01: a card answered by a description says what was saved and which app voice reads it", async () => {
+  setViewport(1440);
+  const done = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [], pick: null, generate: null, state: "answered", answer: { how: "describe", option: "voice:9", name: "Dana", text: "late 40s, tired, warm", uses: "Graceful Lady" }, answered_by: "Reed", answered_at: later, can: ["describe"] });
+  server(owner, null, run({ thread: [asked()] }), cards(done));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  expect(within(card).getByText("Mark's voice: Dana")).toBeInTheDocument();
+  expect(within(card).getByText(/^Described: “late 40s, tired, warm” · Graceful Lady’s voice · saved to Resilia’s voices\. Nothing was charged\. · picked by Reed, \d\d:\d\d$/)).toBeInTheDocument();
+});
+
 test("S4-01: a voice card lists its first three voices, the rest a press away; with nothing picked it has no empty foot", async () => {
   setViewport(1440);
   const v = (n: number) => ({ id: `stock:v${n}`, name: `Voice ${n}`, note: "", file_id: null, used_in: 0 });
-  const voice = ask({ kind: "voice", question: "Which voice should Mark have?", saved: [1, 2, 3, 4, 5].map(v), pick: null, generate: null, clone: price(30, 3), can: ["reply", "saved", "clone"] });
+  const voice = ask({ kind: "voice", question: "Which voice should Mark have?", saved: [1, 2, 3, 4, 5].map(v), pick: null, generate: null, clone: price(30, 3), can: ["describe", "saved", "clone"] });
   server(owner, null, run({ thread: [asked()] }), cards(voice));
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });

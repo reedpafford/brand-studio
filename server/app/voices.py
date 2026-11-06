@@ -59,6 +59,44 @@ ABOUT = {
     "English_ConfidentWoman": ("Confident Woman", "Confident woman"),
     "English_Graceful_Lady": ("Graceful Lady", "Older woman, low and warm, about 186 Hz"),
 }
+# What each app voice sounds like, as a description can name it (ABOUT's own words; no app
+# voice's accent is known, so none is claimed): its gender, "older" where that's known, tones.
+TRAITS = {
+    "Sarah": ("woman", "", {"warm", "narrator", "calm"}),
+    "Alexandra": ("woman", "", {"natural"}),
+    "Hope": ("woman", "", {"natural"}),
+    "Jane": ("woman", "", {"natural"}),
+    "Austin": ("man", "", {"deep"}),
+    "Roger": ("man", "", {"relaxed", "calm"}),
+    "English_FriendlyPerson": ("man", "", {"friendly", "natural"}),
+    "English_Trustworth_Man": ("man", "", {"steady", "calm"}),
+    "English_Upbeat_Woman": ("woman", "", {"upbeat"}),
+    "English_ConfidentWoman": ("woman", "", {"confident"}),
+    "English_Graceful_Lady": ("woman", "older", {"deep", "warm"}),
+}
+WORDS = {  # a description's words, as those tones
+    "warm": ("warm", "cozy", "kind", "gentle", "soft", "motherly", "caring", "sweet"),
+    "deep": ("deep", "low", "gravelly", "husky", "bass", "rich", "raspy", "gruff"),
+    "relaxed": ("relaxed", "laid-back", "laidback", "chill", "easy", "tired", "sleepy",
+                "mellow", "slow", "lazy", "weary"),
+    "calm": ("calm", "soothing", "quiet", "measured", "soft-spoken", "peaceful"),
+    "friendly": ("friendly", "chatty", "approachable", "nice", "buddy", "fun"),
+    "natural": ("natural", "casual", "real", "conversational", "everyday", "normal",
+                "relatable"),
+    "steady": ("steady", "trustworthy", "serious", "authoritative", "reassuring",
+               "professional", "trusted"),
+    "upbeat": ("upbeat", "energetic", "bright", "cheerful", "bubbly", "excited", "quick",
+               "fast", "peppy", "lively", "happy", "young"),
+    "confident": ("confident", "bold", "strong", "assertive", "sharp", "punchy", "sassy"),
+    "narrator": ("narrator", "storyteller", "documentary", "narrating"),
+}  # fmt: skip
+WOMAN = ("woman", "female", "lady", "girl", "she", "her", "mom", "mother", "gal", "mum")
+MAN = ("man", "male", "guy", "he", "him", "his", "dad", "father", "boy", "dude", "gentleman")
+OLDER = ("old", "older", "elderly", "mature", "senior", "grandma", "grandpa", "middle-aged")
+YOUNGER = ("young", "younger", "teen", "teenage", "youthful", "kid")
+NO_DESCRIPTION = "Say what the voice sounds like, e.g. \u201clate 40s, tired, warm\u201d."
+DESCRIBED = "Described voice"
+
 # A style's own voice, in every workspace (made the first time voices are read)
 STYLE_VOICES = (
     {"look": "dr-pickle", "name": "Dr. Pickle", "kind": "cloned", "provider": "minimax",
@@ -155,8 +193,9 @@ def used_by(db: Session, voice_ids: list[int]) -> dict[int, list[int]]:
 
 
 def sample_name(voice: Voice | None, stock_key: str | None = None) -> str | None:
-    """The committed free sample's name (an app voice's key, or a style voice's look)."""
-    key = stock_key or (voice.look if voice else None)
+    """The committed free sample's name (an app voice's key, a style voice's look, or the app
+    voice a described voice uses)."""
+    key = stock_key or (voice.look if voice else None) or (app_voice(voice) if voice else None)
     plain = bool(key) and re.fullmatch(r"[A-Za-z][\w-]*", key) is not None  # a name, no path
     return key if plain and (SAMPLES / f"{key}.mp3").is_file() else None
 
@@ -172,6 +211,63 @@ def stock(key: str) -> dict:
     name, about = ABOUT[key]
     return {"name": name, "description": about, "stock_key": key, "kind": "stock",
             "provider": "elevenlabs" if key in ELEVENLABS else "minimax"}  # fmt: skip
+
+
+def app_voice(voice: Voice) -> str | None:
+    """The app voice a described voice is read in (its key); None for any other voice."""
+    key = voice.provider_voice_id if voice.kind == "described" else None
+    return key if key in narration.VOICES else None
+
+
+def _ages(text: str) -> list[int]:
+    """The ages a description names: "45", "40s" (about 45), "late 40s" (about 47)."""
+    found = re.findall(r"\b(?:(early|mid|late)[\s-]*)?(\d{2})(s|'s)?\b", text.lower())
+    return [int(n) + {"early": 2, "mid": 5, "late": 7}.get(when, 5 if decade else 0)
+            for when, n, decade in found]  # fmt: skip
+
+
+def closest(text: str) -> str:
+    """The app voice nearest a description ("late 40s, tired, warm"), free and the same every
+    time: its gender if one is said (never the other), its age ("older" from 45 or words like
+    "older"), then each tone the words name. A tie goes to the earlier voice in narration's
+    order, so a description that names nothing gets the narrator's default."""
+    said = re.findall(r"[a-z]+(?:-[a-z]+)*", text.lower())
+    words, ages = set(said), _ages(text)
+    gender = ("woman" if words & set(WOMAN) and not words & set(MAN) else
+              "man" if words & set(MAN) and not words & set(WOMAN) else "")  # fmt: skip
+    older = bool(words & set(OLDER)) or any(a >= 45 for a in ages)
+    younger = bool(words & set(YOUNGER)) or any(a < 30 for a in ages)
+    tones = {tone for tone, names in WORDS.items() if words & set(names)}
+
+    def score(key: str) -> int:
+        sex, age, tone = TRAITS[key]
+        return ((4 if sex == gender else -8 if gender else 0) + (3 if older and age else 0)
+                - (3 if younger and age else 0) + 2 * len(tones & tone))  # fmt: skip
+
+    keys = [k for k in stock_keys() if k in TRAITS]
+    return max(keys, key=lambda k: (score(k), -keys.index(k)))
+
+
+def describe(db: Session, user: User, brand_id: int, text: str, name: str = "") -> Voice:
+    """A voice described in words, saved to the brand (Reed, 6 Nov): no new voice is made (no
+    model, no paid call); it's read in the app voice nearest the words (`closest`), with that
+    voice's free sample. The same words in this brand are the voice already saved."""
+    said = " ".join(text.split())[:500]
+    if not said:
+        raise HTTPException(422, NO_DESCRIPTION)
+    for voice in db.scalars(select(Voice).where(
+            Voice.workspace_id == user.workspace_id, Voice.brand_id == brand_id,
+            Voice.kind == "described", Voice.archived_at.is_(None))):  # fmt: skip
+        if voice.description.lower() == said.lower():
+            return voice
+    key = closest(said)
+    voice = Voice(workspace_id=user.workspace_id, brand_id=brand_id, kind="described",
+                  name=(name.strip() or DESCRIBED)[:120], description=said,
+                  provider="elevenlabs" if key in ELEVENLABS else "minimax",
+                  provider_voice_id=key, created_by_id=user.id)  # fmt: skip
+    db.add(voice)
+    db.flush()
+    return voice
 
 
 def clone_credits(db: Session, workspace_id: int) -> Decimal:
@@ -390,10 +486,16 @@ def narration_job(db: Session, workspace_id: int, brand_id: int | None, script: 
     """The voice call in a saved voice: MiniMax's own inputs (narration's), its voice id, on
     the model it was cloned for. A voice that may be gone is refused (409), never swapped."""
     voice = named(db, workspace_id, said, brand_id)
-    if voice is None or voice.kind != "cloned":
+    if voice is None or voice.kind not in ("cloned", "described"):
         raise HTTPException(422, NO_VOICE)
     if voice.archived_at is not None:
         raise HTTPException(422, REMOVED.format(name=voice.name))
+    if key := app_voice(voice):  # described: read in its app voice, as that voice is read
+        try:
+            return {**narration.job(script, key, note, emotion, reading, speed),
+                    "saved_voice": voice.id}  # fmt: skip
+        except ValueError as no:
+            raise HTTPException(422, str(no)) from None
     ready(db, voice)
     try:
         built = narration.job(script, narration.MINIMAX_VOICES[0], note, emotion, reading, speed)

@@ -516,6 +516,41 @@ def test_a_voice_card_clones_a_sample_once_at_its_price(app, db, owner, editor):
     assert hope == "Asked: Hope's voice?"  # an app voice's name is never taken as an answer
 
 
+def test_describe_it_saves_a_brand_voice_read_in_the_nearest_app_voice(app, db, owner, editor):
+    """Reed, 6 Nov: S4-01's "Describe it" makes no voice and costs nothing: the words pick the
+    nearest app voice, saved to the brand as a described voice (S8-04) and used for this
+    video; the card's other ways stay."""
+    from app.models.voices import Voice
+
+    pid, _ = _video(app, owner, editor, db)
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    card = _card(editor, ask)
+    assert "describe" in card["can"] and "reply" not in card["can"] and "clone" in card["can"]
+    jobs = db.query(Job).count()
+    empty = editor.post(f"/asks/{ask.id}/answer", json={"how": "describe", "text": " "})
+    assert empty.status_code == 422
+    r = editor.post(f"/asks/{ask.id}/answer", json={"how": "describe", "name": "Dana",
+                                                     "text": "late 40s, tired, warm"})  # fmt: skip
+    assert r.status_code == 200, r.text
+    answer = r.json()["answer"]
+    assert (answer["how"], answer["name"], answer["text"], answer["uses"]) == (
+        "describe", "Dana", "late 40s, tired, warm", "Graceful Lady")  # fmt: skip
+    db.expire_all()
+    project = db.get(Project, pid)
+    voice = db.query(Voice).filter_by(brand_id=project.brand_id, kind="described").one()
+    assert project.voice == answer["option"] == f"voice:{voice.id}"  # the video's voice
+    assert saved_voices.picked(db, project) == f"voice:{voice.id}"
+    assert db.query(Job).count() == jobs  # nothing made, nothing charged
+    other = _ask(db, pid, {"kind": "voice", "subject": "Mia", "question": "Mia's voice?"})
+    offered = {o["id"]: o for o in _card(editor, other)["saved"]}
+    assert offered[f"voice:{voice.id}"]["name"] == "Dana"  # usable wherever voices are picked
+    assert offered[f"voice:{voice.id}"]["sample_url"].endswith("English_Graceful_Lady.mp3")
+    same = {"how": "describe", "text": "Late 40s, tired, warm"}
+    again = editor.post(f"/asks/{other.id}/answer", json=same)
+    assert again.json()["answer"]["option"] == f"voice:{voice.id}"  # the same words: reused
+    assert db.query(Voice).filter_by(kind="described").count() == 1
+
+
 def test_a_product_shot_answer_picks_that_product_for_the_video(app, db, owner, editor):
     from app.models.brands import BrandScreen
 

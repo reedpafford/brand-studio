@@ -260,6 +260,17 @@ test("S8-04 / L4: the brand's own voices, then every app voice with its free sam
   await vi.waitFor(() => expect(posted(calls, "POST /brands/1/voices/clone")).toEqual({ name: "Kim", description: "", sample_file_id: 80 }));
 });
 
+test("S8-04: a described voice is the brand's own, said in its words, and plays its app voice's free sample", async () => {
+  const dana = voice({ id: 5, name: "Dana", kind: "described", provider: "minimax", description: "late 30s, dry, quick", brand_id: 1, stock_key: "English_Upbeat_Woman", uses: "Upbeat Woman", sample_url: "http://localhost:8000/voices/samples/English_Upbeat_Woman.mp3" });
+  fakeServer(server(owner, { "GET /brands/1/voices": [200, { ...voices, voices: [dana, ...voices.voices] }] }));
+  renderApp("/b/1/library/presenters");
+  const list = await screen.findByRole("region", { name: "Voices" });
+  expect(await within(list).findByText("Dana")).toBeInTheDocument();
+  expect(within(list).getByText("Described: “late 30s, dry, quick” · Upbeat Woman’s voice")).toBeInTheDocument();
+  expect(list.querySelector("audio[src='/api/voices/samples/English_Upbeat_Woman.mp3']")).not.toBeNull();
+  expect(within(list).getByText(/’s own · uploaded, cloned or described, saved on purpose$/)).toBeInTheDocument();
+});
+
 test("an editor's Clone says credits, never dollars", async () => {
   fakeServer(server(editor));
   renderApp("/b/1/library/presenters");

@@ -98,8 +98,8 @@ def _voices(db: Session, brand: Brand) -> list[dict]:
     out = [{"id": f"voice:{v.id}", "name": v.name, "note": v.description, "file_id": None,
             "used_in": len(videos.get(f"voice:{v.id}", ())), "sample_file_id": v.sample_file_id,
             "sample_url": _url(voices.sample_name(v))}
-           for v in rows  # what narration reads: a ready clone
-           if v.kind == "cloned" and voices.state(db, v)[0] in ("ready", "may_expire")]  # fmt: skip
+           for v in rows  # what narration reads: a ready clone, or one described in words
+           if voices.state(db, v)[0] in ("ready", "may_expire")]  # fmt: skip
     for key in voices.stock_keys():
         given = voices.stock(key)
         out.append({"id": f"stock:{key}", "name": given["name"], "note": given["description"],
