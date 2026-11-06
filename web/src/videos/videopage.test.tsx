@@ -827,3 +827,12 @@ test("S3-14: a choice that can't be made now says why and can't be pressed; the 
   renderApp("/b/1/videos/50");
   expect(await screen.findByRole("button", { name: /^Say it softer/ })).toHaveTextContent("the cut wasn’t made again: The music file stops at 0:41.");
 });
+
+test("S3-14: a take nobody watched offers its free one-click press: use it and make the cut", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "", do: "softer", price: price(4), made: "kept", said: "Made. Not watched: the video is at its budget, so the cut stays as it was. Use take 3 and make the cut, or look at it in Clips first.", cannot: "", then: "Use take 3 and make the cut" }];
+  const calls = server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), { ...cards(instead({ choices })), "POST /asks/12/answer": [200, instead({ choices: [{ ...choices[0], made: "done", said: "Take 3 is used. The cut is made again with it.", then: "" }], can: [] })] });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Use take 3 and make the cut · free" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A", option: "use" }));
+});

@@ -36,15 +36,18 @@ QUOTE = re.compile(r"[“\"]([^”\"]{2,80})[”\"]|(?<![\w’'])[‘']([^’']{
 # what a word change says around the quoted words ("Q" stands for them; "R" for a replacement)
 ASKS = (
     r"\b(?:change|swap|replace|switch)\s+(?:the\s+)?(?:(?:word|words|line|phrase|bit)\s+)?Q"
-    r"\s*(?:to|with|for|into|by)\b",
+    r"\s*(?:to|with|for|into|by)\s+R",  # "change "beer gut" to "belly"": a quoted replacement
     r"\b(?:reword|rewrite|rephrase)\s+(?:the\s+)?(?:(?:word|words|line|phrase|bit)\s+)?Q",
     r"\b(?:say|use|write|put)\s+R\s+instead\s+of\s+Q",
     r"R\s+instead\s+of\s+Q",
     r"\binstead\s+of\s+Q\s*,?\s*(?:say|use|write|put)\s+R",
 )
-ASK_WORDS = re.compile(  # a clause that asks for something else as well
-    r"\b(make|add|show|cut|swap|move|change|remove|drop|redo|fix|try|put|keep|use|lose|give|"
-    r"brighter|darker|faster|slower|louder|quieter|longer|shorter|more|less)\b",
+POLITE = re.compile(
+    r"^(?:(?:can|could|would|will)\s+(?:we|you|i|it\s+be)\b|please\b|maybe\b)\s*", re.I
+)
+REASON = re.compile(  # a short reason about those same words: "It feels a bit harsh."
+    r"^(?:because\b.*|(?:it|that|this|they|the (?:word|words|line|phrase))(?:'s|\s+(?:feels?|"
+    r"sounds?|is|are|seems?|reads?|comes? across|might|may)\b).*)$",
     re.I,
 )
 
@@ -70,11 +73,18 @@ def asked(text: str, script: str) -> tuple[str, bool] | None:
         for pattern in ASKS:
             found = re.search(pattern.replace("Q", re.escape(raw)).replace("R", repl), text, re.I)
             if found:
-                rest = (text[: found.start()] + " " + text[found.end() :]).strip()
-                for r in new:  # the replacement's own words aren't an ask
-                    rest = re.sub(r, " ", rest)
-                return words, not ASK_WORDS.search(rest)
+                return words, _only(text[: found.start()] + " " + text[found.end() :])
     return None
+
+
+def _only(rest: str) -> bool:
+    """What's left of a note once its word change is taken out says nothing more: empty, or a
+    short reason about those words. Anything else stays for the director (unread)."""
+    for part in re.split(r"[.!?;\n]+", rest):
+        part = POLITE.sub("", part.strip(" ,—-")).strip(" ,—-")
+        if part and not (len(part.split()) <= 10 and REASON.match(part)):
+            return False
+    return True
 
 
 def offer(db: Session, user: User, project: Project, text: str) -> tuple[Ask, bool] | None:
@@ -182,32 +192,84 @@ def price(db: Session, project: Project, choice: dict) -> Decimal | None:
     return None
 
 
-def made(db: Session, ask: Ask, key: str) -> tuple[str, str]:
-    """A pressed choice's state and its words: ("", "") not pressed (or its take failed, so it
-    can be pressed again: its words say so); held, making, watching, done or kept."""
+def made(db: Session, ask: Ask, key: str) -> tuple[str, str, int | None]:
+    """A pressed choice's state, its words and the take its free "Use take N and make the cut"
+    would use (rule 22: a one-click fix on the card), or None. ("", …) not pressed (or its take
+    failed, so it can be pressed again: its words say so); held, making, watching, done or
+    kept. A take whose watch remake failed or was declined has no live job left: it says so
+    and offers its press, so a card never waits forever."""
     mine = ((ask.answer or {}).get("chosen") or {}).get(key)
     if not mine:
-        return "", ""
+        return "", "", None
     if "outcome" in mine:
-        return ("done" if mine.get("cut") else "kept"), mine["outcome"]
+        return ("done" if mine.get("cut") else "kept"), mine["outcome"], mine.get("use")
     job = db.get(Job, mine.get("job") or 0)
     if job is None or job.status in (JobStatus.failed, JobStatus.cancelled):
-        return "", "It wasn’t made, and nothing was charged. You can press it again."
+        return "", "It wasn’t made, and nothing was charged. You can press it again.", None
     if job.status == JobStatus.needs_owner_approval:
-        return "held", "Waiting for the owner’s OK."
+        return "held", "Waiting for the owner’s OK.", None
     if job.status != JobStatus.succeeded:
-        return "making", "Being made. Its watch looks at it before the cut is made again."
-    return "watching", "Made. Being watched before the cut is made again."
+        return "making", "Being made. Its watch looks at it before the cut is made again.", None
+    take, live = _chain(db, job)
+    if live is not None and live.status == JobStatus.needs_owner_approval:
+        return "held", "Made. Its watch asked to make it again: waiting for the owner’s OK.", None
+    if live is not None:
+        return "watching", "Made. Being watched before the cut is made again.", None
+    if take is None:
+        return "kept", "It wasn’t made. You can press it again.", None
+    return "kept", (f"Made, but its watch’s remake wasn’t made, so the cut stays as it was. "
+                    f"Use take {take.number} and make the cut, or look at it in Clips first."
+                    ), take.id  # fmt: skip
 
 
-def choose(db: Session, user: User, ask: Ask, key: str, storage) -> None:
-    """A press on one of the card's choices: made at once, through its own route."""
+def _chain(db: Session, job: Job) -> tuple[ClipTake | None, Job | None]:
+    """A choice's take and the remakes its watch made of it: (the newest take there is, a job
+    on it still going: a remake being made or held, or its watch), following each remake."""
+    from app.models.jobs import WAITING
+    from app.take_watch import REDO
+
+    take = db.scalar(select(ClipTake).where(ClipTake.job_id == job.id))
+    while take is not None:
+        remake = db.scalar(select(Job).where(Job.kind == "video",
+                                             Job.input[REDO].as_integer() == take.id)
+                           .order_by(Job.id.desc()).limit(1))  # fmt: skip
+        if remake is None:
+            break
+        if remake.status in WAITING:
+            return take, remake
+        newer = db.scalar(select(ClipTake).where(ClipTake.job_id == remake.id))
+        if newer is None:  # the remake failed or was declined: this take is the newest
+            break
+        take = newer
+    if take is None:
+        return None, None
+    watching = db.scalars(select(Job).where(Job.project_id == job.project_id,
+                                            Job.status.in_(WAITING))).all()  # fmt: skip
+    for j in watching:
+        if (j.input.get("take_id") or (j.input.get("watch") or {}).get("take_id")) == take.id:
+            return take, j
+    return take, None
+
+
+def choose(db: Session, user: User, ask: Ask, key: str, storage, option=None) -> None:
+    """A press on one of the card's choices: made at once, through its own route; or its free
+    "Use take N and make the cut" (`option` "use") once its take is made."""
     found = next((c for c in ask.choices if c["key"] == key), None)
     if found is None:
         raise HTTPException(422, "Pick one of the choices on the card.")
-    if made(db, ask, key)[0]:
-        raise HTTPException(409, "That's already being made.")
     project = db.get(Project, ask.project_id)
+    state, _, use = made(db, ask, key)
+    if option == "use":
+        if use is None:
+            raise HTTPException(409, "There's no take to use here.")
+        from app import director
+
+        if director.active(db, project):
+            raise HTTPException(409, RUNNING)
+        said, cut = _cut(db, project, db.get(ClipTake, use), storage, user, chosen=True)
+        return _outcome(db, ask, key, said, cut=cut)
+    if state:
+        raise HTTPException(409, "That's already being made.")
     if why := cannot(db, project, found):
         raise HTTPException(409, why)
     done = DOES[found["do"]](db, user, project, ask, found, storage)
@@ -254,8 +316,13 @@ def after(db: Session, job: Job, storage) -> None:
         return  # its watch comes next, or its watch is remaking it: wait for that
     project = db.get(Project, ask.project_id)
     n = db.get(ProjectClip, take.clip_id).clip_id.removeprefix("c")
-    if watch.get("state") != "done" or watch.get("action") != "keep":
-        found = (watch.get("did") or "It wasn't watched.").rstrip(".")
+    found = (watch.get("did") or "It wasn't watched.").rstrip(".")
+    if watch.get("state") in ("skipped", "failed") or not watch:  # not watched: the person's call
+        _outcome(db, ask, mark[1], f"Made. {found}, so the cut stays as it was. Use take "
+                 f"{take.number} and make the cut, or look at it in Clips first.", cut=False,
+                 use=take.id)  # fmt: skip
+        return
+    if watch.get("action") != "keep":  # its watch found something: the owner looks first
         _outcome(db, ask, mark[1], f"Made. {found}. The cut stays as it was; look at clip "
                  f"{n} in Clips, then make the cut.", cut=False)  # fmt: skip
         return
@@ -285,30 +352,39 @@ def _root(db: Session, take: ClipTake) -> ClipTake | None:
     return take
 
 
-def _cut(db: Session, project: Project, take: ClipTake, storage) -> tuple[str, bool]:
-    """That clip approved (only it) and the cut made again, free; or plainly why not."""
+def _cut(db: Session, project: Project, take: ClipTake, storage, user: User | None = None,
+         chosen: bool = False) -> tuple[str, bool]:  # fmt: skip
+    """That clip approved (only it) and the cut made again, free; or plainly why not. Its
+    watch came back clean, or a person chose the take (`chosen`: their OK, rule 21). A clip
+    someone has since put on another take keeps it: the cut isn't made over their pick."""
     from app.routes import project_clips
 
     row = db.get(ProjectClip, take.clip_id)
-    user = db.get(User, db.get(Job, take.job_id).created_by_id)
+    n = row.clip_id.removeprefix("c")
+    if not chosen and row.picked_take_id != take.id:
+        return (f"Made and watched, but clip {n} now uses another take, so the cut stays as "
+                "it was.", False)  # fmt: skip
+    user = user or db.get(User, db.get(Job, take.job_id).created_by_id)
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(storage=storage)))
     me = {"project_id": project.id, "user": user, "db": db}
+    done = f"Take {take.number} is used" if chosen else "Made and watched"
     try:
         if row.picked_take_id != take.id:
             project_clips.pick_take(clip_id=row.id, take_id=take.id, **me)
-        row.approved = True  # this clip only: its watch came back clean
+        row.approved = True  # this clip only: its watch came back clean, or a person chose it
         db.flush()
         project_clips.make_video(request=request, **me)
     except HTTPException as no:
         db.rollback()
-        return (f"Made and watched, but the cut wasn’t made again: {no.detail} Make the cut "
-                "from the Cut tab once that’s done.", False)  # fmt: skip
-    return "Made and watched. The cut is made again with it.", True
+        return (f"{done}, but the cut wasn’t made again: {no.detail} Make the cut from the Cut "
+                "tab once that’s done.", False)  # fmt: skip
+    return f"{done}. The cut is made again with it.", True
 
 
-def _outcome(db: Session, ask: Ask, key: str, said: str, cut: bool) -> None:
+def _outcome(db: Session, ask: Ask, key: str, said: str, cut: bool,
+             use: int | None = None) -> None:  # fmt: skip
     ask = db.get(Ask, ask.id)
     chosen = dict((ask.answer or {}).get("chosen") or {})
-    chosen[key] = {**chosen.get(key, {}), "outcome": said, "cut": cut}
+    chosen[key] = {**chosen.get(key, {}), "outcome": said, "cut": cut, "use": use}
     ask.answer = {**(ask.answer or {}), "chosen": chosen}
     db.commit()

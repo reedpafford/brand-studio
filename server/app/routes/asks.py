@@ -17,7 +17,7 @@ from app.db import get_db
 from app.models.accounts import User
 from app.models.asks import Ask
 from app.models.brands import Brand
-from app.models.clips import ProjectClip
+from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
@@ -54,6 +54,8 @@ class StoryChoice(BaseModel):
     made: str = ""  # "" not pressed, held, making, watching, done (the cut made again), kept
     said: str = ""  # what happened to it, in plain words, once pressed
     cannot: str = ""  # why it can't be made now ("Clip 2 isn't in this video any more.")
+    then: str = ""  # its free one-click fix once made: "Use take 3 and make the cut" (option
+    # "use"), when its take wasn't watched or its watch's remake wasn't made
 
 
 CHOICE = ("key", "title", "why", "do")  # a choice's stored fields the card shows
@@ -192,11 +194,13 @@ def _instead(db: Session, user: User, ask: Ask, project: Project, card: AskOut,
     charges, in the viewer's money, and how its press is going."""
     card.subject = ask.subject
     for c, raw in zip(card.choices, ask.choices, strict=True):
-        c.made, c.said = locked_line.made(db, ask, c.key)
+        c.made, c.said, use = locked_line.made(db, ask, c.key)
+        c.then = f"Use take {db.get(ClipTake, use).number} and make the cut" if use else ""
         c.cannot = "" if c.made else locked_line.cannot(db, project, raw)
         credits = None if c.cannot else locked_line.price(db, project, raw)
         c.price = _price(user, credits) if credits else None
-    card.can = ["instead"] if mine and any(not (c.made or c.cannot) for c in card.choices) else []
+    card.can = ["instead"] if mine and any(not (c.made or c.cannot) or c.then
+                                           for c in card.choices) else []  # fmt: skip
     return card
 
 
@@ -352,8 +356,10 @@ def answer(ask_id: int, body: AnswerIn, request: Request, user: User = Depends(c
     if ask.kind == locked_line.KIND:  # what can change instead of a locked line (S3-14)
         if body.how != locked_line.KIND:
             raise HTTPException(422, "That isn't a way to answer this card.")
-        generation_on(request)  # a paid take, as Make a take's own route checks it
-        locked_line.choose(db, user, ask, body.choice or "", request.app.state.storage)
+        if body.option != "use":  # a paid take, as Make a take's own route checks it
+            generation_on(request)
+        locked_line.choose(db, user, ask, body.choice or "", request.app.state.storage,
+                           body.option)  # fmt: skip
     else:
         asks.answer(db, user, ask, body.model_dump(), request.app.state.storage)
     return out(db, user, db.get(Ask, ask_id))

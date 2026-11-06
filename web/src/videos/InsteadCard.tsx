@@ -1,4 +1,5 @@
 import { Check, Clock, Film, LoaderCircle, Mic } from "lucide-react";
+import { Button } from "../components";
 import { said, useAskActions, type Ask } from "./AskCard";
 
 const ICON = { softer: Mic, cut_away: Film, pause: Clock } as const;
@@ -26,14 +27,22 @@ export function InsteadCard({ ask: a }: { ask: Ask }) {
           const busy = act.isPending && act.variables?.body && (act.variables.body as { choice?: string }).choice === c.key;
           const price = c.price ? `up to ${said(c.price)}` : "free";
           return (
-            <button key={c.key} type="button" disabled={!a.can.includes("instead") || !!c.made || !!c.cannot || act.isPending} onClick={() => press(c.key)} className="flex items-start gap-2 rounded-md border border-border-button px-2.5 py-[9px] text-left text-[13px] enabled:hover:bg-surface-2 disabled:cursor-default max-lg:min-h-control">
-              {busy ? <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 animate-spin" /> : <Icon size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />}
-              <span className="min-w-0">
-                <span className="block font-semibold">{c.title}</span>
-                <span className="block text-xs leading-4 text-muted">{c.made ? c.said : c.cannot || `${c.why} · ${price}`}</span>
-                {!c.made && c.said && <span className="block text-xs leading-4 text-muted">{c.said}</span>}
-              </span>
-            </button>
+            <div key={c.key} className="flex flex-col gap-1.5">
+              <button type="button" disabled={!a.can.includes("instead") || !!c.made || !!c.cannot || act.isPending} onClick={() => press(c.key)} className="flex items-start gap-2 rounded-md border border-border-button px-2.5 py-[9px] text-left text-[13px] enabled:hover:bg-surface-2 disabled:cursor-default max-lg:min-h-control">
+                {busy ? <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 animate-spin" /> : <Icon size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />}
+                <span className="min-w-0">
+                  <span className="block font-semibold">{c.title}</span>
+                  <span className="block text-xs leading-4 text-muted">{c.made ? c.said : c.cannot || `${c.why} · ${price}`}</span>
+                  {!c.made && c.said && <span className="block text-xs leading-4 text-muted">{c.said}</span>}
+                </span>
+              </button>
+              {c.then && a.can.includes("instead") && (
+                // Its one-click fix on the card (rule 22): the take wasn't watched, or its watch's remake wasn't made.
+                <Button variant="secondary" dense className="self-start" busy={act.isPending} onClick={() => act.mutate({ body: { how: "instead", choice: c.key, option: "use" } })}>
+                  {`${c.then} · free`}
+                </Button>
+              )}
+            </div>
           );
         })}
       </div>

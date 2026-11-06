@@ -11076,6 +11076,11 @@ export interface components {
              * @default
              */
             cannot: string;
+            /**
+             * Then
+             * @default
+             */
+            then: string;
         };
         /** StoryboardIn */
         StoryboardIn: {

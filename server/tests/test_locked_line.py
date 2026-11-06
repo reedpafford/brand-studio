@@ -228,6 +228,12 @@ NOT_ASKS = [  # notes that quote the words but don't ask to change them (QA on e
     "Remove the stray sound after “bought the dip”",
     "Make “bought the dip” land harder and hold on the face after “the”",
     "Change “bough” to “branch”",  # not the script's words as a whole word
+    "Change “bought the dip” to a close-up",  # pictures: no quoted replacement (QA on 9a5862df)
+    "Swap “bought the dip” for a reaction shot",
+    "Switch “bought the dip” to slow motion",
+    "Replace “bought the dip” with B-roll of the chart",
+    "Change “bought the dip” to the wide shot please",
+    "Can we change the line “bought the dip” to a cutaway?",
 ]
 ASKS = [
     "Can we change “bought the dip” to “bought the top”?",
@@ -245,8 +251,15 @@ def test_only_a_note_that_asks_to_replace_the_words_is_answered():
         assert locked_line.asked(text, SCRIPT) is None, text
     for text in ASKS:
         assert locked_line.asked(text, SCRIPT) == ("bought the dip", True), text
-    both = "Change “bought the dip” to “bought the top”, and make the end brighter."
-    assert locked_line.asked(both, SCRIPT) == ("bought the dip", False)
+    for more in (
+        "Change “bought the dip” to “bought the top”, and make the end brighter.",
+        "Change “bought the dip” to “bought more”. Also the logo at the end is blurry",
+        "Change “bought the dip” to “bought more” and the ending feels slow",
+    ):
+        assert locked_line.asked(more, SCRIPT) == ("bought the dip", False), more
+    assert locked_line.asked(
+        "Change “bought the dip” to “bought more”. It sounds too harsh.", SCRIPT
+    ) == ("bought the dip", True)  # a reason about those words
 
 
 def test_a_note_that_asks_more_keeps_the_rest_for_the_director(app, db, owner, editor):
@@ -296,3 +309,75 @@ def test_only_where_the_words_are_set_and_only_while_it_can_be_made(app, db, own
     assert gone["cannot"] == "Clip 1 isn't in this video any more." and gone["price"] is None
     no = editor.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
     assert (no.status_code, no.json()["detail"]) == (409, "Clip 1 isn't in this video any more.")
+
+
+def _landed(app, db, editor, pid: int, ticks=12) -> dict:
+    providers = get_providers(app.state.settings, app.state.storage)
+    for _ in range(ticks):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+    return _card(editor, pid)["choices"][0]
+
+
+def test_a_take_nobody_watched_offers_use_it_and_make_the_cut(app, db, owner, editor,
+                                                               monkeypatch):  # fmt: skip
+    """Rule 22: the take's watch was skipped (at the budget): one free press on the card uses
+    it (the person's OK, rule 21) and makes the cut."""
+    from app import take_watch
+
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr(take_watch, "on", lambda: False)  # as when it's skipped
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    was = _cut(db, pid).id
+    _press(editor, db, pid)
+    c = _landed(app, db, editor, pid)
+    row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
+    n = db.get(ClipTake, row.picked_take_id).number
+    assert c["made"] == "kept" and _cut(db, pid).id == was
+    assert c["then"] == f"Use take {n} and make the cut"
+    card = _card(editor, pid)
+    assert card["can"] == ["instead"]
+    used = editor.post(f"/asks/{card['id']}/answer",
+                       json={"how": "instead", "choice": "A", "option": "use"})  # fmt: skip
+    assert used.status_code == 200, used.text
+    done = used.json()["choices"][0]
+    assert done["made"] == "done" and done["said"] == (
+        f"Take {n} is used. The cut is made again with it.")  # fmt: skip
+    assert _cut(db, pid).id != was and done["then"] == ""
+
+
+def test_a_remake_that_wasnt_made_never_leaves_the_card_waiting(app, db, owner, editor,
+                                                                 monkeypatch):  # fmt: skip
+    """Its watch asked for a remake that never came (it failed, or the owner declined it): the
+    card says so, offers its free press and stops waiting."""
+    from app import take_watch
+
+    real = take_watch.save
+
+    def remade(db_, job):
+        real(db_, job)
+        take = db_.get(ClipTake, job.input["take_id"])
+        take.watch = {**take.watch, "action": "redo", "did": "Remade it."}
+
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr(take_watch, "save", remade)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    _press(editor, db, pid)
+    c = _landed(app, db, editor, pid)
+    assert c["made"] == "kept" and c["then"].startswith("Use take ")
+    assert "its watch’s remake wasn’t made" in c["said"]
+
+
+def test_the_cut_isnt_made_over_a_pick_someone_made_since(app, db, owner, editor):
+    pid = _delivered(app, db, owner, editor)
+    row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
+    take = db.get(ClipTake, row.picked_take_id)
+    other = ClipTake(clip_id=row.id, number=take.number + 1, job_id=take.job_id,
+                     file_id=take.file_id, prompt=take.prompt)  # fmt: skip
+    db.add(other)
+    db.flush()
+    row.picked_take_id = other.id  # someone picked another take since
+    db.commit()
+    said, cut = locked_line._cut(db, db.get(Project, pid), take, app.state.storage)
+    assert not cut and said == ("Made and watched, but clip 1 now uses another take, so the cut "
+                                "stays as it was.")  # fmt: skip
