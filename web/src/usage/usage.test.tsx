@@ -304,7 +304,7 @@ test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to 
   fakeServer({ ...base, "GET /needs-you": [200, { total: 2, brands: [], questions: [], money: [start], sends: [send], stuck: [] }], "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])] });
   open();
   const totals = await screen.findByRole("group", { name: "Totals" });
-  expect(await within(totals).findByText("up to 210 credits")).toBeInTheDocument();
+  expect(await within(totals).findByText("up to $12.60")).toBeInTheDocument(); // the owner: dollars (rule 4)
   expect(within(totals).getByRole("link", { name: "2 in Needs you" })).toHaveAttribute("href", "/approvals");
   expect(await screen.findByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument(); // 52.30 of 84.12
 });

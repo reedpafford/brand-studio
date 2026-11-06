@@ -3,9 +3,10 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
-import { Badge, Banner, Button, buttonClass, creditsLabel, EmptyState, wholeCredits, PageTop, Skeleton } from "../components";
+import { Badge, Banner, Button, buttonClass, EmptyState, wholeCredits, PageTop, Skeleton } from "../components";
 import { useNeedsYou } from "../approvals/NeedsYouPage";
 import { useRail } from "../useMedia";
+import { useMe } from "../auth/useMe";
 import { useRestoreBrand } from "../brand/ArchiveBrand";
 import { ByFormat } from "./ByFormat";
 import { Charges } from "./Charges";
@@ -37,10 +38,11 @@ export function UsagePage() {
   const restoreBrand = useRestoreBrand();
   const summary = useSummary("month", month);
   const rows = useBrandRows({ period: "month", month, q: "", archived, sort: "spend" });
-  const inbox = useNeedsYou().data; // its Money cards: what waits for the owner's OK, as Needs you shows it
-  const oks = inbox ? [...inbox.money.map((r) => r.ask.money?.up_to.credits ?? 0), ...inbox.sends.map((s) => s.up_to.credits)] : [];
+  const owner = useMe().data?.role === "owner";
+  const inbox = useNeedsYou(null, owner).data; // its Money cards: what waits for the owner's OK, as Needs you shows it
+  const oks = inbox ? [...inbox.money.flatMap((r) => (r.ask.money ? [r.ask.money.up_to] : [])), ...inbox.sends.map((s) => s.up_to)] : [];
   const held = { count: oks.length };
-  const waitingCredits = oks.reduce((n, c) => n + c, 0);
+  const waitingUsd = oks.reduce((n, p) => n + (p.usd ?? 0), 0); // the owner's figures are dollars (rule 4)
   if (summary.error?.message === "404") return <Navigate to="/usage/mine" replace />; // an editor: their own credits (OR4)
   const items = rows.data?.pages.flatMap((p) => p.items) ?? [];
   const f = summary.data;
@@ -66,7 +68,7 @@ export function UsagePage() {
               {count(f.spend_credits)} credits
             </Stat>
             <Stat label="Waiting for your OK" link={held.count > 0 && <Link to="/approvals" className="inline-flex min-h-11 items-center text-accent-text hover:underline lg:min-h-0">{held.count} in Needs you</Link>}>
-              {held.count === 0 ? "Nothing" : waitingCredits > 0 ? `up to ${creditsLabel(waitingCredits)}` : `${held.count} request${held.count === 1 ? "" : "s"}`}
+              {held.count === 0 ? "Nothing" : waitingUsd > 0 ? `up to $${waitingUsd.toFixed(2)}` : `${held.count} waiting`}
             </Stat>
             <Stat label="The director's own time" link={<span className="text-muted">Outside the credit budget</span>}>
               {money(f.director_spend_usd ?? 0)}
