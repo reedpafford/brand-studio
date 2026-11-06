@@ -114,9 +114,17 @@ def _draw(db, user, project, frames, tag, hold=Decimal(0), prepaid=False) -> Non
     """Each frame's still, every input made first so a refusal starts none; the first is
     checked with `hold` too (the price of the stills and steps after it). Held for the
     owner, the rest wait with it."""
+    from app import cast_gate
     from app.routes.jobs import HELD, enqueue
 
-    inputs = [{**storyboard.render_input(db, project, f), **tag} for f in frames]
+    inputs, held = [], None
+    for frame in frames:  # those that show something waiting for the cast OK wait; the rest go
+        try:
+            inputs.append({**storyboard.render_input(db, project, frame), **tag})
+        except cast_gate.Waiting as no:
+            held = no
+    if held is not None and not inputs:
+        raise held
     later, wait = (len(inputs) - 1) * _still(db, project), ""
     for n, job_input in enumerate(inputs):
         job = enqueue(db, user, "image", job_input, project=project, provider="replicate",

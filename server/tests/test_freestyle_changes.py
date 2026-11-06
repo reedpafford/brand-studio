@@ -16,6 +16,14 @@ from tests.test_freestyle_dialogue import BODY, _run
 CHANGE = "Make clip 1 brighter."
 
 
+@pytest.fixture(autouse=True)
+def _roomy(monkeypatch):
+    """A branded video makes its looks and asks for the cast OK: room past the 75 credits."""
+    from app import director
+
+    monkeypatch.setattr(director, "own_limit", lambda: director.OWN_CREDITS * 2)
+
+
 def _held(owner):
     return owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
 

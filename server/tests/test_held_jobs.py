@@ -9,7 +9,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from tests.conftest import upload
-from tests.helpers import with_sheet
+from tests.helpers import approve_cast, with_sheet
 from tests.test_cast_roles import _video
 from tests.test_script_library import SCRIPT, _make
 
@@ -39,6 +39,7 @@ def test_every_paid_video_route_holds_an_editors_press_past_the_budget(owner, ed
                        prompt="Shot 1 | 0-5 s. Kid eats.", references=[])  # fmt: skip
     db.add_all([frame, clip])
     db.commit()
+    approve_cast(editor, pid)  # the person's OK on the cast: only the budget holds them
     _spent(db, project, project.budget_credits)  # the video's budget is all spent
     jobs = db.query(Job).count()
     slot = next(r for r in editor.get(f"/projects/{pid}/assets").json() if r["role"] == "Nate")
