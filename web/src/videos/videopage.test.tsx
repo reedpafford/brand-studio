@@ -860,6 +860,18 @@ test("S3-12: a failed cut says why in Watch with its way forward, and the cut be
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/cut/fix")?.body).toEqual({ fix: "loop_music" }));
 });
 
+test("S3-12: while a failed cut's fixes show, Out of date has no Make it again and doesn't promise one", async () => {
+  setViewport(1440);
+  const failed = cutOut({ failed: { number: 3, why: "Cut 3 couldn’t be made: the music is shorter than the cut. Nothing was charged.", fixes: ["loop_music", "again"] } });
+  server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, failed], "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: true }] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByText("Out of date.")).toBeInTheDocument();
+  expect(within(panel).getByRole("button", { name: "Loop the music to fit · free" })).toBeInTheDocument();
+  expect(within(panel).queryByRole("button", { name: "Make it again" })).toBeNull();
+  expect(panel.textContent).not.toMatch(/Making it again is free/);
+});
+
 test("S3-12: the director making Cut 1 again before it delivers adds no second Cut 1 to the switch", async () => {
   setViewport(1440);
   const again = cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }], making: { number: 1, percent: 40, doing: "", about_seconds: 20, changes: 0 } });
