@@ -475,14 +475,13 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
             _fail(db, job, FAILED, repr(exc))
         db.commit()
         return True
-    except NetworkError:  # sent, then the connection dropped: it may have been charged
+    except NetworkError:  # it left, then the connection dropped or timed out: maybe charged
         db.execute(sent)  # so it counts against the real budget (the audit: it counted $0)
         _fail(db, job, UNSURE, CHECK)
         db.commit()
         return True
-    except Exception as exc:  # noqa: BLE001 - any other provider error fails the job
-        db.execute(sent)
-        _fail(db, job, _plain(job, repr(exc)), repr(exc))
+    except Exception as exc:  # noqa: BLE001 - any other provider error fails the job; a
+        _fail(db, job, _plain(job, repr(exc)), repr(exc))  # refusal (4xx) or ours: not charged
         db.commit()
         return True
     db.execute(sent)

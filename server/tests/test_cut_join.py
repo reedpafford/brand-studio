@@ -10,15 +10,19 @@ from pathlib import Path
 from app import cut_render
 
 
-def _take(color: str, size: str = "480x854", rate: int | None = 44100, tone: int = 440) -> bytes:
-    """A 1-second MP4: a coloured picture, and a tone at `rate` Hz (None: no audio track)."""
+def _take(color: str, size: str = "480x854", rate: int | None = 44100, tone: int = 440,
+          late: float = 0) -> bytes:  # fmt: skip
+    """A 1-second MP4: a coloured picture, and a tone at `rate` Hz (None: no audio track),
+    its track starting `late` seconds in."""
     tone_in = f"sine=frequency={tone}:sample_rate={rate}"
-    sound = [] if rate is None else ["-f", "lavfi", "-i", tone_in]
+    offset = ["-itsoffset", str(late)] if late else []
+    sound = [] if rate is None else [*offset, "-f", "lavfi", "-i", tone_in]
     args = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"color=c={color}:s={size}:d=1:r=24",
             *sound, "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            *([] if rate is None else ["-c:a", "aac"]), "-f", "mp4", "-movflags",
-            "frag_keyframe+empty_moov", "pipe:1"]  # fmt: skip
-    return subprocess.run(args, capture_output=True, check=True).stdout  # noqa: S603
+            *([] if rate is None else ["-c:a", "aac"]), "t.mp4"]  # fmt: skip
+    with tempfile.TemporaryDirectory() as tmp:  # a file, not a pipe: its late start is kept
+        subprocess.run(args, cwd=tmp, capture_output=True, check=True)  # noqa: S603
+        return (Path(tmp) / "t.mp4").read_bytes()
 
 
 def _facts(data: bytes) -> dict:
@@ -27,8 +31,9 @@ def _facts(data: bytes) -> dict:
         (Path(tmp) / "c.mp4").write_bytes(data)
         probe = lambda s, e: cut_render._probe(Path(tmp), "c.mp4", s, e)  # noqa: E731
         loud = []
-        for start in (0, 1):
-            loudness = ["ffmpeg", "-v", "info", "-ss", str(start), "-t", "1", "-i", "c.mp4",
+        for start in (0, 1, 0.1, 0.6):  # each second; and inside the first one, early and late
+            span = "0.3" if start % 1 else "1"
+            loudness = ["ffmpeg", "-v", "info", "-ss", str(start), "-t", span, "-i", "c.mp4",
                         "-vn", "-af", "volumedetect", "-f", "null", "-"]  # fmt: skip
             said = subprocess.run(loudness, cwd=tmp, capture_output=True, text=True).stderr  # noqa: S603
             mean = [ln for ln in said.splitlines() if "mean_volume" in ln]
@@ -87,3 +92,12 @@ def test_whisper_never_runs_on_a_take_with_no_sound(tmp_path, monkeypatch):
     sound.write_bytes(_take("blue"))
     assert local._heard(silent, True) == [] and heard == []
     assert local._heard(sound, words=True) == ["said"] and heard == [sound]
+
+
+def test_a_take_whose_sound_starts_late_keeps_it_in_place():
+    """QA on #1393: a take's audio track starting 0.5 s in was pulled to its start (atrim and
+    asetpts to 0), out of sync with its picture; it stays where it was made."""
+    got = _facts(_cut(_take("red", rate=None), _take("blue", late=0.5)))
+    assert got["loud"][1] > -80 and abs(got["audio_s"] - got["video_s"]) < 0.15, got
+    late = _facts(_cut(_take("blue", late=0.5), _take("red", rate=None)))
+    assert late["loud"][2] < -80 < late["loud"][3], late  # silent at 0.1 s, the tone at 0.6 s

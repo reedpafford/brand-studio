@@ -25,6 +25,7 @@ FADE = 1.5  # seconds: a song video's end fades out (flows V6)
 TAKES, MUSIC, LOUD = 0.75, 0.30, "loudnorm=I=-14:TP=-1.5:LRA=11"
 RAMP = 0.25  # seconds the music takes to dip under the voice and rise after it
 SAME = "aformat=sample_rates=44100:channel_layouts=stereo"
+LATE = "aresample=async=1:first_pts=0,"  # a take's sound that starts late keeps its place
 SHORT_MUSIC = "the music file stops at {}, and the cut runs to {}"
 
 
@@ -190,7 +191,7 @@ def joined(videos: list[bytes], cuts: list[tuple[float, float | None]]) -> bytes
             parts.append(f"[{n}:v]trim=start={f},setpts=PTS-STARTPTS,tpad=stop_mode=clone:"
                          f"stop_duration={d},trim=duration={d},scale={size},setsar=1,fps=30,"
                          f"format=yuv420p[v{n}]")  # fmt: skip
-            parts.append(f"[{n}:a]{SAME},atrim=start={f},asetpts=PTS-STARTPTS,apad=whole_dur={d},"
+            parts.append(f"[{n}:a]{LATE}{SAME},atrim=start={f},asetpts=PTS-STARTPTS,apad=whole_dur={d},"
                          f"atrim=duration={d}[a{n}]" if _probe(folder, f"{n}.mp4", "a:0", "index")
                          else f"anullsrc=r=44100:cl=stereo,atrim=duration={d}[a{n}]")  # fmt: skip
         both = "".join(f"[v{n}][a{n}]" for n in range(len(videos)))
