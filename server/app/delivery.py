@@ -70,7 +70,7 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
     takes = {s["row"].clip_id: s["take"] for s in spans}
     for f in watch.get("findings") or [] if watch.get("current") else []:
         says = said(f.get("says") or "").rstrip(".")
-        if not says or says.lower() in asked.lower() or _watch_fixed(f, takes):
+        if not says or says.lower() in said(asked).lower() or _watch_fixed(f, takes):
             continue  # asked of the owner in the note, or fixed for free since (a mute, a pick)
         head = f"{where[f['clip_id']]}: " if f.get("clip_id") in where else ""
         done = "Kept as it is." if f.get("fix") == "keep" else "Not fixed."

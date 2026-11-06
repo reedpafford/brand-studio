@@ -1263,7 +1263,8 @@ def _item(db: Session, job: Job) -> str:
 NAMED = {"watch_cut": "The watch of the cut", "cut_listen": "The watch of the cut",
          STEP: "The director's next step", "treatment": "The treatment",
          "take_watch": "The watch of a take", "review_stills": "The look at the stills",
-         "write-claude": "The director's next step"}  # fmt: skip  # plain names, never a step's
+         "write-claude": "The director's next step", "item_check": "A take's check",
+         "ask_option": "The options for a question"}  # fmt: skip  # plain names, never a step's
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:
