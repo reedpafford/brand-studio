@@ -608,7 +608,8 @@ def test_every_way_of_saying_ready_is_held_back_and_every_ask_is_kept():
                 "Approve it, then post it."):  # fmt: skip  # mentions ready or posting: led
         assert delivery.needs(ask, True) == f"{yet} {ask} {look}", ask
     for ask in ("Approve it.", "Approve it?", "Do you approve?", "Do you want it shorter?",
-                "OK it?", "Go ahead?"):  # fmt: skip  # a short ask is never swallowed
+                "OK it?", "Go ahead?", "Nothing else. Approve it.",
+                "No, approve it."):  # fmt: skip  # a short ask is never swallowed
         assert delivery.needs(ask, True) == f"{ask} {look}", ask
     assert delivery.needs("Your OK on clip 1", True) == f"Your OK on clip 1. {look}"
     assert delivery.needs("Check clip 3;", True) == f"Check clip 3. {look}"

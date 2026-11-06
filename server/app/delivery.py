@@ -288,6 +288,7 @@ FILLER = re.compile(  # words that ask for nothing, once a "nothing" word says s
     r"here|all|approve|post|posted|posting|share|shared|upload|go)\b[\W\s]*)*"
 )
 NONE = re.compile(r"(?i)\b(?:nothing|none|no|n/a)\b")
+ASKS = re.compile(r"(?i)(?<!to )\b(?:approve|ok|confirm)\b")  # "Nothing else. Approve it."
 ACT = re.compile(r"(?i)\b(?:approve|post|share|upload|go|ok|confirm)\w*\b")  # an ask's verbs
 MENTIONS = re.compile(r"(?i)\bready\b|\b(?:post|publish|ship|share|upload)\w*\b")
 LOOK = "Look at what remains uncertain before you post it."
@@ -305,7 +306,9 @@ def needs(said_: str, unsettled: bool) -> str:
     text = re.sub(r"\s+", " ", said_ or "").strip()
     rest = READY.sub(" ", text)
     said_ready = READY.search(text) and not ACT.search(rest)  # "You're all set!": ready only
-    if not re.search(r"\w", rest) or (FILLER.fullmatch(rest) and (NONE.search(rest) or said_ready)):
+    if not re.search(r"\w", rest) or (
+        FILLER.fullmatch(rest) and ((NONE.search(rest) and not ASKS.search(rest)) or said_ready)
+    ):
         return LOOK_FIRST
     text = re.sub(r"[\s;:,—–-]+$", "", text)
     if not re.search(r"[.!?…][\"'”’)\]]*$", text):
