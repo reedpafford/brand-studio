@@ -598,7 +598,7 @@ def test_a_stills_price_with_its_clips_take_shows_while_the_cast_waits(owner, ed
     read needs no OK (`check` passed through to the take)."""
     from decimal import Decimal
 
-    from app import change
+    from app import change, credits
     from app.models.clips import ClipTake, ProjectClip
 
     _, pid, slot = _video(owner, editor, db)
@@ -625,4 +625,4 @@ def test_a_stills_price_with_its_clips_take_shows_while_the_cast_waits(owner, ed
     project, frame = db.get(Project, pid), db.get(StoryboardFrame, frame.id)
     both = change.credits(db, project, frame)
     assert both > alone > Decimal(0)  # the still, then its clip's new take
-    assert price.json()["credits"] >= both - 1
+    assert price.json()["credits"] == credits.price(both)  # the press says both, as it charges

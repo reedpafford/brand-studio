@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Eye, Image as ImageIcon, LoaderCircle, Pencil, RefreshCw, Volume2 } from "lucide-react";
-import { api, must } from "../api/client";
+import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Button, TextArea, buttonClass, useToast, useViewOnly } from "../components";
@@ -468,6 +468,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       try {
         const made = await api.POST("/projects/{project_id}/cut", { params: { path: { project_id: p.id } } }); // the next cut (#1299)
         if (made.data) queryClient.setQueryData(["project-cut", p.id], made.data);
+        else toast(recutRefused(errorText(made.error)), undefined, "error"); // the pick stays; say why and what next (rule 22)
       } finally {
         setRecut(false);
       }
@@ -698,4 +699,10 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       )}
     </section>
   );
+}
+
+/** Why a pick's cut didn't start, said with what happens to the pick: a cut already being made takes it next. */
+export function recutRefused(why: string): string {
+  const making = /^Cut (\d+) is being made/.exec(why);
+  return making ? `Cut ${making[1]} is being made; your pick goes in the next cut. Make it from the Cut tab once Cut ${making[1]} is ready.` : `Your pick is kept, but the cut wasn’t made: ${why}`;
 }

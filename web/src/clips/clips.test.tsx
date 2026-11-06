@@ -5,6 +5,7 @@ import { editor, owner } from "../test/people";
 import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { recutRefused } from "./ClipOpen";
 
 // The Clips tab (v6 S6-01 to S6-06, P-10, P-11, S-gaps-08): a short video's grid, the list grouped by scene with its
 // filters, one clip open with its stills and takes, what the director's watch found and did, and its priced presses.
@@ -105,6 +106,24 @@ test("S6-06: an editor sees credits, never dollars", async () => {
   expect(within(c).getByRole("button", { name: "Add sound effects · under 1 credit" })).toBeInTheDocument();
   expect(within(c).getByText("7 credits (1 still, 2 takes)")).toBeInTheDocument();
   expect(screen.queryByText(/\$/)).toBeNull();
+});
+
+test("Use this take while a cut is being made keeps the pick and says it goes in the next cut (rule 22)", async () => {
+  setViewport(1440);
+  server(owner, 24, {
+    "POST /projects/50/clips/3/takes/31/use": [200, {}],
+    "POST /projects/50/cut": [409, { detail: "Cut 2 is being made. It's ready in a moment." }],
+  });
+  open("&clip=c3");
+  const c = await screen.findByRole("region", { name: "Clip 3" });
+  await userEvent.click(await within(c).findByRole("button", { name: "Use this take · free" }));
+  expect(await screen.findByText("Cut 2 is being made; your pick goes in the next cut. Make it from the Cut tab once Cut 2 is ready.")).toBeInTheDocument();
+});
+
+test("a cut that can't be made after Use this take says the server's reason", () => {
+  expect(recutRefused("This piece lip-syncs the voice: it can't run longer than its picture.")).toBe(
+    "Your pick is kept, but the cut wasn’t made: This piece lip-syncs the voice: it can't run longer than its picture.",
+  );
 });
 
 test("the presses: Another take, Change this… with a note, Edit the prompt, Use this take (free, then the cut is made again), Use this still", async () => {

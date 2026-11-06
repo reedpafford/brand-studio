@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { approveCastWhenReady, makeIt, onBrand, signIn } from "./helpers";
 
 // v6 screen 8 (S6-02, S6-03) on the stand-ins: after a delivered run, the owner opens a clip on the Clips tab, presses
-// Another take, and the new take lands beside the one in the cut. Nothing paid is called.
+// Another take, and the new take lands beside the one in the cut; Use this take puts it in Cut 2. Nothing paid is called.
 test("on the Clips tab, Another take makes a new take of the clip on the stand-ins", async ({ page }) => {
   test.setTimeout(240_000);
   await signIn(page, "reed@example.com");
@@ -32,4 +32,10 @@ test("on the Clips tab, Another take makes a new take of the clip on the stand-i
   await clip.getByRole("button", { name: /^Another take · up to \$\d/ }).first().click();
   await expect(takes).toHaveCount(before + 1, { timeout: 60_000 });
   await expect(clip.getByLabel(`Take ${before + 1}`, { exact: true })).toBeVisible(); // made, beside the one in the cut
+
+  // Use this take · free: it goes in the cut, and the cut is made again by itself (S7-05): Cut 2, once it's ready.
+  await clip.getByRole("button", { name: "Use this take · free" }).last().click();
+  await expect(clip.getByText(`Take ${before + 1} · in the cut`)).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("tab", { name: "Cut" }).click();
+  await expect(page.getByRole("radiogroup", { name: "Which cut" }).getByRole("radio", { name: "Cut 2" })).toHaveAttribute("aria-checked", "true", { timeout: 60_000 });
 });
