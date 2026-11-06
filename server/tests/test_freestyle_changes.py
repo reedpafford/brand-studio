@@ -5,6 +5,8 @@ During a run it's only a note, read at the next turn."""
 
 from decimal import Decimal
 
+import pytest
+
 from app import credits, director
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job
@@ -12,6 +14,14 @@ from app.models.projects import Project
 from tests.test_freestyle_dialogue import BODY, _run
 
 CHANGE = "Make clip 1 brighter."
+
+
+@pytest.fixture(autouse=True)
+def _roomy(monkeypatch):
+    """A branded video makes its looks and asks for the cast OK: room past the 75 credits."""
+    from app import director
+
+    monkeypatch.setattr(director, "own_limit", lambda: director.OWN_CREDITS * 2)
 
 
 def _held(owner):

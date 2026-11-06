@@ -86,6 +86,10 @@ class Project(Filed, Entity, Base):
     # The last still redraw after a cast change: {"redrawn_for_cast": {count, credits}} or
     # {"redraw_refused": {count, credits, reason}} (for the Storyboard note).
     cast_redraw: Mapped[dict | None] = mapped_column(JSON)
+    # n40, Approve cast & places (app/cast_gate.py): what the person approved, per item as its
+    # stills and takes are made with ({"items": {ref: {sig, item, version, file}}, "by", "at"}),
+    # and the director's card asking for it ("asked"). Null: nothing approved yet.
+    cast_ok: Mapped[dict | None] = mapped_column(JSON)
 
     # Brief
     goal: Mapped[str] = mapped_column(Text, default="")

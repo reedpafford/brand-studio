@@ -23,7 +23,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import director, hidden, music, screen_figures
+from app import cast_gate, director, hidden, music, screen_figures
 from app.clip_takes import still_wanted
 from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
@@ -393,6 +393,11 @@ def start_next(
         return False
     if job.auto and not still_wanted(db, job):  # its clip changed while it waited: uncharged
         _move(db, job, JobStatus.queued, JobStatus.cancelled, finished_at=utcnow())
+        db.commit()
+        return True
+    if cast_gate.job_paused(db, job):  # its cast or places changed since: never an old look
+        _move(db, job, JobStatus.queued, JobStatus.cancelled, finished_at=utcnow(),
+              error=cast_gate.PAUSED)  # fmt: skip
         db.commit()
         return True
     if not _move(

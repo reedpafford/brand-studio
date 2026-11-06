@@ -53,6 +53,8 @@ from app.routes.looks import off_reason
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
 ONE_CLIP = "one_clip"  # the other types are the formats on GET /formats
+NO_BRAND = "Pick a brand first: every video is made inside a brand."
+OLD_NO_BRAND = "This older freestyle has no brand, so it can't be changed. Start a new video."
 Shape = Literal["9:16", "1:1", "16:9"]
 Status = Literal["waiting", "working", "delivered", "declined", "stopped", "withdrawn", "failed"]
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=5000)]
@@ -191,7 +193,7 @@ def _db(db: Session = Depends(get_db)) -> Session:
 
 
 def _freestyle_brand(db: Session, workspace_id: int) -> Brand:
-    """The workspace's hidden "Freestyle" brand, for a freestyle with no brand picked."""
+    """The workspace's hidden "Freestyle" brand, for a one-clip freestyle with no brand."""
     found = db.scalar(select(Brand).where(Brand.workspace_id == workspace_id, Brand.hidden))
     if found is None:
         found = Brand(workspace_id=workspace_id, name="Freestyle", slug="_freestyle", hidden=True)
@@ -201,11 +203,10 @@ def _freestyle_brand(db: Session, workspace_id: int) -> Brand:
 
 
 def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, ScriptDraft]:
-    """The freestyle's own script (published, its one version approved) and video: in the
-    brand's Scripts and Videos when a brand is picked (P3: the director-first video), else
-    hidden under the Freestyle brand."""
-    brand_id = fs.brand_id or _freestyle_brand(db, user.workspace_id).id
-    hide = fs.brand_id is None or not user.is_owner  # an editor's shows once the owner OKs it
+    """The freestyle's own script (published, its one version approved) and video, in the
+    brand's Scripts and Videos (P3: the director-first video)."""
+    brand_id = fs.brand_id
+    hide = not user.is_owner  # an editor's shows once the owner OKs it
     script = Script(workspace_id=user.workspace_id, brand_id=brand_id, title=fs.title,
                     kind=guides.format_(fs.type)["engine"], format=fs.type, look=fs.look,
                     published=True, hidden=hide, created_by_id=user.id)  # fmt: skip
@@ -296,15 +297,14 @@ def hold(db: Session, user: User, script: Script | None, draft, project: Project
 def freeze(db: Session, what: dict, owner: User) -> None:
     """A director-first video becomes real when its run starts (the owner's at once, an
     editor's on the owner's OK; Next-Lead): its version frozen, approved and the script
-    published (rule 31), and, with a brand, its script and video shown."""
+    published (rule 31), and its script and video shown."""
     project = db.get(Project, what["project"])
     draft = db.get(ScriptDraft, what["draft"])
     script = db.get(Script, draft.script_id)
     if draft.status != "approved":
         draft.status, draft.approved_at, draft.approved_by_id = "approved", utcnow(), owner.id
     script.published = True
-    if what["show"]:
-        project.hidden = script.hidden = False
+    project.hidden = script.hidden = False
 
 
 def release(db: Session, what: dict) -> None:
@@ -328,7 +328,7 @@ def _start(db: Session, user: User, fs: Freestyle, text: str, body: FreestyleIn,
     wait = hold(db, user, script, draft, project)
     if wait and script is not None:  # an editor's: nothing changes or shows until the OK
         project.hidden = True
-    what = {"project": project.id, "draft": draft.id, "show": fs.brand_id is not None}
+    what = {"project": project.id, "draft": draft.id}
     fs.project_id, fs.up_to = project.id, run_price(db, draft, project)  # all a run may spend
     db.flush()
     if not wait:
@@ -347,6 +347,8 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
     read at the director's next turn, inside the price already approved. Otherwise the send
     is the press: quoted "up to" the whole video's price again; a new run reads every unread
     note, after its start card's OK (an editor's from the owner)."""
+    if fs.brand_id is None:  # from before every video had a brand: it has no Cast tab
+        raise HTTPException(409, OLD_NO_BRAND)
     project = db.get(Project, fs.project_id)
     at = utcnow().isoformat()
     if director.active(db, project):
@@ -377,6 +379,8 @@ def _check(db: Session, user: User, request: Request, type: str, look: str,
         raise HTTPException(409, f"{guides.format_(type)['name']} can't be made yet: {why}.")
     if brand_id is not None:
         get_brand(db, user, brand_id)
+    elif type != ONE_CLIP:
+        raise HTTPException(422, NO_BRAND)
     if folder_id is not None and folders.get(db, user, folder_id).brand_id != brand_id:
         raise HTTPException(422, OTHER_BRAND)
 

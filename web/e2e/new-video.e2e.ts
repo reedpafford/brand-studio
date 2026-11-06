@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { onBrand, signIn } from "./helpers";
+import { approveCastWhenReady, onBrand, signIn } from "./helpers";
 
 // The director-first video (v6 New video, S2): New video → the director plans, casts, makes and cuts it, on the free
 // stand-ins. The owner's Make it runs at once and says the most in dollars; an editor's send from a script past its
@@ -13,6 +13,7 @@ test("at 1440, the owner pastes a script, presses Make it, and the director deli
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, "reed@example.com");
+  approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await onBrand(page, "fomo");
   await page.keyboard.press("n"); // N opens New video
   await expect(page.getByRole("heading", { name: "What should the director make?" })).toBeVisible();
@@ -39,6 +40,7 @@ test("an editor sends a script for approval from New video, the owner approves i
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, "reed@example.com");
+  approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await onBrand(page, "fomo");
   const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
   const fomo = brands.find((b) => b.name === "fomo")!.id;
@@ -88,6 +90,7 @@ test("at 390, the owner's saved change after a delivery has Make it again in the
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, "reed@example.com");
+  approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await onBrand(page, "fomo");
   await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Videos" }).click(); // v6 P-01: New video sits under the folders
   await page.getByRole("main").getByRole("link", { name: /^(New video|Make the first video)$/ }).click(); // a brand with nothing yet shows its set-up list (S1-02)

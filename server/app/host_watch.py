@@ -210,6 +210,12 @@ def act(db: Session, row: HostPiece, note: str) -> tuple[str, str, Job | None, D
     credits = host.price(db, project, row.number)  # its watch included
     wait = f"{WAIT_OK}making {name} again goes past the video's budget." if fits(
         db, project, user, credits) else ""  # fmt: skip
+    from app import cast_gate
+
+    try:  # the host's look changed since the cast and places OK: the person's OK first
+        host._cast(db, project, check=True)
+    except cast_gate.Waiting as no:
+        return cast_gate.not_yet(no), "flagged", None, None
     marked = DIRECTOR_TOOL.set(True)
     try:
         made = host._piece(db, user, project, row, host.rows(db, project)[0].file_id,

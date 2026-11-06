@@ -15,6 +15,7 @@ import { refreshJobs } from "../jobs/refresh";
 import { useMayManageVideo, useVideoActions } from "../projects/ReleaseVideo";
 import { useFreshProject } from "../projects/useFreshProject";
 import { useProjectClips, useProjectVideo } from "../projects/useProgress";
+import { CastOk } from "../projects/CastOk";
 import { useMakeIt } from "../projects/useMakeIt";
 import { letterOf } from "../scripts/status";
 import { useScript } from "../scripts/useScript";
@@ -493,6 +494,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
             ),
           )}
         </ol>
+        {id > 0 && <CastOk projectId={id} />}
         {fs?.reel_script_id && !items.length && <ReelBlock scriptId={fs.reel_script_id} published={false} /> /* Use a reel: its read, before the script is written */}
         {again.isError && <p role="alert" className="mt-2 text-sm text-danger">{again.error.message}</p>}
         {actions.withdraw.isError && <p role="alert" className="mt-2 text-sm text-danger">{actions.withdraw.error.message}</p>}

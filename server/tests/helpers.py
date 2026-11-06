@@ -176,3 +176,34 @@ def make_it(db) -> int:
             asks.answer(db, owner.first(), ask, {"how": "make_it"})
             pressed += 1
     return pressed
+
+
+def approve_cast(client, project) -> dict:
+    """Approve cast & places as the person making the video does: the whole set as shown in
+    Cast (app/cast_gate.py), so the stills and takes that wait for it can be made."""
+    if isinstance(project, str):  # "/projects/12", as a test's url names it
+        project = int(re.search(r"/projects/(\d+)", project)[1])
+    shown = client.get(f"/projects/{project}/cast").json()
+    seen = {i["ref"]: i["sig"] for i in shown["items"]}
+    done = client.post(f"/projects/{project}/cast/approve", json={"seen": seen})
+    assert done.status_code == 200 or shown["state"] in ("none", "approved"), done.text
+    return done.json()
+
+
+def ok_when_asked(db) -> None:
+    """The person a director run belongs to approves its cast and places once it waits on
+    them (director.CAST_WAIT), as they would in Cast after looking: the whole set as shown."""
+    from app import cast_gate, director
+    from app.models.accounts import User
+    from app.models.jobs import Job
+    from app.models.projects import Project
+
+    step = Job.input["step"].as_string()
+    for job in db.query(Job).filter(step == director.STEP).all():
+        if job.input.get("result") != director.CAST_WAIT or job.input.get("ended"):
+            continue
+        project = db.get(Project, job.project_id)
+        items = cast_gate.current(db, project)
+        if cast_gate.pending(db, project) and all(i["readiness"] == "ready" for i in items):
+            who = db.get(User, job.input[director.RUN]["by"])
+            cast_gate.approve(db, who, project, {i["ref"]: i["sig"] for i in items})

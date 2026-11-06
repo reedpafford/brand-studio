@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { emptyBrand, makeIt, signIn } from "./helpers";
+import { approveCastWhenReady, emptyBrand, makeIt, signIn } from "./helpers";
 
 // A video made by hand on the video page (v6 S3: the preview panel's Plan, Cast, Clips and Cut tabs) on the free stand-ins.
 const SCRIPT = [
@@ -16,6 +16,7 @@ for (const width of [1440, 390]) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
+    approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
     await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Video Co ${width}`);
     const made = await page.request.post("/api/projects", {
@@ -80,6 +81,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     test.setTimeout(240_000);
     await signIn(page, "reed@example.com");
+    approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
     await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Video Flow Co ${width}`);
     // v6 screen 4: the director makes the stills, the prompts and the takes; the panel shows them as it goes.
@@ -112,6 +114,7 @@ for (const width of [1440, 390]) {
   test(`at ${width}: the brand's videos list an idea, search it, and nothing scrolls sideways`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
+    approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
     await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Videos View Co ${width}`);
     const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Listed video", planned_seconds: 20 } });

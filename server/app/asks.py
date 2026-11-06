@@ -243,6 +243,11 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
             project.product_variants = {**(project.product_variants or {}),
                                         shot.product: shot.variant}  # fmt: skip
         return
+    if ask.kind == "place":  # the place the plan's shots are at, by its name (S-gaps-07 A)
+        from app.routes import cast
+
+        return cast.answer_place(db, user or db.get(User, project.created_by_id), project,
+                                 ask.subject, data)  # fmt: skip
     if ask.kind not in ("cast", "presenter"):
         return
     slot = _slot(db, project, ask.subject)
@@ -256,8 +261,8 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
                            name=cast_roles.short(slot.role) or slot.role,
                            notes=slot.description or slot.role, owner_project_id=project.id,
                            sheet_look=project.look or "house")  # fmt: skip
-        if data["how"] == "option":  # drawn as a sheet in the video's look: it is the look
-            item.sheet_file_id = data["file_id"]
+        if data["how"] == "option":  # drawn as a sheet in the video's look: it is the look,
+            item.sheet_file_id, item.sheet_approved = data["file_id"], True  # this video's own
         else:  # a photo is only source material: make_looks draws its sheet
             item.source_photo_file_id = data["file_id"]
         db.add(item)
