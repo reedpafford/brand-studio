@@ -160,3 +160,8 @@
 | 2026-11-06 | FOMO-House-Builder | "Declined": Replicate alibaba/wan-3, a 5 s 480p test + 17 clips at 720p (112 s at 0.07/s). **10 clips were wasted duplicates from a builder bug** (parallel jobs shared one temp request file; fixed) | 117 s | | 7.67 | Reed (same batch) |
 | 2026-11-06 | FOMO-House-Builder | "Declined": Replicate google/nano-banana, 7 first-frame images | 7 images | | 0.27 | Reed (same batch) |
 | 2026-11-06 | FOMO-House-Builder | Strawberries + "Declined" batch total. **0.52 over the builder's own 30 cap**; paid work stopped | | 30.00 cap | 30.52 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Strawberries redo with Seedance, after Reed rejected the WAN short ("Re-do all of them… Do them with seedance"): I Don't Even Like Them, I Got It Babe, Name One, Mindset Problem, live site projects 86–89 / scripts 95–98, jobs 2814–2893 (refused jobs not charged): Seedance 20 clips (133 s) + 1 look-alike retake | 133 s | | 13.67 (app job records) | Reed (relayed by FOMO-House-Builder) |
+| 2026-11-06 | FOMO-House-Builder | Same run: Claude | | | 3.05 (app job records) | Reed (same run) |
+| 2026-11-06 | FOMO-House-Builder | Same run: images (looks and stills) | | | 2.37 (app job records) | Reed (same run) |
+| 2026-11-06 | FOMO-House-Builder | Same run: KIE Suno comedy music bed (task 46a448e1…), 12 KIE credits | 1 request | | 0.06 | Reed (same run) |
+| 2026-11-06 | FOMO-House-Builder | Seedance redo total | | 35.00 cap (set by the builder; Reed named no amount) | 19.16 | Reed |
