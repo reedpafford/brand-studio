@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, breakdown_fix, clip_prompts, plans, storyboard
+from app import advice, breakdown, breakdown_fix, clip_prompts, cut_edits, plans, storyboard
 from app.advice import Said, names
 from app.auth import current_user
 from app.db import get_db
@@ -304,6 +304,7 @@ def use_version(
     for made in (StoryboardFrame, ProjectClip):  # made for this one: current again, not redone
         mine = (made.project_id == project.id, made.breakdown_id == old.id)
         db.execute(update(made).where(*mine).values(breakdown_id=row.id))
+    cut_edits.follow_breakdown(db, project, was.data, old.data)  # the cut's edits, by their clip
     breakdown.record_length(project, Breakdown.model_validate(old.data))
     db.commit()
     return _out(row, version.version).model_copy(update={"was_id": was.id})
@@ -319,6 +320,9 @@ def save(
     """Save the editor's edited breakdown for the working script (a new row)."""
     project, version = _working(db, user, project_id)
     body, landed = breakdown.land(db, project, body)  # never blocks on who's in a shot
+    if was := db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
+                        .order_by(BreakdownVersion.id.desc()).limit(1)):  # fmt: skip
+        cut_edits.follow_breakdown(db, project, was.data, body.model_dump())  # the cut's edits
     row = BreakdownVersion(
         project_id=project.id,
         script_version=version.version,

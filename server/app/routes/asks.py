@@ -197,7 +197,12 @@ def _instead(db: Session, user: User, ask: Ask, project: Project, card: AskOut,
         c.made, c.said, use = locked_line.made(db, ask, c.key)
         take = db.get(ClipTake, use) if use else None  # `made` checked it's still there
         c.then = f"Use take {take.number} and make the cut" if take else ""
-        c.cannot = "" if c.made else locked_line.cannot(db, project, raw)
+        if c.made:
+            c.cannot = ""
+        elif raw.get("do") in ("cut_away", "pause") and not locked_line.director_going(db, project):
+            c.why, c.cannot = locked_line.now(db, project, raw, ask.subject)  # as it is now
+        else:
+            c.cannot = locked_line.cannot(db, project, raw, ask.subject)
         credits = None if c.cannot else locked_line.price(db, project, raw)
         c.price = _price(user, credits) if credits else None
     card.can = ["instead"] if mine and any(not (c.made or c.cannot) or c.then
@@ -357,8 +362,9 @@ def answer(ask_id: int, body: AnswerIn, request: Request, user: User = Depends(c
     if ask.kind == locked_line.KIND:  # what can change instead of a locked line (S3-14)
         if body.how != locked_line.KIND:
             raise HTTPException(422, "That isn't a way to answer this card.")
-        if body.option != "use":  # a paid take, as Make a take's own route checks it
-            generation_on(request)
+        picked = next((c for c in ask.choices if c["key"] == body.choice), {})
+        if body.option != "use" and picked.get("do") == "softer":  # a paid take, as Make a
+            generation_on(request)  # take's own route checks it (an edit and a cut are free)
         locked_line.choose(db, user, ask, body.choice or "", request.app.state.storage,
                            body.option)  # fmt: skip
     else:

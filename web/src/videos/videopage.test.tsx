@@ -959,3 +959,14 @@ test("S3-14: a take nobody watched offers its free one-click press: use it and m
   await userEvent.click(await screen.findByRole("button", { name: "Use take 3 and make the cut · free" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A", option: "use" }));
 });
+
+test("S3-14 on a Presenter video: Cut away while it's said is free, and its press makes it", async () => {
+  setViewport(1440);
+  const away = { key: "A", title: "Cut away while it’s said", why: "Show the B-roll instead of Dr. Pickle’s face on that line", do: "cut_away", price: null, made: "", said: "", cannot: "", then: "" };
+  const calls = server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), { ...cards(instead({ choices: [away] })), "POST /asks/12/answer": [200, instead({ choices: [{ ...away, made: "done", said: "Done. Making Cut 2 with it." }], can: [] })] });
+  renderApp("/b/1/videos/50");
+  const button = await screen.findByRole("button", { name: /^Cut away while it’s said/ });
+  expect(button).toHaveTextContent("Show the B-roll instead of Dr. Pickle’s face on that line · free");
+  await userEvent.click(button);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A" }));
+});

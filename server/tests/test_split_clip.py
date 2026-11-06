@@ -295,3 +295,49 @@ def test_a_clip_too_long_for_its_own_model_is_refused_plainly(app, db, owner, ed
     assert no.value.status_code == 409 and "makes at most 10 s a clip" in said, said
     assert "Split it in the breakdown" not in said  # no Split button there for it
     assert "Nothing was charged." in said
+
+
+def test_a_split_moves_the_cut_edits_with_their_clips_and_cancels_the_split_ones(
+    app, db, owner, editor
+):
+    """QA on #1356: through the card's real Split, each cut edit (an undone one too, which
+    Redo or Undo all could bring back) follows its clip to its new number, and so does a
+    swap's source clip; an edit on the split clip itself is undone and can never land."""
+    from app import cut_edits
+    from app.db import utcnow
+    from app.models.clips import CutEdit
+
+    pid, row = _stuck(app, db, owner, editor)
+    data = dict(row.data)  # a clip after it, which the split renumbers: c2 becomes c3
+    shot = {**data["scenes"][0]["shots"][0], "id": "9.1", "script_lines": [], "seconds": 4}
+    data["scenes"] = [{**data["scenes"][0], "shots": [*data["scenes"][0]["shots"], shot]}]
+    data["clips"] = [*data["clips"], {**data["clips"][0], "id": "c2", "shot_ids": ["9.1"],
+                                      "seconds": 4}]  # fmt: skip
+    row.data = data
+    flag_modified(row, "data")
+    one = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
+    db.add(ProjectClip(project_id=pid, breakdown_id=row.id, clip_id="c2", prompt="", seconds=4,
+                       references=[]))  # fmt: skip
+    edits = {
+        "on": CutEdit(project_id=pid, kind="trim", data={"piece": "c2", "end": 2.0},
+                      said="Clip 2 trimmed"),
+        "undone": CutEdit(project_id=pid, kind="trim", data={"piece": "c2", "end": 3.0},
+                          said="Clip 2 trimmed", undone_at=utcnow()),
+        "split": CutEdit(project_id=pid, kind="trim", data={"piece": "c1", "end": 5.0},
+                         said="Clip 1 trimmed"),
+        "source": CutEdit(project_id=pid, kind="swap", said="Clip 1 swapped for clip 2",
+                          data={"piece": "c1.3", "take_id": 1, "source": "Clip 2"}),
+    }  # fmt: skip
+    db.add_all(edits.values())
+    db.commit()
+    assert one.breakdown_id == row.id
+    done = editor.post(f"/projects/{pid}/breakdown/fix",
+                       json={"problems": ["clip c1: 20 s is outside 4–12 s"]})  # fmt: skip
+    assert done.status_code == 200, done.text
+    assert [c["id"] for c in done.json()["breakdown"]["clips"]] == ["c1", "c2", "c3"]
+    db.expire_all()
+    on, undone, split, source = (db.get(CutEdit, e.id) for e in edits.values())
+    assert (on.data["piece"], on.said, on.undone_at) == ("c3", "Clip 3 trimmed", None)
+    assert undone.data["piece"] == "c3" and undone.undone_at is not None  # Redo: on its clip
+    assert split.data["piece"] == cut_edits.GONE and split.undone_at is not None
+    assert (source.data["source"], source.said) == ("Clip 3", "Clip 1 swapped for clip 3")

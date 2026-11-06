@@ -489,3 +489,25 @@ def test_the_next_cut_redo_after_undo_all_and_a_cut_that_fails(app, db, owner, p
     _next_cut_while_the_one_before_plays(app, db, owner, presenter)
     _redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter)
     _music_that_stops_early_fails_with_one_click_fixes(app, db, owner, presenter)
+
+
+def test_a_split_that_renumbers_clips_moves_the_cut_edits_with_them(db, owner, presenter):
+    """QA on acbbdfdd: an edit names its clip by id; a split renumbers the clips after it (c2
+    becomes c3), so each edit follows its clip, and one on the split clip itself is undone."""
+    from app.models.clips import CutEdit
+
+    project = db.get(Project, int(presenter.rsplit("/", 1)[1]),
+                     execution_options={"see_hidden": True})  # fmt: skip
+    keep = CutEdit(project_id=project.id, kind="trim", data={"piece": "c2.7", "end": 4.0},
+                   said="Clip 2 trimmed")  # fmt: skip
+    split = CutEdit(project_id=project.id, kind="swap", data={"piece": "c1", "take_id": 1,
+                                                              "source": "Take 1"},
+                    said="Clip 1 swapped for take 1")  # fmt: skip
+    span = CutEdit(project_id=project.id, kind="presenter",
+                   data={"start": 0, "end": 2, "side": "left"}, said="moved left")  # fmt: skip
+    db.add_all([keep, split, span])
+    db.flush()
+    cut_edits.follow_clips(db, project, {"c2": "c3"}, {"c1", "c2"})  # c1 split: c1, c1b
+    assert (keep.data["piece"], keep.said, keep.undone_at) == ("c3.7", "Clip 3 trimmed", None)
+    assert split.undone_at is not None and split.data["piece"] == cut_edits.GONE  # never lands
+    assert span.undone_at is None and span.data == {"start": 0, "end": 2, "side": "left"}
