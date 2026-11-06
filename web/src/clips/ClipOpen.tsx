@@ -215,7 +215,7 @@ function checkLine(what: string, c: Check) {
 /** The still's own check (rule 21: a flag comes to a person; S-gaps-08's stills row): what it found on the still in use,
  *  each with its Advice, Change the still… (priced, with its note) and Keep it (Undo). Before a take too: a still is checked
  *  once it's drawn. */
-function StillReview({ p, check, price, onChange, onDone }: { p: Project; check: Check; price: string | null | undefined; onChange: (note: string) => void; onDone: () => Promise<unknown> }) {
+function StillReview({ p, check, price, blocked, makes, onChange, onDone }: { p: Project; check: Check; price: string | null | undefined; blocked: string | null; makes: string; onChange: (note: string) => void; onDone: () => Promise<unknown> }) {
   const toast = useToast();
   const viewOnly = useViewOnly();
   const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSettled: onDone, onError: (e: Error) => toast(e.message, undefined, "error") });
@@ -237,12 +237,10 @@ function StillReview({ p, check, price, onChange, onDone }: { p: Project; check:
             <span className="font-medium">The still: </span>
             {f.text}
           </span>
-          {f.fix && <span className="text-xs">{f.fix}</span>}
           {!viewOnly && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" busy={price === null} onClick={() => onChange(f.note)}>
-                Change the still… {price && <span className="font-normal text-muted">· {price}</span>}
-              </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Priced icon={ImageIcon} label="Change the still…" price={price} disabled={!!blocked} reason={blocked} onClick={() => onChange(f.note)} />
+              <span className="text-xs">{makes}</span>
               <Button variant="ghost" busy={run.isPending} onClick={() => keep(f)}>
                 Keep it
               </Button>
@@ -506,6 +504,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
     retry: false,
     queryFn: async () => (await must(api.GET("/projects/{project_id}/storyboard/frames/{frame_id}/change", { params: { path: { project_id: p.id, frame_id: frame!.id } } }))).data!.credits,
   });
+  const stillMakes = clip.takes.length ? "a new still and a new take" : "a new still"; // what Change the still… makes (S-gaps-08)
   const refresh = async () => {
     await refreshJobs(queryClient);
     await Promise.all([["project-clips", p.id], ["storyboard", p.id], ["run-progress", p.id], ["project-video", p.id], ["idea", p.id], ["project", p.id]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
@@ -589,7 +588,12 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
   const presses = (
     <div className={`flex gap-2 ${phone ? "flex-col" : "flex-wrap"}`}>
       {frame && !frame.file_id && <Priced wide={phone} icon={ImageIcon} label="Draw the still" price={upTo(head, frame.still_credits)} busy={run.isPending || frame.drawing} onClick={() => go(() => must(api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/render", { params: { path: { project_id: p.id, frame_id: frame.id } } })))} />}
-      {frame?.file_id && <Priced wide={phone} icon={ImageIcon} label="Change the still…" price={stillPrice.isError ? undefined : stillPrice.data == null ? null : upTo(head, stillPrice.data)} disabled={stillPrice.isError} reason={stillPrice.isError ? stillPrice.error.message : null} onClick={() => setBox({ kind: "still", text: "" })} />}
+      {frame?.file_id && (
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Priced wide={phone} icon={ImageIcon} label="Change the still…" price={stillPrice.isError ? undefined : stillPrice.data == null ? null : upTo(head, stillPrice.data)} disabled={stillPrice.isError} reason={stillPrice.isError ? stillPrice.error.message : null} onClick={() => setBox({ kind: "still", text: "" })} />
+          <span className="text-xs text-muted">{stillMakes}</span>
+        </span>
+      )}
       {!clip.stale && <Priced wide={phone} icon={Pencil} label="Change this…" price={changePrice.isError ? undefined : changePrice.data == null ? null : upTo(head, changePrice.data)} disabled={changePrice.isError} reason={changePrice.isError ? changePrice.error.message : null} onClick={() => setBox({ kind: "change", text: "" })} />}
       <Priced wide={phone} icon={RefreshCw} label={clip.takes.length ? "Another take" : "Make the take"} price={takePrice} busy={run.isPending} disabled={!!takeBlock} reason={takeBlock} onClick={() => take()} />
       {picked && clip.sound?.state === "none" && <Priced wide={phone} icon={Volume2} label="Add sound effects" price={upTo(head, clip.sound.credits)} onClick={() => setBox({ kind: "sound", text: "" })} />}
@@ -703,7 +707,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
             );
           })}
       </ul>
-      {frame?.file_id && <StillReview p={p} check={frame.check as Check} price={stillPrice.isError ? undefined : stillPrice.data == null ? null : upTo(head, stillPrice.data)} onChange={(note) => setBox({ kind: "still", text: note })} onDone={refresh} />}
+      {frame?.file_id && <StillReview p={p} check={frame.check as Check} price={stillPrice.isError ? undefined : stillPrice.data == null ? null : upTo(head, stillPrice.data)} blocked={stillPrice.isError ? stillPrice.error.message : null} makes={stillMakes} onChange={(note) => setBox({ kind: "still", text: note })} onDone={refresh} />}
       <Review p={p} head={head} clip={clip} fixPrice={changePrice.data ?? null} fixError={changePrice.isError ? changePrice.error.message : null} onNote={(note) => setBox({ kind: "change", text: note })} onTake={() => take()} takeBlock={takeBlock} onDone={refresh} />
       <Inserts p={p} clip={clip} onDone={refresh} />
       <WhatChanged p={p} clip={clip} frame={frame} stillUse={stillUse} onStill={pickStill} onDone={refresh} />

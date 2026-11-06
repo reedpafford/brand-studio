@@ -442,7 +442,8 @@ test("rule 21 (S-gaps-08): a still its check flagged shows in the open clip with
   const c = await screen.findByRole("region", { name: "Clip 3" });
   const check = within(c).getByRole("region", { name: "The still's check" });
   expect(within(check).getByText("His left hand has six fingers.")).toBeInTheDocument();
-  expect(within(check).getByText("Change the still with that note, or keep it.")).toBeInTheDocument();
+  expect(within(check).queryByText("Change the still with that note, or keep it.")).toBeNull(); // a take's words: the presses say it
+  expect(within(check).getByText("a new still and a new take")).toBeInTheDocument();
   await userEvent.click(await within(check).findByRole("button", { name: "Change the still… · up to $0.36" }));
   expect(within(c).getByLabelText("Change the still…")).toHaveValue("Give him five fingers on each hand.");
   await userEvent.click(within(c).getByRole("button", { name: "Cancel" }));
@@ -458,4 +459,17 @@ test("a clean still's check says so", async () => {
   open("&clip=c3");
   const c = await screen.findByRole("region", { name: "Clip 3" });
   expect(within(c).getByText("The still: checked, nothing found.")).toBeInTheDocument();
+});
+
+test("a still's check with no price to read: its Change the still… is greyed with why, as the clip's own", async () => {
+  setViewport(1440);
+  const v = video(6);
+  const flagged = { id: 81, status: "advice", findings: [{ index: 0, kind: "anatomy", text: "His left hand has six fingers.", note: "Five fingers.", fix: "" }], kept: [] };
+  const frames = v.frames.map((f) => (f.clip_id === "c3" ? { ...f, check: flagged } : f));
+  server(owner, 6, { "GET /projects/50/storyboard": [200, frames], "GET /projects/50/storyboard/frames/72/change": [409, { detail: "Its look isn't approved yet." }] });
+  open("&clip=c3");
+  const c = await screen.findByRole("region", { name: "Clip 3" });
+  const check = within(c).getByRole("region", { name: "The still's check" });
+  await vi.waitFor(() => expect(within(check).getByRole("button", { name: /^Change the still…/ })).toBeDisabled());
+  expect(within(check).getByRole("button", { name: /^Change the still…/ })).toHaveAccessibleDescription("Its look isn't approved yet.");
 });
