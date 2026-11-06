@@ -276,10 +276,12 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
              "plan": f"Treatment and plan: {_n(scenes, 'scene')}, {_n(total, 'clip')}, "
                      f"about {seconds} s"
                      if total else "Treatment and plan"}  # fmt: skip
-    roles = [s.role for s in video_slots(db, project)]
-    cast = ", ".join(roles[:-1]) + f" and {roles[-1]}" if len(roles) > 1 else "".join(roles)
-    if roles:
-        words["cast"] = f"Cast: {cast}"
+    slots = video_slots(db, project)
+    roles = [s.role for s in slots]
+    cast = _and(roles)
+    face = host.host_look(db, project) if host.presents(db, project) else None
+    if line := _cast(db, project, slots, face):
+        words["cast"] = line
     if director_song.kind(db, project):
         audio = director_song.state(db, project) or {"takes": []}
         used = next((t for t in audio["takes"] if t["used"]), None) or {}
@@ -288,23 +290,37 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
         words["voice"] = (f"Song{long}" + (", every lyric heard" if right else "")
                           if "style" in audio else f"Voice track{long}"
                           + (", words checked against the script" if right else ""))  # fmt: skip
-    redraws = sum((turns[-1].input.get(RUN) or {}).get("redraws", {}).values())
-    words["stills"] = (f"Stills: {video.drawn} drawn" if video.drawn else "Stills") + (
-        f", {redraws} redrawn" if redraws else "")  # fmt: skip
-    hosted, model = host.on(db, project), video.model
-    words["prompts"] = ("Clip prompts written · " + (f"B-roll on {model}, host on P-Video"
-                        if hosted else f"on {model}")) if total else "Clip prompts"  # fmt: skip
+    redrawn = (turns[-1].input.get(RUN) or {}).get("redraws", {})
+    why = _redrawn(db, project, turns[0], set(redrawn))  # S3-04: "2 redrawn (the label faced away)"
+    words["stills"] = (
+        (f"Stills: {video.drawn} drawn" if video.drawn else "Stills")
+        + (f", {sum(redrawn.values())} redrawn" if redrawn else "")
+        + (f" ({why})" if why else "")
+    )
+    hosted = host.on(db, project)
+    models, reasons = _models(db, video, cells)
+    on = ", ".join(f"{name} ({n})" if len(models) > 1 else name for name, n in models.items())
+    words["prompts"] = ("Clip prompts written · " + (f"B-roll on {on}, presenter on HeyGen"
+                        if hosted else f"on {on}")) if total else "Clip prompts"  # fmt: skip
+    if hosted:
+        reasons.append("HeyGen lip-syncs the presenter to the voice")
     words["takes"] = f"Making takes: {made} of {total}" if made < total else f"Takes: {total} made"
     if watching := _watching(db, video, cells, owner):
         words["watching"] = watching[0]
     if hosted:
-        words["host"] = f"Lay {cast or 'the presenter'} over the B-roll"
-    words["cut"] = "Watch the whole cut, then deliver"
+        from app.models.songs import SongTake
+
+        take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
+        music = ", music under the voice" if take and take.music_file_id else ""  # its own bed
+        who = face.name if face is not None else cast or "the presenter"
+        words["host"] = f"Lay {who} over the B-roll{music}"
+    words["cut"] = "Watch and listen to the whole cut, then deliver"
     first = next((c for c in cells if c["state"] == "making"), None)
     subs = {"stills": f"{video.drawn} of {video.stills} drawn" if video.stills else "",
             "takes": f"Clip {first['number']} · scene {first['scene']} · {first['seconds']} s · "
                      f"about {first['minutes_left']} min" if first else "",
-            "watching": watching[1] if watching else ""}  # fmt: skip
+            "watching": watching[1] if watching else "",
+            "prompts": "; ".join(reasons)}  # fmt: skip
     out = []
     for key in (k for k in ORDER if k in words):
         n = ORDER.index(key)
@@ -315,9 +331,110 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
             state = {"needs_fix": "bad", "stopped": "todo"}.get(how, state)
         if n == at and held and not how:
             state = "wait"
+        shown = state in ("now", "wait") or key == "prompts" and state == "done"  # why each model
         out.append({"key": key, "state": state, "text": words[key],
-                    "sub": subs.get(key, "") if state in ("now", "wait") else ""})  # fmt: skip
+                    "sub": subs.get(key, "") if shown else ""})  # fmt: skip
     return out
+
+
+def _and(names: list[str]) -> str:
+    return ", ".join(names[:-1]) + f" and {names[-1]}" if len(names) > 1 else "".join(names)
+
+
+def _cast(db: Session, project: Project, slots: list, face) -> str:
+    """S3-04's cast line: who's in it, the voice it's read in, and whether they're the brand's
+    saved ones ("Cast: Dr. Pickle and the cloned voice, both saved in Resilia") or all made
+    for this video. A role not cast yet isn't named; a look kept by a script isn't saved."""
+    from app import director_song, voices
+    from app.cast_roles import pick
+    from app.models.library import LibraryItem
+
+    brand = db.get(Brand, project.brand_id)
+    items = [(s.role, db.get(LibraryItem, pick(db, project, s) or 0)) for s in slots]
+    items = [(name, i) for name, i in items if i is not None]  # cast; an archived look isn't
+    if face is not None and all(i.id != face.id for _, i in items):
+        items.insert(0, (face.name, face))  # the presenter, when no role is them
+    names = [name for name, _ in items]
+    saved = [i.owner_project_id is None and i.owner_script_id is None and brand in i.brands
+             for _, i in items]  # fmt: skip
+    here = [i.owner_project_id == project.id for _, i in items]
+    read = ""  # an app voice: not the brand's to save, so said apart
+    if face is not None or director_song.kind(db, project) == "narrated":
+        from app.models.songs import SongTake
+
+        take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
+        # the voice its narration was read in; before one, the one it will be (director_song;
+        # a voice card's answer is the video's picked voice)
+        ref = ((take.voice if take is not None else "") or voices.picked(db, project)
+               or director_song._voice(db, project))  # fmt: skip
+        voice = voices.named(db, project.workspace_id, ref, project.brand_id)
+        if voice is not None:  # the brand's own, or its style's, listed with them (S8-04, L4)
+            names.append(f"the {voice.kind} voice")  # "the cloned voice"
+            saved.append(True)
+        elif ref in voices.stock_keys():
+            read = f"the {voices.stock(ref)['name']} voice"
+    if not names:
+        return f"Cast: read in {read}" if read else ""
+    both = "" if len(saved) == 1 else "both " if len(saved) == 2 else "all "
+    end = (f", {both}saved in {brand.name}" if all(saved)
+           else ", made for this video" if here and all(here) and len(here) == len(saved)
+           else "")  # fmt: skip
+    return f"Cast: {_and(names)}{end}" + (f"; read in {read}" if read else "")
+
+
+LOWER = ("The", "A", "An", "It", "Its", "This", "That", "His", "Her", "Their", "One", "Some")
+SHOT = re.compile(r"^(?:shot\s+)?(\d+)\.\d+\b:?\s*", re.I)  # a finding's "3.1 shows him ..."
+
+
+def _redrawn(db: Session, project: Project, first: Job, shots: set[str]) -> str:
+    """Why the run's stills were redrawn, from its review's worst finding, as one short reason
+    in plain words (rule 23): "the capsule label faced away"; a finding in the review's own
+    shape ("4.2 shows him sitting; the beat is the jar exploding") names the clip that shot is
+    in ("clip 14's still shows him sitting"), never a bare shot number."""
+    from app import clip_prompts, still_review
+
+    if not shots:
+        return ""
+    rows = db.scalars(select(Job).where(Job.project_id == project.id, Job.id >= first.id,
+                                        Job.input["step"].as_string() == still_review.STEP,
+                                        Job.status == JobStatus.succeeded))  # fmt: skip
+    every = [f for j in rows for f in (j.output or {}).get("findings") or []]
+    f = next((f for f in every if f.get("shot_id") in shots
+              and said(f.get("problem", "")).strip(" .")), None)  # fmt: skip
+    if f is None:
+        return ""
+    p = said(f["problem"])
+    if m := SHOT.match(p):
+        bd = clip_prompts.newest(db, project)
+        clip = next((c["id"] for c in (bd.data if bd else {}).get("clips", [])
+                     if f["shot_id"] in c.get("shot_ids", [])), "")  # fmt: skip
+        whose = f"clip {clip.removeprefix('c')}'s" if clip else "the"
+        p = f"{whose} still {p[m.end() :]}"
+    p = p.split("; ", 1)[0].strip().rstrip(".")
+    word = p.split(" ", 1)[0]
+    return p[0].lower() + p[1:] if word in LOWER else p  # never a name ("Dr. Pickle's")
+
+
+TRIES = 4  # clips read a model for its reason, at most
+
+
+def _models(db: Session, video: _Video, cells: list[dict]) -> tuple[dict[str, int], list[str]]:
+    """The clips' models with how many each ({"Seedance 2.0": 20, "Seedance 1 Lite": 4}),
+    and why each, as the Clips tab says it ("Seedance 2.0: Dr. Pickle's default"): one read a
+    model, whatever the video's length."""
+    counts: dict[str, int] = {}
+    for c in cells:
+        counts[c["model"]] = counts.get(c["model"], 0) + 1
+    rows = {r.clip_id: r for r in video.clips if getattr(r, "id", None) is not None}
+    reasons = []
+    for name in counts:
+        tried = [rows[c["clip_id"]] for c in cells if c["model"] == name and c["clip_id"] in rows]
+        for row in tried[:TRIES]:  # a talker's clip can sit under the B-roll's model: next one
+            told = model_map.why(db, video.project, row)
+            if told["name"] == name and told["why"]:
+                reasons.append(f"{name}: {told['why'].rstrip('.')}")
+                break
+    return counts or {video.model: 0}, reasons
 
 
 def _watching(db: Session, video: _Video, cells: list[dict],
