@@ -14,6 +14,7 @@ from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
+from app.models.songs import SongTake
 from app.routes.estimate import run_price
 from tests import helpers
 from tests.test_freestyle_dialogue import _run
@@ -73,6 +74,11 @@ def test_the_director_makes_the_host_after_the_narration_and_lays_it_over_the_cu
     assert not [j for j in db.query(Job).all() if j.input.get("model") == p_video.ID]
     final = db.query(FinalVideo).filter(FinalVideo.project_id == video.id).all()[-1]
     assert [x for x in final.cut_ins if x.startswith("host:")]  # a new piece: out of date
+    said = owner.get(f"/projects/{video.id}/host").json()  # the Cast tab's Presenter (S5-02)
+    who, take = host.host_look(db, video), db.get(SongTake, video.song_take_id)
+    assert (said["presenter_id"], said["voice"]) == (who.id if who else None, take.voice)
+    assert owner.get("/presenter-ways/corner.jpg").headers["content-type"] == "image/jpeg"
+    assert owner.get("/presenter-ways/other.jpg").status_code == 422
 
 
 def test_a_failed_piece_is_tried_again_once_then_make_again_makes_it(app, db, owner, monkeypatch):
@@ -99,6 +105,23 @@ def test_a_failed_piece_is_tried_again_once_then_make_again_makes_it(app, db, ow
     assert mine["error"] and mine["credits"] > 0  # Make again, at its price (rule 22)
     assert not [j for j in _jobs(db, video, host.PIECE) if j.retry_of_id == retry.id]
     assert owner.post(f"/projects/{video.id}/host/{piece.number}").status_code == 201
+
+
+def test_the_earlier_presenter_comes_back_free_and_back_again(app, db, owner):
+    fs = _sent(owner, "presenter", NARRATION)
+    _run(app, db, ticks=160)
+    video = _video(db, fs)
+    url = f"/projects/{video.id}/host"
+    assert owner.post(f"{url}/back").status_code == 409  # nothing earlier yet
+    rows = host.rows(db, video)
+    now = [r.file_id for r in rows]
+    for r, f in zip(rows, now, strict=True):  # as after Make the presenter again
+        r.earlier, r.file_id = [f], f + 1000
+    db.commit()
+    shown = owner.post(f"{url}/back").json()
+    assert [p["file_id"] for p in shown["pieces"]] == now  # the one before, free
+    again = owner.post(f"{url}/back").json()  # pressed again: the newer one (Undo)
+    assert [p["file_id"] for p in again["pieces"]] == [f + 1000 for f in now]
 
 
 def test_a_presenter_runs_up_to_holds_the_host_on_heygen(app, db, owner):

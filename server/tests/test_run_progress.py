@@ -88,7 +88,8 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
     assert p["sub"] == "1 clip · 1 redone after watching"
     assert p["title"].startswith("Made in ") and p["title"].endswith(" min")
     assert p["ended_at"] and p["minutes_left"] is None and p["stopped"] is p["failed"] is None
-    assert all(s["state"] == "done" and s["sub"] == "" for s in p["steps"]), p["steps"]
+    assert all(s["state"] == "done" for s in p["steps"]), p["steps"]
+    assert [s["key"] for s in p["steps"] if s["sub"]] == ["prompts"]  # why each model (S3-04)
     keys = [s["key"] for s in p["steps"]]
     assert keys[:2] == ["read", "plan"] and keys[-1] == "cut" and "takes" in keys
     assert p["steps"][0]["text"].startswith("Read the script, the ") and "’s brand kit" in (
