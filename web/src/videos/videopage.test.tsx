@@ -759,3 +759,23 @@ test("S3-07: before the owner's OK its video's thread is closed, so the send's o
   await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
 });
+
+test("an answered money card says who approved it and when, never picked by", async () => {
+  setViewport(1440);
+  const start = ask({ kind: "start", question: "Make it for up to $14.73?", saved: [], money: held$(), state: "answered", answer: { how: "make_it" }, answered_by: "Reed", answered_at: later, can: [] });
+  server(owner, null, run({ thread: [asked()] }), cards(start));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it for up to $14.73?" });
+  expect(within(card).getByText("Make it for up to $14.73? Approved")).toBeInTheDocument();
+  expect(within(card).getByText(/^by Reed, \d\d:\d\d$/)).toBeInTheDocument();
+  expect(card.textContent).not.toMatch(/picked by/);
+});
+
+test("S3-09: a note with nothing uncertain and nothing open has no What remains uncertain", async () => {
+  setViewport(1440);
+  const clear = { ...note, unsure: "", open: [] };
+  server(owner, null, run({ status: "delivered", thread: [item("t2", "move", "Director", "…", "done", later, { note: clear })] }), { "GET /projects/50/director/progress": [200, record({ status: "delivered", title: "Made in 22 min", sub: "4 clips", tone: "done" })], "GET /projects/50/video": [200, { file_id: 8, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50");
+  const n = await screen.findByRole("region", { name: "Delivery note" });
+  expect(within(n).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["What I made", "What I need from you"]);
+});

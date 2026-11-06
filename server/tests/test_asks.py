@@ -807,3 +807,21 @@ def test_a_cards_clone_is_saved_to_the_brands_voices_and_reused_never_charged_ag
     assert again.json()["answer"]["reused"] is True
     db.expire_all()
     assert db.query(Job).filter(Job.kind == "voice").count() == 1  # one paid call in all
+
+
+def test_the_header_the_run_card_and_the_note_say_the_up_to_its_make_it_approved(
+    app, db, owner, editor, monkeypatch
+):
+    """One "up to" after Make it: the start card's price, not the budget beside the director's
+    limit (QA on #1354: the header said $13.01 while the card and the note said $14.73)."""
+    from decimal import Decimal
+
+    pid, _ = _video(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=4, start=False)
+    card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
+    assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
+    price = card["money"]["up_to"]["credits"]
+    monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(7)))  # far apart
+    assert abs(owner.get(f"/projects/{pid}/idea").json()["up_to"]["credits"] - price) < 1
+    assert abs(owner.get(f"/projects/{pid}/director/progress").json()["up_to"] - price) < 1
