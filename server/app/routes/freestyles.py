@@ -348,7 +348,8 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
     """A change to a Dialogue freestyle (the Producer, 3b). While a run goes on it's a note,
     read at the director's next turn, inside the price already approved. Otherwise the send
     is the press: quoted "up to" the whole video's price again; a new run reads every unread
-    note, after its start card's OK (an editor's from the owner)."""
+    note, after its start card's OK (an editor's from the owner). A note that asks only to
+    change a locked line is answered at once instead (S3-14): no run, nothing held."""
     if fs.brand_id is None:  # from before every video had a brand: it has no Cast tab
         raise HTTPException(409, OLD_NO_BRAND)
     project = db.get(Project, fs.project_id)
@@ -358,10 +359,13 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
         fs.chat = [*fs.chat, {"by": user.id, "text": text, "at": at, "job": None}]
         db.commit()
         return
-    draft = db.get(ScriptDraft, project.script_draft_id)
+    if director.say(db, user, project, text) is not None:  # only a locked line's words: the
+        fs.chat = [*fs.chat, {"by": user.id, "text": text, "at": at, "job": None}]  # reply came
+        db.commit()  # at once (S3-14), so no run starts and nothing waits for the owner
+        return
+    draft = db.get(ScriptDraft, project.script_draft_id)  # unread: the new run reads it
     price = run_price(db, draft, project)
     total = approved(db, fs) + price
-    director.say(db, user, project, text)  # unread: the new run reads it
     script = db.get(Script, draft.script_id)
     pasted = script.created_at >= fs.created_at  # made with this freestyle: rule 5's send
     wait = HELD if pasted and not user.is_owner else hold(db, user, script, draft, project)
