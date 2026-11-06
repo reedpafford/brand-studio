@@ -4437,6 +4437,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/director/carry-on": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carry On
+         * @description Carry on (S3-08) after a person's Stop: the same run goes on where it left off under the
+         *     owner's existing OK, up to what's left of its own approved price ("up to $X more"); a step
+         *     past that waits for the owner. With nothing of it left, a new run with its own start card,
+         *     as Make it starts one. 409 while a run goes on.
+         */
+        post: operations["carry_on_projects__project_id__director_carry_on_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/director/messages": {
         parameters: {
             query?: never;
@@ -6058,8 +6081,8 @@ export interface paths {
         /**
          * List Voices
          * @description The brand's own voices, the styles' voices, then every app voice (Reed, 4 Nov: a brand
-         *     saves only voices uploaded or cloned for it). An `all` query from the first version is
-         *     ignored.
+         *     saves only voices uploaded or cloned for it; 6 Nov: or described for it). An `all` query
+         *     from the first version is ignored.
          */
         get: operations["list_voices_brands__brand_id__voices_get"];
         put?: never;
@@ -6287,6 +6310,8 @@ export interface components {
             text?: string | null;
             /** Choice */
             choice?: string | null;
+            /** Name */
+            name?: string | null;
         };
         /** ApplyOut */
         ApplyOut: {
@@ -10347,6 +10372,11 @@ export interface components {
             /** Changed */
             changed: components["schemas"]["ChangedClipOut"][];
             stopped: components["schemas"]["RunStoppedOut"] | null;
+            /**
+             * Stops
+             * @default []
+             */
+            stops: components["schemas"]["RunStopOut"][];
             failed: components["schemas"]["RunFailedOut"] | null;
         };
         /** ProjectClipIn */
@@ -11011,6 +11041,19 @@ export interface components {
             text: string;
             /** Sub */
             sub: string;
+        };
+        /**
+         * RunStopOut
+         * @description A Stop the run carried on from (S3-08): "Reed stopped the director at 10:31 · carried
+         *     on at 10:40".
+         */
+        RunStopOut: {
+            /** By */
+            by: string;
+            /** At */
+            at: string;
+            /** Carried At */
+            carried_at: string;
         };
         /** RunStoppedOut */
         RunStoppedOut: {
@@ -12963,6 +13006,8 @@ export interface components {
             kind: "stock" | "cloned" | "described";
             /** Stock Key */
             stock_key: string | null;
+            /** Uses */
+            uses?: string | null;
             /** Provider */
             provider: string;
             /** Description */
@@ -22280,6 +22325,37 @@ export interface operations {
         };
     };
     plan_again_projects__project_id__director_plan_again_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    carry_on_projects__project_id__director_carry_on_post: {
         parameters: {
             query?: never;
             header?: never;

@@ -529,6 +529,28 @@ def spent(db: Session, project: Project) -> tuple[Decimal, Decimal]:
     return used, ideas._up(max(run_up_to(db, project), reach, used))
 
 
+def carry_left(db: Session, project: Project) -> Decimal | None:
+    """Board S3-08's "Carry on · up to $10.74 more": what's left of the stopped run's OWN
+    approved price (rule 34, Reed 6 Nov: each run its own price; a run is one pass from its
+    Make it to its delivery or Stop): that price, with its OKs at the director's own limit,
+    less what the run has charged against it (`asks.approved_run`). None when the newest run
+    wasn't stopped by a person, had no Make it, or has nothing of its price left."""
+    from app.credits import COUNTED
+
+    every = runs(db, project)
+    run_id, rows = list(every.items())[-1] if every else (None, [])
+    if not any(j.input.get(STOPPED_BY) for j in rows):
+        return None
+    card = db.scalar(select(Job).where(  # its own Make it, pressed: never an earlier run's OK
+        Job.project_id == project.id, Job.input[asks.START].as_boolean(),
+        Job.status.in_(COUNTED)).order_by(Job.id.desc()).limit(1))  # fmt: skip
+    if card is None or (card.input.get(RUN) or {}).get("id") != run_id:
+        return None  # stopped before its Make it (at its start card): a new run's own card
+    got = asks.approved_run(db, project)
+    left = got[0] - got[1] if got else Decimal(0)
+    return left if left > 0 else None
+
+
 def dollars(credits: Decimal) -> float:
     """Credits as the owner reads them, in dollars at the header's rate (`ideas._money`)."""
     from app.models.credits import USD_PER_CREDIT
@@ -640,9 +662,16 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "stopped": None, "failed": None}  # fmt: skip
     by = next((j.input for j in turns if j.input.get(STOPPED_BY)), None)
     if how == "stopped" and by:  # a person's Stop (a declined turn: its reason is the sub)
+        from app import director
+
+        left = carry_left(db, project)  # the rest of this run's own price; else a new run's
+        waits = director._carry_waiting(db, project) is not None  # its Carry on is the owner's
+        figure = "" if waits else money(left if left else again, owner)
         out["stopped"] = {"by": user_name(db, by[STOPPED_BY]), "at": by["stopped_at"],
-                          "made": made, "total": total,
-                          "carry_on": money(again, owner)}  # fmt: skip
+                          "made": made, "total": total, "carry_on": figure}  # fmt: skip
+    out["stops"] = [{"by": user_name(db, w["stopped_by"]), "at": w["stopped_at"],
+                     "carried_at": w["carried_at"]} for j in turns
+                    if (w := j.input.get("was_stopped")) and w.get("stopped_by")]  # fmt: skip
     if how == "needs_fix":
         out["failed"] = _failed(db, video, cells, why, owner, again)
     return out

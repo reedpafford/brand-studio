@@ -121,12 +121,14 @@ class AskOut(BaseModel):
 
 
 class AnswerIn(BaseModel):
-    how: str  # saved, upload, reply, option, choice, clone; make_it, approve, keep, decline,
-    # withdraw (clone: `file_id` an audio sample, `text` the voice's name)
+    how: str  # saved, upload, reply, option, choice, clone, describe; make_it, approve, keep,
+    # decline, withdraw (clone: `file_id` an audio sample, `text` the voice's name; describe:
+    # `text` what the voice sounds like, `name` the brand's name for it)
     option: str | int | None = None  # a saved id, or a generated option's index
     file_id: int | None = None  # upload: POST /files first
     text: str | None = Field(default=None, max_length=2000)  # reply
     choice: str | None = None
+    name: str | None = Field(default=None, max_length=120)  # describe: "" is "Described voice"
 
 
 class GenerateIn(BaseModel):
@@ -179,7 +181,8 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
         card.clone = _price(user, voices.clone_credits(db, project.workspace_id))
         card.clone_to = f"Saved to {db.get(Brand, project.brand_id).name}'s voices"
     if mine and state != "not_needed":
-        card.can = ["reply"] + (["saved"] if card.saved else [])
+        card.can = ["describe" if ask.kind == "voice" else "reply"]  # a voice: Describe it
+        card.can += ["saved"] if card.saved else []
         card.can += ["upload"] if ask.kind in asks.UPLOADS else []
         card.can += ["choice"] if ask.kind == "story" else []
         card.can += ["clone"] if ask.kind == "voice" else []
@@ -230,6 +233,12 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         card.why = ("That's the most this run can charge: the first takes and their checks, up "
                     f"to {director.MAX_REDOS} remakes a clip, and my own time. Usually it's "
                     f"nearer {_said(money.usual)}.")  # fmt: skip
+        if held and held[0].input.get(asks.CARRIES):  # carrying on after the owner's Stop
+            money.usual = None
+            card.question = f"Carry on for up to {_said(money.up_to)} more?"
+            card.why = ("The owner stopped the director. Carrying on goes on where it left "
+                        "off, up to the rest of this run's approved price. Nothing is charged "
+                        "while it waits.")  # fmt: skip
         may = asks.may_start(db, user, project)
         card.can = ["make_it"] if may else []
         card.can += ["decline"] if owner and project.created_by_id != user.id else []
