@@ -502,6 +502,18 @@ def run_up_to(db: Session, project: Project) -> Decimal:
     return got if got is not None else price_of(db, project)
 
 
+def started(db: Session, project: Project) -> bool:
+    """Whether generation has started on the video: a run got past its OK (a pressed start
+    card, or a run from before start cards, whose turns carry no `ok`). Until then the header
+    and a start card say "No generation started" (S3-02); after, never again (S3-12)."""
+    from app import asks
+    from app.credits import COUNTED
+
+    every = [j for run in runs(db, project).values() for j in run]
+    return asks.approved_run(db, project) is not None or any(
+        j.input[RUN].get("ok", True) and j.status in COUNTED for j in every)  # fmt: skip
+
+
 def spent(db: Session, project: Project) -> tuple[Decimal, Decimal]:
     """(what the video has charged so far, its "up to"), in credits, as its header says them
     (board S3-12: the whole video's figures, one for the header, the run card and the note):
@@ -562,7 +574,8 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     revising = any(r != run_id and ending(t)[0] == "delivered" for r, t in every.items())
     notes = [(j.output or {}).get("note") for r, t in every.items() if r != run_id for j in t]
     cut = next((n["cut"] for n in reversed(notes) if isinstance(n, dict) and n.get("cut")), None)
-    stays = f"{f'Cut {cut}' if cut else 'The cut'} stays as it is"  # a revision's delivered cut
+    stays = (f"{f'Cut {cut}' if cut else 'The cut'} stays as it is" if revising  # its cut
+             else "Nothing more is made" if started(db, project) else "")  # fmt: skip
     scenes = [{"id": sid, "name": name, "clips": [c for c in cells if c["scene"] == sid]}
               for sid, name in video.scenes()]  # fmt: skip
     other = [c for c in cells if c["scene"] not in {s["id"] for s in scenes}]
@@ -582,7 +595,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                if how == "needs_fix" else None)  # fmt: skip
         plain = how == "needs_fix" or why == "Stopped."
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
-                f"{made} of {total} clips made" if plain else said(why),
+                f"{made} of {_n(total, 'clip')} made" if plain else said(why),
                 "bad" if how == "needs_fix" else "stop")  # fmt: skip
     elif (
         holds is not None
@@ -591,11 +604,11 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         and asks.may_start(db, viewer, project)
     ):  # its start card, theirs to press (S3-02)
         first = "No generation started: press Make it"
-        sub = f"{stays} until you press Make it" if revising else first
+        sub = f"{stays} until you press Make it" if stays else first
         head = ("waiting", "Ready to make", sub, "wait")
     elif holds is not None:
         why = (holds.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
-        if revising and holds.input.get(asks.START):  # a revision's start card, the owner's
+        if stays and holds.input.get(asks.START):  # a start card after a run, the owner's
             why = f"{stays} until the owner says yes"
         head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner's OK",
                 why, "wait")  # fmt: skip
@@ -606,7 +619,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                 "now")  # fmt: skip
     else:
         head = ("working", "Cutting it together" if total else "Planning",
-                f"{total} clips made" if total else "", "now")  # fmt: skip
+                f"{_n(total, 'clip')} made" if total else "", "now")  # fmt: skip
     again = price_of(db, project)  # carrying on is a new run: its whole "up to" (rule 36)
     for c in cells:  # a press's price as it charges: the take with the check that rides along
         if c["state"] in ("waiting", "failed"):

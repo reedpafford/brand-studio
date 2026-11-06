@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { image, onBrand, signIn, switchBrand } from "./helpers";
 
 // v6 S8 (the brand library) on the stand-ins. Runs after brand.e2e.ts, in order, on the fomo brand: Max and Rex are made
@@ -12,7 +12,22 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Library" })).toBeVisible();
 });
 
-test("an empty brand's Make one draws a new character's sheet, its page opens, and a person approves it (S8-02, S8-07, L5)", async ({ page }) => {
+// A retry (or a --repeat-each round) runs the serial group again from here: what an earlier attempt made goes first, so fomo starts empty again.
+async function forget(page: Page, names: string[]) {
+  const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
+  const fomo = brands.find((b) => b.name === "fomo")!.id;
+  for (const archived of [false, true]) {
+    const items = (await (await page.request.get(`/api/library/character?brand_id=${fomo}&archived=${archived}`)).json()) as { id: number; name: string }[];
+    for (const { id } of items.filter((i) => names.includes(i.name))) {
+      if (!archived) await page.request.delete(`/api/library/character/${id}`);
+      await page.request.delete(`/api/library/character/${id}/permanent`);
+    }
+  }
+  await page.reload();
+}
+
+test("an empty brand's Make one draws a new character's sheet, its page opens, and a person approves it (S8-02, S8-07, L5)", async ({ page }, info) => {
+  if (info.retry || info.repeatEachIndex) await forget(page, ["Max", "Rex"]);
   await expect(page.getByRole("heading", { name: "No characters in fomo yet" })).toBeVisible();
   await page.getByRole("button", { name: /^Make one · up to \$/ }).click();
   const form = page.getByRole("form", { name: "New character" });
@@ -49,9 +64,15 @@ test("More: a change to the words is saved, and the old version can be restored"
   await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("textbox", { name: "Description" }).fill("Tough but fair.");
   await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved.");
   await expect(page.getByText("Tough but fair.").first()).toBeVisible();
-  await page.getByRole("button", { name: "More" }).click();
-  await expect(page.getByRole("button", { name: /^Restore v\d+$/ }).first()).toBeVisible();
+  // The saved version opens the page afresh (its More folded) once it is read back: open More whenever it's folded, so the
+  // check never depends on whether that happened before or after this press (it closed it again on CI).
+  const more = page.getByRole("button", { name: "More" });
+  await expect(async () => {
+    if ((await more.getAttribute("aria-expanded")) !== "true") await more.click();
+    await expect(page.getByRole("button", { name: /^Restore v\d+$/ }).first()).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
 });
 
 test("archiving says so with Undo; Show archived lists it with Unarchive (S8-08)", async ({ page }) => {

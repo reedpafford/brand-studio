@@ -13,7 +13,6 @@ from app.advice import SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
-from app.models.jobs import JobStatus
 from app.routes.clips import generation_on
 from app.routes.projects import _mine, get_project, video_writer
 from app.schemas import UtcTime
@@ -240,11 +239,9 @@ def _out(db: Session, user: User, project) -> DirectorOut:
         blocked = director.blocked(db, project)
     except HTTPException as no:
         blocked = no.detail
-    started = (
-        bool(last)
-        and last.input[director.RUN].get("ok", True)
-        and not (last.input.get(director.START) and last.status == JobStatus.needs_owner_approval)
-    ) or asks.approved_run(db, project) is not None  # a run made it before: a revision (S3-12)
+    from app import run_progress
+
+    started = run_progress.started(db, project)
     return DirectorOut(status=status, ended=ended, turns=turns,
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,
