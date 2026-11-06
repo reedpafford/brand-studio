@@ -81,8 +81,9 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     plans the whole video again instead of carrying on from its shots (`fresh`)."""
     if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
+    again = {FRESH: utcnow().isoformat()} if fresh else _replanning(db, project)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id, "ok": False,
-           "hold": hold, **({FRESH: utcnow().isoformat()} if fresh else {})}  # fmt: skip
+           "hold": hold, **again}  # fmt: skip
     lock(db, Project, project.id)  # the notes it takes can't change under it
     db.refresh(project)
     left = set(leftover(db, project))  # every note no run has read: this run reads them
@@ -850,6 +851,18 @@ def unpick_old_takes(db: Session, project: Project, run: dict | None) -> None:
 
 
 UNPICKED = "unpicked"  # in a fresh run: its takes from before the press were set aside
+
+
+def _replanning(db: Session, project: Project) -> dict:
+    """A new run after a "Start the plan again" run that ended before it delivered (Stop, or a
+    step that failed) carries on that press: the same press time and unpicked mark, so its old
+    takes stay set aside and every clip is still made again. After that run delivered, the next
+    run is a normal one (its earlier takes can be picked back as on any video)."""
+    rows = turns(db, project)
+    if not rows or rows[-1].input.get("result") == "Delivered.":
+        return {}
+    last = rows[-1].input[RUN]
+    return {k: last[k] for k in (FRESH, UNPICKED) if last.get(k)}
 
 
 def _pressed(run: dict | None):

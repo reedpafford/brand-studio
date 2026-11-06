@@ -218,3 +218,43 @@ def test_a_take_a_person_picks_after_the_press_is_theirs(app, db, owner, editor)
 
 def _picked(db, pid: int) -> dict[str, int | None]:
     return {r.clip_id: r.picked_take_id for r in db.query(ProjectClip).filter_by(project_id=pid)}
+
+
+def test_carrying_on_a_stopped_plan_again_run_still_makes_every_clip_again(app, db, owner, editor):
+    """QA on ceef469c: Stop after Start the plan again set the old takes aside, then Carry on.
+    The new run carries the press on, so no take from before it is picked back; and the
+    stopped card counts no clip as made while only its old takes are there."""
+    pid = _stopped(app, db, owner, editor)
+    assert editor.post(f"/projects/{pid}/director/plan-again").status_code == 201
+    providers = get_providers(app.state.settings, app.state.storage)
+    for _ in range(120):  # until its old takes are set aside, before any new take
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        make_it(db)
+        if director.turns(db, db.get(Project, pid))[-1].input[director.RUN].get(director.UNPICKED):
+            break
+    run = director.turns(db, db.get(Project, pid))[-1].input[director.RUN]
+    assert run.get(director.UNPICKED)
+    assert editor.post(f"/projects/{pid}/director/stop").json()["ended"] == "Stopped."
+    stopped = editor.get(f"/projects/{pid}/director/progress").json()["stopped"]
+    assert stopped["made"] == 0  # its old takes don't count as made
+    assert editor.post(f"/projects/{pid}/director").status_code == 201  # Carry on
+    carried = director.turns(db, db.get(Project, pid))[-1].input[director.RUN]
+    assert carried[director.FRESH] == run[director.FRESH] and carried[director.UNPICKED]
+    _run(app, db, ticks=150)
+    db.expire_all()
+    pressed = datetime.fromisoformat(run[director.FRESH])
+    rows = db.query(ProjectClip).filter_by(project_id=pid).all()
+    assert rows and all(r.picked_take_id for r in rows)
+    for row in rows:  # every clip made again after the press
+        assert db.get(ClipTake, row.picked_take_id).created_at > pressed
+
+
+def test_after_a_plan_again_run_delivers_the_next_run_is_a_normal_one(app, db, owner, editor):
+    pid = _stopped(app, db, owner, editor)
+    editor.post(f"/projects/{pid}/director/plan-again")
+    project = db.get(Project, pid)
+    last = director.turns(db, project)[-1]
+    last.input = {**last.input, "result": "Delivered."}
+    db.commit()
+    assert director._replanning(db, project) == {}
