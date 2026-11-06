@@ -30,8 +30,8 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 
 ## Context hygiene (Reed, 2026-10-25)
 - **When to restart:** when a worker finishes a batch of PRs and is above about 60% of its context (or has auto-compacted repeatedly), the Producer restarts it fresh instead of letting it compact mid-task.
-- **How:** the old worker pushes everything and lists its open PRs and unopened branches, with a short handoff. The new session starts from HANDOFF, DECISIONS, this file and those PRs, and takes over watching them. The Producer sends everyone (Status Desk included) the new session ID and updates the table below, then archives the old session.
-- **After any compaction, and before every new task:** re-read ops/HANDOFF.md and the Current rules at the top of ops/DECISIONS.md before acting. Newer decisions override older ones; if unclear, ask the Producer.
+- **How:** the old worker pushes everything and lists its open PRs and unopened branches, with a short handoff. The new session follows CLAUDE.md’s read schedule, reads HANDOFF, RULES (or the Current rules in DECISIONS if RULES is absent), this Context hygiene section, its role duties and those PRs, and takes over watching them. The Producer sends everyone (Status Desk included) the new session ID and updates the table below, then archives the old session.
+- **After any compaction, and before every new task:** re-read only ops/HANDOFF.md and ops/RULES.md (or the Current rules at the top of ops/DECISIONS.md if RULES is absent) before acting. Load role duties, QA and other task-specific sections when CLAUDE.md’s triggers apply. Newer decisions override older ones; if unclear, ask the Producer.
 - **QA-Live sessions** are listed in the table below while they run, and removed when they finish.
 
 ## Sessions (current)
@@ -75,3 +75,5 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 - Paid calls only within the $15/week cap, logged in ops/SPEND.md, asked through the Producer.
 - Never touch story-studio or its live server.
 - Never put keys in code, commits or chat.
+
+Previous context-hygiene wording is preserved verbatim in [the full AGENTS snapshot](archive/AGENTS-before-context-2026-11-04.md). The role and session tables and QA checklist are unchanged.
