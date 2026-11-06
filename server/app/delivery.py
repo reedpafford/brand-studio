@@ -7,6 +7,7 @@ open (`open_items`), the run's real cost and the cut's number. "Ready to post" i
 when nothing is open."""
 
 import math
+import re
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -268,10 +269,25 @@ def shown(db: Session, project: Project, note: dict | None, owner: bool) -> dict
         cost = (f"{round(note['spent'])} credits used of up to {price(up_to)} "
                 f"({pct}% of the budget)")  # fmt: skip
     still = note.get("open", [])
-    unsettled = still or note["unsure"]  # "ready to post" only when nothing is open (Reed)
-    return {**note, "open": still, "needs": note["needs"] or (LOOK_FIRST if unsettled else NOTHING),
+    return {**note, "open": still, "needs": needs(note["needs"], bool(still or note["unsure"])),
             "cost": cost,
             "spent_usd": float(usd) if owner else None}  # fmt: skip
+
+
+READY = re.compile(r"[^.!?]*\b(?:ready to (?:post|go|publish|share)|good to go)\b[^.!?]*[.!?]?",
+                   re.I)  # fmt: skip
+LOOK = "Look at what remains uncertain before you post it."
+
+
+def needs(said_: str, unsettled: bool) -> str:
+    """What I need from you, as the server lets it stand (Reed: a cut that exists isn't ready
+    to post): "ready to post" only when nothing is open or uncertain; else never, whatever the
+    director wrote. Its real asks stay, followed by LOOK."""
+    if not unsettled:
+        return said_ or NOTHING
+    asks = re.sub(r"\s+", " ", READY.sub("", said_ or "")).strip()
+    asks = "" if re.fullmatch(r"(?i)(nothing|none)[.!]?", asks) else asks
+    return f"{asks} {LOOK}" if asks else LOOK_FIRST
 
 
 def plain(note: dict) -> str:

@@ -148,7 +148,7 @@ def test_the_director_writes_the_notes_words_and_the_server_the_rest(app, db, ow
     texts = [r["text"] for r in note["redid"]]
     assert "Clip 1: garbled words burned in. Remade without them." in texts  # no "c1: " left
     seen = delivery.shown(db, project, note, owner=False)
-    assert seen["needs"] == "Your OK on clip 1." and seen["spent_usd"] is None
+    assert seen["needs"].startswith("Your OK on clip 1. Look at") and seen["spent_usd"] is None
 
 
 def test_each_clip_says_what_happened_to_it(app, db, owner, editor, monkeypatch):
@@ -452,7 +452,9 @@ def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeyp
     db.commit()
     note = delivery.note(db, project, deliver, {"made": "x", "needs": "Your OK on clip 1."})
     assert "Clip 1: Mia's face drifts. Kept as it is." in note["open"]
-    assert delivery.shown(db, project, note, True)["needs"] == "Your OK on clip 1."
+    assert delivery.shown(db, project, note, True)["needs"] == (
+        "Your OK on clip 1. Look at what remains uncertain before you post it."
+    )  # still open
 
 
 def test_the_director_md_delivery_lines_are_reeds():
@@ -566,3 +568,20 @@ def test_the_stand_in_says_watched_only_when_it_watched_this_cut():
     assert (out["tool"], out["why"]) == ("deliver", "The cut is made.")
     state["watch"] = {"state": "done", "current": True, "findings": []}
     assert director.choose(state)["why"] == "The cut is made and watched."
+
+
+def test_the_director_never_says_ready_to_post_while_something_is_open():
+    """Reed: a cut that exists isn't ready to post. Whatever the director wrote, "ready to
+    post" stands only when nothing is open or uncertain; its real asks stay."""
+    base = {"made": "x", "redid": [], "unsure": "", "needs": "", "open": [], "spent": 1,
+            "up_to": 10, "cut": 1, "seconds": 5, "clips": 1}  # fmt: skip
+    shown = lambda **o: delivery.shown(None, None, {**base, **o}, False)["needs"]  # noqa: E731
+    assert shown() == delivery.NOTHING
+    assert shown(needs="Nothing. It’s ready to post.") == "Nothing. It’s ready to post."
+    for o in ({"open": ["The cut wasn't watched."]}, {"unsure": "The end may feel long."}):
+        assert shown(needs="Nothing. It’s ready to post.", **o) == delivery.LOOK_FIRST
+        assert shown(needs="Good to go!", **o) == delivery.LOOK_FIRST
+        assert shown(**o) == delivery.LOOK_FIRST
+        assert shown(needs="Your OK on clip 1. Then it's ready to post.", **o) == (
+            "Your OK on clip 1. Look at what remains uncertain before you post it."
+        )
