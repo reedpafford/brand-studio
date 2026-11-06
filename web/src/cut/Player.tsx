@@ -48,7 +48,7 @@ export function Player({
         onPause={() => setPlaying(false)}
         onClick={toggle}
       />
-      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-(image:--media-shade) px-3 pt-6 pb-2.5 text-on-media">
+      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-(image:--media-shade) px-3 pt-6 pb-2.5 text-on-media max-lg:gap-[34px] max-lg:px-3.5 max-lg:pb-3.5">
         <input
           type="range"
           aria-label="Where in the cut"
@@ -70,7 +70,7 @@ export function Player({
           <button type="button" className={HIT} aria-label={muted ? "Sound on" : "Sound off"} onClick={() => setMuted(!muted)}>
             {muted ? <VolumeX size={16} strokeWidth={1.75} aria-hidden /> : <Volume2 size={16} strokeWidth={1.75} aria-hidden />}
           </button>
-          <button type="button" className={HIT} aria-label="Full screen" onClick={() => void video.current?.requestFullscreen?.()}>
+          <button type="button" className={`${HIT} max-lg:ml-[18px]`} aria-label="Full screen" onClick={() => void video.current?.requestFullscreen?.()}>
             <Maximize2 size={16} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
@@ -79,7 +79,8 @@ export function Player({
   );
 }
 
-/** A 44px hit area round a 16px icon on a phone; the look stays the same. */
+/** A 44px hit area round a 16px icon on a phone; the look stays the same. Sound and Full screen sit 44px apart, and the
+ *  column's phone gap (34px) keeps the row under the seek bar's own 44px tap area. */
 const HIT = "grid shrink-0 place-items-center max-lg:-m-3.5 max-lg:size-11";
 
 /** The words under the player (S7-01): said, the one now, still to come. A click on a word plays from it. */
