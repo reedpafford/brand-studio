@@ -210,7 +210,7 @@ function Banners({ cut, onFix, busy }: { cut: Cut; onFix: (f: "loop_music" | "re
       <p className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2.5 text-sm" role="status">
         <LoaderCircle size={14} strokeWidth={1.75} className="animate-spin text-accent-text" aria-hidden />
         {cut.number
-          ? `Making Cut ${m.number}${m.changes ? ` with your ${m.changes} change${m.changes === 1 ? "" : "s"}` : ""} · free · about ${m.about_seconds} s. Cut ${cut.number} keeps playing until then.`
+          ? `Making Cut ${m.number}${m.number === cut.number ? " again" : ""}${m.changes ? ` with your ${m.changes} change${m.changes === 1 ? "" : "s"}` : ""} · free · about ${m.about_seconds} s. Cut ${cut.number} keeps playing until then.`
           : `Making the cut: ${m.doing} · ${m.percent}%`}
       </p>
     );

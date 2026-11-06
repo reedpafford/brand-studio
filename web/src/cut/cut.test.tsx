@@ -70,6 +70,12 @@ test("S7-01/02: an edit is free and posts at once; the changes wait for Make the
   expect(screen.getByText("Cut 3 in about 40 s")).toBeInTheDocument();
 });
 
+test("S3-12: the director making its own cut again before it delivers keeps that cut's number", async () => {
+  setViewport(1440);
+  open(cutOut({ number: 1, making: { number: 1, percent: 20, doing: "putting the clips together", about_seconds: 30, changes: 0 } }));
+  expect(await screen.findByText("Making Cut 1 again · free · about 30 s. Cut 1 keeps playing until then.")).toBeInTheDocument();
+});
+
 test("S7-02: the music sits quieter by an amount under the voice, and rises or stays down when no one speaks", async () => {
   setViewport(1440);
   const calls = open(cutOut(), { "POST /projects/9/cut/edits": [201, cutOut()] });
