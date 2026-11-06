@@ -165,3 +165,5 @@
 | 2026-11-06 | FOMO-House-Builder | Same run: images (looks and stills) | | | 2.37 (app job records) | Reed (same run) |
 | 2026-11-06 | FOMO-House-Builder | Same run: KIE Suno comedy music bed (task 46a448e1…), 12 KIE credits | 1 request | | 0.06 | Reed (same run) |
 | 2026-11-06 | FOMO-House-Builder | Seedance redo total | | 35.00 cap (set by the builder; Reed named no amount) | 19.16 | Reed |
+| 2026-11-06 | FOMO-House-Builder | "Her Dad Said I'd Never Afford Her" (58 s, 480p), live site project 90 / script 99, jobs 2894–2923: video 5.96, Claude 2.27, images 0.89 | | | 9.12 (app job records) | Reed ("yea do 480p") |
+| 2026-11-06 | FOMO-House-Builder | 6 Nov Seedance round total (redo 19.16 + Her Dad 9.12) | | 35.00 cap (set by the builder) | 28.28 | Reed |
