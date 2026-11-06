@@ -7,18 +7,18 @@ open (`open_items`), the run's real cost and the cut's number. "Ready to post" i
 when nothing is open."""
 
 import math
+import re
 from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import watch_report
-from app.db import utcnow
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
-from app.run_progress import RUN, _found, _model, run_up_to, runs, said, spent, watched
+from app.run_progress import RUN, _found, _model, dollars, runs, said, spent, watched
 
 NOTHING = "Nothing. It’s ready to post."  # only when nothing is open (`open_items`)
 LOOK_FIRST = "Nothing yet, but look at what remains uncertain before you post it."
@@ -27,16 +27,15 @@ FIXES = ("mute", "splice_word", "pick_take")  # the free fixes its rows name
 
 def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     """The note for the run `job` delivers: {made, redid [{at, clip, text}], unsure, needs,
-    spent, up_to, since, until, cut, seconds, clips}: money as charged, in credits. The real
-    dollars are never kept here (any teammate can read a job's output): `shown` reads them
-    for the owner from the run's `since` to `until`."""
+    spent, up_to, cut, seconds, clips}: money as charged, in credits; `shown` says it in dollars
+    to the owner only (any teammate can read a job's output)."""
     turns = runs(db, project)[job.input[RUN]["id"]]
     cut = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id)
                     .order_by(FinalVideo.id.desc()).limit(1))  # fmt: skip
     number = db.scalar(select(func.count()).where(
         FinalVideo.project_id == project.id, FinalVideo.id <= cut.id)) if cut else 0  # fmt: skip
     spans = _spans(db, cut)
-    credits, _ = spent(db, project, turns[0].created_at)
+    credits, up_to = spent(db, project)  # the whole video's, at this cut (board S3-12)
     rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
             + _host_rows(db, project, turns[0].created_at))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
@@ -45,8 +44,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "unsure": " ".join(x for x in (said(decision.get("unsure") or ""),
                                            watch_report.doubts(db, project)) if x),
             "needs": said(decision.get("needs") or ""),
-            "spent": float(credits), "up_to": float(run_up_to(db, project)),
-            "since": turns[0].created_at.isoformat(), "until": utcnow().isoformat(),
+            "spent": float(credits), "up_to": float(up_to),
             "cut": number, "clips": len(spans),
             "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
 
@@ -246,32 +244,71 @@ def _fixed(db: Session, project: Project, spans: list[dict], turns: list[Job]) -
     return out
 
 
-def shown(db: Session, project: Project, note: dict | None, owner: bool) -> dict | None:
-    """The note as this person reads it, with its cost line: dollars to the owner ("$9.84
-    spent of up to $16.86", what the run really cost), credits only to anyone else ("96
-    credits used of up to 164 (59% of the budget)")."""
-    from datetime import datetime
-
+def shown(note: dict | None, owner: bool) -> dict | None:
+    """The note as this person reads it, with its cost line in the header's figures at this
+    cut (the whole video's, board S3-12): dollars to the owner ("$9.84 spent of up to
+    $16.86"), credits only to anyone else ("96 credits used of up to 164 (59% of the
+    budget)"). The "up to" is never below what was spent."""
     from app.credits import price
     from app.models.credits import USD_PER_CREDIT
 
     if not note:
         return None
-    up_to, usd = Decimal(str(note["up_to"])), None
+    used = Decimal(str(note["spent"]))
+    up_to = max(Decimal(str(note["up_to"])), used)  # a note from before the guard
     if owner:
-        _, usd = spent(db, project, datetime.fromisoformat(note["since"]),
-                       datetime.fromisoformat(note["until"]))  # fmt: skip
         most = math.ceil(up_to * USD_PER_CREDIT * 100) / 100
-        cost = f"${usd:.2f} spent of up to ${most:.2f}"
+        cost = f"${dollars(used):.2f} spent of up to ${most:.2f}"
     else:
-        pct = round(100 * note["spent"] / note["up_to"]) if note["up_to"] else 0
-        cost = (f"{round(note['spent'])} credits used of up to {price(up_to)} "
-                f"({pct}% of the budget)")  # fmt: skip
+        pct = round(100 * used / up_to) if up_to else 0
+        cost = f"{round(used)} credits used of up to {price(up_to)} ({pct}% of the budget)"
     still = note.get("open", [])
-    unsettled = still or note["unsure"]  # "ready to post" only when nothing is open (Reed)
-    return {**note, "open": still, "needs": note["needs"] or (LOOK_FIRST if unsettled else NOTHING),
-            "cost": cost,
-            "spent_usd": float(usd) if owner else None}  # fmt: skip
+    return {**note, "open": still, "needs": needs(note["needs"], bool(still or note["unsure"])),
+            "cost": cost, "up_to": float(up_to),
+            "spent_usd": dollars(used) if owner else None}  # fmt: skip
+
+
+READY = re.compile(
+    r"\bready[\s-]+(?:to[\s-]+(?:post|publish|share|upload|go|be[\s-]+(?:posted|shared))|for"
+    r"[\s-]+(?:posting|upload(?:ing)?|you(?:[\s-]+to[\s-]+post)?))\b|\bgood[\s-]+to[\s-]+(?:go|post)\b"
+    r"|\ball[\s-]+set\b|\b(?:go[\s-]+ahead[\s-]+and|feel[\s-]+free[\s-]+to|you[\s-]+can)[\s-]+post\b"
+    r"|\b(?:it|that|everything|the[\s-]+(?:cut|video))(?:(?:'|’)s|[\s-]+is)[\s-]+ready"
+    r"(?:[\s-]+(?:to[\s-]+(?:be[\s-]+)?(?:post|publish|share|upload)\w*|for[\s-]+\w+))?\b",
+    re.I,
+)
+FILLER = re.compile(  # words that ask for nothing, once a "nothing" word says so (NONE)
+    r"(?i)[\W\s]*(?:(?:nothing|none|no|else|more|action|needed|required|left|to|do|at|this|"
+    r"time|is|it|it's|it’s|then|so|and|now|you|you're|you’re|from|me|n/a|ready|be|for|yet|"
+    r"here|all|approve|post|posted|posting|share|shared|upload|go)\b[\W\s]*)*"
+)
+NONE = re.compile(r"(?i)\b(?:nothing|none|no|n/a)\b")
+ASKS = re.compile(r"(?i)(?<!to )\b(?:approve|ok|confirm)\b")  # "Nothing else. Approve it."
+ACT = re.compile(r"(?i)\b(?:approve|post|share|upload|go|ok|confirm)\w*\b")  # an ask's verbs
+MENTIONS = re.compile(r"(?i)\bready\b|\b(?:post|publish|ship|share|upload)\w*\b")
+LOOK = "Look at what remains uncertain before you post it."
+NOT_YET = "Not ready to post yet."
+
+
+def needs(said_: str, unsettled: bool) -> str:
+    """What I need from you, as the server lets it stand (Reed: a cut that exists isn't ready
+    to post). With nothing open or uncertain, the director's words stand. Otherwise it never
+    reads as ready, and the director's words are never cut: a note that only says it's ready,
+    or that asks for nothing, becomes LOOK_FIRST; anything else is kept word for word, after
+    NOT_YET when it mentions being ready or posting, then LOOK."""
+    if not unsettled:
+        return said_ or NOTHING
+    text = re.sub(r"\s+", " ", said_ or "").strip()
+    rest = READY.sub(" ", text)
+    said_ready = READY.search(text) and not ACT.search(rest)  # "You're all set!": ready only
+    if not re.search(r"\w", rest) or (
+        FILLER.fullmatch(rest) and ((NONE.search(rest) and not ASKS.search(rest)) or said_ready)
+    ):
+        return LOOK_FIRST
+    text = re.sub(r"[\s;:,—–-]+$", "", text)
+    if not re.search(r"[.!?…][\"'”’)\]]*$", text):
+        text += "."
+    yet = NOT_YET if READY.search(text) or MENTIONS.search(text) else ""
+    return " ".join(x for x in (yet, text, LOOK) if x)
 
 
 def plain(note: dict) -> str:

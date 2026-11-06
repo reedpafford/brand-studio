@@ -50,9 +50,9 @@ class DeliveryNoteOut(BaseModel):
     needs: str  # What I need from you; "Nothing. It’s ready to post." only when nothing is
     # open, else "Nothing yet, but look at what remains uncertain before you post it."
     cost: str  # "$9.84 spent of up to $16.86"; an editor's "96 credits used of up to 164 (59%…)"
-    spent: float  # credits the run charged
-    up_to: float  # the video's "up to", in credits
-    spent_usd: float | None  # the owner only: what it really cost
+    spent: float  # credits the whole video had charged at this cut, as its header (S3-12)
+    up_to: float  # the video's "up to", in credits, never below `spent`
+    spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
     cut: int  # Cut 1, Cut 2, … (S3-12: "Delivery note · Cut 1 · 0:58 · $9.84")
     seconds: float  # the cut's length
     clips: int
@@ -175,9 +175,9 @@ class ProgressOut(BaseModel):
     counts: ClipCountsOut
     minutes_left: int | None  # "about 2 h 10 min left"
     steps: list[RunStepOut]
-    spent: float  # credits charged this run
-    up_to: float  # the video's "up to", in credits
-    spent_usd: float | None  # the owner only: what it really cost
+    spent: float  # credits the whole video has charged, as its header says (S3-12)
+    up_to: float  # the video's "up to", in credits, never below `spent`
+    spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
     changed: list[ChangedClipOut]  # "Changed after watching" / "Watch the changes"
     stopped: RunStoppedOut | None  # stopped by a person (S3-08)
     failed: RunFailedOut | None  # stopped on a problem, with its fixes (S3-11)
