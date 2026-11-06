@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { components } from "../api/schema";
+import { clipNo } from "../projects/names";
 
 export type Clip = components["schemas"]["ProjectClipOut"] & { model?: ClipModel | null };
 export type Take = Clip["takes"][number];
@@ -12,7 +13,7 @@ export type ClipModel = { id: string; name: string; why: string; by: "director" 
 
 /** One clip's place in the run (v6-progress #1306, GET /projects/{id}/director/progress, ClipCellOut). */
 export type State = "todo" | "making" | "waiting" | "failed" | "flagged" | "text" | "redone" | "done" | "too_long";
-type Cell = { clip_id: string; number: number; scene: number; label: string; seconds: number; model: string; state: State; frame_file_id: number | null; take_id: number | null; note: string; percent: number | null; minutes_left: number | null; credits: string | null; changed: boolean; watched: boolean; found: boolean };
+type Cell = { clip_id: string; number: string; scene: number; label: string; seconds: number; model: string; state: State; frame_file_id: number | null; take_id: number | null; note: string; percent: number | null; minutes_left: number | null; credits: string | null; changed: boolean; watched: boolean; found: boolean };
 export type Progress = { status: string; clips: number; made: number; scenes: { id: number; name: string; total: number; done: number; clips: Cell[] }[]; counts: { all: number; needs_you: number; flagged: number; redone: number } };
 
 /** A clip as the list shows it: from the run's record when there is one, else worked out from the clips and the plan. */
@@ -42,7 +43,6 @@ export { useFrames as useStoryboard } from "../projects/useProgress";
 
 /** What the watch did that the boards call Flagged (it found something): remade it, held it, flagged it, or wasn't sure. */
 const ACTED = ["redo", "held", "flagged", "unsure"];
-const number = (clipId: string) => Number(clipId.replace(/^c/i, "")) || 0;
 const kept = (t: Take | undefined) => t?.watch?.action;
 
 /** A clip's state when there's no run record: in the cut, flagged, redone, or not made yet. */
@@ -74,7 +74,7 @@ export function scenesOf(bd: Breakdown | null | undefined, clips: Clip[], frames
     const frame = frames.find((f) => f.clip_id === p.id && f.file_id);
     const row: Row = {
       clip_id: p.id,
-      number: cell?.number ?? number(p.id),
+      number: cell?.number ?? clipNo(p.id),
       scene: sceneId,
       label: cell?.label || its[0]?.action || "",
       seconds: cell?.seconds ?? c?.seconds ?? p.seconds,

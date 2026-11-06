@@ -415,11 +415,16 @@ def _redos(db: Session, project: Project, run: dict) -> dict[str, int]:
     return out
 
 
+def clip_no(clip_id: str) -> str:
+    """A clip as people read it: "1" for c1, "1b" for a split's c1b (the web's clipNo)."""
+    return clip_id.removeprefix("c")
+
+
 def named(text: str) -> str:
-    """A move as people read it: clips as they see them ("clip 1", never "c1"), and a note
-    still open without what OPEN tells the director to do (QA-3)."""
+    """A move as people read it: clips as they see them ("clip 1", "clip 1b", never "c1"), and
+    a note still open without what OPEN tells the director to do (QA-3)."""
     text = re.sub(r"^(Refused: note \d+ is still open\.).*", r"\1", text, flags=re.S)
-    return re.sub(r"\bc(\d+)\b", r"clip \1", text)
+    return re.sub(r"\bc(\d+[a-z]?)\b", r"clip \1", text)
 
 
 def blocked(db: Session, project: Project) -> str:
