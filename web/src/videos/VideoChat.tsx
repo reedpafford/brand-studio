@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, ChevronLeft, CircleStop, FileText, Paperclip, Upload, WifiOff, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, errorText } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
@@ -38,7 +38,7 @@ export function useVideoProject(id: number) {
   return useQuery({
     queryKey: ["project", id],
     enabled: id > 0,
-    queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: id } } })).data ?? null,
+    queryFn: () => polled(api.GET("/projects/{project_id}", { params: { path: { project_id: id } } }), null),
   });
 }
 
@@ -597,7 +597,7 @@ function useHeldChange(fs: Freestyle | null | undefined, on: boolean) {
     queryKey: ["held-jobs"],
     enabled: !!fs && on,
     refetchInterval: 15_000,
-    queryFn: async () => (await api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } })).data ?? [],
+    queryFn: () => polled(api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } }), []),
   });
   return held.data?.find((j) => j.status === "needs_owner_approval" && j.freestyle?.id === fs?.id && j.freestyle?.change)?.freestyle?.up_to;
 }

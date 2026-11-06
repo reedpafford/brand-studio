@@ -17,3 +17,17 @@ export async function must<T extends { response: Response; error?: unknown }>(ca
   if (!result.response.ok) throw new Error(errorText(result.error));
   return result;
 }
+
+/** Sent when a read finds the session gone (401): the app reads who's signed in again, so the sign-in screen shows. */
+export const SIGNED_OUT = "bs:signed-out";
+
+/** A polled read (a run card, the header, the clips): its data, or `none` when there is nothing (404), or nothing this
+ *  person may read (401, 403: polling stops there, and a gone session brings up sign-in). Any other refusal throws, so
+ *  polling goes on with the last data shown: one 502 during a deploy never empties or freezes the page. */
+export async function polled<T, N>(call: Promise<{ data?: T; response: Response; error?: unknown }>, none: N): Promise<T | N> {
+  const { data, response, error } = await call;
+  if (response.ok) return data ?? none;
+  if (response.status === 401) window.dispatchEvent(new Event(SIGNED_OUT));
+  if ([401, 403, 404].includes(response.status)) return none;
+  throw new Error(errorText(error));
+}

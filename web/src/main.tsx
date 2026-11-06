@@ -3,10 +3,13 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { App } from "./App";
+import { SIGNED_OUT } from "./api/client";
 import "./styles/index.css";
 
 
 const queryClient = new QueryClient();
+// A polled read found the session gone: who's signed in is read again, and the sign-in screen shows (polling stops).
+window.addEventListener(SIGNED_OUT, () => void queryClient.invalidateQueries({ queryKey: ["me"] }));
 // A data router around the app's own routes, so a page can ask before a way out loses its changes (useBlocker).
 const router = createBrowserRouter([{ path: "*", element: <App /> }]);
 

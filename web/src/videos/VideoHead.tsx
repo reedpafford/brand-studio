@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, ChevronLeft, ChevronRight, CircleStop, Download, Ellipsis, Folder, Inbox, Lock, Pencil, SlidersHorizontal, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { api, must } from "../api/client";
+import { api, must, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Button, Dialog, Field, Menu, MenuItem, Skeleton, useToast } from "../components";
@@ -18,7 +18,7 @@ export function useHead(projectId: number, enabled = true) {
     queryKey: ["idea", projectId],
     enabled,
     refetchInterval: (q) => (q.state.data?.status.kind === "working" ? 10_000 : false),
-    queryFn: async () => (await api.GET("/projects/{project_id}/idea", { params: { path: { project_id: projectId } } })).data ?? null,
+    queryFn: () => polled(api.GET("/projects/{project_id}/idea", { params: { path: { project_id: projectId } } }), null),
   });
 }
 
