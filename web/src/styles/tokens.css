@@ -2,9 +2,7 @@
    Drop-in replacement for web/src/styles/tokens.css (redesign PR 1).
    Variable names match v1 where they mean the same thing, so existing classes keep working.
 
-   Theme: dark is the default (the app is for looking at frames and takes).
-   <html data-theme="light"> switches to the warm light mode. The theme menu offers Dark / Light;
-   "System" follows the OS only when the person picks it (data-theme="system" + the media query below).
+   Theme: light only for now (PRODUCT.md, rule 33): cool neutrals, the same indigo action colour.
    The current brand's colour is set at runtime: <html style="--brand: #xxxxxx">.
 
    Contrast (WCAG 2.2 AA), checked with docs/design/redesign/phase3/contrast.py:
@@ -15,23 +13,23 @@
 @import "@fontsource/courier-prime/700.css";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   /* Surfaces: night -> panel -> raised -> hover */
-  --bg: #0e0f11;
-  --surface: #141518;
-  --surface-2: #1c1d21;
-  --surface-3: #25262b;       /* hover / pressed on surface-2 */
-  --border: #23252a;           /* dividers, card edges */
-  --border-strong: #666a73;    /* inputs, checkboxes: 3.4:1 on surface */
-  --border-button: #2c2e34;    /* a secondary button's outline (v5: no fill) */
-  --scrim: rgb(0 0 0 / 0.64);  /* behind sheets and dialogs */
+  --bg: #fbfbfc;
+  --surface: #ffffff;
+  --surface-2: #f4f4f6;
+  --surface-3: #ebebef;       /* hover / pressed on surface-2 */
+  --border: #e7e7ea;           /* dividers, card edges */
+  --border-strong: #8b8e97;    /* inputs, checkboxes: 3.4:1 on surface */
+  --border-button: #d9dadf;    /* a secondary button's outline (v5: no fill) */
+  --scrim: rgb(20 20 18 / 0.45);  /* behind sheets and dialogs */
   --media-shade: linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0) 70%); /* text on pictures */
 
   /* Text */
-  --text: #e6e7ea;             /* 14.8:1 on surface */
-  --text-muted: #8f929b;       /* 5.9:1 on surface, 4.9:1 on surface-3 */
-  --text-faint: #5f626b;       /* decoration only: never words people must read */
+  --text: #1b1c1f;             /* 14.8:1 on surface */
+  --text-muted: #62656e;       /* 5.9:1 on surface, 4.9:1 on surface-3 */
+  --text-faint: #9a9da5;       /* decoration only: never words people must read */
   --text-on-media: #ffffff;
 
   /* Action: one calm indigo, white text on it. Only the screen's main press uses it. */
@@ -40,35 +38,35 @@
   --accent-pressed: #5257c6;
   --accent-border: transparent;
   --on-accent: #ffffff;        /* 5.0:1 on accent */
-  --accent-soft: #1f2040;
-  --accent-text: #a9acf7;      /* 7.4:1 on accent-soft */
-  --focus: #8b8ff0;            /* 2px ring, 6.7:1 on bg */
+  --accent-soft: #eef0ff;
+  --accent-text: #4146b8;      /* 7.4:1 on accent-soft */
+  --focus: #5e63d6;            /* 2px ring, 6.7:1 on bg */
 
   /* Disabled: a real colour pair, not opacity (stays readable) */
-  --disabled-bg: #1f2024;
-  --disabled-text: #8a8d96;    /* 4.9:1 */
+  --disabled-bg: #ebebef;
+  --disabled-text: #62656e;    /* 4.9:1 */
 
   /* Status */
-  --success: #4cb782;  --success-soft: #13261d;   /* 6.4:1 */
-  --warning: #e2a33b;  --warning-soft: #2a2214;   /* 7.1:1: also "needs you" */
+  --success: #1a7a4b;  --success-soft: #e6f4ec;   /* 6.4:1 */
+  --warning: #8f5c12;  --warning-soft: #fbf1df;   /* 7.1:1: also "needs you" */
   --need-dot: #d48a12;  /* v6 S0-01: the Needs you and Waiting dots, in both themes (a dot, never words) */
   --ink: #1b1c1f;       /* v6 S1-07: the selection bar, near-black in both themes (white words, 16:1) */
-  --danger: #eb6e5e;   --danger-soft: #331a18;    /* 5.3:1 */
+  --danger: #c23b2f;   --danger-soft: #fde9e7;    /* 5.3:1 */
 
   /* The cut editor's music track (v6 S7) */
-  --track-music: #c3a3ea;  --track-music-soft: #241b30;
+  --track-music: #6a3f9c;  --track-music-soft: #f4effa;
 
   /* Script Enhance marks */
-  --mark: #2c2715;
-  --mark-line: #f2c14e;
+  --mark: #fff3c4;
+  --mark-line: #c99400;
 
   /* Brand slot (the brand dot, the brand's own pages). Falls back to amber. */
   --brand: var(--accent);
 
   /* Elevation: dark uses light edges, not big shadows */
   --shadow-card: none;
-  --shadow-raised: 0 12px 32px rgb(0 0 0 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.05); /* menus, toasts */
-  --shadow-overlay: 0 24px 64px rgb(0 0 0 / 0.6);                                       /* sheets, dialogs */
+  --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12); /* menus, toasts */
+  --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);                                       /* sheets, dialogs */
 
   /* Type: Inter for everything (titles too), Courier Prime for scripts and prompts */
   --font-display: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -128,61 +126,7 @@
   }
 }
 
-/* Light mode: cool neutrals, the same indigo action colour. */
-[data-theme="light"] {
-  color-scheme: light;
-  --bg: #fbfbfc;
-  --surface: #ffffff;
-  --surface-2: #f4f4f6;
-  --surface-3: #ebebef;
-  --border: #e7e7ea;
-  --border-strong: #8b8e97;    /* 3.3:1 */
-  --border-button: #d9dadf;
-  --scrim: rgb(20 20 18 / 0.45);
-  --text: #1b1c1f;
-  --text-muted: #62656e;       /* 5.8:1 on surface */
-  --text-faint: #9a9da5;
-  --accent: #5e63d6;
-  --accent-hover: #6a6fe0;
-  --accent-pressed: #5257c6;
-  --accent-border: transparent;
-  --on-accent: #ffffff;
-  --accent-soft: #eef0ff;
-  --accent-text: #4146b8;      /* 6.6:1 on accent-soft */
-  --focus: #5e63d6;            /* 4.8:1 on bg */
-  --disabled-bg: #ebebef;
-  --disabled-text: #62656e;    /* 4.9:1 */
-  --success: #1a7a4b;  --success-soft: #e6f4ec;
-  --warning: #8f5c12;  --warning-soft: #fbf1df;
-  --danger: #c23b2f;   --danger-soft: #fde9e7;
-  --mark: #fff3c4;
-  --mark-line: #c99400;
-  --track-music: #6a3f9c; --track-music-soft: #f4effa;
-  --shadow-card: none;
-  --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
-  --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);
-}
 
-@media (prefers-color-scheme: light) {
-  [data-theme="system"] {
-    color-scheme: light;
-    --bg: #fbfbfc; --surface: #ffffff; --surface-2: #f4f4f6; --surface-3: #ebebef;
-    --border: #e7e7ea; --border-strong: #8b8e97; --border-button: #d9dadf; --scrim: rgb(20 20 18 / 0.45);
-    --text: #1b1c1f; --text-muted: #62656e; --text-faint: #9a9da5;
-    --accent-border: transparent; --accent-soft: #eef0ff; --accent-text: #4146b8; --focus: #5e63d6;
-    --disabled-bg: #ebebef; --disabled-text: #62656e;
-    --success: #1a7a4b; --success-soft: #e6f4ec; --warning: #8f5c12; --warning-soft: #fbf1df;
-    --danger: #c23b2f; --danger-soft: #fde9e7; --mark: #fff3c4; --mark-line: #c99400;
-    --track-music: #6a3f9c; --track-music-soft: #f4effa;
-    --shadow-card: none; --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
-    --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);
-  }
-}
-
-/* Reduced motion: nothing moves; state still changes (opacity swaps at 1ms so transitionend fires). */
-@media (prefers-reduced-motion: reduce) {
-  :root { --dur-instant: 1ms; --dur-fast: 1ms; --dur: 1ms; --dur-slow: 1ms; --dur-exit: 1ms; }
-}
 
 /* Tailwind v4 theme: import after `@import "tailwindcss";`.
    Gives bg-surface, text-muted, border-strong, rounded-lg, font-display, text-2xl, shadow-raised,

@@ -57,17 +57,13 @@ test("on a phone, the brand menu opens as a sheet and switches brand", async ({ 
   await expect(page.getByRole("button", { name: "Brand: Iron Paws" })).toBeVisible();
 });
 
-test("on a phone, the theme can be changed from the account menu and is remembered", async ({ page }) => {
+test("on a phone, the app is light only and the account menu offers no theme (rule 33)", async ({ page }) => {
   await signIn(page, "reed@example.com");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await openAccountMenu(page);
-  await page.getByRole("menuitemradio", { name: "Light" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await page.getByRole("menuitemradio", { name: "System" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
-
-  await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
+  await expect(page.getByRole("menuitemradio", { name: "Dark" })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Theme" })).toHaveCount(0);
+  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(bg).not.toBe("rgb(14, 15, 17)"); // never the old dark background
 });
 
 test("on a phone, Escape closes the account menu and Sign out (in More) ends the session", async ({ page }) => {
