@@ -15,6 +15,10 @@ export function upTo(head: Head | undefined, credits: number) {
 export function spent(head: Head | undefined, credits: number) {
   const rate = head?.usd_per_credit;
   if (rate != null) return `$${(Math.ceil(credits * rate * 100 - 1e-9) / 100).toFixed(2)}`;
+  if (credits <= 0) return "nothing yet";
   const n = wholeCredits(credits);
-  return n === 0 ? "under 1 credit" : `${n} credit${n === 1 ? "" : "s"}`;
+  return n <= 1 && credits < 1 ? "under 1 credit" : `${n} credit${n === 1 ? "" : "s"}`;
 }
+
+/** "N credit" or "N credits". */
+export const credits = (n: number) => `${n} credit${n === 1 ? "" : "s"}`;

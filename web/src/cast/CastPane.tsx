@@ -198,6 +198,7 @@ type Ctx = {
   locksReady: boolean;
   all: Asset[]; // every role, for Merge into…
   gate: (a: Asset) => CastItem | undefined; // the checkpoint's view of a card's item (#1331); none on a server without it
+  hasGate: boolean; // the checkpoint's routes are on the server (a place's Pick, Upload and Make one use them)
   refresh: () => Promise<unknown>;
   phone: boolean;
 };
@@ -655,6 +656,8 @@ function PlaceCard({ a, c }: { a: Asset; c: Ctx }) {
               </Button>
             </div>
           </div>
+        ) : needs && id != null && !c.hasGate ? (
+          <p className="text-sm text-muted">Its look is made with the cast and places, once they’re ready to check.</p>
         ) : needs && id != null ? (
           <div className="flex flex-wrap items-center gap-2">
             <Menu
@@ -839,6 +842,7 @@ export function CastPane({ p, head, progress }: PaneProps) {
     locksReady: !!read,
     all: roles,
     // The checkpoint names a locked role by its slot (slot:2) and a cast look by its item (char:4): match either.
+    hasGate: !!gate,
     gate: (a) => (gate?.items ?? []).find((i) => i.ref === a.ref || (a.slot_id != null && i.ref === `slot:${a.slot_id}`) || (i.kind === a.kind && a.library_item_id != null && i.library_item_id === a.library_item_id)),
     refresh,
     phone,

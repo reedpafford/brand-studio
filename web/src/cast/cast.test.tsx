@@ -431,3 +431,13 @@ test("only the video's maker or the owner approves the cast and places; others s
   expect(screen.queryByRole("button", { name: "Approve cast & places" })).toBeNull();
   expect(screen.getByText("Whoever made this video, or the owner, approves the cast and places.")).toBeInTheDocument();
 });
+
+test("QA: without the checkpoint on the server, a place with no look offers no presses that would fail", async () => {
+  setViewport(1440);
+  const pent = { kind: "place", ref: "place:41", role: "", library_item_id: 41, name: "The penthouse", locked: false, sheet_status: "none", ready: false, slot_id: null, description: "", shots: 1, clip_ids: ["c3"], sheet_file_id: null };
+  server(owner, [marcus, pent]); // GET /cast isn't faked: a server without #1331
+  open();
+  const p = await screen.findByRole("region", { name: "The penthouse" });
+  expect(within(p).queryByRole("button", { name: /library|Upload|Make one/ })).toBeNull();
+  expect(within(p).getByText(/made with the cast and places/)).toBeInTheDocument();
+});

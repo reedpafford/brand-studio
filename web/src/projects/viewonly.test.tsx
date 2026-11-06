@@ -33,7 +33,6 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/clips": [200, [clip]],
   "GET /projects/9/video": [200, { file_id: 60, take_ids: [1], out_of_date: false }],
   "GET /projects/9/assets": [200, [asset]],
-  "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, usual_credits: 0, reason: null }],
   "GET /library/character": [200, []],
   "GET /library/character/5": [200, { id: 5, kind: "character", name: "Bo", version: 1, sheet_file_id: 70, sheet_status: "approved" }],
   "GET /brands/1/screens": [200, []],

@@ -6,7 +6,7 @@ import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Button, useToast, useViewOnly } from "../components";
 import { useVideoSettings } from "../projects/VideoSettings";
-import { upTo } from "../videos/money";
+import { credits, upTo } from "../videos/money";
 import type { Head } from "../videos/VideoHead";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -145,7 +145,7 @@ export function Presenter({ p, head, rows, brand, phone, approval }: { p: Projec
   const canVoice = !!s && "voice" in s && !lookOnly && list.length > 0;
   const way = WAYS.find((w) => w.id === now)!;
   const from = who ? (who.only_here ? "look made for this video" : `saved in ${brand}`) : "";
-  const clone = voices.data ? (voices.data.clone_usd != null ? `up to $${voices.data.clone_usd.toFixed(2)}` : `up to ${Math.ceil(voices.data.clone_credits)} credits`) : null;
+  const clone = voices.data ? (voices.data.clone_usd != null ? `up to $${voices.data.clone_usd.toFixed(2)}` : `up to ${credits(Math.ceil(voices.data.clone_credits))}`) : null;
   return (
     <section aria-label="Presenter" className={`flex flex-col ${phone ? "gap-2" : "gap-4"}`}>
       <div className="flex items-baseline justify-between gap-3">
