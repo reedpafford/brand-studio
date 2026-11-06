@@ -56,19 +56,6 @@ test("when nothing was spent the release text leaves the credits sentence out, a
   expect(release).not.toHaveTextContent("credits already used");
 });
 
-test("a video made before scripts offers Archive, with its own wording, and no Release", async () => {
-  setViewport(1440);
-  fakeServer(base({ "GET /projects/9": [200, project({ script_draft_id: null })], "POST /projects/9/archive": [200, {}] }));
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon — B" }));
-  expect(screen.queryByRole("menuitem", { name: "Release this version" })).toBeNull();
-  await userEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
-  const archive = await screen.findByRole("alertdialog", { name: 'Archive "Bo tries salmon — B"?' });
-  expect(archive).toHaveTextContent("It leaves the lists. Its clips and downloads are kept, and you can restore it. Anything still being made stops and isn't brought back.");
-  await userEvent.click(within(archive).getByRole("button", { name: "Archive" }));
-  expect(await screen.findByText("Unsorted")).toBeInTheDocument(); // it lands on the brand's videos, where Archived ideas finds it
-});
-
 test("an editor sees no menu on a video they didn't make, and a refused release keeps the dialog with the reason", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /auth/me": [200, { ...owner, id: 3, role: "editor" }] }));

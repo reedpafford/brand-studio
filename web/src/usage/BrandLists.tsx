@@ -146,7 +146,7 @@ function VideosTab({ brandId, period }: { brandId: number; period: Period }) {
                 return (
                   <tr key={v.project_id} className="relative text-right hover:bg-surface-2">
                     <th scope="row" className="px-4 py-3 text-left font-medium">
-                      <Link to={`/b/${brandId}/projects/${v.project_id}`} className="after:absolute after:inset-0">
+                      <Link to={`/b/${brandId}/videos/${v.project_id}`} className="after:absolute after:inset-0">
                         {videoTitle(v)}
                       </Link>
                       {v.legacy && <span className="ml-1 font-normal text-muted">(earlier way)</span>}
@@ -169,7 +169,7 @@ function VideosTab({ brandId, period }: { brandId: number; period: Period }) {
             const s = statusOf(v);
             return (
               <li key={v.project_id}>
-                <Link to={`/b/${brandId}/projects/${v.project_id}`} className="block space-y-2 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
+                <Link to={`/b/${brandId}/videos/${v.project_id}`} className="block space-y-2 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
                   <span className="flex items-center gap-2 font-display text-md font-bold">
                     <span className="min-w-0 flex-1 break-words">{videoTitle(v)}</span>
                     <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
@@ -241,7 +241,7 @@ function ScriptsTab({ brandId }: { brandId: number }) {
       {r.versions.map((v) => {
         const s = SCRIPT_STATUS[v.status] ?? { label: v.status, tone: "neutral" as Tone };
         const letter = LETTER[v.slot] ?? String(v.slot + 1);
-        const to = v.status === "approved" ? `/b/${brandId}/scripts?make=${r.id}.${v.slot}` : v.project_id ? `/b/${brandId}/projects/${v.project_id}` : v.status === "draft" ? `/b/${brandId}/scripts/${r.id}` : null;
+        const to = v.status === "approved" ? `/b/${brandId}/scripts?make=${r.id}.${v.slot}` : v.project_id ? `/b/${brandId}/videos/${v.project_id}` : v.status === "draft" ? `/b/${brandId}/scripts/${r.id}` : null;
         const by = v.status === "in_production" && v.editor ? ` · ${v.editor.name}` : "";
         const chip = (
           <Badge tone={s.tone} icon={s.icon}>

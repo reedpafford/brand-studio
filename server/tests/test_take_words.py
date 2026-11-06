@@ -98,7 +98,9 @@ def test_a_new_take_is_heard_and_its_advice_shows(app, db, editor, setup, clip, 
     review = editor.get(f"/projects/{setup['project']}/checks").json()
     assert [(i["label"], i["findings"]) for i in review["items"]] == [("Clip c1 · take 1", 1)]
     url = f"/projects/{setup['project']}/checks/{words['id']}/findings/0/dismiss"
-    assert editor.post(url).json()["status"] == "ok"  # Looks fine, as for any check
+    kept = editor.post(url).json()
+    assert kept["status"] == "ok"  # Looks fine, as for any check
+    assert [f["kind"] for f in kept["kept"]] == ["missing"]  # still said, as kept (Reed, 4 Nov)
     assert db.get(ItemCheck, words["id"]).target == "words"
 
 

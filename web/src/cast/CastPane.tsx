@@ -7,7 +7,7 @@ import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { Button, Dot, Menu, MenuItem, Skeleton, TextArea, useToast, type Tone } from "../components";
 import { refreshJobs } from "../jobs/refresh";
-import { useFrames } from "../projects/StoryboardPane";
+import { useFrames } from "../projects/useProgress";
 import { lookFitNote, useSheetPrice } from "../library/sheets";
 import { RoleTextFit } from "../projects/RoleTextFit";
 import { MergeRole, mergedText } from "../projects/MergeRole";

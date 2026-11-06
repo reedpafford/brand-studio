@@ -1,9 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
-import { App } from "../App";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
@@ -56,7 +53,6 @@ const presses = () => within(screen.getByRole("main")).queryAllByRole("button");
 for (const [step, ready] of [
   ["plan", () => screen.findByRole("tab", { name: "Plan", selected: true })],
   ["cast", () => screen.findByLabelText("Bo")],
-  ["storyboard", () => screen.findByLabelText("Frame c1")],
   ["clips", () => screen.findByRole("tab", { name: /Clips/, selected: true })],
   ["downloads", () => screen.findByRole("link", { name: /Download MP4/ })],
 ] as const) {
@@ -84,8 +80,8 @@ for (const [step, ready] of [
 test("the owner and the video's maker get no banner and live presses", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /auth/me": [200, owner] });
-  open("storyboard");
-  await screen.findByLabelText("Frame c1");
+  open("clips");
+  await userEvent.click(await screen.findByRole("button", { name: "Open clip 1" }));
   expect(screen.queryByText(/This is Sam's video/)).toBeNull();
   await vi.waitFor(() => expect(live().some((b) => CHANGES.test(b.textContent?.trim() ?? ""))).toBe(true));
 });
@@ -102,20 +98,4 @@ test("on an approved plan a second editor can still switch between Shots and Sce
   await userEvent.click(await screen.findByRole("tab", { name: "Scenes" }));
   expect(await screen.findByRole("tab", { name: "Scenes", selected: true })).toBeInTheDocument();
   expect(screen.getByText("Bo eats.")).toBeInTheDocument();
-});
-
-test("the older video page (/projects/:id, made before scripts) is look-only too: the banner, no Rename, Edit brief greyed out (Flow-QA on #977)", async () => {
-  setViewport(1440);
-  const older = { ...project, goal: "Show the buy flow", script_draft_id: null };
-  fakeServer({ ...base, "GET /projects/9": [200, older] });
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={["/b/1/projects/9"]}>
-        <App />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  expect(await screen.findByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /Rename/ })).toBeNull();
-  expect(await screen.findByRole("button", { name: "Edit brief" })).toBeDisabled();
 });

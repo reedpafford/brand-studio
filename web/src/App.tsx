@@ -1,10 +1,9 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { NeedsYouPage } from "./approvals/NeedsYouPage";
 import { RequireAuth } from "./auth/RequireAuth";
 import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
 import { NewProjectPage } from "./projects/NewProjectPage";
 import { ProductionPage } from "./production/ProductionPage";
-import { ProjectPage } from "./projects/ProjectPage";
 import { VideoRoute } from "./videos/VideoChat";
 import { NewVideoPage } from "./newvideo/NewVideoPage";
 import { ImportReelPage } from "./scripts/ImportReelPage";
@@ -48,7 +47,7 @@ export function App() {
           <Route path="b/:brandId/scripts/:scriptId/reel" element={<ReelReviewPage />} />
           <Route path="b/:brandId/projects" element={<Navigate to="../videos" relative="path" replace />} />
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
-          <Route path="b/:brandId/projects/:projectId" element={<ProjectPage />} />
+          <Route path="b/:brandId/projects/:projectId" element={<ToVideo />} />
           <Route path="b/:brandId/videos" element={<FolderPage />} />
           <Route path="b/:brandId/videos/new" element={<NewVideoPage />} />
           <Route path="b/:brandId/videos/:projectId" element={<VideoRoute />} />
@@ -83,4 +82,11 @@ export function App() {
     </Routes>
     </ToastProvider>
   );
+}
+
+/** The old step-by-step video page's address opens the video page (v6 S3); its ?step= opens the matching tab. */
+function ToVideo() {
+  const { brandId, projectId } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={`/b/${brandId}/videos/${projectId}${search}`} replace />;
 }

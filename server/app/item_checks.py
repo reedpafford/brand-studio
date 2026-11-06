@@ -42,6 +42,7 @@ class CheckOut(BaseModel):
     id: int
     status: str  # checking, ok, advice, failed or skipped
     findings: list[FindingOut]  # the ones not dismissed (Looks fine)
+    kept: list[FindingOut] = []  # the ones a person kept as they are: still shown, with Undo
 
 
 def on() -> bool:
@@ -250,14 +251,16 @@ def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
             row.status = "failed"
     gone = {d["index"] for d in row.dismissed or []}
     fixes = prompts.look_fixes(looks.drawn(db.get(Project, row.project_id)))  # the B-roll's
-    findings = [FindingOut(index=i, kind=f["kind"], text=f["text"], note=f["change_note"],
-                           fix=fixes.get(f["kind"], ""), at=f.get("at"),
-                           mute=f.get("span"), verified=f.get("verified", True))
-                for i, f in enumerate(row.findings or []) if i not in gone]  # fmt: skip
+    every = [FindingOut(index=i, kind=f["kind"], text=f["text"], note=f["change_note"],
+                        fix=fixes.get(f["kind"], ""), at=f.get("at"), mute=f.get("span"),
+                        verified=f.get("verified", True))
+             for i, f in enumerate(row.findings or [])]  # fmt: skip
+    findings = [f for f in every if f.index not in gone]
     status = {"checking": "checking", "failed": "failed", "skipped": "skipped"}.get(
         row.status, "advice" if findings else "ok"
     )
-    return CheckOut(id=row.id, status=status, findings=findings)
+    return CheckOut(id=row.id, status=status, findings=findings,
+                    kept=[f for f in every if f.index in gone])  # fmt: skip
 
 
 def verdict(checks: list[CheckOut | None]) -> str:

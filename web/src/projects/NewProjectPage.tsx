@@ -46,7 +46,7 @@ export function NewProjectPage() {
     },
     onSuccess: async (p) => {
       await queryClient.invalidateQueries({ queryKey: ["projects", brandId] });
-      navigate(`/b/${brandId}/projects/${p.id}`);
+      navigate(`/b/${brandId}/videos/${p.id}`);
     },
   });
   const submit = (e: FormEvent) => {

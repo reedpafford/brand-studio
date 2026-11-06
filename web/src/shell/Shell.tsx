@@ -80,11 +80,10 @@ function Frame() {
     };
   }, [node]);
   // Inside one video on a phone, the video's own header line replaces the brand bar.
-  const oldVideo = useMatch("/b/:brandId/projects/:projectId");
   const newVideo = useMatch("/b/:brandId/videos/:projectId");
-  const video = newVideo ?? oldVideo;
+  const newProject = useMatch("/b/:brandId/projects/new");
   // New video has its own title bar on a phone too (B_PhoneNew).
-  const inVideo = !rail && video !== null && (/^\d+$/.test(video.params.projectId ?? "") || video.params.projectId === "new");
+  const inVideo = !rail && ((newVideo !== null && (/^\d+$/.test(newVideo.params.projectId ?? "") || newVideo.params.projectId === "new")) || newProject !== null);
   const folderPage = useMatch("/b/:brandId/videos");
   const onFolders = !rail && folderPage !== null; // P-01 and P-02 draw their own header
   // The video page (v6 S3) fills the screen: its own offline line, and on a phone no tabs under its message box (P-04).

@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ChevronLeft, ChevronRight, CircleStop, Download, Ellipsis, Folder, Inbox, Lock, SlidersHorizontal, X } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, CircleStop, Download, Ellipsis, Folder, Inbox, Lock, Pencil, SlidersHorizontal, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
-import { Button, Dialog, Menu, MenuItem, Skeleton, useToast } from "../components";
+import { Button, Dialog, Field, Menu, MenuItem, Skeleton, useToast } from "../components";
 import { flatten, said, StatusDot, useRefreshIdeas, useTree, type Status } from "../folders/ideas";
 import { useLocks } from "./locks";
 
@@ -153,8 +153,8 @@ function Chips({ projectId, head, cast, lookOnly }: { projectId: number; head: H
 
 /** The video's ⋯ menu (S-gaps-03 2): Move to folder…, Download MP4 once a cut exists, then Release this version while it's
  *  being made or Archive once it's done. On a phone it also holds Stop, as its top bar has no room for the button. */
-export function VideoMenu({ title, cut, onMove, onRelease, onArchive, onStop }: { title: string; cut?: { file: number; name: string } | null; onMove?: () => void; onRelease?: () => void; onArchive?: () => void; onStop?: () => void }) {
-  if (!onMove && !cut && !onRelease && !onArchive && !onStop) return null;
+export function VideoMenu({ title, cut, onMove, onRename, onRelease, onArchive, onStop }: { title: string; cut?: { file: number; name: string } | null; onMove?: () => void; onRename?: () => void; onRelease?: () => void; onArchive?: () => void; onStop?: () => void }) {
+  if (!onMove && !onRename && !cut && !onRelease && !onArchive && !onStop) return null;
   const run = (close: () => void, go: () => void) => () => (close(), go());
   return (
     <Menu
@@ -171,6 +171,11 @@ export function VideoMenu({ title, cut, onMove, onRelease, onArchive, onStop }: 
           {onStop && (
             <MenuItem onClick={run(close, onStop)}>
               <CircleStop size={16} strokeWidth={1.75} aria-hidden /> Stop the director
+            </MenuItem>
+          )}
+          {onRename && (
+            <MenuItem onClick={run(close, onRename)}>
+              <Pencil size={16} strokeWidth={1.75} aria-hidden /> Rename…
             </MenuItem>
           )}
           {onMove && (
@@ -282,5 +287,33 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
       </div>
       <Chips projectId={projectId} head={head} cast={cast} lookOnly={lookOnly} />
     </header>
+  );
+}
+
+/** Rename… (Reed, 4 Nov: the old page's rename lives in the video's ⋯ menu): a made-from-chat video's title, else the video's
+ *  name. Free, with Undo. */
+export function RenameDialog({ projectId, freestyleId, title, onClose }: { projectId: number; freestyleId: number | null; title: string; onClose: () => void }) {
+  const client = useQueryClient();
+  const toast = useToast();
+  const refreshIdeas = useRefreshIdeas(); // the tree, the folder's cards and lists show the new name too
+  const [name, setName] = useState(title);
+  const again = () => Promise.all([refreshIdeas(), ...[["idea", projectId], ["project", projectId], ["freestyle", freestyleId]].map((queryKey) => client.invalidateQueries({ queryKey }))]);
+  const save = async (to: string): Promise<void> => {
+    if (freestyleId) await must(api.PATCH("/freestyles/{freestyle_id}", { params: { path: { freestyle_id: freestyleId } }, body: { title: to } }));
+    else await must(api.PATCH("/projects/{project_id}", { params: { path: { project_id: projectId } }, body: { name: to } }));
+  };
+  const rename = useMutation({
+    mutationFn: () => save(name.trim()),
+    onSuccess: () => {
+      void again();
+      onClose();
+      toast(`Renamed to “${name.trim()}”.`, () => void save(title).then(again, (e: Error) => toast(e.message, undefined, "error")));
+    },
+    onError: (e: Error) => toast(e.message, undefined, "error"),
+  });
+  return (
+    <Dialog title="Rename this video" actionLabel="Rename" busy={rename.isPending} onCancel={onClose} onConfirm={() => name.trim() && name.trim() !== title && rename.mutate()}>
+      <Field label="Name" value={name} maxLength={120} autoFocus onChange={(e) => setName(e.target.value)} />
+    </Dialog>
   );
 }

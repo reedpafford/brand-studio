@@ -41,7 +41,7 @@ test("the list shows each video with its credits, says when it is nearly or over
   expect(document.body.textContent).not.toMatch(/\$/);
 });
 
-test("the brief is sent with the cast and shape, then you land on the project", async () => {
+test("the brief is sent with the cast and shape, then you land on the video page", async () => {
   const calls = fakeServer({ ...base, "POST /projects": [201, project], "GET /projects/9": [200, project], "GET /projects": [200, []] });
   renderAt("/b/1/projects/new");
   await userEvent.type(await screen.findByLabelText("Title"), "Mia buys the dip");
@@ -49,11 +49,10 @@ test("the brief is sent with the cast and shape, then you land on the project", 
   await userEvent.click(screen.getByRole("button", { name: "1:1" }));
   await userEvent.click(await screen.findByLabelText("Mia"));
   await userEvent.click(screen.getByRole("button", { name: "Create project" }));
-  expect(await screen.findByRole("heading", { name: "Mia buys the dip" })).toBeInTheDocument();
-  expect(calls.find((c) => c.key === "POST /projects")?.body).toMatchObject({
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects")?.body).toMatchObject({
     brand_id: 1, name: "Mia buys the dip", goal: "Show the buy flow", platform: "TikTok", aspect_ratio: "1:1", planned_seconds: 30, cast_ids: [4], reference_file_id: null,
-  });
-  expect(screen.getByText("412 / 660 credits · 62%")).toBeInTheDocument();
+  }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /projects/9/idea")).toBe(true)); // the video page (/videos/9) opens
 });
 
 test("there is no length limit: the page asks for any planned length", async () => {
@@ -137,7 +136,7 @@ test("the upload is called Your own example video and says how it is used, so it
 test("an earlier video's card is one link to its page and says the step it is at; the old list lands on Videos", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, owner], ...scripts, "GET /projects": [200, [project]] });
   await openLegacy(1);
-  expect(await screen.findByRole("link", { name: "Mia buys the dip, Brief, Brief written" })).toHaveAttribute("href", "/b/1/projects/9");
+  expect(await screen.findByRole("link", { name: "Mia buys the dip, Brief, Brief written" })).toHaveAttribute("href", "/b/1/videos/9");
   expect(screen.getByRole("link", { name: "New video (the earlier way)" })).toHaveAttribute("href", "/b/1/projects/new");
   cleanup();
   vi.unstubAllGlobals();
