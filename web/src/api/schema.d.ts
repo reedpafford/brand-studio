@@ -18046,6 +18046,7 @@ export interface operations {
                 max_seconds?: number | null;
                 removed?: boolean;
                 folder?: string | null;
+                sends?: boolean;
             };
             header?: never;
             path?: never;

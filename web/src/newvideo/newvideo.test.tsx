@@ -92,8 +92,8 @@ test("S2-03: Song is coming next, Zack D and UGC are off on this site, with the 
   expect(within(formats).getByRole("radio", { name: /Song.*coming next/ })).toHaveAttribute("aria-disabled", "true");
   expect(within(formats).getByRole("radio", { name: /Zack D.*Off on this site/ })).toHaveAttribute("aria-disabled", "true");
   expect(screen.getByRole("radio", { name: /^UGC/ })).toHaveAttribute("aria-disabled", "true");
-  expect(screen.getByText(/is coming next: its music provider isn't switched on for this site yet/)).toBeInTheDocument();
-  expect(screen.getByText(/off on this site; the owner turns it on in Settings → Looks/)).toBeInTheDocument();
+  const note = screen.getByText(/format is coming next/).closest("div")!;
+  expect(note).toHaveTextContent("The Song format is coming next: its music provider isn't switched on for this site yet. The Zack D format is off on this site. The UGC style is off on this site; the owner turns it on in Settings → Looks.");
   expect(screen.getByRole("link", { name: "Settings → Looks" })).toHaveAttribute("href", "/settings?tab=looks");
 });
 
@@ -144,13 +144,25 @@ test("S2-04: an editor's pasted script goes to the owner, in credits, never doll
 
 test("S2-06/S2-05: an editor's saved script starts inside its budget, or goes to the owner past it, saying by how much", async () => {
   setViewport(1440);
-  const rows = [scriptRow(7, "Beer gut doctor rant", { versions: [version(0, { project_id: 70 }), version(1)] }), scriptRow(8, "Bloated after pizza", { look: "ugc", versions: [version(0, { lines: 8 })] })];
+  const rows = [
+    scriptRow(7, "Beer gut doctor rant", { versions: [version(0, { project_id: 70 }), version(1)] }),
+    scriptRow(8, "Bloated after pizza", { look: "ugc", versions: [version(0, { lines: 1 })] }),
+    scriptRow(6, "Why IPAs hit harder", { versions: [version(0, { project_id: 60 })] }), // every version has its video: still listed
+    scriptRow(5, "My own draft", { published: false, versions: [version(0, { status: "draft" })] }), // an editor's own draft isn't
+  ];
   const calls = server(editor, { "GET /scripts": [200, rows], "GET /freestyles/estimate": [200, { credits: 158, usd: null, held: "", budget: 194 }], "POST /freestyles": [201, fs()] });
   renderApp("/b/1/videos/new?from=script&folder=4");
   const list = await screen.findByRole("radiogroup", { name: "Scripts" });
   expect(await within(list).findByText("1 of 2 videos made")).toBeInTheDocument();
   expect(within(list).getByText("none made yet")).toBeInTheDocument();
+  expect(within(list).getByText("1 of 1 videos made")).toBeInTheDocument();
+  expect(within(list).queryByText("My own draft")).not.toBeInTheDocument();
   expect(within(list).getByText("Published · Version B · 13 lines")).toBeInTheDocument();
+  expect(within(list).getByText("Published · Version A · 1 line")).toBeInTheDocument();
+  const asked = new URL(calls.find((c) => c.key === "GET /scripts")!.url).searchParams;
+  expect([asked.get("sends"), asked.get("status")]).toEqual(["false", null]); // not pasted sends; published, made or not
+  expect(screen.getByPlaceholderText("Search scripts")).toBeInTheDocument();
+  expect(list).toHaveClass("max-h-[340px]", "overflow-y-auto");
   await userEvent.click(within(list).getByRole("radio", { name: /Beer gut doctor rant/ }));
   expect(await screen.findByText("Inside this video’s budget, so it starts straight away.", undefined, { timeout: 3000 })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it · up to 158 credits" }));
@@ -203,13 +215,32 @@ test("S-gaps-01 (2): Just its look makes your script in the reel's look", async 
   await vi.waitFor(() => expect(posted(calls, "POST /freestyles/reel")).toMatchObject({ mode: "look", text: SCRIPT }));
 });
 
+test("S-gaps-01: a silent reel can't be read, but Just its look takes it with no red warning", async () => {
+  setViewport(1440);
+  const NO_SOUND = "This video has no sound, so there's no dialogue to read.";
+  const silent = { script_id: 30, status: "failed", failed_step: "prepare", problem_code: "no_sound", problem: NO_SOUND, source: "upload", seconds: 12, video_file_id: 31, transcript: [], steps_done: [] };
+  const calls = server(owner, { "GET /scripts/30/import": [200, silent], "GET /freestyles/estimate": [200, { credits: 168, usd: 17.3, held: "", budget: null }], "POST /freestyles/reel": [201, fs()] });
+  renderApp("/b/1/videos/new?from=reel&reel=30");
+  await loaded();
+  expect(await screen.findByText(`${NO_SOUND} Just its look can still use it.`)).toHaveClass("text-danger");
+  expect(screen.getByRole("button", { name: /^Watch it and write the script/ })).toBeDisabled();
+  await userEvent.click(screen.getByRole("radio", { name: "Just its look" }));
+  expect(screen.queryByText(/no sound/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Make it/ })).toBeDisabled(); // your words first
+  await userEvent.type(screen.getByLabelText("Your script"), SCRIPT);
+  await userEvent.click(await screen.findByRole("button", { name: "Make it · up to $17.30" }, { timeout: 3000 }));
+  await vi.waitFor(() => expect(posted(calls, "POST /freestyles/reel")).toMatchObject({ script_id: 30, mode: "look", text: SCRIPT }));
+});
+
 test("P-03: on a phone, the three ways in, cards that scroll, and Make it in the bar at the bottom", async () => {
   setViewport(390);
   server(owner, { "GET /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }] });
   renderApp("/b/1/videos/new?folder=4");
   expect(await screen.findByText("Resilia · Week of 3 Nov")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", "/b/1/videos");
-  for (const tab of ["Paste", "Saved script", "Use a reel"]) expect(screen.getByRole("tab", { name: tab })).toBeInTheDocument();
+  for (const tab of ["Paste", "Saved script", "Use a reel"]) expect(screen.getByRole("tab", { name: tab })).toHaveClass("h-11", "lg:h-7"); // 44 px on a phone (S10)
+  for (const chip of [/^Cast: /, /^Shape: /, /^Folder: /]) expect(screen.getByRole("button", { name: chip })).toHaveClass("h-11");
+  expect(screen.getByRole("radiogroup", { name: "Format" })).toHaveClass("-mx-3.5", "px-3.5"); // its edge is the page's 14 px gutter, not 2 px past it
   await userEvent.type(await words(), SCRIPT);
 
   expect(await screen.findByRole("button", { name: "Make it · up to $16.86" }, { timeout: 3000 })).toBeInTheDocument();
@@ -218,11 +249,12 @@ test("P-03: on a phone, the three ways in, cards that scroll, and Make it in the
 
 test("From a saved script: the cards show the script's own format and style, locked; the owner's drafts show too", async () => {
   setViewport(1440);
-  const rows = [scriptRow(7, "Beer gut doctor rant", { format: "presenter", kind: "narrated" }), scriptRow(9, "Gut glow-up", { published: false, look: "claymation", versions: [version(0, { status: "draft" })] })];
+  const rows = [scriptRow(7, "Beer gut doctor rant", { format: "presenter", kind: "narrated" }), scriptRow(9, "Gut glow-up", { published: false, look: "claymation", versions: [version(0, { status: "draft" })] }), scriptRow(10, "Untitled reel", { published: false, versions: [version(0, { status: "draft", lines: 0 })] })];
   server(owner, { "GET /scripts": [200, rows], "GET /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: 194 }] });
   renderApp("/b/1/videos/new?from=script");
   const list = await screen.findByRole("radiogroup", { name: "Scripts" });
   expect(await within(list).findByText("owner only")).toBeInTheDocument();
+  expect(within(list).queryByText("Untitled reel")).not.toBeInTheDocument(); // no words yet: nothing to make
   await userEvent.click(within(list).getByRole("radio", { name: /Beer gut doctor rant/ }));
   expect(await screen.findByRole("radio", { name: /Presenter/ })).toHaveAttribute("aria-checked", "true");
   expect(screen.getByRole("radio", { name: /Dialogue/ })).toHaveAttribute("aria-disabled", "true"); // the script's own

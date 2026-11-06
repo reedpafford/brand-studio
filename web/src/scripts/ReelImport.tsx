@@ -19,6 +19,7 @@ const PROBLEMS: Record<string, { text: string; button: string }> = {
   blocked: { text: "Instagram didn't let us download it. Upload the video instead.", button: "Upload a video" },
   gone: { text: "That reel is private or was removed.", button: "Upload a video" },
   bad_file: { text: `That file isn't a video we can read. Use an MP4 or MOV up to ${MAX_SECONDS} seconds.`, button: "Choose another file" },
+  no_sound: { text: "This video has no sound, so there's no dialogue to read.", button: "Choose another file" },
   too_long: { text: `That video is longer than ${MAX_SECONDS} seconds. Reels up to ${MAX_SECONDS} seconds can be read.`, button: "Choose another file" },
 };
 

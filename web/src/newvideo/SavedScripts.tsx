@@ -12,20 +12,21 @@ import { ActionBar } from "../shell/ActionBar";
 import { Press, Under, box, row } from "./NewVideoPage";
 import { useEstimate, useSend, usd } from "./useNewVideo";
 
-/** The brand's scripts that can become a video (an editor sees the published ones; the owner's drafts too). */
+/** The brand's scripts that can become a video: an editor sees every published one, with videos or not (S2-05); the
+ *  owner's drafts too, once they have words. Not the scripts New video's own pasted sends made (S2-06). */
 function useScripts(brandId: number, owner: boolean, q: string) {
   return useQuery({
     queryKey: ["scripts", "new-video", brandId, owner, q],
     queryFn: async () => {
-      const { data } = await api.GET("/scripts", { params: { query: { brand_id: brandId, ...(owner ? {} : { status: "published" }), ...(q ? { q } : {}), limit: 50 } } });
-      return (data ?? []).filter((s) => directed(s.kind) && (owner ? s.versions.length > 0 : s.versions.some(finished)));
+      const { data } = await api.GET("/scripts", { params: { query: { brand_id: brandId, sends: false, ...(q ? { q } : {}), limit: 50 } } });
+      return (data ?? []).filter((s) => directed(s.kind) && (owner ? s.versions.some((v) => v.lines > 0) : s.published && s.versions.some(finished)));
     },
   });
 }
 
 /** New video › From a saved script (S2-06; S2-05 past the budget): find a script, pick it; its words are set. The
  *  newest finished version is made. An editor's starts at once inside its video's budget, else it goes to the owner. */
-export function SavedScripts({ brandId, brandName, owner, folder, broll, seg, rail, onScript }: { brandId: number; brandName?: string; owner: boolean; folder: number | null; broll: string | null; seg: ReactNode; rail: boolean; onScript: (s: { type: string; look: string } | null) => void }) {
+export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScript }: { brandId: number; owner: boolean; folder: number | null; broll: string | null; seg: ReactNode; rail: boolean; onScript: (s: { type: string; look: string } | null) => void }) {
   const navigate = useNavigate();
   const [text, setText] = useState("");
   const q = useDebounced(text.trim());
@@ -44,7 +45,7 @@ export function SavedScripts({ brandId, brandName, owner, folder, broll, seg, ra
     <div className="overflow-hidden rounded-lg border border-border bg-surface">
       {rows.isPending && <Skeleton className="h-14" />}
       {rows.data?.length === 0 && <p className="px-3 py-3 text-sm text-muted">{q ? "No script matches that." : "No script is ready to make yet."}</p>}
-      <ul role="radiogroup" aria-label="Scripts">
+      <ul role="radiogroup" aria-label="Scripts" className="max-h-[340px] overflow-y-auto">
         {rows.data?.map((s) => {
           const on = s.id === picked;
           const ready = s.versions.filter(finished);
@@ -57,7 +58,7 @@ export function SavedScripts({ brandId, brandName, owner, folder, broll, seg, ra
               {rail && <FileText size={14} aria-hidden className="shrink-0 text-muted" />}
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-semibold">{s.title}</span>
-                <span className="truncate text-xs text-muted">{[s.published ? "Published" : "Draft", `Version ${letterOf(v.slot)}`, s.published && v.lines ? `${v.lines} lines` : ""].filter(Boolean).join(" · ")}</span>
+                <span className="truncate text-xs text-muted">{[s.published ? "Published" : "Draft", `Version ${letterOf(v.slot)}`, s.published && v.lines ? `${v.lines} line${v.lines === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ")}</span>
               </span>
               {rail && <span className="w-[90px] shrink-0 truncate text-muted">{lookName(looks, s.look)}</span>}
               {rail && <span className="w-[130px] shrink-0 text-right text-muted">{used}</span>}
@@ -68,10 +69,10 @@ export function SavedScripts({ brandId, brandName, owner, folder, broll, seg, ra
     </div>
   );
   const search = (
-    <label className={`flex h-[30px] items-center gap-2 rounded-md border border-border-strong bg-surface px-2.5 text-sm text-muted focus-within:border-focus ${rail ? "w-[260px]" : "w-full"}`}>
+    <label className={`flex h-11 lg:h-[30px] items-center gap-2 rounded-md border border-border-strong bg-surface px-2.5 text-sm text-muted focus-within:border-focus ${rail ? "w-[260px]" : "w-full"}`}>
       <Search size={14} aria-hidden />
       <span className="sr-only">Search scripts</span>
-      <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder={`Search ${brandName ?? "the brand"}’s scripts`} className="min-w-0 flex-1 bg-transparent text-text outline-none! placeholder:text-muted" />
+      <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search scripts" className="min-w-0 flex-1 bg-transparent text-text outline-none! placeholder:text-muted" />
     </label>
   );
   const press = <Press owner={owner} est={est} busy={sent.isPending} disabled={!send || !!had} onClick={() => go()} wide={!rail} />;

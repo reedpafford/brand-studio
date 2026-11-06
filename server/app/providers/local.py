@@ -231,7 +231,12 @@ class LocalProvider:
             video = folder / "reel.mp4"
             video.write_bytes(self.storage.get(input["video_key"]))
             files, names, said = [], [], ""
-        seconds = reel.probe(video)
+        try:
+            seconds, silent = reel.probe(video), False
+        except reel.Refused as no:  # a silent reel is still prepared: Just its look uses it
+            if no.message != reel.NO_SOUND:
+                raise
+            seconds, silent = reel.probe(video, sound=False), True
         cut_times = reel.cuts(video)
         files.append(reel.contact_sheet(video, cut_times, seconds, folder))
         files.append(reel.watch_copy(video, folder))  # what Gemini gets: small enough for it
@@ -242,7 +247,8 @@ class LocalProvider:
             "seconds": seconds,
             "cuts": cut_times,
             "stats": reel.stats(cut_times, seconds),
-            "transcript": self.transcribe(video),
+            "transcript": [] if silent else self.transcribe(video),
+            "silent": silent,
             "caption": said,
             "files": names,  # what each of the worker's file_ids is, in order
         }

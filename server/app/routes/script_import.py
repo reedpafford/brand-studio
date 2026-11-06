@@ -64,7 +64,7 @@ class ImportOut(BaseModel):
     video_file_id: int | None = None
     contact_file_id: int | None = None
     problem: SaidText = ""  # plain words for the editor
-    problem_code: str | None = None  # blocked | gone | bad_file | too_long
+    problem_code: str | None = None  # blocked | gone | bad_file | too_long | no_sound
     steps_done: list[str] = []  # of watch, write, cast
     watched_from: str | None = None  # video | frames (Gemini couldn't take the video)
     failed_step: str | None = None  # prepare | watch | write | cast
@@ -394,6 +394,8 @@ def save_prepared(db: Session, job: Job) -> None:
         files = dict(named)
         reel["grid_file_ids"] = [i for name, i in named if name == "grid"]
         reel |= {k: output[k] for k in ("seconds", "cuts", "stats", "transcript")}
+        if output.get("silent"):  # nothing to read, but its look can be used (New video)
+            reel |= {"problem": media.NO_SOUND, "problem_code": "no_sound"}
         reel["contact_file_id"] = files.get("contact")
         reel["watch_file_id"] = files.get("watch")
         if "video" in files:

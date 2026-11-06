@@ -57,7 +57,9 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
     },
     onSuccess: (fs) => navigate(sentTo(fs, owner, brandId)),
   });
-  const ready = reel?.status === "ready" || (mode === "look" && reel?.status === "done");
+  // A silent reel has nothing to read, but Just its look only needs its picture (S-gaps-01).
+  const silent = reel?.problem_code === "no_sound";
+  const ready = reel?.status === "ready" || (mode === "look" && (reel?.status === "done" || silent));
   const readEst: Estimate | undefined = readPrice ? { credits: readPrice.credits, usd: readPrice.usd, held: "", budget: null } : undefined;
   const est = mode === "look" ? lookEst : readEst;
   const disabled = !ready || (mode === "look" && !words.trim());
@@ -72,7 +74,8 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
       e.target.value = "";
     }} />
   );
-  const status = !scriptId ? null : !reel || reel.status === "preparing" ? "Getting the reel ready…" : reel.problem ? reel.problem : null;
+  const problem = reel?.problem && !(silent && mode === "look") ? (silent ? `${reel.problem} Just its look can still use it.` : reel.problem) : null;
+  const status = !scriptId ? null : !reel || reel.status === "preparing" ? "Getting the reel ready…" : problem;
   const picked = scriptId ? (
     <div className="flex items-start gap-4 px-4 py-3.5">
       <div className="relative h-[128px] w-[72px] shrink-0 overflow-hidden rounded-md bg-surface-3">
@@ -84,7 +87,7 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
         {mode !== "look" && <span className="text-sm text-muted">{[reel?.seconds ? mmss(reel.seconds) : null, "uploaded", `the director watches and listens to it, then writes a script that keeps its shape with ${brand?.name ?? "the brand"}’s product`].filter(Boolean).join(" · ")}</span>}
         <div role="radiogroup" aria-label="What to take from it" className="flex flex-wrap gap-2">
           {MODES.map((m) => (
-            <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => setMode(m.id)} className={`inline-flex h-[26px] items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium ${mode === m.id ? "border-[#c9ccf6] bg-accent-soft text-accent-text" : "border-border-button bg-surface hover:bg-surface-2"}`}>
+            <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => setMode(m.id)} className={`inline-flex h-11 lg:h-[26px] items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium ${mode === m.id ? "border-[#c9ccf6] bg-accent-soft text-accent-text" : "border-border-button bg-surface hover:bg-surface-2"}`}>
               {mode === m.id && (m.id === "copy" ? <Copy size={12} aria-hidden /> : <Check size={12} aria-hidden />)}
               {m.name}
             </button>
@@ -101,7 +104,7 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
         ) : (
           <span className="text-xs text-muted">Live-action parts are swapped for the brand’s ending.</span>
         )}
-        {status && <span role="status" className={`text-sm ${reel?.problem ? "text-danger" : "text-muted"}`}>{status}</span>}
+        {status && <span role="status" className={`text-sm ${problem ? "text-danger" : "text-muted"}`}>{status}</span>}
       </div>
     </div>
   ) : (
