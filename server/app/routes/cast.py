@@ -33,7 +33,12 @@ from app.schemas import LongText, Name
 router = APIRouter(
     prefix="/projects/{project_id}/cast", tags=["assets"], dependencies=[Depends(video_writer)]
 )
-NO_PLAN = "Make the plan first: a place belongs to its scenes."
+# A place belongs to the plan's shots, made after Make it: the director read "Make the plan
+# first" as "plan again" while its plan was done, tried again and stopped (Reed's House test, 6 Nov)
+NO_PLAN = (
+    "Places are added once the plan's shots are made, after Make it. Carry on without it: "
+    "the place is drawn with the cast then."
+)
 NO_PLACE = "No such place in this video."
 NOT_THE_BRANDS = "Pick one of the brand's places."
 
