@@ -4,7 +4,7 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { Button, TextArea } from "../components";
 import { useMe } from "../auth/useMe";
-import { spent as money } from "../videos/money";
+import { spentAsHeader, spent as money } from "../videos/money";
 import { useHead } from "../videos/VideoHead";
 
 type Card = components["schemas"]["CardOut"];
@@ -41,7 +41,7 @@ export function Scorecard({ projectId }: { projectId: number }) {
     <section aria-label="Scorecard" className="space-y-2 border-t border-border pt-3">
       <p className="text-sm text-muted tabular-nums">
         {c.forecast_credits === null ? "No forecast was made. " : `Forecast ${money(head, c.forecast_credits)} (${c.forecast_basis}). `}
-        Spent {money(head, c.actual_credits)}{own}
+        Spent {spentAsHeader(head, c.actual_credits)}{own}
         {c.within_forecast !== null && (c.within_forecast ? ", within the forecast." : ", over the forecast.")}
       </p>
       {checks.length > 0 && <p className="text-sm text-muted">{checks.join(" · ")}</p>}
