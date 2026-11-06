@@ -219,8 +219,10 @@ def test_nothing_is_offered_where_the_clip_doesnt_carry_the_voice(app, db, owner
     monkeypatch.setattr(director_song, "kind", lambda db, project: "narrated")
     monkeypatch.setattr(locked_line, "_goes", lambda *a: False)  # nor anything in the cut
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK}).json()
-    assert (out["status"], out["unread"]) == ("running", 0)  # the next run reads it (S3-12)
-    assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
+    assert (out["status"], out["unread"]) == ("delivered", 0)  # answered at once: no run
+    card = _card(editor, pid)  # the words are set, with nothing to offer instead here
+    assert card["choices"] == [] and card["question"] == locked_line.SET_ONLY.format(
+        "bought the dip")  # fmt: skip
 
 
 NOT_ASKS = [  # notes that quote the words but don't ask to change them (QA on e17e902f)
@@ -654,3 +656,19 @@ def test_a_cut_that_cant_be_read_never_breaks_the_cards(app, db, owner, editor, 
     db.commit()
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
     assert out.status_code == 201  # a new reply still comes, without that choice
+
+
+def test_a_word_change_starts_no_run_and_any_other_note_does(app, db, owner, editor):
+    """Flow-QA on 4eb75e1a: a note that only asks to change the words is answered at once and
+    starts nothing; any other note after a delivery starts the next run; a note that asks both
+    gets the reply and starts the run for its other half."""
+    url = lambda pid: f"/projects/{pid}/director/messages"  # noqa: E731
+    pid = _delivered(app, db, owner, editor)
+    out = editor.post(url(pid), json={"text": ASK}).json()
+    assert (out["status"], out["unread"]) == ("delivered", 0) and _card(editor, pid)
+    out = owner.post(url(pid), json={"text": "Make clip 1 slower."}).json()
+    assert out["status"] == "running"  # any other note: the next run
+    pid = _delivered(app, db, owner, editor)
+    both = "Change “bought the dip” to “bought the top”, and make the end brighter."
+    out = editor.post(url(pid), json={"text": both}).json()
+    assert _card(editor, pid)["choices"] and out["status"] == "running"  # both, at once

@@ -134,7 +134,17 @@ class RunStoppedOut(BaseModel):
     at: str
     made: int
     total: int
-    carry_on: str  # "Carry on · up to $X more": Carry on starts a new run, so its whole "up to"
+    carry_on: str  # "Carry on · up to $10.74 more": what's left of this run's own approved
+    # price (rule 34); with none of it left, a new run's whole price
+
+
+class RunStopOut(BaseModel):
+    """A Stop the run carried on from (S3-08): "Reed stopped the director at 10:31 · carried
+    on at 10:40"."""
+
+    by: str
+    at: str
+    carried_at: str
 
 
 class RunFixOut(BaseModel):
@@ -186,7 +196,9 @@ class ProgressOut(BaseModel):
     up_to: float  # the video's "up to", in credits, never below `spent`
     spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
     changed: list[ChangedClipOut]  # "Changed after watching" / "Watch the changes"
-    stopped: RunStoppedOut | None  # stopped by a person (S3-08)
+    stopped: RunStoppedOut | None  # stopped by a person (S3-08); carry_on "" while an
+    # editor's Carry on waits for the owner's OK (its card says so)
+    stops: list[RunStopOut] = []  # Stops it carried on from, oldest first
     failed: RunFailedOut | None  # stopped on a problem, with its fixes (S3-11)
 
 
@@ -287,6 +299,19 @@ def plan_again(project_id: int, user: User = Depends(current_user),
     project = get_project(db, user, project_id)
     _mine(db, user, project.id)  # as Make it: the video's maker or the owner
     director.start(db, user, project, hold=asks.start_hold(db, user, project), fresh=True)
+    return _out(db, user, project)
+
+
+@router.post("/carry-on", response_model=DirectorOut, status_code=201,
+             dependencies=[Depends(generation_on)])  # fmt: skip
+def carry_on(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Carry on (S3-08) after a person's Stop: the same run goes on where it left off under the
+    owner's existing OK, up to what's left of its own approved price ("up to $X more"); a step
+    past that waits for the owner. With nothing of it left, a new run with its own start card,
+    as Make it starts one. 409 while a run goes on."""
+    project = get_project(db, user, project_id)
+    _mine(db, user, project.id)  # as Make it: the video's maker or the owner
+    director.carry_on(db, user, project)
     return _out(db, user, project)
 
 

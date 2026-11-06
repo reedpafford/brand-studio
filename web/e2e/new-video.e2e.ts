@@ -106,6 +106,6 @@ test("at 390, the owner's change after a delivery starts the next run by talking
   await expect(again).toBeVisible({ timeout: 60_000 });
   expect((await again.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await again.click();
-  await expect(page.getByRole("banner").getByText(/^Working/)).toBeVisible(); // P-04: Stop is in the ⋯ menu on a phone
+  await expect(again).toHaveCount(0); // pressed: the revision goes on (the stand-in may deliver it at once, so no race on "Working")
   await noSidewaysScroll(page);
 });

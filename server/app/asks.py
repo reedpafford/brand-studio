@@ -488,6 +488,7 @@ def may_start(db: Session, user: User, project: Project) -> bool:
 
 
 HOLD = "start_hold"  # in a start card's job: why it waits for the owner ("": its maker starts it)
+CARRIES = "carries"  # in a start card for carrying a stopped run on: that run's approved price
 
 
 def start_hold(db: Session, user: User, project: Project) -> str:
@@ -544,6 +545,9 @@ def approved_run(
     spent = sum((j.credits for j in mine if not j.input.get(PAST_PRICE)
                  and not j.input.get(PLAN_OK)), Decimal(0))  # fmt: skip
     oks = sum(1 for j in mine if j.input.get(GRANT))  # each OK at its own limit grants another
+    if card.input.get(CARRIES):  # carrying a stopped run on: the run's own price, not the rest
+        later = sum(1 for j in mine if j.id > card.id and j.input.get(GRANT))  # (its OKs till
+        return Decimal(str(card.input[CARRIES])) + later * own_limit(), spent  # then are in it)
     return Decimal(str(card.input["price"])) + oks * own_limit(), spent
 
 
@@ -569,7 +573,11 @@ def approved_total(db: Session, project: Project) -> Decimal | None:
     rows = db.scalars(select(Job).where(
         Job.project_id == project.id,
         Job.status.in_((*COUNTED, JobStatus.needs_owner_approval)))).all()  # fmt: skip
-    prices = [Decimal(str(j.input.get("price") or 0)) for j in rows if j.input.get(START)]
+    prices = [
+        Decimal(str(j.input.get("price") or 0))
+        for j in rows
+        if j.input.get(START) and not j.input.get(CARRIES)
+    ]  # a carried-on run's card: the same run's price
     if not any(prices):
         return None
     oks = sum(1 for j in rows if j.status in COUNTED and j.input.get(GRANT)

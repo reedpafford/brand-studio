@@ -1013,10 +1013,10 @@ def test_make_it_shows_the_most_one_run_may_charge(app, db, owner, editor):
     shown = editor.get(url).json()["run_price"]
     assert shown == float(run_price(db, draft, project)) > float(version_cost(db, draft, project))
     editor.post(url)
-    _run(app, db, ticks=3, start=False)  # its start card
+    _run(app, db, ticks=3, start=False)  # the treatment, then its start card
     out = editor.get(url).json()
     assert (out["run_price"], out["started"]) == (shown, False)  # S3-02: no generation yet
-    assert out["spent"] == 0  # held for the owner: nothing runs before their yes (rule 4)
+    assert out["spent"] > 0  # its plan, charged as it costs (Reed, 4 Nov: allowed before the OK)
     make_it(db)
     out = editor.get(url).json()
     assert (out["run_price"], out["started"]) == (0, True)  # going: its "so far" is shown

@@ -25,7 +25,7 @@ import { plain, useDirectorRun, useMovesRefresh } from "./director";
 import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview";
 import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
 import { InsteadCard } from "./InsteadCard";
-import { DeliveryNote, Failed, PastNote, RunCard, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
+import { DeliveryNote, Failed, PastNote, RunCard, stopLines, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
 import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -354,7 +354,22 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       return refreshJobs(queryClient);
     },
   });
-  // "Start the plan again" (S3-08): a new run, as Carry on starts one, that plans the whole video again after Make it.
+  // Carry on after a person's Stop (S3-08): the same run goes on under the owner's OK, up to the rest of its own price.
+  const carry = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/projects/{project_id}/director/carry-on", { params: { path: { project_id: id } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["director", id], data);
+      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
+      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
+      void queryClient.invalidateQueries({ queryKey: ["run-progress", id] });
+      return refreshJobs(queryClient);
+    },
+  });
+  // "Start the plan again" (S3-08): a new run with its own start card that plans the whole video again after Make it.
   const planAgain = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director/plan-again", { params: { path: { project_id: id } } });
@@ -377,7 +392,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const mayStart = fs ? owner : maker; // a freestyle's run is the owner's to start again; a script video's, its maker's
   const blocked = run?.start_blocked || null;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
-  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), again.mutate()), onPlanAgain: () => (again.reset(), planAgain.mutate()), busy: again.isPending, planBusy: planAgain.isPending, blocked, error: (again.error ?? planAgain.error)?.message ?? null }) : null;
+  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), carry.mutate()), onPlanAgain: () => (carry.reset(), planAgain.mutate()), busy: carry.isPending, planBusy: planAgain.isPending, blocked, error: (carry.error ?? planAgain.error)?.message ?? null }) : null;
   const presses = !archived && !lookOnly && (
     <>
       {ended && mayStart && p && (
@@ -438,7 +453,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const waiting = state === "waiting";
   const fromScript = !!script && !!fs && serverTime(script.created_at) < serverTime(fs.created_at);
   const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “warmer light in scene 2”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
-  const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : null) : viaFreestyle && !owner && !running ? "Each change goes to the owner first. Nothing is spent until they say yes." : null;
+  const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : null) : viaFreestyle && !owner && !running ? "Each change goes to the owner first. No generation starts until they say yes." : null;
   const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting && !owner ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
   const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;
   const opening = items.find((t) => t.kind === "message")?.id;
@@ -508,6 +523,12 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
                   <RunCard progress={progress} phone={phone} />
                   {heldSend(t)}
                 </Item>
+                {stopLines(progress).map((line) => (
+                  <li key={line} className="flex items-center gap-2 pl-[34px] text-xs text-muted">
+                    <CircleStop size={12} strokeWidth={1.75} aria-hidden className="shrink-0 text-faint" />
+                    {line}
+                  </li>
+                ))}
                 {progress.stopped && (
                   <>
                     <li className="flex items-center gap-2 pl-[34px] text-xs text-muted">

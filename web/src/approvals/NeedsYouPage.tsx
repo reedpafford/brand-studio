@@ -188,7 +188,7 @@ function Money({ row, phone, main, me }: { row: Row; phone: boolean; main: boole
   if (a.kind === "start") {
     const theirs = row.video.made_by && can("decline"); // an editor's send: the owner starts it
     title = theirs ? (phone ? `Start it · up to ${up}` : `${row.video.made_by}’s new video · up to ${up}`) : `Make it for up to ${up}?`;
-    line = theirs ? `${row.video.about ? `${row.video.about}. ` : ""}Nothing is spent until you approve.` : a.why;
+    line = theirs ? `${row.video.about ? `${row.video.about}. ` : ""}No generation starts until you approve.` : a.why;
     if (can("make_it"))
       yes = (
         <Button variant={main ? "primary" : "secondary"} busy={press.isPending} onClick={go("make_it")}>

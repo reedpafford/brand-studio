@@ -78,8 +78,7 @@ def test_start_the_plan_again_plans_the_whole_video_again_after_make_it(app, db,
     mine = db.query(Job).filter(Job.input["step"].as_string() == "treatment",
                                 Job.input[director.RUN]["id"].as_string() == run["id"],
                                 Job.status == JobStatus.succeeded)  # fmt: skip
-    held = bool(run.get("hold"))  # an editor's past the budget: nothing runs before the yes
-    assert mine.count() == (0 if held else 1)  # else its own new treatment
+    assert mine.count() == 1  # its own new treatment (Reed, 4 Nov: planning before the OK)
     card = db.query(Ask).filter_by(project_id=pid, kind="start", run=run["id"]).one()
     assert asks.state(db, card) == "open"  # and its own start card, waiting for Make it
     _run(app, db, ticks=150)

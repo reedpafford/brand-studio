@@ -39,18 +39,20 @@ def test_m1_the_owners_own_start_card_never_holds_him_for_his_own_ok(app, db, ow
         assert {"make_it", "approve"} & set(cards[-1]["can"]) and "$" in cards[-1]["question"]
 
 
-def test_m4_nothing_runs_or_is_charged_while_a_send_waits_for_the_owner(app, db, owner, editor):
+def test_m4_a_held_send_plans_within_its_cap_and_no_generation_runs_before_the_yes(
+    app, db, owner, editor
+):
+    """M4 as Reed decided it (4 Nov): an editor's held send gets its plan before the owner's OK
+    (a small planning spend, inside the cap); no generation runs until they say yes."""
     held = editor.post("/freestyles", json=BODY).json()  # an editor's New video send
     _fs_run(app, db, ticks=6, start=False)
     pid = db.get(Freestyle, held["id"]).project_id
-    charged = db.query(Job).filter(Job.project_id == pid, Job.status.in_(credits.COUNTED))
-    assert charged.count() == 0  # not even its plan: "Nothing is spent until they say yes"
+    charged = {j.input.get("step") for j in db.query(Job).filter(
+        Job.project_id == pid, Job.status.in_(credits.COUNTED))}  # fmt: skip
+    assert charged <= {"director", "treatment"}  # its plan only: no generation
     (turn,) = db.query(Job).filter(Job.project_id == pid,
                                    Job.status == JobStatus.needs_owner_approval).all()  # fmt: skip
-    assert turn.input.get(director.START)  # the owner's start card, first
-    editor.post(f"/freestyles/{held['id']}/withdraw")
-    assert db.query(Job).filter(Job.project_id == pid,
-                                Job.status.in_(credits.COUNTED)).count() == 0  # fmt: skip
+    assert turn.input.get(director.START)  # its start card, for the owner
 
 
 def test_a_revision_starts_by_talking_and_after_a_stop_the_note_waits(app, db, owner, editor):

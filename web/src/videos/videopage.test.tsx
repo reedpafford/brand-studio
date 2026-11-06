@@ -344,13 +344,14 @@ test("S3-03/04: the run is one card: its frames scene by scene, the scene being 
 test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its price starts it again", async () => {
   setViewport(1440);
   const stopped = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "$10.74" } });
-  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director": [201, run()] });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director/carry-on": [201, run()] });
   renderApp("/b/1/videos/50");
   expect(await screen.findByText(/^Reed stopped the director at \d\d:\d\d\. Nothing more is being spent\.$/)).toBeInTheDocument();
   expect(screen.getByText("Stopped. The 3 finished clips are kept. Tell me what to change, or carry on where I left off.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull(); // Carry on is the press here
   await userEvent.click(screen.getByRole("button", { name: "Carry on · up to $10.74 more" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director/carry-on")).toBe(true)); // the same run, under the owner's OK
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // not a new run
 });
 
 test("S3-08: Start the plan again starts a new run that plans the whole video again; it says why when it can't", async () => {
@@ -621,7 +622,7 @@ test("S3-02: the start-of-run card: Make it · up to its price, Change the plan 
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to $14.40?" });
   expect(within(card).getByText("Ready to start")).toBeInTheDocument();
-  expect(within(card).getByText("Nothing is spent until you press.")).toBeInTheDocument();
+  expect(within(card).getByText("No generation starts until you press.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull();
   await userEvent.click(within(card).getByRole("button", { name: "Change the plan first" }));
   expect(screen.getByLabelText("Tell the director what to change")).toHaveFocus();
@@ -781,7 +782,7 @@ test("S3-07: an editor's send, held before its video has cards, is the same held
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to 164 credits?" });
   expect(within(card).getByText("Waiting for the owner’s OK")).toBeInTheDocument();
-  expect(within(card).getByText("The owner has been asked. Nothing is made or charged while it waits.")).toBeInTheDocument();
+  expect(within(card).getByText("The owner has been asked. No generation starts until they say yes.")).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
 });
@@ -793,7 +794,7 @@ test("S3-07: an editor's change after a delivery waits with its own price from i
   server(editor, sent, run({ status: "delivered", turns: [], run_price: 0 }), { "GET /projects/50": [200, { ...project, created_by_id: 2 }], "GET /jobs": [200, [job]] });
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make this change for up to 23 credits?" });
-  expect(within(card).getByText("The owner has been asked. The cut stays as it is while it waits; nothing is charged.")).toBeInTheDocument();
+  expect(within(card).getByText("The owner has been asked. The cut stays as it is; no generation starts until they say yes.")).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Withdraw the request" })).toBeInTheDocument();
 });
 
@@ -1019,4 +1020,18 @@ test("S3-14 on a Presenter video: Cut away while it's said is free, and its pres
   expect(button).toHaveTextContent("Show the B-roll instead of Dr. Pickle’s face on that line · free");
   await userEvent.click(button);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A" }));
+});
+
+test("S3-08: a run carried on shows the Stop it carried on from; an editor's Carry on waiting for the owner has no press of its own", async () => {
+  setViewport(1440);
+  const going = record({ stops: [{ by: "Reed", at: "2026-11-04T10:14:00Z", carried_at: "2026-11-04T10:20:00Z" }] });
+  server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, going] });
+  const view = renderApp("/b/1/videos/50");
+  expect(await screen.findByText(/^Reed stopped the director at \d\d:\d\d · carried on at \d\d:\d\d\.$/)).toBeInTheDocument();
+  view.unmount();
+  const waiting = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "" } });
+  server(editor, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, waiting] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: "Start the plan again" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Carry on/ })).toBeNull();
 });
