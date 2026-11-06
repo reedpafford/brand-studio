@@ -541,7 +541,7 @@ test("removing a place or a screen the video doesn't have says how to use it aga
   expect(await screen.findByText("Removed Bin Lot from shot 1.1. To use it again, add it in Cast & places, then pick it in this shot.")).toBeInTheDocument();
 });
 
-test("Split the clip is free and the cost bar asks again for what's left (QA-3 #1013)", async () => {
+test("Split the clip is free and the budget is asked again for what's left (QA-3 #1013)", async () => {
   const long = "clip c1: 25 s is outside 4–15 s";
   const calls = fakeServer({
     ...base,

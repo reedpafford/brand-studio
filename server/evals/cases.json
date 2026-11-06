@@ -3,12 +3,7 @@
  "brands": {
   "fomo": {
    "brand": {
-    "name": "fomo",
-    "never_say": [
-     "guaranteed profit",
-     "can't lose"
-    ],
-    "end_line": "Want to trade like me? Download fomo through the link in my bio."
+    "name": "fomo"
    },
    "screens": [
     {
@@ -227,8 +222,7 @@
     "words_per_draft": [
      45,
      85
-    ],
-    "end_line": "Want to trade like me? Download fomo through the link in my bio."
+    ]
    }
   },
   {
@@ -423,7 +417,6 @@
      65
     ],
     "reference_words": true,
-    "end_line": "Want to trade like me? Download fomo through the link in my bio.",
     "clips": [
      2,
      3
@@ -746,7 +739,6 @@
      65
     ],
     "reference_words": true,
-    "end_line": "Want to trade like me? Download fomo through the link in my bio.",
     "slot_any": [
      "groom",
      "nate"
@@ -904,7 +896,6 @@
      125
     ],
     "reference_words": true,
-    "end_line": "Want to trade like me? Download fomo through the link in my bio.",
     "slots_absent": [
      "crowd",
      "staff",

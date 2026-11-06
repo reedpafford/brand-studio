@@ -94,7 +94,7 @@ export function BreakdownView(props: {
       toast((e as Error).message, undefined, "error");
     }
   };
-  // After a fix or its Undo: the new breakdown, what was made from the old one, and the cost bar
+  // After a fix or its Undo: the new breakdown, what was made from the old one, and the header
   // (a free fix such as Split changes what's left to pay, not what's been spent: QA-3 #1013).
   const refreshAll = async () => {
     await queryClient.invalidateQueries({ queryKey: [preview ? "preview" : "breakdown", projectId] });

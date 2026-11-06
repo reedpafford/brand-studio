@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, ChevronLeft, FileText, Paperclip, Upload, WifiOff, X } from "lucide-react";
+import { ArrowUp, ChevronLeft, CircleStop, FileText, Paperclip, Upload, WifiOff, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -23,6 +23,7 @@ import { useBrands } from "../shell/useBrands";
 import { useOnline, useRail } from "../useMedia";
 import { plain, useDirectorRun, useMovesRefresh } from "./director";
 import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview";
+import { DeliveryNote, Failed, PastNote, RunCard, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
 import { MoveDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -81,6 +82,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const clips = useProjectClips(id).data ?? [];
   const cut = useProjectVideo(id).data;
   const head = useHead(id, !!p);
+  const liveRun = useRunProgress(id, !!p).data;
   const facts = usePanelFacts(p);
   const mayManage = useMayManageVideo();
   const brands = useBrands().data;
@@ -122,7 +124,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const cutFile = cut?.file_id ?? fs?.file_id ?? null;
   // The header's status: the server's for a readable video; before the owner's OK, the send's own.
   const fallback: Status = { kind: "waiting", words: owner ? "Waiting for your OK" : "Waiting for the owner", made: 0, total: 0 };
-  const where = running ? (turns.some((t) => t.tool) ? (cutFile ? "revising" : null) : "starting") : null;
+  const where = running ? (liveRun?.status === "revising" || (turns.some((t) => t.tool) && cutFile) ? "revising" : turns.some((t) => t.tool) ? null : "starting") : null;
   // A run that's going is Working, even between two of its moves (when no job is queued the server reads the last state).
   const read = head.data?.status ?? fallback;
   // "Needs you · Start it" while the first move still runs (no start card open yet) is the server's read lagging: Working.
@@ -162,9 +164,9 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
   const chat = (
-    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} />
+    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} phone={!rail} progress={liveRun ?? null} />
   );
-  const preview = <Preview p={p} head={head.data ?? undefined} tab={tab} onTab={pick} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
+  const preview = <Preview p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
     <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
       {rail ? (
@@ -283,18 +285,9 @@ function Loading({ phone }: { phone: boolean }) {
   );
 }
 
-/** Which thread item is the delivery: the newest run's deliver turn, or (a change's run since) the last finished move
- *  before the newest person's note. */
-function deliveryOf(items: Said[], turns: { tool: string | null; created_at: string }[]) {
-  const at = turns.filter((t) => t.tool === "deliver").map((t) => t.created_at).at(-1);
-  if (at) return items.find((t) => t.kind === "move" && serverTime(t.at).getTime() === serverTime(at).getTime())?.id;
-  const lastNote = items.map((t) => t.kind).lastIndexOf("message");
-  return [...items.slice(0, lastNote)].reverse().find((t) => t.kind === "move" && t.status === "done")?.id;
-}
-
 /** The conversation (oldest first, newest at the bottom), and the box under it. A freestyle's thread is its first words,
  *  moves and held sends, with the notes saved on its video; a video made from a script reads its director's thread. */
-function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void }) {
+function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, phone, progress }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; phone: boolean; progress: Progress | null }) {
   const queryClient = useQueryClient();
   const id = p?.id ?? fs?.project_id ?? 0;
   const actions = useFreestyleActions(fs?.id ?? null);
@@ -303,14 +296,27 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const said = run?.thread ?? [];
   const turns = run?.turns ?? [];
   const known = (t: Said) => said.find((x) => x.kind === "message" && x.who === t.who && x.text === t.text);
-  const items: Said[] = fs
-    ? [...fs.thread.map((t) => (t.kind === "message" ? { ...t, answered: known(t)?.answered } : t)), ...said.filter((x) => x.kind === "message" && !fs.thread.some((t) => t.kind === "message" && t.who === x.who && t.text === x.text)).map((x) => ({ ...x, id: `note-${x.id}` }))].sort((a, b) => serverTime(a.at).getTime() - serverTime(b.at).getTime())
-    : said.length
-      ? said
-      : turns.map((t) => ({ id: `t${t.turn}`, kind: "move" as const, at: t.created_at, who: "Director", text: t.status === "needs_owner_approval" ? "Waiting for the owner's OK." : plain(t.result, clips), status: t.status === "needs_owner_approval" ? ("held" as const) : null, why: t.why }));
-  const delivered = fs?.file_id || run?.status === "delivered" ? deliveryOf(items, turns) : undefined;
+  const byId = new Map(said.map((x) => [x.id, x]));
+  // A freestyle's thread is its first words, its held sends and the director's moves in its words; each move keeps the run
+  // card or the delivery note it is (v6 piece C and D), from the video's own thread.
+  const items: Said[] = (fs
+    ? [...fs.thread.map((t) => (t.kind === "message" ? { ...t, answered: known(t)?.answered } : { ...t, run: byId.get(t.id)?.run ?? null, note: byId.get(t.id)?.note ?? null })), ...said.filter((x) => x.kind === "message" && !fs.thread.some((t) => t.kind === "message" && t.who === x.who && t.text === x.text)).map((x) => ({ ...x, id: `note-${x.id}` }))].sort((a, b) => serverTime(a.at).getTime() - serverTime(b.at).getTime())
+    : [...said]);
+  // The live card sits after its run's other moves (the treatment, a held step), as the newest thing it says (S3-03).
+  const live = items.findIndex((t) => t.run && t.run === progress?.run);
+  if (live >= 0) {
+    const [card] = items.splice(live, 1);
+    const next = items.findIndex((t, i) => i >= live && (t.kind === "message" || t.note || t.run));
+    items.splice(next < 0 ? items.length : next, 0, card);
+  }
+  const seen = useSeen(id);
+  // The newest note opens in full; once a later run starts (a revision), it folds to its line too (S3-12).
+  const lastIndex = items.map((t) => !!t.note).lastIndexOf(true);
+  const lastNote = lastIndex >= 0 && !items.slice(lastIndex + 1).some((t) => t.run) ? items[lastIndex].id : undefined;
+  const unwatched = (progress?.changed ?? []).filter((c) => !c.watched && c.take_id != null).map((c) => c.take_id!);
+  const watch = () => (seen.mutate(unwatched), onWatch());
   const heldMove = [...items].reverse().find((t) => t.kind === "move" && t.status === "held")?.id;
-  const newest = `${items.length}:${items.at(-1)?.id}`;
+  const newest = `${items.length}:${items.at(-1)?.id}:${progress?.run}:${progress?.status}:${progress?.failed ? 1 : 0}`;
   useEffect(() => {
     scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
   }, [newest]);
@@ -330,17 +336,19 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       return refreshJobs(queryClient);
     },
   });
-  // A start card waiting for Make it is the press: the general one stands aside.
-  const card = fs?.make_it ?? run?.make_it ?? null;
+  // A start card waiting for Make it is the press, as are a stopped or failed run's own (Carry on, its fixes): the general
+  // one stands aside (S3-02, S3-08, S3-11).
+  const startCard = fs?.make_it ?? run?.make_it ?? null;
   const makeIt = useMakeIt(id, fs?.id);
-  const ended = ["delivered", "stopped", "failed", "declined", "withdrawn", "ended", "none"].includes(state) && card == null;
+  const ended = ["delivered", "stopped", "failed", "declined", "withdrawn", "ended", "none"].includes(state) && startCard == null && !progress?.stopped && !progress?.failed;
   const mayStart = fs ? owner : maker; // a freestyle's run is the owner's to start again; a script video's, its maker's
   const blocked = run?.start_blocked || null;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
+  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => again.mutate(), busy: again.isPending, blocked, error: again.isError ? again.error.message : null }) : null;
   const presses = !archived && !lookOnly && (
     <>
-      {card != null && ( // its start card (S3-02): its plan is in the thread; no generation has started (screen 5 draws the card)
-        <Button dense busy={makeIt.isPending} price={(fs ? (fs.make_it_up_to ?? fs.up_to) : run?.run_price) || undefined} charge="estimate" onClick={() => makeIt.mutate(card)}>
+      {startCard != null && ( // its start card (S3-02): its plan is in the thread; no generation has started (screen 5 draws the card)
+        <Button dense busy={makeIt.isPending} price={(fs ? (fs.make_it_up_to ?? fs.up_to) : run?.run_price) || undefined} charge="estimate" onClick={() => makeIt.mutate(startCard)}>
           Make it
         </Button>
       )}
@@ -408,6 +416,8 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “shorter end”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
   const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : "Saved. Press Make it again to make this change.") : viaFreestyle && !owner && !running ? "Each change goes to the owner first. Nothing is spent until they say yes." : null;
   const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
+  // What a held send says under its move or its run's card: the price the owner is asked for (screen 5's cards replace it).
+  const heldCard = (t: Said) => (t.id !== heldMove || !fs ? null : waiting ? <Held title="Sent to the owner for approval" price={fs.up_to} foot={fromScript ? undefined : "Nothing is made until the owner says yes."} /> : state === "change" ? <ChangeHeld fs={fs} /> : null);
   const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;
   const opening = items.find((t) => t.kind === "message")?.id;
   return (
@@ -438,15 +448,47 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
           {items.map((t) =>
             t.kind === "message" ? (
               <Item key={t.id} t={t} words={t.id === opening && first ? null : t.text} first={t.id === opening ? first : undefined} excerpt={t.id === opening} />
+            ) : t.run && progress && t.run === progress.run ? (
+              // The newest run: its one live card (S3-03…S3-13), then what stopped it, if anything.
+              <Fragment key={t.id}>
+                <Item t={t} owner={owner} words={null}>
+                  <RunCard progress={progress} phone={phone} />
+                  {heldCard(t) ??
+                    (t.status === "held" && owner && (
+                      <Link to="/approvals" className="inline-flex items-center self-start text-accent-text underline-offset-2 hover:underline max-lg:min-h-control">
+                        See it in Needs you
+                      </Link>
+                    ))}
+                </Item>
+                {progress.stopped && (
+                  <>
+                    <li className="flex items-center gap-2 pl-[34px] text-xs text-muted">
+                      <CircleStop size={12} strokeWidth={1.75} aria-hidden className="shrink-0 text-faint" />
+                      {stopped!.line}
+                    </li>
+                    <Item t={{ ...t, id: `${t.id}-stopped`, status: "done", at: progress.stopped.at }} owner={owner} words={null}>
+                      {stopped!.reply}
+                    </Item>
+                  </>
+                )}
+                {progress.failed && p && (
+                  <Item t={{ ...t, id: `${t.id}-failed`, status: "done" }} owner={owner} words={null}>
+                    <Failed progress={progress} projectId={p.id} onCarryOn={() => again.mutate()} busy={again.isPending} blocked={blocked} />
+                  </Item>
+                )}
+              </Fragment>
+            ) : t.run ? (
+              // An earlier run: its card in a line.
+              <Item key={t.id} t={t} owner={owner} words={<span className="text-[13px] text-muted">{plain(t.text, clips)}</span>}>
+                {heldCard(t)}
+              </Item>
+            ) : t.note ? (
+              <Item key={t.id} t={t} owner={owner} words={t.id === lastNote ? "Here’s the cut." : null}>
+                {t.id === lastNote ? <DeliveryNote note={t.note} changes={unwatched.length} onWatch={p ? watch : undefined} /> : <PastNote note={t.note} />}
+              </Item>
             ) : (
               <Item key={t.id} t={t} owner={owner} words={plain(t.text, clips) || "Deciding what to do next."} why={plain(t.why ?? "", clips)}>
-                {t.id === heldMove && waiting && fs && <Held title="Sent to the owner for approval" price={fs.up_to} foot={fromScript ? undefined : "Nothing is made until the owner says yes."} />}
-                {t.id === heldMove && state === "change" && fs && <ChangeHeld fs={fs} />}
-                {t.id === delivered && p && (
-                  <button type="button" className="self-start text-sm font-medium text-accent-text hover:underline max-lg:min-h-control" onClick={onWatch}>
-                    Watch the cut
-                  </button>
-                )}
+                {heldCard(t)}
               </Item>
             ),
           )}
