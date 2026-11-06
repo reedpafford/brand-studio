@@ -45,9 +45,9 @@ ASKS = (
 POLITE = re.compile(
     r"^(?:(?:can|could|would|will)\s+(?:we|you|i|it\s+be)\b|please\b|maybe\b)\s*", re.I
 )
-REASON = re.compile(  # a short reason about those same words: "It feels a bit harsh."
-    r"^(?:because\b.*|(?:it|that|this|they|the (?:word|words|line|phrase))(?:'s|\s+(?:feels?|"
-    r"sounds?|is|are|seems?|reads?|comes? across|might|may)\b).*)$",
+REASON = re.compile(  # a bare verdict on those words: "It feels a bit harsh."
+    r"^(?:it|that|this)(?:['’]s|\s+(?:is|feels|sounds|reads|seems|comes\s+across))"
+    r"(?:\s+(?:a\s+bit|a\s+little|too|so|quite|kind\s+of|really|very))?\s+[a-z-]+$",
     re.I,
 )
 
@@ -82,7 +82,7 @@ def _only(rest: str) -> bool:
     short reason about those words. Anything else stays for the director (unread)."""
     for part in re.split(r"[.!?;\n]+", rest):
         part = POLITE.sub("", part.strip(" ,—-")).strip(" ,—-")
-        if part and not (len(part.split()) <= 10 and REASON.match(part)):
+        if part and not REASON.match(part):
             return False
     return True
 
@@ -202,7 +202,10 @@ def made(db: Session, ask: Ask, key: str) -> tuple[str, str, int | None]:
     if not mine:
         return "", "", None
     if "outcome" in mine:
-        return ("done" if mine.get("cut") else "kept"), mine["outcome"], mine.get("use")
+        use = mine.get("use")
+        if use and _gone(db, ask, use):  # its take or clip went since (a new plan): no press
+            return "kept", f"{mine['outcome']} {GONE}", None
+        return ("done" if mine.get("cut") else "kept"), mine["outcome"], use
     job = db.get(Job, mine.get("job") or 0)
     if job is None or job.status in (JobStatus.failed, JobStatus.cancelled):
         return "", "It wasn’t made, and nothing was charged. You can press it again.", None
@@ -217,9 +220,25 @@ def made(db: Session, ask: Ask, key: str) -> tuple[str, str, int | None]:
         return "watching", "Made. Being watched before the cut is made again.", None
     if take is None:
         return "kept", "It wasn’t made. You can press it again.", None
-    return "kept", (f"Made, but its watch’s remake wasn’t made, so the cut stays as it was. "
-                    f"Use take {take.number} and make the cut, or look at it in Clips first."
+    n = db.get(ProjectClip, take.clip_id).clip_id.removeprefix("c")
+    watch = take.watch or {}
+    if watch.get("action") in ("redo", "held", "flagged"):  # its watch found a fault: no press
+        found = (watch.get("found") or watch.get("did") or "something to fix").rstrip(".")
+        return "kept", (f"Made, but its watch found: {found}. Its remake wasn’t made, so the "
+                        f"cut stays as it was; look at clip {n} in Clips."), None  # fmt: skip
+    return "kept", (f"Made, but its watch didn’t finish, so the cut stays as it was. Use take "
+                    f"{take.number} and make the cut, or look at it in Clips first."
                     ), take.id  # fmt: skip
+
+
+GONE = "That take isn’t in this video any more."
+
+
+def _gone(db: Session, ask: Ask, take_id: int) -> bool:
+    """Whether a take a card would use went since: deleted, or its clip left this video."""
+    take = db.get(ClipTake, take_id)
+    row = db.get(ProjectClip, take.clip_id) if take else None
+    return row is None or row.project_id != ask.project_id
 
 
 def _chain(db: Session, job: Job) -> tuple[ClipTake | None, Job | None]:
@@ -257,11 +276,13 @@ def choose(db: Session, user: User, ask: Ask, key: str, storage, option=None) ->
     found = next((c for c in ask.choices if c["key"] == key), None)
     if found is None:
         raise HTTPException(422, "Pick one of the choices on the card.")
+    if option not in (None, "use"):
+        raise HTTPException(422, "That isn't a way to answer this card.")
     project = db.get(Project, ask.project_id)
-    state, _, use = made(db, ask, key)
+    state, said, use = made(db, ask, key)
     if option == "use":
         if use is None:
-            raise HTTPException(409, "There's no take to use here.")
+            raise HTTPException(409, said if GONE in said else "There's no take to use here.")
         from app import director
 
         if director.active(db, project):

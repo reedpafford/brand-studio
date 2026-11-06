@@ -628,7 +628,7 @@ test("on a freestyle, a held budget card withdraws itself, not the freestyle's s
   expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(false);
 });
 
-test("a voice card's clone: cloning and held say the clone's price and where it goes, with no Cancel; a failed clone keeps the voices", async () => {
+test("a voice card's clone: cloning and held say the clone's price and where it goes; held has Withdraw; a failed clone keeps the voices", async () => {
   setViewport(1440);
   const voice = (o: object) => ask({ kind: "voice", question: "Which voice should Mark have?", saved: [{ id: "stock:roger", name: "Roger", note: "", file_id: null, used_in: 0 }], pick: null, generate: null, clone: price(30, 3), ...o });
   const a = server(editor, null, run({ thread: [asked()] }), cards(voice({ state: "generating", clone: price(30), can: ["reply", "saved", "clone", "cancel"] })));
@@ -638,11 +638,20 @@ test("a voice card's clone: cloning and held say the clone's price and where it 
   expect(within(cloning).queryByRole("button", { name: "Cancel" })).toBeNull();
   expect(a.length).toBeGreaterThan(0);
   r1.unmount();
-  const r2 = (server(editor, null, run({ thread: [asked()] }), cards(voice({ state: "held", clone: price(30), can: ["reply", "saved", "clone", "cancel"] }))), renderApp("/b/1/videos/50"));
+  const opened = voice({ state: "open", can: ["reply", "saved", "clone"] });
+  const b = server(editor, null, run({ thread: [asked()] }), { ...cards(voice({ state: "held", clone: price(30), can: ["reply", "saved", "upload", "clone", "cancel"] })), "POST /asks/7/cancel": [200, opened] });
+  const r2 = renderApp("/b/1/videos/50");
   const held = await screen.findByRole("region", { name: "Which voice should Mark have?" });
   expect(within(held).getByText("You asked to clone this voice (up to 30 credits, saved to Resilia’s voices). The owner has been asked; nothing is charged while it waits.")).toBeInTheDocument();
-  expect(within(held).queryByRole("button", { name: "Withdraw" })).toBeNull();
+  expect(within(held).queryByRole("button", { name: "Upload instead" })).toBeNull(); // an upload wouldn't stop the clone waiting
+  await userEvent.click(within(held).getByRole("button", { name: "Withdraw" })); // flow.md: the editor withdraws it on the card
+  await vi.waitFor(() => expect(b.some((c) => c.key === "POST /asks/7/cancel")).toBe(true));
   r2.unmount();
+  const r3 = (server(editor, null, run({ thread: [asked()] }), cards(voice({ state: "failed", answer: { how: "clone", option: "voice:4", name: "Nate", withdrawn: true }, can: ["reply", "saved", "clone"] }))), renderApp("/b/1/videos/50"));
+  const reused = await screen.findByRole("region", { name: "Which voice should Mark have?" }); // it reused a clone its asker withdrew
+  expect(within(reused).getByText("The clone this card used was withdrawn before it was made. Nothing was charged.")).toBeInTheDocument();
+  expect(within(reused).getByRole("button", { name: /Clone it once/ })).toBeInTheDocument();
+  r3.unmount();
   server(owner, null, run({ thread: [asked()] }), cards(voice({ state: "failed", clone_to: "Saved to Resilia's voices", can: ["reply", "saved", "clone"] })));
   renderApp("/b/1/videos/50");
   const failed = await screen.findByRole("region", { name: "Which voice should Mark have?" });

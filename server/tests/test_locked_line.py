@@ -259,7 +259,17 @@ def test_only_a_note_that_asks_to_replace_the_words_is_answered():
         assert locked_line.asked(more, SCRIPT) == ("bought the dip", False), more
     assert locked_line.asked(
         "Change “bought the dip” to “bought more”. It sounds too harsh.", SCRIPT
-    ) == ("bought the dip", True)  # a reason about those words
+    ) == ("bought the dip", True)  # a bare verdict on those words
+    for other in (
+        "It's too dark at the end.",
+        "It is too loud overall.",  # QA on 234cde64
+        "This is too slow in the middle.",
+        "That's fine but the ending drags.",
+        "Because the music is too loud.",
+        "It might work better with a close-up.",
+    ):
+        said = f"Change “bought the dip” to “bought more”. {other}"
+        assert locked_line.asked(said, SCRIPT) == ("bought the dip", False), other
 
 
 def test_a_note_that_asks_more_keeps_the_rest_for_the_director(app, db, owner, editor):
@@ -348,8 +358,9 @@ def test_a_take_nobody_watched_offers_use_it_and_make_the_cut(app, db, owner, ed
 
 def test_a_remake_that_wasnt_made_never_leaves_the_card_waiting(app, db, owner, editor,
                                                                  monkeypatch):  # fmt: skip
-    """Its watch asked for a remake that never came (it failed, or the owner declined it): the
-    card says so, offers its free press and stops waiting."""
+    """Its watch found a fault and asked for a remake that never came (it failed, or the owner
+    declined it): the card says so, points to Clips (no press on a faulty take) and stops
+    waiting."""
     from app import take_watch
 
     real = take_watch.save
@@ -364,8 +375,48 @@ def test_a_remake_that_wasnt_made_never_leaves_the_card_waiting(app, db, owner, 
     editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
     _press(editor, db, pid)
     c = _landed(app, db, editor, pid)
+    assert c["made"] == "kept" and c["then"] == ""
+    assert "Its remake wasn’t made" in c["said"] and "in Clips" in c["said"]
+
+
+def test_a_watch_that_never_finished_offers_the_free_press(app, db, owner, editor, monkeypatch):
+    from app import take_watch
+
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr(take_watch, "save", lambda db_, job: None)  # its look never reports
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    _press(editor, db, pid)
+    c = _landed(app, db, editor, pid)
     assert c["made"] == "kept" and c["then"].startswith("Use take ")
-    assert "its watch’s remake wasn’t made" in c["said"]
+    assert "its watch didn’t finish" in c["said"]
+
+
+def test_a_take_that_went_since_is_never_offered_or_used(app, db, owner, editor, monkeypatch):
+    """QA on 234cde64: the card offered Use take N, then a new plan dropped the clip and its
+    takes. The cards still read, the press is gone and says why, and pressing it is refused."""
+    from app import take_watch
+
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr(take_watch, "on", lambda: False)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    _press(editor, db, pid)
+    assert _landed(app, db, editor, pid)["then"].startswith("Use take ")
+    row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
+    row.picked_take_id = None
+    db.flush()
+    db.query(ClipTake).filter_by(clip_id=row.id).delete()
+    db.delete(row)
+    db.commit()
+    assert editor.get(f"/projects/{pid}/asks").status_code == 200
+    card = _card(editor, pid)
+    c = card["choices"][0]
+    assert c["then"] == "" and locked_line.GONE in c["said"]
+    no = editor.post(f"/asks/{card['id']}/answer",
+                     json={"how": "instead", "choice": "A", "option": "use"})  # fmt: skip
+    assert no.status_code == 409 and no.json()["detail"].endswith(locked_line.GONE)
+    bad = editor.post(f"/asks/{card['id']}/answer",
+                      json={"how": "instead", "choice": "A", "option": "other"})  # fmt: skip
+    assert bad.status_code == 422
 
 
 def test_the_cut_isnt_made_over_a_pick_someone_made_since(app, db, owner, editor):

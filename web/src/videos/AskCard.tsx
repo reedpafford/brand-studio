@@ -258,16 +258,16 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
       </>
     );
   } else if (held) {
-    // An editor's Generate options past their allowance waits for the owner (S4-03): Withdraw it, or upload instead.
+    // An editor’s Generate options past their allowance, or clone, waits for the owner (S4-03, flow.md): Withdraw it (the card opens again), or upload instead of options.
     body = <p className="text-[13px]">{voice ? `You asked to clone this voice (up to ${said(a.clone)}, ${cloneTo}). The owner has been asked; nothing is charged while it waits.` : `You asked for 3 generated ${NOUN[a.kind] ?? "options"} (up to ${said(a.generate)}). The owner has been asked; nothing is charged while it waits.`}</p>;
-    foot = voice ? null : (
+    foot = (
       <>
         {can("cancel") && (
           <Button variant="secondary" busy={act.isPending} onClick={() => go({}, "cancel")}>
             Withdraw
           </Button>
         )}
-        {can("upload") && (
+        {can("upload") && !voice && (
           <Button variant="secondary" icon={Upload} onClick={() => picker.current?.click()}>
             Upload instead
           </Button>
@@ -341,7 +341,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
         {a.state === "failed" && (
           <p className="flex items-center gap-2 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
             <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
-            {voice ? "The voice didn’t clone. Nothing was charged." : "The picture service made nothing. Nothing was charged."}
+            {voice ? ((a.answer as { withdrawn?: boolean } | null)?.withdrawn ? "The clone this card used was withdrawn before it was made. Nothing was charged." : "The voice didn’t clone. Nothing was charged.") : "The picture service made nothing. Nothing was charged."}
           </p>
         )}
         {!shown && (a.state !== "failed" || voice) && !generating && (can("upload") || can("reply") || can("generate") || can("clone")) && (

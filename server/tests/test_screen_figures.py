@@ -15,6 +15,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.screen_figures import draw, shot_figure
 from tests.conftest import png, upload
+from tests.helpers import approve_cast
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_cut_in import approved  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
@@ -93,6 +94,7 @@ def _with_figure(db, editor, clip_id: int, shot_id: str, screen: int, figure: di
 def test_a_take_sends_the_screen_with_its_shots_figure(app, db, editor, setup, clip):  # noqa: F811
     figure = {"balance": "$9,800", "change": "-$380"}
     _with_figure(db, editor, clip["id"], "1.1", setup["screen"], figure)
+    approve_cast(editor, setup["project"])
     editor.post(f"/projects/{setup['project']}/clips/{clip['id']}/generate")
     job = db.query(Job).filter(Job.input["step"].as_string() == "clip_take").one()
     (drawn,) = job.input["screen_figures"].values()

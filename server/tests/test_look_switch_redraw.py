@@ -8,7 +8,7 @@ from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.providers import get_providers
 from tests.conftest import upload
-from tests.helpers import with_sheet
+from tests.helpers import approve_cast, with_sheet
 from tests.test_fake_local import _drain
 from tests.test_look_sheets import _video
 
@@ -29,6 +29,7 @@ def test_a_redraw_after_a_look_switch_waits_for_the_casts_look(app, db, editor, 
     assert editor.post(f"{url}/storyboard", json={"per_shot": False}).status_code == 201
     _drain(app, db, providers)
     (frame,) = editor.get(f"{url}/storyboard").json()
+    approve_cast(editor, project.id)
     assert editor.post(f"{url}/storyboard/frames/{frame['id']}/render").status_code == 201
     _drain(app, db, providers)
 
@@ -49,6 +50,13 @@ def test_a_redraw_after_a_look_switch_waits_for_the_casts_look(app, db, editor, 
 
     # With an approved Disney Pixar sheet of her, the same redraw goes through
     mia = db.get(LibraryItem, mia_id)
-    mia.look_sheets = {"disney-pixar": {"file_id": upload(owner), "approved": True}}
+    sheets = [upload(owner), upload(owner)]
+    mia.look_sheets = {"disney-pixar": {"file_id": sheets[0], "approved": True}}
     db.commit()
+    held = editor.post(f"{url}/storyboard/frames/{frame['id']}/render")
+    assert held.status_code == 409 and "for the cast and places OK" in held.text  # a new look
+    nate = db.get(LibraryItem, nate.json()["id"])  # the cast's other look, for the whole set
+    nate.look_sheets = {"disney-pixar": {"file_id": sheets[1], "approved": True}}
+    db.commit()
+    approve_cast(editor, project.id)
     assert editor.post(f"{url}/storyboard/frames/{frame['id']}/render").status_code == 201

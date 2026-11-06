@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { emptyBrand, signIn } from "./helpers";
+import { approveCastWhenReady, emptyBrand, signIn } from "./helpers";
 // Opt-in (E2E_WALK=1, about 6 minutes): an editor at 390 makes a video, start to final cut, from a published script
 // that skipped Breakdown, Variations and Cast, for Iron Paws (a bag beat) and fomo, on the free stand-ins.
 // Every point where the editor has no one-click way forward is logged ("BLOCK ...") and fails the test.
@@ -140,6 +140,7 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
 test("editor walk: published script with no breakdown, variations or cast, at 390", async ({ page, browser }) => {
   test.setTimeout(1_500_000);
   await signIn(page, "reed@example.com");
+  approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
   const id = async (name: string) => brands.find((b) => b.name === name)?.id ?? (await emptyBrand(page, name));

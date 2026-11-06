@@ -195,7 +195,8 @@ def _instead(db: Session, user: User, ask: Ask, project: Project, card: AskOut,
     card.subject = ask.subject
     for c, raw in zip(card.choices, ask.choices, strict=True):
         c.made, c.said, use = locked_line.made(db, ask, c.key)
-        c.then = f"Use take {db.get(ClipTake, use).number} and make the cut" if use else ""
+        take = db.get(ClipTake, use) if use else None  # `made` checked it's still there
+        c.then = f"Use take {take.number} and make the cut" if take else ""
         c.cannot = "" if c.made else locked_line.cannot(db, project, raw)
         credits = None if c.cannot else locked_line.price(db, project, raw)
         c.price = _price(user, credits) if credits else None
@@ -379,11 +380,13 @@ def generate(ask_id: int, body: GenerateIn, user: User = Depends(current_user),
 
 @router.post("/asks/{ask_id}/cancel", response_model=AskOut)
 def cancel(ask_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Cancel the options being made (or held for the owner): nothing more is charged."""
+    """Cancel the options being made (or held for the owner), or withdraw a voice card's clone
+    still waiting for the owner's OK (the card opens again): nothing more is charged."""
     ask = _ask(db, user, ask_id)
     _mine(db, user, ask.project_id)
-    ask_options.stop_options(db, ask, drop=True)
-    db.commit()
+    if not asks.withdraw_clone(db, user, ask):
+        ask_options.stop_options(db, ask, drop=True)
+        db.commit()
     return out(db, user, db.get(Ask, ask_id))
 
 
