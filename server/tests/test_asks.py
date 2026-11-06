@@ -1115,11 +1115,10 @@ def test_a_revision_never_says_no_generation_started(app, db, owner, editor):
     _make_it(app, db, owner, pid)
     assert owner.get(url).json()["started"] is True
     cut = [t["note"]["cut"] for t in owner.get(url).json()["thread"] if t.get("note")][-1]
-    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
-    editor.post(url)  # Make it again, the editor's: the revision plans first
-    assert owner.get(f"{url}/progress").json()["status"] == "revising"
+    editor.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})  # the editor's
+    # revision starts by talking; past the budget, its start card waits for the owner at once
     assert owner.get(url).json()["started"] is True
-    _run(app, db, ticks=4, start=False)  # its start card waits, past the budget: the owner's
+    _run(app, db, ticks=4, start=False)
     mine = owner.get(f"{url}/progress").json()
     assert mine["title"] == "Ready to make"
     assert mine["sub"] == f"Cut {cut} stays as it is until you press Make it"
@@ -1152,8 +1151,7 @@ def test_notes_kept_before_their_parts_existed_still_show(app, db, owner, editor
             else:
                 assert line["note"]["cut"] is cut and line["note"]["made"] == "The cut."
                 assert line["note"]["redid"] == [] and "The cut." in line["text"]
-    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
-    editor.post(url)  # Make it again, the editor's: held for the owner
+    editor.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})  # held for the owner
     _run(app, db, ticks=4, start=False)
     mine, theirs = owner.get(f"{url}/progress").json(), editor.get(f"{url}/progress").json()
     assert mine["sub"] == "The cut stays as it is until you press Make it"

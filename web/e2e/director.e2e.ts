@@ -48,13 +48,11 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await expect(ed.getByRole("tabpanel", { name: "Cut" }).getByRole("link", { name: "Download MP4" })).toBeVisible();
   await ed.getByRole("tab", { name: "Plan" }).click();
   await expect(ed.getByRole("tabpanel", { name: "Plan" })).toBeVisible();
-  // Chat: ask for a change after the delivery; a note never starts a run by itself (the Producer, 2 Nov): Make it again makes it.
+  // Chat: ask for a change after the delivery: the note starts the next run (S3-12), whose start card the owner presses.
   await ed.getByRole("tab", { name: "Chat" }).click();
   await ed.getByLabel("Tell the director what to change").fill("Make clip 1 slower.");
   await ed.getByRole("button", { name: "Send to the director" }).click();
   await expect(thread.getByText("Make clip 1 slower.")).toBeVisible();
-  await expect(ed.getByText("Saved. Press Make it again to make this change.")).toBeVisible();
-  await ed.getByRole("button", { name: /^Make it again/ }).click();
   await makeIt(page, pid); // its start card again
   await expect(ed.getByRole("banner").getByText(/^Working/)).toBeVisible();
   await expect(ed.getByRole("banner").getByText(/^Delivered$/)).toBeVisible({ timeout: 200_000 });

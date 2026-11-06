@@ -143,23 +143,33 @@ test("S3-09: delivered, the cut plays in the Cut tab with its downloads and what
   expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
 });
 
-test("the owner's note after a delivery is saved; Make it again makes it (a note never starts a run by itself)", async () => {
+test("the owner's note after a delivery starts the next run by talking; there's no Make it again press under the note (S3-12)", async () => {
   setViewport(1440);
   const done = fs({ status: "delivered", file_id: 8, thread: [item("m1", "message", "Reed", SCRIPT), item("t2", "move", "Director", "Every take checked clean.", "done", later)] });
   const delivered = run({ status: "delivered", turns: [{ turn: 3, tool: "deliver", why: "", result: "Delivered.", status: "succeeded", created_at: later }] });
-  const noted = { ...delivered, unread: 1, thread: [item("m0", "message", "Reed", "Cut 2 seconds.", null, "2026-11-04T10:30:00Z")] };
-  const calls = server(owner, done, delivered, { "POST /projects/50/director/messages": [201, noted], "POST /projects/50/director": [201, run()] });
+  const going = { ...run(), thread: [item("m0", "message", "Reed", "Cut 2 seconds.", null, "2026-11-04T10:30:00Z")] };
+  const calls = server(owner, done, delivered, { "POST /projects/50/director/messages": [201, going] });
   renderApp("/b/1/videos/50");
   const box = await ready();
+  expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull(); // no leftover press on a delivered video
   expect(screen.getByRole("button", { name: "Send to the director" })).toBeDisabled(); // nothing to send yet
   await userEvent.type(box, "Cut 2 seconds.{Enter}");
-  expect(await screen.findByText("Saved. Press Make it again to make this change.")).toBeInTheDocument();
-  expect(calls.find((c) => c.key === "POST /projects/50/director/messages")?.body).toEqual({ text: "Cut 2 seconds." });
-  expect(within(screen.getByRole("list", { name: "Conversation with the director" })).getByText("Cut 2 seconds.")).toBeInTheDocument();
-  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false);
-  await userEvent.click(screen.getByRole("button", { name: "Make it again · up to 40 credits" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/director/messages")?.body).toEqual({ text: "Cut 2 seconds." }));
+  expect(await within(screen.getByRole("list", { name: "Conversation with the director" })).findByText("Cut 2 seconds.")).toBeInTheDocument();
+  expect(screen.queryByText("Saved. Press Make it again to make this change.")).toBeNull();
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // the note itself starts it
 });
+
+test("M1: the owner is never shown the held-send card or 'once the owner approves' for his own run", async () => {
+  setViewport(1440);
+  const waiting = fs({ status: "waiting", thread: [item("m1", "message", "Reed", SCRIPT), item("t1", "move", "Director", "Ready.", "held")] });
+  server(owner, waiting, run({ status: "running", thread: [] }));
+  renderApp("/b/1/videos/50");
+  await ready();
+  expect(screen.queryByText(/The owner has been asked/)).toBeNull();
+  expect(screen.queryByText(/once the owner approves/)).toBeNull();
+});
+
 
 test("pictures or clips go with a note, for this video only (rule 12)", async () => {
   setViewport(1440);

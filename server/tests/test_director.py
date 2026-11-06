@@ -750,11 +750,8 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
     assert editor.get(url).json()["status"] == "delivered"
     sent = editor.post(f"{url}/messages", json={"text": "Make clip 1 slower and warmer."})
     assert sent.status_code == 201, sent.text
-    assert (sent.json()["status"], sent.json()["unread"]) == ("delivered", 1)  # never starts one
-    _run(app, db)
-    assert editor.get(url).json()["status"] == "delivered"
-    assert editor.post(url).status_code == 201  # Make it again: it reads the note
-    assert editor.get(url).json()["unread"] == 0
+    # a revision starts by talking (S3-12): the run reads the note, then its start card
+    assert (sent.json()["status"], sent.json()["unread"]) == ("running", 0)
     _run(app, db)
     out = editor.get(url).json()
     assert out["status"] == "delivered", (out["ended"], [t["tool"] for t in out["turns"]])
@@ -1016,10 +1013,10 @@ def test_make_it_shows_the_most_one_run_may_charge(app, db, owner, editor):
     shown = editor.get(url).json()["run_price"]
     assert shown == float(run_price(db, draft, project)) > float(version_cost(db, draft, project))
     editor.post(url)
-    _run(app, db, ticks=3, start=False)  # the treatment, then its start card
+    _run(app, db, ticks=3, start=False)  # its start card
     out = editor.get(url).json()
     assert (out["run_price"], out["started"]) == (shown, False)  # S3-02: no generation yet
-    assert out["spent"] > 0  # its plan, charged as it costs
+    assert out["spent"] == 0  # held for the owner: nothing runs before their yes (rule 4)
     make_it(db)
     out = editor.get(url).json()
     assert (out["run_price"], out["started"]) == (0, True)  # going: its "so far" is shown

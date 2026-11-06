@@ -45,15 +45,15 @@ def test_an_editors_change_waits_for_the_owner_then_a_new_run_makes_it(app, owne
     first_cut, first_price = fs["file_id"], Decimal(str(fs["up_to"]))
     r = editor.post(f"/freestyles/{fs['id']}/messages", json={"text": CHANGE})
     assert r.status_code == 201, r.text
-    _run(app, db, ticks=4, start=False)  # the change's treatment, then its start card
+    _run(app, db, ticks=4, start=False)  # the change's start card: held, nothing runs
     out = editor.get(f"/freestyles/{fs['id']}").json()
     assert out["status"] == "waiting" and out["file_id"] == first_cut  # the delivered cut stays
     (held,) = _held(owner)
     price = Decimal(str(held["freestyle"]["up_to"]))
     assert held["freestyle"]["change"] and held["freestyle"]["said"] == CHANGE
     assert Decimal(str(held["freestyle"]["total"])) == first_price + price  # running total
-    spent = Decimal(str(held["freestyle"]["spent"]))  # so far: the cut, and the change's plan
-    assert spent > Decimal(str(fs["credits"])) > 0
+    spent = Decimal(str(held["freestyle"]["spent"]))  # so far: the cut; nothing since (rule 4)
+    assert spent == Decimal(str(fs["credits"])) > 0
     owner.post(f"/jobs/{held['id']}/approve")
     _run(app, db)
     out = editor.get(f"/freestyles/{fs['id']}").json()

@@ -88,12 +88,12 @@ def test_the_owners_dialogue_starts_at_once_and_stop_stops_it(app, owner, editor
 
 def test_a_declined_or_withdrawn_dialogue_says_so_and_generates_nothing(app, owner, editor, db):
     one = editor.post("/freestyles", json=BODY).json()
-    _run(app, db, ticks=4, start=False)  # its plan (Reed, 4 Nov: allowed), then its start card
+    _run(app, db, ticks=4, start=False)  # its start card: held, nothing runs (rule 4)
     (turn,) = db.query(Job).filter(Job.status == "needs_owner_approval").all()
     owner.post(f"/jobs/{turn.id}/decline", json={"reason": "Not this week."})
     out = editor.get(f"/freestyles/{one['id']}").json()
     made = {j.input.get("step") for j in db.query(Job).filter(Job.status.in_(credits.COUNTED))}
-    assert out["status"] == "declined" and made == {"director", "treatment"}  # its plan only
+    assert out["status"] == "declined" and made == set()  # nothing ran while it waited
     assert "The owner declined: Not this week." in [t["text"] for t in out["thread"]]
     two = editor.post("/freestyles", json={**BODY, "text": "BO: Again?"}).json()
     _run(app, db, ticks=4, start=False)

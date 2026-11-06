@@ -178,8 +178,10 @@ def test_an_editor_past_the_budget_is_held_for_the_owner(app, db, owner, editor,
 def test_who_may_press_and_when_nothing_is_offered(app, db, owner, editor):
     pid = _delivered(app, db, owner, editor)
     url = f"/projects/{pid}/director/messages"
-    editor.post(url, json={"text": "Make clip 1 slower."})  # not the script's words
-    assert editor.get(f"/projects/{pid}/director").json()["unread"] == 1
+    editor.post(url, json={"text": "Make clip 1 slower."})  # not the script's words: the next
+    out = editor.get(f"/projects/{pid}/director").json()  # run starts and reads it (S3-12)
+    assert (out["status"], out["unread"]) == ("running", 0)
+    editor.post(f"/projects/{pid}/director/stop")  # (stopped: the notes below wait)
     db.expire_all()
     db.get(Project, pid).director_chat = []
     db.commit()
@@ -217,7 +219,7 @@ def test_nothing_is_offered_where_the_clip_doesnt_carry_the_voice(app, db, owner
     monkeypatch.setattr(director_song, "kind", lambda db, project: "narrated")
     monkeypatch.setattr(locked_line, "_goes", lambda *a: False)  # nor anything in the cut
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK}).json()
-    assert out["unread"] == 1  # it waits for the director, as any note does
+    assert (out["status"], out["unread"]) == ("running", 0)  # the next run reads it (S3-12)
     assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
 
 
@@ -280,7 +282,7 @@ def test_a_note_that_asks_more_keeps_the_rest_for_the_director(app, db, owner, e
     text = "Change “bought the dip” to “bought the top”, and make the end brighter."
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": text}).json()
     assert _card(editor, pid)["choices"]  # what can change instead of the words, at once
-    assert out["unread"] == 1  # the rest waits for the next Make it, as any note does
+    assert (out["status"], out["unread"]) == ("running", 0)  # the next run reads the rest
     note = next(t for t in out["thread"] if t["kind"] == "message" and t["text"] == text)
     assert note["answered"] is False
 
@@ -292,7 +294,7 @@ def test_false_positives_drop_nothing(app, db, owner, editor):
         db.get(Project, pid).director_chat = []
         db.commit()
         out = editor.post(f"/projects/{pid}/director/messages", json={"text": text}).json()
-        assert out["unread"] == 1, text
+        assert (out["status"], out["unread"]) == ("running", 0), text  # the director reads it
     assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
 
 
