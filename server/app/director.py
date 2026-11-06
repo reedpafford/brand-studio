@@ -49,6 +49,11 @@ MAX_REPLANS = 1  # plans made again from the watch ("Re-plan: …"), a run
 MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes")
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
 OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted (the Producer)
+# Reed, 6 Nov: "remove the director limit for now". Off: no hold at its own 75-credit limit and no
+# $5 real-cost stop. Its quote still counts OWN_CREDITS as its likely share; the site's real budget
+# (BS_REAL_BUDGET_USD), the run's approved price (rule 34) and MAX_TURNS still apply. True turns
+# both limits back on.
+OWN_LIMITS = False
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
 REBUILD = "Refused: make the cut again first: it isn't up to date."
@@ -545,6 +550,14 @@ def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:
     return Decimal(charged), oks
 
 
+def own_usd(db: Session, run_id: str) -> Decimal:
+    """The real-cost backstop for this run: MAX_USD, and as much again for each OK the owner
+    gave at its own limit, as that limit grows (audit 6 Nov: else it stops after the OK)."""
+    if not OWN_LIMITS:
+        return Decimal("Infinity")
+    return MAX_USD * (1 + own_charged(db, run_id)[1])
+
+
 def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal) -> str:
     """A run's next turn or watch that would take its charges past the director's own limit
     (the Producer): it waits for the owner, the owner's own run too, with a freestyle's
@@ -552,7 +565,7 @@ def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal
     not one step. "" if it fits."""
     from app.credits import PAST_APPROVED, price
 
-    if not run_id:
+    if not run_id or not OWN_LIMITS:
         return ""
     charged, oks = own_charged(db, run_id)
     if charged + credits <= own_limit() * (1 + oks):
@@ -860,9 +873,10 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
              result=DELIVERED if made else "")  # fmt: skip
         db.commit()
         return last
-    if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= MAX_USD:
+    most = own_usd(db, run["id"])
+    if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= most:
         why = (f"It stopped after {MAX_TURNS} turns." if run["turn"] >= MAX_TURNS
-               else f"It stopped at ${MAX_USD} of its own time.")  # fmt: skip
+               else f"It stopped at ${most} of its own time.")  # fmt: skip
         if last is not None:
             _end(last, why)
             db.commit()
@@ -1094,7 +1108,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": _redos(db, project, run), "own_time_usd": float(spent(db, run["id"])),
-               "own_time_limit_usd": float(MAX_USD),
+               "own_time_limit_usd": float(own_usd(db, run["id"])),
                "replans_left": MAX_REPLANS - run.get("replans", 0),
                "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
                "narrations_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
