@@ -51,6 +51,8 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n35 | The v6 library (S8, S-gaps-05): `library_items.archived_at` (set on archive, cleared on Undo; items archived before it have none), `created_by_id` FK users, `presenter` bool false (a face and a voice; how they appear is each video's pick), `place_id` FK `library_items` (a character's usual place), `product_type` String(10) null ("app" or "physical"; existing products are physical); `brand_screens.product_id` FK `library_items` replaces the free-text `brand_screens.product`: each brand's product word is matched to its library product by name (any case), a word with no product makes one in that brand, and a screen with no product word goes to the brand's app product ("<brand> app", made once). Downgrade writes physical products' names back | v6-library | — |
 | n36 | A short Brand kit (S-gaps-05 L1, Reed 4 Nov): drops `brands.end_line`, `cta_lines`, `never_say`, `do_list`, `dont_list`, `legal_line`, `audience`, `fonts`, `style_board_file_id`, `end_card_file_id`, `music_style`, `default_language`, `default_look`, `default_cast`; a brand keeps name, logo, colours and `tone_notes` ("Tone and rules"). Videos' `end_line` lock is taken out of `projects.locks` (rule 18: the ending comes from the script). Downgrade adds the columns back empty | v6-library | — |
 | n37 | The director's questions and money OKs (v6 piece B, S4-01 to S4-04): new `asks` {workspace_id, project_id, run (the director run that asked), kind (cast, presenter, voice, place, product, brand_item, story, question, start, budget, own, plan), topic, subject, question, why, describe, choices JSON `[]`, pick, decide_at, state (open, uploading, answered, not_needed), answer JSON, answered_by_id, answered_at, rounds JSON `[]` (Generate options' jobs), job_ids JSON `[]` (a money card's held jobs), closed}. Downgrade drops it | v6-ask | — |
+| n38 | The model each clip is made with, who switched a video's settings, how its presenter appears, its Omni voice and narrator (v6 F, S-gaps-05 V1, Reed's L3 and 4 Nov answers): `project_clips.model` (JSON, nullable: `{id, why, by, speaks}`, the director's model for that clip; null: the video's); `projects.settings_log` (JSON list, default []: `{field, was, now, by, by_id, why, at}` per switch; a person's own choice wins over the director's); `projects.presenter` (String(20), nullable: talks, corner or acts; null: the style's start); `projects.omni_voice` (String(300), nullable: the talker's voice described to Omni, the same in every clip); `projects.narration_only` (Boolean, nullable); `projects.voice` (String(60), nullable: "stock:<key>" or "voice:<id>", a person's narrator for this video); `host_pieces.how` (String(20), nullable: the way of appearing a host take was made for). Downgrade drops them | v6-models | — |
+| n39 | The director's watch of each take and host piece (rule 11): `clip_takes.watch` and `host_pieces.watch`, nullable JSON: what it found looking at it and what it did (kept, remade, waiting for the owner's OK or flagged), with the remake's "up to". Downgrade drops it | v6-watch | — |
 
 ## Merge order (the chain on `next`)
 
@@ -89,11 +91,13 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 28 | n30 | #1296 | n29 | On `next` |
 | 29 | n31 | #1298 | n30 | On `next` |
 | 30 | n32 | — | n31 | On `next` |
-| 31 | n33 | #1314 | n32 | On its PR |
-| 32 | n34 | — | n33 | On its PR (v6-progress) |
-| 33 | n35 | — | n34 | On its PR |
+| 31 | n33 | #1314 | n32 | On `next` |
+| 32 | n34 | #1306 | n33 | On `next` |
+| 33 | n35 | #1326 | n34 | On `next` |
 | 34 | n36 | #1334 | n35 | On `next` |
-| 35 | n37 | — | n36 | On its PR |
+| 35 | n37 | #1313 | n36 | On `next` |
+| 36 | n38 | #1327 | n37 | On `next` |
+| 37 | n39 | — | n38 | On its PR |
 
 ## 1. Song ads
 
@@ -125,7 +129,7 @@ Code notes for Next-Server (not tables):
 | Breakdown rows | `data["plan_version"]`: the plan version the breakdown was made from (every new plan and every edit takes the next version; Earlier plans keep theirs) | No migration (inside the JSON). A smaller number than `projects.plan.version` means "Made for an older plan". |
 | `jobs` | `retry_of_id` (nullable FK jobs) and `auto` bool (default false): the one automatic retry (P3) | At most one auto retry per job, enforced in code and tested. |
 | `project_clips` | `auto_fix` JSON (default null): `{before, after, fixed: ["removed \"9:16\"", …], undone}`, the wording fixed for you (P3) | **Undo** puts `before` back and sets `undone`; while the prompt is still `before`, it isn't fixed again and its flags are Advice. Spoken (quoted) words are never changed. |
-| New: `item_checks` | `id`, `project_id`, `target` (`frame` or `take`), `target_id`, `job_id`, `status` (`checking`/`done`/`failed`/`skipped`), `findings` JSON `[{kind: face/outfit/product, role, text, change_note}]`, `dismissed` JSON (finding indexes with who and when), `created_at` | One row per still or take checked. Never touches approvals. `findings[].role` holds the reference id the finding is about (char:N, slot:N or product:N). Runs on the stand-ins; for real only with `BS_ITEM_CHECKS_PAID` (off until the Producer approves a test). |
+| New: `item_checks` | `id`, `project_id`, `target` (`frame`, `take`, `words` or `piece`: a still's check, the director's watch of a take, a take's words, the watch of a host piece), `target_id`, `job_id`, `status` (`checking`/`done`/`failed`/`skipped`), `findings` JSON `[{kind, role, text, change_note, at?, verified?}]` (`verified` false: a watch's doubt, shown, never remade on its own), `dismissed` JSON (finding indexes with who and when), `created_at` | One row per still or take checked. Never touches approvals. `findings[].role` holds the reference id the finding is about (char:N, slot:N or product:N). Runs on the stand-ins; for real only with `BS_ITEM_CHECKS_PAID` (off until the Producer approves a test). |
 | Migration plan | n06 adds the columns only. A video with a breakdown and no stored `plan` gets one read from its breakdown when it's first asked for (in code, free, `source = "from_breakdown"`, approved), so no video is blocked, made before or after. Every "is the plan approved?" (the Plan GET, the shots/breakdown guard, the step ✓ in ProjectOut, the lists and "Needs you") goes through that one function. | n06, one number for all of 1b (Builder-Server-8; Next-Lead agreed reading at read time, 2026-10-29). |
 
 ## 3. Brand setup (BR1)

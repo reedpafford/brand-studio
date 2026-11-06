@@ -12,18 +12,16 @@ import { blocking } from "./problems";
 import { usePressed } from "./usePressed";
 import { useProblemWords } from "./ProblemText";
 import { type ChangeState } from "./ChangeBox";
-import { useApproveAll } from "./ApproveAll";
 import { ReviewChip } from "./Checks";
 import { RewriteNote, RewriteOne, useRewritePrice } from "./RewriteClips";
 import { ClipCard } from "./ClipCard";
-import { BarAction } from "./BarAction";
 import { refreshJobs } from "../jobs/refresh";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 
 /** On the Clips tab (`only` set) it shows the one clip picked in the list, puts its presses in `bar` above the list and its
  *  still's place in `stillSlot`; elsewhere every clip, as a list. */
-export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number; only?: string | null; bar?: HTMLElement | null; stillSlot?: (el: HTMLDivElement | null) => void; line?: (clipId: string) => string }) {
+export function ClipsPane(props: { hold?: string | null; review?: boolean; projectId: number; brandId: number; aspect: string; projectName: string; used: number; budget: number; only?: string | null; bar?: HTMLElement | null; stillSlot?: (el: HTMLDivElement | null) => void; line?: (clipId: string) => string }) {
   const { projectId } = props;
   const queryClient = useQueryClient();
   const path = { project_id: projectId };
@@ -178,14 +176,6 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
     onSuccess: refresh, // the take and its approval stay; only the finished video goes out of date
   });
   const rows = clips.data ?? [];
-  const approveAll = useApproveAll({
-    projectId,
-    kind: "clips",
-    noun: "clip",
-    rows,
-    ready: rows.filter((c) => c.picked_take_id !== null && !c.approved && !c.stale && blocking(c.problems, c.kept).length === 0).length,
-    waiting: rows.filter((c) => !c.approved).length,
-  });
   const loading = clips.isPending || frames.isPending || !clips.isFetchedAfterMount || !frames.isFetchedAfterMount; // read again for this step, never a cached earlier list
   const list = rows;
   // Past a limit an editor's button is disabled with the reason (the week on their own script, the video's budget otherwise); nobody is asked to approve.
@@ -208,14 +198,9 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
   const makeAll = async () => {
     for (const c of missing) await generate.mutateAsync({ clip: c }).catch(() => undefined);
   };
-  // On the video page the step's one amber sits in the cost bar (audit M1): write the prompts, rewrite the ones made for an
-  // older breakdown, make the takes, then Approve all. Each card's presses stay here.
+  // On the video page the step's bulk presses are the director's (v6 screen 4): writing the prompts, making the takes.
+  // Each card's own presses stay here.
   const bar = !!props.review && !loading && !clips.isError && !writingNow;
-  const rewrite = { price: writeCost ?? null, reason: stopFor(writeCost), busy: write.isPending, onPress: () => write.mutate(undefined) };
-  const barAction =
-    !bar || props.barTaken ? null : list.length === 0 ? { label: "Write clip prompts", ...rewrite } : stale.length > 0 ? { label: "Rewrite clip prompts", ...rewrite } : missing.length > 0 ? { label: "Make the takes", price: allCost, reason: makeWhy, busy: generate.isPending, onPress: makeAll } : approveAll.action;
-  const barSlot = barAction && <BarAction action={barAction} />;
-  const barApproves = bar && list.length > 0 && stale.length === 0 && missing.length === 0;
   if (loading) return <p role="status" className="text-muted">Loading…</p>;
   if (clips.isError) return <p role="alert" className={errorClass}>Could not load the clips. Try again.</p>;
 
@@ -234,7 +219,6 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
   if (list.length === 0)
     return (
       <section className={`${card} space-y-3`} aria-label="Clips">
-        {barSlot}
         {promptsFailed && (
           <Banner title={promptRun?.status === "failed" ? "The clip prompts didn't finish." : "We lost track of the clip prompts."}>
             {promptRun?.status === "failed" ? promptRun.error || "Nothing was charged. Write them again below." : "If they finish, they show up here. Or write them again below."}
@@ -263,7 +247,6 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
           </h2>
         )}
         <span className="flex w-full flex-wrap gap-2 sm:w-auto">
-          {!barApproves && approveAll.button}
         {missing.length > 0 && !bar && (
           <Button
             variant={stale.length > 0 ? "secondary" : "primary"} // the rewrite is the step's amber while any clip is stale
@@ -279,7 +262,6 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
         )}
         </span>
       </div>
-      {approveAll.line}
       {declined && <p className="text-sm text-warning">{declined}</p>}
       {stale.length > 0 && <RewriteNote projectId={projectId} count={stale.length} writing={writingNow} busy={write.isPending} stopFor={stopFor} onRewrite={() => write.mutate(undefined)} inBar={bar} />}
       {unread > 0 && missing.length === 0 && stale.length === 0 && <p className="text-sm text-muted">{unreadWhy}</p>}
@@ -293,7 +275,6 @@ export function ClipsPane(props: { barTaken?: boolean; hold?: string | null; rev
   );
   return (
     <div className="space-y-4" aria-label="Clips">
-      {barSlot}
       {props.bar ? createPortal(head, props.bar) : head}
       <ul className="space-y-4">
         {list.filter((c) => props.only === undefined || c.clip_id === props.only).map((c) => {

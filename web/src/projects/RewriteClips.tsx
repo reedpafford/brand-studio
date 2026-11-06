@@ -15,7 +15,7 @@ export function useRewritePrice(projectId: number, clipId?: string) {
 type Props = { projectId: number; busy: boolean; stopFor: (cost: number | undefined) => string | null; onRewrite: () => void };
 
 /** The Clips step never dead-ends: clips written for an older breakdown get their prompts written again (takes are kept). */
-/** `inBar`: the rewrite is the cost bar's press (the video page), so the banner only says what happened. */
+/** `inBar`: on the video page the director rewrites them (v6 screen 4), so the banner only says what happened. */
 export function RewriteNote({ count, inBar, ...props }: Props & { count: number; writing: boolean; inBar?: boolean }) {
   const price = useRewritePrice(props.projectId);
   if (props.writing) return <Banner tone="info" title="Rewriting clip prompts…" />;

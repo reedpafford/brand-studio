@@ -26,7 +26,7 @@ test("at 390, a video on a Skeleton lane (skeleton-bare) shows the lane's name i
   await summary.click();
   const sheet = page.getByRole("dialog", { name: "Video settings" });
   // The video keeps its script's style (Reed's walk item 7): the lane's name in a locked line, with no Look picker.
-  await expect(sheet.getByText(`Style: ${lane.name} · set on the script`)).toBeVisible();
+  await expect(sheet.getByTitle("Style is set on the script")).toContainText(lane.name);
   await expect(sheet.getByRole("button", { name: /^Look:/ })).toHaveCount(0);
   expect(await page.locator("body").textContent()).not.toContain("skeleton-bare");
   const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Archive, ChevronDown, Clock, Ellipsis, Film, Inbox, Plus, FileText, Images, Palette, Check, Users, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMyRequests } from "../approvals/HeldRequests";
@@ -7,7 +7,7 @@ import { useHeld } from "../approvals/useHeld";
 import { useMe } from "../auth/useMe";
 import { useProductionSummary } from "../production/useProduction";
 import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
-import { useMedia } from "../useMedia";
+import { useMedia, useOnline } from "../useMedia";
 import { AccountMenu, STUDIO } from "./AccountMenu";
 import { FolderTree } from "./FolderTree";
 import { QuickSearch } from "./QuickSearch";
@@ -40,21 +40,6 @@ const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isConte
 // v5 A_Shell/A_Account: a brand is a small colour square.
 const dot = (brand?: Brand) => <span aria-hidden className="size-3.5 shrink-0 rounded-[3px]" style={{ background: brand?.colours?.[0] || "var(--accent)" }} />; // no colour: the accent, as the Brand page;
 
-function useOnline() {
-  const [online, setOnline] = useState(() => navigator.onLine !== false);
-  useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    return () => {
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
-    };
-  }, []);
-  return online;
-}
-
 /** Desktop: one rail (brand switcher on top; Make, Library and, for Reed, Studio; the account at the bottom), no top bar.
  *  Phone: the top bar (switcher, Needs you, account) and the bottom tabs. */
 export function Shell() {
@@ -81,7 +66,7 @@ function Frame() {
   const summary = useProductionSummary(held.owner).data;
   const attention = (summary?.needs_attention ?? 0) + (summary?.changes_waiting ?? 0);
   const { count, node, setNode } = useActionBarSlot();
-  // The phone's action bar is as tall as what's in it (the cost bar is taller than one button): the page's bottom
+  // The phone's action bar is as tall as what's in it (it can be taller than one button): the page's bottom
   // padding and the toasts sit above its real height, so neither the work nor a toast hides behind or over it.
   useEffect(() => {
     if (!node || typeof ResizeObserver === "undefined") return;
@@ -102,6 +87,8 @@ function Frame() {
   const inVideo = !rail && video !== null && (/^\d+$/.test(video.params.projectId ?? "") || video.params.projectId === "new");
   const folderPage = useMatch("/b/:brandId/videos");
   const onFolders = !rail && folderPage !== null; // P-01 and P-02 draw their own header
+  // The video page (v6 S3) fills the screen: its own offline line, and on a phone no tabs under its message box (P-04).
+  const onVideo = newVideo !== null && /^\d+$/.test(newVideo.params.projectId ?? "");
 
   useEffect(() => {
     if (fromUrl) rememberBrand(fromUrl);
@@ -128,8 +115,8 @@ function Frame() {
 
   const waiting = held.owner ? held.count + attention : null;
   const work = (
-    <div className="min-w-0 flex-1" style={rail ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
-      {!online && (
+    <div className="min-w-0 flex-1" style={rail || onVideo ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
+      {!online && !onVideo && (
         <div className="mx-auto max-w-content px-4 pt-4 sm:px-8">
           <Banner tone="warning" title="You're offline.">
             Reconnect to keep working; nothing was lost.
@@ -162,8 +149,8 @@ function Frame() {
       </div>
       {!rail && (
         <>
-          <div ref={setNode} className="fixed inset-x-0 z-20 bg-surface empty:hidden" style={{ bottom: "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} />
-          <Tabs current={current} owner={held.owner} waiting={waiting} />
+          <div ref={setNode} className="fixed inset-x-0 z-20 bg-surface empty:hidden" style={{ bottom: onVideo ? "env(safe-area-inset-bottom)" : "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} />
+          {!onVideo && <Tabs current={current} owner={held.owner} waiting={waiting} />}
         </>
       )}
     </div>

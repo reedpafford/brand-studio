@@ -38,7 +38,7 @@ test("on the video page a version in production offers Release only; Release ask
   const calls = fakeServer(base({ "POST /projects/9/release": [200, {}], "POST /projects/9/restore": [200, {}] }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon · B" }));
-  expect(screen.queryByRole("menuitem", { name: "Archive video" })).toBeNull();
+  expect(screen.queryByRole("menuitem", { name: "Archive" })).toBeNull();
   await userEvent.click(screen.getByRole("menuitem", { name: "Release this version" }));
   const dialog = await screen.findByRole("alertdialog", { name: "Release this version?" });
   expect(dialog).toHaveTextContent("The 84 credits already used stay used.");
@@ -49,13 +49,13 @@ test("on the video page a version in production offers Release only; Release ask
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/restore")).toBe(true));
 });
 
-test("once the video is done the menu offers Archive video, not Release", async () => {
+test("once the video is done the menu offers Archive, not Release", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /projects/9/video": [200, { file_id: 90, take_ids: [4], out_of_date: false }] }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon · B" }));
   expect(screen.queryByRole("menuitem", { name: "Release this version" })).toBeNull();
-  expect(screen.getByRole("menuitem", { name: "Archive video" })).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "Archive" })).toBeInTheDocument();
 });
 
 test("an archived video says so with Restore, and has no menu; an editor who didn't make it sees no menu at all", async () => {

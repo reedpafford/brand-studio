@@ -15,7 +15,7 @@ from statistics import median
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import asks
+from app import asks, model_map
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.checks import ItemCheck
@@ -117,8 +117,8 @@ class _Video:
     """Everything the record reads, in a fixed number of queries however many clips."""
 
     def __init__(self, db: Session, project: Project, viewer: User | None, turns: list[Job]):
+        from app.breakdown import video_model
         from app.clip_prompts import newest
-        from app.clip_takes import video_model
 
         self.project, bd = project, newest(db, project)
         self.data = bd.data if bd else {}
@@ -179,7 +179,8 @@ def _model(take: ClipTake | None, fallback: str) -> str:
     """The model a take was made on, else `fallback` (the video's, read once a record)."""
     from app.catalogue import catalogue
 
-    made = catalogue().get((take.made_with or {}).get("video_model", "")) if take else None
+    said = (take.made_with or {}) if take else {}
+    made = catalogue().get(said.get("model") or said.get("video_model") or "")  # VS1's key
     return made.name if made else fallback
 
 
@@ -204,7 +205,8 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
     out = {"clip_id": row.clip_id, "number": int(row.clip_id.removeprefix("c") or 0),
            "scene": int(scene) if scene.isdigit() else 0, "seconds": row.seconds,
            "label": (shots[0].get("action") or "").split(". ")[0].strip().rstrip("."),
-           "model": _model(picked, video.model), "frame_file_id": video.frames.get(row.clip_id),
+           "model": _model(picked, model_map.own_name(row) or video.model),
+           "frame_file_id": video.frames.get(row.clip_id),
            "take_id": picked.id if picked else None, "state": "done", "note": "",
            "percent": None, "minutes_left": None, "credits": None, "changed": changed,
            "watched": bool(picked and picked.id in video.seen),
@@ -282,7 +284,7 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
         words["watching"] = watching[0]
     if hosted:
         words["host"] = f"Lay {cast or 'the presenter'} over the B-roll"
-    words["cut"] = "Watch and listen to the whole cut, then deliver"
+    words["cut"] = "Watch the whole cut, then deliver"
     first = next((c for c in cells if c["state"] == "making"), None)
     subs = {"stills": f"{video.drawn} of {video.stills} drawn" if video.stills else "",
             "takes": f"Clip {first['number']} · scene {first['scene']} · {first['seconds']} s · "
@@ -317,11 +319,11 @@ def _watching(db: Session, video: _Video, cells: list[dict],
     c = acted[-1]
     job = next((j for j in video.jobs.get(video.pk(c["clip_id"]), []) if j.status in WAITING),
                None) if c["state"] == "making" else None  # fmt: skip
-    if job is not None:  # its "up to": the take and the check that rides along (rule 36)
-        from app import item_checks
+    if job is not None:  # its "up to": the take and the watch that rides along (rule 36)
+        from app import take_watch
 
         row = next(r for r in video.clips if r.clip_id == c["clip_id"])
-        price = job.credits + item_checks.rides(db, video.project, row)
+        price = job.credits + take_watch.rides(db, video.project, row)
     tail = f" Remaking it ({money(price, owner)})." if job else ""
     return text, f"Clip {c['number']}: {c['note'].rstrip('.')}.{tail}"
 

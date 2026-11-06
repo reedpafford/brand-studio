@@ -81,7 +81,7 @@ def test_every_app_voice_is_listed_with_a_free_sample_where_a_test_made_one(owne
     assert listed["Roger"]["provider"] == "elevenlabs"
     assert listed["Roger"]["sample_url"] == "/voices/samples/Roger.mp3"
     assert listed["English_FriendlyPerson"]["provider"] == "minimax"
-    assert listed["Sarah"]["sample_url"] is None  # no paid test made one yet
+    assert all(v["sample_url"] for v in listed.values())  # every app voice has its free sample
     assert _list(editor, brand, all=True)["voices"] == _list(editor, brand)["voices"]
     assert _list(editor, brand)["clone_usd"] is None  # editors never see dollars
     assert editor.get("/voices/samples/..%2Fvoices.mp3").status_code == 404
@@ -294,7 +294,7 @@ def test_a_character_has_one_voice_saved_or_from_the_app_and_its_host_speaks_in_
 
     item = db.get(LibraryItem, mark["id"])
     video = Project(workspace_id=ws, look="ugc")
-    monkeypatch.setattr("app.host.on", lambda db, project: True)
+    monkeypatch.setattr("app.host.presents", lambda db, project: True)
     monkeypatch.setattr("app.host.host_look", lambda db, project: item)
     item.voice_stock_key, item.voice_id = "Roger", None
     assert voices.default_for(db, video) == "Roger"
@@ -388,7 +388,7 @@ def test_a_removed_voice_never_stops_its_presenter_and_says_what_to_do(db, owner
     item = LibraryItem(workspace_id=ws, kind=Kind.character, name="Mark", voice_id=mark.id)
     db.add(item)
     db.commit()
-    monkeypatch.setattr("app.host.on", lambda db, project: True)
+    monkeypatch.setattr("app.host.presents", lambda db, project: True)
     monkeypatch.setattr("app.host.host_look", lambda db, project: item)
     video = Project(workspace_id=ws, brand_id=brand, look="dr-pickle")
     assert voices.default_for(db, video) == f"voice:{pickle.id}"  # the style's voice instead

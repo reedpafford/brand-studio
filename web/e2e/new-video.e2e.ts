@@ -21,16 +21,17 @@ test("at 1440, the owner pastes a script, presses Make it, and the director deli
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
   await page.getByRole("button", { name: /^Make it · up to \d+ credits?$/ }).click({ timeout: 60_000 }); // its start card, after the treatment (S3-02)
-  const thread = page.getByRole("list", { name: "Thread" });
-  await expect(thread.getByText("Delivered.", { exact: true })).toBeVisible({ timeout: 240_000 });
-  await expect(thread.getByLabel("The cut", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible();
+  // v6 S3-09: the chat beside the preview panel; delivered, the cut plays in the Cut tab.
+  const thread = page.getByRole("list", { name: "Conversation with the director" });
+  await expect(page.getByRole("banner").getByText("Delivered", { exact: true })).toBeVisible({ timeout: 240_000 });
+  const cut = page.getByRole("tabpanel", { name: "Cut" });
+  await expect(cut.getByLabel("The cut", { exact: true })).toBeVisible();
+  await expect(cut.getByRole("link", { name: "Download MP4" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Make it again · up to \d+ credits?$/ })).toBeVisible();
   expect(await thread.textContent()).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words: no tool names, codes or JSON
-  await page.getByRole("button", { name: "Open the steps" }).click();
-  await expect(page.getByRole("tab", { name: /Clips/ })).toBeVisible();
-  await page.getByRole("button", { name: "Close the steps" }).click();
-  await expect(thread).toBeVisible();
+  await page.getByRole("tab", { name: /^Clips/ }).click();
+  await expect(page.getByRole("tabpanel", { name: "Clips" })).toBeVisible();
+  await expect(thread).toBeVisible(); // the chat stays beside it
   await noSidewaysScroll(page);
 });
 
@@ -67,8 +68,8 @@ test("an editor sends a script for approval from New video, the owner approves i
   await expect(row).toHaveCount(0);
 
   await expect(ed).toHaveURL(/\/b\/\d+\/videos\/\d+$/, { timeout: 30_000 }); // its video is real from the owner's OK
-  await expect(ed.getByRole("list", { name: "Thread" }).getByText("Delivered.", { exact: true })).toBeVisible({ timeout: 240_000 });
-  await expect(ed.getByRole("link", { name: "Download MP4" })).toBeVisible();
+  await expect(ed.getByRole("banner").getByText("Delivered", { exact: true })).toBeVisible({ timeout: 240_000 });
+  await expect(ed.getByRole("tabpanel", { name: "Cut" }).getByRole("link", { name: "Download MP4" })).toBeVisible();
   await noSidewaysScroll(ed);
 
   // At 390 (QA on #1194): the editor's change waits for the owner, and the phone's bar has Withdraw change.
@@ -102,6 +103,6 @@ test("at 390, the owner's saved change after a delivery has Make it again in the
   await expect(page.getByText("Saved. Press Make it again to make this change.")).toBeVisible();
   expect((await again.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await again.click();
-  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
+  await expect(page.getByRole("banner").getByText(/^Working/)).toBeVisible(); // P-04: Stop is in the ⋯ menu on a phone
   await noSidewaysScroll(page);
 });

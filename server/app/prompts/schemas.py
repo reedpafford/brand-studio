@@ -516,6 +516,38 @@ class ItemCheck(BaseModel):
     findings: list[Finding] = Field(description="Only clear differences a viewer would notice.")
 
 
+# --- The take watch (rule 11, Reed 3 Nov): every take looked at as it lands ---
+
+
+class TakeFault(BaseModel):
+    kind: Literal["style", "action", "motion", "cast", "product", "screen", "text", "lipsync",
+                  "voice", "sound", "clipping", "timing"]  # fmt: skip
+    at: float | None = Field(description="Where in the take, in seconds; null for all of it.")
+    says: str = Field(description="One short line for the card: 'Eyes landed on the stomach'.")
+    who: str = Field(
+        default="",
+        description="char:N or product:N from <references>, 'screen' or 'extra'; else ''.",
+    )
+    evidence: Literal["picture", "words", "measured", "sound"] = Field(
+        description="What shows it: 'picture' (seen in the sampled frames), 'words' (only "
+        "the transcript in <heard> suggests it), 'measured' (clipped samples in <measured>), "
+        "'sound' (only the spectrogram, the loudness or a silence suggests it)."
+    )
+
+
+class TakeWatch(BaseModel):
+    """One take, looked at: kept, or remade with its prompt rewritten for its model."""
+
+    seen: str = Field(
+        description="One or two plain sentences: what you saw, and what the transcript or the "
+        "sound's picture suggests, said as a suggestion."
+    )
+    faults: list[TakeFault] = Field(max_length=6, description="Worst first; empty when it's good.")
+    verdict: Literal["keep", "redo"]
+    note: str = Field(default="", description="For redo: the change in a few plain words.")
+    prompt: str = Field(default="", description="For redo: the whole clip prompt, rewritten.")
+
+
 class NarrationMusic(BaseModel):
     """The instrumental bed under a narrated video (flows N1)."""
 
@@ -538,6 +570,14 @@ class CutFinding(BaseModel):
     end: float = Field(description="Where it ends, in cut seconds.")
     says: str = Field(
         description="One plain line for the owner: \"c3: he says 'fogo', not 'fomo'\"."
+    )
+    kind: Literal["story", "picture", "cast", "text", "screen", "lipsync", "voice", "sound",
+                  "words"] = Field(description="What kind of fault: in the picture or the story, "
+                                   "lip-sync, the voice, other sound, or the words.")  # fmt: skip
+    evidence: Literal["picture", "words", "measured", "sound"] = Field(
+        description="What shows it: 'picture' (seen in the sampled frames), 'words' (only "
+        "<transcript> suggests it), 'measured' (clipped samples in <measured>), 'sound' (only "
+        "the spectrogram, the loudness or a silence suggests it)."
     )
     fix: Literal["redo", "pick", "mute", "keep"] = Field(
         description="The smallest fix that works: 'mute' an unscripted sound with nothing wrong "
@@ -581,7 +621,9 @@ class Treatment(BaseModel):
     beats: list[Beat] = Field(
         description="The video in order; together every line but the scene headings, once."
     )
-    ending: str = Field(description="The payoff and the call to action, and why they land.")
+    ending: str = Field(
+        description="The payoff, and the call to action when the script has one, and why they land."
+    )
 
 
 # --- Review the stills (the Producer, 2 Nov): against the treatment, before any take ---
@@ -639,7 +681,7 @@ class DirectorTurn(BaseModel):
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
         "mute", "splice_word", "add_sound", "song", "narration", "host", "ask", "wait",
-        "deliver", "stop",
+        "deliver", "stop", "clip_model", "settings",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -647,7 +689,8 @@ class DirectorTurn(BaseModel):
     )  # fmt: skip
     clip_id: str | None = Field(
         default=None,
-        description="For make_take, pick_take, mute, splice_word and add_sound: the clip, e.g. "
+        description="For make_take, pick_take, mute, splice_word, add_sound and clip_model: the "
+        "clip, e.g. "
         "'c3'. For make_take, null makes a first take of every clip that has none; for "
         "add_sound, null adds sound to every silent take in the cut. Else null.",
     )
@@ -686,6 +729,34 @@ class DirectorTurn(BaseModel):
         "as the script has them, with only pause marks between words, e.g. <#0.3#> (0.2-0.5 s, "
         "never two in a row), and a few sounds a person makes, e.g. (breath), (chuckle), "
         "(sighs), where they'd really happen; a changed word is refused. Else empty.",
+    )
+    model: str | None = Field(
+        default=None,
+        description="For clip_model: the catalogue id of the model that makes this clip "
+        "(with value 'speaks' on Omni, the talker says the clip's scripted words in Omni's own "
+        "voice, only for a dramatic moment, an interaction, a reveal or a punchline, never "
+        "merely because they move; `note` describes that voice the first time) "
+        "('seedance-1-lite' where it's enough for a B-roll shot, 'gemini-omni-1.1' for a "
+        "talker's own shot where they move, act or take part in the story, never B-roll); null "
+        "puts the clip back on the video's model. For settings with setting video_model or "
+        "image_model: the model's id, null for Auto. Else null.",
+    )
+    setting: Literal[
+        "look", "video_model", "image_model", "aspect_ratio", "presenter", "narration_only"
+    ] | None = Field(
+        default=None,
+        description="For settings: which of the video's settings to switch, when a person asks "
+        "in the chat or the treatment chose it: look (the style), video_model, image_model, "
+        "aspect_ratio (the shape), presenter (how the presenter appears: talks, corner or "
+        "acts) or narration_only (on when a person says 'narration only': no talker speaks on "
+        "Omni). A setting a person chose themselves stays theirs. Else null.",
+    )  # fmt: skip
+    value: str | None = Field(
+        default=None,
+        description="For settings with setting look, aspect_ratio, presenter or narration_only: "
+        "the new value (a style id, '9:16', talks / corner / acts, or on / off); null for the "
+        "style's own. For clip_model, 'speaks' when the talker says the clip's words on Omni. "
+        "Else null.",
     )
     word: str | None = Field(
         default=None,

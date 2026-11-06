@@ -4,7 +4,7 @@ import { Link, useLocation, useMatch, useNavigate, useSearchParams } from "react
 import { api, must } from "../api/client";
 import { useFolderActions } from "../folders/FolderActions";
 import { StatusDot, UNSORTED, pathTo, useRefreshIdeas, useTree, type Branch } from "../folders/ideas";
-import { useVideoProject } from "../videos/VideoTop";
+import { useVideoProject } from "../videos/VideoChat";
 
 /** What a dragged idea carries (an idea card on the folder page, or an idea in the tree). */
 export const IDEA = "application/x-brand-studio-idea";

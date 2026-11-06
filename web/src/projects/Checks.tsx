@@ -4,9 +4,16 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "../components";
 import { useToast } from "../toast";
 import { useMedia } from "../useMedia";
-import { show } from "./ApproveAll";
 import { Sheet } from "./Sheet";
 import { LookTip } from "./LookFix";
+
+/** Brings a card into view and marks it for a moment (a Review row's link). */
+function show(label: string) {
+  const card = document.querySelector<HTMLElement>(`[aria-label="${label}"]`);
+  card?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  card?.classList.add("outline", "outline-2", "outline-accent");
+  setTimeout(() => card?.classList.remove("outline", "outline-2", "outline-accent"), 1500);
+}
 
 /** The advisory check on a still or a take (flows P4; Builder-Server-8's CheckOut, #891). Advice only: it never blocks. */
 export type Finding = { index: number; kind: string; text: string; note: string; fix?: string; at?: number | null };
@@ -114,9 +121,9 @@ export function CheckSummary({ projectId }: { projectId: number }) {
 }
 
 /** "3 items with Advice ▸": the one Review list, grouped by step, each row going to its card (PL8). Open by default on Final cut. */
-export function ReviewChip({ projectId, open: startOpen = false }: { projectId: number; open?: boolean }) {
+export function ReviewChip({ projectId }: { projectId: number }) {
   const review = useReview(projectId).data;
-  const [open, setOpen] = useState(startOpen);
+  const [open, setOpen] = useState(false);
   const [params, setParams] = useSearchParams();
   // The card to go to rides in the address (`to`): a row on Final cut changes step, and this chip on the new step finds the
   // card once it's drawn, scrolls to it and moves focus there (keyboard and screen readers follow), then drops `to`.

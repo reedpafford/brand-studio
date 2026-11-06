@@ -344,3 +344,54 @@ def test_an_open_folder_tabs_search_made_by_sort_pages_and_archived(owner, edito
     assert owner.get(f"/brands/{brand}/ideas?folder=²").status_code == 404
     found = editor.get(f"/brands/{brand}/ideas?folder=all&q=glow").json()["ideas"]  # quick search
     assert [i["title"] for i in found] == ["Glow-up"]
+
+
+def test_one_ideas_header_status_used_up_to_budget_folder_and_what_it_is(app, owner, editor, db):
+    from tests.test_director import _made
+
+    pid = _made(app, owner, editor, db)
+    week = _folder(owner, first_brand(owner), "Week of 3 Nov")
+    owner.post("/folders/file", json={"folder_id": week, "kind": "video", "ids": [pid]})
+    before = owner.get(f"/projects/{pid}/idea").json()
+    assert (before["status"]["kind"], before["status"]["reason"]) == ("needs_you", ideas.START)
+    assert before["spent"]["credits"] == 0 and before["up_to"]["credits"] > 0  # its run's price
+    assert before["up_to"]["usd"] is not None
+    assert before["folder"] == {"id": week, "name": "Week of 3 Nov"}
+    assert before["format"] and before["style"] and before["song"] is False
+    p = db.get(Project, pid)
+    _job(db, pid, JobStatus.running, credits=12)
+    working = editor.get(f"/projects/{pid}/idea").json()
+    assert working["status"]["kind"] == "working" and working["spent"]["credits"] == 12
+    assert working["spent"]["usd"] is None and working["budget"]["usd"] is None  # credits only
+    top = float(p.budget_credits + director.OWN_CREDITS)  # the budget, the director's limit beside
+    assert working["up_to"]["credits"] == top
+    assert working["budget"]["credits"] == float(p.budget_credits)
+    assert owner.get("/projects/999999/idea").status_code == 404
+
+
+def test_a_director_videos_header_reads_its_approved_price_and_title(app, owner, editor, db):
+    from decimal import Decimal
+
+    from app.models.freestyles import Freestyle
+    from tests.test_director import _made
+
+    pid = _made(app, owner, editor, db)
+    p = db.get(Project, pid)
+    db.add(Freestyle(workspace_id=p.workspace_id, created_by_id=p.created_by_id, title="Beer gut",
+                     type="dialogue", look="house", shape="9:16", brand_id=p.brand_id,
+                     project_id=pid, up_to=Decimal("140.25")))  # fmt: skip
+    db.commit()
+    _job(db, pid, JobStatus.running, credits=200)  # used past the OK: never shown below it
+    head = owner.get(f"/projects/{pid}/idea").json()
+    assert head["title"] == "Beer gut" and head["up_to"]["credits"] == 200
+    _job(db, pid, JobStatus.succeeded, credits=-190)
+    head = owner.get(f"/projects/{pid}/idea").json()
+    assert head["up_to"]["credits"] == 140.25 and head["up_to"]["usd"] == round_up(140.25)
+
+
+def round_up(credits: float) -> float:
+    import math
+
+    from app.models.credits import USD_PER_CREDIT
+
+    return math.ceil(credits * float(USD_PER_CREDIT) * 100) / 100

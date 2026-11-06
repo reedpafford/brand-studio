@@ -37,6 +37,9 @@ class ProjectClip(Entity, Base):
     song_slice: Mapped[dict | None] = mapped_column(JSON)
     # OR3: the prompts before the one in hand, newest first, at most 10 (n13)
     prompt_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    # v6 F (n38): the clip's own model when the director chose one, {id, why, by}; null: the
+    # video's (app/model_map.py)
+    model: Mapped[dict | None] = mapped_column(JSON)
 
 
 @event.listens_for(ProjectClip.prompt, "set")
@@ -58,6 +61,8 @@ class ClipTake(Entity, Base):
     look: Mapped[str] = mapped_column(String(40), default="house")  # the video's look then (VS1)
     # What it was made with (VS1, n09): {video_model, aspect_ratio, products}; {} = before n09
     made_with: Mapped[dict] = mapped_column(JSON, default=dict)
+    # The director's watch (n39, app/take_watch): {state, found, faults, did, action, …}
+    watch: Mapped[dict | None] = mapped_column(JSON)
 
 
 class FinalVideo(Entity, Base):
@@ -88,3 +93,5 @@ class HostPiece(Entity, Base):
     audio_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # its narration
     file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # once made
     earlier: Mapped[list[int]] = mapped_column(JSON, default=list)  # earlier makes' files
+    how: Mapped[str | None] = mapped_column(String(20))  # n38: talks or corner (app/host.how)
+    watch: Mapped[dict | None] = mapped_column(JSON)  # the director's watch (n39, app/host_watch)

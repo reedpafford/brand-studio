@@ -106,6 +106,7 @@ def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor,
         return real(state)
 
     monkeypatch.setattr(director, "choose", stubborn)
+    monkeypatch.setattr(director, "_only_a_doubt", lambda *a: False)  # the count alone here
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")  # never held: the limits alone
     _run(app, db)

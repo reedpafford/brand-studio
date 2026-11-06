@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import clip_prompts
+from app import clip_prompts, model_map
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -120,12 +120,12 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
 def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     """A director run's "up to" (Freestyle, rule 36): the version's whole price and all a run
     may add under its own limits (QA on #1176: 80.898 shown, 82.03 charged): every clip made
-    again MAX_REDOS times with its take check, and the director's own limit (its turns and
+    again MAX_REDOS times with its watch, and the director's own limit (its turns and
     watches, `director.own_limit`; past it, it waits for an OK); and for a song or narrated
     version with no song yet, its making and one remake (`director_song.price`); a presenter's
-    host, its still and every second in one HeyGen take (`host.run_price`). The cut, mutes and
-    splices are free."""
-    from app import director, item_checks, narration
+    host, its still and every second in one HeyGen take, made once and MAX_REDOS times again
+    by its watch (`host.run_price`). The cut, mutes and splices are free."""
+    from app import director, narration, take_watch
 
     script = db.get(Script, draft.script_id)
     ws = script.workspace_id
@@ -136,11 +136,11 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     m = video_model(video, script.look, script.kind)
     model = {"model": m.id, "input": {"resolution": m.take_resolution}}
     takes = (estimate(db, ws, "video", Decimal(seconds), model)
-             + clips * item_checks.per_take(db, ws))  # fmt: skip
+             + clips * take_watch.per_take(db, ws))  # fmt: skip
     from app import director_song, host
 
     audio = director_song.price(db, draft)  # a song or narration still to make, and one remake
-    talks = host.run_price(db, draft, said, video)  # a presenter's host on HeyGen, once
+    talks = host.run_price(db, draft, said, video, director.MAX_REDOS)  # on HeyGen, and remakes
     return (version_cost(db, draft, video) + audio + talks + director.MAX_REDOS * takes
             + director.own_limit())  # fmt: skip
 
@@ -184,12 +184,23 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     else:
         seconds_left = sum(c["seconds"] for c in planned) or int(project.estimate_credits)
     clips_done = bool(clips) and not seconds_left
-    from app import item_checks  # each take's check rides along while checks are on
+    from app import take_watch  # each take's watch rides along while watches are on
 
     ws = project.workspace_id
-    checks = (sum((item_checks.rides(db, project, c) for c in clips if not c.picked_take_id),
-                  Decimal(0)) + item_checks.per_take(db, ws) * len(
-        [c for c in planned if c["id"] not in {r.clip_id for r in clips}]))  # fmt: skip
+    from app.clip_takes import take_credits
+
+    fresh = [c for c in planned if c["id"] not in {r.clip_id for r in clips}]
+    # each made clip at its own model (Omni's fixed length) with its check; new ones as planned,
+    # a talker's shot on Omni when the presenter acts (QA on #1327: before its row exists)
+    omni = model_map.on_omni(db, project, bd.data) if bd_ok else set()
+    acting = [c for c in fresh if c["id"] in omni]
+    rest = (sum(c["seconds"] for c in fresh) if clips else seconds_left) - sum(
+        c["seconds"] for c in acting
+    )
+    takes = (sum((take_credits(db, project, c) for c in clips if not c.picked_take_id),
+                 Decimal(0)) + _video(db, ws, max(rest, 0), project)
+             + sum((model_map.omni_take(db, project, c["seconds"]) for c in acting), Decimal(0))
+             + take_watch.per_take(db, ws) * len(fresh))  # fmt: skip
     rewrite = clip_prompts.to_rewrite(db, project) if clips else []
     rows = [
         ("script", script is not None, claude, "one Claude call to draft it"),
@@ -215,7 +226,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
         (
             "clips",
             clips_done,
-            _video(db, project.workspace_id, seconds_left, project) + checks,
+            takes,
             f"{seconds_left} s of video at {video_model(project).take_resolution}, one take each",
         ),
         ("video", False, Decimal(0), "putting the clips together is free"),

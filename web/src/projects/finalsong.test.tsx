@@ -69,7 +69,7 @@ test("a video without a song shows no song line and never asks for songs", async
   setViewport(1440);
   const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
   open("?step=downloads");
-  expect(await screen.findByText("Final cut ready")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Final cut" })).toBeInTheDocument();
   expect(screen.queryByLabelText("The song")).toBeNull();
   expect(calls.some((c) => c.key === "GET /projects/9/songs")).toBe(false);
 });

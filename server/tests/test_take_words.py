@@ -48,7 +48,7 @@ def test_inner_speech_or_a_reply_in_the_action_is_called_a_spoken_action():
         found = compare(LINES, _heard("Fomo made me rich!", "No way.", "Can't believe it worked."),
                         "fomo", "FOH-moh", [action])  # fmt: skip
         assert _kinds(found) == [("voiced", 4.5)]
-        assert "the action was spoken" in found[0]["text"]
+        assert "the action may have been spoken" in found[0]["text"]
         assert "no “replies” or “answers” in the action" in found[0]["change_note"]
 
 
@@ -128,7 +128,7 @@ def test_a_failed_queue_never_stops_the_take(app, db, editor, setup, clip, monke
     _work(app, db, FakeSeedance([_mp4("red")]))
     (take,) = editor.get(clips).json()[0]["takes"]  # saved and picked all the same
     assert take["words"] is None and take["verdict"] != "flagged"
-    assert "couldn't queue the words check for take" in caplog.text
+    assert "couldn't queue the watch of take" in caplog.text
     assert db.query(Job).filter(Job.kind == "take_listen").count() == 0
 
 
@@ -182,7 +182,7 @@ def test_in_a_song_or_narrated_video_any_voice_in_a_take_is_a_fault():
     assert found["kind"] == "voiced" and found["span"] == [0.5, 1.8]
     assert (
         found["text"].startswith("“Can't believe it worked.” at 0:00")
-        and "song video" in (found["text"])
+        and "this clip isn't planned to speak" in (found["text"])
     )
     assert found["change_note"].endswith("the song carries every word.")
     assert voices([], "narrated") == []

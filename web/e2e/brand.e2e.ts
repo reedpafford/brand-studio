@@ -23,12 +23,15 @@ test.beforeEach(async ({ page }) => {
 
 test("tone and rules and a colour are saved and still there after a reload", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  // The brand may already have colours (a retry runs on the same brand), so count up from what's there.
+  const colours = page.getByRole("button", { name: /^Colour \d+: #/ });
+  const before = await colours.count();
   await page.getByLabel("Tone and rules").fill("Calm, confident, never hype.");
   await page.getByRole("button", { name: "Add colour" }).click();
   await saveKit(page);
   await page.reload();
   await expect(page.getByLabel("Tone and rules")).toHaveValue("Calm, confident, never hype.");
-  await expect(page.getByRole("button", { name: /^Colour 2: #/ })).toBeVisible();
+  await expect(colours).toHaveCount(before + 1);
 });
 
 test("an uploaded logo shows and survives a reload", async ({ page }) => {

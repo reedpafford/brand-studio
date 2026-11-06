@@ -12,6 +12,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import watch_report
 from app.db import utcnow
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -40,7 +41,8 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     return {"made": said(decision.get("made") or decision.get("why") or ""),
             "open": open_items(db, project, spans, decision.get("needs") or ""),
             "redid": sorted(rows, key=lambda r: r["at"]),
-            "unsure": said(decision.get("unsure") or ""),
+            "unsure": " ".join(x for x in (said(decision.get("unsure") or ""),
+                                           watch_report.doubts(db, project)) if x),
             "needs": said(decision.get("needs") or ""),
             "spent": float(credits), "up_to": float(price_of(db, project)),
             "since": turns[0].created_at.isoformat(), "until": utcnow().isoformat(),
@@ -151,7 +153,7 @@ def _remade(db: Session, project: Project, spans: list[dict], turns: list[Job]) 
     """Each clip in the cut whose take the director made again after its watch found
     something: what it found on the take before, and that it remade it, at that moment."""
     asked = {clip: {"text": why} for clip, why in watched(turns).items()}  # the cut's watch
-    from app.clip_takes import video_model
+    from app.model_map import of_clip
 
     out = []
     for s in spans:
@@ -169,7 +171,7 @@ def _remade(db: Session, project: Project, spans: list[dict], turns: list[Job]) 
             continue
         at = found["at"] if isinstance(found.get("at"), int | float) else 0
         did = ("Remade without them." if found.get("kind") == "text"
-               else f"Remade on {_model(take, video_model(project).name)}.")  # fmt: skip
+               else f"Remade on {_model(take, of_clip(project, row).name)}.")  # fmt: skip
         out.append({"at": round(s["start"] + min(at, s["seconds"]), 1), "clip": row.clip_id,
                     "text": f"{_clip(row)}: {said(found['text']).rstrip('.')}. {did}"})  # fmt: skip
     return out

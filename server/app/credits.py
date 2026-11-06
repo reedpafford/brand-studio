@@ -100,7 +100,7 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     per clip, the clip prompts (a Claude call per few clips), a look per role (`roles`) and
     its seconds of video. `bd` is its Breakdown, if it has one; `video` its models (VS1),
     else its `look` and script `kind` say which (`breakdown.video_model`). Redos aren't counted."""
-    from app import clip_prompts, item_checks
+    from app import clip_prompts, take_watch
     from app.breakdown import video_model
     from app.sheets import look_usual
     from app.storyboard import image_model, still_credits
@@ -110,7 +110,7 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     claude = estimate(db, ws, "write-claude", Decimal(1)) * (int(breakdown) + 1 + calls)
     m = video_model(video, look, kind)
     clip = {"model": m.id, "input": {"resolution": m.take_resolution}}
-    checks = clips * item_checks.per_take(db, ws)  # a take check a clip, while checks are on
+    checks = clips * take_watch.per_take(db, ws)  # a watch of a take a clip, while on
     return (claude + clips * still_credits(db, ws, image_model(video)) + look_usual(db, ws) * roles
             + estimate(db, ws, "video", Decimal(seconds), clip) + checks)  # fmt: skip
 

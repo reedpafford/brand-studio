@@ -64,12 +64,11 @@ def test_the_item_check_is_advice_about_the_references_it_was_given():
         assert part in text, part
     message = prompts.item_check_input(
         "Biscuit licks the bowl", [("char:1", "Biscuit: fawn Frenchie, red bandana")],
-        ("product:1", "Iron Paws peanut butter bag"), frames=3,
+        ("product:1", "Iron Paws peanut butter bag"),
     )  # fmt: skip
-    assert "<item>Images 1–3 are frames of one take, in order.</item>" in message
     assert (
-        '<sheet image="4" id="char:1">' in message
-        and '<product image="5" id="product:1">' in message
+        '<sheet image="2" id="char:1">' in message
+        and '<product image="3" id="product:1">' in message
     )
     assert "<item>Image 1 is the still.</item>" in prompts.item_check_input("x", [("char:1", "B")])
 

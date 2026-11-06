@@ -4,12 +4,10 @@ import type { components } from "../api/schema";
 import { Card, EmptyState, Skeleton } from "../components";
 import { fileUrl } from "../api/upload";
 import { errorText as errorClass } from "../ui";
-import { useApproveAllWith, type ApproveAllResult } from "./ApproveAll";
 import { AutoLooks } from "./AutoLooks";
 import { useAssetMerge } from "./AssetMerge";
 import { FlavourPicker, useBriefChoices } from "./BriefPickers";
 import { AssetCard, InShots, notInShots } from "./AssetCard";
-import { useCostBarAction } from "./CostBar";
 
 type Asset = components["schemas"]["AssetOut"];
 
@@ -52,10 +50,7 @@ export function AssetsPane({
   projectId,
   brandId,
   variants,
-  bar,
 }: {
-  /** On the video page: the step's one press (Approve all) sits in the cost bar (audit M1). */
-  bar?: boolean;
   projectId: number;
   brandId: number;
   variants: Record<string, string>;
@@ -77,23 +72,6 @@ export function AssetsPane({
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   });
-  // Approve all: the looks made for this video (or script) whose sheet is drawn. Library characters and locked roles are approved elsewhere or already are.
-  const roles = (assets.data ?? []).filter((a) => !notInShots(a) && a.kind === "character" && !a.locked && a.sheet_status !== "approved" && (a.only_here != null || a.library_item_id == null));
-  const approveAll = useApproveAllWith({
-    noun: "look",
-    ready: roles.filter((a) => a.only_here != null && a.sheet_status === "needs_approval").length,
-    waiting: roles.length,
-    press: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/assets/approve-all", { params: { path: { project_id: projectId } } });
-      if (!data) throw new Error(errorText(error));
-      return data as ApproveAllResult;
-    },
-    undo: (ids) => api.POST("/projects/{project_id}/assets/approve-all/undo", { params: { path: { project_id: projectId } }, body: { ids } }),
-    refresh: () => Promise.all([["assets", projectId], ["library", "character"], ["breakdown", projectId], ["storyboard", projectId], ["project-clips", projectId]].map((queryKey) => queryClient.invalidateQueries({ queryKey }))), // as a single Approve does
-    name: (s) => s.label ?? "",
-  });
-  const inBar = !!bar && assets.isFetchedAfterMount && !picks.loading && !!approveAll.action;
-  useCostBarAction(inBar ? approveAll.action : null);
   // Until the list is read again for this step (one cached from an earlier step can predate the shots) and the brand's
   // products are in, nothing is counted: never "Not in this video's shots" or empty bags worked out from missing data.
   if (!assets.isFetchedAfterMount || picks.loading)
@@ -148,11 +126,7 @@ export function AssetsPane({
       <AutoLooks projectId={projectId} toApprove={list.some((a) => a.sheet_status === "needs_approval")} />
       {(cast.length > 0 || unused.length > 0) && (
         <section aria-label="Cast" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="type-section">Cast</h3>
-            {!inBar && approveAll.button}
-          </div>
-          {approveAll.line}
+          <h3 className="type-section">Cast</h3>
           {merge.note}
           {grid(cast)}
           {unused.map((a) => (

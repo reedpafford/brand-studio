@@ -23,6 +23,7 @@ from app import (
     host,
     item_checks,
     looks,
+    model_map,
     narration,
     narration_music,
     prompts,
@@ -32,6 +33,7 @@ from app import (
     take_sound,
     talker,
     video_settings,
+    watch_report,
     word_splice,
 )
 from app.advice import Said, SaidText
@@ -74,6 +76,29 @@ class ProjectClipIn(BaseModel):
     references: list[Reference] = Field(max_length=50)
 
 
+class FaultOut(BaseModel):
+    kind: str  # style, action, motion, cast, product, screen, text, lipsync, voice, sound, timing
+    at: float | None  # seconds into the take; null: all of it
+    says: str  # "Cartoon eyes landed on the stomach"; unconfirmed: "… (not confirmed)"
+    verified: bool = True  # seen in the frames or clipped samples; else never remade on its own
+
+
+class WatchOut(BaseModel):
+    """What the director found looking at and measuring this take, and what it did (rule 11)."""
+
+    state: Literal["watching", "done", "failed", "skipped"]
+    found: str | None = ""  # "Cartoon eyes landed on the stomach at 0:02. The sound was fine."
+    did: str | None = ""  # "Remade it on Seedance 2.0 with “no face on the organs” in the prompt."
+    action: Literal["keep", "redo", "held", "flagged", "unsure", "superseded"] | None = None
+    note: str | None = ""  # the change, quoted ("no face on the organs")
+    at: str | None = None  # when it was watched (ISO)
+    faults: list[FaultOut] = []
+    credits: float | None = None  # what watching it charged
+    remake_credits: float | None = None  # the remake's "up to"
+    remake_take: int | None = None  # the take the remake became, once it's made
+    waiting: bool = False  # the remake waits for the owner's OK (past the budget)
+
+
 class TakeOut(BaseModel):
     id: int
     number: int
@@ -84,6 +109,8 @@ class TakeOut(BaseModel):
     verdict: str = "unchecked"  # clean, flagged, checking or unchecked (item_checks.verdict)
     approved_by: str | None = None  # "check": it approved itself, clean (rule 21)
     mutes: list[list[float]] = []  # stretches muted, as added: Undo takes back one (take_mute)
+    watch: WatchOut | None = None  # the director's watch of it (app/take_watch)
+    remade_from: int | None = None  # the take number its watch remade it from
 
 
 class SoundOut(BaseModel):
@@ -143,6 +170,15 @@ class PromptVersionOut(BaseModel):
     current: bool
 
 
+class ClipModelOut(BaseModel):
+    """The model a clip is made with and why (v6 S6-02's "Model" and "Why")."""
+
+    id: str
+    name: str
+    why: str
+    by: Literal["director", "person", "map"]  # who chose it: the model map is the default
+
+
 class ProjectClipOut(BaseModel):
     id: int
     clip_id: str
@@ -169,6 +205,7 @@ class ProjectClipOut(BaseModel):
     look_fix: str | None = None  # the look's fix to offer when its takes are refused (ST2)
     versions: list[PromptVersionOut] = []  # OR3: this prompt's versions, the one in hand first
     sound: SoundOut | None = None  # the picked take's added sound effects; null with no take
+    model: ClipModelOut | None = None  # v6 F: the model it's made with and one line on why
 
 
 def _versions(db: Session, row: ProjectClip) -> list[PromptVersionOut]:
@@ -192,7 +229,7 @@ _stale = clip_prompts.is_stale
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
                 "take_stale", "approved", "retrying", "retried", "auto_fix",
-                "look_fix", "versions", "sound")  # fmt: skip
+                "look_fix", "versions", "sound", "model")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -219,6 +256,8 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
                 if row.approved and t.id == row.picked_take_id
                 else None,
                 mutes=take_mute.spans(t),
+                watch=watch_report.shown(db, t),
+                remade_from=(t.made_with or {}).get("remade_from"),
             )  # fmt: skip
             for t in takes
         ],
@@ -240,6 +279,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         change=asked or None,
         versions=_versions(db, row),
         sound=take_sound.state(db, next((t for t in takes if t.id == row.picked_take_id), None)),
+        model=ClipModelOut(**model_map.why(db, project, row)),
     )
 
 
@@ -507,12 +547,11 @@ def generate(
         if wrong := check.redo_note(note, bd, row.clip_id):
             raise HTTPException(422, " ".join(wrong))
     job_input = clip_takes.take_input(db, project, row, note)
-    model = clip_takes.video_model(project)
+    model = model_map.of_clip(project, row)  # its own (the director's), else the video's
     files = {k: job_input["files"].get(k, []) for k in clip_takes.KEYS.values()}
     _check_media_length(db, request.app.state.storage, model, files)
-    return enqueue(
-        db, user, "video", job_input, units=row.seconds, project=project, provider="replicate"
-    )
+    units = model_map.seconds(model, row.seconds)  # Omni: its fixed length, up to
+    return enqueue(db, user, "video", job_input, units=units, project=project, provider="replicate")
 
 
 @router.get("/clips/{clip_id}/change", response_model=PriceOut)
@@ -884,7 +923,8 @@ def make_video(
                 lengths = clip_takes.ends_at(lengths, song_end(song))
             sound = storage.get(db.get(StoredFile, song.file_id).key)
             bed = song.music_file_id and storage.get(db.get(StoredFile, song.music_file_id).key)
-            data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None)
+            spoken = model_map.spoken(db, project, clips) if narrated else {}
+            data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None, spoken)
             data = host.lay(db, storage, project, data) if hosted else data
         else:
             data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))

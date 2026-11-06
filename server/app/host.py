@@ -21,7 +21,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import guides, host_layer, narration, talker
+from app import guides, host_layer, narration, take_watch, talker, watch_report
 from app.credits import estimate
 from app.models.accounts import User
 from app.models.clips import HostPiece, ProjectClip
@@ -68,8 +68,32 @@ def hosted(script) -> bool:
                                 for f in guides.formats())  # fmt: skip
 
 
-def on(db: Session, project: Project) -> bool:
+# How the presenter appears (Reed's L3, 4 Nov: a saved presenter is a face and a voice; how
+# they appear is chosen per video): talking to camera in their own room with B-roll cut in
+# (HeyGen), in a corner keyed over the B-roll (HeyGen), or acting in the story (Omni)
+HOW = ("talks", "corner", "acts")
+ACTS = "The presenter acts in the story: their shots are made on Omni, with no take to make."
+
+
+def how(project: Project) -> str:
+    """The video's own choice, else its style's start: a UGC talker talks, the rest sit in a
+    corner."""
+    from app import looks
+
+    if project.presenter in HOW:
+        return project.presenter
+    return "talks" if looks.base(project.look or looks.DEFAULT) in talker.LOOKS else "corner"
+
+
+def presents(db: Session, project: Project) -> bool:
+    """A Presenter video, however its presenter appears."""
     return hosted(narration.video_script(db, project))
+
+
+def on(db: Session, project: Project) -> bool:
+    """A Presenter video whose presenter is one HeyGen take (talks or in a corner); one who
+    acts in the story has no take: their shots are made on Omni (app/model_map)."""
+    return presents(db, project) and how(project) != "acts"
 
 
 def _narration(db: Session, project: Project) -> SongTake | None:
@@ -82,7 +106,8 @@ def _narration(db: Session, project: Project) -> SongTake | None:
 def rows(db: Session, project: Project) -> list[HostPiece]:
     """The host of the narration in use: the still (0), then each piece in order."""
     return list(db.scalars(select(HostPiece).where(
-        HostPiece.project_id == project.id, HostPiece.take_id == (project.song_take_id or 0))
+        HostPiece.project_id == project.id, HostPiece.take_id == (project.song_take_id or 0),
+        HostPiece.how == how(project))
         .order_by(HostPiece.number)))  # fmt: skip
 
 
@@ -111,9 +136,9 @@ def _seconds(row: HostPiece) -> int:
 
 
 def _piece_price(db: Session, ws: int, seconds: int) -> Decimal:
-    """The host's one HeyGen take, at 720p."""
+    """The host's one HeyGen take, at 720p, and the director's watch of it (rule 11)."""
     shape = {"model": talker.MODEL, "input": {"resolution": talker.RESOLUTION}}
-    return estimate(db, ws, "video", Decimal(seconds), shape)
+    return estimate(db, ws, "video", Decimal(seconds), shape) + take_watch.per_take(db, ws)
 
 
 def _still_price(db: Session, project: Project) -> Decimal:
@@ -143,17 +168,38 @@ def price(db: Session, project: Project, number: int | None = None) -> Decimal:
                 _piece_price(db, ws, _seconds(r)) for r in todo), Decimal(0))  # fmt: skip
 
 
-def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None) -> Decimal:
+def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None,
+              redos: int = 0) -> Decimal:  # fmt: skip
     """A director run's "up to" for the host (rule 36): the still and every second of the
-    narration in one HeyGen take, rounded up a second."""
+    narration in one HeyGen take, rounded up a second. A presenter who acts in the story has
+    no take: their shots on Omni instead, each billed its fixed length, and any clip may carry
+    them (QA on #1327: a short clip still bills 10 s), so every clip of the plan, else as many
+    as the B-roll's seconds can hold at the video model's shortest clip. With `redos`, each made
+    that many times again by its watch (app/host_watch), as a run may; every take's watch
+    rides along (rule 11)."""
+    from app import model_map
+    from app.catalogue import get_model
     from app.models.script_library import Script
     from app.storyboard import image_model, still_credits
 
     script = db.get(Script, draft.script_id)
     if not hosted(script):
         return Decimal(0)
+    if video is not None and how(video) == "acts":
+        from app.breakdown import video_model
+        from app.clip_prompts import newest
+        from app.routes.estimate import broll_seconds
+
+        omni = get_model(model_map.OMNI)
+        plan = newest(db, video)
+        clips = len((plan.data if plan else {}).get("clips") or []) or math.ceil(
+            broll_seconds(db, script, draft, video) / video_model(video).duration.min
+        )
+        job = {"model": omni.id, "input": {"resolution": model_map.TALKER_RESOLUTION}}
+        each = estimate(db, script.workspace_id, "video", Decimal(omni.fixed_seconds), job)
+        return clips * (each + take_watch.per_take(db, script.workspace_id)) * (1 + redos)
     still = still_credits(db, script.workspace_id, image_model(video))
-    return still + _piece_price(db, script.workspace_id, seconds + 1)
+    return still + _piece_price(db, script.workspace_id, seconds + 1) * (1 + redos)
 
 
 def state(db: Session, project: Project) -> dict:
@@ -163,7 +209,8 @@ def state(db: Session, project: Project) -> dict:
     lost = {i: j.error for i, j in jobs.items() if j.status == JobStatus.failed}
     pieces = [{"number": r.number, "start": r.start, "end": r.end, "file_id": r.file_id,
                "earlier": r.earlier or [], "state": _state(r, jobs.get(r.id)),
-               "error": lost.get(r.id, ""), "credits": float(price(db, project, r.number))}
+               "error": lost.get(r.id, ""), "credits": float(price(db, project, r.number)),
+               "watch": watch_report.shown(db, r, "piece") if r.number else None}
               for r in have]  # fmt: skip
     states = {p["state"] for p in pieces}
     whole = ("none" if not pieces else "making" if "making" in states else "ready"
@@ -208,11 +255,11 @@ def _plan(db: Session, storage, project: Project, take: SongTake) -> list[HostPi
         spans = _spans(take)
     except ValueError as too_long:
         raise HTTPException(409, str(too_long)) from too_long
-    made = [HostPiece(project_id=project.id, take_id=take.id, number=0)]
+    made = [HostPiece(project_id=project.id, take_id=take.id, number=0, how=how(project))]
     for n, (a, b) in enumerate(spans, 1):
         audio = _store(db, storage, project, _cut(sound, a, b), f"host piece {n}.mp3")
         made.append(HostPiece(project_id=project.id, take_id=take.id, number=n, start=a, end=b,
-                              audio_file_id=audio.id))  # fmt: skip
+                              audio_file_id=audio.id, how=how(project)))  # fmt: skip
     db.add_all(made)
     db.flush()
     return made
@@ -254,19 +301,24 @@ def still_input(db: Session, project: Project, row: HostPiece) -> dict:
 
 
 def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int,
-           motion: str = "", **kwargs):  # fmt: skip
+           motion: str = "", note: str = "", mark: dict | None = None,
+           **kwargs) -> Job:  # fmt: skip
     """Queue the host's HeyGen take, with the director's `motion` note (on green: TALK when
-    it gives none)."""
+    it gives none); `note`: the fix its watch asks for (app/host_watch); `mark`: more input."""
     from app.routes.jobs import enqueue
 
-    if talker.on(db, project):
-        data = talker.piece_input(project, row, still, motion or talker.MOTION)
+    talks = talker.on(db, project)
+    motion = motion or (talker.MOTION if talks else TALK)
+    if note:  # first, so the fit to HeyGen's limit never cuts it
+        motion = f"{note[:200].rstrip('.')}. {motion}"
+    if talks:
+        data = talker.piece_input(project, row, still, motion)
     else:  # on green, whatever the director's note says: the cut keys it
         room = talker.LONGEST_MOTION - len(GREEN) - 1
-        said = " ".join((motion or TALK).split())[:room]
+        said = " ".join(motion.split())[:room]
         data = talker.piece_input(project, row, still, f"{said} {GREEN}")
-    enqueue(db, user, "video", data, units=_seconds(row), project=project,
-            provider=talker.PROVIDER, **kwargs)  # fmt: skip
+    return enqueue(db, user, "video", {**data, **(mark or {})}, units=_seconds(row),
+                   project=project, provider=talker.PROVIDER, **kwargs)  # fmt: skip
 
 
 def make(db: Session, user: User, project: Project, storage, number: int | None = None,
@@ -277,7 +329,7 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
     from app.routes.jobs import enqueue
 
     if not on(db, project):
-        raise HTTPException(409, NOT_PRESENTER)
+        raise HTTPException(409, ACTS if presents(db, project) else NOT_PRESENTER)
     take = _narration(db, project)
     if take is None:
         raise HTTPException(409, NO_NARRATION)
@@ -333,7 +385,9 @@ def saved(db: Session, job: Job) -> None:
     if row is None or row.take_id != project.song_take_id or not _keep(row, job):
         return  # a narration since: this host is for the old one
     if job.input["step"] != STILL:
-        return
+        from app import host_watch  # rule 11: looked at as it lands
+
+        return host_watch.queue_safely(db, job, row)
     user = db.get(User, job.created_by_id)
     for piece in rows(db, project)[1:]:
         _piece(db, user, project, piece, row.file_id, job.input.get("motion", ""), prepaid=True)
