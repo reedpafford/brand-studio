@@ -760,3 +760,44 @@ def test_the_progress_card_reads_ready_for_its_editor_and_ignores_an_options_hol
                status="needs_owner_approval"))  # fmt: skip
     db.commit()
     assert editor.get(f"{url}/progress").json()["status"] != "waiting"
+
+
+def test_an_editors_held_clone_is_withdrawn_and_the_card_opens_again(app, db, owner, editor):
+    """Rule 22: an editor's clone waiting for the owner's OK can be withdrawn on the card
+    (`can` has "cancel" while it's held): its job is cancelled, nothing is charged, the voice
+    it would have made is removed and the card is open to answer again."""
+    import subprocess
+
+    from app.models.jobs import JobStatus
+    from app.models.voices import Voice
+
+    pid, _ = _video(app, owner, editor, db)
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    path = f"{app.state.settings.storage_dir}/sample.mp3"
+    made = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=12", path]
+    subprocess.run(made, check=True)  # noqa: S603, S607 - fixed arguments
+    with open(path, "rb") as f:
+        sample = upload(editor, "nate.mp3", f.read(), "audio/mpeg")
+    r = editor.post(f"/asks/{ask.id}/answer", json={"how": "clone", "file_id": sample,
+                                                     "text": "Nate"})  # fmt: skip
+    assert r.json()["state"] == "held" and "cancel" in r.json()["can"]
+    out = editor.post(f"/asks/{ask.id}/cancel")
+    assert out.status_code == 200, out.text
+    card = out.json()
+    assert (card["state"], card["answer"]) == ("open", None) and "clone" in card["can"]
+    db.expire_all()
+    job = db.query(Job).filter(Job.kind == "voice").one()
+    from app.models.jobs import Usage
+
+    assert job.status == JobStatus.cancelled
+    assert not db.query(Usage).filter_by(job_id=job.id).count()  # nothing charged
+    assert db.query(Voice).filter_by(name="Nate", kind="cloned").one().archived_at is not None
+    again = editor.post(f"/asks/{ask.id}/answer", json={"how": "clone", "file_id": sample,
+                                                         "text": "Nate"})  # fmt: skip
+    assert again.status_code == 200 and again.json()["state"] == "held"  # asked again
+    db.expire_all()
+    started = db.query(Job).filter(Job.kind == "voice").order_by(Job.id.desc()).first()
+    started.status = JobStatus.running
+    db.commit()
+    late = editor.post(f"/asks/{ask.id}/cancel")
+    assert late.status_code == 409 and "being cloned" in late.json()["detail"]

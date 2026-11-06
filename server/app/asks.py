@@ -313,6 +313,35 @@ def state(db: Session, ask: Ask) -> str:
     return "ready" if any(o["file_id"] for o in made) else "failed"
 
 
+NOT_YOURS = "Only whoever asked for this clone, or the owner, can withdraw it."
+STARTED = "The voice is being cloned already, so it can't be withdrawn now."
+
+
+def withdraw_clone(db: Session, user: User, ask: Ask) -> bool:
+    """Withdraw a voice card's clone that hasn't started (an editor's, waiting for the owner's
+    OK): its job is cancelled (nothing charged), the voice it would have made is removed, and
+    the card is open again (rule 22: the editor always has a way on). False: not a clone."""
+    from app.models.voices import Voice
+    from app.routes.jobs import cancel_job
+
+    if ask.state != "answered" or (ask.answer or {}).get("how") != "clone":
+        return False
+    voice = db.get(Voice, int(str(ask.answer["option"]).split(":")[1]))
+    job = db.get(Job, voice.job_id) if voice and voice.job_id else None
+    if job is None or job.status not in (JobStatus.queued, JobStatus.needs_owner_approval):
+        raise HTTPException(409, STARTED)
+    if not (user.is_owner or user.id in (job.created_by_id, ask.answered_by_id)):
+        raise HTTPException(403, NOT_YOURS)
+    cancel_job(job.id, user, db)
+    voice.archived_at = _now()  # never made: not one of the brand's voices
+    ask.state, ask.answer, ask.answered_by_id, ask.answered_at = "open", None, None, None
+    db.commit()
+    from app import director
+
+    director.wake(db, db.get(Project, ask.project_id))  # the card is the director's question
+    return True
+
+
 def _cloned(db: Session, ask: Ask) -> str:
     """A voice card answered with a clone (#1314): being cloned ("held" while an editor's waits
     for the owner), answered once its voice is ready, failed when it didn't clone (nothing
