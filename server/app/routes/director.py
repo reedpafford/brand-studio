@@ -53,7 +53,8 @@ class DeliveryNoteOut(BaseModel):
     spent: float  # credits the whole video had charged at this cut, as its header (S3-12)
     up_to: float  # the video's "up to", in credits, never below `spent`
     spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
-    cut: int  # Cut 1, Cut 2, … (S3-12: "Delivery note · Cut 1 · 0:58 · $9.84")
+    cut: int | None = None  # Cut 1, Cut 2, … (S3-12: "Delivery note · Cut 1 · 0:58 · $9.84");
+    # None on a note kept before cuts were numbered
     seconds: float  # the cut's length
     clips: int
 
@@ -216,7 +217,7 @@ class DirectorOut(BaseModel):
     unread: int = 0  # notes waiting for the next Make it ("Start again with this note")
     run_price: float = 0  # before Make it (again): the most one run may charge, "up to" (rule 34)
     spent: float = 0  # what the newest run has charged (held and waiting jobs not counted)
-    started: bool = False  # Make it was pressed on the newest run ("No generation started" before)
+    started: bool = False  # Make it was pressed on this video ("No generation started" before)
     waiting: list[WaitingQuestion] = []  # open questions, oldest first: the pinned bar (S4-03)
     make_it: int | None = None  # its start card, when this person may press Make it (S3-02):
     # POST /asks/{id}/answer {"how": "make_it"}; null otherwise (an editor's held send waits)
@@ -243,7 +244,7 @@ def _out(db: Session, user: User, project) -> DirectorOut:
         bool(last)
         and last.input[director.RUN].get("ok", True)
         and not (last.input.get(director.START) and last.status == JobStatus.needs_owner_approval)
-    )
+    ) or asks.approved_run(db, project) is not None  # a run made it before: a revision (S3-12)
     return DirectorOut(status=status, ended=ended, turns=turns,
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,

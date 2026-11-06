@@ -36,7 +36,7 @@ export function Scorecard({ projectId }: { projectId: number }) {
   return (
     <section aria-label="Scorecard" className="space-y-2 border-t border-border pt-3">
       <p className="text-sm text-muted tabular-nums">
-        {c.forecast_credits === null ? "No forecast was made." : `Forecast ${creditsText(c.forecast_credits)} (${c.forecast_basis}). `}
+        {c.forecast_credits === null ? "No forecast was made. " : `Forecast ${creditsText(c.forecast_credits)} (${c.forecast_basis}). `}
         Spent {creditsText(c.actual_credits)}{own}
         {c.within_forecast !== null && (c.within_forecast ? ", within the forecast." : ", over the forecast.")}
       </p>
