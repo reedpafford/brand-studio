@@ -1786,3 +1786,61 @@ def test_the_director_checks_the_brand_word_in_a_fresh_narration_before_the_plan
     turn = schemas.DirectorTurn(tool="narration", note="Say fomo as FOH-moh.", why="misheard")
     assert turn.note == "Say fomo as FOH-moh." and turn.voice is None  # Sarah first, else as is
     assert schemas.DirectorTurn(tool="narration", voice="Hope", why="the brief").voice == "Hope"
+
+
+def _limits(schema: dict) -> tuple[int, int]:
+    """(optional, union-typed) parameters in one strict schema as Anthropic counts them: every
+    object's properties not in `required`, and every property that is an anyOf or a type list,
+    nested objects and $defs included."""
+    optional = union = 0
+
+    def walk(s):
+        nonlocal optional, union
+        if not isinstance(s, dict):
+            return
+        needed = set(s.get("required", []))
+        for key, prop in (s.get("properties") or {}).items():
+            optional += key not in needed
+            union += "anyOf" in prop or isinstance(prop.get("type"), list)
+            walk(prop)
+        for part in (*s.get("anyOf", []), *s.get("allOf", [])):
+            walk(part)
+        walk(s.get("items"))
+        for d in (s.get("$defs") or {}).values():
+            walk(d)
+
+    walk(schema)
+    return optional, union
+
+
+def test_every_claude_answer_fits_the_strict_schema_limits():
+    """Audit 6 Nov: Anthropic refuses (400) a request whose strict schemas have more than 24
+    optional or 16 union-typed parameters in all. Every Claude call sends exactly one: its
+    step's SCHEMAS entry (app/claude.ask's output_format), as the SDK sends it."""
+    from anthropic.lib._parse._transform import to_json_output_format
+
+    from app.providers import claude as provider
+
+    assert 'SCHEMAS[input["step"]]' in inspect.getsource(provider.ClaudeProvider._ask)
+    for step, model in prompts.SCHEMAS.items():
+        optional, union = _limits(to_json_output_format(model)["schema"])
+        assert optional <= 24 and union <= 16, (step, optional, union)
+    sent = to_json_output_format(schemas.DirectorTurn)["schema"]
+    assert _limits(sent) == (0, 10) and "{default" not in json.dumps(sent)
+
+
+def test_a_director_turns_empty_fields_read_as_none():
+    """Its often-unused fields are sent as "" or 0 (never null) and read back as None, so the
+    tools behave as before; a real 0 (a time, a level) and False stay."""
+    turn = schemas.DirectorTurn.model_validate({
+        "tool": "edit_cut", "why": "b2: tighter", "clip_id": "", "take_id": 0, "shot_id": "",
+        "voice": "", "emotion": "", "model": "", "setting": "", "value": "", "word": "",
+        "look": None, "ask": None, "edit": {"kind": "music", "piece": "", "start": 0, "end": None,
+        "at": None, "take_id": 0, "side": "", "size": "", "hidden": False, "quieter_db": 0,
+        "gaps": "", "removed": None, "loop": None, "edit_id": 0}})  # fmt: skip
+    got = turn.model_dump()
+    assert all(got[k] is None for k in ("clip_id", "take_id", "shot_id", "voice", "model", "word"))
+    edit = got["edit"]
+    assert (edit["piece"], edit["take_id"], edit["side"], edit["edit_id"]) == (None,) * 4
+    assert (edit["start"], edit["hidden"], edit["quieter_db"]) == (0.0, False, 0.0)
+    assert schemas.DirectorTurn(tool="wait", why="x", clip_id="c3", take_id=7).take_id == 7

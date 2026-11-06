@@ -545,6 +545,12 @@ def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:
     return Decimal(charged), oks
 
 
+def own_usd(db: Session, run_id: str) -> Decimal:
+    """The real-cost backstop for this run: MAX_USD, and as much again for each OK the owner
+    gave at its own limit, as that limit grows (audit 6 Nov: else it stops after the OK)."""
+    return MAX_USD * (1 + own_charged(db, run_id)[1])
+
+
 def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal) -> str:
     """A run's next turn or watch that would take its charges past the director's own limit
     (the Producer): it waits for the owner, the owner's own run too, with a freestyle's
@@ -860,9 +866,10 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
              result=DELIVERED if made else "")  # fmt: skip
         db.commit()
         return last
-    if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= MAX_USD:
+    most = own_usd(db, run["id"])
+    if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= most:
         why = (f"It stopped after {MAX_TURNS} turns." if run["turn"] >= MAX_TURNS
-               else f"It stopped at ${MAX_USD} of its own time.")  # fmt: skip
+               else f"It stopped at ${most} of its own time.")  # fmt: skip
         if last is not None:
             _end(last, why)
             db.commit()
@@ -1094,7 +1101,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": _redos(db, project, run), "own_time_usd": float(spent(db, run["id"])),
-               "own_time_limit_usd": float(MAX_USD),
+               "own_time_limit_usd": float(own_usd(db, run["id"])),
                "replans_left": MAX_REPLANS - run.get("replans", 0),
                "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
                "narrations_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
