@@ -203,24 +203,48 @@ test("a lane the looks list doesn't carry yet reads as its style and its words, 
   expect(document.body.textContent).not.toContain("paper-flat");
 });
 
-test("a presenter's video has a Presenter chip after the B-roll model: talks, corner or acts; a switch sends just that (S-gaps-05 V1, L3)", async () => {
+test("a presenter's video has a Presenter chip after the B-roll model: Auto (the style's pick), talks, corner or acts in L3's words; a switch sends just that, and Undo puts it back (S-gaps-05 V1, L3)", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /projects/9/settings": [200, { ...settings, presenter: null, presenter_now: "talks" }] });
+  const calls = fakeServer({ ...base, "GET /projects/9/settings": [200, { ...settings, presenter: null, presenter_now: "talks" }], "POST /projects/9/settings": [200, { settings, was: { presenter: null } }] });
   open();
   const row = await screen.findByRole("region", { name: "Video settings" });
   const chips = within(row).getAllByRole("button").map((b) => b.textContent);
   expect(chips.indexOf("Presenter Talks to camera")).toBe(chips.findIndex((t) => /^Video model/.test(t ?? "")) + 1);
   await userEvent.click(within(row).getByRole("button", { name: "Presenter Talks to camera" }));
   const panel = await screen.findByRole("dialog", { name: "Presenter" });
-  expect(within(panel).getByRole("button", { name: /Talks to camera/ })).toHaveAttribute("aria-pressed", "true");
-  expect(within(panel).getByRole("button", { name: /Acts in the story/ })).toBeInTheDocument();
-  const corner = within(panel).getByRole("button", { name: /^In a corner/ });
-  expect(corner).toHaveTextContent("In a corner· HeyGen, over the B-roll");
-  await userEvent.click(corner);
-  const ask = await screen.findByRole("alertdialog", { name: "Switch to In a corner?" });
+  const ways = within(panel).getAllByRole("button", { pressed: false }).concat(within(panel).getAllByRole("button", { pressed: true }));
+  expect(within(panel).getByRole("button", { name: /^Auto \(Talks to camera\)/ })).toHaveAttribute("aria-pressed", "true"); // the style's start
+  expect(ways.map((b) => b.textContent)).toEqual(expect.arrayContaining(["Talks to camera· HeyGen from one still, with B-roll laid over parts", "In a corner over the B-roll· HeyGen, keyed over the B-roll", "Acts in the story· Omni: moves and acts in the scenes"]));
+  await userEvent.click(within(panel).getByRole("button", { name: /^In a corner over the B-roll/ }));
+  const ask = await screen.findByRole("alertdialog", { name: "Switch to In a corner over the B-roll?" });
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings/preview")?.body).toEqual({ presenter: "corner" }));
   await userEvent.click(within(ask).getByRole("button", { name: "Switch" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings")?.body).toEqual({ presenter: "corner" }));
+  expect(await screen.findByText(/Presenter changed/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/settings").map((c) => c.body)).toContainEqual({ presenter: null, undo: true }));
+});
+
+test("a video switched to its own way offers Auto back, which sends null", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /projects/9/settings": [200, { ...settings, presenter: "corner", presenter_now: "corner" }] });
+  open();
+  await userEvent.click(await screen.findByRole("button", { name: "Presenter In a corner" }));
+  const panel = await screen.findByRole("dialog", { name: "Presenter" });
+  expect(within(panel).getByRole("button", { name: /^In a corner over the B-roll/ })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(within(panel).getByRole("button", { name: /^Auto/ }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings/preview")?.body).toEqual({ presenter: null }));
+});
+
+test("on a phone the settings line and its sheet carry the presenter", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /projects/9/settings": [200, { ...settings, presenter: null, presenter_now: "acts" }] });
+  open();
+  const line = await screen.findByRole("button", { name: /^Settings: / });
+  expect(line).toHaveTextContent("Acts in the story");
+  await userEvent.click(line);
+  const sheet = await screen.findByRole("dialog", { name: "Video settings" });
+  expect(within(sheet).getByRole("button", { name: "Presenter Acts in the story" })).toBeInTheDocument();
 });
 
 test("a video with no presenter has no Presenter chip", async () => {

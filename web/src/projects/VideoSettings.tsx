@@ -46,12 +46,14 @@ export const languageName = (code: string) => {
   }
 };
 
-/** How the presenter appears, in L3's words (S-gaps-05): the style picks first; a person or the director can switch it. */
+/** How the presenter appears, in L3's words (S-gaps-05): the style picks first (Auto); a person or the director can switch it.
+ *  `short` is the chip's value. "Acts" leaves out L3's "talks to others": narrated videos keep their narration (Reed, 5 Nov). */
 const HOW = {
-  talks: { label: "Talks to camera", how: "HeyGen, with B-roll cut in" },
-  corner: { label: "In a corner", how: "HeyGen, over the B-roll" },
-  acts: { label: "Acts in the story", how: "in the scenes with the cast" },
+  talks: { label: "Talks to camera", short: "Talks to camera", how: "HeyGen from one still, with B-roll laid over parts" },
+  corner: { label: "In a corner over the B-roll", short: "In a corner", how: "HeyGen, keyed over the B-roll" },
+  acts: { label: "Acts in the story", short: "Acts in the story", how: "Omni: moves and acts in the scenes" },
 } as const;
+type How = keyof typeof HOW;
 
 /** The settings as the row shows them: one field per setting, each choice carrying the body that switches to it. */
 export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean }[] | null | undefined, lookLocked = false): Field[] {
@@ -80,7 +82,19 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
     },
     // How a Presenter video's presenter appears (S-gaps-05 V1 and L3); only on a video with a presenter.
     ...(s.presenter_now
-      ? [{ key: "presenter", label: "Presenter", current: s.presenter_now, valueLabel: HOW[s.presenter_now].label, choices: (Object.keys(HOW) as (keyof typeof HOW)[]).map((id) => ({ id, label: HOW[id].label, note: HOW[id].how, body: { presenter: id } })) }]
+      ? [
+          {
+            key: "presenter",
+            label: "Presenter",
+            current: s.presenter ?? "auto",
+            valueLabel: HOW[s.presenter_now].short,
+            choices: [
+              // Auto: the style's own start (null), as the model chips' Auto; L3's "from the UGC style".
+              { id: "auto", label: s.presenter ? "Auto" : `Auto (${HOW[s.presenter_now].short})`, note: "the style’s pick", body: { presenter: null } },
+              ...(Object.keys(HOW) as How[]).map((id) => ({ id, label: HOW[id].label, note: HOW[id].how, body: { presenter: id } })),
+            ],
+          },
+        ]
       : []),
     {
       key: "image_model",
