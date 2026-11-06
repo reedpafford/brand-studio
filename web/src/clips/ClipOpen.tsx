@@ -212,6 +212,63 @@ function checkLine(what: string, c: Check) {
   return null;
 }
 
+/** The still's own check (rule 21: a flag comes to a person; S-gaps-08's stills row): what it found on the still in use,
+ *  each with its Advice, Change the still… (priced, with its note) and Keep it (Undo). Before a take too: a still is checked
+ *  once it's drawn. */
+function StillReview({ p, check, price, onChange, onDone }: { p: Project; check: Check; price: string | null | undefined; onChange: (note: string) => void; onDone: () => Promise<unknown> }) {
+  const toast = useToast();
+  const viewOnly = useViewOnly();
+  const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSettled: onDone, onError: (e: Error) => toast(e.message, undefined, "error") });
+  if (!check) return null;
+  const at = (f: Finding, how: "dismiss" | "restore") => api.POST(`/projects/{project_id}/checks/{check_id}/findings/{index}/${how}` as "/projects/{project_id}/checks/{check_id}/findings/{index}/dismiss", { params: { path: { project_id: p.id, check_id: check.id, index: f.index } } });
+  const keep = (f: Finding) =>
+    run.mutate(async () => {
+      await must(at(f, "dismiss"));
+      toast("Kept as it is.", () => void must(at(f, "restore")).then(onDone));
+    });
+  const line = checkLine("The still", check);
+  const kept = check.kept ?? [];
+  return (
+    <section aria-label="The still's check" className="flex flex-col gap-2">
+      {line && <p className="text-sm text-muted">{line}</p>}
+      {check.findings.map((f) => (
+        <div key={f.index} className="flex flex-col items-start gap-2 rounded-lg bg-warning-soft px-3 py-2.5 text-sm text-warning">
+          <span>
+            <span className="font-medium">The still: </span>
+            {f.text}
+          </span>
+          {f.fix && <span className="text-xs">{f.fix}</span>}
+          {!viewOnly && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" busy={price === null} onClick={() => onChange(f.note)}>
+                Change the still… {price && <span className="font-normal text-muted">· {price}</span>}
+              </Button>
+              <Button variant="ghost" busy={run.isPending} onClick={() => keep(f)}>
+                Keep it
+              </Button>
+            </div>
+          )}
+        </div>
+      ))}
+      {kept.length > 0 && (
+        <div className="flex flex-col gap-1 text-sm text-muted">
+          <span className="text-xs font-semibold">On the still: {kept.length} kept as it is</span>
+          {kept.map((f) => (
+            <span key={`k${f.index}`} className="flex flex-wrap items-center gap-2">
+              <span className="flex-1">{f.text}</span>
+              {!viewOnly && (
+                <Button variant="ghost" dense busy={run.isPending} onClick={() => run.mutate(() => must(at(f, "restore")))}>
+                  Undo
+                </Button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** The clip's review (Reed, item 6): what the checks and the director's watch found on the take in the cut, each with its
  *  action: Fix with a note (priced), Mute this stretch (free, Undo), or Keep it (Undo). Problems and doubts stay visible. */
 function Review({ p, head, clip, fixPrice, fixError, onNote, onTake, takeBlock, onDone }: { p: Project; head: Head | undefined; clip: Clip; fixPrice: number | null | undefined; fixError?: string | null; onNote: (note: string) => void; onTake: () => void; takeBlock?: string | null; onDone: () => Promise<unknown> }) {
@@ -646,6 +703,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
             );
           })}
       </ul>
+      {frame?.file_id && <StillReview p={p} check={frame.check as Check} price={stillPrice.isError ? undefined : stillPrice.data == null ? null : upTo(head, stillPrice.data)} onChange={(note) => setBox({ kind: "still", text: note })} onDone={refresh} />}
       <Review p={p} head={head} clip={clip} fixPrice={changePrice.data ?? null} fixError={changePrice.isError ? changePrice.error.message : null} onNote={(note) => setBox({ kind: "change", text: note })} onTake={() => take()} takeBlock={takeBlock} onDone={refresh} />
       <Inserts p={p} clip={clip} onDone={refresh} />
       <WhatChanged p={p} clip={clip} frame={frame} stillUse={stillUse} onStill={pickStill} onDone={refresh} />

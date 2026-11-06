@@ -431,3 +431,31 @@ test("a stopped video's data never breaks Clips: a clip too long for its model (
   expect(await screen.findByText("Too long for its model")).toBeInTheDocument(); // it said "undefined is not iterable" and took the page down
   expect(screen.queryByRole("alert", { name: /couldn’t show/ })).toBeNull();
 });
+
+test("rule 21 (S-gaps-08): a still its check flagged shows in the open clip with its Advice, Change the still… with the note, and Keep it", async () => {
+  setViewport(1440);
+  const v = video(6);
+  const flagged = { id: 81, status: "advice", findings: [{ index: 0, kind: "anatomy", text: "His left hand has six fingers.", note: "Give him five fingers on each hand.", fix: "Change the still with that note, or keep it." }], kept: [] };
+  const frames = v.frames.map((f) => (f.clip_id === "c3" ? { ...f, check: flagged } : f));
+  const calls = server(owner, 6, { "GET /projects/50/storyboard": [200, frames], "POST /projects/50/checks/81/findings/0/dismiss": [200, {}] });
+  open("&clip=c3");
+  const c = await screen.findByRole("region", { name: "Clip 3" });
+  const check = within(c).getByRole("region", { name: "The still's check" });
+  expect(within(check).getByText("His left hand has six fingers.")).toBeInTheDocument();
+  expect(within(check).getByText("Change the still with that note, or keep it.")).toBeInTheDocument();
+  await userEvent.click(await within(check).findByRole("button", { name: "Change the still… · up to $0.36" }));
+  expect(within(c).getByLabelText("Change the still…")).toHaveValue("Give him five fingers on each hand.");
+  await userEvent.click(within(c).getByRole("button", { name: "Cancel" }));
+  await userEvent.click(within(within(c).getByRole("region", { name: "The still's check" })).getByRole("button", { name: "Keep it" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/checks/81/findings/0/dismiss")).toBe(true));
+});
+
+test("a clean still's check says so", async () => {
+  setViewport(1440);
+  const v = video(6);
+  const frames = v.frames.map((f) => (f.clip_id === "c3" ? { ...f, check: { id: 82, status: "ok", findings: [], kept: [] } } : f));
+  server(owner, 6, { "GET /projects/50/storyboard": [200, frames] });
+  open("&clip=c3");
+  const c = await screen.findByRole("region", { name: "Clip 3" });
+  expect(within(c).getByText("The still: checked, nothing found.")).toBeInTheDocument();
+});
