@@ -72,6 +72,7 @@ class MoneyCard(BaseModel):
     clips: list[HeldClip] = []
     sent_at: UtcTime
     held: str  # the hold's own words
+    what: str = ""  # past the budget: what it makes, "Redo clips 9 and 12" (Needs you's title)
 
 
 class AskOut(BaseModel):
@@ -90,6 +91,9 @@ class AskOut(BaseModel):
     decide_at: UtcTime | None = None  # a story choice: "I'll go with A at 11:00"
     generate: AskPrice | None = None  # a round of Generate options, "up to"; null: no Generate
     clone: AskPrice | None = None  # a voice card's "Clone it once · up to $X" (#1314's price)
+    clone_to: str = (
+        ""  # where the clone is saved, said before the press: "Saved to Resilia's voices"
+    )
     options: list[MadeOption] = []
     options_spent: AskPrice | None = None  # "$0.18 spent"
     answer: dict | None = None  # {how, option, name, file_id, text, choice, reused}
@@ -155,6 +159,7 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
         from app import voices
 
         card.clone = _price(user, voices.clone_credits(db, project.workspace_id))
+        card.clone_to = f"Saved to {db.get(Brand, project.brand_id).name}'s voices"
     if mine and state != "not_needed":
         card.can = ["reply"] + (["saved"] if card.saved else [])
         card.can += ["upload"] if ask.kind in asks.UPLOADS else []
@@ -212,8 +217,8 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
             top, spent = run  # the price approved is this run's budget (S3-06)
         money.spent, money.budget = _price(user, spent), _price(user, top)
         money.past = _price(user, max(Decimal(0), spent + more - top))
-        money.clips = _clips(db, project, held)
-        card.question = f"{_what(db, held)}? That goes {_said(money.past)} past the budget."
+        money.clips, money.what = _clips(db, project, held), _what(db, held)
+        card.question = f"{money.what}? That goes {_said(money.past)} past the budget."
         notes = " ".join(dict.fromkeys(j.input["note"] for j in held
                                        if isinstance(j.input.get("note"), str)))  # fmt: skip
         if owner:  # the total is the sum of the figures shown, each rounded up

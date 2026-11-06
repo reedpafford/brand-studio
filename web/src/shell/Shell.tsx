@@ -3,9 +3,8 @@ import { Archive, ChevronDown, Clock, Ellipsis, Film, Inbox, Plus, FileText, Ima
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { useMyRequests } from "../approvals/HeldRequests";
 import { useArchiveBrand } from "../brand/ArchiveBrand";
-import { useHeld } from "../approvals/useHeld";
+import { useNeedsYou } from "../approvals/NeedsYouPage";
 import { useMe } from "../auth/useMe";
-import { useProductionSummary } from "../production/useProduction";
 import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { useMedia, useOnline } from "../useMedia";
 import { AccountMenu, STUDIO } from "./AccountMenu";
@@ -61,10 +60,8 @@ function Frame() {
   const rail = useMedia("(min-width: 1024px)");
   const wide = useMedia("(min-width: 1280px)");
   const online = useOnline();
-  const held = useHeld();
-  // Needs you counts all it lists (held requests, videos that need attention, changes waiting), from reads the shell makes anyway.
-  const summary = useProductionSummary(held.owner).data;
-  const attention = (summary?.needs_attention ?? 0) + (summary?.changes_waiting ?? 0);
+  const owner = useMe().data?.role === "owner";
+  const needsYou = useNeedsYou(null, owner).data; // Needs you's count is everything it lists, every brand (S9-01)
   const { count, node, setNode } = useActionBarSlot();
   // The phone's action bar is as tall as what's in it (it can be taller than one button): the page's bottom
   // padding and the toasts sit above its real height, so neither the work nor a toast hides behind or over it.
@@ -86,7 +83,8 @@ function Frame() {
   // New video has its own title bar on a phone too (B_PhoneNew).
   const inVideo = !rail && video !== null && (/^\d+$/.test(video.params.projectId ?? "") || video.params.projectId === "new");
   const folderPage = useMatch("/b/:brandId/videos");
-  const onFolders = !rail && folderPage !== null; // P-01 and P-02 draw their own header
+  const needsYouPage = useMatch("/approvals");
+  const onFolders = !rail && (folderPage !== null || needsYouPage !== null); // P-01, P-02 and P-14 draw their own header
   // The video page (v6 S3) fills the screen: its own offline line, and on a phone no tabs under its message box (P-04).
   const onVideo = newVideo !== null && /^\d+$/.test(newVideo.params.projectId ?? "");
 
@@ -113,7 +111,7 @@ function Frame() {
     return () => void root.removeProperty("--brand");
   }, [brand]);
 
-  const waiting = held.owner ? held.count + attention : null;
+  const waiting = owner ? (needsYou?.total ?? 0) : null;
   const work = (
     <div className="min-w-0 flex-1" style={rail || onVideo ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
       {!online && !onVideo && (
@@ -144,13 +142,13 @@ function Frame() {
     <div className="min-h-screen bg-bg text-text">
       {!inVideo && !onFolders && !rail && <TopBar brands={brands ?? []} brand={brand} current={current} />}
       <div className="flex">
-        {rail && <Rail brands={brands ?? []} brand={brand} current={current} wide={wide} owner={held.owner} waiting={waiting} />}
+        {rail && <Rail brands={brands ?? []} brand={brand} current={current} wide={wide} owner={owner} waiting={waiting} />}
         {work}
       </div>
       {!rail && (
         <>
           <div ref={setNode} className="fixed inset-x-0 z-20 bg-surface empty:hidden" style={{ bottom: onVideo ? "env(safe-area-inset-bottom)" : "calc(var(--tabbar-h) + env(safe-area-inset-bottom))" }} />
-          {!onVideo && <Tabs current={current} owner={held.owner} waiting={waiting} />}
+          {!onVideo && <Tabs current={current} owner={owner} waiting={waiting} />}
         </>
       )}
     </div>

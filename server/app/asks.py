@@ -189,7 +189,13 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
             raise HTTPException(409, "That sample is cloned already.")  # one charge a sample
         named = (body.get("text") or ask.subject or ask.topic or "Voice").strip()
         made = voices.clone(db, user, project.brand_id, storage, stored, named, "")
-        data = {"how": how, "option": f"voice:{made.id}", "name": made.name, "file_id": stored.id}
+        data = {
+            "how": how,
+            "option": f"voice:{made.id}",
+            "name": made.name,
+            "file_id": stored.id,
+            **({"reused": True} if made.provider_voice_id else {}),
+        }  # the brand's, no charge
     elif how == "choice" and ask.kind == "story":
         found = next((c for c in ask.choices if c["key"] == body.get("choice")), None)
         if found is None:
@@ -202,6 +208,21 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
     _effect(db, user, project, ask)
     db.commit()
     director.wake(db, project)
+
+
+def _voice(db: Session, user: User | None, project: Project, ref: str) -> None:
+    """A voice card's answer is the person's voice for this video (`projects.voice`), set
+    through the settings' own check and logged as theirs, so the director keeps it."""
+    from app import settings_move, voices
+
+    try:
+        ref = voices.checked(db, project, ref)
+    except HTTPException:
+        return  # removed or another brand's since: the card stays answered, the voice unset
+    was, project.voice = project.voice, ref
+    if was != ref:
+        settings_move.log(project, user or db.get(User, project.created_by_id), "voice", was,
+                          ref, "person")  # fmt: skip
 
 
 def _upload(db: Session, user: User, ask: Ask, file_id) -> dict:
@@ -237,6 +258,9 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
 
     data = ask.answer or {}
     option = str(data.get("option", ""))
+    if ask.kind == "voice" and option.startswith(("stock:", "voice:")):  # the video's narrator
+        _voice(db, user, project, option)
+        return
     if ask.kind == "product" and data.get("how") == "saved" and option.startswith("screen:"):
         shot = db.get(BrandScreen, int(option.split(":")[1]))
         if shot is not None and shot.product and shot.variant:
@@ -467,7 +491,7 @@ def approved_run(db: Session, project: Project) -> tuple[Decimal, Decimal] | Non
     card = db.scalar(select(Job).where(
         Job.project_id == project.id, Job.input[START].as_boolean(), Job.status.in_(COUNTED))
         .order_by(Job.id.desc()).limit(1))  # fmt: skip
-    if card is None or not card.input.get("price"):
+    if card is None or not Decimal(str(card.input.get("price") or 0)):
         return None
     rows = db.scalars(select(Job).where(Job.project_id == project.id, Job.id >= card.id,
                                         Job.status.in_(COUNTED))).all()  # fmt: skip
@@ -568,24 +592,6 @@ def waiting(db: Session, project: Project) -> list[Ask]:
     rows = db.scalars(select(Ask).where(Ask.project_id == project.id, Ask.kind.in_(QUESTIONS),
                                         Ask.state.in_(OPEN)).order_by(Ask.id)).all()  # fmt: skip
     return list(rows)
-
-
-def voice(db: Session, project: Project) -> str | None:
-    """The narrator voice the newest answered voice card picked for this video, if any: the
-    narration is read in it (director_song). Moves to `projects.voice` with v6-models' setter,
-    whichever of the two lands second."""
-    rows = db.scalars(
-        select(Ask)
-        .where(Ask.project_id == project.id, Ask.kind == "voice", Ask.state == "answered")
-        .order_by(Ask.answered_at.desc())
-    )
-    for ask in rows:  # fmt: skip
-        option = str((ask.answer or {}).get("option", ""))
-        if option.startswith("stock:"):  # v6-models' refs: "stock:<key>" | "voice:<id>"
-            return option.split(":", 1)[1]  # narration reads an app voice by its key
-        if option.startswith("voice:") and state(db, ask) == "answered":
-            return option  # and a saved or cloned one as "voice:<id>", once it's ready
-    return None
 
 
 def start_card(db: Session, project: Project) -> int | None:

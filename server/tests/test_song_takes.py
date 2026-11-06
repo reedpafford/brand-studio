@@ -567,8 +567,7 @@ def test_a_split_keeps_the_clips_after_it_with_their_takes(app, db, owner, song)
     later = db.scalars(select(ProjectClip).where(ProjectClip.clip_id == was_id)).one()
     picked, prompt = later.picked_take_id, later.prompt
     assert picked
-    shots = [s for scene in bd.scenes for s in scene.shots]
-    assert breakdown_fix._split(bd, shots, first.id, 4, max(1, first.seconds - 1))
+    assert breakdown_fix._split(bd, first.id, 4, max(1, first.seconds - 1))
     from app.models.accounts import User
 
     project = db.get(Project, made["project_id"])
