@@ -7,7 +7,7 @@
     "resolution": {"enum": ["360p", "720p", "1080p", "4k"], "type": "string", "title": "resolution"},
     "aspect_ratio": {"enum": ["16:9", "9:16"], "type": "string", "title": "aspect_ratio"}
   },
-  "pricing": "Not public on Replicate without sign-in. Google's own: $0.07/s 720p (aistudio.google.com/docs/pricing, 6 Nov).",
+  "pricing": "$0.11 a second at 720p (the model page, read by Reed 6 Nov).",
   "Input": {
     "type": "object",
     "title": "Input",
