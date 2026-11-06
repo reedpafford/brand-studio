@@ -1,11 +1,13 @@
 import { Fragment, useEffect, type JSX } from "react";
 import { Elapsed } from "../clip/History";
 import { Button } from "../components";
-import { KIND, type Mark } from "../projects/Enhance";
+import type { components } from "../api/schema";
 import { errorText as errorClass } from "../ui";
 import { useDirections } from "./useDirections";
 import type { Script } from "./useScript";
 
+type Mark = components["schemas"]["SuggestionOut"];
+const KIND: Record<string, string> = { camera: "Camera", action: "Movement", reaction: "Reaction", brand_screen: "Brand screen", scene_break: "Scene break", cut: "Cut" };
 const kindName = (k: string) => KIND[k] ?? k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ");
 
 /** The script in one short block with the suggested quotes marked (C_Directions' excerpt). */
