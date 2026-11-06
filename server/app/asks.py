@@ -512,7 +512,8 @@ def _start_job(db: Session, project: Project) -> Job | None:
 
 
 PAST_PRICE = "past_price"  # in a held job: past the price its run's Make it approved
-HELD_CREDITS = "held_credits"  # …and what the hold judged: the step with its check and redo
+HELD_CREDITS = "held_credits"  # in a held job past a price or budget: what the hold judged (the
+# step with its check and its one redo), the amount its card asks the owner to approve
 
 
 def approved_run(

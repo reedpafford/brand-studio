@@ -1309,3 +1309,30 @@ def test_past_a_later_runs_price_the_card_speaks_in_that_runs_own_figures(
     over = f"the {_said(t['budget'], False)} approved for this run"
     assert theirs["question"] == f"{t['what']}? That goes {_said(t['past'], False)} past {over}."
     assert "$" not in theirs["question"] + theirs["why"]
+
+
+def test_a_look_past_the_videos_budget_asks_for_all_the_hold_judged(app, db, owner, editor):
+    """Rule 36 (QA after #1371): an editor's own Make a look past the video's budget waits on its
+    card for the whole of what the hold judged (the sheet, its check and its one redo), so the
+    card's up to, how far past and Approve never understate it."""
+    from decimal import Decimal
+
+    pid, _ = _video(app, owner, editor, db)
+    project = db.get(Project, pid)
+    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
+               project_id=pid, credits=project.budget_credits, status="succeeded"))  # fmt: skip
+    db.commit()
+    slot = next(r for r in editor.get(f"/projects/{pid}/assets").json()
+                if r.get("slot_id") and not r.get("library_item_id"))["slot_id"]  # fmt: skip
+    editor.post(f"/projects/{pid}/assets/slots/{slot}/make-look")
+    db.expire_all()
+    (sheet,) = db.query(Job).filter(Job.project_id == pid, Job.status == "needs_owner_approval")
+    judged = Decimal(sheet.input[asks.HELD_CREDITS])
+    assert judged > sheet.credits  # the sheet with its check and one redo
+    card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "budget")
+    m = card["money"]
+    assert m["up_to"]["credits"] >= float(judged) and m["over"] == "the budget"
+    total = round(m["spent"]["usd"] + m["up_to"]["usd"], 2)
+    assert m["past"]["usd"] > 0 and m["past"]["usd"] == round(total - m["budget"]["usd"], 2)
+    assert card["question"].endswith(f"That goes {_said(m['past'], True)} past the budget.")
+    assert sheet.input.get(asks.PAST_PRICE) is None  # the video's budget, not a run's price
