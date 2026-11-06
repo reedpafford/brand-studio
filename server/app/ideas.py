@@ -310,16 +310,19 @@ def _money(user: User, credits: Decimal, up=round) -> Money:
     return Money(credits=up(credits * 1000) / 1000, usd=usd)
 
 
+def _up(credits: Decimal) -> Decimal:
+    """An "up to" in credits, rounded up to the thousandth, as the run card and note keep it."""
+    return Decimal(math.ceil(credits * 1000)) / 1000
+
+
 def head(db: Session, user: User, p: Project) -> Head:
-    """The header's facts for one video. The "up to" is a director video's approved price (its
-    freestyle's OK, or its Make it's price: the start card's, the run card's and the note's
-    figure); else the budget with the director's own limit beside it, as a working card reads
+    """The header's facts for one video. The "up to" of a director video once approved (its
+    freestyle's OKs or a Make it) is the run card's and the note's (`run_progress.spent`);
+    else the budget with the director's own limit beside it, as a working card reads
     it (rule 34); before any run, its run's price. Never below what it has used, and rounded
     up (rule 36)."""
-    from app import narration
+    from app import narration, run_progress
     from app.models.folders import Folder
-    from app.models.script_library import ScriptDraft
-    from app.routes.estimate import run_price
     from app.script_library import format_id
 
     known = facts(db, [p])
@@ -327,14 +330,8 @@ def head(db: Session, user: User, p: Project) -> Head:
     used = known.used.get(p.id, Decimal(0))
     fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
     top: Decimal | None
-    approved = asks.approved_run(db, p)
-    if fs is not None and fs.up_to:
-        top = Decimal(fs.up_to)
-    elif approved:  # its Make it's price: one figure with the start card, run card and note
-        top = approved[0]
-    elif status.reason == START and not used:
-        draft = db.get(ScriptDraft, p.script_draft_id) if p.script_draft_id else None
-        top = Decimal(str(run_price(db, draft, p))) if draft else None
+    if (fs is not None and fs.up_to) or asks.approved_total(db, p) or status.reason == START:
+        top = run_progress.spent(db, p)[1]  # one figure with the start, run card and note
     else:
         top = _most(p, known)
     script = narration.video_script(db, p)
@@ -346,7 +343,7 @@ def head(db: Session, user: User, p: Project) -> Head:
     return Head(
         title=fs.title if fs is not None else p.name, status=status,
         spent=_money(user, used), budget=_money(user, Decimal(p.budget_credits)),
-        up_to=None if top is None else _money(user, max(top, used), math.ceil),
+        up_to=None if top is None else _money(user, _up(max(top, used)), math.ceil),
         folder=Named(id=folder.id, name=folder.name) if folder else None,
         format=kind, style=_style(p.look), seconds=p.planned_seconds or p.breakdown_seconds,
         song=narration.video_kind(db, p) == "song",

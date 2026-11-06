@@ -71,7 +71,7 @@ class FinalVideo(Entity, Base):
 
     __tablename__ = "final_videos"
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    number: Mapped[int] = mapped_column(default=1)  # Cut 1, Cut 2, … within the video (n29)
+    number: Mapped[int] = mapped_column(default=1)  # Cut 1, Cut 2, … within the video (n42)
     edit_ids: Mapped[list[int]] = mapped_column(JSON, default=list)  # the edits it was made with
     timeline: Mapped[dict | None] = mapped_column(JSON)  # where each piece sat (cut.timeline)
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))

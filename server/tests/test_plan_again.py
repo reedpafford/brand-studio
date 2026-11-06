@@ -85,8 +85,8 @@ def test_start_the_plan_again_plans_the_whole_video_again_after_make_it(app, db,
     db.expire_all()
     project = db.get(Project, pid)
     said = _results(db, pid)
-    assert "Made the cut." in said  # (a remake past the budget then waits for the owner)
-    assert said.index(AGAIN) < said.index("Drawing the stills.") < said.index("Made the cut.")
+    cut = next(s for s in said if s.startswith("Making Cut "))  # (past the budget: the owner's OK)
+    assert said.index(AGAIN) < said.index("Drawing the stills.") < said.index(cut)
     assert project.plan["made_at"] > plan_before  # a new plan, the old one in Earlier plans
     assert db.query(BreakdownVersion).filter_by(project_id=pid).count() > versions  # new shots
     pressed = datetime.fromisoformat(run[director.FRESH])
@@ -158,6 +158,8 @@ def test_once_its_new_shots_are_made_every_take_from_before_is_set_aside(app, db
     clip, take = next(iter(picked.items()))
     said = director._aside(db, project, run, {"tool": "pick_take", "take_id": take})
     assert said.startswith("Refused: take 1 of") and "Make a new take" in said
+    swap = {"kind": "swap", "piece": clip, "take_id": take}  # edit_cut's swap: refused alike
+    assert director._aside(db, project, run, swap) == said
     director.unpick_old_takes(db, project, run)
     db.expire_all()
     assert all(t is None for t in _picked(db, pid).values()) and run[director.UNPICKED]

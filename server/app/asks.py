@@ -514,26 +514,56 @@ def _start_job(db: Session, project: Project) -> Job | None:
 PAST_PRICE = "past_price"  # in a held job: past the price its run's Make it approved
 
 
-def approved_run(db: Session, project: Project) -> tuple[Decimal, Decimal] | None:
-    """The video's newest run since its Make it: (the price approved, what it has charged
-    since outside the steps the owner OK'd past that price, which their own OKs cover), or
-    None before any Make it (rule 34: the owner's OK covers that price, no more; each OK at
-    the director's own limit adds another limit's worth)."""
+def approved_run(
+    db: Session, project: Project, waiting: bool = False
+) -> tuple[Decimal, Decimal] | None:
+    """The video's newest run since its Make it: (the price approved, what the run has charged
+    against it), or None before any Make it (rule 34: the owner's OK covers that price, no
+    more; each OK at the director's own limit adds another limit's worth). What it charged is
+    counted from its first turn, its planning before the OK included (QA on #1355: the price
+    covers the run's turns), but not the steps the owner OK'd past that price nor planning OK'd
+    at the planning cap: their own OKs cover those. `waiting`: a start card not pressed yet
+    counts as the newest run too (what the header shows while it waits, never a hold)."""
     from app.credits import COUNTED
+    from app.director import GRANT, RUN, own_limit
 
+    states = (*COUNTED, JobStatus.needs_owner_approval) if waiting else COUNTED
     card = db.scalar(select(Job).where(
-        Job.project_id == project.id, Job.input[START].as_boolean(), Job.status.in_(COUNTED))
+        Job.project_id == project.id, Job.input[START].as_boolean(), Job.status.in_(states))
         .order_by(Job.id.desc()).limit(1))  # fmt: skip
     if card is None or not Decimal(str(card.input.get("price") or 0)):
         return None
-    rows = db.scalars(select(Job).where(Job.project_id == project.id, Job.id >= card.id,
+    run = (card.input.get(RUN) or {}).get("id")
+    rows = db.scalars(select(Job).where(Job.project_id == project.id,
                                         Job.status.in_(COUNTED))).all()  # fmt: skip
-    from app.director import GRANT, own_limit
-
-    mine = [j for j in rows if j.input.get("director_run") or j.input.get("by_director")]
-    spent = sum((j.credits for j in mine if not j.input.get(PAST_PRICE)), Decimal(0))
+    ours = (RUN, "by_director")  # its turns and its steps (a director's look's check too)
+    mine = [j for j in rows if run and (j.input.get(RUN) or {}).get("id") == run
+            or j.id >= card.id and any(j.input.get(k) for k in ours)]  # fmt: skip
+    spent = sum((j.credits for j in mine if not j.input.get(PAST_PRICE)
+                 and not j.input.get(PLAN_OK)), Decimal(0))  # fmt: skip
     oks = sum(1 for j in mine if j.input.get(GRANT))  # each OK at its own limit grants another
     return Decimal(str(card.input["price"])) + oks * own_limit(), spent
+
+
+def approved_total(db: Session, project: Project) -> Decimal | None:
+    """What every Make it on the video has approved (board S3-12: "up to $17.18" is the first
+    run's $16.86 plus the change's $0.32): each start card's price, plus another of the
+    director's own limit for each OK at it (rule 34), and a start card still waiting for its
+    Make it at its price (S3-02: the header says the card's figure); None before any start
+    card. The video's "up to" in its header, its run card and its note. `approved_run` is the
+    newest run's own."""
+    from app.credits import COUNTED
+    from app.director import GRANT, own_limit
+
+    rows = db.scalars(select(Job).where(
+        Job.project_id == project.id,
+        Job.status.in_((*COUNTED, JobStatus.needs_owner_approval)))).all()  # fmt: skip
+    prices = [Decimal(str(j.input.get("price") or 0)) for j in rows if j.input.get(START)]
+    if not any(prices):
+        return None
+    oks = sum(1 for j in rows if j.status in COUNTED and j.input.get(GRANT)
+              and (j.input.get("director_run") or j.input.get("by_director")))  # fmt: skip
+    return sum(prices, Decimal(0)) + oks * own_limit()
 
 
 def past_run(db: Session, project: Project, credits: Decimal) -> bool:
