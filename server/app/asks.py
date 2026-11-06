@@ -512,6 +512,7 @@ def _start_job(db: Session, project: Project) -> Job | None:
 
 
 PAST_PRICE = "past_price"  # in a held job: past the price its run's Make it approved
+HELD_CREDITS = "held_credits"  # …and what the hold judged: the step with its check and redo
 
 
 def approved_run(
@@ -543,6 +544,15 @@ def approved_run(
                  and not j.input.get(PLAN_OK)), Decimal(0))  # fmt: skip
     oks = sum(1 for j in mine if j.input.get(GRANT))  # each OK at its own limit grants another
     return Decimal(str(card.input["price"])) + oks * own_limit(), spent
+
+
+def runs_made(db: Session, project: Project) -> int:
+    """How many runs on the video got past their Make it (a pressed start card each)."""
+    from app.credits import COUNTED
+
+    return db.scalar(select(func.count(Job.id)).where(
+        Job.project_id == project.id, Job.input[START].as_boolean(),
+        Job.status.in_(COUNTED))) or 0  # fmt: skip
 
 
 def approved_total(db: Session, project: Project) -> Decimal | None:
@@ -619,12 +629,9 @@ def held(db: Session, job: Job) -> None:
     ("Redo clips 9 and 12" is one card). An option's hold shows on its own question card."""
     if job.project_id is None or opts.ASK in job.input:
         return
-    from app.credits import PAST_APPROVED
 
     kind = ("start" if job.input.get(START) else "plan" if job.input.get(PLAN_OK)
             else "own" if job.input.get("own_grant") else "budget")  # fmt: skip
-    if kind == "budget" and job.input.get("held") == PAST_APPROVED:  # past the price approved:
-        job.input = {**job.input, PAST_PRICE: True}  # its own OK covers it
     if kind == "budget":
         for ask in db.scalars(
             select(Ask).where(

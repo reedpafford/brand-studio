@@ -200,7 +200,8 @@ function Money({ row, phone, main, me }: { row: Row; phone: boolean; main: boole
   } else {
     if (a.kind === "budget" && m.past) {
       const clips = m.what.match(/^(Redo|Make) clips /) && m.clips.length > 1 ? `${m.what.split(" ")[0]} ${m.clips.length} clips` : m.what;
-      title = `${phone ? clips : m.what} · ${said(m.past)} past the budget`;
+      const over = phone && m.over !== "the budget" ? "this run’s price" : m.over; // a later run's own price (rule 34), shorter on a phone
+      title = `${phone ? clips : m.what} · ${said(m.past)} past ${over}`;
       line = `${row.video.made_by && row.video.made_by !== me ? `${row.video.made_by}’s video. ` : ""}${a.why}`;
     }
     if (can("approve"))

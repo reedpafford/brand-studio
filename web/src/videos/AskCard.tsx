@@ -173,7 +173,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
 
   const held = a.state === "held" || (money && a.state === "open" && !owner && !can("make_it"));
   const [cls, Icon] = HEAD[held ? "wait" : "ask"];
-  const label = held ? (owner ? "Waiting for your OK" : "Waiting for the owner’s OK") : a.kind === "start" ? "Ready to start" : money ? `${a.kind === "budget" ? "Past the budget" : a.kind === "own" ? "My own limit" : "Planning"} · needs your OK` : "The director needs you";
+  const label = held ? (owner ? "Waiting for your OK" : "Waiting for the owner’s OK") : a.kind === "start" ? "Ready to start" : money ? `${a.kind === "budget" ? (a.money?.over && a.money.over !== "the budget" ? "Past this run’s price" : "Past the budget") : a.kind === "own" ? "My own limit" : "Planning"} · needs your OK` : "The director needs you";
   const saved = a.saved ?? [];
   const made = a.options ?? [];
   const chosen = pick ?? (a.state === "ready" ? (made.find((o) => o.file_id != null)?.index ?? null) : a.pick); // ready: the first option, as drawn
@@ -504,7 +504,7 @@ export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }:
     id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is while it waits; nothing is charged." : "The owner has been asked. Nothing is made or charged while it waits.",
-    money: { up_to: price, clips: [], sent_at: sentAt, held: "", what: "" },
+    money: { up_to: price, clips: [], sent_at: sentAt, held: "", what: "", over: "the budget" },
   };
   return <AskCard ask={ask} owner={owner} onWithdraw={onWithdraw} />;
 }

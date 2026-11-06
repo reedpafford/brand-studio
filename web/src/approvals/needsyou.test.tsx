@@ -20,11 +20,11 @@ const question = {
     saved: [{ id: "item:5", name: "Mark", note: "", file_id: 501, used_in: 6 }, { id: "item:6", name: "Dana", note: "", file_id: 502, used_in: 2 }],
     can: ["reply", "saved", "upload"] }),
 };
-const money = (sent: string) => ({ up_to: price(2.1), spent: price(16.3), budget: price(16.86), past: price(1.54), usual: null, clips: [{ clip: "9", still_file_id: null }, { clip: "12", still_file_id: null }], sent_at: sent, held: "", what: "Redo clips 9 and 12" });
+const money = (sent: string) => ({ up_to: price(2.1), spent: price(16.3), budget: price(16.86), past: price(1.54), usual: null, clips: [{ clip: "9", still_file_id: null }, { clip: "12", still_file_id: null }], sent_at: sent, held: "", what: "Redo clips 9 and 12", over: "the budget" });
 const budget = {
   video: video(12, "Why IPAs hit harder", { made_by: "Kel" }),
   brand: resilia,
-  ask: card({ id: 102, project_id: 12, kind: "budget", question: "Redo clips 9 and 12? That goes $1.54 past the budget.", why: "$16.30 spent plus up to $2.10 makes up to $18.40; the budget is $16.86.",
+  ask: card({ id: 102, project_id: 12, kind: "budget", question: "Redo clips 9 and 12? That goes $1.54 past the budget.", why: "Redoing them takes this video to up to $18.40 ($16.30 spent plus up to $2.10); its budget is $16.86.",
     money: money(ago(31)), can: ["approve", "keep"], created_at: ago(31) }),
 };
 const start = {
@@ -60,7 +60,7 @@ test("S9-01: the owner's inbox across brands, Questions, Money and Stuck, with t
   expect(within(filter).getAllByRole("radio").map((r) => r.textContent)).toEqual(["All brands", "Resilia4", "fomo0"]);
   // The budget card: what it makes, how far past, whose video, and the one indigo press.
   expect(screen.getByRole("heading", { name: "Redo clips 9 and 12 · $1.54 past the budget" })).toBeInTheDocument();
-  expect(screen.getByText(/^Kel’s video\. \$16\.30 spent plus up to \$2\.10/)).toBeInTheDocument();
+  expect(screen.getByText(/^Kel’s video\. Redoing them takes this video to up to \$18\.40 \(\$16\.30 spent plus up to \$2\.10\)/)).toBeInTheDocument();
   const approve = screen.getByRole("button", { name: "Approve · up to $2.10 more" });
   expect(approve.className).toContain("bg-accent");
   // An editor's send: whose, what, and nothing spent until the owner approves.
@@ -187,4 +187,23 @@ test("with nothing waiting, it says so", async () => {
   fakeServer({ ...base, "GET /needs-you": [200, { total: 0, brands: [{ ...resilia, count: 0 }], questions: [], money: [], sends: [], stuck: [] }] });
   renderApp("/approvals");
   expect(await screen.findByText("Nothing needs you.")).toBeInTheDocument();
+});
+
+test("rule 34: on a later run the budget card goes past that run's own approved price, in its own figures", async () => {
+  setViewport(1440);
+  const later = { ...budget, ask: { ...budget.ask, why: "Redoing them takes this run to up to $3.10 ($2.20 spent in this run plus up to $0.90); this run's approved price is $2.50.",
+    money: { ...money(ago(31)), spent: price(2.2), up_to: price(0.9), budget: price(2.5), past: price(0.6), over: "the $2.50 approved for this run" } } };
+  fakeServer({ ...base, "GET /needs-you": [200, { ...inbox, questions: [], stuck: [], money: [later] }] });
+  renderApp("/approvals");
+  expect(await screen.findByRole("heading", { name: "Redo clips 9 and 12 · $0.60 past the $2.50 approved for this run" })).toBeInTheDocument();
+  expect(screen.getByText(/this run's approved price is \$2\.50\.$/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Approve · up to $0.90 more" })).toBeInTheDocument();
+});
+
+test("rule 34 on a phone: a later run's budget card is titled shorter, past this run's price", async () => {
+  setViewport(390);
+  const later = { ...budget, ask: { ...budget.ask, money: { ...money(ago(31)), past: price(0.6), over: "the $2.50 approved for this run" } } };
+  fakeServer({ ...base, "GET /needs-you": [200, { ...inbox, questions: [], stuck: [], money: [later] }] });
+  renderApp("/approvals");
+  expect(await screen.findByRole("heading", { name: "Redo 2 clips · $0.60 past this run’s price" })).toBeInTheDocument();
 });
