@@ -10,3 +10,6 @@ deploy/backups/
 
 # TypeScript incremental build output
 *.tsbuildinfo
+
+# Local navigation environment, snapshots and generated graphs
+.context/graphify-local/
