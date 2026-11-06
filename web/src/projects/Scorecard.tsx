@@ -36,13 +36,15 @@ export function Scorecard({ projectId }: { projectId: number }) {
   if (!c) return null;
   const note = typed ?? c.note ?? "";
   const checks = [yesNo(c.words_exact, "Words said exactly", "Some words differ"), yesNo(c.must_show_ok, "Must-show items right", "A must-show item may be wrong")].filter(Boolean);
-  const own = c.director_credits > 0 ? ` (${money(head, c.director_credits)} the director's own)` : "";
+  // The owner's uncapped site (Reed, 6 Nov): Spent is the providers' own, so no flat-credit figure beside it or set against it.
+  const real = !!head?.actual;
+  const own = c.director_credits > 0 && !real ? ` (${money(head, c.director_credits)} the director's own)` : "";
   return (
     <section aria-label="Scorecard" className="space-y-2 border-t border-border pt-3">
       <p className="text-sm text-muted tabular-nums">
         {c.forecast_credits === null ? "No forecast was made. " : `Forecast ${money(head, c.forecast_credits)} (${c.forecast_basis}). `}
         Spent {spentAsHeader(head, c.actual_credits)}{own}
-        {c.within_forecast !== null && (c.within_forecast ? ", within the forecast." : ", over the forecast.")}
+        {real ? " (the providers' own charges)." : c.within_forecast !== null && (c.within_forecast ? ", within the forecast." : ", over the forecast.")}
       </p>
       {checks.length > 0 && <p className="text-sm text-muted">{checks.join(" · ")}</p>}
       {me?.role === "owner" && (

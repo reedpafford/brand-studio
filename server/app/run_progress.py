@@ -579,14 +579,16 @@ def _actual(db: Session, project: Project, viewer: User | None, since) -> dict:
     """On the owner's uncapped test site: the run's own provider charges since its first turn,
     whether some aren't reported yet, and its expected cost; nothing anywhere else."""
     from app.credits import actual_usd, uncapped
+    from app.models.credits import USD_PER_CREDIT
 
     if not uncapped(viewer):
         return {}
     from app.routes.asks import _expected
 
     real, pending = actual_usd(db, project.id, since)
+    most = _expected(db, project) * USD_PER_CREDIT  # rounded up, as the header rounds it
     return {"actual_usd": float(round(real, 2)), "unreported": pending,
-            "expected_usd": dollars(_expected(db, project))}  # fmt: skip
+            "expected_usd": math.ceil(most * 100) / 100}  # fmt: skip
 
 
 def record(db: Session, project: Project, viewer: User | None) -> dict | None:
