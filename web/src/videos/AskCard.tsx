@@ -125,16 +125,21 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const picker = useRef<HTMLInputElement>(null);
   const can = (how: string) => a.can.includes(how);
   const money = ["start", "budget", "own", "plan"].includes(a.kind);
+  const voice = a.kind === "voice";
+  const brand = a.saved_in.replace(/^Saved in /, "") || "the brand";
+  // Where a clone goes, said before the paid press (Reed, 5 Nov; #1346's `clone_to` once it's on the API).
+  const cloneTo = ((a as Ask & { clone_to?: string }).clone_to || `Saved to ${brand}’s voices`).replace(/^Saved/, "saved");
+  const [failedUpload, setFailedUpload] = useState("");
   const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setChanging(""), onDone?.()) });
-  const error = act.isError ? <p role="alert" className="text-sm text-danger">{act.error.message}</p> : null;
+  const error = act.isError || failedUpload ? <p role="alert" className="text-sm text-danger">{failedUpload || act.error?.message}</p> : null;
 
   // Folded: answered (by you or the owner), or no longer needed (S4-03).
   if ((a.state === "answered" || a.state === "not_needed") && changing !== "answer") {
     const gone = a.state === "not_needed";
     const [cls, Icon] = HEAD[gone ? "gone" : "done"];
-    const ans = a.answer as { name?: string; text?: string; file_id?: number | null; how?: string } | null;
+    const ans = a.answer as { name?: string; text?: string; file_id?: number | null; how?: string; reused?: boolean } | null;
     const what = money ? (ans?.how === "withdraw" ? "Withdrawn" : ans?.how === "keep" || ans?.how === "decline" ? "Kept as it is. Nothing was charged for it." : "Approved") : ans?.name ?? ans?.text ?? "";
-    const who = a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `picked by ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
+    const who = ans?.how === "clone" && ans.reused ? `Using ${ans.name ?? "that voice"}, already in ${brand}’s voices. Nothing was charged.` : a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `picked by ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
     return (
       <section id={`ask-${a.id}`} aria-label={a.question} className="overflow-hidden rounded-[10px] border border-border bg-surface">
         <p className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold ${cls}`}>
@@ -147,7 +152,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
           )}
         </p>
         <div className="flex items-center gap-3 px-3.5 py-3 text-sm">
-          {ans?.file_id != null && <img src={fileUrl(ans.file_id)} alt="" className="h-[54px] w-10 shrink-0 rounded-md object-cover" />}
+          {ans?.file_id != null && !voice && <img src={fileUrl(ans.file_id)} alt="" onError={(e) => (e.currentTarget.hidden = true)} className="h-[54px] w-10 shrink-0 rounded-md object-cover" />}
           <p className="min-w-0">
             {gone ? (
               <>
@@ -177,13 +182,15 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const doUpload = async (list: FileList | null) => {
     const f = list?.[0];
     if (!f) return;
+    setFailedUpload("");
     setUpload({ name: f.name, file: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined });
     try {
       await act.mutateAsync({ path: "uploading", body: { on: true } });
       const stored = await uploadFile(f);
       await act.mutateAsync({ body: a.kind === "voice" && f.type.startsWith("audio/") ? { how: "clone", file_id: stored.id } : { how: "upload", file_id: stored.id } });
       onDone?.();
-    } catch {
+    } catch (e) {
+      setFailedUpload(e instanceof Error && e.message ? e.message : "The upload didn’t go through. Try again.");
       await act.mutateAsync({ path: "uploading", body: { on: false } }).catch(() => {});
     } finally {
       setUpload(null);
@@ -214,7 +221,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             Answer it in Needs you
           </Link>
         )}
-        <span className="ml-auto min-w-[120px] flex-1 text-right text-xs text-muted">{`Sent ${clock(m.sent_at)} · you’ll see the answer here`}</span>
+        {!owner && <span className="ml-auto min-w-[120px] flex-1 text-right text-xs text-muted">{`Sent ${clock(m.sent_at)} · you’ll see the answer here`}</span>}
       </>
     ) : a.kind === "start" ? (
       <>
@@ -251,8 +258,8 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
     );
   } else if (held) {
     // An editor's Generate options past their allowance waits for the owner (S4-03): Withdraw it, or upload instead.
-    body = <p className="text-[13px]">{`You asked for 3 generated ${NOUN[a.kind] ?? "options"} (up to ${said(a.generate)}). The owner has been asked; nothing is charged while it waits.`}</p>;
-    foot = (
+    body = <p className="text-[13px]">{voice ? `You asked to clone this voice (up to ${said(a.clone)}, ${cloneTo}). The owner has been asked; nothing is charged while it waits.` : `You asked for 3 generated ${NOUN[a.kind] ?? "options"} (up to ${said(a.generate)}). The owner has been asked; nothing is charged while it waits.`}</p>;
+    foot = voice ? null : (
       <>
         {can("cancel") && (
           <Button variant="secondary" busy={act.isPending} onClick={() => go({}, "cancel")}>
@@ -306,7 +313,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             </div>
           </div>
         ) : (
-          saved.length > 0 && (
+          saved.length > 0 && (a.state !== "failed" || voice) && (
             <div className="flex flex-col gap-2">
               <p className="text-xs font-semibold text-muted">{a.saved_in}</p>
               {a.kind === "voice" ? (
@@ -333,15 +340,15 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
         {a.state === "failed" && (
           <p className="flex items-center gap-2 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
             <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
-            The picture service made nothing. Nothing was charged.
+            {voice ? "The voice didn’t clone. Nothing was charged." : "The picture service made nothing. Nothing was charged."}
           </p>
         )}
-        {!shown && a.state !== "failed" && !generating && (can("upload") || can("reply") || can("generate") || can("clone")) && (
+        {!shown && (a.state !== "failed" || voice) && !generating && (can("upload") || can("reply") || can("generate") || can("clone")) && (
           <div className="flex flex-col gap-1.5">
             {a.kind === "voice" && <p className="text-xs font-semibold text-muted">Other ways</p>}
             <div className="flex gap-2">
               {can("upload") && a.kind !== "voice" && <Way icon={Upload} title="Upload" note="A photo, a still or a clip" dashed onPress={() => picker.current?.click()} />}
-              {can("clone") && <Way icon={Upload} title="Upload a sample" note={`Clone it once · saved to ${a.saved_in.replace(/^Saved in /, "") || "the brand"}’s voices · up to ${said(a.clone)}`} dashed onPress={() => picker.current?.click()} />}
+              {can("clone") && <Way icon={Upload} title="Upload a sample" note={`Clone it once · ${cloneTo} · up to ${said(a.clone)}`} dashed onPress={() => picker.current?.click()} />}
               {can("reply") && <Way icon={MessageSquare} title={a.kind === "voice" ? "Describe it" : "Reply"} note={a.kind === "voice" ? "“Late 40s, tired, warm”" : "Tell me in words"} onPress={() => setReplying(true)} />}
               {can("generate") && a.generate && <Way icon={WandSparkles} title="Generate options" note={`3 ${NOUN[a.kind] ?? "options"} · up to ${said(a.generate)} · this video only`} busy={act.isPending} onPress={() => go({}, "generate")} />}
             </div>
@@ -393,15 +400,15 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
       <>
         <span className="flex items-center gap-2 text-[13px] text-muted">
           <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="animate-spin" />
-          {`Drawing 3 ${NOUN[a.kind] ?? "options"} · up to ${said(a.generate)}`}
+          {voice ? `Cloning the voice · up to ${said(a.clone)}` : `Drawing 3 ${NOUN[a.kind] ?? "options"} · up to ${said(a.generate)}`}
         </span>
-        {can("cancel") && (
+        {can("cancel") && !voice && (
           <Button variant="secondary" className="ml-auto" busy={act.isPending} onClick={() => go({}, "cancel")}>
             Cancel
           </Button>
         )}
       </>
-    ) : a.state === "failed" ? (
+    ) : a.state === "failed" && !voice ? (
       <>
         {can("generate") && (
           <Button busy={act.isPending} onClick={() => go({}, "generate")}>

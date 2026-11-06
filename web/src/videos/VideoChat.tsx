@@ -22,7 +22,7 @@ import { useBrands } from "../shell/useBrands";
 import { useOnline, useRail } from "../useMedia";
 import { plain, useDirectorRun, useMovesRefresh } from "./director";
 import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview";
-import { AskCard, HeldSend, WaitingBar, isOpen, useAsks } from "./AskCard";
+import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
 import { DeliveryNote, Failed, PastNote, RunCard, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
 import { MoveDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 
@@ -316,8 +316,9 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const unwatched = (progress?.changed ?? []).filter((c) => !c.watched && c.take_id != null).map((c) => c.take_id!);
   const watch = () => (seen.mutate(unwatched), onWatch());
   const heldMove = [...items].reverse().find((t) => t.kind === "move" && t.status === "held")?.id;
+  const refreshAsks = useAskRefresh(id);
   const cards = useAsks(id, running || (run?.waiting?.length ?? 0) > 0).data ?? [];
-  const newest = `${items.length}:${items.at(-1)?.id}:${progress?.run}:${progress?.status}:${progress?.failed ? 1 : 0}:${cards.map((a) => `${a.id}${a.state}`).join()}`;
+  const newest = `${items.length}:${items.at(-1)?.id}:${progress?.run}:${progress?.status}:${progress?.failed ? 1 : 0}:${cards.length}`; // a card's own changes don't pull the chat down
   useEffect(() => {
     scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
   }, [newest]);
@@ -414,12 +415,14 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   // Its own card when the video has one but its thread isn't open yet (a send before the owner's OK); else one drawn the same.
   const shown = new Set(items.filter((t) => t.kind === "ask").map((t) => t.ask_id));
   const orphan = cards.find((a) => ["start", "budget", "own", "plan"].includes(a.kind) && isOpen(a) && !shown.has(a.id));
-  const withdraw = fs && maker ? () => actions.withdraw.mutate() : undefined;
+  // A freestyle's start card withdraws through the freestyle (its frozen send goes too); every other card withdraws itself.
+  const withdraw = fs && maker ? () => actions.withdraw.mutate(undefined, { onSuccess: () => void refreshAsks() }) : undefined;
+  const withdrawFor = (a: { kind: string }) => (a.kind === "start" ? withdraw : undefined);
   const heldSend = (t: Said) =>
     !fs || t.id !== heldMove ? null : orphan ? (
-      <AskCard ask={orphan} owner={owner} onWithdraw={withdraw} />
+      <AskCard ask={orphan} owner={owner} onWithdraw={withdrawFor(orphan)} />
     ) : (waiting || state === "change") && !cards.some((a) => shown.has(a.id) && isOpen(a) && a.can.includes("withdraw")) ? (
-      <HeldSend projectId={id} change={state === "change"} upTo={state === "change" ? changeUpTo : (fs.make_it_up_to ?? fs.up_to)} sentAt={t.at} owner={owner} onWithdraw={() => actions.withdraw.mutate()} />
+      <HeldSend projectId={id} change={state === "change"} upTo={state === "change" ? changeUpTo : (fs.make_it_up_to ?? fs.up_to)} sentAt={t.at} owner={owner} onWithdraw={withdraw ?? (() => actions.withdraw.mutate())} />
     ) : null;
   // "Change the plan first" (S3-02): the message box, ready for the change.
   const focusBox = () => document.getElementById("director-box")?.focus();
@@ -453,7 +456,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
               <Item key={t.id} t={t} owner={owner} words={cards.some((a) => a.id === t.ask_id) ? null : t.text}>
                 {(() => {
                   const a = cards.find((x) => x.id === t.ask_id);
-                  return a && <AskCard ask={a} owner={owner} onChangePlan={a.kind === "start" ? focusBox : undefined} onWithdraw={withdraw} />;
+                  return a && <AskCard ask={a} owner={owner} onChangePlan={a.kind === "start" ? focusBox : undefined} onWithdraw={withdrawFor(a)} />;
                 })()}
               </Item>
             ) : t.kind === "message" ? (
