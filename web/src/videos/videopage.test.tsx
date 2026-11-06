@@ -962,6 +962,20 @@ test("S3-14: the reply to a locked line offers what can change instead at its pr
   expect(screen.getByText("beer gut", { selector: "mark" })).toBeInTheDocument();
 });
 
+test("S3-14: an editor's note on a delivered video from New video goes through its freestyle, and the reply shows at once", async () => {
+  setViewport(1440);
+  const mine = fs({ status: "delivered", created_by_name: "Kel", thread: [item("m1", "message", "Kel", SCRIPT)] });
+  const calls = server(editor, mine, run({ status: "delivered", thread: [] }), { ...cards(), "GET /projects/50": [200, { ...project, created_by_id: 2 }], "POST /freestyles/9/messages": [201, mine] });
+  renderApp("/b/1/videos/50");
+  const box = await ready();
+  const read = (key: string) => calls.filter((c) => c.key === key).length;
+  const before = { asks: read("GET /projects/50/asks"), chat: read("GET /projects/50/director") };
+  await userEvent.type(box, "Change “beer gut” to “belly”.{Enter}");
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /freestyles/9/messages")?.body).toEqual({ text: "Change “beer gut” to “belly”." }));
+  await vi.waitFor(() => expect(read("GET /projects/50/asks")).toBeGreaterThan(before.asks)); // its reply card is read at once
+  expect(read("GET /projects/50/director")).toBeGreaterThan(before.chat); // and the thread it's in
+});
+
 test("S3-14: once chosen, the card says so and how it's going; the other choices stay pressable; a free one says free", async () => {
   setViewport(1440);
   const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "held", said: "Waiting for the owner’s OK.", cannot: "" }, { key: "B", title: "Shorter pause after it", why: "Tighten 0.4 s", do: "pause", price: null, made: "", said: "", cannot: "" }];
