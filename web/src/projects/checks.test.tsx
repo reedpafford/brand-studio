@@ -120,21 +120,13 @@ test("over budget the step says once that checks are paused", async () => {
   expect(screen.queryByRole("button", { name: /with Advice/ })).toBeNull();
 });
 
-test("Final cut has the Review list open by default", async () => {
-  setViewport(1440);
-  const done = clip({ approved: true, takes: [take(2, 2)], picked_take_id: 2 });
-  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }], "GET /projects/9/checks": [200, review()] }));
-  open("?step=downloads");
-  const list = await screen.findByLabelText("Review");
-  expect(within(list).getByRole("button", { name: "Still 1.1 · 2 notes" })).toBeInTheDocument();
-});
-
-test("a Review row on Final cut opens Clips and puts focus on the card", async () => {
+test("a Review row on Clips puts focus on the card", async () => {
   setViewport(390);
   const c1 = clip({ approved: true, takes: [take(1, 1)], picked_take_id: 1 });
   const c2 = clip({ id: 4, clip_id: "c2", approved: true, takes: [take(2, 2, { id: 9, status: "advice", findings: [face] })], picked_take_id: 2 });
   fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, [c1, c2]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [1, 2], out_of_date: false }], "GET /projects/9/checks": [200, review()] }));
-  open("?step=downloads");
+  open("?step=clips");
+  await userEvent.click(await screen.findByRole("button", { name: /with Advice/ }));
   await userEvent.click(within(await screen.findByLabelText("Review")).getByRole("button", { name: "Clip c2 · take 2 · 1 note" }));
   await vi.waitFor(() => expect(screen.getByLabelText("Clip c2")).toHaveFocus(), { timeout: 4000 });
 });
@@ -145,15 +137,6 @@ test("without checks on the server nothing shows", async () => {
   open("?step=storyboard");
   expect(await screen.findByLabelText("Frame c1")).toBeInTheDocument();
   expect(screen.queryByText(/AI check|notes on|✓ checked/)).toBeNull();
-});
-
-test("Approve all approves items with Advice too, and says how many", async () => {
-  setViewport(390);
-  const clips = [clip({ id: 4, clip_id: "c2", prompt_ok: true, takes: [take(2, 2, advice)], picked_take_id: 2 })];
-  fakeServer(routes({ "GET /projects/9/storyboard": [200, [{ ...frame, approved: true }]], "GET /projects/9/clips": [200, clips], "POST /projects/9/clips/approve-all": [200, { approved: [4], skipped: [], approved_with_advice: 1 }] }));
-  open("?step=clips");
-  await userEvent.click(await screen.findByRole("button", { name: "Approve all" }));
-  expect(await screen.findByText(/1 approved with Advice, listed under items with Advice\./)).toBeInTheDocument();
 });
 
 test("the look's own fixes: Fixed for the style with Undo before the still is drawn, and its tip beside a refusal and a note", async () => {

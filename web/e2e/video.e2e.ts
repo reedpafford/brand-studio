@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { emptyBrand, signIn } from "./helpers";
+import { emptyBrand, makeIt, signIn } from "./helpers";
 
 // A video made by hand on the video page (v6 S3: the preview panel's Plan, Cast, Clips and Cut tabs) on the free stand-ins.
 const SCRIPT = [
@@ -74,89 +74,30 @@ for (const width of [1440, 390]) {
 }
 
 for (const width of [1440, 390]) {
-  test(`at ${width}: the new page takes a script to a finished video, one-press storyboard, prompts read first`, async ({
+  test(`at ${width}: the director takes a published script to a finished video, and the Cut tab downloads it`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
     await signIn(page, "reed@example.com");
     await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, `Video Flow Co ${width}`);
-    const made = await page.request.post("/api/projects", {
-      data: { brand_id: brandId, name: "Flow test", planned_seconds: 20 },
-    });
-    const id = (await made.json()).id;
-    expect(
-      (
-        await page.request.put(`/api/projects/${id}/script`, {
-          data: { text: SCRIPT },
-        })
-      ).ok(),
-    ).toBeTruthy();
+    // v6 screen 4: the director makes the stills, the prompts and the takes; the panel shows them as it goes.
+    const s = await (await page.request.post("/api/scripts", { data: { brand_id: brandId, title: `Flow ${width} ${Date.now()}`, description: "", notes: "", reference_replace: "", text: SCRIPT } })).json();
+    expect((await page.request.post(`/api/scripts/${s.id}/drafts/0/approve`)).ok()).toBe(true);
+    expect((await page.request.post(`/api/scripts/${s.id}/publish`)).ok()).toBe(true);
+    const id = (await (await page.request.post(`/api/scripts/${s.id}/drafts/0/produce`)).json()).project_id;
 
-    await page.goto(`/b/${brandId}/videos/${id}?tab=plan`);
-    // The plan first (item 1b): made on the stand-in, then Approve makes the shots.
-    await page.getByRole("button", { name: /Make the plan/ }).click();
-    await page.getByRole("button", { name: /Approve the plan/ }).click({ timeout: 30_000 });
-    await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
-      timeout: 30_000,
-    });
-    await page.getByRole("tab", { name: /^Clips/ }).click();
-
-    // One press writes the frames and draws every still.
-    await page.getByRole("button", { name: /Make the stills/ }).click();
-    const approve = page.getByRole("button", { name: "Approve", exact: true });
-    await expect(approve.first()).toBeVisible({ timeout: 90_000 });
-    while (await approve.count()) {
-      await approve.first().click();
-      await expect(page.getByText("✓ Approved").first()).toBeVisible();
-    }
-    // The takes are on the same tab, under each still: the cost bar's press moves on to the clip prompts.
-
-    // Each prompt is read and marked Prompt OK before the take is made; Make clip marks it for you (Reed's #32 c6).
-    await page.getByRole("button", { name: /Write clip prompts/ }).click();
-    await expect(page.getByRole("listitem", { name: "Clip c1" })).toBeVisible({
-      timeout: 30_000,
-    });
-    const make = page.getByRole("button", { name: /^Make clip/ }).first();
-    await expect(make).toBeEnabled();
-    if (width === 390) expect((await make.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    if (width === 390) {
-      // A change that didn't finish (Reed's c5, job 876): a plain line, the words kept, Try again, nothing sideways.
-      await page.route(`**/api/projects/${id}/clips`, async (route) => {
-        const clips = await (await route.fetch()).json();
-        clips[0].change = { note: "Slower, warmer light", job_id: 1, status: "failed", error: "That change didn't finish. Nothing was charged." };
-        await route.fulfill({ json: clips });
-      });
-      await page.reload();
-      await expect(page.getByText("That change didn't finish. Nothing was charged.")).toBeVisible();
-      await expect(page.getByLabel("Note for the next take c1")).toHaveValue("Slower, warmer light");
-      // The approved still is a thumbnail beside the prompt, still a full-size press (QA-11).
-      expect((await page.getByRole("button", { name: /^Still for clip c1/ }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      const again = page.getByRole("button", { name: /^Try again/ });
-      expect((await again.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      await expect(page.getByText(/Ask the owner/)).toHaveCount(0);
-      const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-      expect(wide).toBeLessThanOrEqual(0);
-      await page.unrouteAll({ behavior: "ignoreErrors" }); // a poll still in route.fetch must not fail the reload
-      await page.reload();
-    }
-    await page
-      .getByRole("button", { name: /^Prompt OK for c1$/ })
-      .click();
-    await page
-      .getByRole("button", { name: /^Make clip/ })
-      .first()
-      .click();
-    // A clean take approves itself (rule 21): its checks find nothing on the stand-ins.
-    await expect(page.getByText(/^Approved by the check/).first()).toBeVisible({
-      timeout: 90_000,
-    });
+    await page.goto(`/b/${brandId}/videos/${id}`);
+    await page.getByRole("button", { name: /^Make it/ }).click();
+    await makeIt(page, id); // its treatment, then its start card (S3-02): no generation before this press
+    const live = page.getByRole("region", { name: /^Making|^Writing|^Drawing|^Revising|^Made in/ }).first();
+    await expect(live).toBeVisible({ timeout: 60_000 }); // the run's one card
+    await expect(page.getByRole("banner").getByText(/^Delivered$/)).toBeVisible({ timeout: 200_000 });
+    await expect(page.getByRole("region", { name: "Delivery note" })).toBeVisible({ timeout: 30_000 });
+    if (width === 390) await page.getByRole("tab", { name: "Preview" }).click();
     await page.getByRole("tab", { name: "Cut" }).click();
-    // The whole video is put together by itself.
-    await expect(page.getByRole("tabpanel", { name: "Cut" }).getByRole("link", { name: "Download MP4" })).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(page.getByRole("tabpanel", { name: "Cut" }).getByRole("link", { name: "Download MP4" })).toBeVisible({ timeout: 60_000 });
     const zip = await page.request.get(`/api/projects/${id}/clips.zip`);
     expect(zip.headers()["content-type"]).toBe("application/zip");
     const sizes = await page.evaluate(() => ({

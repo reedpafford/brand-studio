@@ -859,7 +859,9 @@ def test_reference_block_drops_live_action():
     assert "that slot becomes the script's own ending" in block
 
 
-def test_eval_scoring_checks_reference_words_and_the_end_line(tmp_path):
+def test_eval_scoring_checks_reference_words_and_no_separate_ending(tmp_path):
+    """Reed, 5 Nov: the script decides the ending; the evals keep every approved word through
+    the end and ask for no call to action of their own."""
     from evals.score import CASES, score
 
     case = next(c for c in CASES["cases"] if c["id"] == "fomo-adapt-altar")
@@ -877,7 +879,6 @@ def test_eval_scoring_checks_reference_words_and_the_end_line(tmp_path):
     assert score(tmp_path, case) == [
         "draft 2: 25 spoken words, expected 35–65",
         "draft 2: Advice: the reel's line “Sorry, I'm fully booked.” is changed or missing",
-        "draft 2: Advice: the last line doesn't mention the brand or where to find it",
     ]
 
 
@@ -1002,7 +1003,7 @@ def test_eval_scores_a_reel_import_from_the_watch_to_the_cast(tmp_path):
         in (tmp_path / "reel-import-altar.reel_watch.prompt.txt").read_text()
     )
     (tmp_path / "reel-import-altar.reel_watch.json").write_text(watch.model_dump_json())
-    end = case["expect"]["end_line"]
+    end = "Want to trade like me? Download fomo through the link in my bio."
     good = "\n".join([
         "GROOM: I do.", "BRIDE: HELL NO!", "BRIDE: I'm marrying him!", "GROOM: What?!",
         "BRIDE: I can't wait to spend forever with you.", "BRIDE (V.O.): Forever with you.",
