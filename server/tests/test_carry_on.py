@@ -235,6 +235,7 @@ def test_carrying_on_keeps_the_directors_own_limit_and_its_notes(app, db, owner,
     """QA on 58cc8940: the director's own limit and its real-cost guard are the run's, so a
     step the run would hold before Carry on is still held after it; and the notes from before
     the Stop keep their numbers and read marks."""
+    monkeypatch.setattr(director, "OWN_LIMITS", True)  # the limit's behaviour when it's on
     pid = _made(app, owner, editor, db)
     url = f"/projects/{pid}/director"
     editor.post(url)
