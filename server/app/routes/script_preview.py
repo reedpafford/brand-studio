@@ -65,7 +65,11 @@ def _out(db: Session, draft) -> PreviewOut:
         running=_running(db, draft.id),
         kept=draft.breakdown_kept,
         stale=bool(bd and draft.breakdown_text is not None and draft.breakdown_text != draft.text),
-        fixes=breakdown_fix.fixes(draft.breakdown_problems or [], draft.breakdown),
+        fixes=breakdown_fix.fixes(
+            draft.breakdown_problems or [],
+            draft.breakdown,
+            draft.breakdown_text if draft.breakdown_text is not None else draft.text,
+        ),
         unknown_names=_unknown(db, draft, bd) if bd else {},
     )
 
@@ -228,7 +232,8 @@ def fix_plan(
     text = draft.breakdown_text if draft.breakdown_text is not None else draft.text
     project = script_preview.stand_in_project(db, script, draft)
     every = [
-        f["problem"] for f in breakdown_fix.fixes(draft.breakdown_problems or [], draft.breakdown)
+        f["problem"]
+        for f in breakdown_fix.fixes(draft.breakdown_problems or [], draft.breakdown, text)
     ]
     m = breakdown.video_model(look=script.look, kind=script.kind)
     fixed, done = breakdown_fix.repair(

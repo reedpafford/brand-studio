@@ -21,7 +21,7 @@ test("at 1440, the owner pastes a script, presses Make it, and the director deli
   await page.getByLabel("Paste a script, or describe the video").fill(script);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
-  await page.getByRole("button", { name: /^Make it · up to \d+ credits?$/ }).click({ timeout: 60_000 }); // its start card, after the treatment (S3-02)
+  await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click({ timeout: 60_000 }); // its start card, after the treatment (S3-02): dollars to the owner
   // v6 S3-09: the chat beside the preview panel; delivered, the cut plays in the Cut tab.
   const thread = page.getByRole("list", { name: "Conversation with the director" });
   await expect(page.getByRole("banner").getByText("Delivered", { exact: true })).toBeVisible({ timeout: 240_000 });
@@ -60,7 +60,7 @@ test("an editor sends a script for approval from New video, the owner approves i
   await ed.getByRole("radio", { name: new RegExp(title) }).click();
   await expect(ed.getByText(/is past this video’s budget of \d+, so it goes to the owner first/)).toBeVisible(); // S2-05
   await ed.getByRole("button", { name: /^Send to the owner · up to \d+ credits?$/ }).click();
-  await expect(ed.getByText("Sent to the owner for approval")).toBeVisible({ timeout: 60_000 }); // after its plan
+  await expect(ed.getByText("Waiting for the owner’s OK")).toBeVisible({ timeout: 60_000 }); // its start card, after its plan (S3-07)
   await expect(ed.getByText(`From script ${title} · version A`)).toBeVisible();
   await expect(ed.getByText(/\$/)).toHaveCount(0);
 
@@ -74,15 +74,15 @@ test("an editor sends a script for approval from New video, the owner approves i
   await expect(ed.getByRole("tabpanel", { name: "Cut" }).getByRole("link", { name: "Download MP4" })).toBeVisible();
   await noSidewaysScroll(ed);
 
-  // At 390 (QA on #1194): the editor's change waits for the owner, and the phone's bar has Withdraw change.
+  // At 390 (S3-07, P-07): the editor's change waits for the owner on its card, with Withdraw the request.
   await ed.setViewportSize({ width: 390, height: 844 });
   await ed.getByLabel("Tell the director what to change").fill("Punchier ending.");
   await ed.getByLabel("Tell the director what to change").press("Enter");
-  await expect(ed.getByText("Change asked · waiting for the owner")).toBeVisible({ timeout: 60_000 });
-  const withdraw = ed.getByRole("button", { name: "Withdraw change" });
+  await expect(ed.getByText("Waiting for the owner’s OK")).toBeVisible({ timeout: 60_000 });
+  const withdraw = ed.getByRole("button", { name: "Withdraw the request" });
   expect((await withdraw.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await withdraw.click();
-  await expect(ed.getByText("Change asked · waiting for the owner")).toHaveCount(0);
+  await expect(ed.getByText("Waiting for the owner’s OK")).toHaveCount(0);
   await noSidewaysScroll(ed);
 });
 
@@ -98,7 +98,7 @@ test("at 390, the owner's saved change after a delivery has Make it again in the
   await page.getByLabel("Paste a script, or describe the video").fill(script);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
-  await page.getByRole("button", { name: /^Make it · up to \d+ credits?$/ }).click({ timeout: 60_000 }); // its start card
+  await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click({ timeout: 60_000 }); // its start card
   const again = page.getByRole("button", { name: /^Make it again · up to \d+ credits?$/ });
   await expect(again).toBeVisible({ timeout: 240_000 }); // delivered: its press is in the phone's bar
   await page.getByLabel("Tell the director what to change").fill("Make it slower.");

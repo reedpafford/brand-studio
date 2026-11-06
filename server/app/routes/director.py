@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.orm import Session
 
 from app import asks, director, run_progress
+from app.advice import SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -43,8 +44,11 @@ class DeliveryNoteOut(BaseModel):
 
     made: str  # What I made
     redid: list[RedidRowOut]  # What I watched and redid, in cut order
-    unsure: str  # What I'm unsure of ("" when nothing)
-    needs: str  # What I need from you ("Nothing. It’s ready to post." when nothing)
+    unsure: str  # What remains uncertain, in the director's words ("" when nothing)
+    open: list[str] = []  # …and what the server knows is still open: "The cut wasn't
+    # watched.", "Clip 3's take wasn't checked.", a finding kept, a step waiting for the owner
+    needs: str  # What I need from you; "Nothing. It’s ready to post." only when nothing is
+    # open, else "Nothing yet, but look at what remains uncertain before you post it."
     cost: str  # "$9.84 spent of up to $16.86"; an editor's "96 credits used of up to 164 (59%…)"
     spent: float  # credits the run charged
     up_to: float  # the video's "up to", in credits
@@ -80,7 +84,9 @@ class ClipCellOut(BaseModel):
     label: str  # what it shows: "Dr. Pickle points at the clock"
     seconds: int
     model: str  # "Seedance 2.0"
-    state: Literal["todo", "making", "waiting", "failed", "flagged", "text", "redone", "done"]
+    # too_long: longer than its model makes (S3-11's "Too long for the model")
+    state: Literal["todo", "making", "waiting", "failed", "too_long", "flagged", "text", "redone",
+                   "done"]  # fmt: skip
     frame_file_id: int | None  # its still (the take's first frame): /files/{id}
     take_id: int | None  # the take in use, once there is one
     note: str  # the state's line: what was found, why it waits or failed ("" when done)
@@ -125,15 +131,20 @@ class RunStoppedOut(BaseModel):
 
 
 class RunFixOut(BaseModel):
-    kind: Literal["again", "carry_on"]  # again: POST …/clips/{clip}/generate; carry_on:
-    # POST …/director
-    label: str
-    price: str | None  # as the viewer reads money; "up to" on the button (rule 36)
+    kind: Literal["again", "carry_on", "split", "model"]  # again: POST …/clips/{clip}/generate;
+    # carry_on: POST …/director; split: POST …/breakdown/fix {problems: [problem]} (free);
+    # model: open Video settings to pick a model that makes longer clips
+    label: str  # "Split it into 10 clips"
+    price: str | None  # as the viewer reads money ("free" for a split); "up to" on the button
+    problem: SaidText = ""  # split: the breakdown's problem it fixes, as Fix sends it
+    then: str | None = None  # split: what its new clips then need, "up to" (stills, prompts,
+    # takes), as the viewer reads money
 
 
 class RunFailedOut(BaseModel):
     title: str  # "Clip 4 couldn’t be made"
     why: str  # "The service was busy. Nothing was charged."
+    offer: str = ""  # "I can split it into 10 clips at the sentence breaks. The words…"
     clip: int | None  # the clip's id for "again"
     fixes: list[RunFixOut]  # never empty (rule 22)
 

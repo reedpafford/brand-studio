@@ -18,7 +18,16 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import asks, cast_gate, director_song, director_tools, take_mute, take_sound, word_splice
+from app import (
+    asks,
+    breakdown_fix,
+    cast_gate,
+    director_song,
+    director_tools,
+    take_mute,
+    take_sound,
+    word_splice,
+)
 from app.credits import COUNTED, FREESTYLE, lock
 from app.db import utcnow
 from app.models.accounts import User
@@ -139,11 +148,16 @@ def chat(project: Project, run_id: str) -> list[dict]:
 
 def answered(db: Session, run_id: str) -> set[int]:
     """The run's notes (numbered from 1) a move has answered: named "Note N" in the why of a
-    move that wasn't refused, or of the delivery. An ask stays open until then."""
+    move that wasn't refused, or in the delivery's note. An ask stays open until then."""
     mine = Job.input[RUN]["id"].as_string() == run_id
     rows = db.scalars(select(Job).where(Job.input["step"].as_string() == STEP, mine)).all()
     return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
-            for n in NOTE.findall((j.output or {}).get("why") or "")}  # fmt: skip
+            for n in NOTE.findall(move_words(j.output or {}))}  # fmt: skip
+
+
+def move_words(decision: dict) -> str:
+    """A move's words that can name a note: its why, and on a delivery its note's parts."""
+    return " ".join(decision.get(k) or "" for k in ("why", "made", "unsure", "needs"))
 
 
 def leftover(db: Session, project: Project) -> list[int]:
@@ -511,7 +525,7 @@ def _act(db: Session, job: Job, storage) -> None:
         if (video_state(db, project)["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
                 and not watched):  # a watch still going isn't one (QA-10)  # fmt: skip
             return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
-        named = {int(n) for n in NOTE.findall(decision.get("why") or "")}
+        named = {int(n) for n in NOTE.findall(move_words(decision))}  # its note answers "Note N"
         given = max((t.input.get(READ, 0) for t in turns(db, project)
                      if t.input[RUN]["id"] == run["id"]), default=0)  # fmt: skip
         # a note no turn was given yet isn't its to answer: it waits for the next Make it
@@ -986,6 +1000,12 @@ def video_state(db: Session, project: Project) -> dict:
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
+    have = {c["clip_id"] for c in clips}  # a planned clip with no prompt yet (after a split)
+    clips += [{"clip_id": c["id"], "stale": True, "picked_take_id": None,
+               "shots": [{"id": i, "action": shots[i].get("action", ""), "line": shots[i].get(
+                   "line")} for i in c["shot_ids"] if i in shots],
+               "takes": [], "muted": [], "sound": {}} for c in data.get("clips", [])
+              if c["id"] not in have]  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
     acted = [j for j in turns(db, project) if "result" in j.input]
@@ -1010,6 +1030,7 @@ def video_state(db: Session, project: Project) -> dict:
         "locked": {k: v for k, v in (project.locks or {}).items() if k != "look_picked"},
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
         "shots": "ready" if bd else "none",
+        "too_long": _splittable(db, project, bd),  # split_clip
         "missing_looks": [*(s.role for s in _missing(db, project)),
                           *(p.name for p in missing_places(db, project))] if bd else [],
         "cast_ok": cast,  # the person's OK on the cast and places, and what waits for it
@@ -1038,6 +1059,23 @@ def _cast_ok(db: Session, project: Project) -> dict:
             "not_ready": [n["why"] for n in said["not_ready"]],
             "paused_clips": said["paused_clips"],
             "update": {k: said["update"][k] for k in ("stills", "clips", "credits")}}  # fmt: skip
+
+
+def _splittable(db: Session, project: Project, bd) -> list[str]:
+    """The clips longer than the video model makes that split_clip can cut; one that can't
+    (a sentence longer than the model makes) is refused at its take with what to do."""
+    from app import plans
+    from app.breakdown import video_model
+
+    if bd is None:
+        return []
+    m, version = video_model(project), plans.script(db, project)
+    text = version.text if version else ""
+    return [
+        c
+        for c in breakdown_fix.too_long(bd.problems or [])
+        if breakdown_fix.split_into(bd.data, text, c, m.duration.min, m.duration.max) > 1
+    ]
 
 
 def choose(state: dict) -> dict:
@@ -1071,6 +1109,9 @@ def choose(state: dict) -> dict:
         return audio
     if state["shots"] == "none":
         return go("plan", "There are no shots yet.")
+    if long := state.get("too_long"):  # before its stills: the split makes new shots
+        return go("split_clip", f"{long[0]} is longer than the video model makes: split it.",
+                  clip_id=long[0])  # fmt: skip
     if state["missing_looks"]:
         return go("make_looks", "Some roles have no look yet.")
     cast = state.get("cast_ok") or {}
@@ -1150,8 +1191,16 @@ def choose(state: dict) -> dict:
         f"I also noticed: {f['says'].rstrip('.')}. Want me to fix it?" for f in older
     )
     made = f"The cut is made with each clip's best take. {done}".strip()
-    unsure = " ".join(x for x in (keep, _still_wrong(state), noticed) if x)
-    return go("deliver", f"{made} {unsure}".strip(), made=made, unsure=unsure)
+    unsure = " ".join(x for x in (keep, _still_wrong(state)) if x)
+    return go(
+        "deliver",
+        "The cut is made and watched."
+        if watch.get("state") == "done" and watch.get("current")
+        else "The cut is made.",
+        made=made,
+        unsure=unsure,
+        needs=noticed,
+    )  # its questions are for the owner
 
 
 def _still_wrong(state: dict) -> str:
@@ -1357,7 +1406,15 @@ def _item(db: Session, job: Job) -> str:
 
         row = db.get(HostPiece, piece)
         return f"The host's piece {row.number}" if row and row.number else "The host's still"
-    return f"The {str(job.input.get('step') or job.kind).replace('_', ' ')}"
+    step = str(job.input.get("step") or job.kind)
+    return NAMED.get(step) or f"The {step.replace('_', ' ')}"
+
+
+NAMED = {"watch_cut": "The watch of the cut", "cut_listen": "The watch of the cut",
+         STEP: "The director's next step", "treatment": "The treatment",
+         "take_watch": "The watch of a take", "review_stills": "The look at the stills",
+         "write-claude": "The director's next step", "item_check": "A take's check",
+         "ask_option": "The options for a question"}  # fmt: skip  # plain names, never a step's
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:

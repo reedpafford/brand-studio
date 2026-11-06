@@ -234,8 +234,10 @@ export function stoppedParts({ progress: r, onCarryOn, busy, blocked, error }: {
   };
 }
 
-/** A run that stopped on a problem (S3-11): what went wrong, in plain words, and its one-click fixes (never none). */
-export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { progress: Progress; projectId: number; onCarryOn: () => void; busy: boolean; blocked: string | null }) {
+/** A run that stopped on a problem (S3-11): what went wrong, in plain words, and its one-click fixes (never none): the
+ *  failed clip again, carry on, split a clip too long for its model (free: the breakdown's own fix), or the video's
+ *  settings, to pick a model that makes longer clips (`onSettings`: the Plan tab, the preview side on a phone). */
+export function Failed({ progress: r, projectId, onCarryOn, onSettings, busy, blocked }: { progress: Progress; projectId: number; onCarryOn: () => void; onSettings: () => void; busy: boolean; blocked: string | null }) {
   const f = r.failed!;
   const queryClient = useQueryClient();
   const again = useMutation({
@@ -245,6 +247,16 @@ export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { p
     },
     onSuccess: () => Promise.all([refreshJobs(queryClient), queryClient.invalidateQueries({ queryKey: ["run-progress", projectId] })]),
   });
+  const split = useMutation({
+    mutationFn: async (problem: string) => {
+      const { data, error } = await api.POST("/projects/{project_id}/breakdown/fix", { params: { path: { project_id: projectId } }, body: { problems: [problem] } });
+      if (!data) throw new Error(errorText(error));
+    },
+    onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["run-progress", projectId] }), queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] })]),
+  });
+  const press = (x: (typeof f.fixes)[number]) =>
+    x.kind === "again" ? again.mutate() : x.kind === "split" ? split.mutate(x.problem) : x.kind === "model" ? onSettings() : onCarryOn(); // the video's settings: the Plan tab, on a phone too
+  const then = f.fixes.find((x) => x.kind === "split")?.then;
   return (
     <section aria-label={f.title} className="overflow-hidden rounded-lg border border-[#f1c6c1] bg-surface">
       <p className="flex items-center gap-2 bg-danger-soft px-3 py-2.5 text-[13px] font-semibold text-danger">
@@ -253,14 +265,23 @@ export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { p
       </p>
       <div className="flex flex-col gap-3 px-3 pb-3 pt-2.5">
         <p className="text-[13px] leading-[19px]">{f.why}</p>
+        {f.offer && <p className="text-[13px] leading-[19px]">{f.offer}</p>}
         <div className="flex flex-wrap gap-2">
           {f.fixes.map((x, i) => (
-            <Button key={x.kind} variant={i === 0 ? "primary" : "secondary"} busy={x.kind === "again" ? again.isPending || making(r) : busy} disabled={x.kind === "carry_on" && !!blocked} reason={x.kind === "carry_on" ? blocked : undefined} onClick={() => (x.kind === "again" ? again.mutate() : onCarryOn())}>
-              {x.price ? `${x.label} · up to ${x.price}` : x.label}
+            <Button
+              key={x.kind}
+              variant={i === 0 ? "primary" : "secondary"}
+              busy={x.kind === "again" ? again.isPending || making(r) : x.kind === "split" ? split.isPending : x.kind === "model" ? false : busy}
+              disabled={x.kind === "carry_on" && !!blocked}
+              reason={x.kind === "carry_on" ? blocked : undefined}
+              onClick={() => press(x)}
+            >
+              {!x.price ? x.label : x.price === "free" ? `${x.label} · free` : `${x.label} · up to ${x.price}`}
             </Button>
           ))}
         </div>
-        {again.isError && <p role="alert" className="text-sm text-danger">{again.error.message}</p>}
+        {then && <p className="text-xs text-muted">Its new clips are then made at their own price: up to {then}.</p>}
+        {(again.isError || split.isError) && <p role="alert" className="text-sm text-danger">{(again.error ?? split.error)?.message}</p>}
       </div>
     </section>
   );

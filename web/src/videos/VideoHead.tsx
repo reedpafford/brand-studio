@@ -35,7 +35,7 @@ export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): 
   const owner = h.spent.usd != null;
   const spent = started; // before Make it: "No generation started" (Reed, 4 Nov: the treatment is a small planning spend, in Usage)
   const top = h.up_to;
-  if (h.status.kind === "waiting") {
+  if (h.status.kind === "waiting" && spent) { // past the budget mid-run (S3-06, S3-07); a start card waiting has spent nothing (S3-02)
     if (owner) return [`${dollars(h.spent)} spent ·`, `budget ${dollars(h.budget)}`];
     const pct = h.budget.credits > 0 ? Math.round((100 * h.spent.credits) / h.budget.credits) : 0;
     return [`${credits(h.spent)} credits ·`, `${pct}% of the budget`];
@@ -54,9 +54,9 @@ export function headStatus(status: Status, working?: string | null): Status {
 }
 
 const WORDS: Record<Status["kind"], string> = { working: "text-accent-text", needs_you: "text-warning", waiting: "text-muted", needs_fix: "text-danger", delivered: "text-success", stopped: "text-muted", archived: "text-muted" };
-function StatusWords({ status, keep }: { status: Status; keep?: boolean }) {
+function StatusWords({ status }: { status: Status }) {
   return (
-    <span className={`inline-flex ${keep ? "shrink-0" : "min-w-0"} items-center gap-1.5 text-xs font-medium ${WORDS[status.kind]}`}>
+    <span className={`inline-flex min-w-0 items-center gap-1.5 text-xs font-medium ${WORDS[status.kind]}`}>
       <StatusDot status={status} />
       <span className="truncate">{said(status)}</span>
     </span>
@@ -272,8 +272,8 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
         {menu}
       </div>
       <div className="flex min-w-0 items-center gap-3">
-        <h1 className="min-w-0 max-w-[330px] truncate text-lg font-semibold">{head.title}</h1>
-        <StatusWords status={status} keep />
+        <h1 className="min-w-0 max-w-[300px] shrink-0 truncate text-lg font-semibold">{head.title}</h1>
+        <StatusWords status={status} /> {/* its reason gives way before the title does (a question's words are long) */}
         <span className="flex-1" />
         <p className="shrink-0 text-sm tabular-nums text-muted">
           {lead && `${lead} `}

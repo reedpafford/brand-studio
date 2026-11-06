@@ -701,6 +701,7 @@ class DirectorTurn(BaseModel):
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
         "mute", "splice_word", "add_sound", "song", "narration", "host", "ask", "add_place",
         "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model", "settings",
+        "split_clip",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -708,9 +709,9 @@ class DirectorTurn(BaseModel):
     )  # fmt: skip
     clip_id: str | None = Field(
         default=None,
-        description="For make_take, pick_take, mute, splice_word, add_sound and clip_model: the "
-        "clip, e.g. "
-        "'c3'. For make_take, null makes a first take of every clip that has none; for "
+        description="For make_take, pick_take, mute, splice_word, add_sound, clip_model and "
+        "split_clip: the clip, e.g. 'c3'. For make_take, null makes a first take of every clip "
+        "that has none; for "
         "add_sound, null adds sound to every silent take in the cut. Else null.",
     )
     take_id: int | None = Field(
@@ -801,22 +802,22 @@ class DirectorTurn(BaseModel):
     ask: AskMove | None = Field(default=None, description="For ask: the question; else null.")
     why: str = Field(
         description="One short plain sentence: why this action now, logged on the video. On "
-        "'deliver' it is the delivery note (2-4 sentences: the craft choices made and why); on "
-        "'stop', what the owner needs to know; on 'ask' with ask_id, why it's no longer needed."
+        "'deliver', one short sentence; the note is `made`, `unsure` and `needs`. On 'stop', "
+        "what the owner needs to know; on 'ask' with ask_id, why it's no longer needed."
     )
     made: str = Field(
         default="",
         description="On 'deliver' only: the delivery note's 'What I made', one short paragraph: "
-        "the length, the style and who's in it, the scenes and clips, and how it opens. Else "
-        "empty.",
+        "its length, who's in it, the scenes and clips, and how it opens; never "
+        "the changes, timecodes or cost (the server adds those). Else empty.",
     )
     unsure: str = Field(
         default="",
-        description="On 'deliver' only: 'What I'm unsure of': a fault kept or a choice a person "
-        "may want changed, and the words that change it ('say \"shorter end\"'), or empty.",
+        description="On 'deliver' only: 'What remains uncertain': every problem not resolved "
+        "and every check that didn't run or failed, plainly; empty only when there's none.",
     )
     needs: str = Field(
         default="",
-        description="On 'deliver' only: 'What I need from you', or empty when nothing (the note "
-        "then says it's ready to post).",
+        description="On 'deliver' only: 'What I need from you': what the owner must decide or "
+        "approve; empty only when nothing is open.",
     )

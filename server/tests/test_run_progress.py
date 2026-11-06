@@ -109,7 +109,13 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
     assert note["made"] == "The cut is made with each clip's best take."
     cuts = db.query(FinalVideo).filter_by(project_id=pid).count()  # it cut, watched and cut again
     assert (note["cut"], note["clips"], note["seconds"]) == (cuts, 1, 5) and cuts > 1
-    assert note["needs"] == delivery.NOTHING and note["cost"].startswith("$0.00 spent of up to $")
+    assert note["open"] == [  # the stand-in's last watch repeats a finding: still open
+        "Clip 1: the opening face changes between shots. Not fixed.",
+        "The takes weren't checked one by one.",
+    ]  # checks are off here
+    assert note["needs"] == delivery.LOOK_FIRST and note["cost"].startswith(
+        "$0.00 spent of up to $"
+    )
     texts = [r["text"] for r in note["redid"]]  # what it watched and redid, with when
     muted = "Clip 1: a stray sound nobody asked for. Muted a stretch of clip 1 instead of " \
             "remaking it."  # fmt: skip
@@ -392,3 +398,171 @@ def test_a_held_turn_taken_back_reads_as_stopped_not_a_fault(app, db, owner, edi
     db.commit()
     p = _progress(owner, pid)
     assert (p["status"], p["sub"], p["failed"]) == ("stopped", "Withdrawn.", None)
+
+
+def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeypatch):
+    """Reed, 4 Nov: a cut that exists isn't ready to post. The note says what's still open:
+    a cut not watched, a take not checked or with a finding kept, a step waiting for the
+    owner; then it never says "ready to post"."""
+    from app import watch_cut
+    from app.watch_cut import _cut
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    deliver = director.turns(db, project)[-1]
+    cut = _cut(db, project)
+    take = db.get(ClipTake, cut.take_ids[0])  # the take in the cut
+    note = delivery.note(db, project, deliver, {"made": "A short clip."})
+    assert note["open"] == [
+        "Clip 1: the opening face changes between shots. Not fixed.",
+        "The takes weren't checked one by one.",
+    ]  # checks off: said
+    monkeypatch.setattr("app.item_checks.on", lambda: True)
+    w = {"state": "done", "current": True, "findings": []}  # a clean watch of this cut
+    monkeypatch.setattr(watch_cut, "state", lambda db_, p: w)
+    db.add(ItemCheck(project_id=pid, target="take", target_id=take.id, status="done"))
+    db.commit()
+    note = delivery.note(db, project, deliver, {"made": "A short clip."})
+    assert note["open"] == [] and delivery.shown(db, project, note, True)["needs"] == (
+        delivery.NOTHING)  # fmt: skip
+    w.clear()
+    w["state"] = "none"  # then: a cut no one watched
+
+    db.query(ItemCheck).filter_by(target="take", target_id=take.id).update({"status": "failed"})
+    db.add(FinalVideo(project_id=pid, file_id=cut.file_id, take_ids=cut.take_ids))  # not watched
+    _job(
+        db,
+        _clip(db, pid),
+        JobStatus.needs_owner_approval,
+        held="Waiting for the owner's OK: remaking clip 1 goes past the video's budget.",
+    )
+    db.commit()
+    note = delivery.note(db, project, deliver, {"made": "A short clip."})
+    assert note["open"] == [
+        "The cut wasn't watched.", "Clip 1's take wasn't checked.",
+        "Clip 1's take is waiting for the owner's OK: remaking clip 1 goes past the video's "
+        "budget."]  # fmt: skip
+    shown = delivery.shown(db, project, note, False)
+    assert shown["needs"] == delivery.LOOK_FIRST and "ready to post" not in shown["needs"]
+    assert "Clip 1's take wasn't checked." in delivery.plain(shown).splitlines()
+
+    db.query(ItemCheck).filter_by(target="take", target_id=take.id).update(
+        {"status": "done", "findings": [{"kind": "face", "role": "", "text": "c1: Mia's face "
+                                         "drifts", "change_note": ""}]})  # fmt: skip
+    db.commit()
+    note = delivery.note(db, project, deliver, {"made": "x", "needs": "Your OK on clip 1."})
+    assert "Clip 1: Mia's face drifts. Kept as it is." in note["open"]
+    assert delivery.shown(db, project, note, True)["needs"] == "Your OK on clip 1."
+
+
+def test_the_director_md_delivery_lines_are_reeds():
+    """Reed's clarifications (4 Nov), as the director reads them."""
+    from app import prompts
+
+    text = prompts.system("director")
+    for said in ("three separate parts you write", "What remains uncertain",
+                 "a cut that exists isn't the same as one that's ready to post",
+                 "keeps the script's words and the approved cast, voices included",
+                 "trimming or re-rendering the cut is free",
+                 "never write or repeat changes, timecodes or money yourself"):  # fmt: skip
+        assert said in text, said
+    assert "two to four short plain sentences" not in text
+
+
+def test_what_is_open_never_lists_what_was_fixed_and_names_each_step(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1340: a finding already muted or spliced (free) isn't "kept"; a check still
+    checking is not checked; the watch of this cut's kept findings are open; an unsure line
+    alone keeps it from "ready to post"; each held step is named once."""
+    from app import watch_cut
+    from app.watch_cut import _cut
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    deliver = director.turns(db, project)[-1]
+    take = db.get(ClipTake, _cut(db, project).take_ids[0])
+    monkeypatch.setattr("app.item_checks.on", lambda: True)
+    monkeypatch.setattr("app.word_splice.wrong", lambda db_, t: [{"word": "fomo",
+                                                                  "at": [2.0, 2.4]}])  # fmt: skip
+    found: list[dict] = []
+    monkeypatch.setattr(watch_cut, "state", lambda db_, p: {"state": "done", "current": True,
+                                                            "findings": found})  # fmt: skip
+    take.made_with = {**(take.made_with or {}), "mutes": [[1.0, 1.5]],
+                      "splices": [{"word": "fomo", "at": [2.0, 2.4], "from_take": 1}]}  # fmt: skip
+    db.add(ItemCheck(project_id=pid, target="take", target_id=take.id, status="done"))
+    db.add(ItemCheck(project_id=pid, target="words", target_id=take.id, status="done", findings=[
+        {"kind": "extra", "role": "", "text": "“uh” isn't in the script", "at": 1.0,
+         "span": [1.0, 1.5], "change_note": ""},
+        {"kind": "name", "role": "", "text": "“foma”: fomo may be said wrong", "at": 0.5,
+         "change_note": ""}]))  # fmt: skip
+    db.commit()
+    assert delivery.open_items(db, project, delivery._spans(db, _cut(db, project))) == []
+
+    db.query(ItemCheck).filter_by(target="take", target_id=take.id).update({"status": "checking"})
+    found.append({"clip_id": "c1", "says": "The hold at the end runs long", "fix": "keep"})
+    held = "Waiting for the owner's OK: remaking clip 1 goes past the video's budget."
+    _job(db, _clip(db, pid), JobStatus.needs_owner_approval, held=held)
+    _job(db, _clip(db, pid), JobStatus.needs_owner_approval, held=held)  # the same, twice
+    db.commit()
+    note = delivery.note(db, project, deliver, {"made": "x"})
+    assert note["open"] == [
+        "Clip 1: The hold at the end runs long. Kept as it is.", "Clip 1's take wasn't checked.",
+        "Clip 1's take is waiting for the owner's OK: remaking clip 1 goes past the video's "
+        "budget."]  # fmt: skip
+
+    note = {**note, "open": [], "unsure": "The ending may feel long."}
+    assert delivery.shown(db, project, note, True)["needs"] == delivery.LOOK_FIRST
+
+
+def test_every_open_problem_is_listed_and_every_check_that_didnt_finish(
+    app, db, owner, editor, monkeypatch
+):
+    """QA round 2 on #1340: a current watch's finding that wasn't fixed is open (not one the
+    note already asks about); a words check that didn't finish is a check that didn't run;
+    every finding is listed; a held watch is named in plain words."""
+    from app import watch_cut
+    from app.watch_cut import _cut
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    take = db.get(ClipTake, _cut(db, project).take_ids[0])
+    monkeypatch.setattr("app.item_checks.on", lambda: True)
+    monkeypatch.setattr(watch_cut, "state", lambda db_, p: {"state": "done", "current": True,
+        "findings": [{"clip_id": "c1", "says": "The jump at 0:02", "fix": "redo"},
+                     {"clip_id": "c1", "says": "A stray sound", "fix": "mute"}]})  # fmt: skip
+    two = [
+        {"kind": "face", "role": "", "text": "Mia's face drifts", "change_note": ""},
+        {"kind": "outfit", "role": "", "text": "Her coat changes", "change_note": ""},
+    ]
+    db.add(ItemCheck(project_id=pid, target="take", target_id=take.id, status="done",
+                     findings=two))  # fmt: skip
+    db.add(ItemCheck(project_id=pid, target="words", target_id=take.id, status="checking"))
+    job = director.turns(db, project)[-1]
+    held = Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind="check-claude",
+               provider="claude", project_id=pid, status=JobStatus.needs_owner_approval,
+               input={"step": "watch_cut", "held": "Waiting for the owner's OK: the director "
+                      "has used its own limit."})  # fmt: skip
+    db.add(held)
+    db.commit()
+    spans = delivery._spans(db, _cut(db, project))
+    asked = "I also noticed: a stray sound. Want me to fix it?"
+    assert delivery.open_items(db, project, spans, asked) == [
+        "Clip 1: The jump at 0:02. Not fixed.",
+        "Clip 1: Mia's face drifts. Kept as it is.", "Clip 1: Her coat changes. Kept as it is.",
+        "Clip 1's take wasn't checked.",
+        "The watch of the cut is waiting for the owner's OK: the director has used its own "
+        "limit."]  # fmt: skip
+
+
+def test_the_stand_in_says_watched_only_when_it_watched_this_cut():
+    clip = {"clip_id": "c1", "stale": False, "picked_take_id": 1, "muted": [],
+            "takes": [{"id": 1, "number": 1, "verdict": "clean", "notes": []}]}  # fmt: skip
+    state = {"being_made": False, "held_for_owner": False, "shots": "ready", "missing_looks": [],
+             "stills": {"frames": 1, "drawn": 1}, "clips": [clip], "cut": "made",
+             "watch": {"state": "failed", "current": True},
+             "allowed": {"redos_used": {}, "watches_left": 0}}  # fmt: skip
+    out = director.choose(state)
+    assert (out["tool"], out["why"]) == ("deliver", "The cut is made.")
+    state["watch"] = {"state": "done", "current": True, "findings": []}
+    assert director.choose(state)["why"] == "The cut is made and watched."
