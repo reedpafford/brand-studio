@@ -58,14 +58,14 @@ def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
 
 
 def test_an_ok_grants_a_limits_worth_then_it_waits_again(app, db, owner, editor, monkeypatch):
-    monkeypatch.setattr(director, "own_limit", lambda: Decimal(12))  # 4 steps (turns, treatment)
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(9))  # 3 steps: the run needs 4+ OKs
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     for oks in range(3):
         _run(app, db)
         (held,) = _held(db, pid)
         charged, given = _own(db, pid)
-        assert given == oks and charged <= 12 * (1 + oks), (charged, oks)
+        assert given == oks and charged <= 9 * (1 + oks), (charged, oks)
         before = _turns(db, pid)
         assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
         _run(app, db)

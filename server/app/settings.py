@@ -93,9 +93,9 @@ class Settings(BaseSettings):
     narration_music_paid: bool = False
     narration_music_budget_usd: float = 0.0
     narration_music_usd_per_run: float = 0.25  # the bed's $0.20 and the prompt's call
-    # Which items are checked (Producer, 2026-10-29, to fit "a few cents a video"):
-    # key_takes (default): takes of ★-product or speaking clips, one frame each; all_takes:
-    # every take, one frame; everything: stills too, and three frames a take.
+    # Whether stills are checked too: every take is watched by the director (rule 11,
+    # app/take_watch) while checks are on; `everything` adds a look at each still.
+    # key_takes and all_takes (kept for the env files) both leave stills unchecked.
     item_check_scope: Literal["key_takes", "all_takes", "everything"] = "key_takes"
     # Background worker
     worker_poll_seconds: float = 2.0

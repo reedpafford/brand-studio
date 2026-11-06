@@ -516,6 +516,38 @@ class ItemCheck(BaseModel):
     findings: list[Finding] = Field(description="Only clear differences a viewer would notice.")
 
 
+# --- The take watch (rule 11, Reed 3 Nov): every take looked at as it lands ---
+
+
+class TakeFault(BaseModel):
+    kind: Literal["style", "action", "motion", "cast", "product", "screen", "text", "lipsync",
+                  "voice", "sound", "clipping", "timing"]  # fmt: skip
+    at: float | None = Field(description="Where in the take, in seconds; null for all of it.")
+    says: str = Field(description="One short line for the card: 'Eyes landed on the stomach'.")
+    who: str = Field(
+        default="",
+        description="char:N or product:N from <references>, 'screen' or 'extra'; else ''.",
+    )
+    evidence: Literal["picture", "words", "measured", "sound"] = Field(
+        description="What shows it: 'picture' (seen in the sampled frames), 'words' (only "
+        "the transcript in <heard> suggests it), 'measured' (clipped samples in <measured>), "
+        "'sound' (only the spectrogram, the loudness or a silence suggests it)."
+    )
+
+
+class TakeWatch(BaseModel):
+    """One take, looked at: kept, or remade with its prompt rewritten for its model."""
+
+    seen: str = Field(
+        description="One or two plain sentences: what you saw, and what the transcript or the "
+        "sound's picture suggests, said as a suggestion."
+    )
+    faults: list[TakeFault] = Field(max_length=6, description="Worst first; empty when it's good.")
+    verdict: Literal["keep", "redo"]
+    note: str = Field(default="", description="For redo: the change in a few plain words.")
+    prompt: str = Field(default="", description="For redo: the whole clip prompt, rewritten.")
+
+
 class NarrationMusic(BaseModel):
     """The instrumental bed under a narrated video (flows N1)."""
 
@@ -538,6 +570,14 @@ class CutFinding(BaseModel):
     end: float = Field(description="Where it ends, in cut seconds.")
     says: str = Field(
         description="One plain line for the owner: \"c3: he says 'fogo', not 'fomo'\"."
+    )
+    kind: Literal["story", "picture", "cast", "text", "screen", "lipsync", "voice", "sound",
+                  "words"] = Field(description="What kind of fault: in the picture or the story, "
+                                   "lip-sync, the voice, other sound, or the words.")  # fmt: skip
+    evidence: Literal["picture", "words", "measured", "sound"] = Field(
+        description="What shows it: 'picture' (seen in the sampled frames), 'words' (only "
+        "<transcript> suggests it), 'measured' (clipped samples in <measured>), 'sound' (only "
+        "the spectrogram, the loudness or a silence suggests it)."
     )
     fix: Literal["redo", "pick", "mute", "keep"] = Field(
         description="The smallest fix that works: 'mute' an unscripted sound with nothing wrong "
@@ -581,7 +621,9 @@ class Treatment(BaseModel):
     beats: list[Beat] = Field(
         description="The video in order; together every line but the scene headings, once."
     )
-    ending: str = Field(description="The payoff and the call to action, and why they land.")
+    ending: str = Field(
+        description="The payoff, and the call to action when the script has one, and why they land."
+    )
 
 
 # --- Review the stills (the Producer, 2 Nov): against the treatment, before any take ---
