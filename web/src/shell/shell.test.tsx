@@ -113,7 +113,7 @@ const tree = { folders: [], unsorted: { id: null, parent_id: null, name: "Unsort
 
 test("on a phone there are four tabs (v6 P-01): Videos, Library, Needs you with its count, More; Library and More are short lists", async () => {
   setViewport(390);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /brands/1/tree": [200, tree] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /needs-you": [200, { total: 1, brands: [], questions: [], money: [], sends: [], stuck: [] }], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /brands/1/tree": [200, tree] });
   renderAt("/b/1/scripts");
   const tabs = await screen.findByRole("navigation", { name: "Tabs" });
   expect(within(tabs).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, ""))).toEqual(["Videos", "Library", "Needs you", "More"]);
@@ -132,9 +132,9 @@ test("on a phone there are four tabs (v6 P-01): Videos, Library, Needs you with 
 test("Needs you is always in the rail with its count, 0 when nothing waits (v6 S0-01, S1-02); the phone tab shows no count then", async () => {
   for (const width of [390, 1440]) {
     setViewport(width);
-    const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []] });
+    const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /needs-you": [200, { total: 0, brands: [], questions: [], money: [], sends: [], stuck: [] }], "GET /scripts": [200, []], "GET /projects": [200, []] });
     renderAt("/b/1/scripts");
-    await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /jobs")).toBe(true));
+    await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /needs-you")).toBe(true));
     const needs = await screen.findByRole("link", { name: /^Needs you/ });
     expect(needs).toHaveAttribute("href", "/approvals");
     expect(needs.textContent).toBe(width === 1440 ? "Needs you0 waiting" : "Needs you");
@@ -143,10 +143,10 @@ test("Needs you is always in the rail with its count, 0 when nothing waits (v6 S
   }
 });
 
-test("when only a changed video waits, Reed still reaches Needs you: the tab and the rail row count it (QA-9 on #1154)", async () => {
+test("when only a stuck video waits, Reed still reaches Needs you: the tab and the rail row count everything it lists (S9-01)", async () => {
   for (const width of [390, 1440]) {
     setViewport(width);
-    fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /jobs": [200, []], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /production/summary": [200, { in_production: 0, needs_attention: 0, changes_waiting: 1 }] });
+    fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /needs-you": [200, { total: 1, brands: [], questions: [], money: [], sends: [], stuck: [{}] }] });
     renderAt("/b/1/scripts");
     await vi.waitFor(() => expect(screen.getByRole("link", { name: /^Needs you/ })).toHaveTextContent("1"));
     cleanup();
@@ -197,7 +197,7 @@ test("an editor's account menu has no Team link", async () => {
 
 test("on desktop one rail (v6 S0-01): the brand switcher, New video and search, the folders, Library, Studio for Reed only, the account at the bottom; no top bar", async () => {
   setViewport(1440);
-  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /brands/1/tree": [200, tree], "GET /jobs": [200, [{ id: 5, kind: "video", status: "needs_owner_approval", project_id: null, credits: 4, created_at: "2026-10-24T10:00:00Z" }]] });
+  fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /brands/1/tree": [200, tree], "GET /needs-you": [200, { total: 1, brands: [], questions: [], money: [], sends: [], stuck: [] }] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
