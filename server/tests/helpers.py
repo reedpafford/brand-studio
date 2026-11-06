@@ -200,11 +200,15 @@ def ok_when_asked(db) -> None:
     from app.models.projects import Project
 
     step = Job.input["step"].as_string()
-    for job in db.query(Job).filter(step == director.STEP).all():
-        if job.input.get("result") != director.CAST_WAIT or job.input.get("ended"):
-            continue
+    waiting: dict[int, Job] = {}  # each video once, by its first turn waiting on it (reading
+    for job in db.query(Job).filter(step == director.STEP).order_by(Job.id).all():  # is slow)
+        if job.input.get("result") == director.CAST_WAIT and not job.input.get("ended"):
+            waiting.setdefault(job.project_id, job)
+    for job in waiting.values():
         project = db.get(Project, job.project_id)
-        items = cast_gate.current(db, project)
-        if cast_gate.pending(db, project) and all(i["readiness"] == "ready" for i in items):
+        items = cast_gate.current(db, project)  # pending: any item not approved as it is
+        if any(i["approval"] != "approved" for i in items) and all(
+            i["readiness"] == "ready" for i in items
+        ):
             who = db.get(User, job.input[director.RUN]["by"])
             cast_gate.approve(db, who, project, {i["ref"]: i["sig"] for i in items})

@@ -27,6 +27,13 @@ def pytest_configure(config):
     before any are. The stand-in switch is left to each test: some test the real paths' rules."""
     for key in ("STUDIO_ANTHROPIC_KEY", "REPLICATE_API_TOKEN", "KIE_API_KEY"):
         os.environ[key] = ""
+    # Passwords hash with argon2's lightest settings here: every test signs people up and in,
+    # and the real settings are built to be slow (the hash and its check are the same code).
+    from argon2 import PasswordHasher
+
+    from app import auth
+
+    auth._hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
     # An empty key isn't enough on its own: with no token the Replicate provider sends its
     # request bare, and a sandbox's network proxy adds real credentials. So no test may open
     # a connection off this machine at all; tests talk to fakes or local servers only.
