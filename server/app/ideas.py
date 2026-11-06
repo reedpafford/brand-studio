@@ -313,12 +313,12 @@ def _up(credits: Decimal) -> Decimal:
 
 
 def head(db: Session, user: User, p: Project) -> Head:
-    """The header's facts for one video. The "up to" is a director video's approved price (its
-    freestyle's OK, or its Make it's price: the start card's, the run card's and the note's
-    figure); else the budget with the director's own limit beside it, as a working card reads
+    """The header's facts for one video. The "up to" of a director video once approved (its
+    freestyle's OKs or a Make it) is the run card's and the note's (`run_progress.spent`);
+    else the budget with the director's own limit beside it, as a working card reads
     it (rule 34); before any run, its run's price. Never below what it has used, and rounded
     up (rule 36)."""
-    from app import narration
+    from app import narration, run_progress
     from app.models.folders import Folder
     from app.models.script_library import ScriptDraft
     from app.routes.estimate import run_price
@@ -329,11 +329,8 @@ def head(db: Session, user: User, p: Project) -> Head:
     used = known.used.get(p.id, Decimal(0))
     fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
     top: Decimal | None
-    approved = asks.approved_total(db, p)
-    if fs is not None and fs.up_to:
-        top = Decimal(fs.up_to)
-    elif approved:  # every Make it's price: one figure with the run card and note (S3-12)
-        top = approved
+    if fs is not None and fs.up_to or asks.approved_total(db, p):  # one figure (S3-12)
+        top = run_progress.spent(db, p)[1]  # with the run card and the note
     elif status.reason == START and not used:
         draft = db.get(ScriptDraft, p.script_draft_id) if p.script_draft_id else None
         top = Decimal(str(run_price(db, draft, p))) if draft else None

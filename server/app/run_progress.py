@@ -493,12 +493,16 @@ def run_up_to(db: Session, project: Project) -> Decimal:
 def spent(db: Session, project: Project) -> tuple[Decimal, Decimal]:
     """(what the video has charged so far, its "up to"), in credits, as its header says them
     (board S3-12: the whole video's figures, one for the header, the run card and the note):
-    every counted job on it, and `run_up_to` never below that, rounded up as the header
-    rounds it."""
-    from app import ideas
+    every counted job on it, and the most its OKs let it reach, never below what it spent,
+    rounded up as the header rounds it. The most it can reach is every Make it's price
+    (`run_up_to`), or, when more, what it spent outside its newest run (a charge before a run
+    or a press between runs, QA on #1355) plus that run's whole price."""
+    from app import asks, ideas
 
     used = ideas.facts(db, [project]).used.get(project.id, Decimal(0))
-    return used, ideas._up(max(run_up_to(db, project), used))
+    run = asks.approved_run(db, project)
+    reach = used - run[1] + run[0] if run else Decimal(0)
+    return used, ideas._up(max(run_up_to(db, project), reach, used))
 
 
 def dollars(credits: Decimal) -> float:

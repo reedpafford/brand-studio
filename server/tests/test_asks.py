@@ -854,12 +854,12 @@ def test_the_header_the_run_card_and_the_note_say_one_figure_on_every_run(
     first = _make_it(app, db, owner, pid)
     monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(7)))  # far apart
     head = one_figure(owner, editor, pid)
-    assert abs(head["up_to"]["credits"] - first) < 1 and head["spent"]["credits"] > 0
+    assert head["up_to"]["credits"] > first - 1 and head["spent"]["credits"] > 0  # its price
     spent = head["spent"]["credits"]
     owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
     second = _make_it(app, db, owner, pid)
     head = one_figure(owner, editor, pid)
-    assert abs(head["up_to"]["credits"] - (first + second)) < 1  # every Make it, not the last
+    assert head["up_to"]["credits"] > first + second - 1  # every Make it (cards round up)
     assert head["spent"]["credits"] >= spent  # both runs', not the revision's alone
 
 
@@ -886,4 +886,29 @@ def test_after_an_ok_past_the_price_the_up_to_is_never_below_what_was_spent(
                      if c["kind"] == "budget" and c["state"] == "open"]:  # fmt: skip
             owner.post(f"/asks/{held['id']}/answer", json={"how": "approve"})
     head = one_figure(owner, editor, pid)
-    assert head["spent"]["credits"] > 12 and head["up_to"]["credits"] == head["spent"]["credits"]
+    assert head["up_to"]["credits"] >= head["spent"]["credits"] > 12
+
+
+def _charge(db, pid: int, credits: int) -> None:
+    """A charge on the video outside a run: a press someone made, already charged."""
+    project = db.get(Project, pid)
+    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
+               project_id=pid, credits=credits, status="succeeded"))  # fmt: skip
+    db.commit()
+
+
+def test_the_up_to_covers_a_charge_before_the_run_and_a_press_between_runs(app, db, owner, editor):
+    """QA on #1355: the "up to" is never below what the video can still charge. A charge
+    before Make it, or a press between runs, is spent outside the run; the run's whole price
+    can still be charged on top of it."""
+    pid, _ = _video(app, owner, editor, db)
+    _charge(db, pid, 7)
+    first = _make_it(app, db, owner, pid)
+    head = one_figure(owner, editor, pid)
+    assert head["up_to"]["credits"] > first + 7 - 1  # the 7 before it, and its whole price
+    _charge(db, pid, 9)  # a press between runs
+    before = owner.get(f"/projects/{pid}/idea").json()["spent"]["credits"]
+    owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
+    second = _make_it(app, db, owner, pid)
+    head = one_figure(owner, editor, pid)
+    assert head["up_to"]["credits"] > before + second - 1  # all spent before it, then its price
