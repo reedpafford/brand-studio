@@ -7,6 +7,7 @@ import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { NOT_PLAIN } from "./director";
+import { moneyOf } from "./VideoHead";
 
 // The video page (v6 S3): the director's chat with the preview panel beside it. Boards S3-01, S3-09, S3-15, S3-16, P-04,
 // P-05, and S-gaps-03 (the Locks menu, the ⋯ menu, the phone's tab row).
@@ -777,6 +778,23 @@ test("S3-07: an editor's send, held before its video has cards, is the same held
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
 });
 
+test("S3-06: the owner opening an editor's held send answers its start card in place, with the box open and nothing running", async () => {
+  setViewport(1440);
+  const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Waiting for the owner's OK", "held")] });
+  const start = ask({ kind: "start", question: "Make it for up to $16.86?", why: "That's the most this run can charge.", saved: [], money: held$({ up_to: price(164, 16.86) }), can: ["make_it", "decline"] });
+  const r = run({ status: "running", make_it: null, turns: [{ turn: 1, tool: "make_plan", why: "", result: "", status: "succeeded", created_at: at }, { turn: 2, tool: null, why: "", result: "", status: "needs_owner_approval", created_at: at }], thread: [item("a7", "move", "Director", "Make it for up to $16.86?", null, later, { kind: "ask", ask_id: 7 })] });
+  const calls = server(owner, sent, r, { ...cards(start), "GET /projects/50": [200, { ...project, created_by_id: 2 }], "POST /asks/7/answer": [200, start] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it for up to $16.86?" });
+  expect(screen.getByRole("navigation", { name: "Where it is" })).toBeInTheDocument(); // the video's own header (S3-07)
+  expect(screen.queryByText("Answer it in Needs you")).toBeNull(); // the owner's card itself, not a pointer to Needs you
+  expect(screen.queryByText("The owner has been asked. Nothing is made or charged while it waits.")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Stop" })).toBeNull(); // it waits on an OK: nothing runs to stop
+  expect(screen.getByLabelText("Tell the director what to change")).toBeEnabled(); // "Change the plan first" can use it
+  await userEvent.click(within(card).getByRole("button", { name: "Decline" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "decline" }));
+});
+
 test("S3-07: an editor's change after a delivery waits with its own price from its held job, never up to free", async () => {
   setViewport(1440);
   const sent = fs({ status: "waiting", file_id: 88, created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Punchier ending.", "held", later)] });
@@ -1024,4 +1042,12 @@ test("S3-08: a run carried on shows the Stop it carried on from; an editor's Car
   renderApp("/b/1/videos/50");
   expect(await screen.findByRole("button", { name: "Start the plan again" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Carry on/ })).toBeNull();
+});
+
+test("S3-14: waiting for the owner, the header's spent is the whole video's against its up to, as the note's (never the old budget)", () => {
+  const waiting = head({ status: status("waiting", "Waiting for the owner"), spent: money(159, null), up_to: money(244.6, null), budget: money(58, null) });
+  type H = Parameters<typeof moneyOf>[0];
+  expect(moneyOf(waiting as H)).toEqual(["159 credits ·", "65% of the budget"]); // not 274% of the 58-credit budget
+  const mine = head({ status: status("waiting", "Waiting for your OK"), spent: money(159, 16.3), up_to: money(164, 16.86), budget: money(58, 5.94) });
+  expect(moneyOf(mine as H)).toEqual(["$16.30 spent ·", "budget $16.86"]); // S3-06
 });

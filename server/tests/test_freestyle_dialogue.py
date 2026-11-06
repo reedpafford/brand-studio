@@ -226,3 +226,42 @@ def test_an_approved_run_with_every_redo_used_delivers_within_its_price(
     most = (once + director.OWN_CREDITS
             + director.MAX_REDOS * (sum(firsts.values()) + check * len(firsts)))  # fmt: skip
     assert spent <= most <= row.up_to, (spent, most, row.up_to)
+
+
+def test_a_send_waiting_for_the_owner_opens_for_its_sender_and_the_owner(app, owner, editor, db):
+    """S2-04, S3-06, S3-07: an editor's New video waiting for the owner's OK stays out of every
+    list (Freestyle 3a), but whoever sent it and the owner see it in the brand's tree and open
+    it at its address: the editor its held start card, the owner Make it and Decline there.
+    Nobody else does, and a declined one is gone."""
+    from fastapi.testclient import TestClient
+
+    from tests.conftest import PASSWORD
+
+    brand = first_brand(owner)
+    fs = editor.post("/freestyles", json={**BODY, "brand_id": brand}).json()
+    _run(app, db, ticks=4, start=False)  # its plan, then its start card held for the owner
+    pid = editor.get(f"/freestyles/{fs['id']}").json()["project_id"]
+    _hidden_nowhere(owner, editor)  # still out of the lists and counts
+
+    def tree(who) -> list[int]:
+        return [i["id"] for i in who.get(f"/brands/{brand}/tree").json()["unsorted"]["ideas"]]
+
+    for who in (owner, editor):
+        assert who.get(f"/projects/{pid}").status_code == 200
+        assert pid in tree(who)
+        assert pid in [i["id"] for i in who.get(f"/brands/{brand}/ideas").json()["ideas"]]
+        assert who.get(f"/projects/{pid}/idea").json()["status"]["kind"] in ("waiting", "needs_you")
+    card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
+    assert {"make_it", "decline"} <= set(card["can"])  # the owner answers it in place
+    theirs = next(c for c in editor.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
+    assert "make_it" not in theirs["can"]
+    token = owner.post("/team/invites", json={"email": "bo@example.com"}).json()["token"]
+    with TestClient(app) as bo:  # another editor: neither listed nor opened
+        bo.post("/auth/accept-invite", json={"token": token, "name": "Bo", "password": PASSWORD})
+        assert bo.get(f"/projects/{pid}").status_code == 404
+        assert pid not in tree(bo)
+    held = next(j for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json())
+    assert owner.post(f"/jobs/{held['id']}/decline", json={"reason": "Not now."}).status_code == 200
+    db.expire_all()
+    assert editor.get(f"/projects/{pid}").status_code == 404  # declined: nothing left behind
+    assert pid not in tree(editor)

@@ -30,7 +30,7 @@ export function MyRequestsPage() {
   });
   const waiting = mine.filter((j) => j.status === "needs_owner_approval");
   const answered = mine.filter((j) => (j.approved || j.declined) && serverTime(j.created_at).getTime() > weekAgo());
-  const name = (j: Job) => (j.project_id != null ? (video.get(j.project_id)?.name ?? "A video") : (j.freestyle?.title ?? "A Quick clip"));
+  const name = (j: Job) => (j.project_id != null ? (video.get(j.project_id)?.name ?? j.freestyle?.title ?? "A video") : (j.freestyle?.title ?? "A Quick clip"));
   const said = (j: Job) => {
     const w = what(j).replace(/^Your /, "");
     return (j.note || w.charAt(0).toUpperCase() + w.slice(1)) + (j.held ? `, ${j.held.charAt(0).toLowerCase()}${j.held.slice(1).replace(/\.$/, "")}` : "");
@@ -62,7 +62,7 @@ export function MyRequestsPage() {
                     <span className="truncate text-sm font-semibold">{name(j)}</span>
                   )}
                   <span className="text-xs text-muted">
-                    {said(j)} · {pressLabel(j.credits, "estimate")}
+                    {said(j)} · {pressLabel(j.freestyle?.up_to ?? j.credits, "estimate")}
                   </span>
                 </span>
                 <span className="ml-[42px] text-xs text-muted lg:ml-0 lg:w-[70px]">Sent {time(j.created_at)}</span>

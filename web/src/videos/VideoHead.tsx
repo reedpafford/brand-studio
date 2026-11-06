@@ -36,8 +36,9 @@ export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): 
   const spent = started; // before Make it: "No generation started" (Reed, 4 Nov: the treatment is a small planning spend, in Usage)
   const top = h.up_to;
   if (h.status.kind === "waiting" && spent) { // past the budget mid-run (S3-06, S3-07); a start card waiting has spent nothing (S3-02)
-    if (owner) return [`${dollars(h.spent)} spent ·`, `budget ${dollars(h.budget)}`];
-    const pct = h.budget.credits > 0 ? Math.round((100 * h.spent.credits) / h.budget.credits) : 0;
+    const of = top ?? h.budget; // the whole video's spent against its up to, the note's figures (S3-12, S3-14)
+    if (owner) return [`${dollars(h.spent)} spent ·`, `budget ${dollars(of)}`];
+    const pct = of.credits > 0 ? Math.round((100 * h.spent.credits) / of.credits) : 0;
     return [`${credits(h.spent)} credits ·`, `${pct}% of the budget`];
   }
   if (!top) return short ? ["", "estimating…"] : [spent ? (owner ? `${dollars(h.spent)} spent ·` : `${credits(h.spent)} credits used ·`) : "No generation started ·", "estimating…"];

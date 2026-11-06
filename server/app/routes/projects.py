@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import looks, narration, needs_you, plans, reference, settings_move
+from app import hidden, looks, narration, needs_you, plans, reference, settings_move
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
     budget_used,
@@ -152,6 +152,9 @@ def video_writer(
 
 def get_project(db: Session, user: User, project_id: int) -> Project:
     project = db.get(Project, project_id)
+    if project is None and (held := hidden.held_sends(db, user, project_id=project_id)):
+        project = held[0]  # an editor's send waiting for the owner: theirs and the owner's to open
+        hidden.see(db)  # the rest of the request reads its hidden script too
     if not project or project.workspace_id != user.workspace_id:
         raise HTTPException(404, "No such project.")
     return project

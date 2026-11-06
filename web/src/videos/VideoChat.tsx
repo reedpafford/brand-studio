@@ -120,7 +120,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     );
 
   const turns = run?.turns ?? [];
-  const running = run?.status === "running" && run.make_it == null && !turns.every((t) => t.status === "needs_owner_approval"); // a start card waiting: nothing runs (S3-02)
+  const running = run?.status === "running" && run.make_it == null && turns.at(-1)?.status !== "needs_owner_approval"; // its turn waits on an OK (a start card, S3-02; a send held for the owner, S3-07): nothing runs
   const state = fs ? stateOf(fs, running) : running ? "working" : (run?.status ?? "none");
   const archived = !!p?.archived_at;
   const maker = p ? mayManage(p) : fs?.created_by_name === me?.name;
@@ -453,7 +453,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const fromScript = !!script && !!fs && serverTime(script.created_at) < serverTime(fs.created_at);
   const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “warmer light in scene 2”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
   const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : "Saved. Press Make it again to make this change.") : viaFreestyle && !owner && !running ? "Each change goes to the owner first. Nothing is spent until they say yes." : null;
-  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
+  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting && !owner ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null; // the owner answers it here (S3-06)
   const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;
   const opening = items.find((t) => t.kind === "message")?.id;
   // A freestyle's send held before its video has a card for it: the same held card, with Withdraw the request (S3-07).
@@ -467,7 +467,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const heldSend = (t: Said) =>
     !fs || t.id !== heldMove ? null : orphan ? (
       <AskCard ask={orphan} owner={owner} onWithdraw={withdrawFor(orphan)} />
-    ) : (waiting || state === "change") && !cards.some((a) => shown.has(a.id) && isOpen(a) && a.can.includes("withdraw")) ? (
+    ) : (waiting || state === "change") && !cards.some((a) => shown.has(a.id) && isOpen(a) && (a.can.includes("withdraw") || (a.kind === "start" && owner))) ? (
       <HeldSend projectId={id} change={state === "change"} upTo={state === "change" ? changeUpTo : (fs.make_it_up_to ?? fs.up_to)} sentAt={t.at} owner={owner} onWithdraw={withdraw ?? (() => actions.withdraw.mutate())} />
     ) : null;
   // "Change the plan first" (S3-02): the message box, ready for the change.

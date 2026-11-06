@@ -207,3 +207,14 @@ test("rule 34 on a phone: a later run's budget card is titled shorter, past this
   renderApp("/approvals");
   expect(await screen.findByRole("heading", { name: "Redo 2 clips · $0.60 past this run’s price" })).toBeInTheDocument();
 });
+
+test("S2-04: an editor's New video waiting for the owner is in My requests with its up to, counted in the rail", async () => {
+  setViewport(1440);
+  const send = { id: 31, status: "needs_owner_approval", project_id: 13, credits: 3, kind: "write-claude", step: "director", created_at: ago(5), held: "Waiting for the owner's OK: every freestyle send is checked first.", freestyle: { id: 9, title: "Gut check", change: false, up_to: 164, total: 164 } };
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs": [200, [send]], "GET /projects": [200, []] });
+  renderApp("/requests");
+  expect(await screen.findByText("Gut check")).toBeInTheDocument();
+  expect(screen.getByText(/^New video, waiting for the owner's OK/)).toHaveTextContent(/164 credits$/);
+  expect(calls.find((c) => c.key === "GET /jobs")?.url).toContain("freestyle=true"); // sends are requests too
+  expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: /My requests/ })).toHaveTextContent("1");
+});

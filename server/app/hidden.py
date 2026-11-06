@@ -31,3 +31,27 @@ def _leave_out(state) -> None:
             for m in (Project, Script, Brand)
         )  # fmt: skip
     )
+
+
+def held_sends(db: Session, user, brand_id: int | None = None, project_id: int | None = None):
+    """An editor's sends waiting for the owner's OK (S2-04, S3-07): their videos stay out of
+    every list and count (Freestyle 3a), but whoever sent one and the owner see it in the tree
+    and open it, its start card waiting. The videos, newest first."""
+    from sqlalchemy import select
+
+    from app import asks
+    from app.models.jobs import Job, JobStatus
+    from app.models.projects import Project
+
+    query = select(Project).join(Job, Job.project_id == Project.id).where(
+        Project.workspace_id == user.workspace_id, Project.hidden,
+        Project.archived_at.is_(None), Job.input[asks.START].as_boolean(),
+        Job.status == JobStatus.needs_owner_approval)  # fmt: skip
+    if not user.is_owner:
+        query = query.where(Project.created_by_id == user.id)
+    if brand_id is not None:
+        query = query.where(Project.brand_id == brand_id)
+    if project_id is not None:
+        query = query.where(Project.id == project_id)
+    return list(db.scalars(query.order_by(Project.id.desc()).execution_options(**{SEE: True}))
+                .unique())  # fmt: skip
