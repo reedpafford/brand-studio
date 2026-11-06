@@ -3890,6 +3890,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/clips/{clip_id}/takes/{take_id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Take
+         * @description Use this take · free (S-gaps-08 5): a person's pick is their OK too (rule 21), so the
+         *     clip is ready for the cut at once.
+         */
+        post: operations["use_take_projects__project_id__clips__clip_id__takes__take_id__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/clips/{clip_id}/takes/{take_id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Take
+         * @description Keep it (S6-04): a take the director's watch flagged, wasn't sure of, or held for the
+         *     owner's OK on its remake, is kept by a person. Its watch says who kept it, the flag clears,
+         *     and it is the clip's take (free).
+         */
+        post: operations["keep_take_projects__project_id__clips__clip_id__takes__take_id__keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/clips/{clip_id}/approve": {
         parameters: {
             query?: never;
@@ -6940,6 +6983,11 @@ export interface components {
             status: string;
             /** Findings */
             findings: components["schemas"]["FindingOut"][];
+            /**
+             * Kept
+             * @default []
+             */
+            kept: components["schemas"]["FindingOut"][];
         };
         /** Clip */
         Clip: {
@@ -8913,6 +8961,8 @@ export interface components {
              * @default false
              */
             waiting: boolean;
+            /** Kept By */
+            kept_by?: string | null;
             /** Clip Id */
             clip_id: string;
             /** Take */
@@ -10363,6 +10413,16 @@ export interface components {
             versions: components["schemas"]["PromptVersionOut"][];
             sound?: components["schemas"]["SoundOut"] | null;
             model?: components["schemas"]["ClipModelOut"] | null;
+            /**
+             * Spent
+             * @default 0
+             */
+            spent: number;
+            /**
+             * Stills
+             * @default 0
+             */
+            stills: number;
         };
         /** ProjectCost */
         ProjectCost: {
@@ -10607,6 +10667,11 @@ export interface components {
             made_by: components["schemas"]["Maker"] | null;
             /** Current */
             current: boolean;
+            /**
+             * Prompt
+             * @default
+             */
+            prompt: string;
         };
         /** PublishIn */
         PublishIn: {
@@ -12197,6 +12262,10 @@ export interface components {
             watch?: components["schemas"]["WatchOut"] | null;
             /** Remade From */
             remade_from?: number | null;
+            /** Model */
+            model?: string | null;
+            /** From Still */
+            from_still?: number | null;
         };
         /** TakesWatchedOut */
         TakesWatchedOut: {
@@ -12992,6 +13061,8 @@ export interface components {
              * @default false
              */
             waiting: boolean;
+            /** Kept By */
+            kept_by?: string | null;
         };
         /** WatchedOut */
         WatchedOut: {
@@ -21129,6 +21200,72 @@ export interface operations {
         };
     };
     pick_take_projects__project_id__clips__clip_id__takes__take_id__pick_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_take_projects__project_id__clips__clip_id__takes__take_id__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                clip_id: number;
+                take_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectClipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_take_projects__project_id__clips__clip_id__takes__take_id__keep_post: {
         parameters: {
             query?: never;
             header?: never;

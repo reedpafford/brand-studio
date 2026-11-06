@@ -43,14 +43,31 @@ def _draw(db: Session, project: Project, row: Row, before: str = "",
     return "video", clip_takes.take_input(db, project, row, check=check), row.seconds
 
 
+def clip_of(db: Session, frame: StoryboardFrame) -> ProjectClip | None:
+    """The clip a still is the first frame of, in the same breakdown."""
+    return db.scalar(select(ProjectClip).where(
+        ProjectClip.project_id == frame.project_id, ProjectClip.clip_id == frame.clip_id,
+        ProjectClip.breakdown_id == frame.breakdown_id).limit(1))  # fmt: skip
+
+
+def take_after(db: Session, frame: StoryboardFrame) -> ProjectClip | None:
+    """A still whose clip already has a take: changing the still makes the clip again from it
+    (S-gaps-08 2: "a new still and a new take"), so the take in the cut never shows an old
+    still. None before the first take: then only the still is drawn."""
+    clip = clip_of(db, frame)
+    return clip if clip is not None and _has_take(db, clip) else None
+
+
 def _then(db: Session, project: Project, row: Row, check: bool = True) -> Decimal:
-    """What making it again costs once the prompt is rewritten (0 for a clip with no take).
-    Checked (the press): refused up front while its cast or places wait for the OK."""
+    """What making it again costs once the prompt is rewritten (0 for a clip with no take):
+    a still's redraw, and its clip's new take when it has one. Checked (the press): refused up
+    front while its cast or places wait for the OK."""
     if isinstance(row, StoryboardFrame) or _has_take(db, row):
         kind, data, units = _draw(db, project, row, check=check)
         made = estimate(db, project.workspace_id, kind, Decimal(units), data)
         if isinstance(row, StoryboardFrame):
-            return made
+            clip = take_after(db, row)
+            return made + (_then(db, project, clip, check) if clip is not None else Decimal(0))
         from app import take_watch
 
         return made + take_watch.rides(db, project, row)  # its watch, while watches are on
@@ -100,6 +117,8 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
         "max_tokens": 16000,  # the whole prompt comes back: a 24 s clip ran out of room at 4000
         "then": str(then),  # the redraw it starts: shown with it while it waits (rule 36)
     }
+    if target == "frame" and take_after(db, row) is not None:
+        data["then_take"] = True  # the clip is made again once the still lands (paid here)
     # The whole price is checked in one locked step, against the video's budget.
     job = enqueue(db, user, "write-claude", data, project=project, provider="claude", hold=then)
     was = {"was_take_id": row.picked_take_id} if target == "clip" else {"was_file_id": row.file_id}
@@ -187,11 +206,13 @@ def save_changed(db: Session, job: Job) -> None:
             fix = stops[0].rstrip(".")
             row.change = {**row.change, "status": "failed", "error": f"The new prompt has a "
                           f"problem to fix first ({fix}). Nothing was charged for a take: press "
-                          "Fix this clip's prompt (free), then Make another take."}  # fmt: skip
+                          "Fix this clip's prompt (free), then Another take."}  # fmt: skip
             return
     db.commit()  # the new prompt is a paid answer: a refused still (it rolls back) keeps it
     try:
         kind, data, units = _draw(db, project, row, before)
+        if i.get("then_take"):
+            data["then_take"] = True  # storyboard.save_still makes the clip's new take
         user = db.get(User, job.created_by_id)
         made = enqueue(db, user, kind, data, units=units, project=project,
                        provider="replicate", prepaid=True)  # fmt: skip

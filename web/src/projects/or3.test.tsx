@@ -12,7 +12,6 @@ const project = {
 };
 const script = { version: 5, source: "paste", words: 9, created_by_id: 2, created_at: "2026-10-23T10:00:00Z", text: "Mia scrolls her phone." };
 const breakdown = { id: 1, script_version: 5, source: "claude", stale: false, problems: [], breakdown: { hook: "Hook.", scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [] }], clips: [] } };
-const frame = (o: object) => ({ id: 1, clip_id: "c1", shot_id: "1.1", prompt: "Mia in a cold blue kitchen", reference_ids: ["char:4", "screen:3"], problems: [], file_id: null, stale: false, ...o });
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
   "GET /brands": [200, [{ id: 1, name: "fomo", colours: [] }]],
@@ -36,52 +35,7 @@ function open(query = "?stage=storyboard") {
 
 afterEach(() => vi.unstubAllGlobals());
 
-const clip = (o: object) => ({ id: 1, clip_id: "c1", seconds: 8, prompt: "Mia taps buy", references: [], problems: [], kept: [], file_id: null, takes: [], picked_take_id: null, approved: false, stale: false, take_credits: 24, inserts: [], ...o });
 const by = { id: 2, name: "Eli" };
-
-test("A: a frame's earlier stills can be used again (free), and Undo puts the still in use back", async () => {
-  setViewport(390);
-  const earlier = [{ file_id: 38, prompt: "Mia, warmer", made_at: "2026-10-29T09:00:00Z", made_by: by }];
-  const calls = fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40, earlier })]], "POST /projects/9/storyboard/frames/1/pick": [200, frame({ file_id: 38, was_file_id: 40 })] });
-  open();
-  const card = await screen.findByLabelText("Frame c1");
-  await userEvent.click(within(card).getByText("Earlier stills · 1"));
-  await userEvent.click(within(card).getByRole("button", { name: "Use this one" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/storyboard/frames/1/pick")?.body).toEqual({ file_id: 38 }));
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/storyboard/frames/1/pick").at(-1)?.body).toEqual({ file_id: 40 }));
-});
-
-test("C: the storyboard's versions go back to an earlier one, with Undo; while stills are being made it says to wait", async () => {
-  setViewport(1440);
-  const versions = [
-    { index: null, made_at: "2026-10-29T11:00:00Z", made_by: by, frames: 2, still_file_ids: [40], current: true },
-    { index: 1, made_at: "2026-10-29T09:00:00Z", made_by: by, frames: 3, still_file_ids: [30], current: false },
-  ];
-  const calls = fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40 })]], "GET /projects/9/storyboard/versions": [200, versions], "POST /projects/9/storyboard/versions/1/use": [200, []], "POST /projects/9/storyboard/versions/0/use": [200, []] });
-  open();
-  await userEvent.click(await screen.findByText("Storyboard versions · 2"));
-  const list = screen.getByRole("list", { name: "Storyboard versions" });
-  expect(within(list).getByText("In use")).toBeInTheDocument();
-  expect(within(list).getByText(/3 frames/)).toBeInTheDocument();
-  await userEvent.click(within(list).getByRole("button", { name: "Go back to this" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/versions/1/use")).toBe(true));
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/storyboard/versions/0/use")).toBe(true));
-});
-
-test("D: a clip prompt's versions go back to an earlier one, and Undo uses the one replaced", async () => {
-  setViewport(390);
-  const versions = [{ index: 0, made_at: "2026-10-29T11:00:00Z", made_by: null, current: true }, { index: 1, made_at: "2026-10-29T10:00:00Z", made_by: by, current: false }];
-  const calls = fakeServer({ ...base, "GET /projects/9/storyboard": [200, [frame({ file_id: 40, approved: true })]], "GET /projects/9/clips/prompts/price": [200, { clip_ids: [], credits: 6 }], "GET /projects/9/video": [404, { detail: "none" }], "GET /projects/9/clips": [200, [clip({ versions })]], "POST /projects/9/clips/1/versions/1/use": [200, clip({})] });
-  open("?stage=clips");
-  const card = await screen.findByLabelText("Clip c1");
-  await userEvent.click(within(card).getByText("Prompt versions for clip c1 · 2"));
-  await userEvent.click(within(card).getByRole("button", { name: "Go back to this" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/clips/1/versions/1/use")).toHaveLength(1));
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/clips/1/versions/1/use")).toHaveLength(2));
-});
 
 test("E: the breakdown's versions go back to an earlier one, and Undo goes back to the one replaced", async () => {
   setViewport(1440);
@@ -100,16 +54,6 @@ test("E: the breakdown's versions go back to an earlier one, and Undo goes back 
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown/versions/3/use")).toBe(true));
 });
 
-test("an editor who didn't make the video sees no earlier stills or versions to go back to (403 on the server)", async () => {
-  setViewport(1440);
-  const other = { ...base, "GET /projects/9": [200, { ...project, created_by_id: 7 }] as [number, unknown] };
-  fakeServer({ ...other, "GET /projects/9/storyboard": [200, [frame({ file_id: 40, earlier: [{ file_id: 38, prompt: "p", made_at: null, made_by: null }] })]], "GET /projects/9/storyboard/versions": [200, [{ index: null, made_at: null, made_by: null, frames: 1, current: true }, { index: 1, made_at: null, made_by: null, frames: 1, current: false }]] });
-  open();
-  await screen.findByLabelText("Frame c1");
-  expect(screen.queryByText(/Earlier stills/)).toBeNull();
-  expect(screen.queryByText(/Storyboard versions/)).toBeNull();
-});
-
 test("Go back on the breakdown waits while stills are being made, and says why", async () => {
   setViewport(1440);
   const versions = [
@@ -122,23 +66,4 @@ test("Go back on the breakdown waits while stills are being made, and says why",
   const back = within(screen.getByRole("list", { name: "Breakdown versions" })).getByRole("button", { name: /Go back to this/ });
   await vi.waitFor(() => expect(back).toBeDisabled());
   expect(back).toHaveAccessibleDescription(/Wait for the storyboard, stills and clip prompts being made/);
-});
-
-test("a clip's prompt versions wait while its take is being made", async () => {
-  setViewport(1440);
-  const versions = [{ index: 0, made_at: null, made_by: null, current: true }, { index: 1, made_at: null, made_by: null, current: false }];
-  fakeServer({
-    ...base,
-    "GET /jobs": [200, [{ id: 8, project_id: 9, project_clip_id: 1, step: "clip_take", status: "running", kind: "video", created_at: "2026-10-29T10:00:00Z", started_at: "2026-10-29T10:00:00Z" }]],
-    "GET /projects/9/storyboard": [200, [frame({ file_id: 40, approved: true })]],
-    "GET /projects/9/clips/prompts/price": [200, { clip_ids: [], credits: 6 }],
-    "GET /projects/9/video": [404, { detail: "none" }],
-    "GET /projects/9/clips": [200, [clip({ versions })]],
-  });
-  open("?stage=clips");
-  const card = await screen.findByLabelText("Clip c1");
-  await userEvent.click(within(card).getByText("Prompt versions for clip c1 · 2"));
-  const back = within(card).getByRole("button", { name: /Go back to this/ });
-  await vi.waitFor(() => expect(back).toBeDisabled());
-  expect(back).toHaveAccessibleDescription(/Wait for this clip's take or prompt being made/);
 });

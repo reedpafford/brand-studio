@@ -62,11 +62,22 @@ def _version(db: Session, row: ProjectClip, v: int, made_at, by_id: int | None) 
 
 
 def before_change(db: Session, row: ProjectClip) -> None:
-    """A prompt written before Versions (n13) becomes version 1 before it's replaced."""
+    """A prompt written before Versions (n13) becomes version 1 before it's replaced. Its takes,
+    and any being made, were made from it: they're marked version 1 too, so a later edit reads
+    as "Out of date" on them, never as current (Reed, rule 21: an edit buys no take)."""
     if not row.prompt_history and row.prompt:
         job = db.get(Job, row.job_id) if row.job_id else None
         made = job.created_at if job else row.created_at
         row.prompt_history = [_version(db, row, 1, made, job.created_by_id if job else None)]
+        for take in db.scalars(select(ClipTake).where(ClipTake.clip_id == row.id)):
+            if "prompt_version" not in (take.made_with or {}):
+                take.made_with = {**(take.made_with or {}), "prompt_version": 1}
+        waiting_jobs = select(Job).where(Job.project_id == row.project_id, Job.status.in_(WAITING))
+        for waiting in db.scalars(waiting_jobs):
+            mine = waiting.input.get("project_clip_id") == row.id and "made_with" in waiting.input
+            if mine and "prompt_version" not in waiting.input["made_with"]:
+                waiting.input = {**waiting.input, "made_with": {
+                    **waiting.input["made_with"], "prompt_version": 1}}  # fmt: skip
 
 
 def log_prompt(db: Session, row: ProjectClip, by_id: int | None) -> None:
@@ -86,8 +97,10 @@ def prompt_version(row: ProjectClip) -> int | None:
 
 def use_prompt(row: ProjectClip, index: int) -> None:
     """Go back to this (OR3): an earlier version is the prompt in hand again, its references
-    and breakdown with it; the one it replaces is index 1, so Undo is index 1. Free. It needs
-    reading again (Looks good); a version for an older breakdown reads Rewrite, as ever."""
+    and breakdown with it; the one it replaces is index 1, so Undo is index 1. Free, and it
+    makes nothing: the take in the cut stays approved and reads "Out of date" (OLDER_PROMPT)
+    until another take is made from it (Reed, 4 Nov). A version for an older breakdown reads
+    Rewrite, as ever."""
     history = list(row.prompt_history or [])
     if index == 0:
         raise HTTPException(409, "This is the prompt in use.")
@@ -97,7 +110,7 @@ def use_prompt(row: ProjectClip, index: int) -> None:
     row.prompt_history = [back, *history]
     row.prompt, row.references, row.seconds = back["prompt"], back["references"], back["seconds"]
     row.breakdown_id, row.problems, row.kept = back["breakdown_id"], back["problems"], back["kept"]
-    row.approved = row.prompt_ok = False
+    row.prompt_ok = False  # read again before the next take; the take in the cut is kept
     row.change = row.auto_fix = None
 
 

@@ -72,7 +72,7 @@ function VideoCard({ p, brandId, job }: { p: Project; brandId: number; job?: Job
   return (
     <div className="group">
       <MediaCard
-        to={`/b/${brandId}/projects/${p.id}`}
+        to={`/b/${brandId}/videos/${p.id}`}
         label={`${p.name}, ${label}, ${line}`}
         title={p.name}
         meta={line}

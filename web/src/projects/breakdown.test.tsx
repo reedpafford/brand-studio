@@ -2,7 +2,6 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
-import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
 import { editor } from "../test/people";
 
@@ -62,13 +61,6 @@ test("a song video's shots being made (started by Approve the plan) show as runn
   expect(screen.queryByText("No breakdown yet")).not.toBeInTheDocument();
 });
 
-test("with no set length, the breakdown says its own length, not \"22 s of 22 s planned\" (#749 LW9)", async () => {
-  fakeServer({ ...base, "GET /projects/9": [200, { ...project, planned_seconds: null, breakdown_seconds: 5 }], "GET /projects/9/breakdown": [200, breakdown()] });
-  open();
-  expect(await screen.findByText(/1 scene · 2 shots · 1 clip · 5 s$/)).toBeInTheDocument();
-  expect(screen.queryByText(/s planned/)).toBeNull();
-});
-
 test("the breakdown shows scenes, clips and shots with names, the spoken line and the star screens", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
   open();
@@ -84,28 +76,6 @@ test("the breakdown shows scenes, clips and shots with names, the spoken line an
   expect(within(second).getByText("Chart down")).toBeInTheDocument();
   expect(within(clip).getAllByText("Mia")).toHaveLength(2);
   expect(within(clip).getAllByText("Kitchen")).toHaveLength(2);
-});
-
-test("problems are listed in plain words and stop Next, with the reason", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: ["Shot 1.2 is a loss moment but shows no fomo screen.", "Clip c1 is 17 s; the model allows 4–15 s."] })] });
-  open();
-  const box = await screen.findByLabelText("Problems");
-  expect(within(box).getByText("Shot 1.2 is a loss moment but shows no fomo screen.")).toBeInTheDocument();
-  const next = screen.getByRole("button", { name: "Next: Storyboard" });
-  expect(next).toBeDisabled();
-  expect(next).toHaveAccessibleDescription("Fix the 2 problems in Shots first");
-});
-
-test("advice sits closed under one line, not as an error, and never stops Next", async () => {
-  const advice = "Advice: shot 1.2: a montage shot without the main character";
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [advice] })] });
-  open();
-  const box = await screen.findByLabelText("Advice");
-  expect(box).not.toHaveAttribute("open");
-  expect(within(box).getByText("Advice (1)")).toBeInTheDocument();
-  expect(screen.queryByLabelText("Problems")).toBeNull();
-  expect(within(box).getByText("shot 1.2: a montage shot without the main character")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeEnabled();
 });
 
 test("Keep anyway on breakdown advice calls keep and takes it out of the count", async () => {
@@ -141,30 +111,12 @@ test("a real problem stays a red row, apart from the advice", async () => {
   expect(within(box).queryByText(/slow hook/)).toBeNull();
 });
 
-test("a breakdown made for an older script is flagged and offers a new one", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ script_version: 3, stale: true })] });
-  open();
-  expect(await screen.findByText("This breakdown was made for older words.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make it again · up to 6 credits" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveAccessibleDescription("Make new shots first");
-});
-
 test("Redo asks first when the breakdown was edited, and a failed run says nothing was charged", async () => {
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ source: "edit" })] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Redo · up to 6 credits" }));
   expect(confirm).toHaveBeenCalledWith("Replace this breakdown? Your edits are kept in History.");
-});
-
-test("Shots stay locked until there is a script", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/script": [404, { detail: "no script" }], "GET /projects/9/breakdown": [409, { detail: "Add a script first." }] });
-  open();
-  const steps = await screen.findByRole("list", { name: "Steps" });
-  const shots = within(steps).getByRole("button", { name: "Shots" });
-  expect(shots).toHaveAttribute("aria-disabled", "true");
-  expect(shots).toHaveAccessibleDescription("Finish Script first");
 });
 
 const twoClips = () =>
@@ -246,34 +198,6 @@ test("Discard throws the draft away", async () => {
   expect(screen.queryByText(/EXTRA/)).not.toBeInTheDocument();
 });
 
-test("with a finished video, unsaved edits say what saving them marks out of date (#749 LW1)", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
-  await userEvent.type(screen.getByLabelText("Shot 1.1 camera"), " EXTRA");
-  expect(await screen.findByText(/Saving them marks Clips and Final cut out of date; your finished video stays downloadable\./)).toBeInTheDocument();
-});
-
-test("on desktop Next waits, disabled, while edits are unsaved, and says why", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()] });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
-  await userEvent.type(screen.getByLabelText("Shot 1.1 camera"), " EXTRA");
-  const next = screen.getByRole("button", { name: "Next: Storyboard" });
-  expect(next).toBeDisabled();
-  expect(next).toHaveAccessibleDescription("Save your changes first.");
-  expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
-});
-
-test("Redo is a secondary button; Next is the only primary one", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()] });
-  open();
-  const redo = await screen.findByRole("button", { name: "Redo · up to 6 credits" });
-  expect(redo).not.toHaveClass("bg-accent");
-  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toHaveClass("bg-accent");
-});
-
 test("Reed past the budget gets the plain button: pressing it is his approval", async () => {
   fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
   open();
@@ -334,15 +258,6 @@ describe("on a phone", () => {
   });
 });
 
-test("a clean breakdown opens the Storyboard step with Next", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown()], "GET /projects/9/storyboard": [200, []] });
-  open();
-  const next = await screen.findByRole("button", { name: "Next: Storyboard" });
-  expect(next).toBeEnabled();
-  await userEvent.click(next);
-  expect(await screen.findByText("No frames yet.")).toBeInTheDocument();
-});
-
 test("a breakdown run is recognised by its step, even after a reload; an Enhance run is not mistaken for it", async () => {
   const running = (step: string) => [{ id: 3, kind: "write-claude", step, status: "running", credits: 6, project_id: 9, created_at: "2026-10-23T10:00:00Z" }];
   fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "none" }], "GET /jobs": [200, running("breakdown")] });
@@ -367,36 +282,6 @@ test("every tap target on a shot is at least 44px tall below the sm width", asyn
   expect(mia.closest("label")?.className).toContain("min-h-11");
 });
 
-const castProblem = "Check the cast: shot 1.1: the script has Nate here, but the shot shows Mogging BF instead of Carl";
-
-test("a cast problem blocks Next, offers Keep anyway and the free fix; the fix says how many shots and Undo puts the old cast back", async () => {
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/breakdown": [200, breakdown({ problems: [castProblem], kept: [] })],
-    "POST /projects/9/breakdown/fix-cast": [200, { ...breakdown(), changed_shots: [{ shot_id: "1.1", before: ["char:9"], after: ["char:4"] }], kept: [] }],
-    "PUT /projects/9/breakdown": [200, { ...breakdown(), problems: [castProblem] }],
-  });
-  open();
-  const box = await screen.findByLabelText("Problems");
-  expect(within(box).getByText(castProblem)).toBeInTheDocument();
-  expect(screen.getByText("Free. Uses who the script names in each line.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeDisabled();
-  expect(within(box).getByRole("button", { name: /Keep anyway/ })).toBeInTheDocument();
-  await userEvent.click(within(box).getByRole("button", { name: "Put the right cast in each shot" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown/fix-cast")).toBe(true));
-  expect(await screen.findByText("Cast fixed in 1 shot.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/breakdown")).toBe(true));
-});
-
-test("a cast problem kept anyway stops blocking and moves under the closed list, where the keep can be undone", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ problems: [castProblem], kept: [castProblem] })] });
-  open();
-  expect(await screen.findByText("Advice (0)")).toBeInTheDocument();
-  expect(screen.queryByLabelText("Problems")).toBeNull();
-  expect(screen.getByRole("button", { name: "Next: Storyboard" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: /Undo keep/, hidden: true })).toBeInTheDocument();
-});
 
 test("a shot with no script lines (a reaction or an insert) shows no line label and does not break the page", async () => {
   const wordless = breakdown({ breakdown: { ...breakdown().breakdown, scenes: [{ ...breakdown().breakdown.scenes[0], shots: [shot({}), shot({ id: "1.2", script_lines: [], line: null, speaker: null })] }] } });
@@ -539,23 +424,6 @@ test("removing a place or a screen the video doesn't have says how to use it aga
   await userEvent.click(await screen.findByRole("button", { name: "Edit shot 1.1" }));
   await userEvent.click(await screen.findByRole("button", { name: "Remove Bin Lot from this shot" }));
   expect(await screen.findByText("Removed Bin Lot from shot 1.1. To use it again, add it in Cast & places, then pick it in this shot.")).toBeInTheDocument();
-});
-
-test("Split the clip is free and the budget is asked again for what's left (QA-3 #1013)", async () => {
-  const long = "clip c1: 25 s is outside 4–15 s";
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/estimate": [200, { stages: [], remaining_credits: 4, used_credits: 0, budget_credits: 60 }],
-    "GET /projects/9/breakdown": [200, breakdown({ problems: [long], fixes: [{ problem: long, kind: "split_clip", label: "Split the clip" }] })],
-    "POST /projects/9/breakdown/fix": [200, { ...breakdown(), fixed: ["Split clip 1 so the video model can make it."] }],
-  });
-  open();
-  const box = await screen.findByLabelText("Problems");
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /projects/9/estimate")).toBe(true));
-  const before = calls.filter((c) => c.key === "GET /projects/9/estimate").length;
-  await userEvent.click(within(box).getByRole("button", { name: `Split the clip: ${long}` }));
-  expect(await screen.findByText("Split clip 1 so the video model can make it.")).toBeInTheDocument();
-  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/9/estimate").length).toBeGreaterThan(before));
 });
 
 test("Make the breakdown shows the server's price for it (the clip prompts' rewrite included), not the writing rate", async () => {

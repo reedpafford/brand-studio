@@ -1,6 +1,4 @@
-import type { StepState } from "../components";
-
-/** A video has six steps. `?stage=enhance` and `?stage=breakdown` from before still work (they open Script and Shots). */
+/** An earlier-way video's six steps (its card and its held requests name them). */
 export const STEPS = [
   { id: "brief", label: "Brief" },
   { id: "script", label: "Script" },
@@ -10,13 +8,6 @@ export const STEPS = [
   { id: "final", label: "Final video" },
 ] as const;
 export type StepId = (typeof STEPS)[number]["id"];
-const ALIAS: Record<string, StepId> = { enhance: "script", breakdown: "shots" };
-
-export function stepFromParams(params: URLSearchParams): StepId {
-  const asked = params.get("stage") ?? (params.get("tab") === "script" ? "script" : "brief");
-  const named = ALIAS[asked] ?? asked;
-  return (STEPS.find((s) => s.id === named)?.id ?? "brief") as StepId;
-}
 
 /** What exists so far, in the few facts the steps care about. */
 export type Progress = {
@@ -59,7 +50,7 @@ export function firstUnfinished(p: Progress): StepId {
   return "final";
 }
 
-export function isDone(step: StepId, p: Progress): boolean {
+function isDone(step: StepId, p: Progress): boolean {
   switch (step) {
     case "brief":
       return true;
@@ -75,18 +66,3 @@ export function isDone(step: StepId, p: Progress): boolean {
       return p.video.made && !p.video.outOfDate;
   }
 }
-
-/** An earlier step changed after this one was done: it says "out of date". */
-export function isStale(step: StepId, p: Progress): boolean {
-  return (step === "shots" && p.shots.made && p.shots.stale) || (step === "storyboard" && p.frames.stale) || (step === "clips" && p.clips.stale) || (step === "final" && p.video.made && p.video.outOfDate);
-}
-
-export function stepStates(current: StepId, p: Progress): { id: StepId; label: string; state: StepState; reason?: string }[] {
-  return STEPS.map((s) => {
-    const reason = lockReason(s.id, p);
-    const state: StepState = s.id === current ? "current" : reason !== null ? "todo" : isStale(s.id, p) ? "stale" : isDone(s.id, p) ? "done" : "open";
-    return { id: s.id, label: s.label, state, reason: reason ?? undefined };
-  });
-}
-
-export const nextOf = (step: StepId): (typeof STEPS)[number] | null => STEPS[STEPS.findIndex((s) => s.id === step) + 1] ?? null;

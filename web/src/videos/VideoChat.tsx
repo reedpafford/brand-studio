@@ -26,7 +26,7 @@ import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview
 import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
 import { InsteadCard } from "./InsteadCard";
 import { DeliveryNote, Failed, PastNote, RunCard, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
-import { MoveDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
+import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 
 type Project = components["schemas"]["ProjectOut"];
 type Run = components["schemas"]["DirectorOut"];
@@ -68,6 +68,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const [side, setSide] = useState<"chat" | "preview">(params.get("tab") || params.get("step") ? "preview" : "chat"); // the phone's switch
   const [stopping, setStopping] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [opened, setOpened] = useState<TabId | null>(null);
   const [cutSeen, setCutSeen] = useState(false);
   const previewSide = useRef<HTMLDivElement>(null);
@@ -157,6 +158,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       cut={cutFile ? { file: cutFile, name: mp4(title) } : null}
       onStop={!rail && running && maker ? () => setStopping(true) : undefined}
       onMove={p && maker && !archived ? () => setMoving(true) : undefined}
+      onRename={p && maker && !archived ? () => setRenaming(true) : undefined}
       onRelease={target && maker && !archived && !finished && p.script_draft_id && !fs ? () => video.release(target) : undefined}
       onArchive={target && maker && !archived && finished ? () => video.archive(target) : undefined}
     />
@@ -198,6 +200,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
         </>
       )}
       {video.dialog}
+      {renaming && p && <RenameDialog projectId={id} freestyleId={fs?.id ?? null} title={title} onClose={() => setRenaming(false)} />}
       {moving && p && <MoveDialog brandId={brandId} projectId={id} title={title} now={head.data?.folder?.id ?? p.folder_id ?? null} onClose={() => setMoving(false)} />}
       {stopping && (
         <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending || actions.stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => (fs ? actions.stop.mutate(undefined, { onSettled: () => setStopping(false) }) : stop.mutate())}>

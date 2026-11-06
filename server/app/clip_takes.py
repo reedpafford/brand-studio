@@ -472,15 +472,21 @@ def save_take(db: Session, job: Job) -> None:
                     made_with=job.input.get("made_with") or {})  # fmt: skip
     db.add(take)
     db.flush()
-    pick(clip, take)
+    # The prompt was edited while this take was being made (Reed, rule 21): the take is used,
+    # read as "Out of date", and the edit stays in hand; it's never put back, nor a take bought.
+    edited = (take.made_with or {}).get("prompt_version") not in (None, prompt_version(clip))
+    pick(clip, take, keep_prompt=edited)
     from app import take_watch  # rule 11: the director watches and hears it as it lands
 
     take_watch.queue_safely(db, job, take, clip)
 
 
-def pick(clip: ProjectClip, take: ClipTake) -> None:
-    """Use this take; its prompt comes back with it (Undo of a change note)."""
+def pick(clip: ProjectClip, take: ClipTake, keep_prompt: bool = False) -> None:
+    """Use this take; its prompt comes back with it (Undo of a change note), unless the
+    prompt in hand is to stay (`keep_prompt`: edited while the take was being made)."""
     clip.picked_take_id, clip.file_id, clip.approved = take.id, take.file_id, False
+    if keep_prompt:
+        return
     if take.prompt is not None:
         clip.prompt = take.prompt
     v = (take.made_with or {}).get("prompt_version")  # OR3: its version is the one in hand

@@ -84,6 +84,7 @@ class WatchOut(BaseModel):
     remake_credits: float | None = None  # the remake's "up to"
     remake_take: int | None = None  # the take the remake became, once it's made
     waiting: bool = False  # the remake waits for the owner's OK (past the budget)
+    kept_by: str | None = None  # a person kept a flagged take (Keep it): their name
 
 
 class TakeOut(BaseModel):
@@ -98,6 +99,8 @@ class TakeOut(BaseModel):
     mutes: list[list[float]] = []  # stretches muted, as added: Undo takes back one (take_mute)
     watch: WatchOut | None = None  # the director's watch of it (app/take_watch)
     remade_from: int | None = None  # the take number its watch remade it from
+    model: str | None = None  # the model it was made with, by name ("Seedance 2.0")
+    from_still: int | None = None  # the still (file id) it was made from: "From still 2"
 
 
 class SoundOut(BaseModel):
@@ -158,6 +161,7 @@ class PromptVersionOut(BaseModel):
     made_at: str
     made_by: Maker | None  # null: written by Claude for a job nobody is named on, or before
     current: bool
+    prompt: str = ""  # the prompt as it was (History shows it before Go back to this)
 
 
 class ClipModelOut(BaseModel):
@@ -196,12 +200,17 @@ class ProjectClipOut(BaseModel):
     versions: list[PromptVersionOut] = []  # OR3: this prompt's versions, the one in hand first
     sound: SoundOut | None = None  # the picked take's added sound effects; null with no take
     model: ClipModelOut | None = None  # v6 F: the model it's made with and one line on why
+    # The Clips tab's Cost line (S6-02: "$0.64 (2 takes)"): what its takes, stills and their
+    # watches have charged, in credits, and how many stills it has had.
+    spent: float = 0
+    stills: int = 0
 
 
 def _versions(db: Session, row: ProjectClip) -> list[PromptVersionOut]:
     from app.auth import user_name
 
     return [PromptVersionOut(index=i, made_at=e["made_at"], current=i == 0,
+                             prompt=e.get("prompt") or "",
                              made_by=Maker(id=by, name=user_name(db, by)) if (
                                  by := e.get("made_by_id")) else None)
             for i, e in enumerate(row.prompt_history or [])]  # fmt: skip
@@ -219,7 +228,7 @@ _stale = clip_prompts.is_stale
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
                 "take_stale", "approved", "retrying", "retried", "auto_fix",
-                "look_fix", "versions", "sound", "model")  # fmt: skip
+                "look_fix", "versions", "sound", "model", "spent", "stills")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -228,6 +237,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
             asked = {**asked, "status": "failed", "error": change.UNFINISHED}  # or stopped)
     inserts = [InsertOut(**vars(i), use_real_image=i.on) for i in cut_in.inserts(db, project, row)]
     takes = _takes(db, row)
+    stills = _stills(db, row)  # S-gaps-08 2: the still each take was made from
     checks = item_checks.latest(db, "take", [t.id for t in takes])
     words = item_checks.latest(db, "words", [t.id for t in takes])
     return ProjectClipOut(
@@ -248,6 +258,8 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
                 mutes=take_mute.spans(t),
                 watch=watch_report.shown(db, t),
                 remade_from=(t.made_with or {}).get("remade_from"),
+                model=_model_name((t.made_with or {}).get("model")),
+                from_still=next(iter(clip_prompts._sent(db, row, t) & stills), None),
             )  # fmt: skip
             for t in takes
         ],
@@ -270,7 +282,68 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         versions=_versions(db, row),
         sound=take_sound.state(db, next((t for t in takes if t.id == row.picked_take_id), None)),
         model=ClipModelOut(**model_map.why(db, project, row)),
+        **_spent(db, row),
     )
+
+
+FACTS = "clip_facts"  # db.info: one video's frames and charged jobs, read once for a whole list
+
+
+def _facts(db: Session, project_id: int) -> tuple[list, list]:
+    """The video's storyboard frames and its counted jobs: from the list's one read, else read."""
+    from app.credits import COUNTED
+    from app.models.storyboards import StoryboardFrame
+
+    if (cached := db.info.get(FACTS)) and cached[0] == project_id:
+        return cached[1], cached[2]
+    frames = list(db.scalars(select(StoryboardFrame).where(
+        StoryboardFrame.project_id == project_id)))  # fmt: skip
+    jobs = list(db.scalars(select(Job).where(Job.project_id == project_id,
+                                             Job.status.in_(COUNTED))))  # fmt: skip
+    return frames, jobs
+
+
+def _frames_of(db: Session, row: ProjectClip) -> list:
+    frames, _ = _facts(db, row.project_id)
+    return [f for f in frames if f.clip_id == row.clip_id and f.breakdown_id == row.breakdown_id]
+
+
+def _stills(db: Session, row: ProjectClip) -> set[int]:
+    """Every still the clip's frame has had (the one in use and the earlier ones)."""
+    out = set()
+    for f in _frames_of(db, row):
+        out |= {f.file_id} if f.file_id else set()
+        out |= {e["file_id"] for e in f.earlier or [] if e.get("file_id")}
+    return out
+
+
+def _spent(db: Session, row: ProjectClip) -> dict:
+    """What this clip's takes, stills, their checks and its prompt rewrites have charged
+    (credits), and how many stills it has had."""
+    frames = _frames_of(db, row)
+    _, jobs = _facts(db, row.project_id)
+    takes, ids = {t.id for t in _takes(db, row)}, {f.id for f in frames}
+
+    def mine(i: dict) -> bool:
+        if i.get("project_clip_id") == row.id or i.get("frame_id") in ids:
+            return True
+        if i.get("take_id") in takes or (i.get("watch") or {}).get("take_id") in takes:
+            return True
+        return (i.get("target"), i.get("target_id")) in {("clip", row.id),
+                                                         *(("frame", f) for f in ids)}  # fmt: skip
+
+    spent = sum(float(j.credits or 0) for j in jobs if mine(j.input or {}))
+    stills = sum(bool(f.file_id) + len(f.earlier or []) for f in frames)
+    return {"spent": round(spent, 3), "stills": stills}
+
+
+def _model_name(model_id: str | None) -> str | None:
+    from app.catalogue import get_model
+
+    try:
+        return get_model(model_id).name if model_id else None
+    except (KeyError, ValueError):
+        return model_id  # a model since taken out of the catalogue: its id
 
 
 def _clip(db: Session, user: User, project_id: int, clip_id: int):
@@ -426,7 +499,11 @@ def list_clips(project_id: int, user: User = Depends(current_user), db: Session 
     if any([breakdown.complete_cast(db, project), clip_prompts.repair(db, project)]):
         db.commit()
     newest = _newest_breakdown(db, project)
-    return [_out(db, r, newest) for r in _clips(db, project.id)]
+    db.info[FACTS] = (project.id, *_facts(db, project.id))  # one read for every clip's cost
+    try:
+        return [_out(db, r, newest) for r in _clips(db, project.id)]
+    finally:
+        db.info.pop(FACTS, None)
 
 
 @router.put("/clips/{clip_id}", response_model=ProjectClipOut)
@@ -595,6 +672,51 @@ def pick_take(
         take_approval.after_check(db, take.id)  # a clean take approves itself (QA-3)
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
+
+
+@router.post("/clips/{clip_id}/takes/{take_id}/use", response_model=ProjectClipOut)
+def use_take(
+    project_id: int,
+    clip_id: int,
+    take_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Use this take · free (S-gaps-08 5): a person's pick is their OK too (rule 21), so the
+    clip is ready for the cut at once."""
+    pick_take(project_id, clip_id, take_id, user, db)
+    return approve(project_id, clip_id, user, db)
+
+
+@router.post("/clips/{clip_id}/takes/{take_id}/keep", response_model=ProjectClipOut)
+def keep_take(
+    project_id: int,
+    clip_id: int,
+    take_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Keep it (S6-04): a take the director's watch flagged, wasn't sure of, or held for the
+    owner's OK on its remake, is kept by a person. Its watch says who kept it, the flag clears,
+    and it is the clip's take (free)."""
+    from app.auth import user_name
+
+    _, row = _clip(db, user, project_id, clip_id)
+    take = db.get(ClipTake, take_id)
+    if not take or take.clip_id != row.id:
+        raise HTTPException(404, "No such take.")
+    watch = take.watch or {}
+    shown = watch_report.shown(db, take) or {}  # a talker's take shows its host piece's watch
+    if shown.get("action") not in ("flagged", "unsure", "held"):
+        raise HTTPException(409, "The director didn't flag this take: there's nothing to keep.")
+    if shown.get("action") == "held" and (remake := watch.get("remake_job_id")):
+        from app.routes.jobs import stop_jobs
+
+        stop_jobs(db, Job.id == remake)  # its remake waited for the owner's OK: nobody wants it now
+    name = user_name(db, user.id)
+    take.watch = {**watch, "action": "keep", "kept_by": name, "did": f"Kept by {name}."}
+    db.flush()
+    return use_take(project_id, clip_id, take_id, user, db)
 
 
 @router.post("/clips/{clip_id}/approve", response_model=ProjectClipOut)

@@ -338,7 +338,7 @@ function UsedIn({ item, brandId }: { item: Item; brandId: number }) {
           const [words, dot, text] = USED[u.status];
           return (
             <li key={u.project_id}>
-              <Link to={`/b/${brandId}/projects/${u.project_id}`} className="flex min-h-14 items-center gap-3 px-3 hover:bg-surface-2">
+              <Link to={`/b/${brandId}/videos/${u.project_id}`} className="flex min-h-14 items-center gap-3 px-3 hover:bg-surface-2">
                 <Picture id={u.still_file_id} alt="" className="h-[39px] w-[22px] shrink-0" />
                 <span className="min-w-0 grow truncate font-medium">{u.name}</span>
                 <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${text}`}>

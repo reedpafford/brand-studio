@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
 import { Dialog, Select, useViewOnly } from "../components";
-import { useFrames } from "./StoryboardPane";
+import { useFrames } from "./useProgress";
 import { errorText as errorClass } from "../ui";
 
 const SHAPES = ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"] as const;

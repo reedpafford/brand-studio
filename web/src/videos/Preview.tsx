@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Download, Lock, Scissors } from "lucide-react";
+import { api } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Banner, Button, Skeleton, ViewOnly, buttonClass, useViewOnly } from "../components";
 import { mmss } from "../freestyle/FromScript";
 import { BreakdownPane } from "../projects/BreakdownPane";
-import { CheckSummary } from "../projects/Checks";
-import { ClipsStep } from "../projects/ClipsStep";
 import { PlanStep } from "../projects/PlanStep";
 import { ShapeRow } from "../projects/ShapeRow";
 import { VideoSettings, useVideoSettings } from "../projects/VideoSettings";
@@ -16,6 +16,7 @@ import { useCut, useMakeCut, useProgress, useProjectClips, useProjectVideo } fro
 import { videoHold, videoLock, type VideoProgress } from "../projects/videoSteps";
 import { FinalSong, SongStrip, useSongChanged } from "../scripts/VideoSong";
 import { CastPane } from "../cast/CastPane";
+import { ClipsPane } from "../clips/ClipsPane";
 import { notInShots, useAssets } from "../cast/useAssets";
 import { Empty, SOON } from "./Empty";
 import { mp4, type Head } from "./VideoHead";
@@ -267,8 +268,8 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
 }
 
 /** The clips (today's Clips step until screen 8): the stills and the takes, each clip's line, and their holds. */
-function ClipsTab({ p, progress, go, toChat }: PaneProps) {
-  const { media, script } = useProgress(p.id);
+function ClipsTab(props: PaneProps) {
+  const { progress, go, toChat } = props;
   // Nothing drawn yet and the stills can't start: what fills in here, why it waits and the one press that gets it going.
   const waits = progress.frames.total === 0 && progress.clips.total === 0 ? videoLock("storyboard", progress) : null;
   if (waits)
@@ -277,7 +278,6 @@ function ClipsTab({ p, progress, go, toChat }: PaneProps) {
         {waits}
       </Empty>
     );
-  const takes = videoLock("clips", progress);
   const held = videoHold("clips", progress) ?? videoHold("storyboard", progress);
   return (
     <>
@@ -299,22 +299,7 @@ function ClipsTab({ p, progress, go, toChat }: PaneProps) {
           )}
         </p>
       )}
-      <CheckSummary projectId={p.id} />
-      {takes && <p className="text-sm text-muted">Takes: {takes}</p>}
-      <ClipsStep
-        projectId={p.id}
-        brandId={p.brand_id}
-        aspect={p.aspect_ratio}
-        projectName={p.name}
-        used={p.credits_used}
-        budget={p.budget_credits}
-        scriptVersion={script.data?.version ?? 0}
-        castRedraw={p.cast_redraw}
-        clipCount={media.clips}
-        clipsLock={takes}
-        stillsHold={videoHold("storyboard", progress)?.why ?? null}
-        clipsHold={videoHold("clips", progress)}
-      />
+      <ClipsPane {...props} />
     </>
   );
 }
@@ -361,18 +346,39 @@ function ScriptTabPane({ p, lines, pickLine }: PaneProps) {
   const script = useLatestScript(p.id);
   // The words someone asked to change, marked where they're said (S3-14): the newest such ask's.
   const asked = (useAsks(p.id, false).data ?? []).filter((a) => a.kind === "instead").at(-1)?.subject;
+  // The notes saved on the script (the old page's script panel showed them): kept here, read only, by line.
+  const notes = useQuery({ queryKey: ["script-notes", p.id, script.data?.version], enabled: !!script.data, retry: false, queryFn: async () => (await api.GET("/projects/{project_id}/script/notes", { params: { path: { project_id: p.id } } })).data ?? [] });
   if (script.isPending) return <Skeleton className="h-64" />;
   if (!script.data) return <Empty title="No script yet">The words the director makes the video from show here.</Empty>;
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
-      {p.script_draft_id != null && (
-        <p className="flex items-center gap-2 text-[13px] text-muted">
-          <Lock size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
-          Published script · the words are set
-        </p>
+    <div className="space-y-3">
+      <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
+        {p.script_draft_id != null && (
+          <p className="flex items-center gap-2 text-[13px] text-muted">
+            <Lock size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+            Published script · the words are set
+          </p>
+        )}
+        {lines.length > 0 && <p className="text-sm text-muted">Lines for this step are highlighted.</p>}
+        <ScriptText text={script.data.text} highlight={lines} marks={asked ? [asked] : []} onLineClick={pickLine} />
+      </div>
+      {notes.isError && <p className="text-sm text-muted">Couldn’t load the notes saved on the script. They’re kept; open this tab again to see them.</p>}
+      {(notes.data ?? []).length > 0 && (
+        <section aria-label="Notes on the script" className="space-y-2 rounded-lg border border-border bg-surface p-4">
+          <h3 className="text-sm font-semibold">Notes on the script</h3>
+          <ul className="space-y-1.5 text-sm">
+            {notes.data!.map((n) => (
+              <li key={`${n.line}-${n.text}`}>
+                <button type="button" onClick={() => pickLine(n.line)} className="text-accent-text hover:underline">
+                  Line {n.line}
+                </button>{" "}
+                {n.text}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted">To change the direction, tell the director in the chat.</p>
+        </section>
       )}
-      {lines.length > 0 && <p className="text-sm text-muted">Lines for this step are highlighted.</p>}
-      <ScriptText text={script.data.text} highlight={lines} marks={asked ? [asked] : []} onLineClick={pickLine} />
     </div>
   );
 }

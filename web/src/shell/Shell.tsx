@@ -77,11 +77,10 @@ function Frame() {
     };
   }, [node]);
   // Inside one video on a phone, the video's own header line replaces the brand bar.
-  const oldVideo = useMatch("/b/:brandId/projects/:projectId");
   const newVideo = useMatch("/b/:brandId/videos/:projectId");
-  const video = newVideo ?? oldVideo;
+  const newProject = useMatch("/b/:brandId/projects/new");
   // New video has its own title bar on a phone too (B_PhoneNew).
-  const inVideo = !rail && video !== null && (/^\d+$/.test(video.params.projectId ?? "") || video.params.projectId === "new");
+  const inVideo = !rail && ((newVideo !== null && (/^\d+$/.test(newVideo.params.projectId ?? "") || newVideo.params.projectId === "new")) || newProject !== null);
   const folderPage = useMatch("/b/:brandId/videos");
   const needsYouPage = useMatch("/approvals");
   const onFolders = !rail && (folderPage !== null || needsYouPage !== null); // P-01, P-02 and P-14 draw their own header

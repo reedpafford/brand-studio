@@ -60,7 +60,8 @@ def unsure(found: list[dict]) -> str:
 def shown(db: Session, item, target: str = "take") -> dict | None:
     """A take's (or a host piece's, `target` "piece") watch as the Clips tab reads it
     (WatchOut), or None before any. A talker clip's take shows its talker take's, live."""
-    if target == "take" and (talker := (item.made_with or {}).get("talker")):
+    talker = (item.made_with or {}).get("talker") if target == "take" else None
+    if talker and not (item.watch or {}).get("kept_by"):  # kept by a person: their mark shows
         return _talker(db, item, talker)
     w = item.watch
     if not w:
@@ -73,9 +74,13 @@ def shown(db: Session, item, target: str = "take") -> dict | None:
     look = db.get(Job, w["job_id"]) if w.get("job_id") else None
     remake = db.scalar(select(ClipTake.number).where(ClipTake.job_id == w["remake_job_id"])
                        ) if w.get("remake_job_id") and target == "take" else None  # fmt: skip
-    held = db.get(Job, w["remake_job_id"]) if w.get("action") == "held" else None
+    held = (
+        db.get(Job, w["remake_job_id"])
+        if w.get("action") == "held" and w.get("remake_job_id")
+        else None
+    )
     return {**{k: w.get(k) for k in ("state", "found", "did", "action", "note", "at",
-                                     "remake_credits")},
+                                     "remake_credits", "kept_by")},
             "faults": [{k: f.get(k) for k in ("kind", "at", "says")} | {
                 "verified": f.get("verified", True)} for f in w.get("faults") or []],
             "credits": float(look.credits) if look and look.status == JobStatus.succeeded else None,

@@ -171,7 +171,7 @@ test("One brand's Videos: a row per video with who, status in words, the whole v
   expect(screen.getByText("(earlier way)")).toBeInTheDocument();
   expect(within(screen.getByRole("table")).getByText("Didn't finish")).toBeInTheDocument();
   expect(screen.getByText("Videos with activity this week · 31")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Bo tries salmon · B" })).toHaveAttribute("href", "/b/1/projects/31");
+  expect(screen.getByRole("link", { name: "Bo tries salmon · B" })).toHaveAttribute("href", "/b/1/videos/31");
 });
 
 test("One brand's Scripts tab: author, version chips that open what the library opens, versions left, spend", async () => {
@@ -183,7 +183,7 @@ test("One brand's Scripts tab: author, version chips that open what the library 
   expect(within(script).getByText("Reed")).toBeInTheDocument();
   expect(within(script).getByText("1 left")).toBeInTheDocument();
   expect(within(script).getByText("$19.40")).toBeInTheDocument();
-  expect(within(script).getByLabelText("Version A, finished").closest("a")).toHaveAttribute("href", "/b/1/projects/31");
+  expect(within(script).getByLabelText("Version A, finished").closest("a")).toHaveAttribute("href", "/b/1/videos/31");
   expect(within(script).getByLabelText("Version B, in production by Sam")).toBeInTheDocument();
   expect(within(script).getByLabelText("Version C, ready to make").closest("a")).toHaveAttribute("href", "/b/1/scripts?make=7.2");
 });

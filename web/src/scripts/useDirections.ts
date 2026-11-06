@@ -3,13 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText, must } from "../api/client";
 import { GOING, useJobs } from "../clip/History";
 import { refreshJobs } from "../jobs/refresh";
-import type { EnhanceState } from "../projects/Enhance";
 import { useToast } from "../toast";
 
 const SLOT = 0;
 
-/** Suggest directions for a library script's original, in the same shape as a video's Enhance so the same lines and buttons work. */
-export function useDirections(scriptId: number, text: string): EnhanceState {
+/** Suggest directions for a library script's original: the run, its marks and notes, and what you do with them. */
+export function useDirections(scriptId: number, text: string) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const path = { script_id: scriptId, slot: SLOT };
@@ -70,5 +69,5 @@ export function useDirections(scriptId: number, text: string): EnhanceState {
   const shown = (marks.data ?? []).filter((m) => m.status !== "rejected" && (!filter || m.kind === filter));
   const key = (n: { line: number; text: string }) => `${last?.id ?? 0}:${n.line}:${n.text}`;
   const visibleNotes = (notes.data ?? []).filter((n) => !gone.includes(key(n)));
-  return { marks: marks.data ?? [], notes: visibleNotes, last, running, cost: estimate.data?.credits, start, decide, apply, acceptMany, dismiss: (n) => setGone((g) => [...g, key(n)]), filter, setFilter, focusId, setFocusId, shown } as EnhanceState;
+  return { marks: marks.data ?? [], notes: visibleNotes, last, running, cost: estimate.data?.credits, start, decide, apply, acceptMany, dismiss: (n: { line: number; text: string }) => setGone((g) => [...g, key(n)]), filter, setFilter, focusId, setFocusId, shown };
 }

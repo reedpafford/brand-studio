@@ -714,3 +714,41 @@ def save_still(db: Session, job: Job) -> None:
 
         queue_safely(db, job, "frame", frame.id, file_ids[0], frame.reference_ids or [],
                      frame.breakdown_id, [frame.shot_id])  # fmt: skip
+        if job.input.get("then_take"):
+            take_from_still(db, job, frame)
+
+
+def take_from_still(db: Session, job: Job, frame: StoryboardFrame) -> None:
+    """Change the still… on a clip that has a take (S-gaps-08 2): the new still is the one in
+    use (the person asked for it; rule 21), and its clip's new take is made from it, already
+    paid for with the change. A take it can't start says why on the clip, never silently."""
+    from app import advice, change, clip_prompts, clip_takes
+    from app.models.accounts import User
+    from app.routes.jobs import enqueue
+
+    clip = change.clip_of(db, frame)
+    if clip is None:
+        return
+    frame.approved = True
+    project = db.get(Project, frame.project_id)
+    newest = db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
+                       .order_by(BreakdownVersion.id.desc()).limit(1))  # fmt: skip
+    # The same checks as Another take: never a take from a prompt with a problem, or one made
+    # for an older plan. The still stays; the clip says what to press first.
+    if stops := advice.stops(clip):
+        clip.change = {"note": "", "status": "failed", "job_id": job.id, "error": "The new still "
+                       f"is in. Its take waits: {stops[0].rstrip('.')}. Press Fix this clip's "
+                       "prompt (free), then Another take."}  # fmt: skip
+        return
+    if newest and clip_prompts.is_stale(db, clip, newest):
+        clip.change = {"note": "", "status": "failed", "job_id": job.id, "error": "The new still "
+                       "is in. This clip was made for an older plan: rewrite its prompt, then "
+                       "Another take."}  # fmt: skip
+        return
+    db.commit()
+    try:
+        data = clip_takes.take_input(db, project, clip, "")
+        enqueue(db, db.get(User, job.created_by_id), "video", data, units=clip.seconds,
+                project=project, provider="replicate", prepaid=True)  # fmt: skip
+    except HTTPException as e:  # its Another take says the price again
+        clip.change = {"note": "", "status": "failed", "job_id": job.id, "error": e.detail}
