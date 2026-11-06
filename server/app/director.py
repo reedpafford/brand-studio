@@ -583,8 +583,8 @@ def after(db: Session, job: Job, storage) -> None:
             return
         if job.status == JobStatus.succeeded:
             _act(db, job, storage)
-        else:
-            _end(job, TURN_FAILED)
+        elif not _again(db, job):
+            _end(job, turn_failed(job))
         return
     run_id = (job.input.get(RUN) or {}).get("id")
     if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
@@ -594,6 +594,34 @@ def after(db: Session, job: Job, storage) -> None:
             return
     if job.project_id:
         wake(db, db.get(Project, job.project_id))
+
+
+RETRIED = "retried"  # in a failed turn's input: the same turn was asked again (`_again`)
+
+
+def _again(db: Session, job: Job) -> bool:
+    """A turn whose answer came back cut off or unreadable is asked once more, on its own
+    (audit 6 Nov: one bad answer ended the run): the same turn, needing no new OK; only its
+    answer, if it comes, is charged. Whether it was asked again."""
+    from app.claude import RAN_OUT, UNREADABLE
+
+    if job.retry_of_id or (job.error_detail or "") not in (RAN_OUT, UNREADABLE):
+        return False
+    job.input = {**job.input, RETRIED: True}
+    db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
+               provider=job.provider, input={k: v for k, v in job.input.items() if k != RETRIED},
+               project_id=job.project_id, brand_id=job.brand_id, credits=job.credits,
+               approved_by_id=job.approved_by_id, status=JobStatus.queued,
+               retry_of_id=job.id))  # fmt: skip
+    return True
+
+
+def turn_failed(job: Job) -> str:
+    """Why a failed turn ended the run: the test site's real-AI budget in its own words (a Start
+    again would only be refused again), else TURN_FAILED."""
+    from app.run_progress import BUDGET
+
+    return job.error if BUDGET in (job.error or "") else TURN_FAILED
 
 
 def _treatment_checked(db: Session, job: Job) -> bool:
@@ -668,7 +696,8 @@ def sweep(db: Session) -> None:
     failed = select(Job).where(step == STEP, Job.status == JobStatus.failed,
                                Job.input["ended"].as_string().is_(None))  # fmt: skip
     for job in db.scalars(failed).all():  # failed before its finish (a bad answer): it ends
-        _end(job, TURN_FAILED)
+        if not job.input.get(RETRIED):  # unless it's being asked again (`_again`)
+            _end(job, turn_failed(job))
     db.commit()
     for project_id in asks.overdue(db):  # a story choice's time passed: its pick (rule 37)
         wake(db, db.get(Project, project_id))

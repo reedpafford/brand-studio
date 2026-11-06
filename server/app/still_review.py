@@ -57,7 +57,7 @@ def start(db: Session, user: User, project: Project, run: dict | None) -> str:
     system, _ = project_context(db, project, STEP)  # its look's skill and craft
     text = treatment_block(db, project) + prompts.review_stills_input(beats, seen)
     data = {"step": STEP, "project_id": project.id, "director_run": run, "system": system,
-            "prompt": text, "effort": "high", "max_tokens": 4000, "fit_images_to": 1024,
+            "prompt": text, "effort": "high", "max_tokens": 16000, "fit_images_to": 1024,
             "seen": {str(f.id): f.file_id for f in drawn},
             "files": {"reference_images": [f.file_id for f in drawn]}}  # fmt: skip
     units = len(drawn)

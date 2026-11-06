@@ -250,7 +250,9 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
                 "percent": min(95, round(100 * ran / video.typical))}  # fmt: skip
     if last and last.status == JobStatus.failed and (not picked or last.id > picked.job_id):
         why = (last.error or "It didn't finish").rstrip(".")
-        return {**out, "state": "failed", "note": f"{why}. Nothing was charged.",
+        free = "nothing was charged" in why.lower()  # the refusal says so itself
+        note = f"{why}." if free else f"{why}. Nothing was charged."
+        return {**out, "state": "failed", "note": note,
                 "credits": money(last.credits, owner)}  # fmt: skip
     if row.clip_id in too_long(video.problems):  # longer than the model makes: never sent
         m = video.engine
@@ -724,12 +726,22 @@ def _blamed(cells: list[dict], why: str) -> dict | None:
                  and re.search(rf"\bclip {c['number']}\b", named)), None)  # fmt: skip
 
 
+BUDGET = "real-AI budget"  # credits.REAL_DONE and NO_START: the test site's cap
+
+
 def _failed(db: Session, video: _Video, cells: list[dict], why: str, owner: bool,
             again: Decimal) -> dict:  # fmt: skip
     """What stopped the run, and its one-click fixes (rule 22): the clip that failed made
     again at its own price, a clip too long for the model split (S3-11), or carry on from
     where it stopped."""
     carry = {"kind": "carry_on", "label": "Carry on", "price": money(again, owner)}
+    if BUDGET in why or any(BUDGET in c["note"] for c in cells if c["state"] == "failed"):
+        return {
+            "title": "The director stopped",
+            "why": said(why),
+            "clip": None,
+            "fixes": [],
+        }  # the real-AI budget is used up: a press would be refused again
     bad = _blamed(cells, why)
     long = next((c for c in cells if c["state"] == "too_long"), None)
     if bad is None and long is not None and "makes at most" in why:  # it stopped on that

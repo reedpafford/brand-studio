@@ -241,6 +241,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         return f"Refused: {no.detail}"
     except ValueError:  # pick_take named no single clip
         return "Refused: name one clip."
+    except Exception:  # noqa: BLE001 - never leave the turn without a result (the run would hang)
+        db.rollback()
+        log.exception("project %s: %s failed", pid, tool)
+        return f"Refused: {tool} hit an error on our side and did nothing. Try another way."
     return f"Refused: there's no tool called {tool}."
 
 
