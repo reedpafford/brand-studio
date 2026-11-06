@@ -23,7 +23,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import cast_gate, director, hidden, music, screen_figures
+from app import cast_gate, director, hidden, locked_line, music, screen_figures
 from app.clip_takes import still_wanted
 from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
@@ -246,6 +246,7 @@ def _finish(
     if moved and job.project_id:  # the director's turn acted on, or its next turn woken,
         try:  # after the job's own result is kept, so nothing here can undo it
             director.after(db, job, storage or _storage())
+            locked_line.after(db, job, storage or _storage())  # S3-14: a choice's take is in
             db.commit()
         except Exception:  # never let the director break the worker
             db.rollback()

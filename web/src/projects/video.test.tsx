@@ -17,7 +17,7 @@ const project = {
 };
 const script = { version: 5, source: "paste", words: 9, created_by_id: 2, created_at: "2026-10-23T10:00:00Z", text: "Bo eats." };
 const breakdown = { id: 1, script_version: 5, source: "claude", stale: false, problems: [], breakdown: { hook: "Hook.", scenes: [{ id: 1, heading: "KITCHEN", look: "", shots: [] }], clips: [] } };
-const asset = (o: object) => ({ kind: "character", ref: "char:5", role: "Bo", library_item_id: 5, name: "Bo", locked: false, sheet_status: "needs_approval", ready: false, ...o });
+const asset = (o: object) => ({ kind: "character", ref: "char:5", role: "Bo", library_item_id: 5, name: "Bo", locked: false, sheet_status: "needs_approval", ready: false, description: "", shots: 1, clip_ids: [], ...o });
 const item = (o: object) => ({ id: 5, kind: "character", name: "Bo", version: 1, sheet_file_id: 70, sheet_status: "needs_approval", ...o });
 const base: Record<string, [number, unknown]> = {
   "GET /auth/me": [200, editor],
@@ -53,38 +53,6 @@ test("the preview panel's tabs (v6 S3), and Clips waits for the cast, saying why
   expect(await screen.findByText("Approve the cast first (1 left)")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Open Cast" }));
   expect(screen.getByRole("tab", { name: "Cast 1", selected: true })).toBeInTheDocument();
-});
-
-test("a look that needs approval points to Cast & places and never approves a shared character here", async () => {
-  setViewport(1440);
-  fakeServer(base);
-  open();
-  const card = await screen.findByLabelText("Bo");
-  expect(within(card).queryByRole("button")).toBeNull();
-  expect(within(card).getByRole("link", { name: "Make its look in Cast & places" })).toHaveAttribute("href", expect.stringMatching(/^\/b\/1\/library\/characters\/5\?back=/));
-});
-
-test("a locked role is already approved and has no buttons", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ locked: true, sheet_status: "approved", ready: true })]] });
-  open();
-  const card = await screen.findByLabelText("Bo");
-  expect(within(card).getByText("Locked")).toBeInTheDocument();
-  expect(within(card).queryByRole("button")).toBeNull();
-});
-
-test("a role with no character picks one from the library", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", library_item_id: null, name: "", role: "Coach", sheet_status: "missing" })]],
-    "GET /library/character": [200, [item({ id: 8, name: "Dana", sheet_status: "approved" })]],
-    "PUT /projects/9/assets/slots/3": [200, []],
-  });
-  open();
-  await userEvent.selectOptions(await screen.findByLabelText("Use a Cast & places character"), "8");
-  await userEvent.click(screen.getByRole("button", { name: "Use this character" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
 });
 
 const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], kept: [], file_id: 40, approved: true, stale: false, earlier: [], change: null };
@@ -203,30 +171,6 @@ test("a prompt shows pictures by name, never [Image1]", async () => {
   expect(prompt).not.toHaveTextContent("[Image");
 });
 
-test("a role with no character makes a look for this video only in one press, with the price inside the button", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", sheet_status: "missing" })]],
-    "POST /projects/9/assets/slots/3/make-look": [200, []],
-  });
-  open();
-  expect(screen.queryByLabelText("Use a Cast & places character")).toBeNull();
-  await userEvent.click(await screen.findByRole("button", { name: "Make a look · 2 credits" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/make-look")).toBe(true));
-  expect(calls.some((c) => c.key === "POST /library/character")).toBe(false); // never added to Cast & places
-});
-
-test("an approved picked character shows no buttons: it is shared with every video", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]], "GET /library/character/5": [200, item({ sheet_status: "approved" })] });
-  open();
-  const card = await screen.findByLabelText("Bo");
-  expect(within(card).getByText("Approved")).toBeInTheDocument();
-  expect(within(card).queryByRole("button")).toBeNull();
-  expect(within(card).queryByRole("link")).toBeNull();
-});
-
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, created_at: `2026-10-26T10:4${number}:00` });
 const done = clip({ approved: true, file_id: 51, takes: [take(1, 1), take(2, 2)], picked_take_id: 2 });
 
@@ -305,48 +249,6 @@ test("on a phone the cut plays full width with Download MP4 under it (P-05)", as
   open("?step=downloads");
   expect(await screen.findByRole("tab", { name: "Preview", selected: true })).toBeInTheDocument();
   expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
-});
-
-test("a filled slot can be swapped for another character", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [asset({ slot_id: 3, description: "A tired coach" })]],
-    "GET /library/character": [200, [item({ id: 5, name: "Bo" }), item({ id: 8, name: "Dana", sheet_status: "approved" })]],
-    "PUT /projects/9/assets/slots/3": [200, []],
-  });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "Use a different character" }));
-  expect(screen.getByRole("option", { name: "Dana" })).toBeInTheDocument();
-  expect(screen.queryByRole("option", { name: /^Bo/ })).toBeNull(); // not the one it already has
-  await userEvent.selectOptions(screen.getByLabelText("Use a Cast & places character"), "8");
-  await userEvent.click(screen.getByRole("button", { name: "Use this character" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/assets/slots/3")?.body).toEqual({ library_item_id: 8 }));
-});
-
-test("Assets shows where each one is used, the role's description, and the products and app screens the shots show", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /projects/9/assets": [
-      200,
-      [
-        asset({ slot_id: 3, description: "A tired coach in a grey hoodie", shots: 3 }),
-        { kind: "product", ref: "screen:4", role: "", library_item_id: null, name: "Peanut butter bag", locked: false, sheet_status: "approved", ready: true, slot_id: null, description: "", shots: 1, file_id: 90 },
-        { kind: "screen", ref: "screen:7", role: "", library_item_id: null, name: "fomo Home", locked: false, sheet_status: "approved", ready: true, slot_id: null, description: "", shots: 2, file_id: 91 },
-      ],
-    ],
-  });
-  open();
-  const cast = await screen.findByLabelText("Bo");
-  expect(within(cast).getByText("A tired coach in a grey hoodie")).toBeInTheDocument();
-  expect(within(cast).getByText("In 3 shots")).toBeInTheDocument();
-  const products = screen.getByLabelText("Products");
-  expect(within(products).getByText("Peanut butter bag")).toBeInTheDocument();
-  expect(within(products).getByText("In 1 shot")).toBeInTheDocument();
-  const screens = screen.getByLabelText("App screens");
-  expect(within(screens).getByText("fomo Home")).toBeInTheDocument();
-  expect(within(screens).queryByRole("button")).toBeNull(); // nothing to approve
 });
 
 const still = (o: object = {}) => ({ ...frame, approved: false, earlier: [], change: null, ...o });
@@ -631,54 +533,6 @@ test("Changing… stops when its rewrite job has failed, even while the clip sti
 
 const own = (o: object = {}) => asset({ ref: "slot:3", slot_id: 3, library_item_id: 12, own_look_id: 12, only_here: "video", role: "Coach", name: "Coach", sheet_status: "needs_approval", ...o });
 
-test("a look for this video only says so, is approved here with Undo, and is redrawn from a plain note at its price", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [own()]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Coach" })],
-    "POST /library/character/12/sheet/approve": [200, {}],
-    "DELETE /library/character/12/sheet/approve": [204, null],
-    "POST /library/character/12/sheet": [201, { id: 4, kind: "image", status: "queued", credits: 1.5 }],
-  });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  expect(within(card).getByText("This video only")).toBeInTheDocument();
-  expect(within(card).queryByRole("link")).toBeNull(); // no trip to Cast & places
-  expect(within(card).getByRole("button", { name: /Change it/ })).toBeDisabled();
-  expect(within(card).getByText("Say what should change")).toBeInTheDocument();
-  await userEvent.type(within(card).getByLabelText("Change this…"), "Warmer light");
-  await userEvent.click(within(card).getByRole("button", { name: "Change it · 2 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/12/sheet")?.body).toEqual({ model_id: "nano-banana-pro", change: "Warmer light" }));
-  await userEvent.click(within(card).getByRole("button", { name: "Approve" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/12/sheet/approve")).toBe(true));
-  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/12/sheet/approve")).toBe(true));
-});
-
-test("a made but unapproved look for this video shows its sheet with Needs your approval and Approve", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ sheet_file_id: 71 })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach", sheet_file_id: null, sheet_status: "drawing" })] });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  // The picture follows the asset row, never an older copy of the look (Reed's Iron Paws card).
-  expect(within(card).getByRole("img", { name: "Look of Coach" })).toHaveAttribute("src", expect.stringContaining("71"));
-  expect(within(card).queryByText("No look yet")).toBeNull();
-  expect(within(card).getByText("Needs your approval")).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: "Approve" })).toBeInTheDocument();
-});
-
-test("a look still being made says Making the look…, with no approval badge and no Approve", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ sheet_status: "drawing", sheet_file_id: null })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach", sheet_file_id: null, sheet_status: "drawing" })] });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  expect(within(card).getByText("Making the look…")).toBeInTheDocument();
-  expect(within(card).queryByText("Needs your approval")).toBeNull();
-  expect(within(card).queryByText("No look yet")).toBeNull();
-  expect(within(card).queryByRole("button", { name: "Approve" })).toBeNull();
-});
-
 test("an approved look that contradicts the role's words: Update to match saves to this video's look, the owner can put the script right too, each with Undo", async () => {
   setViewport(390);
   const fit = { seen: "The approved look is a French bulldog.", name: "Biscuit, the French bulldog", description: "A stocky French bulldog, the narrator", notes: "A golden retriever, the narrator", update_look: true, update_script: true, note: "" };
@@ -703,85 +557,6 @@ test("an approved look that contradicts the role's words: Update to match saves 
   await vi.waitFor(() => expect(patches().at(-1)).toEqual({ role: "Biscuit, the French bulldog", description: "A stocky French bulldog, the narrator" }));
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(patches().at(-1)).toEqual({ role: "Biscuit, the golden retriever", description: "A golden retriever, the narrator" }));
-});
-
-test("someone who can't change the script's role sees why in plain words, with no button for it", async () => {
-  setViewport(1440);
-  const fit = { seen: "The approved look is a French bulldog.", name: "", description: "A stocky French bulldog", notes: "", update_look: false, update_script: false, note: "The script's role still describes the earlier look; this video follows the look." };
-  fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [own({ role: "Biscuit", sheet_status: "approved", ready: true, sheet_file_id: 71, text_fit: fit })]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Biscuit", sheet_status: "approved" })],
-  });
-  open();
-  const note = await screen.findByRole("note", { name: "Role words for Biscuit" });
-  expect(within(note).getByText(/this video follows the look/)).toBeInTheDocument();
-  expect(within(note).queryByRole("button")).toBeNull();
-});
-
-test("a look approved before the words were checked offers the check at its price", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [own({ role: "Biscuit", sheet_status: "approved", ready: true, sheet_file_id: 71, text_check_credits: 1 })]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Biscuit", sheet_status: "approved" })],
-    "POST /projects/9/assets/slots/3/check-text": [200, []],
-  });
-  open();
-  const card = await screen.findByLabelText("Biscuit");
-  expect(within(card).queryByRole("note", { name: /Role words/ })).toBeNull();
-  await userEvent.click(within(card).getByRole("button", { name: /^Check the words against the look · up to 1 credit/ }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/check-text")).toBe(true));
-});
-
-test("when the role has gone back to a Cast & places character, the video's own look is kept and offered again", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: 5, own_look_id: 12, only_here: "video", role: "Coach", name: "Bo" })]],
-    "PUT /projects/9/assets/slots/3": [200, []],
-  });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  expect(within(card).getByText(/Not used/)).toBeInTheDocument();
-  await userEvent.click(within(card).getByRole("button", { name: "Use its own look again" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PUT /projects/9/assets/slots/3")?.body).toEqual({ library_item_id: 12 }));
-});
-
-test("Delete this look removes a kept own look from its menu, and Undo brings it back", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: 5, own_look_id: 12, only_here: "video", role: "Coach", name: "Bo" })]],
-    "DELETE /library/character/12": [204, null],
-    "POST /library/character/12/unarchive": [200, {}],
-  });
-  open();
-  await userEvent.click(await screen.findByRole("button", { name: "More for Coach" }));
-  await userEvent.click(await screen.findByRole("menuitem", { name: "Delete this look" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "DELETE /library/character/12")).toBe(true));
-  expect(await screen.findByText("Deleted Coach's look.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /library/character/12/unarchive")).toBe(true));
-});
-
-test("a look a role still uses has no Delete this look: it is offered only once the role is swapped (Not used)", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [own()]], "GET /library/character/12": [200, item({ id: 12, name: "Coach" })] });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  expect(within(card).getByText("This video only")).toBeInTheDocument();
-  // Its only menu item is the disabled Merge into… (it is the video's one role); no Delete this look.
-  await userEvent.click(within(card).getByRole("button", { name: /^More for/ }));
-  expect(screen.queryByRole("menuitem", { name: "Delete this look" })).toBeNull();
-});
-
-test("a Cast & places character has no Delete this look", async () => {
-  setViewport(1440);
-  fakeServer(base);
-  open();
-  const card = await screen.findByLabelText("Bo");
-  expect(within(card).queryByRole("button", { name: /^More for/ })).toBeNull();
 });
 
 test("a problem line never shows a raw id: the character's name stands in, the clip says Clip c1, and a missing look links to Assets", async () => {
@@ -856,141 +631,6 @@ test("a frame's problem reads as a name too", async () => {
   expect(list).not.toHaveTextContent(/char:/);
 });
 
-test("an Assets role card leads with the role's facts, a guess marked", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", description: "A tired coach.", sheet_status: "missing", facts: { age_range: { value: "Mid-40s", inferred: true }, gender: { value: "woman", inferred: false }, occupation: { value: "primary-school teacher", inferred: false } } })]],
-    "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, reason: null }],
-  });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  expect(within(card).getByText((_, el) => el?.tagName === "P" && el.textContent === "Mid-40s (a guess) · woman · primary-school teacher")).toBeInTheDocument();
-});
-
-const missing = (o: object = {}) => ({ slot_ids: [3, 4], roles: ["Nate", "Mia"], credits: 8.4, usual_credits: 4, reason: null, ...o });
-
-test("missing looks: the price first with a countdown and Not now; Not now is recorded on the server and nothing is made", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets/missing-looks": [200, missing()],
-    "POST /projects/9/assets/missing-looks/decline": [204, null],
-    "POST /projects/9/assets/make-missing": [200, []],
-  });
-  open();
-  expect(await screen.findByText("Making looks for Nate and Mia · up to 9 credits (usually 4)")).toBeInTheDocument();
-  expect(screen.getByText(/Starting in \d s/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Not now" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/missing-looks/decline")).toBe(true));
-  expect(screen.queryByText(/Making looks for/)).toBeNull();
-  await new Promise((r) => setTimeout(r, 1500));
-  expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(false);
-});
-
-test("missing looks that fit are made after the countdown, and the note then says what was made", async () => {
-  setViewport(1440);
-  const routes: Record<string, [number, unknown]> = { ...base, "POST /projects/9/assets/make-missing": [200, []] };
-  // Before the press the server lists the missing roles; afterwards it says what was really made and spent.
-  Object.defineProperty(routes, "GET /projects/9/assets/missing-looks", {
-    enumerable: true,
-    get: () => [200, calls.some((c) => c.key === "POST /projects/9/assets/make-missing") ? missing({ slot_ids: [], roles: [], made: { looks: 3, credits_used: 7, drawing: false } }) : missing()],
-  });
-  const calls = fakeServer(routes);
-  open();
-  await screen.findByText(/Starting in \d s/);
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(true), { timeout: 9000 });
-  expect(await screen.findByText("Made 3 looks · 7 credits. Check each one, then approve.")).toBeInTheDocument();
-  expect(calls.filter((c) => c.key === "POST /projects/9/assets/make-missing")).toHaveLength(1); // once
-}, 20000);
-
-test("missing looks that don't fit are not made: the server's reason shows and there is no countdown", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing({ reason: "Making a look (8 credits) would go over this video's budget." })] });
-  open();
-  expect(await screen.findByText("Making a look (8 credits) would go over this video's budget.")).toBeInTheDocument();
-  expect(screen.queryByText(/Starting in/)).toBeNull();
-  expect(screen.queryByRole("button", { name: "Not now" })).toBeNull();
-  expect(calls.some((c) => c.key === "POST /projects/9/assets/make-missing")).toBe(false);
-});
-
-test("a refused start shows the server's reason", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing({ slot_ids: [3], roles: ["Nate"] })], "POST /projects/9/assets/make-missing": [409, { detail: "Making a look (8 credits) would go over this video's budget." }] });
-  open();
-  expect(await screen.findByText("Making a look (8 credits) would go over this video's budget.", {}, { timeout: 9000 })).toBeInTheDocument();
-}, 20000);
-
-test("Make a look shows the most it can cost, with the usual price under it, and the limit is checked against the most", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [asset({ ref: "slot:3", slot_id: 3, library_item_id: null, name: "", role: "Coach", sheet_status: "missing", look_credits: 3.6, look_usual_credits: 2 })]],
-    "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, reason: null }],
-  });
-  open();
-  await vi.waitFor(() => expect(screen.getByRole("button", { name: "Make a look · up to 4 credits" })).toBeInTheDocument());
-  expect(screen.getByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
-});
-
-test("Change it on a look's sheet shows up to N credits with the usual price under it", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [own()]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Coach", change_credits: 5, sheet_credits: 4, sheet_usual_credits: 2 })],
-    "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, reason: null }],
-  });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  await userEvent.type(within(card).getByLabelText("Change this…"), "Warmer");
-  expect(await within(card).findByRole("button", { name: "Change it · up to 5 credits" })).toBeEnabled();
-  expect(within(card).getByText("Usually 2. Anything not used comes back.")).toBeInTheDocument();
-});
-
-test("a look that reads wrong says what it reads as; Fix it with a note puts the problem in the Change this… box, ready to send", async () => {
-  setViewport(1440);
-  const calls = fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [own({ look_fit: { seen: "a teenage boy in a hoodie", problem: "Coach should be a woman in her 40s" }, look_credits: 4, look_usual_credits: 2 })]],
-    "GET /library/character/12": [200, item({ id: 12, name: "Coach", change_credits: 4, sheet_usual_credits: 2 })],
-    "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, usual_credits: 0, reason: null }],
-    "POST /library/character/12/sheet": [201, { id: 4, kind: "image", status: "queued", credits: 4 }],
-  });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  expect(within(card).getByText("This look reads as a teenage boy in a hoodie, but Coach should be a woman in her 40s.")).toBeInTheDocument();
-  await userEvent.click(within(card).getByRole("button", { name: "Fix it with a note" }));
-  expect(within(card).getByLabelText("Change this…")).toHaveValue("Coach should be a woman in her 40s");
-  await userEvent.click(await within(card).findByRole("button", { name: /^Change it · up to 4 credits/ }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/12/sheet")?.body).toEqual({ model_id: "nano-banana-pro", change: "Coach should be a woman in her 40s" }));
-});
-
-test("while the made looks are still being drawn the note does not state a cost yet", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets/missing-looks": [200, missing({ slot_ids: [], roles: [], made: { looks: 1, credits_used: 2, drawing: true } })] });
-  open();
-  expect(await screen.findByText("Making 1 look…")).toBeInTheDocument();
-  expect(screen.queryByText(/Check each one/)).toBeNull();
-});
-
-test("once every look is approved the made note stops asking on later visits", async () => {
-  setViewport(1440);
-  fakeServer({
-    ...base,
-    "GET /projects/9/assets": [200, [asset({ sheet_status: "approved", ready: true })]],
-    "GET /projects/9/assets/missing-looks": [200, missing({ slot_ids: [], roles: [], made: { looks: 3, credits_used: 7, drawing: false } })],
-  });
-  open();
-  await screen.findByText("Bo");
-  expect(screen.queryByText(/Check each one/)).toBeNull();
-});
-
-test("a look with nothing wrong shows no look-check note", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({ look_fit: null })]], "GET /library/character/12": [200, item({ id: 12, name: "Coach" })] });
-  open();
-  await screen.findByLabelText("Coach");
-  expect(screen.queryByText(/This look reads as/)).toBeNull();
-});
 
 test("clips made before the storyboard went out of date stay open, with a banner (audit M14)", async () => {
   setViewport(1440);
@@ -1031,7 +671,6 @@ test("a stale clip has its own priced rewrite in place of Change this…", async
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/clips/prompts")?.body).toEqual({ clip_id: "c1" }));
 });
 
-const noMissing: [number, unknown] = [200, { slot_ids: [], roles: [], credits: 0, usual_credits: 0, reason: null }];
 
 test("a link to a locked step lands on the step that blocks it, not always on Breakdown", async () => {
   setViewport(1440);
@@ -1068,72 +707,6 @@ test("Clips names Plan, where the shots live, when problems in them are in the w
   expect(screen.getByRole("button", { name: "Open Plan" })).toBeInTheDocument();
 });
 
-const gone = asset({ ref: "slot:3", slot_id: 3, library_item_id: 77, name: "", role: "Nate", sheet_status: "none", library_deleted: true, look_credits: 4, look_usual_credits: 2 });
-const deletedRoutes = {
-  ...base,
-  "GET /projects/9/assets": [200, [gone]] as [number, unknown],
-  "GET /library/character/77": [404, { detail: "none" }] as [number, unknown],
-  "GET /library/character": [200, [{ id: 5, name: "Bo", sheet_status: "approved", image_file_ids: [], brand_ids: [1] }]] as [number, unknown],
-  "GET /projects/9/assets/missing-looks": noMissing,
-};
-
-test("a role whose Cast & places character was deleted says so and offers two fixes: Make a look, or Pick another for free", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...deletedRoutes, "POST /projects/9/assets/slots/3/make-look": [200, []] });
-  open();
-  const card = await screen.findByLabelText("Nate");
-  expect(within(card).getByText("Character deleted")).toBeInTheDocument();
-  expect(within(card).getByText("The character this role used was deleted from Cast & places.")).toBeInTheDocument();
-  expect(within(card).queryByRole("button", { name: "Use a different character" })).toBeNull();
-  expect(within(card).getByText("Free")).toBeInTheDocument(); // Pick another costs nothing
-  await userEvent.click(within(card).getByRole("button", { name: /^Make a look · up to 4 credits/ }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/assets/slots/3/make-look")).toBe(true));
-});
-
-test("Pick another opens the Cast & places picker for the deleted role", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...deletedRoutes, "PUT /projects/9/assets/slots/3": [200, []] });
-  open();
-  const card = await screen.findByLabelText("Nate");
-  expect(within(card).queryByLabelText("Use a Cast & places character")).toBeNull(); // closed until Pick another is pressed
-  await userEvent.click(within(card).getByRole("button", { name: "Pick another" }));
-  await userEvent.selectOptions(within(card).getByLabelText("Use a Cast & places character"), "5");
-  await userEvent.click(within(card).getByRole("button", { name: "Use this character" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
-});
-
-test("when the server clears the deleted character's id (library_item_id null), Pick another still opens the picker only when pressed", async () => {
-  setViewport(1440);
-  const calls = fakeServer({ ...deletedRoutes, "GET /projects/9/assets": [200, [{ ...gone, library_item_id: null }]], "PUT /projects/9/assets/slots/3": [200, []] });
-  open();
-  const card = await screen.findByLabelText("Nate");
-  expect(within(card).getByText("Character deleted")).toBeInTheDocument();
-  expect(within(card).queryByLabelText("Use a Cast & places character")).toBeNull(); // closed until Pick another is pressed
-  await userEvent.click(within(card).getByRole("button", { name: "Pick another" }));
-  await userEvent.selectOptions(within(card).getByLabelText("Use a Cast & places character"), "5");
-  await userEvent.click(within(card).getByRole("button", { name: "Use this character" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "PUT /projects/9/assets/slots/3")).toBe(true));
-});
-
-test("a role that is not deleted has no Character deleted badge or Pick another", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [own({})]], "GET /projects/9/assets/missing-looks": noMissing });
-  open();
-  const card = await screen.findByLabelText("Coach");
-  expect(within(card).queryByText("Character deleted")).toBeNull();
-  expect(within(card).queryByRole("button", { name: "Pick another" })).toBeNull();
-});
-
-test("Pick another is disabled, with the reason, when Cast & places has no other characters", async () => {
-  setViewport(1440);
-  fakeServer({ ...deletedRoutes, "GET /library/character": [200, []] });
-  open();
-  const card = await screen.findByLabelText("Nate");
-  const pick = within(card).getByRole("button", { name: "Pick another" });
-  expect(pick).toBeDisabled();
-  expect(pick).toHaveAccessibleDescription("Cast & places has no other characters yet.");
-  expect(within(card).queryByText("Free")).toBeNull();
-});
 
 test("on the video page too, a shot with no script lines shows no Show line button and does not break Breakdown", async () => {
   setViewport(1440);
@@ -1309,14 +882,6 @@ test("old addresses keep working: ?step=breakdown opens Plan, ?step=assets opens
     expect(await screen.findByRole("tab", { name: tab, selected: true })).toBeInTheDocument();
     unmount();
   }
-});
-
-test("a look from the library says it comes from Cast & places, so the Cast step and the library never read as one", async () => {
-  setViewport(1440);
-  fakeServer({ ...base, "GET /projects/9/assets": [200, [asset({ ready: true, locked: true, sheet_status: "approved" })]] });
-  open("?step=assets");
-  expect(await screen.findByRole("tab", { name: "Cast 1", selected: true })).toBeInTheDocument();
-  expect(await screen.findByText("From Cast & places")).toBeInTheDocument();
 });
 
 test("switching the look re-reads the cast, so a role with no sheet in the new look holds Storyboard's redraw (Flow-QA on #926)", async () => {

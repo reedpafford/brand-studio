@@ -342,6 +342,21 @@ test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
 });
 
+test("S3-08: Start the plan again starts a new run that plans the whole video again; it says why when it can't", async () => {
+  setViewport(1440);
+  const stopped = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "$10.74" } });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director/plan-again": [201, run()] });
+  const first = renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Start the plan again" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director/plan-again")).toBe(true));
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // not Carry on
+  first.unmount();
+  server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director/plan-again": [409, { detail: "The director is already building this video." }] });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Start the plan again" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("The director is already building this video.");
+});
+
 test("S3-11: a step that failed says why in plain words, with its one-click fixes", async () => {
   setViewport(1440);
   const failed = record({ status: "needs_fix", title: "Stopped at clip 4", sub: "3 of 4 clips made", tone: "bad", scenes: scenes.slice(0, 1), failed: { title: "Clip 4 couldn’t be made", why: "The service was busy. Nothing was charged.", clip: 44, fixes: [{ kind: "again", label: "Try again", price: "$0.32" }, { kind: "carry_on", label: "Carry on", price: "$10.74" }] } });
@@ -628,7 +643,7 @@ test("on a freestyle, a held budget card withdraws itself, not the freestyle's s
   expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(false);
 });
 
-test("a voice card's clone: cloning and held say the clone's price and where it goes, with no Cancel; a failed clone keeps the voices", async () => {
+test("a voice card's clone: cloning and held say the clone's price and where it goes; held has Withdraw; a failed clone keeps the voices", async () => {
   setViewport(1440);
   const voice = (o: object) => ask({ kind: "voice", question: "Which voice should Mark have?", saved: [{ id: "stock:roger", name: "Roger", note: "", file_id: null, used_in: 0 }], pick: null, generate: null, clone: price(30, 3), ...o });
   const a = server(editor, null, run({ thread: [asked()] }), cards(voice({ state: "generating", clone: price(30), can: ["reply", "saved", "clone", "cancel"] })));
@@ -638,11 +653,20 @@ test("a voice card's clone: cloning and held say the clone's price and where it 
   expect(within(cloning).queryByRole("button", { name: "Cancel" })).toBeNull();
   expect(a.length).toBeGreaterThan(0);
   r1.unmount();
-  const r2 = (server(editor, null, run({ thread: [asked()] }), cards(voice({ state: "held", clone: price(30), can: ["reply", "saved", "clone", "cancel"] }))), renderApp("/b/1/videos/50"));
+  const opened = voice({ state: "open", can: ["reply", "saved", "clone"] });
+  const b = server(editor, null, run({ thread: [asked()] }), { ...cards(voice({ state: "held", clone: price(30), can: ["reply", "saved", "upload", "clone", "cancel"] })), "POST /asks/7/cancel": [200, opened] });
+  const r2 = renderApp("/b/1/videos/50");
   const held = await screen.findByRole("region", { name: "Which voice should Mark have?" });
   expect(within(held).getByText("You asked to clone this voice (up to 30 credits, saved to Resilia’s voices). The owner has been asked; nothing is charged while it waits.")).toBeInTheDocument();
-  expect(within(held).queryByRole("button", { name: "Withdraw" })).toBeNull();
+  expect(within(held).queryByRole("button", { name: "Upload instead" })).toBeNull(); // an upload wouldn't stop the clone waiting
+  await userEvent.click(within(held).getByRole("button", { name: "Withdraw" })); // flow.md: the editor withdraws it on the card
+  await vi.waitFor(() => expect(b.some((c) => c.key === "POST /asks/7/cancel")).toBe(true));
   r2.unmount();
+  const r3 = (server(editor, null, run({ thread: [asked()] }), cards(voice({ state: "failed", answer: { how: "clone", option: "voice:4", name: "Nate", withdrawn: true }, can: ["reply", "saved", "clone"] }))), renderApp("/b/1/videos/50"));
+  const reused = await screen.findByRole("region", { name: "Which voice should Mark have?" }); // it reused a clone its asker withdrew
+  expect(within(reused).getByText("The clone this card used was withdrawn before it was made. Nothing was charged.")).toBeInTheDocument();
+  expect(within(reused).getByRole("button", { name: /Clone it once/ })).toBeInTheDocument();
+  r3.unmount();
   server(owner, null, run({ thread: [asked()] }), cards(voice({ state: "failed", clone_to: "Saved to Resilia's voices", can: ["reply", "saved", "clone"] })));
   renderApp("/b/1/videos/50");
   const failed = await screen.findByRole("region", { name: "Which voice should Mark have?" });
@@ -778,4 +802,61 @@ test("S3-09: a note with nothing uncertain and nothing open has no What remains 
   renderApp("/b/1/videos/50");
   const n = await screen.findByRole("region", { name: "Delivery note" });
   expect(within(n).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["What I made", "What I need from you"]);
+});
+
+// S3-14: an editor asks to change a locked line; the reply offers what can change instead, priced, and the Script tab
+// says the words are set, with the asked words marked.
+const instead = (o: object = {}) => ask({ id: 12, kind: "instead", topic: "", subject: "beer gut", question: "The script’s words are set for this script, so I can’t change “beer gut”. Here’s what I can change instead:", why: "", state: "offered", saved_in: "", saved: [], pick: null, generate: null, choices: [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "" }], can: ["instead"], ...o });
+
+test("S3-14: the reply to a locked line offers what can change instead at its price; a press makes it; the Script tab is set", async () => {
+  setViewport(1440);
+  const thread = [item("m1", "message", "Kel", "Can we change “beer gut” to “belly”? It feels a bit harsh.", null, later, { answered: true }), item("a12", "move", "Director", "The script’s words are set…", null, later, { kind: "ask", ask_id: 12 })];
+  const calls = server(editor, null, run({ status: "delivered", thread }), { ...cards(instead()), "POST /asks/12/answer": [200, instead({ choices: [{ key: "A", title: "Say it softer", why: "", do: "softer", price: price(4), made: "making" }], can: [] })], "GET /projects/50/script": [200, { version: 1, source: "paste", words: 9, created_by_id: 1, created_at: at, text: "DR. PICKLE: Your beer gut after the weekend?\nDR. PICKLE: Every pint sits there." }] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("The script’s words are set for this script, so I can’t change “beer gut”. Here’s what I can change instead:")).toBeInTheDocument();
+  const softer = screen.getByRole("button", { name: /^Say it softer/ });
+  expect(softer).toHaveTextContent("Dr. Pickle says it more softly. Redo the voice line and clip 2 · up to 4 credits"); // credits only (rule 4)
+  await userEvent.click(softer);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Script" }));
+  expect(await screen.findByText("Published script · the words are set")).toBeInTheDocument();
+  expect(screen.getByText("beer gut", { selector: "mark" })).toBeInTheDocument();
+});
+
+test("S3-14: once chosen, the card says so and how it's going; the other choices stay pressable; a free one says free", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "held", said: "Waiting for the owner’s OK.", cannot: "" }, { key: "B", title: "Shorter pause after it", why: "Tighten 0.4 s", do: "pause", price: null, made: "", said: "", cannot: "" }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices })));
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("You chose: Say it softer")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Say it softer/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /^Say it softer/ })).toHaveTextContent("Waiting for the owner’s OK.");
+  const pause = screen.getByRole("button", { name: /^Shorter pause after it/ });
+  expect(pause).toBeEnabled();
+  expect(pause).toHaveTextContent("Tighten 0.4 s · free");
+});
+
+test("S3-14: a choice that can't be made now says why and can't be pressed; the cut's outcome is the server's words", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: null, made: "", said: "", cannot: "Clip 2 isn't in this video any more." }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices, can: [] })));
+  const view = renderApp("/b/1/videos/50");
+  const gone = await screen.findByRole("button", { name: /^Say it softer/ });
+  expect(gone).toBeDisabled();
+  expect(gone).toHaveTextContent("Clip 2 isn't in this video any more.");
+  expect(gone).not.toHaveTextContent("free");
+  view.unmount();
+  const done = [{ ...choices[0], price: price(4), made: "kept", said: "Made and watched, but the cut wasn’t made again: The music file stops at 0:41. Make the cut from the Cut tab once that’s done.", cannot: "" }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices: done, can: [] })));
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: /^Say it softer/ })).toHaveTextContent("the cut wasn’t made again: The music file stops at 0:41.");
+});
+
+test("S3-14: a take nobody watched offers its free one-click press: use it and make the cut", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "", do: "softer", price: price(4), made: "kept", said: "Made. Not watched: the video is at its budget, so the cut stays as it was. Use take 3 and make the cut, or look at it in Clips first.", cannot: "", then: "Use take 3 and make the cut" }];
+  const calls = server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), { ...cards(instead({ choices })), "POST /asks/12/answer": [200, instead({ choices: [{ ...choices[0], made: "done", said: "Take 3 is used. The cut is made again with it.", then: "" }], can: [] })] });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Use take 3 and make the cut · free" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A", option: "use" }));
 });
