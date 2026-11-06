@@ -172,14 +172,14 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     if talker.says(db, project, clip):
         raise HTTPException(409, talker.SAID)
     m = model_map.of_clip(project, clip)
-    most = m.fixed_seconds or m.duration.max
+    most = m.duration.max
     if clip.seconds <= most:
         return
     from app import breakdown_fix, plans
 
     bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
     version = plans.script(db, project)
-    lo = m.duration.min if m.duration else 1  # Omni has one fixed length, no range
+    lo = m.duration.min if m.duration else 1
     parts = breakdown_fix.split_into(bd.data, version.text if version else "", clip.clip_id,
                                      lo, most) if bd else 1  # fmt: skip
     offered = bd is not None and clip.clip_id in breakdown_fix.too_long(bd.problems or [])

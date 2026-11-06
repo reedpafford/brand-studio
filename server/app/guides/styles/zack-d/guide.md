@@ -2,7 +2,7 @@ name: Zack D
 order: 3
 on: no
 image_model: auto
-video_model: seedance-2.0
+video_model: gemini-omni-1.2
 blurb: One continuous camera follows the thing being explained through one real set, in realistic game-engine 3D: cutaways and glowing marks show what happens inside.
 card: One moving camera
 broll: Game-engine 3D

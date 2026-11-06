@@ -782,9 +782,8 @@ class DirectorTurn(BaseModel):
     model: str | None = Field(
         default=None,
         description="For clip_model: the catalogue id of the model that makes this clip "
-        "('seedance-1-lite' where it's enough for a B-roll shot; 'gemini-omni-1.1' only for a "
-        "talker's shot that needs what Seedance can't give, named in `why`, never because they "
-        "appear or move, never B-roll); null "
+        "(e.g. 'gemini-omni-1.2' for a realistic shot in a Seedance 2.5 style, or "
+        "'seedance-2.5' for a shot that needs it; the reason in `why`); null "
         "puts the clip back on the video's model. For settings with setting video_model or "
         "image_model: the model's id, null for Auto. Else null.",
     )

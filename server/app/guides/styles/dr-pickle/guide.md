@@ -3,7 +3,7 @@ order: 10
 on: no
 own_sample: yes
 image_model: auto
-video_model: seedance-2.0
+video_model: gemini-omni-1.2
 blurb: Stylized b-roll: a blunt cartoon doctor in the corner talks while a skeleton behind him acts out every line.
 card: Clay doctor over anatomy
 broll: Glossy 3D anatomy

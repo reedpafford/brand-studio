@@ -1,6 +1,7 @@
 """Each style picks its default video model (Reed, 3 Nov: "Seedance 2.5 is what we use for pixar
 (song and house) videos. Omni is for human skits/movies."; "seedance 2.0 provides good b-roll
-footage"). The order: a video's own pick, then Seedance 2.5 for a song (lip-sync), then the
+footage"; 6 Nov: "Omni is used in place of seedance 2.0 (b-roll, skeleton, claymation, zack d)").
+The order: a video's own pick, then Seedance 2.5 for a song (lip-sync), then the
 style's `video_model:`, then the catalogue's."""
 
 from app import guides
@@ -9,7 +10,7 @@ from app.catalogue import catalogue
 from app.credits import plan_cost
 from app.models.projects import Project
 
-SEEDANCE, B_ROLL = "seedance-2.5", "seedance-2.0"
+SEEDANCE, B_ROLL = "seedance-2.5", "gemini-omni-1.2"
 
 
 def test_every_style_and_lane_names_a_model_in_the_catalogue():
@@ -23,7 +24,7 @@ def test_pixar_and_house_default_to_seedance_2_5():
             assert video_model(look=look, kind=kind).id == SEEDANCE, (look, kind)
 
 
-def test_the_other_styles_and_their_lanes_default_to_seedance_2_0_for_b_roll():
+def test_the_other_styles_and_their_lanes_default_to_omni_1_2():
     for look in ("claymation", "claymation-goofy", "skeleton-cute", "ugc", "zack-d"):
         for kind in ("story", "narrated"):
             assert video_model(look=look, kind=kind).id == B_ROLL, (look, kind)
@@ -44,7 +45,7 @@ def test_quotes_use_the_resolved_model(db):
     def cost(**kw):
         return plan_cost(db, 1, 60, None, 0, **kw)
 
-    assert cost(look="claymation", kind="story") < cost(look="house", kind="story")
+    assert cost(look="claymation", kind="story") != cost(look="house", kind="story")  # Omni
     assert cost(look="house", kind="story") == cost(look="disney-pixar", kind="story")
     chosen = cost(video=Project(look="house", video_model="p-video"), kind="story")
     assert chosen not in (cost(look="house", kind="story"), cost(look="claymation", kind="story"))

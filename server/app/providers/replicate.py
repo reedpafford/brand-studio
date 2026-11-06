@@ -55,6 +55,9 @@ class ReplicateProvider:
     def submit(self, kind: str, input: dict) -> str:
         """`input` is {"model": <catalogue id>, "input": {...Replicate input...}}."""
         model = _model(input)
+        if not model.provider_version:  # an official model runs on its model's own endpoint
+            path = f"/models/{model.provider_model}/predictions"
+            return self._call("POST", path, json={"input": input["input"]})["id"]
         body = {"version": model.provider_version, "input": input["input"]}
         return self._call("POST", "/predictions", json=body)["id"]
 
@@ -129,8 +132,11 @@ def _model(input: dict) -> CatalogueModel:
 def _model_id_from_version(prediction: dict) -> str:
     from app.catalogue import catalogue
 
-    version = prediction.get("version")
-    return next((m.id for m in catalogue().values() if m.provider_version == version), "")
+    version, name = prediction.get("version"), prediction.get("model")
+    for m in catalogue().values():  # an official model's prediction names its model, no version
+        if (m.provider_version or m.provider_model) == (version if m.provider_version else name):
+            return m.id
+    return ""
 
 
 def _is_url(value) -> bool:

@@ -72,7 +72,7 @@ def hosted(script) -> bool:
 # How the presenter appears (Reed's L3, 4 Nov: a saved presenter is a face and a voice; how
 # they appear is chosen per video): talking to camera in their own room with B-roll cut in
 # (HeyGen), in a corner keyed over the B-roll (HeyGen), or acting in the story (their shots
-# made like the B-roll, on the style's Seedance; Omni only for a shot that needs it, Reed 5 Nov)
+# made like the B-roll, on the style's own model: Omni 1.2 where Seedance 2.0 was, Reed 6 Nov)
 HOW = ("talks", "corner", "acts")
 ACTS = ("The presenter acts in the story: their shots are made like the B-roll, with no take of "
         "their own to make.")  # fmt: skip
@@ -178,7 +178,7 @@ def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None,
     no take: their shots are B-roll on the style's Seedance, already in the takes' price; in a
     photoreal style the director's path for them is Omni (its face kept from their picture),
     so they're quoted there: every clip of the plan, else as many as the B-roll's seconds can
-    hold at the shortest clip, each billed Omni's fixed length with its watch, on top of their
+    hold at the shortest clip, each billed at its length on Omni with its watch, on top of their
     B-roll price on the video's model, so never below either (rule 36). With
     `redos`, each made that many times again by its watch (app/host_watch), as a run may."""
     from app import model_map

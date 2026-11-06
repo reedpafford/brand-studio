@@ -1,16 +1,14 @@
-"""Reed's model map (4 Nov) and the v6 model moves: Omni only for a talker's own shots, never
-B-roll or a video's model; each clip's model and why; the director's per-clip model and its
+"""Reed's model map (4 Nov, changed 6 Nov: Omni 1.2 where Seedance 2.0 was) and the v6 model
+moves: each clip's model and why; the director's per-clip model and its
 settings switch from the chat (a person's own choice stays); how a presenter appears, per video
 (Reed's L3). Stand-ins only: no paid calls."""
 
-from decimal import Decimal
-
 import pytest
 
-from app import director_tools, guides, host, model_map, settings_move, take_watch, talker
+from app import director_tools, host, model_map, settings_move, talker
 from app.breakdown import video_model
 from app.catalogue import get_model
-from app.clip_takes import take_credits, take_input
+from app.clip_takes import take_input
 from app.models.accounts import User
 from app.models.clips import ProjectClip
 from app.models.freestyles import Freestyle
@@ -45,51 +43,49 @@ def _move(app, db, video, **decision) -> str:
     return director_tools.run(db, user, video, decision, app.state.storage)
 
 
-def test_omni_is_in_the_catalogue_at_its_real_cost_for_talkers_only(owner):
+def test_omni_1_2_replaces_1_1_and_seedance_2_0_as_the_styles_model(owner):
+    """Reed, 6 Nov: "1.2 replaces 1.1. Omni is used in place of seedance 2.0 (b-roll, skeleton,
+    claymation, zack d)"; House, Disney Pixar and songs stay on Seedance 2.5."""
     omni = get_model(model_map.OMNI)
-    assert (omni.usd_per_unit("360p"), omni.usd_per_unit("720p")) == (
-        Decimal("0.05"), Decimal("0.15"))  # fmt: skip
-    assert omni.talker_only and omni.fixed_seconds == 10 and omni.audio == "always"
-    assert not omni.offered and model_map.OMNI not in {m["id"] for m in owner.get("/models").json()}
-    video = Project(video_model=model_map.OMNI, look="ugc")
-    assert video_model(video).id != model_map.OMNI  # never a video's model, so never B-roll
-    assert model_map.seconds(omni, 6) == 10  # billed its fixed length, up to
+    assert get_model("gemini-omni-1.1") is None
+    assert (omni.duration.min, omni.duration.max, omni.take_resolution, omni.audio) == (
+        3, 15, "720p", "always")  # fmt: skip
+    assert model_map.OMNI in {m["id"] for m in owner.get("/models").json()}
+    for look in ("skeleton", "claymation", "zack-d", "dr-pickle", "ugc"):
+        for kind in ("narrated", "story"):
+            assert video_model(look=look, kind=kind).id == model_map.OMNI, (look, kind)
+    for look in ("house", "disney-pixar"):
+        assert video_model(look=look, kind="story").id == "seedance-2.5", look
+    assert video_model(look="skeleton", kind="song").id == "seedance-2.5"  # songs lip-sync
+    assert model_map.seconds(omni, 6) == 6  # billed its own length
 
 
-def test_the_director_puts_a_talkers_shot_on_omni_and_says_why(app, db, owner, ugc, monkeypatch):
+def test_omni_takes_get_its_own_inputs_and_the_director_moves_a_clip_off_it(app, db, owner, ugc):
+    """docs/prompting/omni-1.2.md: a duration, no sound switch, references named in words; a
+    narrated video's B-roll says no one speaks. The director may move a clip to another model."""
     rows, said = _rows(db, ugc), talker.clips(db, ugc)
     clip = next(r for c, r in rows.items() if c not in said)  # B-roll
     n = clip.clip_id.removeprefix("c")
     shown = {c["clip_id"]: c["model"] for c in owner.get(f"/projects/{ugc.id}/clips").json()}
-    assert shown[clip.clip_id]["by"] == "map" and "UGC" in shown[clip.clip_id]["why"]
+    assert shown[clip.clip_id]["by"] == "map" and shown[clip.clip_id]["id"] == model_map.OMNI
     talking = rows[sorted(said)[0]]
     assert shown[talking.clip_id]["id"] == talker.MODEL  # cut from the HeyGen take
-    assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model_map.OMNI,
-                 why="x") == model_map.ONLY_TALKER  # B-roll: never  # fmt: skip
-    assert _move(app, db, ugc, tool="clip_model", clip_id=talking.clip_id, model=model_map.OMNI,
-                 why="x") == model_map.SAYS_IT  # our voice, lip-synced: HeyGen's  # fmt: skip
     assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=talker.MODEL,
                  why="x") == model_map.WHOLE_TAKE  # fmt: skip
-    monkeypatch.setattr(model_map, "shows_talker", lambda db, p, c: c.id == clip.id)
-    why = "She wipes a tear and sets the phone down: the line is about her."
-    said = _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model_map.OMNI,
-                 why=why)  # fmt: skip
-    assert said.startswith(f"Clip {n} is made on Gemini Omni 1.1 now: up to 14.6 credits a take")
-    assert why in said  # 10 s at 720p, said before any take
-    db.refresh(clip)
     job = take_input(db, ugc, clip)
     sent = job["input"]
-    assert job["model"] == model_map.OMNI and set(sent) == {"prompt", "resolution", "aspect_ratio"}
-    assert sent["resolution"] == "720p" and sent["prompt"].endswith(model_map.SILENT)
-    assert take_credits(db, ugc, clip) >= get_model(model_map.OMNI).credits_per_unit("720p") * 10
-    shown = {c["clip_id"]: c["model"] for c in owner.get(f"/projects/{ugc.id}/clips").json()}
-    assert shown[clip.clip_id] == {"id": model_map.OMNI, "name": "Gemini Omni 1.1", "why": why,
-                                   "by": "director"}  # fmt: skip
+    assert job["model"] == model_map.OMNI
+    assert set(sent) == {"prompt", "duration", "resolution", "aspect_ratio"}
+    assert sent["resolution"] == "720p" and 3 <= sent["duration"] <= 15
+    assert "[Image" not in sent["prompt"] and sent["prompt"].endswith(model_map.SILENT)
+    assert len(job["files"].get("reference_images", [])) <= 6
+    why = "A long glossy push-in that Seedance 2.5 holds better."
+    moved = _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model="seedance-2.5",
+                  why=why)  # fmt: skip
+    assert moved.startswith(f"Clip {n} is made on Seedance 2.5 now: up to"), moved
+    assert "on Gemini Omni 1.2)" in moved and why in moved
     back = _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=None, why="")
-    assert back == f"Clip {n} is back on the video's Seedance 2.0."
-    lite = _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model="seedance-1-lite",
-                 why="A hand and the keys: Lite is enough.")  # fmt: skip
-    assert lite.startswith(f"Clip {n} is made on Seedance 1 Lite") and "on Seedance 2.0)" in lite
+    assert back == f"Clip {n} is back on the video's Gemini Omni 1.2."
 
 
 def test_a_persons_setting_wins_and_the_directors_switch_says_its_price(app, db, owner, ugc):
@@ -144,34 +140,21 @@ def test_how_the_presenter_appears_is_chosen_per_video(app, db, owner, ugc, monk
     assert _move(app, db, ugc, tool="host") == f"Refused: {host.ACTS}"
     clip = next(iter(_rows(db, ugc).values()))
     monkeypatch.setattr(model_map, "shows_talker", lambda db, p, c: c.id == clip.id)
-    assert model_map.of_clip(ugc, clip).id == "seedance-2.0"  # acting: never Omni by default
+    assert model_map.of_clip(ugc, clip).id == model_map.OMNI  # UGC's own model (Reed, 6 Nov)
     assert model_map.why(db, ugc, clip)["by"] == "map"
     bad = owner.post(f"/projects/{ugc.id}/settings", json={"presenter": "flies"})
     assert bad.status_code == 422
 
 
-def test_a_narrated_video_keeps_its_narration_and_omni_acts_without_speaking(
-    app, db, owner, ugc, monkeypatch
+def test_a_narrated_video_keeps_its_narration_and_its_omni_broll_has_no_one_speaking(
+    app, db, owner, ugc
 ):
-    """Reed, 5 Nov: a narrated video keeps its narration throughout; an Omni talker shot acts
-    without speaking, its ambient sound kept under the voice; the talker's to-lens lines stay
-    on HeyGen."""
-    said = sorted(talker.clips(db, ugc))
-    talking = _rows(db, ugc)[said[0]]
-    move = {
-        "tool": "clip_model",
-        "model": model_map.OMNI,
-        "why": "Her face from her photo, which Seedance refuses.",
-    }  # a capability: not a move
-    assert _move(app, db, ugc, **move, clip_id=talking.clip_id) == model_map.SAYS_IT
-    acting = next(r for c, r in _rows(db, ugc).items() if c not in said)
-    monkeypatch.setattr(model_map, "shows_talker", lambda db, p, c: c.id == acting.id)
-    told = _move(app, db, ugc, **move, clip_id=acting.clip_id)
-    assert told.startswith(f"Clip {acting.clip_id.removeprefix('c')} is made on Gemini Omni")
-    db.refresh(acting)
-    prompt = take_input(db, ugc, acting)["input"]["prompt"]
+    """Reed, 5 Nov: a narrated video keeps its narration throughout. Omni has no sound switch,
+    so its B-roll prompt says no one speaks, the place's sound kept under the voice."""
+    said = talker.clips(db, ugc)
+    broll = next(r for c, r in _rows(db, ugc).items() if c not in said)
+    prompt = take_input(db, ugc, broll)["input"]["prompt"]
     assert prompt.endswith(model_map.SILENT) and "only the sounds of the place" in prompt
-    assert "speaks" not in (acting.model or {})
     shown = owner.get(f"/projects/{ugc.id}/settings").json()
     assert "narration_only" not in shown  # nothing to switch off: the narration runs throughout
 
@@ -243,46 +226,11 @@ def test_a_persons_presenter_stays_unless_they_ask(app, db, owner, ugc):
     assert "their choice stays" in shape
 
 
-def test_nothing_defaults_a_shot_to_omni_only_a_reasoned_move_in_a_photoreal_style(
-    app, db, owner, ugc, monkeypatch
-):
-    """Reed, 5 Nov: silent shots, a moving character's included, are the style's Seedance;
-    Omni only for what Seedance can't give (a photoreal talker's face from their picture),
-    named in `why` and shown on the clip. A presenter who acts has no extra price of its own."""
-    from app.breakdown import video_model
-    from app.clip_prompts import newest
-    from app.models.script_library import ScriptDraft
-
-    for look in [s["id"] for s in guides.styles()]:  # every style and lane, any setting
-        for kind in (None, "song", "narrated", "story"):
-            assert not video_model(look=look, kind=kind).talker_only, look
-    ugc.video_model = model_map.OMNI  # even set directly: the video's model is never Omni
-    assert video_model(ugc).id == "seedance-2.0"
-    ugc.video_model, ugc.presenter = None, "acts"
-    db.flush()
-    rows = _rows(db, ugc)
-    monkeypatch.setattr(model_map, "shows_talker", lambda db, p, c: True)
-    assert {model_map.of_clip(ugc, r).id for r in rows.values()} == {"seedance-2.0"}
-    draft = db.get(ScriptDraft, ugc.script_draft_id)
-    plan = len(newest(db, ugc).data["clips"])
-    each = model_map.omni_take(db, ugc, 1) + take_watch.per_take(db, ugc.workspace_id)
-    assert host.run_price(db, draft, 20, ugc) == plan * each  # photoreal: quoted on Omni
-    assert all(model_map.expected(db, ugc, r) for r in rows.values())  # quoted, not made so
-    clip = next(r for c, r in rows.items() if c not in talker.clips(db, ugc))
-    move = {"tool": "clip_model", "clip_id": clip.clip_id, "model": model_map.OMNI}
-    assert _move(app, db, ugc, **move, why="") == model_map.NO_REASON
-    monkeypatch.setattr(model_map, "PHOTOREAL", ())  # a drawn style: Seedance keeps the face
-    assert _move(app, db, ugc, **move, why="She walks to the door.") == model_map.NOT_NEEDED
-    assert host.run_price(db, draft, 20, ugc) == 0  # its shots are Seedance B-roll, priced
-    assert not any(model_map.expected(db, ugc, r) for r in rows.values())
-    assert len(newest(db, ugc).data["clips"]) == len(rows)
-
-
-def test_before_the_plan_is_approved_only_a_persons_request_switches_and_omni_waits(
+def test_before_the_plan_is_approved_only_a_persons_request_switches(
     app, db, owner, ugc, monkeypatch
 ):
     """Reed, 4 Nov: settings follow a person's request or the approved plan, never an
-    unapproved one; Omni makes only the approved plan's acting shots."""
+    unapproved one."""
     from app import settings_move
 
     monkeypatch.setattr("app.plans.status", lambda db, project: "ready")
@@ -290,13 +238,10 @@ def test_before_the_plan_is_approved_only_a_persons_request_switches_and_omni_wa
     assert _move(app, db, ugc, **move, why="") == settings_move.NOT_YET
     asked = _move(app, db, ugc, **move, why="Note 2: they asked for Lite.")
     assert asked.startswith("Switched the video model to Seedance 1 Lite")
-    clip = next(iter(_rows(db, ugc).values()))
-    assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model_map.OMNI,
-                 why="x") == model_map.UNAPPROVED  # fmt: skip
 
 
-def test_the_cost_bar_prices_a_clip_on_omni_at_its_ten_seconds(app, db, owner, ugc, monkeypatch):
-    """QA on #1327: a clip still to make on Omni counts its fixed 10 s at 720p in what's left."""
+def test_the_cost_bar_prices_a_clip_on_its_own_model(app, db, owner, ugc):
+    """QA on #1327: a clip still to make counts at its own model's price in what's left."""
     from app.routes.estimate import _stages
 
     clip = next(r for c, r in _rows(db, ugc).items() if c not in talker.clips(db, ugc))
@@ -306,12 +251,11 @@ def test_the_cost_bar_prices_a_clip_on_omni_at_its_ten_seconds(app, db, owner, u
     def left() -> float:
         return next(s.credits for s in _stages(db, ugc) if s.stage == "clips")
 
-    seedance = left()
-    monkeypatch.setattr(model_map, "shows_talker", lambda db, p, c: c.id == clip.id)
-    assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model_map.OMNI,
-                 why="She takes part in the story.").startswith("Clip")  # fmt: skip
-    omni = float(get_model(model_map.OMNI).credits_per_unit("720p")) * 10
-    assert left() >= omni > seedance
+    on_omni = left()
+    assert on_omni >= float(get_model(model_map.OMNI).credits_per_unit("720p")) * clip.seconds
+    assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model="seedance-1-lite",
+                 why="A hand and the keys: Lite is enough.").startswith("Clip")  # fmt: skip
+    assert left() < on_omni
 
 
 def test_undo_puts_back_how_the_presenter_appears_and_the_old_host(app, db, owner, ugc):
@@ -393,20 +337,8 @@ def test_a_photoreal_acting_presenters_planned_shots_are_quoted_on_omni(
     ugc.presenter = "acts"
     db.flush()
     omni = float(model_map.omni_take(db, ugc, first["seconds"]))
-    seedance = float(model_map._model("seedance-2.0").credits_per_unit("480p")) * first["seconds"]
-    assert abs(left() - (talks - seedance + omni)) < 0.02  # that shot on Omni, the rest as before
-    ugc.video_model = "seedance-2.5"  # dearer than Omni for a long shot: that price stands
-    first["seconds"] = 15
-    row.data = copy.deepcopy(data)
-    db.flush()
-    seedance_15 = float(model_map._model("seedance-2.5").credits_per_unit("480p")) * 15
-    assert seedance_15 > float(model_map.omni_take(db, ugc, 10))  # dearer than Omni's 10 s
-    ugc.presenter = None
-    db.flush()
-    talks_25 = left()
-    ugc.presenter = "acts"
-    db.flush()
-    assert abs(left() - talks_25) < 0.02  # the long shot quoted at 2.5's price, never Omni's
+    own = float(model_map._model(model_map.OMNI).credits_per_unit("720p")) * first["seconds"]
+    assert abs(left() - (talks - own + omni)) < 0.02  # that shot on Omni, the rest as before
     monkeypatch.setattr(model_map, "PHOTOREAL", ())
     ugc.video_model = None
     first["seconds"] = 4

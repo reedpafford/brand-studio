@@ -3,7 +3,7 @@ order: 4
 on: no
 own_sample: yes
 image_model: auto
-video_model: seedance-2.0
+video_model: gemini-omni-1.2
 blurb: "What happens if you ___?": one lovable cartoon skeleton climbs Day 1, Day 30, Day 365.
 card: Glass-body skeleton
 broll: Inside the body

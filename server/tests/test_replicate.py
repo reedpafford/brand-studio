@@ -259,3 +259,25 @@ def test_token_from_env_goes_to_the_api_only(app, owner, db, fake, monkeypatch):
     downloads = [r for r in fake.requests if "replicate.delivery" in str(r.url)]
     assert api and all(r.headers["authorization"] == "Bearer r8_secret" for r in api)
     assert downloads and all("authorization" not in r.headers for r in downloads)
+
+
+def test_an_official_model_runs_on_its_own_endpoint_and_is_known_by_name():
+    """Omni 1.2 has no version (an official model, Reed 6 Nov): it's sent to its model's own
+    predictions endpoint, and its finished prediction is matched to it by name for the cost."""
+    from app.providers.replicate import _model_id_from_version
+
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, str(request.url), json.loads(request.content)))
+        return httpx.Response(201, json={"id": "o1", "status": "starting"})
+
+    provider = ReplicateProvider(BASE, httpx.Client(transport=httpx.MockTransport(handler)),
+                                 token="test-token")  # fmt: skip
+    ref = provider.submit("video", {"model": "gemini-omni-1.2", "input": {"prompt": "a cat"}})
+    assert ref == "o1"
+    assert seen == [("POST", f"{BASE}/models/google/gemini-omni-1.2-flash/predictions",
+                     {"input": {"prompt": "a cat"}})]  # fmt: skip
+    found = {"version": None, "model": "google/gemini-omni-1.2-flash"}
+    assert _model_id_from_version(found) == "gemini-omni-1.2"
+    assert _model_id_from_version({"version": SEEDANCE.provider_version}) == "seedance-2.5"

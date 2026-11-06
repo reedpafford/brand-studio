@@ -2,7 +2,7 @@ name: Claymation
 order: 5
 on: no
 image_model: auto
-video_model: seedance-2.0
+video_model: gemini-omni-1.2
 blurb: Hand-sculpted plasticine on a miniature set: clay skin with thumbprints, real woven fabric, warm light, gentle handmade movement.
 card: Handmade clay
 broll: Clay props
