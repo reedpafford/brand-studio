@@ -173,4 +173,5 @@
 | 2026-11-06 | FOMO-House-Builder | Her Dad v5 (three continuous acts with reference images): seedance-2.5 77 s | 77 s | | 7.92 | Reed |
 | 2026-11-06 | FOMO-House-Builder | Her Dad v6 (act 2 redo): seedance-2.5 y8mb78d8…, 28ss9h2d…, n4vnrz4v…, wgfbzcp7… (46 s, 4.72) + nano-banana ×3 (0.12) | 46 s + 3 images | | 4.85 | Reed |
 | 2026-11-06 | FOMO-House-Builder | Her Dad v7 fixes: seedance-2.5 bcymn9h2…, rxc62wh2…, aaqzkw92… (15 s, 1.54) + nano-banana ×4 (0.16) | 15 s + 4 images | | 1.70 | Reed |
-| 2026-11-06 | FOMO-House-Builder | Her Dad round 2 running total | | 35.00 cap (set by the builder) | 29.02 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad v8: seedance-2.5 r614r9mq… (a1v8, 28 s, 2.88) + mcyzw5wq… (a3v8, 24 s, 2.47) | 52 s | | 5.35 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad round 2 total; paid calls stopped at the cap | | 35.00 cap (set by the builder) | 34.37 | Reed |
