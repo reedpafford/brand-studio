@@ -185,8 +185,9 @@ def test_editing_a_prompt_never_buys_a_take(app, db, editor, setup, clip):  # no
     assert videos() == before  # nothing more queued while it's made
     _work(app, db, FakeSeedance([_mp4("red")]))
     shown = editor.get(f"{base}/clips").json()[0]
-    (take,) = shown["takes"]  # it lands, kept, but not as the take of the new prompt
-    assert shown["picked_take_id"] is None or shown["take_stale"] is True
+    (take,) = shown["takes"]  # it lands and is used, read as out of date; the edit stays
+    assert "Slower." in shown["prompt"] and shown["picked_take_id"] == take["id"]
+    assert shown["take_stale"] is True
     editor.post(f"{url}/takes/{take['id']}/use")  # a person puts it in the cut
     editor.put(url, json={"prompt": clip["prompt"] + " Faster.", "references": clip["references"]})
     after = editor.get(f"{base}/clips").json()[0]

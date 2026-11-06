@@ -390,3 +390,13 @@ test("rule 21: an out-of-date take stays in the cut, with Another take at its pr
   expect(within(c).getAllByRole("button", { name: "Another take · up to $0.31" }).length).toBeGreaterThan(0);
   expect(within(c).getByText("Take 2 · in the cut")).toBeInTheDocument();
 });
+
+test("QA rule 22: Another take says why it can't start yet, instead of failing on the press", async () => {
+  setViewport(1440);
+  const v = video(24);
+  server(owner, 24, { "GET /projects/50/clips": [200, v.clips.map((c, i) => (i === 2 ? { ...c, problems: ["The prompt says 12 s but the clip is 4 s."] } : c))] });
+  open("&clip=c3");
+  const c = await screen.findByRole("region", { name: "Clip 3" });
+  expect(within(c).getByRole("button", { name: /^Another take/ })).toBeDisabled();
+  expect(within(c).getByText("Fix this clip’s prompt first (above, free).")).toBeInTheDocument();
+});

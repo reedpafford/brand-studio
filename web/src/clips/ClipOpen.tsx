@@ -214,7 +214,7 @@ function checkLine(what: string, c: Check) {
 
 /** The clip's review (Reed, item 6): what the checks and the director's watch found on the take in the cut, each with its
  *  action: Fix with a note (priced), Mute this stretch (free, Undo), or Keep it (Undo). Problems and doubts stay visible. */
-function Review({ p, head, clip, fixPrice, fixError, onNote, onTake, onDone }: { p: Project; head: Head | undefined; clip: Clip; fixPrice: number | null | undefined; fixError?: string | null; onNote: (note: string) => void; onTake: () => void; onDone: () => Promise<unknown> }) {
+function Review({ p, head, clip, fixPrice, fixError, onNote, onTake, takeBlock, onDone }: { p: Project; head: Head | undefined; clip: Clip; fixPrice: number | null | undefined; fixError?: string | null; onNote: (note: string) => void; onTake: () => void; takeBlock?: string | null; onDone: () => Promise<unknown> }) {
   const toast = useToast();
   const viewOnly = useViewOnly();
   const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSettled: onDone, onError: (e: Error) => toast(e.message, undefined, "error") });
@@ -263,7 +263,7 @@ function Review({ p, head, clip, fixPrice, fixError, onNote, onTake, onDone }: {
           {!viewOnly && (
             <div className="flex flex-wrap gap-2">
               {!clip.stale && (
-                <Button variant="secondary" busy={run.isPending} onClick={onTake}>
+                <Button variant="secondary" busy={run.isPending} disabled={!!takeBlock} reason={takeBlock} onClick={onTake}>
                   Another take <span className="font-normal text-muted">· {upTo(head, clip.take_credits)}</span>
                 </Button>
               )}
@@ -478,7 +478,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       if (kind === "sound") await must(api.POST("/projects/{project_id}/clips/{clip_id}/sound", { params: { path }, body: { asked: text } }));
       if (kind === "prompt") {
         await must(api.PUT("/projects/{project_id}/clips/{clip_id}", { params: { path }, body: { prompt: text, references: clip.references } }));
-        if (clip.takes.length) toast("Prompt saved. Nothing was made: the take in the cut stays until you make another.");
+        toast(clip.takes.length ? "Prompt saved. Nothing was made: the take in the cut stays until you make another." : "Prompt saved. Nothing was made: a take being made keeps the prompt it started with, and reads out of date when it lands.");
       }
       setBox(null);
     });
@@ -497,6 +497,8 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
   const picked = clip.takes.find((t) => t.id === clip.picked_take_id);
   const kind = row.broll ? "B-roll" : row.model;
   const takePrice = upTo(head, clip.take_credits);
+  // Why a new take can't start yet, said under its press (rule 22), as the server would refuse it.
+  const takeBlock = clip.stale ? "Rewrite its prompt first (above)." : blocking(clip.problems, clip.kept).length ? "Fix this clip’s prompt first (above, free)." : row.state === "making" || (clip.change as { status?: string } | null)?.status === "changing" ? "A take of this clip is being made." : null;
   const earlier = (frame?.earlier ?? []) as { file_id: number; made_at?: string }[];
   // Stills are numbered oldest first: the earlier ones, then the one in use.
   const stillNo = (file: number) => (file === frame?.file_id ? earlier.length + 1 : earlier.findIndex((e) => e.file_id === file) + 1 || null);
@@ -530,7 +532,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       {frame && !frame.file_id && <Priced wide={phone} icon={ImageIcon} label="Draw the still" price={upTo(head, frame.still_credits)} busy={run.isPending || frame.drawing} onClick={() => go(() => must(api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/render", { params: { path: { project_id: p.id, frame_id: frame.id } } })))} />}
       {frame?.file_id && <Priced wide={phone} icon={ImageIcon} label="Change the still…" price={stillPrice.isError ? undefined : stillPrice.data == null ? null : upTo(head, stillPrice.data)} disabled={stillPrice.isError} reason={stillPrice.isError ? stillPrice.error.message : null} onClick={() => setBox({ kind: "still", text: "" })} />}
       {!clip.stale && <Priced wide={phone} icon={Pencil} label="Change this…" price={changePrice.isError ? undefined : changePrice.data == null ? null : upTo(head, changePrice.data)} disabled={changePrice.isError} reason={changePrice.isError ? changePrice.error.message : null} onClick={() => setBox({ kind: "change", text: "" })} />}
-      <Priced wide={phone} icon={RefreshCw} label={clip.takes.length ? "Another take" : "Make the take"} price={takePrice} busy={run.isPending} onClick={() => take()} />
+      <Priced wide={phone} icon={RefreshCw} label={clip.takes.length ? "Another take" : "Make the take"} price={takePrice} busy={run.isPending} disabled={!!takeBlock} reason={takeBlock} onClick={() => take()} />
       {picked && clip.sound?.state === "none" && <Priced wide={phone} icon={Volume2} label="Add sound effects" price={upTo(head, clip.sound.credits)} onClick={() => setBox({ kind: "sound", text: "" })} />}
       {picked && clip.sound?.state === "ready" && (
         <Button variant="secondary" icon={Volume2} className={phone ? "w-full justify-start" : ""} onClick={() => go(() => must(api.DELETE("/projects/{project_id}/clips/{clip_id}/sound", { params: { path } })))}>
@@ -580,7 +582,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
         <div className="flex flex-col items-start gap-2 rounded-lg bg-warning-soft px-3 py-2.5 text-sm text-warning">
           <span>Out of date: the take in the cut was made before the prompt or its pictures changed. It stays in the cut, and every take is kept.</span>
           {!viewOnly && (
-            <Button variant="secondary" busy={run.isPending} onClick={() => take()}>
+            <Button variant="secondary" busy={run.isPending} disabled={!!takeBlock} reason={takeBlock} onClick={() => take()}>
               Another take <span className="font-normal text-muted">· {takePrice}</span>
             </Button>
           )}
@@ -642,7 +644,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
             );
           })}
       </ul>
-      <Review p={p} head={head} clip={clip} fixPrice={changePrice.data ?? null} fixError={changePrice.isError ? changePrice.error.message : null} onNote={(note) => setBox({ kind: "change", text: note })} onTake={() => take()} onDone={refresh} />
+      <Review p={p} head={head} clip={clip} fixPrice={changePrice.data ?? null} fixError={changePrice.isError ? changePrice.error.message : null} onNote={(note) => setBox({ kind: "change", text: note })} onTake={() => take()} takeBlock={takeBlock} onDone={refresh} />
       <Inserts p={p} clip={clip} onDone={refresh} />
       <WhatChanged p={p} clip={clip} frame={frame} stillUse={stillUse} onStill={pickStill} onDone={refresh} />
       <History p={p} head={head} clip={clip} onDone={refresh} />

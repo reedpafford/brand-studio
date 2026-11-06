@@ -72,7 +72,8 @@ def before_change(db: Session, row: ProjectClip) -> None:
         for take in db.scalars(select(ClipTake).where(ClipTake.clip_id == row.id)):
             if "prompt_version" not in (take.made_with or {}):
                 take.made_with = {**(take.made_with or {}), "prompt_version": 1}
-        for waiting in db.scalars(select(Job).where(Job.status.in_(WAITING))):
+        waiting_jobs = select(Job).where(Job.project_id == row.project_id, Job.status.in_(WAITING))
+        for waiting in db.scalars(waiting_jobs):
             mine = waiting.input.get("project_clip_id") == row.id and "made_with" in waiting.input
             if mine and "prompt_version" not in waiting.input["made_with"]:
                 waiting.input = {**waiting.input, "made_with": {
