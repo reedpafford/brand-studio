@@ -9,7 +9,7 @@ import { setViewport } from "../test/viewport";
 const SCRIPT = "DR. PICKLE: Your gut after the weekend? A brewery with a pulse.";
 const at = new Date().toISOString();
 const look = (id: string, name: string, o: object = {}) => ({ id, name, blurb: `${name}'s long guide blurb.`, card: "", broll: "", on: true, own_sample: false, lanes: [], video_model: "seedance-2.0", test_clip: true, test_still: true, test_tag: true, ...o });
-const LOOKS = [look("house", "House", { test_clip: false, test_tag: false, card: "Our caricatured 3D", broll: "Near-real inserts" }), look("skeleton", "Skeleton", { broll: "Inside the body" }), look("dr-pickle", "Dr. Pickle", { broll: "Glossy 3D anatomy" }), look("ugc", "UGC", { on: false })];
+const LOOKS = [look("house", "House", { test_tag: false, card: "Our caricatured 3D", broll: "Near-real inserts" }), look("skeleton", "Skeleton", { broll: "Inside the body" }), look("dr-pickle", "Dr. Pickle", { broll: "Glossy 3D anatomy" }), look("ugc", "UGC", { on: false })];
 const format = (id: string, name: string, o: object = {}) => ({ id, name, engine: "story", on: true, blurb: `${name} blurb.`, card: "", host: false, off: null, test_still: true, ...o });
 const FORMATS = [format("dialogue", "Dialogue", { card: "People talk on camera" }), format("song", "Song", { engine: "song", off: "its music provider isn't switched on for this site yet" }), format("presenter", "Presenter", { engine: "narrated", host: true }), format("zack-d", "Zack D", { on: false, off: "off" })];
 const fs = (o: object = {}) => ({ id: 9, title: "Beer gut", type: "dialogue", look: "house", shape: "9:16", brand_id: 1, status: "working", created_by_name: "Reed", created_at: at, credits: 0, file_id: null, project_id: 50, thread: [], ...o });
@@ -73,7 +73,8 @@ test("a style plays its test sample, one at a time; House shows its site still w
   const styles = await screen.findByRole("radiogroup", { name: "Style" });
   await within(styles).findByRole("radio", { name: /^Skeleton/ });
   expect(within(styles).getByLabelText("Skeleton sample")).toHaveAttribute("src", "/api/looks/skeleton/test-sample.mp4");
-  expect(within(styles).queryByRole("button", { name: /House sample/ })).toBeNull(); // a still only
+  expect(within(styles).getByLabelText("House sample")).toHaveAttribute("src", "/api/looks/house/test-sample.mp4"); // the site's own clip
+  expect(within(styles).getByRole("button", { name: "Play the House sample" })).toBeInTheDocument();
   await userEvent.click(within(styles).getByRole("button", { name: "Play the Skeleton sample" }));
   expect(within(styles).getByRole("button", { name: "Pause the Skeleton sample" })).toBeInTheDocument();
   await userEvent.click(within(styles).getByRole("button", { name: "Play the Dr. Pickle sample" }));
