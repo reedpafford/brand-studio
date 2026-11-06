@@ -1,5 +1,6 @@
 """Voices (v6 S8-04, Library › Presenters & voices): every app voice with its free sample,
-the brand's own voices and the styles' voices, a voice cloned from a sample (priced first, up
+the brand's own voices (cloned, or described and read in the nearest app voice) and the styles'
+voices, a voice cloned from a sample (priced first, up
 to one clone's real cost), and remove with Undo. Rules: app/voices.py."""
 
 from typing import Literal
@@ -26,7 +27,8 @@ class VoiceOut(BaseModel):
     id: int | None  # null: an app voice (they're in the code, never saved to a brand)
     name: str
     kind: Literal["stock", "cloned", "described"]
-    stock_key: str | None
+    stock_key: str | None  # an app voice's key (null for every saved voice)
+    uses: str | None = None  # a described voice: the app voice it's read in ("Graceful Lady")
     provider: str  # elevenlabs | minimax | omni
     description: str
     look: str | None  # a style's own voice (for every brand), e.g. "dr-pickle"
@@ -61,7 +63,9 @@ def _url(name: str | None) -> str | None:
 
 def _out(db: Session, voice: Voice, used: dict) -> VoiceOut:
     state, why = voices.state(db, voice)
+    key = voices.app_voice(voice)
     return VoiceOut(id=voice.id, name=voice.name, kind=voice.kind, stock_key=None,
+                    uses=voices.ABOUT[key][0] if key else None,
                     provider=voice.provider, description=voice.description, look=voice.look,
                     brand_id=voice.brand_id, sample_file_id=voice.sample_file_id,
                     sample_url=_url(voices.sample_name(voice)),
@@ -91,8 +95,8 @@ def _voice(db: Session, user: User, voice_id: int) -> Voice:
 def list_voices(brand_id: int, user: User = Depends(current_user),
                 db: Session = Depends(get_db)):  # fmt: skip
     """The brand's own voices, the styles' voices, then every app voice (Reed, 4 Nov: a brand
-    saves only voices uploaded or cloned for it). An `all` query from the first version is
-    ignored."""
+    saves only voices uploaded or cloned for it; 6 Nov: or described for it). An `all` query
+    from the first version is ignored."""
     get_brand(db, user, brand_id)
     rows = voices.rows(db, user.workspace_id, brand_id)
     used = voices.used_by(db, [v.id for v in rows])

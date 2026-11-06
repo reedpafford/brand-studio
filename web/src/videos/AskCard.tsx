@@ -120,6 +120,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const [pick, setPick] = useState<string | number | null>(null);
   const [replying, setReplying] = useState(false);
   const [text, setText] = useState("");
+  const [voiceName, setVoiceName] = useState(""); // Describe it: the brand's name for the voice
   const [changing, setChanging] = useState<"" | "options" | "answer">("");
   const [every, setEvery] = useState(false); // a voice card lists its first few; the rest a press away
   const [upload, setUpload] = useState<{ name: string; file?: string } | null>(null);
@@ -131,16 +132,17 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   // Where a clone goes, said before the paid press (Reed, 5 Nov; #1346's `clone_to`).
   const cloneTo = (a.clone_to || `Saved to ${brand}’s voices`).replace(/^Saved/, "saved");
   const [failedUpload, setFailedUpload] = useState("");
-  const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setChanging(""), setFailedUpload(""), onDone?.()) });
+  const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setVoiceName(""), setChanging(""), setFailedUpload(""), onDone?.()) });
   const error = act.isError || failedUpload ? <p role="alert" className="text-sm text-danger">{failedUpload || act.error?.message}</p> : null;
 
   // Folded: answered (by you or the owner), or no longer needed (S4-03).
   if ((a.state === "answered" || a.state === "not_needed") && changing !== "answer") {
     const gone = a.state === "not_needed";
     const [cls, Icon] = HEAD[gone ? "gone" : "done"];
-    const ans = a.answer as { name?: string; text?: string; file_id?: number | null; how?: string; reused?: boolean } | null;
+    const ans = a.answer as { name?: string; text?: string; file_id?: number | null; how?: string; reused?: boolean; uses?: string } | null;
     const what = money ? (ans?.how === "withdraw" ? "Withdrawn" : ans?.how === "keep" || ans?.how === "decline" ? "Kept as it is. Nothing was charged for it." : "Approved") : ans?.name ?? ans?.text ?? "";
-    const who = ans?.how === "clone" && ans.reused ? `Using ${ans.name ?? "that voice"}, already in ${brand}’s voices. Nothing was charged.` : a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `${money ? "by" : "picked by"} ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
+    const described = ans?.how === "describe" ? `Described: “${ans.text}” · ${ans.uses}’s voice · saved to ${brand}’s voices. Nothing was charged.` : "";
+    const who = described ? [described, a.answered_by && a.answered_at && `picked by ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ") : ans?.how === "clone" && ans.reused ? `Using ${ans.name ?? "that voice"}, already in ${brand}’s voices. Nothing was charged.` : a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `${money ? "by" : "picked by"} ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
     return (
       <section id={`ask-${a.id}`} aria-label={a.question} className="overflow-hidden rounded-[10px] border border-border bg-surface">
         <p className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold ${cls}`}>
@@ -350,7 +352,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             <div className="flex gap-2">
               {can("upload") && a.kind !== "voice" && <Way icon={Upload} title="Upload" note="A photo, a still or a clip" dashed onPress={() => picker.current?.click()} />}
               {can("clone") && <Way icon={Upload} title="Upload a sample" note={`Clone it once · ${cloneTo} · up to ${said(a.clone)}`} dashed onPress={() => picker.current?.click()} />}
-              {can("reply") && <Way icon={MessageSquare} title={a.kind === "voice" ? "Describe it" : "Reply"} note={a.kind === "voice" ? "“Late 40s, tired, warm”" : "Tell me in words"} onPress={() => setReplying(true)} />}
+              {(can("reply") || can("describe")) && <Way icon={MessageSquare} title={voice ? "Describe it" : "Reply"} note={voice ? "“Late 40s, tired, warm”" : "Tell me in words"} onPress={() => setReplying(true)} />}
               {can("generate") && a.generate && <Way icon={WandSparkles} title="Generate options" note={`3 ${NOUN[a.kind] ?? "options"} · up to ${said(a.generate)} · this video only`} busy={act.isPending} onPress={() => go({}, "generate")} />}
             </div>
           </div>
@@ -360,16 +362,22 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             className="flex flex-col gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              if (text.trim()) go({ how: "reply", text: text.trim() });
+              if (text.trim()) go(voice ? { how: "describe", text: text.trim(), name: voiceName.trim() } : { how: "reply", text: text.trim() });
             }}
           >
             <label className="sr-only" htmlFor={`reply-${a.id}`}>
-              Your answer
+              {voice ? "What the voice sounds like" : "Your answer"}
             </label>
-            <textarea id={`reply-${a.id}`} rows={2} value={text} onChange={(e) => setText(e.target.value)} autoFocus placeholder="Tell me in words" className="resize-none rounded-md border border-border-strong bg-surface px-3 py-2 text-base outline-none focus:border-focus lg:text-sm" />
+            <textarea id={`reply-${a.id}`} rows={2} value={text} onChange={(e) => setText(e.target.value)} autoFocus placeholder={voice ? "Late 40s, tired, warm" : "Tell me in words"} className="resize-none rounded-md border border-border-strong bg-surface px-3 py-2 text-base outline-none focus:border-focus lg:text-sm" />
+            {voice && (
+              <>
+                <input aria-label="Its name (optional)" value={voiceName} onChange={(e) => setVoiceName(e.target.value)} maxLength={120} placeholder="Its name (optional)" className="h-control rounded-md border border-border-strong bg-surface px-3 text-base outline-none focus:border-focus lg:h-9 lg:text-sm" />
+                <p className="text-xs text-muted">The nearest app voice reads it, free. It’s saved to {brand}’s voices to use again.</p>
+              </>
+            )}
             <div className="flex gap-2">
               <Button type="submit" busy={act.isPending} disabled={!text.trim()}>
-                Send the answer
+                {voice ? "Save and use it" : "Send the answer"}
               </Button>
               <Button variant="secondary" onClick={() => setReplying(false)}>
                 Not now

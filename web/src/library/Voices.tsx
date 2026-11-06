@@ -23,7 +23,7 @@ export function useVoiceList(brandId: number) {
   return useQuery({ queryKey: ["voices", brandId], queryFn: () => readVoices(brandId), enabled: brandId > 0 });
 }
 
-/** The brand's own voices, uploaded or cloned for it on purpose (L4): the tab's count and the set-up list's tick. A
+/** The brand's own voices, cloned or described for it on purpose (L4; described: Reed, 6 Nov): the tab's count and the set-up list's tick. A
  *  style's own voice (Dr. Pickle's clone) is listed for every brand but isn't this brand's. */
 export function useVoices(brandId: number) {
   return (useVoiceList(brandId).data?.voices ?? []).filter((v) => v.kind !== "stock" && v.brand_id === brandId);
@@ -36,7 +36,11 @@ export function voiceOf(i: { voice_id?: number | null; voice_stock_key?: string 
 }
 
 const PROVIDER: Record<string, string> = { elevenlabs: "ElevenLabs", minimax: "MiniMax", omni: "Omni" };
-export const voiceLine = (v: Voice) => [v.description, v.kind === "cloned" ? `${PROVIDER[v.provider] ?? v.provider} clone` : PROVIDER[v.provider] ?? v.provider].filter(Boolean).join(" · ");
+/** A voice's line (S8-04): what it sounds like and where it's from; a described one, its words and the app voice that reads them. */
+export const voiceLine = (v: Voice) =>
+  v.kind === "described"
+    ? [`Described: “${v.description}”`, v.uses && `${v.uses}’s voice`].filter(Boolean).join(" · ")
+    : [v.description, v.kind === "cloned" ? `${PROVIDER[v.provider] ?? v.provider} clone` : PROVIDER[v.provider] ?? v.provider].filter(Boolean).join(" · ");
 // A free sample's address is the server's own (…/voices/samples/Roger.mp3); the app reaches the server under /api.
 const apiPath = (url: string) => {
   const path = new URL(url, window.location.origin).pathname;
@@ -73,7 +77,7 @@ export function VoiceRow({ voice: v, picked, onPick }: { voice: Voice; picked?: 
   );
 }
 
-/** Voices on Presenters & voices (S8-04 as redrawn in S-gaps-05 L4): the brand's own voices (uploaded or cloned on
+/** Voices on Presenters & voices (S8-04 as redrawn in S-gaps-05 L4): the brand's own voices (uploaded, cloned or described on
  *  purpose), then every app voice, each with a free sample; Clone a voice with its price first. */
 export function Voices({ brandId }: { brandId: number }) {
   const list = useVoiceList(brandId);
@@ -96,7 +100,7 @@ export function Voices({ brandId }: { brandId: number }) {
         </Button>
       </div>
       {cloning && <Clone brandId={brandId} price={price} owner={owner} onDone={() => setCloning(false)} />}
-      <h3 className="text-xs font-semibold text-muted">{brand?.name}’s own · uploaded or cloned, saved on purpose</h3>
+      <h3 className="text-xs font-semibold text-muted">{brand?.name}’s own · uploaded, cloned or described, saved on purpose</h3>
       {own.length ? <div className="flex flex-col gap-2">{own.map((v) => <VoiceRow key={`v${v.id}`} voice={v} />)}</div> : <p className="text-sm text-muted">None yet. Clone a voice to keep one for {brand?.name}.</p>}
       <h3 className="text-xs font-semibold text-muted">The app’s voices · {app.length} · usable in any video, never saved to a brand</h3>
       <div className="flex flex-col gap-2">

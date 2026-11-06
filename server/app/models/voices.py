@@ -1,7 +1,9 @@
 """Voices (v6 S8-04, Library › Presenters & voices): the voices a brand made its own (Reed,
-4 Nov: only voices uploaded or cloned for it). A row is a voice cloned from a sample
-(`cloned`: MiniMax, its `provider_voice_id` spoken through `speech_model`), or a voice
-described in words (`described`: what Omni is told, since its voice can't be ours).
+4 Nov: only voices uploaded or cloned for it; 6 Nov: or described for it). A row is a voice
+cloned from a sample (`cloned`: MiniMax, its `provider_voice_id` spoken through
+`speech_model`), or a voice
+described in words (`described`, Reed 6 Nov: no new voice is made; `provider_voice_id` is the
+app voice nearest the words, read and sampled as that voice).
 `brand_id` null: a style's own voice for every brand (`look`, e.g. Dr. Pickle's clone). A
 cloned voice may be deleted by MiniMax after 7 days unused (`last_used_at`); `lost_at` is
 when MiniMax said it's gone. The app's own voices aren't rows: they're listed from

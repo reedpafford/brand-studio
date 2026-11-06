@@ -359,6 +359,26 @@ test("S5-02: the presenter's voice changes for this video only, from the voices 
   await vi.waitFor(() => expect(calls.filter((x) => x.key === "POST /projects/50/settings").at(-1)?.body).toEqual({ voice: "voice:3", undo: true }));
 });
 
+test("S5-02: a described voice is said in its words and the app voice that reads it", async () => {
+  setViewport(1440);
+  const pickle = role({ role: "Dr. Pickle", name: "Dr. Pickle", library_item_id: 5 });
+  const settings = { look: "dr-pickle", video_model: null, image_model: null, aspect_ratio: "9:16", product_variants: {}, language: "en", video_models: [], image_models: [], shapes: ["9:16"], flavours: {}, presenter: null, presenter_now: "corner", voice: "voice:9" };
+  const dana = { id: 9, name: "Dana", kind: "described", uses: "Graceful Lady", stock_key: null, provider: "minimax", description: "late 40s, tired, warm", sample_url: "/voices/samples/English_Graceful_Lady.mp3", preview_file_id: null, sample_file_id: null };
+  const lady = { ...dana, id: null, name: "Graceful Lady", kind: "stock", uses: null, stock_key: "English_Graceful_Lady", description: "Older woman" };
+  server(owner, [pickle], {
+    "GET /projects/50/host": [200, { on: true, state: "none", pieces: [], credits: 0, presenter_id: 5, voice: "voice:9" }],
+    "GET /projects/50/settings": [200, settings],
+    "GET /brands/1/voices": [200, { voices: [dana, lady], clone_credits: 29.18, clone_usd: 3 }],
+  });
+  open();
+  const pres = await screen.findByRole("region", { name: "Presenter" });
+  await userEvent.click(await within(pres).findByRole("button", { name: "Change the voice" }));
+  const voices = within(pres).getByRole("radiogroup", { name: "The narrator’s voice" });
+  expect(within(voices).getByRole("radio", { name: "Dana" })).toBeChecked();
+  expect(within(voices).getByText("Described: “late 40s, tired, warm” · Graceful Lady’s voice")).toBeInTheDocument();
+  expect(within(voices).getByRole("radio", { name: "Graceful Lady" })).not.toBeChecked();
+});
+
 test("S-gaps-07 B: who made a look and its last revision, what the previews cost so far, and Keep them on clips made with an old look", async () => {
   setViewport(1440);
   const mom = role({ ref: "char:31", role: "Mom", name: "Mom", library_item_id: 31, own_look_id: 31, slot_id: 6, sheet_status: "needs_approval", clip_ids: ["c4"] });
