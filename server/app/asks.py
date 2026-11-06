@@ -189,7 +189,13 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
             raise HTTPException(409, "That sample is cloned already.")  # one charge a sample
         named = (body.get("text") or ask.subject or ask.topic or "Voice").strip()
         made = voices.clone(db, user, project.brand_id, storage, stored, named, "")
-        data = {"how": how, "option": f"voice:{made.id}", "name": made.name, "file_id": stored.id}
+        data = {
+            "how": how,
+            "option": f"voice:{made.id}",
+            "name": made.name,
+            "file_id": stored.id,
+            **({"reused": True} if made.provider_voice_id else {}),
+        }  # the brand's, no charge
     elif how == "choice" and ask.kind == "story":
         found = next((c for c in ask.choices if c["key"] == body.get("choice")), None)
         if found is None:

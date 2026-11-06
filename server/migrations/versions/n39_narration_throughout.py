@@ -1,7 +1,7 @@
 """A narrated video keeps its narration throughout (Reed, 5 Nov): no talker speaks on Omni in
 it, so drops `projects.omni_voice` (the voice described to Omni) and `projects.narration_only`
-(the switch that turned that speech off). A clip that spoke on Omni loses `speaks` in
-`project_clips.model`; its takes go out of date by their model as any other.
+(the switch that turned that speech off). `project_clips.model` may still carry a "speaks"
+key from #1327; nothing reads it now (no video made one in the day between).
 
 Revision ID: n39
 Revises: n38

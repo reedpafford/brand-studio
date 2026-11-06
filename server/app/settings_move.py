@@ -66,13 +66,13 @@ def log(project: Project, user: User, field: str, was, now, by: str, why: str = 
 def persons(project: Project, field: str) -> dict | None:
     """The person's choice that still stands for this setting, else None: their last switch,
     or with none logged a value set (when the video was made, or before the log: QA on #1327);
-    an Auto model, the style's own way of appearing and narration off are the director's."""
+    an Auto model and the style's own way of appearing are the director's."""
     mine = [e for e in project.settings_log or [] if e["field"] == field]
     if mine:
         last = mine[-1]
         stands = last["by"] == "person" and getattr(project, field) == last["now"]
         return last if stands else None
-    if getattr(project, field) in (None, False):
+    if getattr(project, field) is None:
         return None
     return {"field": field, "by": "person", "by_id": project.created_by_id}
 

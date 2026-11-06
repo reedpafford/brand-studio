@@ -158,7 +158,11 @@ def test_a_narrated_video_keeps_its_narration_and_omni_acts_without_speaking(
     on HeyGen."""
     said = sorted(talker.clips(db, ugc))
     talking = _rows(db, ugc)[said[0]]
-    move = {"tool": "clip_model", "model": model_map.OMNI, "why": "She reacts."}
+    move = {
+        "tool": "clip_model",
+        "model": model_map.OMNI,
+        "why": "Her face from her photo, which Seedance refuses.",
+    }  # a capability: not a move
     assert _move(app, db, ugc, **move, clip_id=talking.clip_id) == model_map.SAYS_IT
     acting = next(r for c, r in _rows(db, ugc).items() if c not in said)
     monkeypatch.setattr(model_map, "shows_talker", lambda db, p, c: c.id == acting.id)

@@ -90,6 +90,9 @@ class AskOut(BaseModel):
     decide_at: UtcTime | None = None  # a story choice: "I'll go with A at 11:00"
     generate: AskPrice | None = None  # a round of Generate options, "up to"; null: no Generate
     clone: AskPrice | None = None  # a voice card's "Clone it once · up to $X" (#1314's price)
+    clone_to: str = (
+        ""  # where the clone is saved, said before the press: "Saved to Resilia's voices"
+    )
     options: list[MadeOption] = []
     options_spent: AskPrice | None = None  # "$0.18 spent"
     answer: dict | None = None  # {how, option, name, file_id, text, choice, reused}
@@ -155,6 +158,7 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
         from app import voices
 
         card.clone = _price(user, voices.clone_credits(db, project.workspace_id))
+        card.clone_to = f"Saved to {db.get(Brand, project.brand_id).name}'s voices"
     if mine and state != "not_needed":
         card.can = ["reply"] + (["saved"] if card.saved else [])
         card.can += ["upload"] if ask.kind in asks.UPLOADS else []

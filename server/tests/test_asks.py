@@ -763,3 +763,47 @@ def test_the_progress_card_reads_ready_for_its_editor_and_ignores_an_options_hol
                status="needs_owner_approval"))  # fmt: skip
     db.commit()
     assert editor.get(f"{url}/progress").json()["status"] != "waiting"
+
+
+def test_a_cards_clone_is_saved_to_the_brands_voices_and_reused_never_charged_again(
+    app, db, owner, editor
+):
+    """Reed, 5 Nov: "Clone it once" saves the voice to the brand's voices, said before the
+    press; the same sample or the same name in that brand is the clone already made: no new
+    call, nothing charged."""
+    import subprocess
+
+    from app.models.brands import Brand
+    from app.models.voices import Voice
+
+    pid, _ = _video(app, owner, editor, db)
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    brand = db.get(Brand, db.get(Project, pid).brand_id)
+    assert _card(owner, ask)["clone_to"] == f"Saved to {brand.name}'s voices"
+    path = f"{app.state.settings.storage_dir}/sample.mp3"
+    made = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=12", path]
+    subprocess.run(made, check=True)  # noqa: S603, S607 - fixed arguments
+    with open(path, "rb") as f:
+        data = f.read()
+    first = upload(owner, "nate.mp3", data, "audio/mpeg")
+    r = owner.post(f"/asks/{ask.id}/answer", json={"how": "clone", "file_id": first,
+                                                     "text": "Nate"})  # fmt: skip
+    assert r.status_code == 200, r.text
+    db.expire_all()
+    (voice,) = db.query(Voice).filter_by(brand_id=brand.id, kind="cloned").all()  # the brand's
+    voice.provider_voice_id = "R8_NATE"  # the clone came back (the stand-in's place)
+    db.commit()
+    url = f"/brands/{brand.id}/voices/clone"  # the Library's Clone: the same rule
+    same_bytes = upload(owner, "nate copy.mp3", data, "audio/mpeg")
+    for body in ({"sample_file_id": same_bytes, "name": "Someone"},
+                 {"sample_file_id": first, "name": "Nate"}):  # fmt: skip
+        r = owner.post(url, json={**body, "description": ""})
+        assert r.status_code in (200, 201) and r.json()["id"] == voice.id, r.text
+    other = upload(owner, "other.mp3", data[:-200] + b"\0" * 200, "audio/mpeg")
+    r = owner.post(url, json={"sample_file_id": other, "name": "nate", "description": ""})
+    assert r.json()["id"] == voice.id  # the same name in the brand, any case
+    again = owner.post(f"/asks/{ask.id}/answer", json={"how": "clone", "file_id": same_bytes,
+                                                         "text": "Nate"})  # fmt: skip
+    assert again.json()["answer"]["reused"] is True
+    db.expire_all()
+    assert db.query(Job).filter(Job.kind == "voice").count() == 1  # one paid call in all

@@ -5910,6 +5910,11 @@ export interface components {
             generate?: components["schemas"]["AskPrice"] | null;
             clone?: components["schemas"]["AskPrice"] | null;
             /**
+             * Clone To
+             * @default
+             */
+            clone_to: string;
+            /**
              * Options
              * @default []
              */
