@@ -593,6 +593,19 @@ test("S3-02: the start-of-run card: Make it · up to its price, Change the plan 
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "make_it" }));
 });
 
+test("rule 34: past a later run's own price, the owner's card says so in its header; the editor's waits for the owner", async () => {
+  setViewport(1440);
+  const later = (o: object) => ask({ kind: "budget", question: "Redo clip 2? That goes $0.60 past the $2.50 approved for this run.", why: "Redoing it takes this run to up to $3.10 ($2.20 spent in this run plus up to $0.90); this run's approved price is $2.50.", saved: [], money: held$({ up_to: price(9, 0.9), over: "the $2.50 approved for this run", clips: [{ clip: "2", still_file_id: 51 }] }), ...o });
+  const r = (server(owner, null, run({ thread: [asked()] }), cards(later({ can: ["approve", "keep"] }))), renderApp("/b/1/videos/50"));
+  const mine = await screen.findByRole("region", { name: "Redo clip 2? That goes $0.60 past the $2.50 approved for this run." });
+  expect(within(mine).getByText("Past this run’s price · needs your OK")).toBeInTheDocument();
+  r.unmount();
+  server(editor, null, run({ thread: [asked()] }), cards(later({ state: "held", question: "Redo clip 2? That goes 6 credits past the 25 credits approved for this run.", why: "The owner has been asked; nothing is charged while it waits.", can: ["withdraw"] })));
+  renderApp("/b/1/videos/50");
+  const theirs = await screen.findByRole("region", { name: "Redo clip 2? That goes 6 credits past the 25 credits approved for this run." });
+  expect(within(theirs).getByText("Waiting for the owner’s OK")).toBeInTheDocument();
+});
+
 test("S3-06: past the budget, the owner approves the most it adds, or keeps the cut", async () => {
   setViewport(1440);
   const budget = ask({ kind: "budget", question: "Redo clips 9 and 12? That goes $1.54 past the budget.", why: "$16.30 spent plus up to $2.10 makes up to $18.40; the budget is $16.86.", saved: [], money: held$({ up_to: price(21, 2.1), clips: [{ clip: "9", still_file_id: 51 }, { clip: "12", still_file_id: 52 }] }), can: ["approve", "keep"] });

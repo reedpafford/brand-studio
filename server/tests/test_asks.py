@@ -1202,3 +1202,137 @@ def test_a_start_card_after_a_stopped_run_says_nothing_more_is_made(app, db, own
     assert (theirs["title"], theirs["sub"]) == (
         "Waiting for the owner's OK", "Nothing more is made until the owner says yes")  # fmt: skip
     assert owner.get(url).json()["started"] is True and editor.get(url).json()["started"] is True
+
+
+def _past_price(app, db, owner, pid: int, price: str) -> dict:
+    """The newest run's Make it as if it had approved only `price` credits; the run goes on
+    until a step past it waits for the owner. Its budget card, as the owner reads it."""
+    from app.credits import COUNTED
+
+    cards = db.query(Job).filter(Job.project_id == pid, Job.input[asks.START].as_boolean(),
+                                 Job.status.in_(COUNTED))  # fmt: skip
+    newest = cards.order_by(Job.id.desc()).first()
+    newest.input = {**newest.input, "price": price}
+    db.commit()
+    for _ in range(20):
+        _run(app, db, ticks=10, start=False)
+        cards = [c for c in owner.get(f"/projects/{pid}/asks").json()
+                 if c["kind"] == "budget" and c["state"] == "open"]  # fmt: skip
+        if cards:
+            return cards[-1]
+    raise AssertionError("no step went past the price")
+
+
+def _said(money: dict, owner: bool) -> str:
+    return f"${money['usd']:.2f}" if owner else f"{math.ceil(money['credits'])} credits"
+
+
+def test_past_the_first_runs_price_the_card_says_the_boards_words_in_its_figures(
+    app, db, owner, editor, monkeypatch
+):
+    """Rule 34 (Reed, 6 Nov) and board S3-07: a first run past the price its Make it approved
+    says "past the budget" and "takes this video to up to … its budget is …", the figures
+    being the run's own (the hold's: asks.approved_run); an editor reads credits."""
+    from decimal import Decimal
+
+    monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(500)))
+    pid, _ = _video(app, owner, editor, db)
+    _start(app, db, editor, pid)
+    first = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
+    owner.post(f"/asks/{first['id']}/answer", json={"how": "make_it"})
+    card = _past_price(app, db, owner, pid, "12")
+    m = card["money"]
+    db.expire_all()
+    price, against = asks.approved_run(db, db.get(Project, pid))
+    assert m["budget"]["credits"] == float(price)  # the hold's own figures
+    assert abs(m["spent"]["credits"] - float(against)) < 1
+    past = _said(m["past"], True)
+    assert card["question"] == f"{m['what']}? That goes {past} past the budget."
+    total = round(m["spent"]["usd"] + m["up_to"]["usd"], 2)
+    assert m["past"]["usd"] > 0 and m["past"]["usd"] == round(total - m["budget"]["usd"], 2)
+    waiting = db.query(Job).filter(Job.project_id == pid, Job.status == "needs_owner_approval")
+    judged = sum(Decimal(j.input[asks.HELD_CREDITS]) for j in waiting)  # what the hold judged
+    assert judged > 0 and m["up_to"]["credits"] >= float(judged)  # Approve covers all of it
+    assert card["why"].endswith(
+        f"takes this video to up to ${total:.2f} ({_said(m['spent'], True)} spent plus up to "
+        f"{_said(m['up_to'], True)}); its budget is {_said(m['budget'], True)}."
+    )  # fmt: skip
+    assert m["over"] == "the budget" and card["can"] == ["approve", "keep"]
+    theirs = next(c for c in editor.get(f"/projects/{pid}/asks").json() if c["id"] == card["id"])
+    t = theirs["money"]
+    sums = t["spent"]["credits"] + t["up_to"]["credits"] - t["budget"]["credits"]
+    assert t["past"]["credits"] > 0 and t["past"]["credits"] == sums
+    past = _said(t["past"], False)
+    assert theirs["question"] == f"{t['what']}? That goes {past} past the budget."
+    assert theirs["why"].endswith("The owner has been asked; nothing is charged while it waits.")
+    assert "$" not in theirs["question"] + theirs["why"] and theirs["can"] == ["withdraw"]
+
+
+def test_past_a_later_runs_price_the_card_speaks_in_that_runs_own_figures(
+    app, db, owner, editor, monkeypatch
+):
+    """Rule 34: after a delivery, Make it again holds the new run to its own approved price;
+    its budget card says how far past that run's price it goes and what this run has spent,
+    in the figures the hold uses (asks.approved_run), to the owner in dollars and an editor in
+    credits."""
+    from decimal import Decimal
+
+    monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(500)))
+    pid, _ = _video(app, owner, editor, db)
+    _start(app, db, owner, pid)
+    _make_it(app, db, owner, pid)  # delivered
+    owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
+    _start(app, db, owner, pid)
+    second = [c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start"][-1]
+    owner.post(f"/asks/{second['id']}/answer", json={"how": "make_it"})
+    card = _past_price(app, db, owner, pid, "3")
+    m = card["money"]
+    db.expire_all()
+    price, against = asks.approved_run(db, db.get(Project, pid))
+    assert m["budget"]["credits"] == float(price)  # the hold's own figures
+    assert abs(m["spent"]["credits"] - float(against)) < 1
+    p = _said(m["budget"], True)
+    assert m["over"] == f"the {p} approved for this run"
+    assert card["question"] == (
+        f"{m['what']}? That goes {_said(m['past'], True)} past the {p} approved for this run."
+    )
+    total = round(m["spent"]["usd"] + m["up_to"]["usd"], 2)
+    assert m["past"]["usd"] > 0 and m["past"]["usd"] == round(total - m["budget"]["usd"], 2)
+    assert card["why"].endswith(
+        f"takes this run to up to ${total:.2f} ({_said(m['spent'], True)} spent in this run plus "
+        f"up to {_said(m['up_to'], True)}); this run's approved price is {p}."
+    )  # fmt: skip
+    theirs = next(c for c in editor.get(f"/projects/{pid}/asks").json() if c["id"] == card["id"])
+    t = theirs["money"]
+    sums = t["spent"]["credits"] + t["up_to"]["credits"] - t["budget"]["credits"]
+    assert t["past"]["credits"] > 0 and t["past"]["credits"] == sums
+    over = f"the {_said(t['budget'], False)} approved for this run"
+    assert theirs["question"] == f"{t['what']}? That goes {_said(t['past'], False)} past {over}."
+    assert "$" not in theirs["question"] + theirs["why"]
+
+
+def test_a_look_past_the_videos_budget_asks_for_all_the_hold_judged(app, db, owner, editor):
+    """Rule 36 (QA after #1371): an editor's own Make a look past the video's budget waits on its
+    card for the whole of what the hold judged (the sheet, its check and its one redo), so the
+    card's up to, how far past and Approve never understate it."""
+    from decimal import Decimal
+
+    pid, _ = _video(app, owner, editor, db)
+    project = db.get(Project, pid)
+    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
+               project_id=pid, credits=project.budget_credits, status="succeeded"))  # fmt: skip
+    db.commit()
+    slot = next(r for r in editor.get(f"/projects/{pid}/assets").json()
+                if r.get("slot_id") and not r.get("library_item_id"))["slot_id"]  # fmt: skip
+    editor.post(f"/projects/{pid}/assets/slots/{slot}/make-look")
+    db.expire_all()
+    (sheet,) = db.query(Job).filter(Job.project_id == pid, Job.status == "needs_owner_approval")
+    judged = Decimal(sheet.input[asks.HELD_CREDITS])
+    assert judged > sheet.credits  # the sheet with its check and one redo
+    card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "budget")
+    m = card["money"]
+    assert m["up_to"]["credits"] >= float(judged) and m["over"] == "the budget"
+    total = round(m["spent"]["usd"] + m["up_to"]["usd"], 2)
+    assert m["past"]["usd"] > 0 and m["past"]["usd"] == round(total - m["budget"]["usd"], 2)
+    assert card["question"].endswith(f"That goes {_said(m['past'], True)} past the budget.")
+    assert sheet.input.get(asks.PAST_PRICE) is None  # the video's budget, not a run's price

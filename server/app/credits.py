@@ -277,15 +277,24 @@ def past_approved(db: Session, project: Project, user: User, credits: Decimal) -
     """A run's step its Make it doesn't cover: PAST_APPROVED, and it waits for the owner on a
     card, the owner's own run too (rule 34; Reed, 4 Nov: anything beyond the authorized budget
     needs the owner's OK); a freestyle's past the prices its sends were approved at; else ""."""
+    if _over_freestyle(db, project, user, credits):
+        return PAST_APPROVED
+    return PAST_APPROVED if past_price(db, project, user, credits) else ""
+
+
+def past_price(db: Session, project: Project, user: User, credits: Decimal) -> bool:
+    """Whether a step of `credits` is held because it goes past its run's own approved price
+    (rule 34: `asks.past_run`), not a freestyle's whole budget: its card speaks in the run's
+    figures."""
     from app import asks
 
-    if (
-        project.hidden
-        and not user.is_owner
-        and budget_used(db, project) + credits > budget(db, project)
-    ):
-        return PAST_APPROVED
-    return PAST_APPROVED if asks.past_run(db, project, credits) else ""
+    return not _over_freestyle(db, project, user, credits) and asks.past_run(db, project, credits)
+
+
+def _over_freestyle(db: Session, project: Project, user: User, credits: Decimal) -> bool:
+    """An editor's step past a hidden freestyle's whole budget."""
+    return (project.hidden and not user.is_owner
+            and budget_used(db, project) + credits > budget(db, project))  # fmt: skip
 
 
 def over_allowance(db: Session, user: User, credits: Decimal) -> str:

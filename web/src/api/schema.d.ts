@@ -9551,6 +9551,11 @@ export interface components {
              * @default
              */
             what: string;
+            /**
+             * Over
+             * @default the budget
+             */
+            over: string;
         };
         /** Montage */
         Montage: {

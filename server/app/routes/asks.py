@@ -85,6 +85,8 @@ class MoneyCard(BaseModel):
     sent_at: UtcTime
     held: str  # the hold's own words
     what: str = ""  # past the budget: what it makes, "Redo clips 9 and 12" (Needs you's title)
+    over: str = "the budget"  # what it goes past: "the budget" (a first run, S3-07), or on a
+    # later run (rule 34) "the $16.86 approved for this run" ("… · $1.54 past {over}")
 
 
 class AskOut(BaseModel):
@@ -212,11 +214,11 @@ def _instead(db: Session, user: User, ask: Ask, project: Project, card: AskOut,
 
 def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) -> AskOut:
     """A money card's words, as S4-02, S3-02, S3-06 and S3-07 draw them."""
-    from app.routes.jobs import HELD, _with_check
+    from app.routes.jobs import HELD
 
     jobs = list(db.scalars(select(Job).where(Job.id.in_(ask.job_ids or [0])).order_by(Job.id)))
     held = [j for j in jobs if j.status == JobStatus.needs_owner_approval] or jobs
-    more = sum((_with_check(db, j) for j in held), Decimal(0))
+    more = sum((_judged(db, j) for j in held), Decimal(0))
     sent = held[0].created_at if held else ask.created_at
     words = held[0].input.get(HELD, "") if held else ""
     money = MoneyCard(up_to=_price(user, more), sent_at=sent, held=words)
@@ -257,20 +259,27 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         spent = budget_used(db, project)
         top = budget(db, project) if project.hidden else project.budget_credits
         run = asks.approved_run(db, project)
+        later = False
         if run and any(j.input.get(asks.PAST_PRICE) for j in held):  # past its Make it's price
-            top, spent = run  # the price approved is this run's budget (S3-06)
+            top, spent = run  # the run's own price and what it charged against it (rule 34)
+            later = asks.runs_made(db, project) > 1  # after a delivery or a stop: the run's words
         money.spent, money.budget = _price(user, spent), _price(user, top)
-        money.past = _price(user, max(Decimal(0), spent + more - top))
+        money.past = _past(money.spent, money.up_to, money.budget, spent + more - top)
         money.clips, money.what = _clips(db, project, held), _what(db, held)
-        card.question = f"{money.what}? That goes {_said(money.past)} past the budget."
+        money.over = f"the {_said(money.budget)} approved for this run" if later else "the budget"
+        card.question = f"{money.what}? That goes {_said(money.past)} past {money.over}."
         notes = " ".join(dict.fromkeys(j.input["note"] for j in held
                                        if isinstance(j.input.get("note"), str)))  # fmt: skip
         if owner:  # the total is the sum of the figures shown, each rounded up
             total = AskPrice(credits=money.spent.credits + money.up_to.credits,
                              usd=round(money.spent.usd + money.up_to.usd, 2))  # fmt: skip
-            card.why = (f"{notes} {_said(money.spent)} spent plus up to {_said(money.up_to)} "
-                        f"makes up to {_said(total)}; the budget is {_said(money.budget)}."
-                        ).strip()  # fmt: skip
+            doing = _doing(money.what, len(money.clips))
+            card.why = (f"{notes} {doing} takes this run to up to {_said(total)} "
+                        f"({_said(money.spent)} spent in this run plus up to {_said(money.up_to)});"
+                        f" this run's approved price is {_said(money.budget)}." if later else
+                        f"{notes} {doing} takes this video to up to {_said(total)} "
+                        f"({_said(money.spent)} spent plus up to {_said(money.up_to)}); its "
+                        f"budget is {_said(money.budget)}.").strip()  # fmt: skip
         else:
             card.why = f"{notes} The owner has been asked; nothing is charged while it waits."
             card.why = card.why.strip()
@@ -290,6 +299,34 @@ def _usual(db: Session, project: Project) -> Decimal:
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     return version_cost(db, draft, project) if draft else Decimal(0)
+
+
+def _judged(db: Session, job: Job) -> Decimal:
+    """What a held step's OK must cover: the amount its hold was judged on when it went past
+    its run's price (the step with its check and its one redo), never less than its own price
+    with what rides along (rule 36)."""
+    from app.routes.jobs import _with_check
+
+    own = _with_check(db, job)
+    judged = job.input.get(asks.HELD_CREDITS)
+    return max(own, Decimal(judged)) if judged else own
+
+
+def _past(spent: AskPrice, up_to: AskPrice, top: AskPrice, real: Decimal) -> AskPrice | None:
+    """How far past it goes, as the card's own figures add up (spent plus up to, less the price
+    or budget); at least the smallest step when it really goes past (rounding never says 0)."""
+    if real <= 0:
+        return AskPrice(credits=0, usd=0 if top.usd is not None else None)
+    credits = max(spent.credits + up_to.credits - top.credits, 1)
+    if top.usd is None:
+        return AskPrice(credits=credits, usd=None)
+    return AskPrice(credits=credits, usd=max(round(spent.usd + up_to.usd - top.usd, 2), 0.01))
+
+
+def _doing(what: str, clips: int) -> str:
+    """The held steps as the start of a sentence (S3-07): "Redoing them", "Making it"."""
+    verb = {"Redo": "Redoing", "Make": "Making"}.get(what.split(" ")[0])
+    return f"{verb} {'them' if clips > 1 or ' and ' in what else 'it'}" if verb else "That"
 
 
 def _what(db: Session, jobs: list[Job]) -> str:
