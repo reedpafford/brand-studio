@@ -312,9 +312,10 @@ def _money(user: User, credits: Decimal, up=round) -> Money:
 
 def head(db: Session, user: User, p: Project) -> Head:
     """The header's facts for one video. The "up to" is a director video's approved price (its
-    freestyle's OK); else the budget with the director's own limit beside it, as a working
-    card reads it (rule 34); before any run, its run's price. Never below what it has used,
-    and rounded up (rule 36)."""
+    freestyle's OK, or its Make it's price: the start card's, the run card's and the note's
+    figure); else the budget with the director's own limit beside it, as a working card reads
+    it (rule 34); before any run, its run's price. Never below what it has used, and rounded
+    up (rule 36)."""
     from app import narration
     from app.models.folders import Folder
     from app.models.script_library import ScriptDraft
@@ -326,8 +327,11 @@ def head(db: Session, user: User, p: Project) -> Head:
     used = known.used.get(p.id, Decimal(0))
     fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
     top: Decimal | None
+    approved = asks.approved_run(db, p)
     if fs is not None and fs.up_to:
         top = Decimal(fs.up_to)
+    elif approved:  # its Make it's price: one figure with the start card, run card and note
+        top = approved[0]
     elif status.reason == START and not used:
         draft = db.get(ScriptDraft, p.script_draft_id) if p.script_draft_id else None
         top = Decimal(str(run_price(db, draft, p))) if draft else None

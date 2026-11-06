@@ -19,7 +19,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import item_checks, plans, prompts, watch_report
+from app import cast_gate, item_checks, plans, prompts, watch_report
 from app.credits import WAIT_OK, estimate, fits
 from app.db import utcnow
 from app.models.accounts import User
@@ -356,9 +356,11 @@ def act(db: Session, take: ClipTake, note: str,
                 "made_with": {**data["made_with"], "remade_from": take.number}}  # fmt: skip
         made = enqueue(db, user, "video", data, units=clip.seconds, project=project,
                        provider="replicate", prepaid=not wait, wait=wait)  # fmt: skip
-    except HTTPException:  # its reason can name dollars: the owner sees it on the clip
+    except HTTPException as no:  # its reason can name dollars: the owner sees it on the clip
         for field, value in before.items():  # no take: the prompt in hand stays as it was
             setattr(clip, field, value)
+        if isinstance(no, cast_gate.Waiting):  # a look in it changed: the person's OK first
+            return cast_gate.not_yet(no), "flagged", None, None
         return NOT_REMADE, "flagged", None, None
     finally:
         DIRECTOR_TOOL.reset(marked)

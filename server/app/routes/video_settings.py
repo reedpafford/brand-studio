@@ -62,9 +62,8 @@ class SettingsOut(BaseModel):
     changes: list[SettingChangeOut] = []  # each switch, newest first
     presenter: str | None = None  # the video's own choice; null: the style's start
     # how it appears now: talks (to camera, HeyGen, B-roll cut in), corner (HeyGen, keyed over
-    # the B-roll) or acts (in the story, Omni); null: not a Presenter video
+    # the B-roll) or acts (in the story, made like the B-roll); null: not a Presenter video
     presenter_now: Literal["talks", "corner", "acts"] | None = None
-    narration_only: bool = False  # no talker speaks on Omni in this video (a person's call)
     voice: str | None = None  # "stock:<key>" or "voice:<id>"; null: the video's own
 
 
@@ -79,8 +78,6 @@ class VideoSettingsIn(BaseModel):
     product_variants: dict[str, str] | None = None
     # Reed's L3: how a Presenter video's presenter appears; null: the style's start
     presenter: Literal["talks", "corner", "acts"] | None = None
-    # Reed, 4 Nov: "narration only": no talker speaks on Omni in this video
-    narration_only: bool | None = None
     # The narrator for this video: "stock:<app voice>" (e.g. stock:Roger) or "voice:<id>" (a
     # voice saved to this brand); null: the video's own. A person's choice wins
     voice: str | None = Field(default=None, max_length=60)

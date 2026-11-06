@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { emptyBrand, signIn } from "./helpers";
+import { approveCastWhenReady, emptyBrand, signIn } from "./helpers";
 
 // The whole video flow with the free stand-in providers (see start-server.sh): nothing real is
 // sent or billed. Reed (the owner) clicks every step from a pasted script to the finished video.
@@ -14,6 +14,7 @@ const SCRIPT = [
 test("a script becomes a finished video, step by step, at no cost", async ({ page }) => {
   test.setTimeout(180_000);
   await signIn(page, "reed@example.com");
+  approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Pipeline Co");
   const made = await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Pipeline test", planned_seconds: 20 } });

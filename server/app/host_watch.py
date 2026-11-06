@@ -27,6 +27,7 @@ from app.prompts.schemas import TakeWatch
 log = logging.getLogger(__name__)
 TARGET = "piece"
 REDO = "watch_redo_piece"  # in a piece's remake: the piece it makes again
+NOTE = "watch_redo_note"  # …and the fix it was made with, for the delivery note's rows
 SAID = "On-camera speech: the host says this piece of the narration; its sound is that."
 SHOT = (
     "{who} says this piece of the narration straight to the camera, lip-synced to it: the "
@@ -210,10 +211,17 @@ def act(db: Session, row: HostPiece, note: str) -> tuple[str, str, Job | None, D
     credits = host.price(db, project, row.number)  # its watch included
     wait = f"{WAIT_OK}making {name} again goes past the video's budget." if fits(
         db, project, user, credits) else ""  # fmt: skip
+    from app import cast_gate
+
+    try:  # the host's look changed since the cast and places OK: the person's OK first
+        host._cast(db, project, check=True)
+    except cast_gate.Waiting as no:
+        return cast_gate.not_yet(no), "flagged", None, None
     marked = DIRECTOR_TOOL.set(True)
     try:
         made = host._piece(db, user, project, row, host.rows(db, project)[0].file_id,
-                           note=note, mark={REDO: row.id}, prepaid=not wait, wait=wait)  # fmt: skip
+                           note=note, mark={REDO: row.id, NOTE: note},
+                           prepaid=not wait, wait=wait)  # fmt: skip
     except HTTPException:  # its reason can name dollars
         return ("Flagged for you: it couldn't be made again here. Make it again from the host.",
                 "flagged", None, None)  # fmt: skip

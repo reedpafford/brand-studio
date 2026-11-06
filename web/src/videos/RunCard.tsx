@@ -234,8 +234,10 @@ export function stoppedParts({ progress: r, onCarryOn, busy, blocked, error }: {
   };
 }
 
-/** A run that stopped on a problem (S3-11): what went wrong, in plain words, and its one-click fixes (never none). */
-export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { progress: Progress; projectId: number; onCarryOn: () => void; busy: boolean; blocked: string | null }) {
+/** A run that stopped on a problem (S3-11): what went wrong, in plain words, and its one-click fixes (never none): the
+ *  failed clip again, carry on, split a clip too long for its model (free: the breakdown's own fix), or the video's
+ *  settings, to pick a model that makes longer clips (`onSettings`: the Plan tab, the preview side on a phone). */
+export function Failed({ progress: r, projectId, onCarryOn, onSettings, busy, blocked }: { progress: Progress; projectId: number; onCarryOn: () => void; onSettings: () => void; busy: boolean; blocked: string | null }) {
   const f = r.failed!;
   const queryClient = useQueryClient();
   const again = useMutation({
@@ -245,6 +247,16 @@ export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { p
     },
     onSuccess: () => Promise.all([refreshJobs(queryClient), queryClient.invalidateQueries({ queryKey: ["run-progress", projectId] })]),
   });
+  const split = useMutation({
+    mutationFn: async (problem: string) => {
+      const { data, error } = await api.POST("/projects/{project_id}/breakdown/fix", { params: { path: { project_id: projectId } }, body: { problems: [problem] } });
+      if (!data) throw new Error(errorText(error));
+    },
+    onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["run-progress", projectId] }), queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] })]),
+  });
+  const press = (x: (typeof f.fixes)[number]) =>
+    x.kind === "again" ? again.mutate() : x.kind === "split" ? split.mutate(x.problem) : x.kind === "model" ? onSettings() : onCarryOn(); // the video's settings: the Plan tab, on a phone too
+  const then = f.fixes.find((x) => x.kind === "split")?.then;
   return (
     <section aria-label={f.title} className="overflow-hidden rounded-lg border border-[#f1c6c1] bg-surface">
       <p className="flex items-center gap-2 bg-danger-soft px-3 py-2.5 text-[13px] font-semibold text-danger">
@@ -253,14 +265,23 @@ export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { p
       </p>
       <div className="flex flex-col gap-3 px-3 pb-3 pt-2.5">
         <p className="text-[13px] leading-[19px]">{f.why}</p>
+        {f.offer && <p className="text-[13px] leading-[19px]">{f.offer}</p>}
         <div className="flex flex-wrap gap-2">
           {f.fixes.map((x, i) => (
-            <Button key={x.kind} variant={i === 0 ? "primary" : "secondary"} busy={x.kind === "again" ? again.isPending || making(r) : busy} disabled={x.kind === "carry_on" && !!blocked} reason={x.kind === "carry_on" ? blocked : undefined} onClick={() => (x.kind === "again" ? again.mutate() : onCarryOn())}>
-              {x.price ? `${x.label} · up to ${x.price}` : x.label}
+            <Button
+              key={x.kind}
+              variant={i === 0 ? "primary" : "secondary"}
+              busy={x.kind === "again" ? again.isPending || making(r) : x.kind === "split" ? split.isPending : x.kind === "model" ? false : busy}
+              disabled={x.kind === "carry_on" && !!blocked}
+              reason={x.kind === "carry_on" ? blocked : undefined}
+              onClick={() => press(x)}
+            >
+              {!x.price ? x.label : x.price === "free" ? `${x.label} · free` : `${x.label} · up to ${x.price}`}
             </Button>
           ))}
         </div>
-        {again.isError && <p role="alert" className="text-sm text-danger">{again.error.message}</p>}
+        {then && <p className="text-xs text-muted">Its new clips are then made at their own price: up to {then}.</p>}
+        {(again.isError || split.isError) && <p role="alert" className="text-sm text-danger">{(again.error ?? split.error)?.message}</p>}
       </div>
     </section>
   );
@@ -268,8 +289,9 @@ export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { p
 
 const money = (n: Note) => (n.spent_usd != null ? `$${n.spent_usd.toFixed(2)}` : `${Math.round(n.spent)} credits`);
 
-/** The delivery note (S3-09, S3-10, P-08): what it made, what it watched and redid with times, what it's unsure of, what it
- *  needs, and the real cost. `onWatch`: the changes it made, watched (the outline comes off). */
+/** The delivery note (S3-09, S3-10, P-08) in Reed's three parts (5 Nov, #1340): What I made, with what it watched and redid
+ *  at its times; What remains uncertain, the director's words and what the server knows is still open; What I need from
+ *  you, as the server says it ("ready to post" only when nothing is open); and the real cost. `onWatch`: the changes it made, watched (the outline comes off). */
 export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatch?: () => void; changes: number }) {
   const part = (title: string, body: ReactNode) => (
     <div className="flex flex-col gap-1">
@@ -287,20 +309,36 @@ export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatc
         </span>
       </div>
       <div className="flex flex-col gap-3 px-3 pb-3">
-        {part("What I made", <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.made}</p>)}
-        {n.redid.length > 0 &&
+        {part(
+          "What I made",
+          <>
+            <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.made}</p>
+            {n.redid.length > 0 && (
+              <ul aria-label="What I watched and redid" className="mt-1 flex flex-col gap-1 text-[13px]">
+                {n.redid.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-accent-soft px-1.5 text-[11px] font-semibold tabular-nums text-accent-text">{mmss(r.at)}</span>
+                    <span className="min-w-0">{r.text}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>,
+        )}
+        {(n.unsure || n.open.length > 0) &&
           part(
-            "What I watched and redid",
-            <ul className="flex flex-col gap-1 text-[13px]">
-              {n.redid.map((r, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-accent-soft px-1.5 text-[11px] font-semibold tabular-nums text-accent-text">{mmss(r.at)}</span>
-                  <span className="min-w-0">{r.text}</span>
-                </li>
-              ))}
-            </ul>,
+            "What remains uncertain",
+            <>
+              {n.unsure && <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.unsure}</p>}
+              {n.open.length > 0 && (
+                <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">
+                  {n.open.map((o, i) => (
+                    <li key={i}>{o}</li>
+                  ))}
+                </ul>
+              )}
+            </>,
           )}
-        {n.unsure && part("What I’m unsure of", <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.unsure}</p>)}
         {part("What I need from you", <p className="text-[13px] text-muted max-lg:text-[15px]">{n.needs}</p>)}
       </div>
       <div className="flex items-center gap-2 border-t border-border px-3 py-2.5 text-[13px]">

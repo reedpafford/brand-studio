@@ -6,9 +6,8 @@ import { ToastProvider } from "../toast";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { MemoryRouter } from "react-router-dom";
-import { HeldRequests, askedAgo, stepOf, type HeldWhere } from "./HeldRequests";
+import { HeldRequests, askedAgo, stepOf, type HeldWhere, type Job } from "./HeldRequests";
 import { PLURAL, STEPS } from "./steps";
-import type { Job } from "./useHeld";
 
 const job = (o: object = {}) => ({ id: 50, kind: "video", project_id: 9, script_id: null, credits: 27, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: "clip_take", error: "", held: "That's more than this video's budget.", declined: false, created_by_name: "Eli", waiting: "", auto: false, output: null, ...o });
 function show(where: HeldWhere) {

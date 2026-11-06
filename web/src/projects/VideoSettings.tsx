@@ -29,7 +29,7 @@ export function useVideoSettings(projectId: number) {
 }
 
 /** One choice in a picker, and the one setting it switches (a body with exactly that key; null is Auto). */
-export type Choice = { id: string; label: string; price?: string; noLipSync?: boolean; off?: boolean; body: SettingIn };
+export type Choice = { id: string; label: string; price?: string; note?: string; noLipSync?: boolean; off?: boolean; body: SettingIn };
 /** `locked`: why it can't be changed here (a script-made video keeps its script's style, Reed's walk item 7); shown, never picked. */
 export type Field = { key: string; label: string; current: string; valueLabel: string; price?: string; locked?: string; choices: Choice[] };
 
@@ -45,6 +45,15 @@ export const languageName = (code: string) => {
     return code;
   }
 };
+
+/** How the presenter appears, in L3's words (S-gaps-05): the style picks first (Auto); a person or the director can switch it.
+ *  `short` is the chip's value. "Acts" leaves out L3's "talks to others": narrated videos keep their narration (Reed, 5 Nov). */
+const HOW = {
+  talks: { label: "Talks to camera", short: "Talks to camera", how: "HeyGen from one still, with B-roll laid over parts" },
+  corner: { label: "In a corner over the B-roll", short: "In a corner", how: "HeyGen, keyed over the B-roll" },
+  acts: { label: "Acts in the story", short: "Acts in the story", how: "Omni: moves and acts in the scenes" },
+} as const;
+type How = keyof typeof HOW;
 
 /** The settings as the row shows them: one field per setting, each choice carrying the body that switches to it. */
 export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: boolean }[] | null | undefined, lookLocked = false): Field[] {
@@ -71,6 +80,22 @@ export function fieldsOf(s: SettingsOut, looks: { id: string; name: string; on: 
         ...s.video_models.map((m) => ({ id: m.id, label: m.name, price: perSecond(m.credits_per_second), noLipSync: !m.lip_sync, body: { video_model: m.id } })),
       ],
     },
+    // How a Presenter video's presenter appears (S-gaps-05 V1 and L3); only on a video with a presenter.
+    ...(s.presenter_now
+      ? [
+          {
+            key: "presenter",
+            label: "Presenter",
+            current: s.presenter ?? "auto",
+            valueLabel: HOW[s.presenter_now].short,
+            choices: [
+              // Auto: the style's own start (null), as the model chips' Auto; L3's "from the UGC style".
+              { id: "auto", label: s.presenter ? "Auto" : `Auto (${HOW[s.presenter_now].short})`, note: "the style’s pick", body: { presenter: null } },
+              ...(Object.keys(HOW) as How[]).map((id) => ({ id, label: HOW[id].label, note: HOW[id].how, body: { presenter: id } })),
+            ],
+          },
+        ]
+      : []),
     {
       key: "image_model",
       label: "Picture model",
@@ -124,7 +149,7 @@ export function LockedSetting({ field: f, chip }: { field: Field; chip?: string 
 const ROW: Record<string, string> = { video_model: "Video model", image_model: "Pictures" };
 
 /** This video's settings, at the top of its Plan tab (S-gaps-05 V1; flows VS1): Shape · Flavour · Style · Video model ·
- *  Pictures · Language, and the Song on a song video, for the owner and editors (editors see credits). A pick is previewed,
+ *  Presenter (a presenter's video) · Pictures · Language, and the Song on a song video, for the owner and editors (editors see credits). A pick is previewed,
  *  confirmed (Not yet / Switch) and applied; then a line says the new "up to" and offers Undo. The director keeps what a
  *  person changed. On a phone it is one line that opens a sheet. */
 export function VideoSettings({ project: p, finished, song = true, broll, notMade }: { project: Project; finished: boolean; song?: boolean; broll?: boolean; notMade: number }) {
@@ -275,6 +300,7 @@ export function ChoicePanel({ field, owner, onPick, onClose }: { field: Field; o
               >
                 <span className="font-medium">{c.label}</span>
                 {c.price && <span className="text-sm text-muted tabular-nums">· {c.price}</span>}
+                {c.note && <span className="text-sm text-muted">· {c.note}</span>}
                 {c.noLipSync && <Badge>No lip-sync</Badge>}
               </button>
             </li>

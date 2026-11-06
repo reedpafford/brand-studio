@@ -25,7 +25,7 @@ from app.models.projects import Project
 from app.models.script_library import CastMerge, Script, ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
-from app.routes.library import LookFitOut, _save_version, _waiting_sheets, pick_item, sheet_status
+from app.routes.library import LookFitOut, _waiting_sheets, pick_item, sheet_status
 from app.routes.projects import get_project, video_writer
 from app.routes.script_cast import (
     MergePreview,
@@ -40,7 +40,16 @@ from app.routes.script_cast import (
 from app.routes.scripts import latest
 from app.routes.sheets import SheetIn, check_fit, queue_sheet
 from app.schemas import LongText
-from app.sheets import check_price, is_checked, look_copy, look_price, look_usual, own, sheet_for
+from app.sheets import (
+    check_price,
+    is_checked,
+    look_copy,
+    look_price,
+    look_usual,
+    own,
+    press_price,
+    sheet_for,
+)
 
 router = APIRouter(
     prefix="/projects/{project_id}/assets", tags=["assets"], dependencies=[Depends(video_writer)]
@@ -278,7 +287,10 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
                         project=project))  # fmt: skip
         out[-1].look_credits = out[-1].look_credits or (look if out[-1].look_needed else None)
     for ref in places:
-        out.append(_row("place", ref, "", db.get(LibraryItem, int(ref.split(":")[1])), False))
+        place = db.get(LibraryItem, int(ref.split(":")[1]))
+        out.append(_row("place", ref, "", place, False))
+        if place is not None and place.owner_project_id == project.id:  # Make a look: "up to"
+            out[-1].look_credits = price(press_price(db, place))
     screens = {f"screen:{s.id}": s for s in project_screens(db, project)}
     for ref in dict.fromkeys(r for s in shots for r in s.get("screen_ids", [])):
         if screen := screens.get(ref):
@@ -454,13 +466,16 @@ def make_look(
 
 
 def _make_look(
-    db: Session, user: User, project: Project, slot: ScriptCastSlot, auto: bool = False
-) -> None:
+    db: Session, user: User, project: Project, slot: ScriptCastSlot, auto: bool = False,
+    change: str = "",
+) -> None:  # fmt: skip
+    """`change`: what the person or the director asked for, added to the role's words."""
+    words = slot.description or slot.role
     look = LibraryItem(
         workspace_id=project.workspace_id,
         kind=Kind.character,
         name=cast_roles.short(slot.role) or slot.role,
-        notes=slot.description or slot.role,
+        notes=f"{words.rstrip('. ')}. {change.strip()}" if change.strip() else words,
         owner_project_id=project.id,
         sheet_look=project.look or "house",  # drawn in the video's look (ST2)
     )
@@ -626,19 +641,34 @@ def _undrawn(db: Session, project: Project, slot) -> LibraryItem | None:
     return None if item.sheet_file_id or drawing else item
 
 
+def missing_places(db: Session, project: Project) -> list[LibraryItem]:
+    """The places made for this video that its newest shots show with no look drawn or being
+    drawn: the director's make_looks draws them (from the uploaded photo, if one was given)."""
+    from app.routes.library import _waiting_sheets
+
+    bd = _newest(db, project)
+    refs = {s.get("place_id") for sc in (bd.data["scenes"] if bd else []) for s in sc["shots"]}
+    items = [db.get(LibraryItem, int(r.split(":")[1])) for r in sorted(r for r in refs if r)]
+    return [i for i in items if i is not None and i.owner_project_id == project.id
+            and not i.archived and not i.sheet_file_id and not _waiting_sheets(i)]  # fmt: skip
+
+
 def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
     if breakdown.complete_cast(db, project):  # as when Assets opens: every role in its shots
         db.commit()
-    slots = _missing(db, project)
+    slots, places = _missing(db, project), missing_places(db, project)
     total = look_price(db, project.workspace_id) * len(slots)
-    why = fits(db, project, user, total) if slots else ""
-    n = len(slots)
+    total += sum((press_price(db, p) for p in places), Decimal(0))
+    n = len(slots) + len(places)
+    why = fits(db, project, user, total) if n else ""
     said = f"Making {'a look' if n == 1 else f'{n} looks'} (up to {price(total)} credits) {why}"
+    usual = look_usual(db, project.workspace_id) * len(slots)
+    usual += sum((press_price(db, p) for p in places), Decimal(0))  # a place isn't checked
     return MissingLooksOut(
         slot_ids=[s.id for s in slots],
-        roles=[cast_roles.short(s.role) or s.role for s in slots],
-        credits=price(total) if slots else 0,
-        usual_credits=price(look_usual(db, project.workspace_id) * n) if slots else 0,
+        roles=[cast_roles.short(s.role) or s.role for s in slots] + [p.name for p in places],
+        credits=price(total) if n else 0,
+        usual_credits=price(usual) if n else 0,
         reason=said if why else None,
         made=_made(db, project),
     )
@@ -693,6 +723,8 @@ def make_missing_looks(
             queue_sheet(db, user, own, SheetIn(), auto=True)
         else:
             _make_look(db, user, project, slot, auto=True)
+    for place in missing_places(db, project):  # a place made for this video
+        queue_sheet(db, user, place, SheetIn(), auto=True)
     return list_assets(project_id, user, db)
 
 
@@ -707,62 +739,6 @@ def decline_missing_looks(
     project.slot_looks = {**project.slot_looks, **waiting}
     db.commit()
     return _missing_out(db, user, project)
-
-
-def _own_look(db: Session, project: Project, item_id: int) -> LibraryItem | None:
-    """A look made for this video, or for the script it's made from (never a library one)."""
-    item = db.get(LibraryItem, item_id)
-    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    mine = item and (item.owner_project_id == project.id
-                     or (draft and item.owner_script_id == draft.script_id))  # fmt: skip
-    return item if mine else None
-
-
-@router.post("/approve-all", response_model=advice.ApproveAllOut)
-def approve_all(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Approve all (Reed, 2026-10-26): every look made for this video or its script whose sheet
-    is drawn and waits for approval. Roles still drawing or with no look are listed with why;
-    library characters and locked roles are never counted. Undo takes back exactly these."""
-    project = get_project(db, user, project_id)
-    approved, skipped = [], []
-    for row in list_assets(project_id, user, db):
-        if row.kind != "character" or row.locked or row.sheet_status == "approved":
-            continue
-        if row.library_item_id is None:
-            skipped.append({"id": None, "slot_id": row.slot_id, "label": row.role,
-                            "reason": "no look yet"})  # fmt: skip
-            continue
-        item = _own_look(db, project, row.library_item_id)
-        if item is None:
-            continue  # a library character: approved in Cast & places
-        why = {"drawing": "still drawing", "waiting_for_owner": "waiting for the owner",
-               "none": "no sheet yet"}.get(row.sheet_status, "")  # fmt: skip
-        if why:
-            skipped.append({"id": item.id, "slot_id": row.slot_id, "label": row.role,
-                            "reason": why})  # fmt: skip
-            continue
-        _save_version(db, user, item)
-        item.sheet_approved = True
-        approved.append(item.id)
-    db.commit()
-    return advice.ApproveAllOut(approved=approved, skipped=skipped)
-
-
-@router.post("/approve-all/undo", response_model=list[AssetOut])
-def undo_approve_all(
-    project_id: int,
-    body: advice.UndoIn,
-    user: User = Depends(current_user),
-    db: Session = Depends(get_db),
-):
-    """Undo Approve all: exactly the looks it approved go back to waiting for approval."""
-    project = get_project(db, user, project_id)
-    for item_id in body.ids:
-        if (item := _own_look(db, project, item_id)) and item.sheet_approved:
-            _save_version(db, user, item)
-            item.sheet_approved = False
-    db.commit()
-    return list_assets(project_id, user, db)
 
 
 class MergeIn(BaseModel):

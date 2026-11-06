@@ -86,6 +86,10 @@ class Project(Filed, Entity, Base):
     # The last still redraw after a cast change: {"redrawn_for_cast": {count, credits}} or
     # {"redraw_refused": {count, credits, reason}} (for the Storyboard note).
     cast_redraw: Mapped[dict | None] = mapped_column(JSON)
+    # n40, Approve cast & places (app/cast_gate.py): what the person approved, per item as its
+    # stills and takes are made with ({"items": {ref: {sig, item, version, file}}, "by", "at"}),
+    # and the director's card asking for it ("asked"). Null: nothing approved yet.
+    cast_ok: Mapped[dict | None] = mapped_column(JSON)
 
     # Brief
     goal: Mapped[str] = mapped_column(Text, default="")
@@ -108,10 +112,6 @@ class Project(Filed, Entity, Base):
     # Reed's L3 (n38): how a Presenter video's presenter appears, "talks" | "corner" | "acts";
     # null: its style's starting choice (app/host.how)
     presenter: Mapped[str | None] = mapped_column(String(20))
-    # n38 (Reed, 4 Nov): the talker's voice described to Omni, the same in every clip where they
-    # speak on it; and a person's "narration only" (no talker speaks on Omni)
-    omni_voice: Mapped[str | None] = mapped_column(String(300))
-    narration_only: Mapped[bool | None]
     # n38: the narrator a person chose for this video (settings, or a voice card's answer):
     # "stock:<app voice>" or "voice:<id>"; null: its own (host's, style's or the default)
     voice: Mapped[str | None] = mapped_column(String(60))
