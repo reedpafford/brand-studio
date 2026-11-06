@@ -624,3 +624,25 @@ def test_one_clip_is_said_as_one_clip_while_it_is_cut(app, db, owner, editor):
     _going(db, pid)  # the run goes on: its clips made, the cut next
     p = _progress(owner, pid)
     assert (p["title"], p["sub"]) == ("Cutting it together", "1 clip made")
+
+
+def test_a_takes_typical_time_never_counts_the_stand_ins(app, db, owner, editor):
+    """The real-run audit: every take said "about 1 min" on the first real run, the median of
+    the last 20 takes being all stand-ins'. Only real takes count; with none, the default."""
+    pid = _made(app, owner, editor, db)
+    project = db.get(Project, pid)
+    start = utcnow() - timedelta(hours=1)
+
+    def took(seconds: int, provider: str, ref: str) -> None:
+        db.add(Job(workspace_id=project.workspace_id, created_by_id=project.created_by_id,
+                   kind="video", provider=provider, provider_ref=ref, input={}, credits=3,
+                   status=JobStatus.succeeded, started_at=start,
+                   finished_at=start + timedelta(seconds=seconds)))  # fmt: skip
+        db.commit()
+
+    for _ in range(5):
+        took(60, "fake", "fake-1")  # the stand-ins' minute
+    took(60, "replicate", "stand-in-sync")  # a stand-in on the test site
+    assert run_progress._Video(db, project, None, []).typical == run_progress.TYPICAL_TAKE
+    took(240, "replicate", "p-real")
+    assert run_progress._Video(db, project, None, []).typical == 240

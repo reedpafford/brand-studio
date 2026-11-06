@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleHelp, Clock, LoaderCircle, MessageSquare, Pause, Play, RefreshCw, TriangleAlert, Upload, WandSparkles, X } from "lucide-react";
-import { api, errorText } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { Link } from "react-router-dom";
@@ -22,7 +22,7 @@ export function useAsks(projectId: number, live: boolean) {
     queryKey: ["asks", projectId],
     enabled: projectId > 0,
     refetchInterval: (q) => (live || (q.state.data ?? []).some((a) => ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? ""))) ? 4_000 : false),
-    queryFn: async () => (await api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } })).data ?? [],
+    queryFn: () => polled(api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } }), []),
   });
 }
 
