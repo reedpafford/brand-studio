@@ -13,6 +13,7 @@ from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
 from app.routes.clips import generation_on
+from app.routes.project_clips import WatchOut
 from app.routes.projects import get_project, video_writer
 
 router = APIRouter(prefix="/projects/{project_id}/host", tags=["project clips"],
@@ -29,6 +30,7 @@ class HostPieceOut(BaseModel):
     earlier: list[int]  # the makes before, oldest first
     error: SaidText = ""  # its newest make failed: why, in plain words
     credits: float  # Make again (the still: and every piece from it)
+    watch: WatchOut | None = None  # a piece's: the director's watch of it (app/host_watch)
 
 
 class HostOut(BaseModel):

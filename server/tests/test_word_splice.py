@@ -150,20 +150,16 @@ def test_the_stitch_puts_the_copy_over_the_wrong_word_and_keeps_the_rest(tmp_pat
     assert _level(out, tmp_path, 2.0, 2.8, lo) > -30
 
 
-def test_with_no_clean_copy_a_director_run_redoes_with_how_the_brand_is_said(
-    app, db, owner, editor, monkeypatch
-):
-    """The fallback: the only take says the brand wrong, so there's no copy to splice; the
-    take is made again with the words check's note (how it's said, never the wrong word)."""
+def test_with_no_clean_copy_a_misheard_brand_is_left_to_the_owner(app, db, owner, editor,
+                                                                  monkeypatch):  # fmt: skip
+    """The only take may say the brand wrong, so there's no copy to splice. The transcript
+    alone never buys a remake (Reed, 4 Nov: it can mishear): the take is the owner's to
+    judge, its words finding kept for them."""
     from tests.test_director import _made, _run
 
-    notes = []
-
-    def hear(path, job):  # the first take says the brand wrong, every other one says it right
+    def hear(path, job):  # the take says the brand wrong, as the transcript reads it
         lines = [x["text"] for x in job["lines"]]
-        if not notes:
-            lines = [f"{lines[0]} I love Fobo.", *lines[1:]]
-        notes.append(job.get("prompt", ""))
+        lines = [f"{lines[0]} I love Fobo.", *lines[1:]]
         return [{"start": 2.0 * i + 0.5, "end": 2.0 * i + 1.8, "text": t, "speaker": None,
                  "words": _spread(t, 2.0 * i + 0.5, 2.0 * i + 1.8)}
                 for i, t in enumerate(lines)]  # fmt: skip
@@ -177,11 +173,11 @@ def test_with_no_clean_copy_a_director_run_redoes_with_how_the_brand_is_said(
     assert out["status"] == "delivered", out["ended"]
     takes = [j for j in db.query(Job).filter(Job.project_id == pid).order_by(Job.id)
              if j.input.get("step") == "clip_take"]  # fmt: skip
-    redo = takes[1].input["input"]["prompt"]
-    assert "Change from the last take: Say fomo as" in redo  # told how it's said
-    shown = {j["id"]: j for j in owner.get("/jobs").json()}  # Needs you's own read
-    assert shown[takes[1].id]["note"] == ""  # the director's note, never quoted as a person's
-    assert takes[1].input["by_director"] is True
+    # never remade on the transcript alone (a later take is the stand-in cut watch's redo of
+    # a face it saw in the frames, with its own note)
+    assert not any("Say fomo as" in t.input["input"]["prompt"] for t in takes)
+    first = editor.get(f"/projects/{pid}/clips").json()[0]["takes"][0]
+    assert any(f["kind"] == "name" for f in first["words"]["findings"])  # kept for the owner
     assert not any(t["result"].startswith("Spliced") for t in out["turns"])
 
 

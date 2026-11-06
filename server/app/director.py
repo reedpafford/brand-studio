@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 STEP = "director"
 RUN = "director_run"
 MAX_TURNS = 40  # a run's turns at most
-MAX_REDOS = 2  # takes made again for one clip after the take check flagged it
+MAX_REDOS = 2  # takes made again for one clip a run, its watch's remakes too (rule 34)
 MAX_REPLANS = 1  # plans made again from the watch ("Re-plan: …"), a run
 MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes")
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
@@ -51,6 +51,7 @@ GAP, PER_RUN = timedelta(seconds=3), 30  # one note a person every 3 s; notes a 
 TOO_MANY = "Too many messages; wait a moment."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
+DOUBT = "Refused: {} has only a doubt, which is the owner's to judge; say so in the delivery note."
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 START = asks.START  # in its held first paid turn: the start card (S3-02)
 START_HELD = "Ready to start: it waits for Make it."  # the start card's hold
@@ -201,6 +202,7 @@ def thread(db: Session, project: Project, viewer: User | None = None) -> list[di
             out.append({"id": f"a{a.id}", "kind": "ask", "at": a.created_at.isoformat(),
                         "who": "Director", "text": a.question, "status": None, "why": "",
                         "answered": None, "ask_id": a.id})  # fmt: skip
+    out += _watched(db, project)
     return sorted(out, key=lambda m: m["at"])
 
 
@@ -225,6 +227,63 @@ def _edit_of(db: Session, turn: Job, tool: str | None, status: str) -> dict | No
     edit_id = turn.input.get(RUN, {}).get("edit_id")
     row = db.get(CutEdit, edit_id) if tool == "edit_cut" and status == "done" and edit_id else None
     return {"id": row.id, "at": row.at, "undone": row.undone_at is not None} if row else None
+
+
+def _only_a_doubt(db: Session, project: Project, clip_id: str, why: str,
+                  run_id: str | None = None) -> bool:  # fmt: skip
+    """A redo with no confirmed reason behind it: the owner's to judge, never paid for (Reed,
+    4 Nov). It goes ahead on a person's note, a take its watch confirmed a fault in (flagged),
+    a take made from another prompt than the clip's now, or a redo the current watch of the
+    cut saw in the frames."""
+    from app.models.clips import ClipTake
+
+    clip = next((c for c in video_state(db, project)["clips"] if c["clip_id"] == clip_id), None)
+    given = max((t.input.get(READ, 0) for t in turns(db, project)
+                 if t.input[RUN]["id"] == run_id), default=0) if run_id else 0  # fmt: skip
+    asked = any(1 <= int(n) <= given for n in NOTE.findall(why))  # a note this run was given
+    if not clip or not clip["takes"] or asked:
+        return False
+    last = clip["takes"][-1]
+    row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
+                                              ProjectClip.clip_id == clip_id))  # fmt: skip
+    newest = db.get(ClipTake, last["id"])
+    if last["verdict"] == "flagged" or clip["stale"] or (newest.prompt or row.prompt) != row.prompt:
+        return False
+    watch = _watch(db, project)
+    return not (watch.get("current") and any(
+        f.get("clip_id") == clip_id and f.get("fix") == "redo"
+        for f in watch.get("findings") or []))  # fmt: skip
+
+
+def _watched(db: Session, project: Project) -> list[dict]:
+    """What its watch of each take and host piece found and did, said in the chat when it
+    acted (rule 11): "Clip 7, take 1: cartoon eyes landed on the stomach … Remade it …"."""
+    from app import watch_report
+
+    out = []
+    for x in watch_report.watched(db, project):
+        w = x["watch"]
+        if w.get("action") not in watch_report.ACTED:
+            continue
+        what = (f"The host's piece {x['number']}" if x["clip_id"] == "host" else
+                f"Clip {x['clip_id'].removeprefix('c')}, take {x['number']}")  # fmt: skip
+        out.append({"id": f"w-{x['clip_id']}-{x['item'].id}", "kind": "move", "at": w["at"],
+                    "who": "Director", "text": f"{what}: {w['found']} {w['did']}",
+                    "status": "held" if w["waiting"] else "done", "why": "",
+                    "answered": None})  # fmt: skip
+    return out
+
+
+def _redos(db: Session, project: Project, run: dict) -> dict[str, int]:
+    """Takes made again for each clip this run: by the director's own moves and by its watch
+    of each take (app/take_watch), MAX_REDOS a clip in all."""
+    from app import take_watch, watch_report
+
+    out = dict(run["redos"])
+    for row, _ in watch_report.clip_takes_of(db, project):
+        if n := take_watch.remakes(db, row):
+            out[row.clip_id] = out.get(row.clip_id, 0) + n
+    return out
 
 
 def named(text: str) -> str:
@@ -481,8 +540,10 @@ def _act(db: Session, job: Job, storage) -> None:
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
     if tool == "make_take" and decision.get("clip_id"):
         clip = decision["clip_id"]
-        if run["redos"].get(clip, 0) >= MAX_REDOS and _has_take(db, project, clip):
+        if _redos(db, project, run).get(clip, 0) >= MAX_REDOS and _has_take(db, project, clip):
             return _record(db, job, run, f"Refused: {clip} was made again {MAX_REDOS} times.")
+        if _only_a_doubt(db, project, clip, decision.get("why") or "", run["id"]):
+            return _record(db, job, run, DOUBT.format(clip))
         if _has_take(db, project, clip):
             run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
     if tool == "wait":  # with nothing being made (it read the video before a step saved), the
@@ -763,7 +824,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
-               "redos_used": run["redos"], "own_time_usd": float(spent(db, run["id"])),
+               "redos_used": _redos(db, project, run), "own_time_usd": float(spent(db, run["id"])),
                "own_time_limit_usd": float(MAX_USD),
                "replans_left": MAX_REPLANS - run.get("replans", 0),
                "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
@@ -920,10 +981,15 @@ def video_state(db: Session, project: Project) -> dict:
         seen, heard = latest(db, "take", ids), latest(db, "words", ids)
         out = []
         for t in takes:
-            checks = [shown(db, seen.get(t.id)), shown(db, heard.get(t.id))]
-            notes = [f.note for c in checks if c for f in c.findings]
-            out.append({"id": t.id, "number": t.number, "verdict": verdict(checks),
-                        "notes": notes})  # fmt: skip
+            look = shown(db, seen.get(t.id))
+            checks = [look, shown(db, heard.get(t.id))]
+            notes = [f.note for f in look.findings if f.verified] if look else []
+            watched = {k: (t.watch or {}).get(k) for k in ("found", "did", "action")}
+            mark = verdict(checks)  # a transcript's finding alone is a doubt, as an unsure watch:
+            doubt = watched["action"] == "unsure" or (mark == "flagged" and not notes)
+            out.append({"id": t.id, "number": t.number,  # the owner's, never a paid redo
+                        "verdict": "unsure" if doubt else mark,
+                        "notes": [] if doubt else notes, "watch": watched})  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
                       "shots": [{"id": i, "action": shots[i].get("action", ""),
                                  "line": shots[i].get("line")}
@@ -1039,8 +1105,8 @@ def choose(state: dict) -> dict:
         mine = not notes or c["clip_id"] in wanted
         spliced = c.get("splices")  # the wrong word is covered: no take made again for it
         if last["verdict"] == "flagged" and len(c["takes"]) <= MAX_REDOS and mine and not spliced:
-            note = "; ".join(last["notes"]) or "Fix what the take check found."
-            return go("make_take", f"The take check flagged {c['clip_id']}.",
+            note = "; ".join(last["notes"]) or "Fix what the watch found."
+            return go("make_take", f"The watch flagged {c['clip_id']}.",
                       clip_id=c["clip_id"], note=note[:500])  # fmt: skip
     for c in clips:  # the newest clean take (Builder-Server-8's best-take function to come)
         clean = next((t for t in reversed(c["takes"]) if t["verdict"] == "clean"), None)

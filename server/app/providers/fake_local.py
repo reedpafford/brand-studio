@@ -417,7 +417,6 @@ class FakeWriter:
     def run(self, kind: str, input: dict) -> Result:
         step, prompt = input["step"], input["prompt"]
         self._system = "\n".join(input.get("system") or [])  # the brand block lists screens
-        self._take = "take_frames" in input  # a take's check, not a still's
         answer = getattr(self, f"_{step}")(prompt)
         return Result("succeeded", output=SCHEMAS[step].model_validate(answer).model_dump())
 
@@ -737,15 +736,13 @@ class FakeWriter:
         return {"structure": shape, "cast": cast, "scenes": scenes}
 
     def _item_check(self, prompt):
-        """The first character sheet "may differ" on every check (so Advice, Looks fine and
-        Change this… can all be walked for free); an item with only a product matches. A
-        marker in a shot's action walks slice 2's kinds (QA): fake:eyes, fake:extra-person,
-        and fake:screen when the check was given the brand's screens. A take has no face note
-        unless its shot asks for one (fake:face), so a clean take approving itself can be
-        walked too."""
+        """The first character sheet "may differ" on every still's check (so Advice, Looks
+        fine and Change this… can all be walked for free); a still with only a product
+        matches. A marker in a shot's action walks slice 2's kinds (QA): fake:eyes,
+        fake:extra-person, and fake:screen when the check was given the brand's screens."""
         found = []
         who = re.search(r"<sheet[^>]*id=\"((?:char|slot):\d+)\"", prompt)
-        if who and (not self._take or "fake:face" in prompt):
+        if who:
             found.append(
                 {
                     "kind": "face",
@@ -783,6 +780,35 @@ class FakeWriter:
             )
         return {"findings": found}  # fmt: skip
 
+    def _take_watch(self, prompt):
+        """The stand-in watch of a take: it plays as its shot says, unless a marker in the
+        shot's action walks a finding (QA): fake:redo (cartoon eyes on the stomach: remade
+        with its prompt rewritten), fake:text (words burned in: remade with no text),
+        fake:face (the face differs from its sheet: remade), fake:music (music under the
+        voice, from the spectrogram only: not confirmed, never remade), fake:keep (a small
+        fault, kept)."""
+        shot = _tag(prompt, "shot") or ""
+        who = re.search(r"<sheet[^>]*id=\"((?:char|slot):\d+)\"", prompt)
+        found = {"fake:redo": ("action", "Cartoon eyes landed on the stomach",
+                               "no face on the organs", "", "picture"),
+                 "fake:text": ("text", "Garbled words burned into the picture", "no text", "",
+                               "picture"),
+                 "fake:face": ("cast", "Their face differs from their sheet",
+                               "the face as on their sheet", who[1] if who else "", "picture"),
+                 "fake:music": ("sound", "Music may run under the voice", "no music", "",
+                                "sound")}  # fmt: skip
+        for marker, (kind, says, note, ref, evidence) in found.items():
+            if marker in shot:
+                return {"seen": f"{says} at 0:00.4.", "verdict": "redo", "note": note,
+                        "faults": [{"kind": kind, "at": 0.4, "says": says, "who": ref,
+                                    "evidence": evidence}],
+                        "prompt": f"{_tag(prompt, 'prompt')}\nShow {note}."}  # fmt: skip
+        if "fake:keep" in shot:
+            return {"seen": "A small wobble in the background at 0:00.5; kept.", "verdict": "keep",
+                    "faults": [{"kind": "motion", "at": 0.5, "says": "A small wobble",
+                                "who": "", "evidence": "picture"}]}  # fmt: skip
+        return {"seen": "It plays as the shot says.", "verdict": "keep", "faults": []}
+
     def _watch_cut(self, prompt):
         """The stand-in watch of a cut (so the director's fixes can be walked, Next-Server's
         e2e): a redo of the first clip and a half-second mute in the last, every time; the
@@ -796,10 +822,11 @@ class FakeWriter:
             {"clip_id": first["clip_id"], "start": first["start"],
              "end": min(first["start"] + 1, first["end"]),
              "says": f"{first['clip_id']}: the opening face changes between shots",
-             "fix": "redo", "take_id": None,
+             "fix": "redo", "take_id": None, "kind": "cast", "evidence": "picture",
              "note": "Keep the same face in every shot, as on their sheet."},
             {"clip_id": last["clip_id"], "start": mid, "end": round(mid + 0.5, 2),
              "says": f"{last['clip_id']}: a stray sound nobody asked for", "fix": "mute",
+             "kind": "sound", "evidence": "sound",
              "take_id": None, "note": "a stray sound"},
         ]  # fmt: skip
         for c in cut:
@@ -807,6 +834,7 @@ class FakeWriter:
                 found.append({"clip_id": c["clip_id"], "start": c["start"], "end": c["end"],
                               "says": f"{c['clip_id']}: another take reads better",
                               "fix": "pick", "take_id": c["other_takes"][0]["take_id"],
+                              "kind": "picture", "evidence": "picture",
                               "note": "The other take keeps the line."})  # fmt: skip
         return {"lands": True, "summary": "It plays; two small fixes.", "findings": found}
 

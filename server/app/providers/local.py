@@ -13,7 +13,7 @@ from pathlib import Path
 from app import narration, reel, room, song_study, song_timing
 from app.providers import Result
 
-TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg"}
+TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".png": "image/png"}
 
 
 class LocalProvider:
@@ -107,42 +107,62 @@ class LocalProvider:
         return Result("succeeded", output={"timing": timing}, files=[f"local://{trimmed}"])
 
     def _hear_take(self, input: dict) -> Result:
-        with tempfile.TemporaryDirectory(dir=self.root) as folder:
-            take = Path(folder) / "take.mp4"
-            take.write_bytes(self.storage.get(input["video_key"]))
-            return Result("succeeded", output={"heard": self.hear_take(take, input)})
+        """A take's words; with `watch`, also what the director's look needs (app/take_watch):
+        its measurements, its filmstrips and its spectrogram, handed over as files."""
+        folder = Path(tempfile.mkdtemp(dir=self.root))
+        take = folder / "take.mp4"
+        take.write_bytes(self.storage.get(input["video_key"]))
+        try:
+            heard = self.hear_take(take, input)
+            if not input.get("watch"):
+                return Result("succeeded", output={"heard": heard})
+            output, files = self._watch_take(take, input["watch"], heard, folder)
+            return Result("succeeded", output={"heard": heard, **output}, files=files)
+        finally:
+            take.unlink()
+            if not any(folder.iterdir()):
+                folder.rmdir()
+
+    @staticmethod
+    def _watch_take(take: Path, watch: dict, heard: list[dict], folder: Path) -> tuple:
+        from app import deep_watch
+
+        words = watch.get("over") or [w for line in heard for w in line.get("words") or []]
+        every, fewest, most = watch["overview"]
+        count = max(fewest, min(most, round(deep_watch.probe(take)["length"] * every)))
+        facts, made = deep_watch.look(take, folder, words, count, watch["dense"])
+        output = {"measured": facts, "measured_text": deep_watch.told(facts),
+                  "strips": deep_watch.named(made)}  # fmt: skip
+        return output, [f"local://{m['path']}" for m in made]
 
     def _hear_cut(self, input: dict) -> Result:
-        """A cut's watch, free: its words, where each clip sits, and the frames to look at
-        (app/watch_cut.py), handed over as files."""
-        from app import take_frames, watch_cut
+        """A cut's watch, free: its words, where each clip sits, and what its look sees and
+        hears (app/deep_watch: strips, measurements, a spectrogram), handed over as files."""
+        from app import deep_watch, watch_cut
 
         folder = Path(tempfile.mkdtemp(dir=self.root))
         cut = folder / "cut.mp4"
         cut.write_bytes(self.storage.get(input["video_key"]))
-        length = take_frames.length(cut)
+        length = deep_watch.probe(cut)["length"]
         lengths = []
         for c in input["clips"]:
             seconds = c.get("seconds")
             if seconds is None:
                 take = folder / f"take-{c['take_id']}.mp4"
                 take.write_bytes(self.storage.get(c["key"]))
-                seconds = take_frames.length(take)
+                seconds = deep_watch.probe(take)["length"]
                 take.unlink()
             lengths.append((c["clip_id"], c["take_id"], float(seconds)))
         spans = watch_cut.spans_of(lengths, length)
         words = [{**w, "clip_id": watch_cut.clip_at(spans, w["start"])}
                  for line in self.hear_cut(cut, input) for w in line.get("words", [])]  # fmt: skip
-        frames = watch_cut.frames_at(length, take_frames.cuts(cut), words, spans,
-                                     watch_cut.count_for(length))  # fmt: skip
-        files = []
-        for n, f in enumerate(frames):
-            dst = folder / f"frame-{n}.jpg"
-            take_frames.grab(cut, f["t"], dst)
-            files.append(f"local://{dst}")
+        facts, made = deep_watch.look(cut, folder, words, watch_cut.count_for(length),
+                                      watch_cut.DENSE, wide=1400)  # fmt: skip
         cut.unlink()
-        return Result("succeeded", output={"spans": spans, "words": words, "frames": frames},
-                      files=files)  # fmt: skip
+        strips = [{k: m[k] for k in ("what", "start", "end")} for m in made]
+        output = {"spans": spans, "words": words, "strips": strips,
+                  "measured_text": deep_watch.told(facts)}  # fmt: skip
+        return Result("succeeded", output=output, files=[f"local://{m['path']}" for m in made])
 
     def _make_cut(self, input: dict) -> Result:
         """A cut (app/cut_render.py), its progress kept where the cut editor reads it. A

@@ -61,6 +61,8 @@ class ClipTake(Entity, Base):
     look: Mapped[str] = mapped_column(String(40), default="house")  # the video's look then (VS1)
     # What it was made with (VS1, n09): {video_model, aspect_ratio, products}; {} = before n09
     made_with: Mapped[dict] = mapped_column(JSON, default=dict)
+    # The director's watch (n39, app/take_watch): {state, found, faults, did, action, …}
+    watch: Mapped[dict | None] = mapped_column(JSON)
 
 
 class FinalVideo(Entity, Base):
@@ -112,3 +114,4 @@ class HostPiece(Entity, Base):
     file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))  # once made
     earlier: Mapped[list[int]] = mapped_column(JSON, default=list)  # earlier makes' files
     how: Mapped[str | None] = mapped_column(String(20))  # n38: talks or corner (app/host.how)
+    watch: Mapped[dict | None] = mapped_column(JSON)  # the director's watch (n39, app/host_watch)

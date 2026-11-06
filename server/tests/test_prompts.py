@@ -1412,11 +1412,11 @@ def test_an_action_never_says_replies_or_answers():
 def test_take_check_slice_2_looks_at_eyes_screens_and_cast():
     """docs/next/take-review-checklist.md B3–B5 (Builder-Server-8, 1 Nov)."""
     sheets = [("char:1", "Mia: black bob")]
-    before = prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), frames=6)
-    assert before == prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"), 6,
+    before = prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"))
+    assert before == prompts.item_check_input("Mia waves.", sheets, ("product:2", "bag"),
                                               None, None, ["only wins"])  # fmt: skip
     text = prompts.item_check_input(
-        "Mia waves.", sheets, ("product:2", "bag"), frames=6,
+        "Mia waves.", sheets, ("product:2", "bag"),
         cast=["Mia (char:1)", "date (char:12, the alien date)"],
         screens=[("screen:7", "fomo Home screen")], screen_rules=[" fomo only wins. ", ""],
     )  # fmt: skip
@@ -1424,7 +1424,7 @@ def test_take_check_slice_2_looks_at_eyes_screens_and_cast():
         text.startswith(before)
         and "<cast>Mia (char:1), date (char:12, the alien date)</cast>" in text
     )
-    assert '<screen image="9" id="screen:7">fomo Home screen</screen>' in text  # after 6+1+1
+    assert '<screen image="4" id="screen:7">fomo Home screen</screen>' in text  # after 1+1+1
     assert "<screen_rules>\nfomo only wins.\n</screen_rules>" in text
     system = prompts.system("item_check")
     assert "never glowing or red" in system and "only when <screens> is given" in system
@@ -1588,11 +1588,12 @@ def test_watch_cut_judges_the_cut_as_a_viewer_with_a_fix_each():
     assert prompts.SCHEMAS["watch_cut"] is schemas.CutWatch and "rules.md" not in watch
     for part in ("the story reads without the words", "a mispronounced name", "**Text:**",
                  "never suggest changing a line", "The ending lands", "never a script word",
-                 "A gasp or a laugh the story motivates is fine"):  # fmt: skip
+                 "Breaths, gasps, laughs, room sound and sound effects are fine"):  # fmt: skip
         assert part.lower() in watch.lower(), part
     fixes = schemas.CutFinding.model_fields["fix"].annotation.__args__
     assert set(fixes) == {"redo", "pick", "mute", "keep"}
-    one = schemas.CutFinding(clip_id="c1", start=0, end=1, says="x", fix="keep")
+    one = schemas.CutFinding(clip_id="c1", start=0, end=1, says="x", fix="keep", kind="story",
+                             evidence="picture")  # fmt: skip
     with pytest.raises(ValueError):
         schemas.CutWatch(lands=True, summary="", findings=[one] * 7)
     text = prompts.watch_cut_input(
@@ -1633,7 +1634,7 @@ def test_the_director_reads_the_story_and_never_delivers_a_weak_cut_as_good():
         "<script> (the published script, numbered" in director
         and "<plan> (the approved" in director
     )
-    assert "the take check sees faces, outfits, screens and words, never the story" in director
+    assert "that's a story doubt: say it in the delivery note" in director
     assert "read <script> and <plan> as the story" in director
     assert "`watch` is done and `current` for this cut" in director
     assert "never deliver it as good" in director
@@ -1761,7 +1762,7 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
         assert part in director, part
     # Song-Producer's review (2 Nov): the plan maps beats onto the song; one voice; one world
     assert "Map the treatment's beats onto its sections" in prompts.system("plan", fmt="song")
-    assert "**One voice in a song or a narration:**" in prompts.system("watch_cut")
+    assert "a narrated video keeps its narration throughout" in prompts.system("watch_cut")
     assert "a song is usually one world" in prompts.system("review_stills")
     assert "lands on the word that names it" in prompts.system("song_breakdown")
     assert "one framing device" in prompts.system("treatment")

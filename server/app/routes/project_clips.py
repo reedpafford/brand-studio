@@ -28,6 +28,7 @@ from app import (
     take_mute,
     take_sound,
     video_settings,
+    watch_report,
     word_splice,
 )
 from app.advice import Said, SaidText
@@ -62,6 +63,29 @@ class ProjectClipIn(BaseModel):
     references: list[Reference] = Field(max_length=50)
 
 
+class FaultOut(BaseModel):
+    kind: str  # style, action, motion, cast, product, screen, text, lipsync, voice, sound, timing
+    at: float | None  # seconds into the take; null: all of it
+    says: str  # "Cartoon eyes landed on the stomach"; unconfirmed: "… (not confirmed)"
+    verified: bool = True  # seen in the frames or clipped samples; else never remade on its own
+
+
+class WatchOut(BaseModel):
+    """What the director found looking at and measuring this take, and what it did (rule 11)."""
+
+    state: Literal["watching", "done", "failed", "skipped"]
+    found: str | None = ""  # "Cartoon eyes landed on the stomach at 0:02. The sound was fine."
+    did: str | None = ""  # "Remade it on Seedance 2.0 with “no face on the organs” in the prompt."
+    action: Literal["keep", "redo", "held", "flagged", "unsure", "superseded"] | None = None
+    note: str | None = ""  # the change, quoted ("no face on the organs")
+    at: str | None = None  # when it was watched (ISO)
+    faults: list[FaultOut] = []
+    credits: float | None = None  # what watching it charged
+    remake_credits: float | None = None  # the remake's "up to"
+    remake_take: int | None = None  # the take the remake became, once it's made
+    waiting: bool = False  # the remake waits for the owner's OK (past the budget)
+
+
 class TakeOut(BaseModel):
     id: int
     number: int
@@ -72,6 +96,8 @@ class TakeOut(BaseModel):
     verdict: str = "unchecked"  # clean, flagged, checking or unchecked (item_checks.verdict)
     approved_by: str | None = None  # "check": it approved itself, clean (rule 21)
     mutes: list[list[float]] = []  # stretches muted, as added: Undo takes back one (take_mute)
+    watch: WatchOut | None = None  # the director's watch of it (app/take_watch)
+    remade_from: int | None = None  # the take number its watch remade it from
 
 
 class SoundOut(BaseModel):
@@ -220,6 +246,8 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
                 if row.approved and t.id == row.picked_take_id
                 else None,
                 mutes=take_mute.spans(t),
+                watch=watch_report.shown(db, t),
+                remade_from=(t.made_with or {}).get("remade_from"),
             )  # fmt: skip
             for t in takes
         ],

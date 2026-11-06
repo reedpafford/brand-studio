@@ -231,12 +231,12 @@ import pytest  # noqa: E402
 @pytest.mark.parametrize("checks", [True, False])
 def test_a_takes_shown_price_includes_its_take_check(app, db, editor, setup, monkeypatch, checks):  # noqa: F811
     """QA-3 on #1170: with take checks on, "Make another take · 5 credits" charged 5.6, the
-    check riding along. Every take price includes it now, so it's never below the charge."""
-    from app import item_checks
+    check riding along. Every take price includes it now, so it's never below the charge: the
+    director's watch of the take (rule 11) rides along the same way."""
+    from app import item_checks, take_watch
     from app.providers import get_providers
 
     monkeypatch.setattr(item_checks, "on", lambda: checks)
-    monkeypatch.setattr(item_checks, "scope", lambda: "all_takes")
     url = f"/projects/{setup['project']}"
     _made(app, db, editor, url)
     providers = get_providers(app.state.settings, app.state.storage)  # the free listen reads files
@@ -247,7 +247,7 @@ def test_a_takes_shown_price_includes_its_take_check(app, db, editor, setup, mon
         editor.post(f"{url}/clips/{c['id']}/prompt-ok")
     clip = editor.get(f"{url}/clips").json()[0]
     row = db.get(ProjectClip, clip["id"])
-    check = item_checks.per_take(db, row.project_id)
+    check = take_watch.per_take(db, db.get(Project, row.project_id).workspace_id)
     assert (check > 0) is checks
     from app.clip_takes import take_credits
 

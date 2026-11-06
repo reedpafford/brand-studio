@@ -37,6 +37,10 @@ def step_failed(db: Session, job: Job) -> None:
         from app.item_checks import failed
 
         failed(db, job)
+    if job.input.get("step") == "take_watch" or job.input.get("watch"):  # its listen or look
+        from app.take_watch import failed as unwatched
+
+        unwatched(db, job)
     if job.input.get("step") == "clip_take":
         try:
             retry(db, job)
@@ -149,6 +153,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.song_takes import save_timing
     from app.storyboard import save_frames, save_still
     from app.take_sound import saved as save_sound
+    from app.take_watch import save as save_take_watch
     from app.take_words import save as save_words
     from app.voices import saved as save_voice
     from app.watch_cut import heard_cut
@@ -170,6 +175,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "item_check": save_check,
         "take_words": save_words,
         "cut_make": save_cut,
+        "take_watch": save_take_watch,
         "cut_listen": heard_cut,
         "watch_cut": save_watch_cut,
         "look_sample": save_sample_still,

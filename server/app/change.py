@@ -48,9 +48,9 @@ def _then(db: Session, project: Project, row: Row) -> Decimal:
         made = estimate(db, project.workspace_id, kind, Decimal(units), data)
         if isinstance(row, StoryboardFrame):
             return made
-        from app import item_checks
+        from app import take_watch
 
-        return made + item_checks.rides(db, project, row)  # its take check, while checks are on
+        return made + take_watch.rides(db, project, row)  # its watch, while watches are on
     return Decimal(0)
 
 
@@ -104,6 +104,28 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
     return job
 
 
+def fit(db: Session, project: Project, row: ProjectClip, after: str,
+        note: str) -> tuple[ClipPrompt, list[str]]:  # fmt: skip
+    """A clip's rewritten prompt with its cast attached and its shape put right in code (free),
+    and the problems it would have."""
+    bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
+    clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=after,
+                      references=[Reference(**r) for r in row.references])  # fmt: skip
+    clip = clip_prompts.with_cast(db, project, clip, bd, trim=False, note=note)
+    clip = clip_prompts.repair_shape(clip, bd)  # what code can fix, free, first
+    return clip, clip_prompts.clip_problems(db, project, bd, clip)
+
+
+def use(db: Session, row: ProjectClip, clip: ClipPrompt, problems: list[str],
+        by_id: int | None) -> None:  # fmt: skip
+    """The rewritten prompt in hand: a new version (Versions keeps the one before)."""
+    row.prompt_ok = False  # a prompt written again needs reading again
+    clip_prompts.before_change(db, row)
+    row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
+    row.seconds, row.problems, row.approved = clip.seconds, problems, False
+    clip_prompts.log_prompt(db, row, by_id)  # OR3: Versions
+
+
 UNFINISHED = "That change didn't finish, so nothing was charged. Try again."
 
 
@@ -154,17 +176,7 @@ def save_changed(db: Session, job: Job) -> None:
         row.prompt, row.reference_ids = frame.prompt, frame.reference_ids
         row.problems = storyboard.frame_problems(db, project, frame, row.breakdown_id)
     else:
-        row.prompt_ok = False  # a prompt written again needs reading again
-        clip = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=after,
-                          references=[Reference(**r) for r in row.references])  # fmt: skip
-        breakdown = Breakdown.model_validate(bd.data)
-        clip = clip_prompts.with_cast(db, project, clip, breakdown, trim=False, note=i["note"])
-        clip = clip_prompts.repair_shape(clip, breakdown)  # what code can fix, free, first
-        clip_prompts.before_change(db, row)
-        row.prompt, row.references = clip.prompt, [r.model_dump() for r in clip.references]
-        row.seconds = clip.seconds
-        row.problems = clip_prompts.clip_problems(db, project, breakdown, clip)
-        clip_prompts.log_prompt(db, row, job.created_by_id)  # OR3: Versions
+        use(db, row, *fit(db, project, row, after, i["note"]), job.created_by_id)
         if not _has_take(db, row):
             return  # before any take, a change only rewrites the prompt
         if stops := advice.stops(row):  # never pay for a take from a prompt with a problem
