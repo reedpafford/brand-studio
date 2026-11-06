@@ -593,7 +593,8 @@ def test_every_way_of_saying_ready_is_held_back_and_every_ask_is_kept():
                  "Ready for upload.", "Ready to be shared.", "It is ready to be posted.",
                  "Ready-to-post.", "good-to-go", "ready  to post", "Ready\nto post.",
                  "Nothing else needed.", "No action needed.", "Nothing to approve.",
-                 "Nothing at this time.", "N/A", "Nothing. It’s ready to post."):  # fmt: skip
+                 "Nothing at this time.", "N/A", "Nothing. It’s ready to post.",
+                 "Nothing to approve."):  # fmt: skip
         assert delivery.needs(said, True) == delivery.LOOK_FIRST, said
     look, yet = delivery.LOOK, delivery.NOT_YET
     for ask in ("Your OK on clip 1, and it’s ready to post.",
@@ -602,5 +603,14 @@ def test_every_way_of_saying_ready_is_held_back_and_every_ask_is_kept():
                 "Confirm the voice — it’s all set apart from that.",
                 "Is it ready to share with the client?"):  # fmt: skip
         assert delivery.needs(ask, True) == f"{yet} {ask} {look}", ask
+    for ask in ("The final cut is ready.", "Your video is ready.", "Ready whenever you are.",
+                "Just post it.", "Nothing needed — post it as is.", "Ready to ship.",
+                "Approve it, then post it."):  # fmt: skip  # mentions ready or posting: led
+        assert delivery.needs(ask, True) == f"{yet} {ask} {look}", ask
+    for ask in ("Approve it.", "Approve it?", "Do you approve?", "Do you want it shorter?",
+                "OK it?", "Go ahead?"):  # fmt: skip  # a short ask is never swallowed
+        assert delivery.needs(ask, True) == f"{ask} {look}", ask
     assert delivery.needs("Your OK on clip 1", True) == f"Your OK on clip 1. {look}"
+    assert delivery.needs("Check clip 3;", True) == f"Check clip 3. {look}"
+    assert delivery.needs("Wait…", True) == f"Wait… {look}"
     assert delivery.needs('Say "go."', True) == f'Say "go." {look}'  # no stray full stop

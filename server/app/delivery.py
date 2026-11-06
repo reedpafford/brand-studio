@@ -278,13 +278,18 @@ READY = re.compile(
     r"\bready[\s-]+(?:to[\s-]+(?:post|publish|share|upload|go|be[\s-]+(?:posted|shared))|for"
     r"[\s-]+(?:posting|upload(?:ing)?|you(?:[\s-]+to[\s-]+post)?))\b|\bgood[\s-]+to[\s-]+(?:go|post)\b"
     r"|\ball[\s-]+set\b|\b(?:go[\s-]+ahead[\s-]+and|feel[\s-]+free[\s-]+to|you[\s-]+can)[\s-]+post\b"
-    r"|\b(?:it|that|everything|the[\s-]+(?:cut|video))(?:(?:'|’)s|[\s-]+is)[\s-]+ready\b",
+    r"|\b(?:it|that|everything|the[\s-]+(?:cut|video))(?:(?:'|’)s|[\s-]+is)[\s-]+ready"
+    r"(?:[\s-]+(?:to[\s-]+(?:be[\s-]+)?(?:post|publish|share|upload)\w*|for[\s-]+\w+))?\b",
     re.I,
 )
-FILLER = re.compile(r"(?i)[\W\s]*(?:(?:nothing|none|no|else|more|action|needed|required|left|to|do|"
-                    r"approve|at|this|time|is|it|it's|it’s|then|so|and|now|you|you're|you’re|"
-                    r"from|me|n/a|ready|post|posted|posting|share|shared|upload|go|be)\b"
-                    r"[\W\s]*)*")  # fmt: skip  # words that ask for nothing
+FILLER = re.compile(  # words that ask for nothing, once a "nothing" word says so (NONE)
+    r"(?i)[\W\s]*(?:(?:nothing|none|no|else|more|action|needed|required|left|to|do|at|this|"
+    r"time|is|it|it's|it’s|then|so|and|now|you|you're|you’re|from|me|n/a|ready|be|for|yet|"
+    r"here|all|approve|post|posted|posting|share|shared|upload|go)\b[\W\s]*)*"
+)
+NONE = re.compile(r"(?i)\b(?:nothing|none|no|n/a)\b")
+ACT = re.compile(r"(?i)\b(?:approve|post|share|upload|go|ok|confirm)\w*\b")  # an ask's verbs
+MENTIONS = re.compile(r"(?i)\bready\b|\b(?:post|publish|ship|share|upload)\w*\b")
 LOOK = "Look at what remains uncertain before you post it."
 NOT_YET = "Not ready to post yet."
 
@@ -292,16 +297,21 @@ NOT_YET = "Not ready to post yet."
 def needs(said_: str, unsettled: bool) -> str:
     """What I need from you, as the server lets it stand (Reed: a cut that exists isn't ready
     to post). With nothing open or uncertain, the director's words stand. Otherwise it never
-    reads as ready: words that only say it's ready (or ask nothing) become LOOK_FIRST; a real
-    ask is kept word for word, after NOT_YET when it mentions being ready, then LOOK."""
+    reads as ready, and the director's words are never cut: a note that only says it's ready,
+    or that asks for nothing, becomes LOOK_FIRST; anything else is kept word for word, after
+    NOT_YET when it mentions being ready or posting, then LOOK."""
     if not unsettled:
         return said_ or NOTHING
     text = re.sub(r"\s+", " ", said_ or "").strip()
-    if FILLER.fullmatch(READY.sub(" ", text)):
+    rest = READY.sub(" ", text)
+    said_ready = READY.search(text) and not ACT.search(rest)  # "You're all set!": ready only
+    if not re.search(r"\w", rest) or (FILLER.fullmatch(rest) and (NONE.search(rest) or said_ready)):
         return LOOK_FIRST
-    if not re.search(r"[.!?][\"”’)]?$", text):
+    text = re.sub(r"[\s;:,—–-]+$", "", text)
+    if not re.search(r"[.!?…][\"'”’)\]]*$", text):
         text += "."
-    return " ".join(x for x in (NOT_YET if READY.search(text) else "", text, LOOK) if x)
+    yet = NOT_YET if READY.search(text) or MENTIONS.search(text) else ""
+    return " ".join(x for x in (yet, text, LOOK) if x)
 
 
 def plain(note: dict) -> str:
