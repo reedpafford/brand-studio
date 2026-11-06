@@ -234,6 +234,15 @@ test("the Cut tab puts the clips together by itself the first time, for free", a
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/cut")).toHaveLength(1));
 });
 
+test("someone who only looks at the video never starts its first cut", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...toClips, "GET /projects/9": [200, { ...project, created_by_id: 99, created_by_name: "Maya" }], "GET /projects/9/clips": [200, [done]], "GET /projects/9/cut": [200, cutOut({ number: null, file_id: null, versions: [], can_edit: true })] }); // only that it's someone else's video stops it
+  open("?step=downloads");
+  expect(await screen.findByLabelText("Cut editor")).toBeInTheDocument();
+  await new Promise((r) => setTimeout(r, 300));
+  expect(calls.filter((c) => c.key === "POST /projects/9/cut")).toHaveLength(0);
+});
+
 test("a video made from a library version opens on the new page", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9": [200, { ...project, script_draft_id: 4 }], "GET /projects/9/assets": [200, []] });
