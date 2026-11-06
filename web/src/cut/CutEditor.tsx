@@ -63,14 +63,14 @@ export function CutEditor({
   const error = newest([edits.edit, edits.undoOne, edits.step, edits.fix, make, sound]);
   if (!c.number && !c.making && !c.failed) {
     if (make.isPending || !rows) return <Skeleton className="h-96" />; // the first press is on its way
-    const left = rows.filter((r) => !r.approved).length;
+    const left = rows.filter((r) => r.picked_take_id == null).length; // a take each: V6 has no per-clip Approve
     return (
       // no cut yet: made once every clip has its take (free)
       <div className="space-y-2" aria-label="Cut editor">
         {error && <Banner title={error.message} />}
         <Button
           disabled={!rows.length || left > 0}
-          reason={!rows.length ? "Make the clips first" : left > 0 ? `Approve every clip first (${left} left)` : undefined}
+          reason={!rows.length ? "Make the clips first" : left > 0 ? `Make every clip’s take first (${left} left)` : undefined}
           onClick={() => make.mutate()}
         >
           Make the cut <span className="opacity-80">· free</span>

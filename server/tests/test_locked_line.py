@@ -178,8 +178,10 @@ def test_an_editor_past_the_budget_is_held_for_the_owner(app, db, owner, editor,
 def test_who_may_press_and_when_nothing_is_offered(app, db, owner, editor):
     pid = _delivered(app, db, owner, editor)
     url = f"/projects/{pid}/director/messages"
-    editor.post(url, json={"text": "Make clip 1 slower."})  # not the script's words
-    assert editor.get(f"/projects/{pid}/director").json()["unread"] == 1
+    editor.post(url, json={"text": "Make clip 1 slower."})  # not the script's words: the next
+    out = editor.get(f"/projects/{pid}/director").json()  # run starts and reads it (S3-12)
+    assert (out["status"], out["unread"]) == ("running", 0)
+    editor.post(f"/projects/{pid}/director/stop")  # (stopped: the notes below wait)
     db.expire_all()
     db.get(Project, pid).director_chat = []
     db.commit()
@@ -217,8 +219,10 @@ def test_nothing_is_offered_where_the_clip_doesnt_carry_the_voice(app, db, owner
     monkeypatch.setattr(director_song, "kind", lambda db, project: "narrated")
     monkeypatch.setattr(locked_line, "_goes", lambda *a: False)  # nor anything in the cut
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK}).json()
-    assert out["unread"] == 1  # it waits for the director, as any note does
-    assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
+    assert (out["status"], out["unread"]) == ("delivered", 0)  # answered at once: no run
+    card = _card(editor, pid)  # the words are set, with nothing to offer instead here
+    assert card["choices"] == [] and card["question"] == locked_line.SET_ONLY.format(
+        "bought the dip")  # fmt: skip
 
 
 NOT_ASKS = [  # notes that quote the words but don't ask to change them (QA on e17e902f)
@@ -280,7 +284,7 @@ def test_a_note_that_asks_more_keeps_the_rest_for_the_director(app, db, owner, e
     text = "Change “bought the dip” to “bought the top”, and make the end brighter."
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": text}).json()
     assert _card(editor, pid)["choices"]  # what can change instead of the words, at once
-    assert out["unread"] == 1  # the rest waits for the next Make it, as any note does
+    assert (out["status"], out["unread"]) == ("running", 0)  # the next run reads the rest
     note = next(t for t in out["thread"] if t["kind"] == "message" and t["text"] == text)
     assert note["answered"] is False
 
@@ -292,7 +296,7 @@ def test_false_positives_drop_nothing(app, db, owner, editor):
         db.get(Project, pid).director_chat = []
         db.commit()
         out = editor.post(f"/projects/{pid}/director/messages", json={"text": text}).json()
-        assert out["unread"] == 1, text
+        assert (out["status"], out["unread"]) == ("running", 0), text  # the director reads it
     assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
 
 
@@ -652,3 +656,59 @@ def test_a_cut_that_cant_be_read_never_breaks_the_cards(app, db, owner, editor, 
     db.commit()
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
     assert out.status_code == 201  # a new reply still comes, without that choice
+
+
+def test_a_word_change_starts_no_run_and_any_other_note_does(app, db, owner, editor):
+    """Flow-QA on 4eb75e1a: a note that only asks to change the words is answered at once and
+    starts nothing; any other note after a delivery starts the next run; a note that asks both
+    gets the reply and starts the run for its other half."""
+    url = lambda pid: f"/projects/{pid}/director/messages"  # noqa: E731
+    pid = _delivered(app, db, owner, editor)
+    out = editor.post(url(pid), json={"text": ASK}).json()
+    assert (out["status"], out["unread"]) == ("delivered", 0) and _card(editor, pid)
+    out = owner.post(url(pid), json={"text": "Make clip 1 slower."}).json()
+    assert out["status"] == "running"  # any other note: the next run
+    pid = _delivered(app, db, owner, editor)
+    both = "Change “bought the dip” to “bought the top”, and make the end brighter."
+    out = editor.post(url(pid), json={"text": both}).json()
+    assert _card(editor, pid)["choices"] and out["status"] == "running"  # both, at once
+
+
+def test_the_boards_path_a_new_video_from_a_published_script_gets_the_reply_at_once(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on the test site (S3-14): the owner publishes a script, the editor makes the video
+    from it in New video, it's delivered, and the editor's note asks only to change its words.
+    The reply comes at once in the chat, no run starts and nothing waits for the owner, and
+    every choice on it can be pressed."""
+    from decimal import Decimal
+
+    from app.routes import freestyles
+    from tests.test_freestyle_dialogue import SCRIPT
+    from tests.test_freestyle_dialogue import _run as run_freestyle
+    from tests.test_new_video import _published
+
+    app.state.settings.fake_providers = True
+    monkeypatch.setattr(freestyles, "budget", lambda db, project: Decimal(10_000))
+    sent = editor.post(
+        "/freestyles", json={"shape": "9:16", "script_id": _published(owner, SCRIPT)}
+    )
+    assert sent.status_code == 201, sent.text
+    fs = sent.json()
+    run_freestyle(app, db, ticks=160)
+    out = editor.get(f"/projects/{fs['project_id']}/director").json()
+    assert out["status"] == "delivered", [t["text"] for t in out["thread"]][-4:]
+    pid, jobs = fs["project_id"], db.query(Job).count()
+    note = "Change “The market opened at nine” to “The bell rang at nine”"
+    r = editor.post(f"/freestyles/{fs['id']}/messages", json={"text": note})
+    assert r.status_code == 201, r.text
+    db.expire_all()
+    assert db.query(Job).count() == jobs  # no run, no model, nothing held for the owner
+    assert r.json()["status"] == "delivered" and not director.active(db, db.get(Project, pid))
+    card = _card(editor, pid)
+    assert card["state"] == "offered" and card["choices"] and card["can"] == ["instead"]
+    assert all(c["cannot"] == "" for c in card["choices"])  # never "The director is working"
+    thread = editor.get(f"/projects/{pid}/director").json()["thread"]
+    assert any(t["kind"] == "ask" and t.get("ask_id") == card["id"] for t in thread)  # in chat
+    said = next(t for t in thread if t["kind"] == "message" and t["text"] == note)
+    assert said["answered"]  # answered: no Make it again waits for it

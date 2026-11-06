@@ -113,7 +113,7 @@ const full = (o: object = {}) => ({
   ],
   ...o,
 });
-const project = { id: 5, brand_id: 1, name: "Bo tries salmon · A", script_draft_id: 7, step: "clips", finished_at: null, needs_you: true, waiting_on: "1 clip ready to check", credits_used: 220, budget_credits: 600, director_credits: 0, archived_at: null, final_out_of_date: false, created_by_id: 2, created_by_name: "Eli" };
+const project = { id: 5, brand_id: 1, name: "Bo tries salmon · A", script_draft_id: 7, step: "clips", finished_at: null, needs_you: true, waiting_on: "Approve 1 look", credits_used: 220, budget_credits: 600, director_credits: 0, archived_at: null, final_out_of_date: false, created_by_id: 2, created_by_name: "Eli" };
 
 test("a published script opens on Overview (v5 C_ScriptOverview): each version's video, maker, credits and press; its words; its facts", async () => {
   setViewport(1440);

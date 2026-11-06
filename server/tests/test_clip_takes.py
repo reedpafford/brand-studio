@@ -87,7 +87,7 @@ def _work(app, db, fake):
 def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F811
     base = f"/projects/{setup['project']}"
     url = f"{base}/clips/{clip['id']}"
-    assert make_cut(app, db, editor, base).json()["detail"].startswith("Approve every clip")
+    assert make_cut(app, db, editor, base).json()["detail"].startswith("Make every clip's take")
     assert editor.post(f"{url}/approve").status_code == 409  # no take yet
     job = editor.post(f"{url}/generate")
     assert job.status_code == 201 and job.json()["credits"] == 5  # 5 s at 480p

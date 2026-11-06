@@ -119,6 +119,11 @@ export function useFreestyleActions(id: number | null) {
   const done = (fs: Freestyle) => {
     queryClient.setQueryData(["freestyle", fs.id], fs);
     queryClient.invalidateQueries({ queryKey: ["freestyles"] });
+    if (fs.project_id) {
+      // its video's chat and cards: a locked line's reply comes at once (S3-14), a new run's start card too
+      void queryClient.invalidateQueries({ queryKey: ["director", fs.project_id] });
+      void queryClient.invalidateQueries({ queryKey: ["asks", fs.project_id] });
+    }
   };
   const path = { params: { path: { freestyle_id: id ?? 0 } } };
   const fresh = { onSuccess: done };

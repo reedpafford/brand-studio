@@ -20,8 +20,8 @@ export function videoLock(step: VideoStepId, now: VideoProgress): string | null 
   // Work already made stays open when an earlier step changes: it says "out of date" there, and its paid presses
   // wait (videoHold). Problems in the shots still come first.
   const kept = (step === "storyboard" && now.frames.total > 0) || (step === "clips" && now.clips.total > 0);
-  // (Out-of-date frames read as unapproved, so clips already made don't wait on them either.)
-  const frames = step === "clips" ? { ...now.frames, stale: false, approved: now.frames.total } : { ...now.frames, stale: false };
+  // (Out-of-date stills read as undrawn, so clips already made don't wait on them either.)
+  const frames = step === "clips" ? { ...now.frames, stale: false, drawn: now.frames.total } : { ...now.frames, stale: false };
   const p = kept ? { ...now, shots: { ...now.shots, stale: false }, frames } : now;
   // The shots are made, current and clear of problems. They live in Plan, on its Shots view; the director makes them (S8).
   const shots = lockReason("storyboard", p)?.replace("in Shots first", "in Plan first").replace("Make the shots first", "The director makes the plan and its shots first").replace("Make new shots first", "The director makes new shots in Plan first") ?? null;
@@ -33,7 +33,7 @@ export function videoLock(step: VideoStepId, now: VideoProgress): string | null 
     lockReason(VIDEO_STEPS.find((s) => s.id === step)!.old, p)
       ?.replace("Make the storyboard first", "Make the stills first")
       .replace("Redo the out of date frames first", "Redo the out-of-date stills first")
-      .replace(/Approve every storyboard frame first/, "Approve every still first") ?? null
+      .replace(/Draw every storyboard frame first/, "Draw every still first") ?? null
   );
 }
 

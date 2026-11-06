@@ -89,10 +89,10 @@ export function useProgress(projectId: number) {
   const progress: Progress = {
     script: !!script.data,
     shots: { made: !!bd, stale: !!bd?.stale, problems: blocking(bd?.problems ?? [], bd?.kept ?? []).length },
-    frames: { total: f.length, approved: f.filter((x) => x.approved).length, stale: f.some((x) => x.stale) },
-    clips: { total: c.length, approved: c.filter((x) => x.approved).length, stale: c.some((x) => x.stale) },
-    // The server only compares picked takes; an edit upstream unapproves or dates clips without changing them.
-    video: { made: !!video.data, outOfDate: !!video.data?.out_of_date || c.some((x) => !x.approved || x.stale || x.take_stale) },
+    frames: { total: f.length, drawn: f.filter((x) => x.file_id).length, stale: f.some((x) => x.stale) },
+    clips: { total: c.length, taken: c.filter((x) => x.picked_take_id).length, stale: c.some((x) => x.stale) },
+    // The server compares picked takes; an edit upstream dates clips without changing them. Approval never counts (M2).
+    video: { made: !!video.data, outOfDate: !!video.data?.out_of_date || c.some((x) => !x.picked_take_id || x.stale || x.take_stale) },
   };
   // The newest picture this video has, for its poster: the final video, else an approved take, else a frame.
   const takeFile = [...c].reverse().find((x) => x.approved && x.file_id)?.file_id ?? null;

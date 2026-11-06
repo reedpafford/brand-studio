@@ -28,7 +28,7 @@ test("at 1440, the owner pastes a script, presses Make it, and the director deli
   const cut = page.getByRole("tabpanel", { name: "Cut" });
   await expect(cut.getByLabel("The cut", { exact: true })).toBeVisible();
   await expect(cut.getByRole("link", { name: "Download MP4" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Make it again · up to \d+ credits?$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Make it again/ })).toHaveCount(0); // a revision starts by talking (S3-12)
   expect(await thread.textContent()).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words: no tool names, codes or JSON
   await page.getByRole("tab", { name: /^Clips/ }).click();
   await expect(page.getByRole("tabpanel", { name: "Clips" })).toBeVisible();
@@ -86,7 +86,7 @@ test("an editor sends a script for approval from New video, the owner approves i
   await noSidewaysScroll(ed);
 });
 
-test("at 390, the owner's saved change after a delivery has Make it again in the phone's bar, and it runs", async ({ page }) => {
+test("at 390, the owner's change after a delivery starts the next run by talking, and its start card runs it", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, "reed@example.com");
@@ -99,13 +99,13 @@ test("at 390, the owner's saved change after a delivery has Make it again in the
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click({ timeout: 60_000 }); // its start card
-  const again = page.getByRole("button", { name: /^Make it again · up to \d+ credits?$/ });
-  await expect(again).toBeVisible({ timeout: 240_000 }); // delivered: its press is in the phone's bar
+  await expect(page.getByRole("banner").getByText(/^Delivered/)).toBeVisible({ timeout: 240_000 });
   await page.getByLabel("Tell the director what to change").fill("Make it slower.");
-  await page.getByLabel("Tell the director what to change").press("Enter");
-  await expect(page.getByText("Saved. Press Make it again to make this change.")).toBeVisible();
+  await page.getByLabel("Tell the director what to change").press("Enter"); // S3-12: the note starts the next run
+  const again = page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }); // its start card, the owner's press
+  await expect(again).toBeVisible({ timeout: 60_000 });
   expect((await again.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await again.click();
-  await expect(page.getByRole("banner").getByText(/^Working/)).toBeVisible(); // P-04: Stop is in the ⋯ menu on a phone
+  await expect(again).toHaveCount(0); // pressed: the revision goes on (the stand-in may deliver it at once, so no race on "Working")
   await noSidewaysScroll(page);
 });

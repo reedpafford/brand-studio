@@ -34,6 +34,7 @@ WORDS = {"working": "Working", "needs_you": "Needs you", "waiting": "Waiting for
          "archived": "Archived"}  # fmt: skip
 YOUR_OK = "Waiting for your OK"
 START = "Start it"  # nothing has run, or the treatment waits for Make it
+CAST_OK = "Approve the cast and places"  # its run waits on that OK only (S7: never "Working")
 AT = "Stopped at {}"  # a run that stopped on its own: an error or a limit
 STEPS = {"breakdown": "the plan", "assets": "the cast", "storyboard": "the stills",
          "clips": "the clips", "downloads": "the cut"}  # fmt: skip
@@ -135,6 +136,7 @@ def _runs(db: Session, ids: list[int]) -> dict[int, dict]:
         for key in ("ended", "result", "stopped_by", "stopped_at"):
             if data.get(key):
                 out[pid][key] = data[key]
+        out[pid]["last"] = data.get("result")  # its newest turn's (None while it's asked)
     return out
 
 
@@ -176,12 +178,18 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=START)
         elif p.id in known.held:
             s = Status(kind="waiting", words=YOUR_OK if user.is_owner else WORDS["waiting"])
+        elif run.get("ended") == director.STOPPED:
+            who = user_name(db, run.get("stopped_by"))
+            s = Status(kind="stopped", words=WORDS["stopped"], reason=who and f"by {who}",
+                       at=run.get("stopped_at"))  # fmt: skip
         elif p.id in failed:
             s = Status(
                 kind="needs_fix",
                 words=WORDS["needs_fix"],
                 reason=AT.format(_where(db, failed[p.id], steps[p.id], made, total)),
             )
+        elif run.get("last") == director.CAST_WAIT and not run.get("ended"):  # its run waits
+            s = Status(kind="needs_you", words=WORDS["needs_you"], reason=CAST_OK)  # on the OK
         elif p.id in asked:  # the director's question waits (S-gaps-01 option 4)
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=asked[p.id])
         elif p.id in known.busy:
@@ -189,11 +197,8 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
                        reason=f"{made} of {total}" if total else None)  # fmt: skip
         elif p.id in waits:
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=waits[p.id])
-        elif run.get("ended") == director.STOPPED:
-            who = user_name(db, run.get("stopped_by"))
-            s = Status(kind="stopped", words=WORDS["stopped"], reason=who and f"by {who}",
-                       at=run.get("stopped_at"))  # fmt: skip
-        elif run.get("ended") and run.get("result") != "Delivered." and not p.finished_at:
+        elif run.get("ended") and run.get("result") != "Delivered.":  # its newest run, even
+            # after an earlier one delivered (S7: never "Delivered" while the chat says stopped)
             s = Status(
                 kind="needs_fix",
                 words=WORDS["needs_fix"],
@@ -207,9 +212,23 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
     return out
 
 
+def up_to(db: Session, p: Project, status: Status, known: Facts,
+          fs: Freestyle | None = None) -> Decimal:  # fmt: skip
+    """The video's "up to", one figure everywhere (S1-04, P-02, S3-01): once approved (its
+    freestyle's OKs or a Make it), or before a run, the header's, run card's and note's
+    (`run_progress.spent`); else the budget with the director's own limit beside it."""
+    from app import run_progress
+
+    if fs is None:
+        fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
+    if (fs is not None and fs.up_to) or asks.approved_total(db, p) or status.reason == START:
+        return run_progress.spent(db, p)[1]  # one figure with the start, run card and note
+    return _most(p, known)
+
+
 def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> Cost | None:
-    """Delivered: what it cost. Working: the most it can charge before another OK (its budget
-    and the director's own limit, never below what it has used). Held: what it has spent (the
+    """Delivered: what it cost. Working: its "up to" as its header says it (`up_to`, never
+    below what it has used). Held: what it has spent (the
     held step says its own price where it's asked). Not started: its run's price. Else what it
     has used so far; None for an idea with nothing used and no price yet. Every figure before a
     charge is "up to" and rounded up (rule 36)."""
@@ -220,8 +239,8 @@ def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> 
     kind, credits = "so_far", used
     if status.kind == "delivered":
         kind = "total"
-    elif status.kind == "working":
-        kind, credits = "up_to", _most(p, known)
+    elif status.kind == "working":  # the header's own "up to" (one figure everywhere)
+        kind, credits = "up_to", _up(max(up_to(db, p, status, known), used))
     elif status.kind == "waiting":  # S1-04, S9-01: what it has spent
         kind = "total"
     elif status.reason == START and not used:
@@ -321,7 +340,7 @@ def head(db: Session, user: User, p: Project) -> Head:
     else the budget with the director's own limit beside it, as a working card reads
     it (rule 34); before any run, its run's price. Never below what it has used, and rounded
     up (rule 36)."""
-    from app import narration, run_progress
+    from app import narration
     from app.models.folders import Folder
     from app.script_library import format_id
 
@@ -329,11 +348,7 @@ def head(db: Session, user: User, p: Project) -> Head:
     status = statuses(db, user, [p], known)[p.id]
     used = known.used.get(p.id, Decimal(0))
     fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
-    top: Decimal | None
-    if (fs is not None and fs.up_to) or asks.approved_total(db, p) or status.reason == START:
-        top = run_progress.spent(db, p)[1]  # one figure with the start, run card and note
-    else:
-        top = _most(p, known)
+    top = up_to(db, p, status, known, fs)
     script = narration.video_script(db, p)
     try:
         kind = guides.format_(format_id(script))["name"] if script else ""

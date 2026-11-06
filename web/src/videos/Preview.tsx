@@ -21,6 +21,7 @@ import { notInShots, useAssets } from "../cast/useAssets";
 import { Empty, SOON } from "./Empty";
 import { TreatmentPlan, newestTreatment } from "./Treatment";
 import { useDirectorRun } from "./director";
+import { PaneBoundary } from "./PaneBoundary";
 import { mp4, type Head } from "./VideoHead";
 import { Filmstrip, SceneRow, useSeen, type Progress } from "./RunCard";
 import { useAsks } from "./AskCard";
@@ -157,7 +158,6 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
   const live = useCut(p.id).data;
   const fix = useCutEdits(p.id);
   const [picked, setPicked] = useState<number | null>(null); // an earlier cut to watch (S3-12); none: the one that plays
-  const left = progress.clips.total - progress.clips.approved;
   if (!video) return null; // CutPane shows the editor until there's a cut
   const older = live?.versions.find((v) => v.number === picked && v.number !== live.number) ?? null;
   const file = older?.file_id ?? live?.file_id ?? video.file_id; // the switch's pick, else the cut that plays
@@ -170,7 +170,8 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
   // A take made from an older Cast & places look stays approved but is out of date too (N6), as the lists say. Making the
   // cut again only helps once each clip shows what it should.
   const olderLook = clips.filter((c) => c.take_stale).length;
-  const held = left > 0 ? `Approve every clip first (${left} left)` : olderLook > 0 ? `Make another take on Clips, or keep the older look (${olderLook} left)` : null;
+  const left = clips.filter((c) => c.picked_take_id == null).length; // V6: no per-clip Approve, only a take for each clip
+  const held = left > 0 ? `Make every clip’s take first (${left} left)` : olderLook > 0 ? `Make another take on Clips, or keep the older look (${olderLook} left)` : null;
   const rows: [string, string][] = [
     ["Style", head?.style ?? p.look],
     ...(head?.format ? [["Format", head.format] as [string, string]] : []),
@@ -449,7 +450,8 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
           <PanelSkeleton />
         ) : (
           <ViewOnly on={!!lookOnly}>
-            <Pane
+            <PaneBoundary tab={tab}>
+              <Pane
               p={p}
               head={head}
               run={run}
@@ -463,6 +465,7 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
               pickLine={(n) => (setLine(n), setLines([n]), onTab("plan"))}
               onEditor={onEditor}
             />
+            </PaneBoundary>
           </ViewOnly>
         )}
       </div>

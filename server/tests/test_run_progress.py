@@ -299,8 +299,7 @@ def test_a_run_that_stopped_on_a_problem_offers_a_one_click_fix(app, db, owner, 
 def test_a_revision_counts_its_changes(app, db, owner, editor):
     pid = _done(app, db, owner, editor)
     url = f"/projects/{pid}/director"
-    editor.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
-    editor.post(url)  # Make it again: a revising run
+    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})  # a revising run
     p = _progress(owner, pid)
     assert (p["status"], p["title"], p["sub"]) == ("revising", "Revising", "0 of 0 changes")
     _job(db, _clip(db, pid), JobStatus.running, by_director=True)
