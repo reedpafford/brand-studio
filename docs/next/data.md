@@ -52,6 +52,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n36 | A short Brand kit (S-gaps-05 L1, Reed 4 Nov): drops `brands.end_line`, `cta_lines`, `never_say`, `do_list`, `dont_list`, `legal_line`, `audience`, `fonts`, `style_board_file_id`, `end_card_file_id`, `music_style`, `default_language`, `default_look`, `default_cast`; a brand keeps name, logo, colours and `tone_notes` ("Tone and rules"). Videos' `end_line` lock is taken out of `projects.locks` (rule 18: the ending comes from the script). Downgrade adds the columns back empty | v6-library | — |
 | n37 | The director's questions and money OKs (v6 piece B, S4-01 to S4-04): new `asks` {workspace_id, project_id, run (the director run that asked), kind (cast, presenter, voice, place, product, brand_item, story, question, start, budget, own, plan), topic, subject, question, why, describe, choices JSON `[]`, pick, decide_at, state (open, uploading, answered, not_needed), answer JSON, answered_by_id, answered_at, rounds JSON `[]` (Generate options' jobs), job_ids JSON `[]` (a money card's held jobs), closed}. Downgrade drops it | v6-ask | — |
 | n38 | The model each clip is made with, who switched a video's settings, how its presenter appears, its Omni voice and narrator (v6 F, S-gaps-05 V1, Reed's L3 and 4 Nov answers): `project_clips.model` (JSON, nullable: `{id, why, by, speaks}`, the director's model for that clip; null: the video's); `projects.settings_log` (JSON list, default []: `{field, was, now, by, by_id, why, at}` per switch; a person's own choice wins over the director's); `projects.presenter` (String(20), nullable: talks, corner or acts; null: the style's start); `projects.omni_voice` (String(300), nullable: the talker's voice described to Omni, the same in every clip); `projects.narration_only` (Boolean, nullable); `projects.voice` (String(60), nullable: "stock:<key>" or "voice:<id>", a person's narrator for this video); `host_pieces.how` (String(20), nullable: the way of appearing a host take was made for). Downgrade drops them | v6-models | — |
+| n39 | A narrated video keeps its narration throughout (Reed, 5 Nov): drops `projects.omni_voice` and `projects.narration_only` (no talker speaks on Omni in it). Downgrade adds them back, empty | v6-models | — |
 
 ## Merge order (the chain on `next`)
 
@@ -95,7 +96,8 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 33 | n35 | #1326 | n34 | On `next` |
 | 34 | n36 | #1334 | n35 | On `next` |
 | 35 | n37 | #1313 | n36 | On `next` |
-| 36 | n38 | #1327 | n37 | On its PR (v6-models) |
+| 36 | n38 | #1327 | n37 | On `next` |
+| 37 | n39 | — | n38 | On its PR (v6-models; #1331 also claims n39: whichever lands second renumbers) |
 
 ## 1. Song ads
 

@@ -308,9 +308,14 @@ def checked(db: Session, project, ref: str | None) -> str | None:
 
 def picked(db: Session, project) -> str | None:
     """The voice a person set for this video (its settings or a voice card's answer), as
-    narration names it, while it can still be used; else None."""
+    narration names it, while it can still be used; else None. A clone still being made (or
+    failed) isn't read yet; an expired one is, so its narration is refused saying what to do,
+    never read in another voice."""
     said = from_ref(project.voice)
-    return said if said and usable(db, project.workspace_id, project.brand_id, said) else None
+    if not said or not usable(db, project.workspace_id, project.brand_id, said):
+        return None
+    saved = named(db, project.workspace_id, said, project.brand_id)
+    return None if saved and state(db, saved)[0] in ("cloning", "failed") else said
 
 
 def mine(voice: Voice, workspace_id: int, brand_id: int | None) -> bool:

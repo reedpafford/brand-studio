@@ -70,9 +70,11 @@ def hosted(script) -> bool:
 
 # How the presenter appears (Reed's L3, 4 Nov: a saved presenter is a face and a voice; how
 # they appear is chosen per video): talking to camera in their own room with B-roll cut in
-# (HeyGen), in a corner keyed over the B-roll (HeyGen), or acting in the story (Omni)
+# (HeyGen), in a corner keyed over the B-roll (HeyGen), or acting in the story (their shots
+# made like the B-roll, on the style's Seedance; Omni only for a shot that needs it, Reed 5 Nov)
 HOW = ("talks", "corner", "acts")
-ACTS = "The presenter acts in the story: their shots are made on Omni, with no take to make."
+ACTS = ("The presenter acts in the story: their shots are made like the B-roll, with no take of "
+        "their own to make.")  # fmt: skip
 
 
 def how(project: Project) -> str:
@@ -92,7 +94,7 @@ def presents(db: Session, project: Project) -> bool:
 
 def on(db: Session, project: Project) -> bool:
     """A Presenter video whose presenter is one HeyGen take (talks or in a corner); one who
-    acts in the story has no take: their shots are made on Omni (app/model_map)."""
+    acts in the story has no take: their shots are made like the B-roll (app/model_map)."""
     return presents(db, project) and how(project) != "acts"
 
 
@@ -171,29 +173,13 @@ def price(db: Session, project: Project, number: int | None = None) -> Decimal:
 def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None) -> Decimal:
     """A director run's "up to" for the host (rule 36): the still and every second of the
     narration in one HeyGen take, rounded up a second. A presenter who acts in the story has
-    no take: their shots on Omni instead, each billed its fixed length, and any clip may carry
-    them (QA on #1327: a short clip still bills 10 s), so every clip of the plan, else as many
-    as the B-roll's seconds can hold at the video model's shortest clip."""
-    from app import model_map
-    from app.catalogue import get_model
+    no take: their shots are B-roll on the style's Seedance, already in the takes' price."""
     from app.models.script_library import Script
     from app.storyboard import image_model, still_credits
 
     script = db.get(Script, draft.script_id)
-    if not hosted(script):
+    if not hosted(script) or (video is not None and how(video) == "acts"):
         return Decimal(0)
-    if video is not None and how(video) == "acts":
-        from app.breakdown import video_model
-        from app.clip_prompts import newest
-        from app.routes.estimate import broll_seconds
-
-        omni = get_model(model_map.OMNI)
-        plan = newest(db, video)
-        clips = len((plan.data if plan else {}).get("clips") or []) or math.ceil(
-            broll_seconds(db, script, draft, video) / video_model(video).duration.min
-        )
-        job = {"model": omni.id, "input": {"resolution": model_map.TALKER_RESOLUTION}}
-        return estimate(db, script.workspace_id, "video", Decimal(clips * omni.fixed_seconds), job)
     still = still_credits(db, script.workspace_id, image_model(video))
     return still + _piece_price(db, script.workspace_id, seconds + 1)
 

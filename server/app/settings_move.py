@@ -19,13 +19,12 @@ from app.models.accounts import User
 from app.models.projects import Project
 
 FIELDS = {"look": "style", "video_model": "video model", "image_model": "picture model",
-          "aspect_ratio": "shape", "presenter": "way the presenter appears",
-          "narration_only": "narration only"}  # fmt: skip
+          "aspect_ratio": "shape", "presenter": "way the presenter appears"}  # fmt: skip
 HOW = {"talks": "talking to camera", "corner": "in a corner over the B-roll",
        "acts": "acting in the story"}  # fmt: skip
 KEPT = 20  # the log keeps this many switches
-ONE_OF = ("Refused: the director changes the style, video model, picture model, shape, how the "
-          "presenter appears, or narration only.")  # fmt: skip
+ONE_OF = ("Refused: the director changes the style, video model, picture model, shape or how "
+          "the presenter appears.")  # fmt: skip
 THEIRS = ("Refused: {who} chose the {what} themselves; their choice stays unless they ask for "
           "the change in the chat (name their note).")  # fmt: skip
 LANGUAGE = ("Refused: a video's language is its script's; it changes on the script, before "
@@ -48,8 +47,6 @@ def back(field: str, was) -> str:
     """What Undo puts back, in words."""
     if field == "presenter":
         return f"the presenter {HOW.get(was, 'as the style starts')}"
-    if field == "narration_only":
-        return "narration only " + ("on" if was else "off")
     return named(field, was)
 
 
@@ -57,8 +54,6 @@ def said(field: str, value) -> str:
     """The switch in words: "The presenter now appears in a corner over the B-roll"."""
     if field == "presenter":
         return f"The presenter now appears {HOW.get(value, 'as the style starts')}"
-    if field == "narration_only":
-        return f"Narration only is {'on' if value else 'off'}"
     return f"Switched the {FIELDS[field]} to {named(field, value)}"
 
 
@@ -92,8 +87,6 @@ def switch(db: Session, user: User, project: Project, field: str | None, value: 
     if field not in FIELDS:
         return ONE_OF
     value = value or None  # "": Auto
-    if field == "narration_only":  # the director says it in words
-        value = str(value).lower() in ("true", "on", "yes", "1")
     asked = bool(ASKED.search(why or ""))
     if not asked and plans.status(db, project) != "approved":  # Reed: never an unapproved plan
         return NOT_YET

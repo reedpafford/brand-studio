@@ -895,8 +895,7 @@ def make_video(
                 lengths = clip_takes.ends_at(lengths, song_end(song))
             sound = storage.get(db.get(StoredFile, song.file_id).key)
             bed = song.music_file_id and storage.get(db.get(StoredFile, song.music_file_id).key)
-            spoken = model_map.spoken(db, project, clips) if narrated else {}
-            data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None, spoken)
+            data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None)
             data = host.lay(db, storage, project, data) if hosted else data
         else:
             data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))

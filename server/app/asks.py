@@ -204,6 +204,21 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
     director.wake(db, project)
 
 
+def _voice(db: Session, user: User | None, project: Project, ref: str) -> None:
+    """A voice card's answer is the person's voice for this video (`projects.voice`), set
+    through the settings' own check and logged as theirs, so the director keeps it."""
+    from app import settings_move, voices
+
+    try:
+        ref = voices.checked(db, project, ref)
+    except HTTPException:
+        return  # removed or another brand's since: the card stays answered, the voice unset
+    was, project.voice = project.voice, ref
+    if was != ref:
+        settings_move.log(project, user or db.get(User, project.created_by_id), "voice", was,
+                          ref, "person")  # fmt: skip
+
+
 def _upload(db: Session, user: User, ask: Ask, file_id) -> dict:
     """An upload is used for this video only (rule 12): kept on the card, never the brand's."""
     from app.routes.files import get_file
@@ -237,6 +252,9 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
 
     data = ask.answer or {}
     option = str(data.get("option", ""))
+    if ask.kind == "voice" and option.startswith(("stock:", "voice:")):  # the video's narrator
+        _voice(db, user, project, option)
+        return
     if ask.kind == "product" and data.get("how") == "saved" and option.startswith("screen:"):
         shot = db.get(BrandScreen, int(option.split(":")[1]))
         if shot is not None and shot.product and shot.variant:
@@ -536,24 +554,6 @@ def waiting(db: Session, project: Project) -> list[Ask]:
     rows = db.scalars(select(Ask).where(Ask.project_id == project.id, Ask.kind.in_(QUESTIONS),
                                         Ask.state.in_(OPEN)).order_by(Ask.id)).all()  # fmt: skip
     return list(rows)
-
-
-def voice(db: Session, project: Project) -> str | None:
-    """The narrator voice the newest answered voice card picked for this video, if any: the
-    narration is read in it (director_song). Moves to `projects.voice` with v6-models' setter,
-    whichever of the two lands second."""
-    rows = db.scalars(
-        select(Ask)
-        .where(Ask.project_id == project.id, Ask.kind == "voice", Ask.state == "answered")
-        .order_by(Ask.answered_at.desc())
-    )
-    for ask in rows:  # fmt: skip
-        option = str((ask.answer or {}).get("option", ""))
-        if option.startswith("stock:"):  # v6-models' refs: "stock:<key>" | "voice:<id>"
-            return option.split(":", 1)[1]  # narration reads an app voice by its key
-        if option.startswith("voice:") and state(db, ask) == "answered":
-            return option  # and a saved or cloned one as "voice:<id>", once it's ready
-    return None
 
 
 def start_card(db: Session, project: Project) -> int | None:

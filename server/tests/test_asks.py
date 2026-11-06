@@ -8,6 +8,7 @@ import math
 from datetime import timedelta
 
 from app import ask_options, asks, director
+from app import voices as saved_voices
 from app.db import utcnow
 from app.models.asks import Ask
 from app.models.brands import Brand
@@ -475,7 +476,9 @@ def test_a_voice_card_offers_the_voices_free_to_play_and_a_sample_upload(app, db
     r = editor.post(f"/asks/{ask.id}/answer", json={"how": "saved", "option": "stock:Roger"})
     assert r.json()["answer"]["name"] == "Roger"  # changed after answering
     db.expire_all()
-    assert asks.voice(db, db.get(Project, pid)) == "Roger"  # the narration is read in it
+    video = db.get(Project, pid)
+    assert video.voice == "stock:Roger" and saved_voices.picked(db, video) == "Roger"  # read in it
+    assert video.settings_log[-1]["by"] == "person"  # the person's: the director keeps it
 
 
 def test_a_voice_card_clones_a_sample_once_at_its_price(app, db, owner, editor):
@@ -500,7 +503,7 @@ def test_a_voice_card_clones_a_sample_once_at_its_price(app, db, owner, editor):
     db.expire_all()
     clone = db.query(Job).filter(Job.kind == "voice").one()
     assert clone.status == JobStatus.needs_owner_approval
-    assert asks.voice(db, db.get(Project, pid)) is None  # not read until it's cloned
+    assert saved_voices.picked(db, db.get(Project, pid)) is None  # not read until it's cloned
     again = editor.post(f"/asks/{ask.id}/answer", json={"how": "clone", "file_id": sample})
     assert again.status_code == 409  # one charge a sample
     clone.status, clone.error = JobStatus.failed, "The voice couldn't be cloned."

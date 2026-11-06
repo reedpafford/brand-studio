@@ -10337,8 +10337,6 @@ export interface components {
             } | null;
             /** Presenter */
             presenter?: ("talks" | "corner" | "acts") | null;
-            /** Narration Only */
-            narration_only?: boolean | null;
             /** Voice */
             voice?: string | null;
             /** Undo */
@@ -10381,11 +10379,6 @@ export interface components {
             presenter?: string | null;
             /** Presenter Now */
             presenter_now?: ("talks" | "corner" | "acts") | null;
-            /**
-             * Narration Only
-             * @default false
-             */
-            narration_only: boolean;
             /** Voice */
             voice?: string | null;
         };
@@ -11699,8 +11692,6 @@ export interface components {
             } | null;
             /** Presenter */
             presenter?: ("talks" | "corner" | "acts") | null;
-            /** Narration Only */
-            narration_only?: boolean | null;
             /** Voice */
             voice?: string | null;
         };
