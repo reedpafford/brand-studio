@@ -830,3 +830,140 @@ def test_the_header_the_run_card_and_the_note_say_the_up_to_its_make_it_approved
     monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(7)))  # far apart
     assert abs(owner.get(f"/projects/{pid}/idea").json()["up_to"]["credits"] - price) < 1
     assert abs(owner.get(f"/projects/{pid}/director/progress").json()["up_to"] - price) < 1
+
+
+def _sample(app, client, name="nate.mp3") -> int:
+    """A 12 s voice sample (ffmpeg's tone, free), uploaded by `client`."""
+    import subprocess
+
+    path = f"{app.state.settings.storage_dir}/sample.mp3"
+    made = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=12", path]
+    subprocess.run(made, check=True)  # noqa: S603, S607 - fixed arguments
+    with open(path, "rb") as f:
+        return upload(client, name, f.read(), "audio/mpeg")
+
+
+def _clone(client, ask: Ask, sample: int, name="Nate") -> dict:
+    r = client.post(f"/asks/{ask.id}/answer", json={"how": "clone", "file_id": sample,
+                                                     "text": name})  # fmt: skip
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_an_editors_held_clone_is_withdrawn_and_the_card_opens_again(app, db, owner, editor):
+    """Rule 22: an editor's clone waiting for the owner's OK can be withdrawn on the card
+    (`can` has "cancel" while it's held): its job is cancelled, nothing is charged, the voice
+    it would have made is removed, the video's voice is the one picked before (QA on #1353)
+    and the card is open to answer again."""
+    from app.models.jobs import Usage
+    from app.models.voices import Voice
+
+    pid, _ = _video(app, owner, editor, db)
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    editor.post(f"/asks/{ask.id}/answer", json={"how": "saved", "option": "stock:Roger"})
+    sample = _sample(app, editor)
+    r = _clone(editor, ask, sample)
+    assert r["state"] == "held" and "cancel" in r["can"]
+    db.expire_all()
+    assert db.get(Project, pid).voice == r["answer"]["option"]  # the answer's voice, while held
+    out = editor.post(f"/asks/{ask.id}/cancel")
+    assert out.status_code == 200, out.text
+    card = out.json()
+    assert (card["state"], card["answer"]) == ("open", None) and "clone" in card["can"]
+    db.expire_all()
+    job = db.query(Job).filter(Job.kind == "voice").one()
+    assert job.status == JobStatus.cancelled
+    assert not db.query(Usage).filter_by(job_id=job.id).count()  # nothing charged
+    assert db.query(Voice).filter_by(name="Nate", kind="cloned").one().archived_at is not None
+    video = db.get(Project, pid)
+    assert video.voice == "stock:Roger"  # the earlier pick, still the person's
+    assert [e["now"] for e in video.settings_log if e["field"] == "voice"][-1] == "stock:Roger"
+    again = _clone(editor, ask, sample)
+    assert again["state"] == "held"  # asked again
+    db.expire_all()
+    started = db.query(Job).filter(Job.kind == "voice").order_by(Job.id.desc()).first()
+    started.status = JobStatus.running
+    db.commit()
+    late = editor.post(f"/asks/{ask.id}/cancel")
+    assert late.status_code == 409 and "started or ended" in late.json()["detail"]
+
+
+def test_the_owner_withdraws_an_editors_held_clone(app, db, owner, editor, monkeypatch):
+    """The owner may withdraw any held clone; the director hears the card is open again."""
+    woken = []
+    monkeypatch.setattr(director, "wake", lambda db, project: woken.append(project.id))
+    pid, _ = _video(app, owner, editor, db)
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    _clone(editor, ask, _sample(app, editor))
+    woken.clear()
+    out = owner.post(f"/asks/{ask.id}/cancel").json()
+    assert out["state"] == "open" and woken == [pid]
+    db.expire_all()
+    assert db.query(Job).filter(Job.kind == "voice").one().status == JobStatus.cancelled
+    assert db.get(Project, pid).voice is None  # nothing was picked before
+
+
+def test_a_card_that_reused_someone_elses_clone_opens_again_and_its_voice_goes_back(
+    app, db, owner, editor
+):
+    """QA on #1353: a card that reused a clone still being made (the owner's, from the
+    Library) opens again on Withdraw, the owner's clone goes on, and the video is not left
+    narrated in the withdrawn voice."""
+    pid, _ = _video(app, owner, editor, db)
+    brand = db.get(Project, pid).brand_id
+    sample = _sample(app, owner)
+    body = {"sample_file_id": sample, "name": "Nate", "description": ""}
+    r = owner.post(f"/brands/{brand}/voices/clone", json=body)
+    assert r.status_code in (200, 201), r.text
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    editor.post(f"/asks/{ask.id}/answer", json={"how": "saved", "option": "stock:Roger"})
+    mine = _clone(editor, ask, _sample(app, editor, "copy.mp3"))  # the same bytes: reused
+    assert mine["answer"]["option"] == f"voice:{r.json()['id']}"
+    db.expire_all()
+    assert db.query(Job).filter(Job.kind == "voice").count() == 1  # no second clone
+    out = editor.post(f"/asks/{ask.id}/cancel")
+    assert out.status_code == 200 and out.json()["state"] == "open", out.text
+    db.expire_all()
+    assert db.query(Job).filter(Job.kind == "voice").one().status == JobStatus.queued  # goes on
+    assert db.get(Project, pid).voice == "stock:Roger"
+
+
+def test_withdrawing_a_clone_another_card_reused_says_so_on_that_card(app, db, owner, editor):
+    """QA on #1353: when the editor withdraws their clone, a card that reused it says the
+    clone was withdrawn (not that it failed) and can be answered again."""
+    pid, _ = _video(app, owner, editor, db)
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    _clone(editor, ask, _sample(app, editor))
+    other = _ask(db, pid, {"kind": "voice", "subject": "Mom", "question": "And Mom's voice?"})
+    reused = _clone(owner, other, _sample(app, owner, "copy.mp3"))
+    assert reused["answer"]["option"] == _card(editor, ask)["answer"]["option"]
+    assert editor.post(f"/asks/{ask.id}/cancel").status_code == 200
+    card = _card(owner, other)
+    assert card["state"] == "failed" and card["answer"]["withdrawn"] is True
+    assert "clone" in card["can"]  # answerable again
+    db.expire_all()
+    assert db.get(Project, pid).voice is None
+
+
+def test_withdrawing_a_clone_of_a_brand_voice_never_removes_that_voice(app, db, owner, editor):
+    """QA on #1353: a failed voice in the brand's Library cloned again in its own row (the
+    same name) is put back as it was on Withdraw, never removed, nor its character's voice."""
+    from app.models.voices import Voice
+
+    pid, _ = _video(app, owner, editor, db)
+    project = db.get(Project, pid)
+    first = _sample(app, owner, "first.mp3")
+    nate = Voice(workspace_id=project.workspace_id, brand_id=project.brand_id, name="Nate",
+                 kind="cloned", provider="minimax", speech_model=saved_voices.SPEAKS,
+                 description="", sample_file_id=first,
+                 created_by_id=project.created_by_id)  # fmt: skip
+    db.add(nate)
+    db.commit()
+    assert saved_voices.state(db, nate)[0] == "failed"
+    ask = _ask(db, pid, {"kind": "voice", "subject": "Nate", "question": "Which voice?"})
+    r = _clone(editor, ask, _sample(app, editor, "other.mp3"))  # by name: Nate's row, again
+    assert r["answer"]["option"] == f"voice:{nate.id}" and r["state"] == "held"
+    assert editor.post(f"/asks/{ask.id}/cancel").status_code == 200
+    db.expire_all()
+    nate = db.get(Voice, nate.id)
+    assert nate.archived_at is None and nate.sample_file_id == first and nate.job_id is None
