@@ -1127,3 +1127,34 @@ def test_a_revision_never_says_no_generation_started(app, db, owner, editor):
     assert theirs["title"] == "Waiting for the owner's OK"
     assert theirs["sub"] == f"Cut {cut} stays as it is until the owner says yes"
     assert owner.get(url).json()["started"] is True and editor.get(url).json()["started"] is True
+
+
+def test_notes_kept_before_their_parts_existed_still_show(app, db, owner, editor):
+    """QA on the test site's videos: a delivery's note kept as plain words, or as a dict from
+    before the cut was numbered, shows as it is (never a 500); a revision's start card then says
+    "The cut stays as it is", with no number."""
+    pid, _ = _video(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    _start(app, db, owner, pid)
+    _make_it(app, db, owner, pid)
+    delivered = next(j for j in director.turns(db, db.get(Project, pid))
+                     if j.input.get("result") == "Delivered.")  # fmt: skip
+    for old, cut in (({"made": "The cut.", "spent": 9, "up_to": 20}, None),
+                     ("Here's the cut. Nothing else.", None)):  # fmt: skip
+        delivered.output = {**delivered.output, "note": old}
+        db.commit()
+        for who in (owner, editor):
+            r = who.get(url)
+            assert r.status_code == 200, r.text
+            (line,) = [t for t in r.json()["thread"] if t["id"] == f"t{delivered.id}"]
+            if isinstance(old, str):
+                assert line["note"] is None and line["text"] == old  # its words, as they were
+            else:
+                assert line["note"]["cut"] is cut and line["note"]["made"] == "The cut."
+                assert line["note"]["redid"] == [] and "The cut." in line["text"]
+    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    editor.post(url)  # Make it again, the editor's: held for the owner
+    _run(app, db, ticks=4, start=False)
+    mine, theirs = owner.get(f"{url}/progress").json(), editor.get(f"{url}/progress").json()
+    assert mine["sub"] == "The cut stays as it is until you press Make it"
+    assert theirs["sub"] == "The cut stays as it is until the owner says yes"

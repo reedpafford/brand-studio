@@ -562,6 +562,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     revising = any(r != run_id and ending(t)[0] == "delivered" for r, t in every.items())
     notes = [(j.output or {}).get("note") for r, t in every.items() if r != run_id for j in t]
     cut = next((n["cut"] for n in reversed(notes) if isinstance(n, dict) and n.get("cut")), None)
+    stays = f"{f'Cut {cut}' if cut else 'The cut'} stays as it is"  # a revision's delivered cut
     scenes = [{"id": sid, "name": name, "clips": [c for c in cells if c["scene"] == sid]}
               for sid, name in video.scenes()]  # fmt: skip
     other = [c for c in cells if c["scene"] not in {s["id"] for s in scenes}]
@@ -589,12 +590,13 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         and viewer
         and asks.may_start(db, viewer, project)
     ):  # its start card, theirs to press (S3-02)
-        sub = f"Cut {cut} stays as it is until you press Make it" if cut else ""
-        head = ("waiting", "Ready to make", sub or "No generation started: press Make it", "wait")
+        first = "No generation started: press Make it"
+        sub = f"{stays} until you press Make it" if revising else first
+        head = ("waiting", "Ready to make", sub, "wait")
     elif holds is not None:
         why = (holds.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
-        if cut and holds.input.get(asks.START):  # a revision's start card, the owner's to press
-            why = f"Cut {cut} stays as it is until the owner says yes"
+        if revising and holds.input.get(asks.START):  # a revision's start card, the owner's
+            why = f"{stays} until the owner says yes"
         head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner's OK",
                 why, "wait")  # fmt: skip
     elif revising:
@@ -750,11 +752,12 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
                             "who": "Director", "status": "done", "text": done,
                             "edit": edit})  # fmt: skip
             if j.input.get("result") == "Delivered.":
-                note = delivery.shown((j.output or {}).get("note"), owner)
+                kept = (j.output or {}).get("note")
+                note = delivery.shown(kept, owner)
+                words = kept if isinstance(kept, str) and kept else j.input["ended"]  # an old one
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
                             "who": "Director", "status": "done", "note": note,
-                            "text": delivery.plain(note) if note
-                            else said(j.input["ended"])})  # fmt: skip
+                            "text": delivery.plain(note) if note else said(words)})  # fmt: skip
     return out
 
 

@@ -271,18 +271,22 @@ def carry_clips(db: Session, project: Project, old_row, new_row) -> int:
     old, new = Breakdown.model_validate(old_row.data), Breakdown.model_validate(new_row.data)
     swaps, renamed = _swaps(old, new), _renamed(old, new)
     clips = {c.id: c.shot_ids for c in new.clips}
-    moved = 0
+    moved, names = 0, {}
     for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == old_row.id)):
         to = renamed.get(clip.clip_id)  # regrouped (a split): written again
         if to is None or any(swaps.get(s, {}) is None for s in clips[to]):
             continue
         swap = {k: v for s in clips[to] for k, v in (swaps.get(s) or {}).items()}
+        names[clip.clip_id] = to
         clip.breakdown_id, clip.clip_id = new_row.id, to
         moved += 1
         if swap:
             clip.references = [{**r, "id": swap.get(r["id"], r["id"])} for r in clip.references]
             clip.prompt = _recast(db, clip.prompt, swap)
             clip.approved = clip.prompt_ok = False
+    from app import cut_edits
+
+    cut_edits.follow_clips(db, project, names, {c.id for c in old.clips})  # the cut's edits too
     return moved
 
 
