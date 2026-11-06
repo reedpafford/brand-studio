@@ -6,6 +6,7 @@ Failed and cancelled jobs stop counting; on success the real cost replaces the e
 
 import logging
 import math
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -269,22 +270,49 @@ def uncapped(user: User | None) -> bool:
     return bool(user is not None and user.is_owner and get_settings().owner_uncapped)
 
 
-def actual_usd(db: Session, project_id: int, since=None) -> tuple[Decimal, bool]:
-    """What the providers really charged for this video's jobs from `since` (Usage.cost_usd:
-    Claude's planning, directing, reviews and watches, the media and voices, and billable
-    failures and retries), and whether some of it isn't reported yet (a job still running, or
-    a charge recorded from its price because its provider didn't say)."""
+@dataclass
+class Spent:
+    """A video's (or a run's) spend at its providers, as the owner's uncapped site shows it."""
+
+    usd: Decimal  # every charge: as the provider reported it, else at its list price
+    listed: Decimal  # of it, counted at list price (the provider gave no figure)
+    pending: bool  # a job still running: its cost isn't reported yet
+
+    def words(self, where: str) -> str:
+        """ "$5.00 spent on this run, $4.00 of it at list price, more not reported yet"."""
+        said = f"${self.usd:.2f} spent {where}"
+        said += f", ${self.listed:.2f} of it at list price" if self.listed else ""
+        return said + (", more not reported yet" if self.pending else "")
+
+
+def actual_usd(db: Session, project_id: int, since=None, until=None) -> Spent:
+    """What this video's jobs from `since` (to `until`) cost at their providers: each job's
+    Usage (Claude's planning, directing, reviews and watches, the media and voices, billable
+    failures and retries), its estimated rows counted at list price; a job sent with no Usage
+    row (a dropped connection, as `real_spent` counts it) at its own price; a job still
+    running isn't reported yet."""
     from app.models.jobs import Usage
 
-    mine = select(Job.id).where(Job.project_id == project_id)
-    if since is not None:
-        mine = mine.where(Job.created_at >= since)
-    real = select(func.coalesce(func.sum(Usage.cost_usd), 0)).where(Usage.job_id.in_(mine))
-    paid = db.scalar(real.where(Usage.estimated.is_(False)))
-    guessed = db.scalar(select(func.count()).where(Usage.job_id.in_(mine), Usage.estimated))
-    going = db.scalar(select(func.count()).where(Job.id.in_(mine),
-                                                 Job.status == JobStatus.running))  # fmt: skip
-    return Decimal(paid), bool(guessed or going)
+    window = [Job.project_id == project_id]
+    window += [Job.created_at >= since] if since is not None else []
+    window += [Job.created_at <= until] if until is not None else []
+    jobs = db.scalars(select(Job).where(*window)).all()
+    rows: dict[int, list] = {}
+    for u in db.scalars(select(Usage).where(Usage.job_id.in_([j.id for j in jobs] or [0]))):
+        rows.setdefault(u.job_id, []).append(u)
+    usd = listed = Decimal(0)
+    pending = False
+    for j in jobs:
+        if mine := rows.get(j.id):
+            usd += sum((Decimal(u.cost_usd) for u in mine), Decimal(0))
+            listed += sum((Decimal(u.cost_usd) for u in mine if u.estimated), Decimal(0))
+        elif j.status == JobStatus.running:
+            pending = True
+        elif (j.provider_ref and not j.provider_ref.startswith(STAND_IN)
+              and j.provider not in FREE_LANES):  # fmt: skip
+            usd += j.credits * USD_PER_CREDIT
+            listed += j.credits * USD_PER_CREDIT
+    return Spent(usd.quantize(Decimal("0.01")), listed.quantize(Decimal("0.01")), pending)
 
 
 def fits(db: Session, project: Project, user: User, total: Decimal) -> str:

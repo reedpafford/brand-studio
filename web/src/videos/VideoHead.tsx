@@ -37,9 +37,11 @@ export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): 
   const top = h.up_to;
   if (h.actual) {
     // The owner's uncapped test site (Reed, 6 Nov): what the providers really charged, and the likely cost; no budget.
-    const real = `${dollars(h.spent)} spent${h.unreported ? " (some not reported yet)" : ""}`;
-    const about = h.expected ? `about ${dollars(h.expected)} (estimate)` : "estimating…";
-    if (short) return ["", spent ? real : about];
+    // The whole video's spend beside one run's estimate, each said for what it is (QA on #1396).
+    const more = [h.listed_usd ? `$${h.listed_usd.toFixed(2)} of it at list price` : "", h.unreported ? "more not reported yet" : ""].filter(Boolean).join(", ");
+    const real = `This video so far ${dollars(h.spent)}${more ? ` (${more})` : ""}`;
+    const about = h.expected ? `this run about ${dollars(h.expected)} (estimate)` : "estimating…";
+    if (short) return ["", spent ? `${dollars(h.spent)} so far` : `About ${dollars(h.expected ?? h.spent)} (estimate)`];
     return [spent ? `${real} ·` : "No generation started ·", about];
   }
   // Past the budget mid-run (S3-06, S3-07); a start card waiting has spent nothing (S3-02). Never a "budget" below what's

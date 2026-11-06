@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import watch_report
+from app.db import utcnow
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
@@ -35,7 +36,6 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     number = cut.number if cut else 0  # Cut N as the switch and the editor name it
     spans = _spans(db, cut)
     credits, up_to = spent(db, project)  # the whole video's, at this cut (board S3-12)
-    real = _real(db, project, job, turns[0].created_at)  # the owner's uncapped site only
     rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
             + _host_rows(db, project, turns[0].created_at))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
@@ -46,19 +46,23 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "needs": said(decision.get("needs") or ""),
             "spent": float(credits), "up_to": float(up_to),
             "cut": number, "clips": len(spans),
-            "seconds": round(sum(s["seconds"] for s in spans), 1), **real}  # fmt: skip
+            "seconds": round(sum(s["seconds"] for s in spans), 1),
+            "since": turns[0].created_at.isoformat(),  # the run, to read its real cost later
+            "until": utcnow().isoformat()}  # fmt: skip
 
 
-def _real(db: Session, project: Project, job: Job, since) -> dict:
-    """On the owner's uncapped test site (Reed, 6 Nov), what this run really cost at its
-    providers (Usage), and whether some of it isn't reported yet; nothing anywhere else."""
-    from app.credits import actual_usd, uncapped
-    from app.models.accounts import User
+def run_cost(db: Session, project_id: int, note: dict):
+    """What the run a note delivers cost at its providers (`credits.actual_usd`), read when
+    the owner reads it: a note keeps only its run's times, never dollars (any teammate can
+    read a job's output)."""
+    from datetime import datetime
 
-    if not uncapped(db.get(User, job.input[RUN].get("by") or 0)):
-        return {}
-    usd, pending = actual_usd(db, project.id, since)
-    return {"actual_usd": float(round(usd, 2)), "unreported": pending}
+    from app.credits import actual_usd
+
+    if not note.get("since"):
+        return None
+    times = [datetime.fromisoformat(note[k]) if note.get(k) else None for k in ("since", "until")]
+    return actual_usd(db, project_id, *times)
 
 
 def open_items(db: Session, project: Project, spans: list[dict], asked: str = "") -> list[str]:
@@ -260,7 +264,7 @@ BLANK = {"made": "", "redid": [], "unsure": "", "open": [], "needs": "", "spent"
          "cut": None, "seconds": 0, "clips": 0}  # fmt: skip
 
 
-def shown(note: dict | str | None, owner: bool) -> dict | None:
+def shown(note: dict | str | None, owner: bool, real=None) -> dict | None:
     """The note as this person reads it, with its cost line in the header's figures at this
     cut (the whole video's, board S3-12): dollars to the owner ("$9.84 spent of up to
     $16.86"), credits only to anyone else ("96 credits used of up to 164 (59% of the
@@ -279,13 +283,13 @@ def shown(note: dict | str | None, owner: bool) -> dict | None:
     else:
         pct = round(100 * used / up_to) if up_to else 0
         cost = f"{round(used)} credits used of up to {price(up_to)} ({pct}% of the budget)"
-    if owner and note.get("actual_usd") is not None:  # the providers' own, never flat credits
-        cost = f"${note['actual_usd']:.2f} spent on this run (the providers' own charges)"
-        cost += ", and some cost not reported yet" if note.get("unreported") else ""
+    if owner and real is not None:  # uncapped: the run's own, at its providers, never credits
+        cost = real.words("on this run")
     still = note.get("open", [])
     return {**note, "open": still, "needs": needs(note["needs"], bool(still or note["unsure"])),
             "cost": cost, "up_to": float(up_to),
-            "spent_usd": dollars(used) if owner else None}  # fmt: skip
+            "spent_usd": (float(real.usd) if real is not None else dollars(used)) if owner
+            else None}  # fmt: skip
 
 
 READY = re.compile(

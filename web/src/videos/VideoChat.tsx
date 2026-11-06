@@ -413,7 +413,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       {ended && mayStart && p && (
         // The owner's price in dollars, an editor's in credits (rule 4), as every press says it.
         <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={owner ? undefined : run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
-          {owner && run?.run_price ? `${startLabel} · ${upTo(head, run.run_price)}` : startLabel}
+          {run?.run_expected_usd != null ? `${startLabel} · about $${run.run_expected_usd.toFixed(2)}` : owner && run?.run_price ? `${startLabel} · ${upTo(head, run.run_price)}` : startLabel}
         </Button>
       )}
     </>

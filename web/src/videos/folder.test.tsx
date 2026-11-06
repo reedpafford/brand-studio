@@ -231,3 +231,10 @@ test("on a phone, the folder's ⋯ opens under it and Rename edits the name in t
   await userEvent.type(box, "Week of 10 Nov{Enter}");
   await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /folders/4")?.body).toEqual({ name: "Week of 10 Nov" }));
 });
+
+test("uncapped (QA on #1396): a card says the providers' spend and the estimate, as the header does", async () => {
+  const { costText } = await import("../folders/ideas");
+  expect(costText({ kind: "so_far", credits: 4, usd: 0.42, about_usd: 8.01 })).toBe("$0.42 so far · about $8.01");
+  expect(costText({ kind: "so_far", credits: 0, usd: 0, about_usd: 8.01 })).toBe("about $8.01");
+  expect(costText({ kind: "total", credits: 90, usd: 7.2, about_usd: null })).toBe("$7.20");
+});
