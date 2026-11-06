@@ -816,12 +816,19 @@ def one_figure(owner, editor, pid: int) -> float:
     for who in (owner, editor):
         head = who.get(f"/projects/{pid}/idea").json()
         card = who.get(f"/projects/{pid}/director/progress").json()
-        note = [t["note"] for t in who.get(f"/projects/{pid}/director").json()["thread"]
-                if t.get("note")][-1]  # fmt: skip
+        notes = [t["note"] for t in who.get(f"/projects/{pid}/director").json()["thread"]
+                 if t.get("note")]  # fmt: skip
         spent, top = head["spent"], head["up_to"]
+        note = (
+            notes[-1]
+            if notes
+            else {"spent": card["spent"], "up_to": card["up_to"], "spent_usd": card["spent_usd"]}
+        )  # before a delivery
         assert abs(spent["credits"] - card["spent"]) < 0.001 > abs(spent["credits"] - note["spent"])
         assert top["credits"] == card["up_to"] == note["up_to"] >= note["spent"], (top, card, note)
         assert spent["usd"] == card["spent_usd"] == note["spent_usd"]
+        if not notes:
+            continue
         if spent["usd"] is not None:
             assert note["cost"] == f"${spent['usd']:.2f} spent of up to ${top['usd']:.2f}"
         else:
@@ -887,7 +894,10 @@ def test_the_header_the_run_card_and_the_note_say_one_figure_on_every_run(
     assert head["spent"]["credits"] > 0  # its planning
     assert head["up_to"]["credits"] == _up(card.input["price"])  # the start card's figure
     first = _make_it(app, db, owner, pid)
-    assert one_figure(owner, editor, pid) == _up(first)
+    assert one_figure(owner, editor, pid) == _up(first)  # its look's check is the run's too
+    _charge(db, pid, 3, {"auto_made": True})  # a person's own Make missing looks after it
+    head = owner.get(f"/projects/{pid}/idea").json()
+    assert head["up_to"]["credits"] == _up(first + 3)  # outside the run: not against its price
     owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
     _start(app, db, owner, pid)
     second = _make_it(app, db, owner, pid)
@@ -923,10 +933,10 @@ def test_after_an_ok_past_the_price_the_up_to_is_what_the_run_can_still_charge(
     assert one_figure(owner, editor, pid) == _up(spent + price - against)
 
 
-def _charge(db, pid: int, credits: int) -> None:
+def _charge(db, pid: int, credits: int, data: dict | None = None) -> None:
     """A charge on the video outside a run: a press someone made, already charged."""
     project = db.get(Project, pid)
-    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", input={},
+    db.add(Job(workspace_id=project.workspace_id, kind="image", provider="fake", input=data or {},
                project_id=pid, credits=credits, status="succeeded"))  # fmt: skip
     db.commit()
 
@@ -934,10 +944,13 @@ def _charge(db, pid: int, credits: int) -> None:
 def test_the_up_to_covers_a_charge_before_the_run_and_a_press_between_runs(app, db, owner, editor):
     """QA on #1355: the "up to" is never below what the video can still charge. A charge
     before Make it, or a press between runs, is spent outside the run; the run's whole price
-    can still be charged on top of it."""
+    can still be charged on top of it, from the moment its start card asks."""
+    from decimal import Decimal
+
     pid, _ = _video(app, owner, editor, db)
     _charge(db, pid, 7)
-    _start(app, db, owner, pid)
+    card = _start(app, db, owner, pid)
+    assert one_figure(owner, editor, pid) == _up(7 + Decimal(card.input["price"]))  # it waits
     first = _make_it(app, db, owner, pid)
     assert one_figure(owner, editor, pid) == _up(7 + first)  # the 7 before it, then its price
     _charge(db, pid, 90)  # a big press between runs: past what the first price covered

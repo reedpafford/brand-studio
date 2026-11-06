@@ -500,7 +500,7 @@ def spent(db: Session, project: Project) -> tuple[Decimal, Decimal]:
     from app import asks, ideas
 
     used = ideas.facts(db, [project]).used.get(project.id, Decimal(0))
-    run = asks.approved_run(db, project)
+    run = asks.approved_run(db, project, waiting=True)
     reach = used - run[1] + run[0] if run else Decimal(0)
     return used, ideas._up(max(run_up_to(db, project), reach, used))
 
