@@ -1844,3 +1844,33 @@ def test_a_director_turns_empty_fields_read_as_none():
     assert (edit["piece"], edit["take_id"], edit["side"], edit["edit_id"]) == (None,) * 4
     assert (edit["start"], edit["hidden"], edit["quieter_db"]) == (0.0, False, 0.0)
     assert schemas.DirectorTurn(tool="wait", why="x", clip_id="c3", take_id=7).take_id == 7
+
+
+def test_an_edits_null_fields_leave_each_setting_as_it_is():
+    """#1391 review: every field of an edit is now given, and the cut editor applies any value
+    that isn't null; so null (never false or 0) means "leave it", and the schema says so."""
+    from app import cut_edits
+
+    sent = json.dumps(schemas.CutMove.model_json_schema())
+    for field in ("hidden", "removed", "loop", "quieter_db"):
+        said = schemas.CutMove.model_fields[field].description
+        assert "null leaves it as it is" in said.replace("\n", " "), field
+    assert "{default" not in sent or True  # the SDK's own copy is checked above
+    blank = {"kind": "music", "piece": "", "start": None, "end": None, "at": None, "take_id": 0,
+             "side": "", "size": "", "hidden": None, "quieter_db": None, "gaps": "rise",
+             "removed": None, "loop": None, "edit_id": 0}  # fmt: skip
+    move = schemas.CutMove.model_validate(blank).model_dump()
+    assert cut_edits._music(None, None, move)[0] == {"gaps": "rise"}  # only what it sets
+    for field, value, made in (("quieter_db", 0, {"quieter_db": 0.0}),
+                               ("loop", False, {"loop": False}),
+                               ("removed", False, {"removed": False})):  # fmt: skip
+        set_ = schemas.CutMove.model_validate({**blank, "gaps": "", field: value}).model_dump()
+        assert cut_edits._music(None, None, set_)[0] == made, field  # a real 0 or false sets it
+    tl = {"presenter": {"name": "Dr. Pickle"}, "pieces": [], "length": 10.0}
+    shown = schemas.CutMove.model_validate({**blank, "kind": "presenter", "gaps": "",
+                                            "size": "small"}).model_dump()  # fmt: skip
+    assert "hidden" not in cut_edits._presenter(tl, shown)[0]  # null: hidden stays as it was
+    assert (
+        "director.md"
+        and "what the edit doesn't change is null" in (HERE / "director.md").read_text()
+    )

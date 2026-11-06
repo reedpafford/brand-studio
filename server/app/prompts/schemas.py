@@ -688,19 +688,39 @@ class CutMove(Strict):
     piece: Name = Field(
         default=None, description="The piece from <video>.timeline.pieces, e.g. 'c7' or 'c7.12'."
     )
-    start: float | None = Field(default=None, description="Seconds into the cut.")
-    end: float | None = Field(default=None, description="Seconds into the cut.")
-    at: float | None = Field(default=None, description="For split: seconds into the cut.")
+    start: float | None = Field(
+        default=None, description="Seconds into the cut; null when the edit doesn't set it."
+    )
+    end: float | None = Field(
+        default=None, description="Seconds into the cut; null when the edit doesn't set it."
+    )
+    at: float | None = Field(
+        default=None, description="For split: seconds into the cut; else null."
+    )
     take_id: Id = Field(default=None, description="For swap: a take's id; else 0.")
     side: _pick("left", "right") = None
     size: _pick("small", "medium", "large") = None
-    hidden: bool | None = None
-    quieter_db: float | None = Field(default=None, description="0 to 30; 18 is 'a lot'.")
+    hidden: bool | None = Field(
+        default=None,
+        description="For presenter: true hides it, false shows it again; null leaves it as it is.",
+    )
+    quieter_db: float | None = Field(
+        default=None,
+        description="For music: 0 to 30 dB under the voice (18 is 'a lot'; 0 stops it); null "
+        "leaves it as it is.",
+    )
     gaps: _pick("down", "rise") = Field(
         default=None, description="When no one speaks the music stays down, or rises."
     )
-    removed: bool | None = None
-    loop: bool | None = Field(default=None, description="For music: loop it to fit the cut.")
+    removed: bool | None = Field(
+        default=None,
+        description="For music: true takes it out, false puts it back; null leaves it as it is.",
+    )
+    loop: bool | None = Field(
+        default=None,
+        description="For music: true loops it to fit the cut, false plays it once; null leaves it "
+        "as it is.",
+    )
     edit_id: Id = Field(default=None, description="For undo: from timeline.edits; else 0.")
 
 
