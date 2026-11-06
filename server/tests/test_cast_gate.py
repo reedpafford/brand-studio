@@ -590,3 +590,39 @@ def test_a_watch_remake_of_a_changed_look_says_it_waits_for_the_ok(owner, editor
     assert cast_gate.not_yet(no) == ("Not remade yet: Nate waits for the cast and places OK. "
                                      "Approve them in Cast, then remake it.")  # fmt: skip
     assert isinstance(no, HTTPException)
+
+
+def test_a_stills_price_with_its_clips_take_shows_while_the_cast_waits(owner, editor, db):
+    """QA on #1329: Change the still… on a clip with a take is a new still and a new take
+    (S-gaps-08 2); its price reads both while the cast and places wait for the OK, as a price
+    read needs no OK (`check` passed through to the take)."""
+    from decimal import Decimal
+
+    from app import change
+    from app.models.clips import ClipTake, ProjectClip
+
+    _, pid, slot = _video(owner, editor, db)
+    look = _nate(editor, db, pid, slot)
+    _drawn(db, editor, look)
+    _two_clips(db, pid)
+    approve_cast(editor, pid)
+    frame = db.get(StoryboardFrame, _frame(db, pid, "1.2", [f"char:{look}"]))
+    alone = change.credits(db, db.get(Project, pid), frame)  # no take yet: the still only
+    made, sheet = upload(editor), upload(editor)  # first: the app writes these
+    clip = ProjectClip(project_id=pid, breakdown_id=frame.breakdown_id, clip_id="c2", seconds=4,
+                       prompt="Nate looks up.")  # fmt: skip
+    project = db.get(Project, pid)
+    job = Job(workspace_id=project.workspace_id, kind="video", provider="fake", input={},
+              project_id=pid, credits=5, status="succeeded")  # fmt: skip
+    db.add_all([clip, job])
+    db.flush()
+    db.add(ClipTake(clip_id=clip.id, number=1, job_id=job.id, file_id=made))
+    db.get(LibraryItem, look).sheet_file_id = sheet  # Nate changed: waits again
+    db.commit()
+    url = f"/projects/{pid}/storyboard/frames/{frame.id}/change"
+    price = editor.get(url)
+    assert price.status_code == 200, price.text  # the price still shows
+    project, frame = db.get(Project, pid), db.get(StoryboardFrame, frame.id)
+    both = change.credits(db, project, frame)
+    assert both > alone > Decimal(0)  # the still, then its clip's new take
+    assert price.json()["credits"] >= both - 1
