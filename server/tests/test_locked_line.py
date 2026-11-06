@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app import director, locked_line
 from app.models.asks import Ask
-from app.models.clips import ClipTake, FinalVideo, ProjectClip
+from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.providers import get_providers
@@ -526,6 +526,14 @@ def test_a_cut_choice_that_cant_be_made_isnt_offered(app, db, owner, editor, mon
     assert [c["do"] for c in _card(editor, pid)["choices"]] == ["softer"]
 
 
+def test_words_for_the_picture_too_never_mark_a_note_answered():
+    from tests.test_script_library import SCRIPT
+
+    for other in ("It's too cold.", "It looks cheap.", "It's too sharp.", "It's too strong."):
+        said = f"Change “bought the dip” to “bought more”. {other}"
+        assert locked_line.asked(said, SCRIPT) == ("bought the dip", False), other
+
+
 def test_only_tone_words_mark_a_note_answered():
     from tests.test_script_library import SCRIPT
 
@@ -541,3 +549,78 @@ def test_only_tone_words_mark_a_note_answered():
     for tone in ("It's too harsh.", "It sounds rude.", "That's a bit much.", "It feels off."):
         said = f"Change “bought the dip” to “bought more”. {tone}"
         assert locked_line.asked(said, SCRIPT) == ("bought the dip", True), tone
+
+
+def _pause_card(app, db, owner, editor, text=ASK):
+    pid = _delivered(app, db, owner, editor)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": text})
+    card = _card(editor, pid)
+    return pid, card, next(c for c in card["choices"] if c["do"] == "pause")
+
+
+def test_the_offered_pause_is_worked_out_again_each_time_it_is_shown(app, db, owner, editor):
+    """QA on e89ffa80: once the clip's ending is trimmed another way, the card says the pause
+    is already short, with no press, and a press says that (not that the words moved)."""
+    from app import cut, cut_edits
+
+    pid, card, pause = _pause_card(app, db, owner, editor)
+    project = db.get(Project, pid)
+    edit, _, _ = locked_line._pause_edit(db, project, "bought the dip")
+    cut_edits.add(
+        db, editor_user(db, project), project, "trim", {**edit, "end": edit["end"] - cut.TAIL + 0.1}
+    )  # another way, in the Cut tab
+    db.commit()
+    now = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert now["cannot"] == "The pause after it is already short." and now["price"] is None
+    no = editor.post(f"/asks/{card['id']}/answer",
+                     json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert (no.status_code, no.json()["detail"]) == (409, "The pause after it is already short.")
+
+
+def editor_user(db, project):
+    from app.models.accounts import User
+
+    return db.get(User, project.created_by_id)
+
+
+def test_a_cut_choice_waits_while_a_cut_is_made_and_comes_back_once_undone(app, db, owner, editor):
+    from app import cut_edits
+
+    pid, card, pause = _pause_card(app, db, owner, editor)
+    pressed = editor.post(f"/asks/{card['id']}/answer",
+                          json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert pressed.status_code == 200, pressed.text
+    done = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert done["made"] == "done" and done["said"].startswith("Done. Making Cut ")
+    project = db.get(Project, pid)
+    edit = db.query(CutEdit).filter_by(project_id=pid).one()
+    still = locked_line.now(db, project, {"do": "pause"}, "bought the dip")[1]
+    assert still.startswith("Cut ") and still.endswith("is being made; try again when it's ready.")
+    _run(app, db, ticks=6, start=False)  # the cut is made
+    cut_edits.undo(db, project, edit.id)  # taken back in the Cut tab
+    db.commit()
+    back = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert (back["made"], back["said"], back["cannot"]) == ("", "Undone in the Cut tab.", "")
+    assert back["why"].startswith("Tighten ")  # pressable again
+    again = editor.post(f"/asks/{card['id']}/answer",
+                        json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert again.status_code == 200, again.text
+
+
+def test_a_free_cut_press_isnt_stopped_by_the_generation_switch(app, db, owner, editor):
+    pid, card, pause = _pause_card(app, db, owner, editor)
+    app.state.settings.generation_enabled = False
+    app.state.settings.fake_providers = False  # paid generation off on this server
+    softer = next(c for c in card["choices"] if c["do"] == "softer")
+    paid = editor.post(f"/asks/{card['id']}/answer",
+                       json={"how": "instead", "choice": softer["key"]})  # fmt: skip
+    assert paid.status_code == 503
+    free = editor.post(f"/asks/{card['id']}/answer",
+                       json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert free.status_code == 200, free.text
+
+
+def test_words_mid_line_say_it_trims_after_the_clips_last_spoken_word(app, db, owner, editor):
+    text = "Can we change “all your money” to “your cash”?"
+    _, _, pause = _pause_card(app, db, owner, editor, text)
+    assert pause["why"].endswith("s after the clip’s last spoken word")

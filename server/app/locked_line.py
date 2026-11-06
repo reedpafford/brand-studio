@@ -47,8 +47,8 @@ POLITE = re.compile(
 )
 TONE = (
     "harsh|rude|mean|cringe|cringey|cringy|off|wrong|much|crude|blunt|aggressive|offensive|"
-    "crass|cheesy|insulting|negative|judgy|judgmental|preachy|strong|sharp|cold|weird|"
-    "awkward|snarky|condescending|gross|edgy|unkind|pushy|salesy|forced|cheap"
+    "crass|cheesy|insulting|negative|judgy|judgmental|preachy|weird|"
+    "awkward|snarky|condescending|gross|edgy|unkind|pushy|salesy|forced"
 )
 REASON = re.compile(  # a bare verdict on the words' tone: "It feels a bit harsh." (never the
     # picture or the sound: "It's too dark." stays for the director)
@@ -226,14 +226,21 @@ def _pause(db: Session, user: User, project: Project, words: str) -> dict | None
     edit = _pause_edit(db, project, words)
     if edit is None or not _goes(db, user, project, "trim", edit[0]):
         return None
-    return {"title": "Shorter pause after it", "why": f"Tighten {edit[1]:g} s", "do": "pause"}
+    return {"title": "Shorter pause after it", "why": _pause_why(edit), "do": "pause"}
+
+
+def _pause_why(edit: tuple[dict, float, bool]) -> str:
+    """ "Tighten 0.4 s"; after the clip's last spoken word when the words are mid-line."""
+    return f"Tighten {edit[1]:g} s" + (" after the clip’s last spoken word" if edit[2] else "")
 
 
 PAUSE = 0.2  # seconds: a pause shorter than this after the words is left as it is
 
 
-def _pause_edit(db: Session, project: Project, words: str) -> tuple[dict, float] | None:
-    """The trim that tightens the pause after the words, and by how much; None if none."""
+def _pause_edit(db: Session, project: Project,
+                words: str) -> tuple[dict, float, bool] | None:  # fmt: skip
+    """The trim that tightens the pause after the words' line, by how much, and whether the
+    words are mid-line (it trims after the clip's last spoken word); None if none."""
     from app import cut
 
     if cut.newest(db, project) is None:
@@ -242,15 +249,16 @@ def _pause_edit(db: Session, project: Project, words: str) -> tuple[dict, float]
     said = _spoken(tl, words) if tl["mode"] == "takes" else None
     if said is None:
         return None
-    _, end, _ = said
-    piece = next((p for p in tl["pieces"] if p["start"] <= end <= p["end"]), None)
+    _, said_end, _ = said
+    piece = next((p for p in tl["pieces"] if p["start"] <= said_end <= p["end"]), None)
     if piece is None:
         return None
     end = max(w["end"] for w in tl["words"] if piece["start"] <= w["start"] < piece["end"])
+    mid = end > said_end + 0.01
     gap = round(piece["end"] - end - cut.TAIL, 1)  # after its line: its last spoken word
     if gap < PAUSE:
         return None
-    return {"piece": piece["id"], "end": round(end + cut.TAIL, 2)}, gap
+    return {"piece": piece["id"], "end": round(end + cut.TAIL, 2)}, gap, mid
 
 
 def _voiced(db: Session, project: Project, clip: str) -> bool:
@@ -275,7 +283,7 @@ def _row(db: Session, project: Project, clip: str) -> ProjectClip | None:
 # --- A choice on the card: whether it can be made, its price, its press, what happened -------
 
 
-def cannot(db: Session, project: Project, choice: dict) -> str:
+def cannot(db: Session, project: Project, choice: dict, words: str = "") -> str:
     """Why this choice can't be made now ("" when it can), checked when shown and pressed."""
     from app import director
 
@@ -290,10 +298,41 @@ def cannot(db: Session, project: Project, choice: dict) -> str:
             return f"Clip {n} has no take of its own in the cut now."
         return ""
     if choice.get("do") in ("cut_away", "pause"):
-        from app import cut
-
-        return "" if cut.newest(db, project) is not None else "There's no cut yet."
+        return now(db, project, choice, words)[1]
     return "This can't be made here."
+
+
+def director_going(db: Session, project: Project) -> bool:
+    from app import director
+
+    return director.active(db, project) is not None
+
+
+def now(db: Session, project: Project, choice: dict, words: str) -> tuple[str, str]:
+    """A cut choice as it stands now, worked out again whenever it's shown or pressed: its
+    detail line ("Tighten 0.4 s") and why it can't be made ("" when it can; tried and taken
+    back, as the cut editor would take it)."""
+    from app import cut
+
+    why = choice.get("why", "")
+    if job := cut.making(db, project):
+        return why, f"Cut {job.input.get('number')} is being made; try again when it's ready."
+    if cut.newest(db, project) is None:
+        return why, "There's no cut yet."
+    user = db.get(User, project.created_by_id)
+    if choice["do"] == "pause":
+        edit = _pause_edit(db, project, words)
+        if edit is None:
+            return why, "The pause after it is already short."
+        why, kind, asked = _pause_why(edit), "trim", edit[0]
+    else:
+        span = _away_span(db, project, words)
+        if span is None:
+            return why, "The cut doesn't show the presenter while those words are said."
+        kind, asked = "presenter", {"start": span[0], "end": span[1], "hidden": True}
+    if not _goes(db, user, project, kind, asked):
+        return why, "The cut can't take that edit now. Change it in the Cut tab instead."
+    return why, ""
 
 
 def price(db: Session, project: Project, choice: dict) -> Decimal | None:
@@ -318,6 +357,12 @@ def made(db: Session, ask: Ask, key: str) -> tuple[str, str, int | None]:
     mine = ((ask.answer or {}).get("chosen") or {}).get(key)
     if not mine:
         return "", "", None
+    if mine.get("edit"):
+        from app.models.clips import CutEdit
+
+        edit = db.get(CutEdit, mine["edit"])
+        if edit is None or edit.undone_at is not None:  # taken back in the Cut tab
+            return "", "Undone in the Cut tab.", None
     if "outcome" in mine:
         use = mine.get("use")
         if use and _gone(db, ask, use):  # its take or clip went since (a new plan): no press
@@ -408,7 +453,9 @@ def choose(db: Session, user: User, ask: Ask, key: str, storage, option=None) ->
         return _outcome(db, ask, key, said, cut=cut)
     if state in ("held", "making", "watching"):
         raise HTTPException(409, "That's already being made.")
-    if why := cannot(db, project, found):
+    if state == "done":
+        raise HTTPException(409, "That's made already.")
+    if why := cannot(db, project, found, ask.subject):
         raise HTTPException(409, why)
     if state:  # made already (done, or kept with what happened): say that, not "being made"
         raise HTTPException(409, GONE if said == GONE else "That's made already.")
