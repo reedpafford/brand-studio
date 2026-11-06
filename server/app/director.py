@@ -860,8 +860,9 @@ def _pressed(run: dict | None):
 
 
 def set_aside(db: Session, project: Project, run: dict | None, clips: list[dict]) -> None:
-    """In a run started with "Start the plan again", each clip's takes made before the press
-    are `set_aside` too, once its new shots are made (a talker's clips keep theirs)."""
+    """Only in a run started with "Start the plan again", once its new shots are made: each
+    clip's takes made before the press are `set_aside` (a talker's clips keep theirs). One a
+    person picked again after they were set aside (`UNPICKED`) is theirs and stays."""
     if not (at := _pressed(run)) or any(fresh(db, project, run)):
         return
     for c in clips:
@@ -871,11 +872,12 @@ def set_aside(db: Session, project: Project, run: dict | None, clips: list[dict]
             ClipTake.id.in_([t["id"] for t in c["takes"]] or [0]),
             ClipTake.created_at < at))}  # fmt: skip
         for t in c["takes"]:
-            t["set_aside"] = t["set_aside"] or t["id"] in old
+            theirs = run.get(UNPICKED) and t["id"] == c["picked_take_id"]
+            t["set_aside"] = t["id"] in old and not theirs
 
 
-SET_ASIDE = ("Refused: take {} of {} is set aside (an earlier prompt, or before the plan was "
-             "started again). Make a new take of it.")  # fmt: skip
+SET_ASIDE = ("Refused: take {} of {} was made before the plan was started again, so it's set "
+             "aside. Make a new take of it.")  # fmt: skip
 
 
 def turn_input(db: Session, project: Project, run: dict, job_id: int | None = None) -> dict:
@@ -1060,8 +1062,7 @@ def video_state(db: Session, project: Project) -> dict:
             out.append({"id": t.id, "number": t.number,  # the owner's, never a paid redo
                         "verdict": "unsure" if doubt else mark,
                         "notes": [] if doubt else notes, "watch": watched,
-                        # made from an earlier prompt of the clip: never picked again by it
-                        "set_aside": t.prompt is not None and t.prompt != row.prompt})  # fmt: skip
+                        "set_aside": False})  # Start the plan again: `set_aside`  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
                       "shots": [{"id": i, "action": shots[i].get("action", ""),
                                  "line": shots[i].get("line")}
@@ -1149,6 +1150,8 @@ def choose(state: dict) -> dict:
     # It can't tell whether the change caused a fault, so it fixes none: each is mentioned
     older = [f for f in found if notes and f.get("fix") != "keep"]
     found = [f for f in found if f not in older]
+    aside = {t["id"] for c in clips for t in c["takes"] if t.get("set_aside")}
+    found = [f for f in found if not (f.get("fix") == "pick" and f.get("take_id") in aside)]
     picked_by_watch = {f["clip_id"]: f.get("take_id") for f in found if f.get("fix") == "pick"}
     if state["being_made"] or state["held_for_owner"]:
         return go("wait", "Something is still being made or waits for the owner.")

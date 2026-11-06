@@ -158,23 +158,62 @@ def test_once_its_new_shots_are_made_every_take_from_before_is_set_aside(app, db
     assert set(picked.values()) <= {t for ids in _takes(db, pid).values() for t in ids}  # kept
 
 
-def test_a_take_from_an_earlier_prompt_is_set_aside_in_any_run(app, db, owner, editor):
-    """A clip whose prompt was written again (a re-plan, a split) never has its take from the
-    earlier prompt picked: the stand-in makes it a take from its prompt now."""
+def test_on_a_video_never_started_again_an_earlier_take_is_picked_back_as_ever(
+    app, db, owner, editor
+):
+    """QA on f6acbb6d: only a Start the plan again run sets takes aside. On any other video a
+    take from an earlier prompt is picked back as before (the watch may say it reads better)."""
     pid = _stopped(app, db, owner, editor)
     project = db.get(Project, pid)
     row = db.query(ProjectClip).filter_by(project_id=pid).first()
-    take = db.get(ClipTake, row.picked_take_id)
-    take.prompt = (take.prompt or row.prompt) + " (earlier)"
+    first = db.get(ClipTake, row.picked_take_id)
+    first.prompt = row.prompt
+    second = ClipTake(clip_id=row.id, number=2, job_id=first.job_id, file_id=first.file_id,
+                      prompt=row.prompt + " (a person's change)")  # fmt: skip
+    db.add(second)
+    db.flush()
+    row.prompt, row.picked_take_id = second.prompt, second.id
     db.commit()
     state = director.video_state(db, project)
-    (mine,) = [c for c in state["clips"] if c["clip_id"] == row.clip_id]
-    assert all(t["set_aside"] for t in mine["takes"] if t["id"] == take.id)
-    state = {**state, "allowed": {}, "treatment": "written", "started": True,
-             "stills_review": {"state": "done"}}  # fmt: skip
-    assert [c["clip_id"] for c in state["clips"]] == [row.clip_id]
+    assert not any(t["set_aside"] for c in state["clips"] for t in c["takes"])
+    run = {"id": "r", "turn": 1, "redos": {}}
+    assert director._aside(db, project, run, {"tool": "pick_take", "take_id": first.id}) == ""
+    finding = {"clip_id": row.clip_id, "fix": "pick", "take_id": first.id,
+               "says": "Take 1 reads better."}  # fmt: skip
+    state = {**state, "allowed": {}, "treatment": "written", "started": True, "cut": "made",
+             "stills_review": {"state": "done"},
+             "watch": {"state": "done", "current": True, "findings": [finding]}}  # fmt: skip
+    for c in state["clips"]:
+        for t in c["takes"]:
+            t["verdict"] = "clean"
     made = director.choose(state)
-    assert (made["tool"], made["clip_id"]) == ("make_take", row.clip_id)
+    assert (made["tool"], made["take_id"]) == ("pick_take", first.id)
+
+
+def test_a_take_a_person_picks_after_the_press_is_theirs(app, db, owner, editor):
+    """In a Start the plan again run, once the old takes are set aside, a person who picks one
+    back in Clips keeps it: the director neither refuses it nor makes the clip again."""
+    pid = _stopped(app, db, owner, editor)
+    project = db.get(Project, pid)
+    picked = _picked(db, pid)
+    run = {"id": "r", "turn": 1, "redos": {}, director.FRESH: utcnow().isoformat()}
+    later = utcnow() + timedelta(seconds=1)
+    project.plan = {**project.plan, "made_at": later.isoformat()}
+    old = db.query(BreakdownVersion).filter_by(project_id=pid).order_by(BreakdownVersion.id)
+    old = old.all()[-1]
+    db.add(BreakdownVersion(project_id=pid, script_version=old.script_version, source="claude",
+                            data=old.data, created_at=later))  # fmt: skip
+    db.commit()
+    director.unpick_old_takes(db, project, run)
+    clip, take = next(iter(picked.items()))
+    row = db.query(ProjectClip).filter_by(project_id=pid, clip_id=clip).one()
+    row.picked_take_id = take  # a person picks it back in Clips
+    db.commit()
+    assert director._aside(db, project, run, {"tool": "pick_take", "take_id": take}) == ""
+    clips = director.video_state(db, project)["clips"]
+    director.set_aside(db, project, run, clips)
+    mine = next(c for c in clips if c["clip_id"] == clip)
+    assert not next(t for t in mine["takes"] if t["id"] == take)["set_aside"]
 
 
 def _picked(db, pid: int) -> dict[str, int | None]:
