@@ -121,12 +121,14 @@ class AskOut(BaseModel):
 
 
 class AnswerIn(BaseModel):
-    how: str  # saved, upload, reply, option, choice, clone; make_it, approve, keep, decline,
-    # withdraw (clone: `file_id` an audio sample, `text` the voice's name)
+    how: str  # saved, upload, reply, option, choice, clone, describe; make_it, approve, keep,
+    # decline, withdraw (clone: `file_id` an audio sample, `text` the voice's name; describe:
+    # `text` what the voice sounds like, `name` the brand's name for it)
     option: str | int | None = None  # a saved id, or a generated option's index
     file_id: int | None = None  # upload: POST /files first
     text: str | None = Field(default=None, max_length=2000)  # reply
     choice: str | None = None
+    name: str | None = Field(default=None, max_length=120)  # describe: "" is "Described voice"
 
 
 class GenerateIn(BaseModel):
@@ -179,7 +181,8 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
         card.clone = _price(user, voices.clone_credits(db, project.workspace_id))
         card.clone_to = f"Saved to {db.get(Brand, project.brand_id).name}'s voices"
     if mine and state != "not_needed":
-        card.can = ["reply"] + (["saved"] if card.saved else [])
+        card.can = ["describe" if ask.kind == "voice" else "reply"]  # a voice: Describe it
+        card.can += ["saved"] if card.saved else []
         card.can += ["upload"] if ask.kind in asks.UPLOADS else []
         card.can += ["choice"] if ask.kind == "story" else []
         card.can += ["clone"] if ask.kind == "voice" else []

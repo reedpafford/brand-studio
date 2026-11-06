@@ -35,7 +35,7 @@ export function SetUp({ brand, others, owner, newVideo }: { brand: Brand; others
   const voices = useVoices(brand.id).length;
   const tone = !!brand.tone_notes?.trim();
   // What a brand holds now (S-gaps-05 L1, L4): the kit is name, logo, colours, tone and rules; products are apps or
-  // physical things; a brand's own voices are only ones uploaded or cloned on purpose. No import (L2).
+  // physical things; a brand's own voices are only ones uploaded, cloned or described on purpose. No import (L2).
   const steps: [LucideIcon, boolean, string, string, string][] = [
     [Image, !!brand.logo_file_id, "Logo", "Shown on products and in endings", `${b}/brand`],
     [FileText, tone, "Tone and rules", "What the brand never says, and how it talks", `${b}/brand`],

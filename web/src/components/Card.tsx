@@ -2,7 +2,7 @@ import { Play } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-/** A panel: 16 padding on phones, 20 from sm, a hairline edge in dark mode. */
+/** A panel: 16 padding on phones, 20 from sm, a hairline edge. */
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`rounded-lg border border-border bg-surface p-4 shadow-card sm:p-5 ${className}`}>{children}</div>;
 }

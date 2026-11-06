@@ -800,7 +800,7 @@ test("S3-07: an editor's change after a delivery waits with its own price from i
 
 test("S4-01: a voice card plays its samples free; Clone it once says it's saved to the brand's voices before its price", async () => {
   setViewport(1440);
-  const voice = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [{ id: "stock:roger", name: "Roger", note: "Relaxed, mid", file_id: null, used_in: 3, sample_url: "/voices/sample/roger.mp3" }], pick: "stock:roger", generate: null, clone: price(30, 3), can: ["reply", "saved", "clone"] });
+  const voice = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [{ id: "stock:roger", name: "Roger", note: "Relaxed, mid", file_id: null, used_in: 3, sample_url: "/voices/sample/roger.mp3" }], pick: "stock:roger", generate: null, clone: price(30, 3), can: ["describe", "saved", "clone"] });
   server(owner, null, run({ thread: [asked()] }), cards(voice));
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
@@ -810,10 +810,35 @@ test("S4-01: a voice card plays its samples free; Clone it once says it's saved 
   expect(within(card).getByRole("button", { name: "Use Roger" })).toBeInTheDocument();
 });
 
+test("S4-01: Describe it saves a voice to the brand from words, read free in the nearest app voice", async () => {
+  setViewport(1440);
+  const voice = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [], pick: null, generate: null, clone: price(30, 3), can: ["describe", "clone"] });
+  const done = { ...voice, state: "answered", answer: { how: "describe", option: "voice:9", name: "Dana", text: "late 40s, tired, warm", uses: "Graceful Lady" }, answered_by: "Reed", answered_at: later, can: ["describe", "clone"] };
+  const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(voice), "POST /asks/7/answer": [200, done] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  await userEvent.click(within(card).getByRole("button", { name: /^Describe it/ }));
+  await userEvent.type(within(card).getByRole("textbox", { name: "What the voice sounds like" }), "late 40s, tired, warm");
+  await userEvent.type(within(card).getByRole("textbox", { name: "Its name (optional)" }), "Dana");
+  expect(within(card).getByText("The nearest app voice reads it, free. It’s saved to Resilia’s voices to use again.")).toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("button", { name: "Save and use it" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "describe", text: "late 40s, tired, warm", name: "Dana" }));
+});
+
+test("S4-01: a card answered by a description says what was saved and which app voice reads it", async () => {
+  setViewport(1440);
+  const done = ask({ kind: "voice", topic: "Mark's voice", question: "Which voice should Mark have?", saved: [], pick: null, generate: null, state: "answered", answer: { how: "describe", option: "voice:9", name: "Dana", text: "late 40s, tired, warm", uses: "Graceful Lady" }, answered_by: "Reed", answered_at: later, can: ["describe"] });
+  server(owner, null, run({ thread: [asked()] }), cards(done));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
+  expect(within(card).getByText("Mark's voice: Dana")).toBeInTheDocument();
+  expect(within(card).getByText(/^Described: “late 40s, tired, warm” · Graceful Lady’s voice · saved to Resilia’s voices\. Nothing was charged\. · picked by Reed, \d\d:\d\d$/)).toBeInTheDocument();
+});
+
 test("S4-01: a voice card lists its first three voices, the rest a press away; with nothing picked it has no empty foot", async () => {
   setViewport(1440);
   const v = (n: number) => ({ id: `stock:v${n}`, name: `Voice ${n}`, note: "", file_id: null, used_in: 0 });
-  const voice = ask({ kind: "voice", question: "Which voice should Mark have?", saved: [1, 2, 3, 4, 5].map(v), pick: null, generate: null, clone: price(30, 3), can: ["reply", "saved", "clone"] });
+  const voice = ask({ kind: "voice", question: "Which voice should Mark have?", saved: [1, 2, 3, 4, 5].map(v), pick: null, generate: null, clone: price(30, 3), can: ["describe", "saved", "clone"] });
   server(owner, null, run({ thread: [asked()] }), cards(voice));
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Which voice should Mark have?" });
@@ -1034,4 +1059,24 @@ test("S3-08: a run carried on shows the Stop it carried on from; an editor's Car
   renderApp("/b/1/videos/50");
   expect(await screen.findByRole("button", { name: "Start the plan again" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Carry on/ })).toBeNull();
+});
+
+test("Flow-QA S7: while a step waits, the header never shows a budget below what's spent: the video's spent against its up to", async () => {
+  setViewport(1440);
+  const waits = { status: status("waiting", "Waiting for your OK"), spent: money(124, 12.73), up_to: money(250, 25.71), budget: money(54, 5.56) };
+  server(owner, null, run({ status: "running" }), { "GET /projects/50/idea": [200, head(waits)] });
+  renderApp("/b/1/videos/50");
+  const top = await screen.findByRole("banner");
+  expect(await within(top).findByText("$12.73 spent ·", { exact: false })).toBeInTheDocument();
+  expect(within(top).getByText("up to $25.71")).toBeInTheDocument();
+  expect(within(top).queryByText(/budget \$5\.56/)).toBeNull();
+});
+
+test("Flow-QA M6: a run that ended by itself is read again at once: no Stop or 'already building' left behind", async () => {
+  setViewport(1440);
+  const failed = record({ status: "needs_fix", title: "Stopped at clip 4", tone: "bad", failed: { title: "The director stopped", why: "It stopped.", offer: "", clip: null, fixes: [{ kind: "carry_on", label: "Carry on", price: "$10.74", problem: "", then: null }] } });
+  const calls = server(owner, null, run({ status: "running", start_blocked: "The director is already building this video.", thread: [card] }), { "GET /projects/50/director/progress": [200, failed] });
+  renderApp("/b/1/videos/50");
+  await screen.findByText("The director stopped");
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/50/director").length).toBeGreaterThan(1)); // read again, not left
 });

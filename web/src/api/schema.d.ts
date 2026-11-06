@@ -6081,8 +6081,8 @@ export interface paths {
         /**
          * List Voices
          * @description The brand's own voices, the styles' voices, then every app voice (Reed, 4 Nov: a brand
-         *     saves only voices uploaded or cloned for it). An `all` query from the first version is
-         *     ignored.
+         *     saves only voices uploaded or cloned for it; 6 Nov: or described for it). An `all` query
+         *     from the first version is ignored.
          */
         get: operations["list_voices_brands__brand_id__voices_get"];
         put?: never;
@@ -6310,6 +6310,8 @@ export interface components {
             text?: string | null;
             /** Choice */
             choice?: string | null;
+            /** Name */
+            name?: string | null;
         };
         /** ApplyOut */
         ApplyOut: {
@@ -13004,6 +13006,8 @@ export interface components {
             kind: "stock" | "cloned" | "described";
             /** Stock Key */
             stock_key: string | null;
+            /** Uses */
+            uses?: string | null;
             /** Provider */
             provider: string;
             /** Description */
