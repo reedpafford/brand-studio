@@ -300,6 +300,9 @@ class Head(BaseModel):
     style: str  # "Dr. Pickle"
     seconds: int | None  # null before a plan sets it
     song: bool  # the video has a song (the Song lock means something)
+    # The owner's presses in the preview panel say dollars, as the boards draw them (rule 4:
+    # editors see credits, so it's null for them). A press's dollars are rounded up.
+    usd_per_credit: float | None = None
 
 
 def _money(user: User, credits: Decimal, up=round) -> Money:
@@ -344,4 +347,5 @@ def head(db: Session, user: User, p: Project) -> Head:
         folder=Named(id=folder.id, name=folder.name) if folder else None,
         format=kind, style=_style(p.look), seconds=p.planned_seconds or p.breakdown_seconds,
         song=narration.video_kind(db, p) == "song",
+        usd_per_credit=float(USD_PER_CREDIT) if user.is_owner else None,
     )  # fmt: skip

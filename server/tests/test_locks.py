@@ -15,7 +15,7 @@ def test_locks_and_outfits_are_set_by_whoever_may_change_the_video(app, owner, e
     pid, mia, kid = _video(owner, editor, db)
     url = f"/projects/{pid}/locks"
     assert editor.get(url).json() == {"locks": {"cast": False, "look": False, "length": False,
-                                                "song": False, "screens": []},
+                                                "song": False, "screens": [], "roles": []},
                                       "outfits": {}}  # fmt: skip
     body = {"locks": {"cast": True, "screens": [3]},
             "outfits": {f"char:{kid}": "  mustard trench coat, black boots "}}  # fmt: skip
