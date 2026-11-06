@@ -330,7 +330,7 @@ def _cast(db: Session, project: Project, slots: list, face) -> str:
     """S3-04's cast line: who's in it, the voice it's read in, and whether they're the brand's
     saved ones ("Cast: Dr. Pickle and the cloned voice, both saved in Resilia") or all made
     for this video. A role not cast yet isn't named; a look kept by a script isn't saved."""
-    from app import director_song, narration, voices
+    from app import director_song, voices
     from app.cast_roles import pick
     from app.models.library import LibraryItem
 
@@ -345,7 +345,12 @@ def _cast(db: Session, project: Project, slots: list, face) -> str:
     here = [i.owner_project_id == project.id for _, i in items]
     read = ""  # an app voice: not the brand's to save, so said apart
     if face is not None or director_song.kind(db, project) == "narrated":
-        ref = voices.picked(db, project) or voices.default_for(db, project) or narration.VOICE
+        from app.models.songs import SongTake
+
+        take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
+        # the voice its narration was read in; before one, the one it will be (director_song)
+        ref = ((take.voice if take is not None else "") or voices.picked(db, project)
+               or asks.voice(db, project) or director_song._voice(db, project))  # fmt: skip
         voice = voices.named(db, project.workspace_id, ref, project.brand_id)
         if voice is not None:  # the brand's own, or its style's, listed with them (S8-04, L4)
             names.append(f"the {voice.kind} voice")  # "the cloned voice"

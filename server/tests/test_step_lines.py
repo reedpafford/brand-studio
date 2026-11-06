@@ -82,6 +82,14 @@ def test_a_presenters_cast_line_names_the_presenter_and_the_voice(app, db, owner
     project.voice = None  # no voice of its own and no style voice: the narrator's default
     db.commit()
     assert _step(owner, pid, "cast")["text"].endswith("; read in the Sarah voice")
+    job = db.query(Job).filter_by(project_id=pid).first()
+    take = SongTake(draft_id=project.script_draft_id, project_id=pid, number=1, kind="narration",
+                    voice="Roger", job_id=job.id, lyrics="", style_line="")  # fmt: skip
+    db.add(take)
+    db.flush()
+    project.song_take_id, project.voice = take.id, "stock:Austin"  # read in Roger, set since
+    db.commit()
+    assert _step(owner, pid, "cast")["text"].endswith("; read in the Roger voice")  # as it was read
 
 
 def test_stills_say_how_many_were_redrawn_and_why_in_plain_words(app, db, owner, editor):
