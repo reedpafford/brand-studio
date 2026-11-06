@@ -2,6 +2,7 @@ import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { editor, owner } from "../test/people";
+import { cutOut } from "../test/cut";
 import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
@@ -340,6 +341,21 @@ test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its
   expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull(); // Carry on is the press here
   await userEvent.click(screen.getByRole("button", { name: "Carry on · up to $10.74 more" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+});
+
+test("S3-08: Start the plan again starts a new run that plans the whole video again; it says why when it can't", async () => {
+  setViewport(1440);
+  const stopped = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "$10.74" } });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director/plan-again": [201, run()] });
+  const first = renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Start the plan again" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director/plan-again")).toBe(true));
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // not Carry on
+  first.unmount();
+  server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director/plan-again": [409, { detail: "The director is already building this video." }] });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Start the plan again" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("The director is already building this video.");
 });
 
 test("S3-11: a step that failed says why in plain words, with its one-click fixes", async () => {
@@ -769,6 +785,104 @@ test("S3-07: before the owner's OK its video's thread is closed, so the send's o
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
 });
 
+test("S3-12: while Cut 2 is made, Cut 1 stays watchable; the switch plays and downloads any cut made; what it replaces is going out of date", async () => {
+  setViewport(1440);
+  const making = cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }], making: { number: 2, percent: 40, doing: "laying the B-roll", about_seconds: 240, changes: 2 }, going: [{ piece: "c7", label: "Clip 7", file_id: 207 }, { piece: "c9", label: "the ending", file_id: 209 }] });
+  server(owner, null, run({ status: "running" }), { "GET /projects/50/cut": [200, making], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }] });
+  const r = renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  const which = await within(panel).findByRole("radiogroup", { name: "Which cut" });
+  expect(within(which).getByRole("radio", { name: "Cut 1" })).toHaveAttribute("aria-checked", "true");
+  expect(within(which).getByRole("radio", { name: "Cut 2 · making" })).toHaveAttribute("aria-disabled", "true");
+  expect(within(panel).getByText("Cut 1 stays watchable until Cut 2 is ready.")).toBeInTheDocument();
+  expect(within(panel).getByRole("heading", { name: "Going out of date" })).toBeInTheDocument();
+  expect(within(panel).getByText("Clip 7 and the ending")).toBeInTheDocument();
+  expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/80");
+  r.unmount();
+  server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, cutOut()], "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const done = await screen.findByRole("tabpanel", { name: "Cut" });
+  const cuts = await within(done).findByRole("radiogroup", { name: "Which cut" });
+  expect(within(cuts).getByRole("radio", { name: "Cut 2" })).toHaveAttribute("aria-checked", "true");
+  expect(within(done).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/90");
+  await userEvent.click(within(cuts).getByRole("radio", { name: "Cut 1" }));
+  expect(within(done).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/80");
+  expect(within(done).getByRole("link", { name: "Download MP4" })).toHaveAttribute("download", "beer-gut-doctor-rant-cut-1.mp4");
+  expect(within(done).queryByText(/stays watchable/)).toBeNull();
+});
+
+test("S3-09: one cut and nothing being made: no switch, the heading reads Final cut", async () => {
+  setViewport(1440);
+  server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }] })], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByRole("heading", { name: "Final cut" })).toBeInTheDocument();
+  expect(within(panel).queryByRole("radiogroup", { name: "Which cut" })).toBeNull();
+});
+
+test("S3-12: a new cut finishing while an older one is picked keeps that pick; the cut that plays isn't pinned, so the new one replaces it", async () => {
+  setViewport(1440);
+  const v = (n: number) => ({ number: n, file_id: 70 + 10 * n, made_at: at });
+  const making = () => cutOut({ number: 2, file_id: 90, versions: [v(1), v(2)], making: { number: 3, percent: 40, doing: "", about_seconds: 20, changes: 1 } });
+  const done = cutOut({ number: 3, file_id: 100, versions: [v(1), v(2), v(3)] });
+  for (const choice of ["Cut 1", "Cut 2"]) {
+    const route: [number, unknown] = [200, making()];
+    server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": route, "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: false }] });
+    const r = renderApp("/b/1/videos/50?tab=cut");
+    const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+    await userEvent.click(await within(panel).findByRole("radio", { name: choice }));
+    route[1] = done; // Cut 3 is made
+    await vi.waitFor(() => expect(within(panel).getByRole("radio", { name: "Cut 3" })).toBeInTheDocument(), { timeout: 5000 });
+    if (choice === "Cut 1") {
+      expect(within(panel).getByRole("radio", { name: "Cut 1" })).toHaveAttribute("aria-checked", "true"); // what you picked stays
+      expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/80");
+      expect(within(panel).getByText(/^Cut 1 · made /)).toBeInTheDocument(); // not the newest cut's length and clips
+      expect(within(panel).getByRole("link", { name: "Download every clip (.zip)" })).toHaveAttribute("download", "beer-gut-doctor-rant-clips.zip");
+    } else {
+      expect(within(panel).getByRole("radio", { name: "Cut 3" })).toHaveAttribute("aria-checked", "true"); // the new one plays
+      expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/100");
+    }
+    r.unmount();
+  }
+}, 20_000);
+
+test("S3-12: a failed cut says why in Watch with its way forward, and the cut before keeps playing", async () => {
+  setViewport(1440);
+  const why = "Cut 3 couldn’t be made: the music is shorter than the cut. Nothing was charged.";
+  const failed = cutOut({ failed: { number: 3, why, fixes: ["loop_music", "again"] } });
+  const calls = server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, failed], "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: false }], "POST /projects/50/cut/fix": [202, cutOut()] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByText(why)).toBeInTheDocument(); // said once, as the server says it
+  expect(within(panel).queryAllByText(/couldn’t be made/)).toHaveLength(1);
+  expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/90");
+  await userEvent.click(within(panel).getByRole("button", { name: "Loop the music to fit · free" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/cut/fix")?.body).toEqual({ fix: "loop_music" }));
+});
+
+test("S3-12: while a failed cut's fixes show, Out of date has no Make it again and doesn't promise one", async () => {
+  setViewport(1440);
+  const failed = cutOut({ failed: { number: 3, why: "Cut 3 couldn’t be made: the music is shorter than the cut. Nothing was charged.", fixes: ["loop_music", "again"] } });
+  server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, failed], "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: true }] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByText("Out of date.")).toBeInTheDocument();
+  expect(within(panel).getByRole("button", { name: "Loop the music to fit · free" })).toBeInTheDocument();
+  expect(within(panel).queryByRole("button", { name: "Make it again" })).toBeNull();
+  expect(panel.textContent).not.toMatch(/Making it again is free/);
+});
+
+test("S3-12: the director making Cut 1 again before it delivers adds no second Cut 1 to the switch", async () => {
+  setViewport(1440);
+  const again = cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }], making: { number: 1, percent: 40, doing: "", about_seconds: 20, changes: 0 } });
+  server(owner, null, run({ status: "running" }), { "GET /projects/50/cut": [200, again], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByRole("heading", { name: "Final cut" })).toBeInTheDocument();
+  expect(within(panel).queryByRole("radiogroup", { name: "Which cut" })).toBeNull();
+  expect(within(panel).queryByText(/stays watchable/)).toBeNull();
+});
+
 test("an answered money card says who approved it and when, never picked by", async () => {
   setViewport(1440);
   const start = ask({ kind: "start", question: "Make it for up to $14.73?", saved: [], money: held$(), state: "answered", answer: { how: "make_it" }, answered_by: "Reed", answered_at: later, can: [] });
@@ -787,4 +901,72 @@ test("S3-09: a note with nothing uncertain and nothing open has no What remains 
   renderApp("/b/1/videos/50");
   const n = await screen.findByRole("region", { name: "Delivery note" });
   expect(within(n).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["What I made", "What I need from you"]);
+});
+
+// S3-14: an editor asks to change a locked line; the reply offers what can change instead, priced, and the Script tab
+// says the words are set, with the asked words marked.
+const instead = (o: object = {}) => ask({ id: 12, kind: "instead", topic: "", subject: "beer gut", question: "The script’s words are set for this script, so I can’t change “beer gut”. Here’s what I can change instead:", why: "", state: "offered", saved_in: "", saved: [], pick: null, generate: null, choices: [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "" }], can: ["instead"], ...o });
+
+test("S3-14: the reply to a locked line offers what can change instead at its price; a press makes it; the Script tab is set", async () => {
+  setViewport(1440);
+  const thread = [item("m1", "message", "Kel", "Can we change “beer gut” to “belly”? It feels a bit harsh.", null, later, { answered: true }), item("a12", "move", "Director", "The script’s words are set…", null, later, { kind: "ask", ask_id: 12 })];
+  const calls = server(editor, null, run({ status: "delivered", thread }), { ...cards(instead()), "POST /asks/12/answer": [200, instead({ choices: [{ key: "A", title: "Say it softer", why: "", do: "softer", price: price(4), made: "making" }], can: [] })], "GET /projects/50/script": [200, { version: 1, source: "paste", words: 9, created_by_id: 1, created_at: at, text: "DR. PICKLE: Your beer gut after the weekend?\nDR. PICKLE: Every pint sits there." }] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("The script’s words are set for this script, so I can’t change “beer gut”. Here’s what I can change instead:")).toBeInTheDocument();
+  const softer = screen.getByRole("button", { name: /^Say it softer/ });
+  expect(softer).toHaveTextContent("Dr. Pickle says it more softly. Redo the voice line and clip 2 · up to 4 credits"); // credits only (rule 4)
+  await userEvent.click(softer);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Script" }));
+  expect(await screen.findByText("Published script · the words are set")).toBeInTheDocument();
+  expect(screen.getByText("beer gut", { selector: "mark" })).toBeInTheDocument();
+});
+
+test("S3-14: once chosen, the card says so and how it's going; the other choices stay pressable; a free one says free", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "held", said: "Waiting for the owner’s OK.", cannot: "" }, { key: "B", title: "Shorter pause after it", why: "Tighten 0.4 s", do: "pause", price: null, made: "", said: "", cannot: "" }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices })));
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("You chose: Say it softer")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Say it softer/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /^Say it softer/ })).toHaveTextContent("Waiting for the owner’s OK.");
+  const pause = screen.getByRole("button", { name: /^Shorter pause after it/ });
+  expect(pause).toBeEnabled();
+  expect(pause).toHaveTextContent("Tighten 0.4 s · free");
+});
+
+test("S3-14: a choice that can't be made now says why and can't be pressed; the cut's outcome is the server's words", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: null, made: "", said: "", cannot: "Clip 2 isn't in this video any more." }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices, can: [] })));
+  const view = renderApp("/b/1/videos/50");
+  const gone = await screen.findByRole("button", { name: /^Say it softer/ });
+  expect(gone).toBeDisabled();
+  expect(gone).toHaveTextContent("Clip 2 isn't in this video any more.");
+  expect(gone).not.toHaveTextContent("free");
+  view.unmount();
+  const done = [{ ...choices[0], price: price(4), made: "kept", said: "Made and watched, but the cut wasn’t made again: The music file stops at 0:41. Make the cut from the Cut tab once that’s done.", cannot: "" }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices: done, can: [] })));
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: /^Say it softer/ })).toHaveTextContent("the cut wasn’t made again: The music file stops at 0:41.");
+});
+
+test("S3-14: a take nobody watched offers its free one-click press: use it and make the cut", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "", do: "softer", price: price(4), made: "kept", said: "Made. Not watched: the video is at its budget, so the cut stays as it was. Use take 3 and make the cut, or look at it in Clips first.", cannot: "", then: "Use take 3 and make the cut" }];
+  const calls = server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), { ...cards(instead({ choices })), "POST /asks/12/answer": [200, instead({ choices: [{ ...choices[0], made: "done", said: "Take 3 is used. The cut is made again with it.", then: "" }], can: [] })] });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Use take 3 and make the cut · free" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A", option: "use" }));
+});
+
+test("S3-14 on a Presenter video: Cut away while it's said is free, and its press makes it", async () => {
+  setViewport(1440);
+  const away = { key: "A", title: "Cut away while it’s said", why: "Show the B-roll instead of Dr. Pickle’s face on that line", do: "cut_away", price: null, made: "", said: "", cannot: "", then: "" };
+  const calls = server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), { ...cards(instead({ choices: [away] })), "POST /asks/12/answer": [200, instead({ choices: [{ ...away, made: "done", said: "Done. Making Cut 2 with it." }], can: [] })] });
+  renderApp("/b/1/videos/50");
+  const button = await screen.findByRole("button", { name: /^Cut away while it’s said/ });
+  expect(button).toHaveTextContent("Show the B-roll instead of Dr. Pickle’s face on that line · free");
+  await userEvent.click(button);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A" }));
 });

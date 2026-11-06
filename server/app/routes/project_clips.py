@@ -2,9 +2,7 @@
 them, generate takes with the video model, pick and approve one per clip, and stitch the
 picked takes into the finished video (free)."""
 
-import hashlib
 import logging
-import uuid
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -25,25 +23,21 @@ from app import (
     looks,
     model_map,
     narration,
-    narration_music,
     prompts,
-    screen_figures,
     take_approval,
     take_mute,
     take_sound,
-    talker,
     video_settings,
     watch_report,
     word_splice,
 )
 from app.advice import Said, SaidText
 from app.auth import current_user
-from app.db import get_db, utcnow
+from app.db import get_db
 from app.item_checks import CheckOut
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
-from app.models.clips import ClipTake, FinalVideo, ProjectClip
-from app.models.files import StoredFile
+from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
 from app.models.jobs import WAITING, Job
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
@@ -62,13 +56,6 @@ router = APIRouter(
     prefix="/projects/{project_id}", tags=["project clips"], dependencies=[Depends(video_writer)]
 )
 log = logging.getLogger(__name__)
-# Song videos (flows V6): the reason, nothing charged, and the press that helps
-SONG_CUT_FAILED = "The video couldn't be put together. Nothing was charged. Press Try again."
-SONG_CHANGED = (
-    "{} of the clips were made for the video's earlier song. Press Rewrite clip prompts on "
-    "Clips and remake them, then make the video."
-)
-NOT_TIMED = "A clip isn't timed to the song yet. Rewrite the clip prompts, then make the video."
 
 
 class ProjectClipIn(BaseModel):
@@ -132,9 +119,12 @@ class NarrationOut(BaseModel):
 
 
 class VideoOut(BaseModel):
+    """The cut that plays (app/cut.py; the cut editor reads GET …/cut)."""
+
+    number: int  # Cut 1, Cut 2, …
     file_id: int
     take_ids: list[int]  # the picked takes it was made from, in clip order
-    out_of_date: bool  # a pick, a "Use the real image" switch or the video's song changed since
+    out_of_date: bool  # a pick, an edit, anything laid over a take or the song changed since
     song_take_id: int | None = None  # song ads: the take laid under the whole video (V6)
     narration: NarrationOut | None = None  # narrated ads: whose voice, and music under it
 
@@ -970,7 +960,7 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
     for v in db.scalars(select(FinalVideo).where(FinalVideo.project_id.in_(ids))
                         .order_by(FinalVideo.id)):  # fmt: skip
         videos[v.project_id] = v  # the newest wins
-    old = set()
+    old, edits = set(), _edits(db, ids)
     for p in (p for p in projects if p.id in ids):
         bd, rows = bds.get(p.id), clips.get(p.id, [])
         moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
@@ -980,10 +970,22 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
             old.add(p.id)
         elif (video := videos.get(p.id)) and (
             video.take_ids != [c.picked_take_id for c in rows]
+            or (video.edit_ids or []) != edits.get(p.id, [])
             or (video.cut_ins or []) != _cut_ins(db, p, rows)
         ):
             old.add(p.id)
     return old
+
+
+def _edits(db: Session, ids: list[int]) -> dict[int, list[int]]:
+    """Each video's cut edits in force (app/cut.py), in order: a cut made with others is out
+    of date."""
+    out: dict[int, list[int]] = {}
+    for project_id, edit_id in db.execute(select(CutEdit.project_id, CutEdit.id).where(
+            CutEdit.project_id.in_(ids), CutEdit.undone_at.is_(None))
+            .order_by(CutEdit.id)):  # fmt: skip
+        out.setdefault(project_id, []).append(edit_id)
+    return out
 
 
 def _video_out(db: Session, video: FinalVideo) -> VideoOut:
@@ -992,142 +994,13 @@ def _video_out(db: Session, video: FinalVideo) -> VideoOut:
     cuts = _cut_ins(db, db.get(Project, video.project_id), clips)
     old = video.take_ids != current or (video.cut_ins or []) != cuts
     old = old or video.song_take_id != db.get(Project, video.project_id).song_take_id
+    old = old or (video.edit_ids or []) != _edits(db, [video.project_id]).get(video.project_id, [])
     take = db.get(SongTake, video.song_take_id) if video.song_take_id else None
     told = (NarrationOut(voice=take.voice, music=bool(take.music_file_id))
             if take and take.kind == narration.KIND else None)  # fmt: skip
-    return VideoOut(file_id=video.file_id, take_ids=video.take_ids, out_of_date=old,
+    return VideoOut(number=video.number, file_id=video.file_id, take_ids=video.take_ids,
+                    out_of_date=old,
                     song_take_id=video.song_take_id, narration=told)  # fmt: skip
-
-
-@router.post("/video", response_model=VideoOut, status_code=201)
-def make_video(
-    project_id: int,
-    request: Request,
-    user: User = Depends(current_user),
-    db: Session = Depends(get_db),
-):
-    """Stitch the picked takes, in clip order, into one MP4. Free: no credits, no provider."""
-    project = get_project(db, user, project_id)
-    clips = _clips(db, project.id)
-    if not clips:
-        raise HTTPException(409, "Write the clip prompts and make the clips first.")
-    if talker.on(db, project):  # a UGC talker's clips are cut from its one take, free
-        if not host.ready(db, project):
-            raise HTTPException(409, host.NOT_READY)
-        talker.fill(db, request.app.state.storage, project)
-    left = sum(not c.approved for c in clips)
-    if left:
-        raise HTTPException(409, f"Approve every clip to make the video ({left} left).")
-    if other := sum(looks.take_other(db, project, c) for c in clips):  # VS1: never mixed looks
-        raise HTTPException(409, looks.OTHER.format("1 clip was" if other == 1
-                                                    else f"{other} clips were"))  # fmt: skip
-    if other := sum(video_settings.take_stale(db, project, c) for c in clips):  # nor settings
-        said = "1 clip was" if other == 1 else f"{other} clips were"
-        raise HTTPException(409, video_settings.OTHER.format(said))
-    storage = request.app.state.storage
-    song = db.get(SongTake, project.song_take_id) if project.song_take_id else None
-    if song and not all(c.song_slice for c in clips):
-        raise HTTPException(409, NOT_TIMED)
-    newest = _newest_breakdown(db, project)
-    if song and (old := sum(_stale(db, c, newest) for c in clips)):  # made for the earlier song
-        raise HTTPException(409, SONG_CHANGED.format(old))
-    narrated = bool(song and song.kind == narration.KIND)
-    if narrated and narration_music.state(db, song)[0] == "making":
-        raise HTTPException(409, narration_music.MAKING)
-    hosted = host.on(db, project)  # a presenter: the host over the narrated B-roll
-    if hosted and not (narrated and host.ready(db, project)):
-        raise HTTPException(409, host.NOT_READY)
-    try:
-        videos = [_with_cut_ins(db, storage, project, c) for c in clips]
-        if song:  # the song is the only sound (V6); a narration keeps the takes' (V6n)
-            lengths = [c.song_slice["end"] - c.song_slice["start"] for c in clips]
-            if not narrated:  # it ends a breath after the last sung line (Song-Producer)
-                lengths = clip_takes.ends_at(lengths, song_end(song))
-            sound = storage.get(db.get(StoredFile, song.file_id).key)
-            bed = song.music_file_id and storage.get(db.get(StoredFile, song.music_file_id).key)
-            data = clip_takes.song_cut(videos, lengths, sound, narrated, bed or None)
-            data = host.lay(db, storage, project, data) if hosted else data
-        else:
-            data = clip_takes.stitch(videos, reencode=bool(_cut_ins(db, project, clips)))
-    except Exception as exc:  # noqa: BLE001 - a bad clip file: say so plainly
-        if song:
-            log.exception("project %s: the song video couldn't be cut", project.id)
-            raise HTTPException(422, SONG_CUT_FAILED) from exc
-        raise HTTPException(
-            422, "The clips couldn't be put together. Redo the odd one out."
-        ) from exc
-    from app.routes.media import _probe as media_probe
-
-    key = f"{project.workspace_id}/{uuid.uuid4().hex}"
-    storage.put(key, data)
-    stored = StoredFile(
-        workspace_id=project.workspace_id,
-        key=key,
-        filename=f"{project.name[:200]}.mp4",
-        content_type="video/mp4",
-        size=len(data),
-        sha256=hashlib.sha256(data).hexdigest(),
-        uploaded_by_id=user.id,
-    )
-    db.add(stored)
-    db.flush()
-    video = FinalVideo(
-        project_id=project.id,
-        file_id=stored.id,
-        take_ids=[c.picked_take_id for c in clips],
-        cut_ins=_cut_ins(db, project, clips),
-        song_take_id=song.id if song else None,
-        created_by_id=user.id,
-        seconds=_seconds(media_probe, data),  # Media shows it without reading it again
-    )
-    db.add(video)
-    project.finished_at = project.finished_at or utcnow()
-    db.commit()
-    return _video_out(db, video)
-
-
-def _seconds(probe, data: bytes) -> float | None:
-    """A new cut's length; None when it can't be read in time (Media reads it once later)."""
-    from app.routes.media import ProbeTimeout
-
-    try:
-        return probe(data)[1]
-    except ProbeTimeout:
-        return None
-
-
-AFTER_LAST_LINE = 1.0  # seconds of song after the last sung line before the end
-
-
-def song_end(take: SongTake) -> float | None:
-    """Where a song video ends: its last line heard, and a breath."""
-
-    sung = [x for x in (take.timing or {}).get("lines") or []
-            if (x.get("heard") or 0) >= 0.5 and x.get("end") is not None]  # fmt: skip
-    return round(sung[-1]["end"] + AFTER_LAST_LINE, 2) if sung else None
-
-
-def _with_cut_ins(db: Session, storage, project: Project, clip: ProjectClip) -> bytes:
-    """The picked take, with the real picture cut in over each insert that's switched on."""
-    video = storage.get(db.get(StoredFile, clip.file_id).key)
-    cuts = [
-        (
-            screen_figures.draw(storage.get(db.get(StoredFile, i.file_id).key), i.figure),
-            i.start,
-            i.end,
-        )
-        for i in cut_in.inserts(db, project, clip)
-        if i.on
-    ]
-    video = cut_in.apply(video, cuts, clip.seconds) if cuts else video
-    take = db.get(ClipTake, clip.picked_take_id) if clip.picked_take_id else None
-
-    def source(take_id: int) -> bytes:  # the take a spliced word is copied from
-        return storage.get(db.get(StoredFile, db.get(ClipTake, take_id).file_id).key)
-
-    video = word_splice.apply(video, word_splice.spliced(take), source)  # the brand said right
-    video = take_mute.apply(video, take_mute.spans(take))  # stretches muted by hand
-    return take_sound.under(db, storage, take, video)  # sound effects added on request
 
 
 @router.get("/video", response_model=VideoOut)

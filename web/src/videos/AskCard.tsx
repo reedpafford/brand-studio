@@ -21,7 +21,7 @@ export function useAsks(projectId: number, live: boolean) {
   return useQuery({
     queryKey: ["asks", projectId],
     enabled: projectId > 0,
-    refetchInterval: (q) => (live || (q.state.data ?? []).some((a) => ["uploading", "generating", "held"].includes(a.state)) ? 4_000 : false),
+    refetchInterval: (q) => (live || (q.state.data ?? []).some((a) => ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? ""))) ? 4_000 : false),
     queryFn: async () => (await api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } })).data ?? [],
   });
 }
@@ -501,7 +501,7 @@ export const isOpen = (a: Ask) => OPEN.includes(a.state);
 export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }: { projectId: number; change: boolean; upTo: number | null | undefined; sentAt: string; owner: boolean; onWithdraw: () => void }) {
   const price = { credits: upTo ?? 0, usd: null };
   const ask: Ask = {
-    id: 0, project_id: projectId, kind: "start", topic: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
+    id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is while it waits; nothing is charged." : "The owner has been asked. Nothing is made or charged while it waits.",
     money: { up_to: price, clips: [], sent_at: sentAt, held: "", what: "" },

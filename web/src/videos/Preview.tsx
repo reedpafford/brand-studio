@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download } from "lucide-react";
-import { api, errorText } from "../api/client";
+import { useQuery } from "@tanstack/react-query";
+import { Download, Lock, Scissors } from "lucide-react";
+import { api } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
-import { Banner, Button, Skeleton, ViewOnly, buttonClass } from "../components";
+import { Banner, Button, Skeleton, ViewOnly, buttonClass, useViewOnly } from "../components";
 import { mmss } from "../freestyle/FromScript";
 import { BreakdownPane } from "../projects/BreakdownPane";
 import { PlanStep } from "../projects/PlanStep";
@@ -12,7 +12,7 @@ import { ShapeRow } from "../projects/ShapeRow";
 import { VideoSettings, useVideoSettings } from "../projects/VideoSettings";
 import { Scorecard } from "../projects/Scorecard";
 import { ScriptText, useLatestScript } from "../projects/ScriptTab";
-import { useProgress, useProjectClips, useProjectVideo } from "../projects/useProgress";
+import { useCut, useMakeCut, useProgress, useProjectClips, useProjectVideo } from "../projects/useProgress";
 import { videoHold, videoLock, type VideoProgress } from "../projects/videoSteps";
 import { FinalSong, SongStrip, useSongChanged } from "../scripts/VideoSong";
 import { CastPane } from "../cast/CastPane";
@@ -21,7 +21,11 @@ import { notInShots, useAssets } from "../cast/useAssets";
 import { Empty, SOON } from "./Empty";
 import { mp4, type Head } from "./VideoHead";
 import { Filmstrip, SceneRow, useSeen, type Progress } from "./RunCard";
+import { useAsks } from "./AskCard";
+import { serverTime } from "../time";
 import { useRail } from "../useMedia";
+import { CutEditor, fixLabel } from "../cut/CutEditor";
+import { useCutEdits } from "../cut/useCutEdits";
 
 type Project = components["schemas"]["ProjectOut"];
 
@@ -43,12 +47,89 @@ export const tabFrom = (params: URLSearchParams): TabId | null => {
 };
 
 /** What a tab's pane gets. `go` opens another tab (a hold's "Open Cast"); `lines`/`line` tie the plan to the script. */
-export type PaneProps = { p: Project; head: Head | undefined; run: Progress | null; lookOnly: string | null; progress: VideoProgress; go: (tab: TabId) => void; toChat?: () => void; lines: number[]; line: number | null; showLines: (lines: number[]) => void; pickLine: (n: number) => void };
+export type PaneProps = { p: Project; head: Head | undefined; run: Progress | null; lookOnly: string | null; progress: VideoProgress; go: (tab: TabId) => void; toChat?: () => void; lines: number[]; line: number | null; showLines: (lines: number[]) => void; pickLine: (n: number) => void; onEditor?: (on: boolean) => void };
 
 
-/** The cut (S3-09): the player, the downloads and what it's made of. The cut editor (screen 10) mounts its own pane here. */
-function CutPane({ p, head, progress, run }: PaneProps) {
-  const queryClient = useQueryClient();
+/** The Cut tab (S3-09, S7): Watch (the delivered cut, its downloads and what changed) or Edit (the cut editor, screen 10).
+ *  Before the first cut, and while it's made or if it failed, the editor shows where it is (S7-04, S7-06). */
+function CutPane(props: PaneProps) {
+  const { p, progress, onEditor } = props;
+  const [mode, setMode] = useState<"watch" | "edit">("watch");
+  const viewOnly = useViewOnly(); // someone else's video: Watch only (its editor would offer nothing)
+  const cut = useProjectVideo(p.id);
+  const live = useCut(p.id).data;
+  const first = !cut.data || !!(live?.making && !live.number); // the first cut: the editor shows where it is
+  const editing = !cut.isPending && (first ? !!cut.data || progress.clips.total > 0 : !viewOnly && mode === "edit");
+  useEffect(() => onEditor?.(editing), [editing, onEditor]); // the chat narrows to the boards' 400px (S7)
+  useEffect(() => () => onEditor?.(false), [onEditor]);
+  if (cut.isPending) return <Skeleton className="h-[533px] w-[300px] max-w-full rounded-[10px]" />;
+  if (!cut.data && progress.clips.total === 0) return <Empty title="The cut plays here when it’s ready">{SOON}</Empty>;
+  // Every clip approved and no cut yet: the editor puts it together the first time this opens, for free.
+  const editor = <CutEditor projectId={p.id} aspect={p.aspect_ratio} projectName={props.head?.title ?? p.name} auto={!viewOnly} />;
+  if (first) return editor;
+  if (viewOnly) return <CutWatch {...props} />;
+  return (
+    <div className="space-y-4">
+      <div role="radiogroup" aria-label="Cut view" className="ml-auto flex w-fit gap-0.5 rounded-md bg-surface-2 p-0.5">
+        {(["watch", "edit"] as const).map((m) => (
+          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`flex min-h-control items-center gap-1 rounded-sm px-3 text-sm lg:min-h-control-dense ${mode === m ? "bg-surface text-text shadow-raised" : "text-muted"}`}>
+            {m === "edit" && <Scissors size={14} strokeWidth={1.75} aria-hidden />}
+            {m === "watch" ? "Watch" : "Edit"}
+          </button>
+        ))}
+      </div>
+      {mode === "edit" ? editor : <CutWatch {...props} />}
+    </div>
+  );
+}
+
+type Cut = components["schemas"]["CutOut"];
+const and = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+
+/** Cut 1 | Cut 2 · making (S3-12): the cuts made so far, each watchable, and the next while it's made. The cut before stays
+ *  watchable until the new one is ready, and what the new one replaces shows as going out of date. */
+/** The next cut while it's made; not the director making its own cut again before it delivers (same number). */
+const nextCut = (cut: Cut) => (cut.making && !cut.versions.some((v) => v.number === cut.making?.number) ? cut.making : null);
+
+function CutSwitch({ cut, picked, onPick }: { cut: Cut; picked: number | null; onPick: (n: number) => void }) {
+  const making = nextCut(cut);
+  if (cut.versions.length < 2 && !making) return null;
+  const tab = "flex min-h-control items-center rounded-sm px-3 text-sm lg:min-h-control-dense";
+  return (
+    <div className="flex flex-col gap-3">
+      <div role="radiogroup" aria-label="Which cut" className="flex w-fit flex-wrap gap-0.5 rounded-md bg-surface-2 p-0.5">
+        {cut.versions.map((v) => (
+          <button key={v.number} type="button" role="radio" aria-checked={v.number === picked} onClick={() => onPick(v.number)} className={`${tab} ${v.number === picked ? "bg-surface text-text shadow-raised" : "text-muted hover:text-text"}`}>
+            {`Cut ${v.number}`}
+          </button>
+        ))}
+        {making && (
+          <span role="radio" aria-checked={false} aria-disabled className={`${tab} text-muted`}>
+            {`Cut ${making.number} · making`}
+          </span>
+        )}
+      </div>
+      {making && cut.number != null && <p className="text-sm text-muted">{`Cut ${cut.number} stays watchable until Cut ${making.number} is ready.`}</p>}
+      {making && cut.going.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <h3 className="text-xs font-semibold text-muted">Going out of date</h3>
+          <ul className="flex flex-wrap gap-2">
+            {cut.going.map((g) => (
+              <li key={g.piece} className="relative h-[85px] w-12 overflow-hidden rounded-md bg-surface-2">
+                {g.file_id != null && <video src={`${fileUrl(g.file_id)}#t=0.1`} muted preload="metadata" aria-hidden className="size-full object-cover" />}
+                <span className="absolute inset-x-0 bottom-0 whitespace-nowrap bg-black/60 text-center text-[9px] leading-4 text-white">out of date</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted">{and(cut.going.map((g) => g.label))}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Watch (S3-09): the cut, its downloads and what changed after watching. */
+function CutWatch({ p, head, progress, run }: PaneProps) {
   const { media, progress: now } = useProgress(p.id);
   const cut = useProjectVideo(p.id);
   const video = cut.data;
@@ -70,41 +151,17 @@ function CutPane({ p, head, progress, run }: PaneProps) {
   const clips = useProjectClips(p.id).data ?? [];
   const settings = useVideoSettings(p.id);
   const songChanged = useSongChanged(p.id, video?.song_take_id);
-  const remake = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/video", { params: { path: { project_id: p.id } } });
-      if (!data) throw new Error(errorText(error));
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-video", p.id] }),
-  });
+  const remake = useMakeCut(p.id); // made on the server; the cut before keeps playing
+  const live = useCut(p.id).data;
+  const fix = useCutEdits(p.id);
+  const [picked, setPicked] = useState<number | null>(null); // an earlier cut to watch (S3-12); none: the one that plays
   const left = progress.clips.total - progress.clips.approved;
-  // Every clip approved and no cut yet (a video made by hand): it's put together the first time this opens, for free.
-  const ready = !cut.isPending && !video && progress.clips.total > 0 && left === 0;
-  const asked = useRef(false);
-  useEffect(() => {
-    if (ready && !asked.current) {
-      asked.current = true;
-      remake.mutate();
-    }
-  });
-  if (cut.isPending) return <Skeleton className="h-[533px] w-[300px] max-w-full rounded-[10px]" />;
-  if (!video && (remake.isPending || (ready && !remake.isError)))
-    return (
-      <div className="space-y-3" role="status">
-        <p className="text-sm text-muted">Putting your clips together…</p>
-        <Skeleton className="h-[533px] w-[300px] max-w-full rounded-[10px]" />
-      </div>
-    );
-  if (!video)
-    return left === 0 && progress.clips.total > 0 ? (
-      // Every clip approved: it's being put together, or that failed and says why with the press to try again (rule 22).
-      <Banner title="The cut couldn't be put together." action={<Button busy={remake.isPending} onClick={() => remake.mutate()}>Make the cut · free</Button>}>
-        Nothing was charged. {remake.error?.message}
-      </Banner>
-    ) : (
-      <Empty title="The cut plays here when it’s ready">{progress.clips.total > 0 ? `Approve every clip first (${left} left). The cut is put together for free.` : SOON}</Empty>
-    );
-  const name = mp4(head?.title ?? p.name);
+  if (!video) return null; // CutPane shows the editor until there's a cut
+  const older = live?.versions.find((v) => v.number === picked && v.number !== live.number) ?? null;
+  const file = older?.file_id ?? live?.file_id ?? video.file_id; // the switch's pick, else the cut that plays
+  const base = mp4(head?.title ?? p.name);
+  const name = older ? base.replace(/\.mp4$/, `-cut-${older.number}.mp4`) : base;
+  const pick = (n: number) => setPicked(n === live?.number ? null : n); // the cut that plays isn't pinned: a new one replaces it
   const owner = head?.spent.usd != null;
   const s = settings.data;
   const model = s && (s.video_models.find((m) => m.id === s.video_model) ?? s.video_models.find((m) => m.default))?.name;
@@ -120,25 +177,40 @@ function CutPane({ p, head, progress, run }: PaneProps) {
   ];
   return (
     <div className="space-y-5">
-      {remake.isError && <Banner title="The cut couldn't be made again.">Nothing was charged. {remake.error.message}</Banner>}
-      {now.video.outOfDate && (
-        <Banner tone="warning" title="Out of date." action={<Button variant="secondary" busy={remake.isPending} disabled={!!held} reason={held} onClick={() => remake.mutate()}>Make it again</Button>}>
-          {left === 0 && !video.out_of_date && olderLook > 0 ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.` : songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.
+      {remake.isError && <Banner title="The cut couldn’t be made again.">Nothing was charged. {remake.error.message}</Banner>}
+      {live?.failed && ( // a failed cut says why with its way forward; the one before keeps playing (rule 22)
+        <Banner
+          title={live.failed.why}
+          action={live.can_edit && live.failed.fixes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {live.failed.fixes.map((f, i) => (
+                <Button key={f} variant={i === 0 ? "primary" : "secondary"} busy={fix.fix.isPending && fix.fix.variables === f} disabled={fix.busy} onClick={() => fix.fix.mutate(f)}>
+                  {fixLabel(f)}
+                </Button>
+              ))}
+            </div>
+          ) : undefined}
+        />
+      )}
+      {now.video.outOfDate && !live?.making && ( // while the next cut is made it says so beside the switch (S3-12)
+        <Banner tone="warning" title="Out of date." action={live?.failed ? undefined /* the failed cut's own fixes come first */ : <Button variant="secondary" busy={remake.isPending} disabled={!!held} reason={held} onClick={() => remake.mutate()}>Make it again</Button>}>
+          {left === 0 && !video.out_of_date && olderLook > 0 ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.` : songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads.{live?.failed ? "" : " Making it again is free."}
         </Banner>
       )}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-        <video ref={player} controls src={fileUrl(video.file_id)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
+        <video ref={player} controls src={fileUrl(file)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
         <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={pick} />}
           <div className="flex flex-col gap-1 max-sm:hidden">
-            <h2 className="text-lg font-semibold">Final cut</h2>
-            <p className="text-sm tabular-nums text-muted">{[media.seconds > 0 && mmss(media.seconds), p.aspect_ratio, `${progress.clips.total} clip${progress.clips.total === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
+            {!(live && (live.versions.length > 1 || nextCut(live))) && <h2 className="text-lg font-semibold">Final cut</h2>}
+            <p className="text-sm tabular-nums text-muted">{older ? `Cut ${older.number} · made ${serverTime(older.made_at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : [media.seconds > 0 && mmss(media.seconds), p.aspect_ratio, `${progress.clips.total} clip${progress.clips.total === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
           </div>
           <div className="flex flex-col gap-2">
-            <a className={`${buttonClass("primary")} justify-start`} href={fileUrl(video.file_id)} download={name}>
+            <a className={`${buttonClass("primary")} justify-start`} href={fileUrl(file)} download={name}>
               <Download size={16} strokeWidth={1.75} aria-hidden />
               Download MP4
             </a>
-            <a className={`${buttonClass("secondary")} justify-start lg:min-h-control`} href={`/api/projects/${p.id}/clips.zip`} download={name.replace(/\.mp4$/, "-clips.zip")}>
+            <a className={`${buttonClass("secondary")} justify-start lg:min-h-control`} href={`/api/projects/${p.id}/clips.zip`} download={base.replace(/\.mp4$/, "-clips.zip")}>
               Download every clip (.zip)
             </a>
           </div>
@@ -272,6 +344,8 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
 /** The script the video is made from, read only. Lines the plan pointed at are marked; a press on one shows its shot. */
 function ScriptTabPane({ p, lines, pickLine }: PaneProps) {
   const script = useLatestScript(p.id);
+  // The words someone asked to change, marked where they're said (S3-14): the newest such ask's.
+  const asked = (useAsks(p.id, false).data ?? []).filter((a) => a.kind === "instead").at(-1)?.subject;
   // The notes saved on the script (the old page's script panel showed them): kept here, read only, by line.
   const notes = useQuery({ queryKey: ["script-notes", p.id, script.data?.version], enabled: !!script.data, retry: false, queryFn: async () => (await api.GET("/projects/{project_id}/script/notes", { params: { path: { project_id: p.id } } })).data ?? [] });
   if (script.isPending) return <Skeleton className="h-64" />;
@@ -279,8 +353,14 @@ function ScriptTabPane({ p, lines, pickLine }: PaneProps) {
   return (
     <div className="space-y-3">
       <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
+        {p.script_draft_id != null && (
+          <p className="flex items-center gap-2 text-[13px] text-muted">
+            <Lock size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+            Published script · the words are set
+          </p>
+        )}
         {lines.length > 0 && <p className="text-sm text-muted">Lines for this step are highlighted.</p>}
-        <ScriptText text={script.data.text} highlight={lines} onLineClick={pickLine} />
+        <ScriptText text={script.data.text} highlight={lines} marks={asked ? [asked] : []} onLineClick={pickLine} />
       </div>
       {notes.isError && <p className="text-sm text-muted">Couldn’t load the notes saved on the script. They’re kept; open this tab again to see them.</p>}
       {(notes.data ?? []).length > 0 && (
@@ -322,7 +402,7 @@ export const firstTab = (progress: VideoProgress): TabId => (progress.video.made
 
 /** The preview panel (S3): its tabs with counts, then the open tab's pane. On a phone the tabs are a segmented row
  *  (P-09, S-gaps-03). */
-export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, facts }: { p: Project | null; head: Head | undefined; run: Progress | null; tab: TabId; onTab: (t: TabId) => void; toChat?: () => void; lookOnly: string | null; phone: boolean; facts: ReturnType<typeof usePanelFacts> }) {
+export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, facts, onEditor }: { p: Project | null; head: Head | undefined; run: Progress | null; tab: TabId; onTab: (t: TabId) => void; toChat?: () => void; lookOnly: string | null; phone: boolean; facts: ReturnType<typeof usePanelFacts>; onEditor?: (on: boolean) => void }) {
   const [lines, setLines] = useState<number[]>([]);
   const [line, setLine] = useState<number | null>(null);
   const count: Partial<Record<TabId, number>> = { clips: facts.progress.clips.total || facts.progress.frames.total, cast: facts.cast.length };
@@ -370,6 +450,7 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
               line={line}
               showLines={(ls) => (setLines(ls), setLine(null), onTab("script"))}
               pickLine={(n) => (setLine(n), setLines([n]), onTab("plan"))}
+              onEditor={onEditor}
             />
           </ViewOnly>
         )}

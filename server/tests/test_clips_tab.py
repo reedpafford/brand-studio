@@ -145,7 +145,7 @@ def test_going_back_keeps_the_take_in_the_cut_approved(app, db, editor, setup, c
     assert back["approved"] is True and back["picked_take_id"] == take["id"]
     listed = editor.get(f"{base}/clips").json()[0]
     assert listed["approved"] is True and listed["take_stale"] is True  # "Out of date", kept
-    assert editor.post(f"{base}/video").status_code == 201  # the cut can still be made
+    assert editor.post(f"{base}/cut").status_code == 202  # the cut can still be made
 
 
 def test_keeping_a_held_take_withdraws_its_waiting_remake(app, db, editor, setup, clip):  # noqa: F811

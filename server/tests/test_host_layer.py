@@ -45,10 +45,14 @@ def _host(color: str) -> bytes:  # its picture runs 0.5 s past its sound, as P-V
     return _make(f"color=c=0x00B140:s=100x200:r=30:d=1.5,{box}", 1, 1000)
 
 
+def _span(start, end, side, height=0.45, hidden=False) -> dict:
+    return {"start": start, "end": end, "side": side, "height": height, "hidden": hidden}
+
+
 def test_the_host_is_keyed_over_the_b_roll_and_switches_side():
     broll = _make(f"testsrc=s={W}x{H}:r=30:d=2", 2, 440)
     hosts = [_host("0xFF00FF"), _host("0x0000FF")]  # two pieces, one layer
-    cut = host_layer.lay_over(broll, hosts, [(0, "right"), (1, "left")], height=0.45)
+    cut = host_layer.lay_over(broll, hosts, [_span(0, 1, "right"), _span(1, 2, "left")])
     for at, right, host in ((0.5, True, MAGENTA), (1.3, False, BLUE)):  # each cut to its sound
         left = W - 72 if right else 0  # the layer's left edge
         assert _near(_pixel(cut, at, left + 36, H - 58), host)  # the host shows
@@ -58,10 +62,22 @@ def test_the_host_is_keyed_over_the_b_roll_and_switches_side():
         assert _near(_pixel(cut, at, other, H - 58), _pixel(broll, at, other, H - 58))
 
 
+def test_hidden_spans_show_the_b_roll_and_a_size_is_its_height():
+    broll = _make(f"testsrc=s={W}x{H}:r=30:d=2", 2, 440)
+    hosts = [_host("0xFF00FF"), _host("0xFF00FF")]
+    spans = [_span(0, 1, "right", hidden=True), _span(1, 2, "right", height=0.3)]
+    cut = host_layer.lay_over(broll, hosts, spans)
+    right = W - 48  # 30 % of the height: a 48 x 96 layer
+    assert _near(_pixel(cut, 0.5, W - 36, H - 58), _pixel(broll, 0.5, W - 36, H - 58))  # hidden
+    assert _near(_pixel(cut, 1.3, right + 24, H - 38), MAGENTA)  # smaller, and there
+    assert host_layer.lay_over(broll, hosts, [_span(0, 2, "left", hidden=True)]) == broll
+
+
 def test_the_sound_is_the_narration_never_the_hosts():
-    args = host_layer.command("cut.mp4", ["a.mp4", "b.mp4"], [(0, "left")], (720, 1280))
+    whole = [_span(0, 9, "left", height=host_layer.HEIGHT)]
+    args = host_layer.command("cut.mp4", ["a.mp4", "b.mp4"], whole, (720, 1280))
     assert args[args.index("[v]") + 2] == "0:a?"  # the cut's own sound
-    args = host_layer.command("cut.mp4", ["a.mp4"], [(0, "left")], (720, 1280),
+    args = host_layer.command("cut.mp4", ["a.mp4"], whole, (720, 1280),
                               key="#0047BB", narration="voice.mp3")  # fmt: skip
     assert args[args.index("[v]") + 2] == "2:a"
     graph = args[args.index("-filter_complex") + 1]
@@ -69,7 +85,8 @@ def test_the_sound_is_the_narration_never_the_hosts():
     assert "scale=-2:486" in graph  # 38 % of the frame's height
 
 
-@pytest.mark.parametrize("sides", [[], [(1, "left")], [(0, "up")], [(0, "left"), (0, "right")]])
-def test_sides_start_at_zero_and_go_in_order(sides):
+@pytest.mark.parametrize("spans", [[], [_span(0, 1, "up")], [_span(1, 0, "left")],
+                                   [_span(0, 2, "left"), _span(1, 3, "right")]])  # fmt: skip
+def test_spans_run_forward_in_order_on_a_side(spans):
     with pytest.raises(ValueError):
-        host_layer.command("cut.mp4", ["a.mp4"], sides, (720, 1280))
+        host_layer.command("cut.mp4", ["a.mp4"], spans, (720, 1280))

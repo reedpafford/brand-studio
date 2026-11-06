@@ -100,13 +100,20 @@ def own_look(item: LibraryItem) -> bool:
 
 
 def queue_sheet(
-    db: Session, user: User, item: LibraryItem, body: SheetIn, fit_redo=False, auto=False
+    db: Session,
+    user: User,
+    item: LibraryItem,
+    body: SheetIn,
+    fit_redo=False,
+    auto=False,
+    director=False,
 ) -> Job:
     """The sheet's paid image job. The press holds what it can still spend (`worst`): the
     check after it and, unless it's the person's own change, the one automatic redo with its
     check, so the price shown is never passed; past the budget or the week, the whole press
     is refused with the reason. The automatic redo spends from that hold (prepaid) and is
-    checked but never redone again."""
+    checked but never redone again. `director`: the redo of a director's look is its run's
+    too (counted inside the run's price, as its first sheet and check are)."""
     kind = item.kind
     look = None if body.look_id in (None, looks.DEFAULT) else body.look_id  # the owner's
     # In another look, the approved House sheet is the person when there's no photo (ST2)
@@ -139,7 +146,8 @@ def queue_sheet(
     # auto_made: Assets made it by itself; its check and redo say so too ("Made 3 looks · 7")
     data = {**job, "step": "sheet", "library_item_id": item.id, "changed": changed,
             "after_check": str(after), "auto_made": auto, "sheet_look_id": look,
-            "change": body.change.strip(), "fit_redo": fit_redo}  # fmt: skip  # why (Cast)
+            "change": body.change.strip(), "fit_redo": fit_redo,
+            **({"by_director": True} if director else {})}  # fmt: skip  # why (Cast)
     return enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db, user, "image", data, project=project, provider="replicate",
         hold=check + after, prepaid=fit_redo,
@@ -202,7 +210,8 @@ def save_sheet(db: Session, job: Job) -> None:
     if is_checked(item):
         after = Decimal(job.input.get("after_check", "0"))
         auto = bool(job.input.get("auto_made"))
-        check_fit(db, user, item, redo=not job.input.get("changed"), after=after, auto=auto)
+        check_fit(db, user, item, redo=not job.input.get("changed"), after=after, auto=auto,
+                  director=bool(job.input.get("by_director")))  # fmt: skip
 
 
 def check_fit(
@@ -214,6 +223,7 @@ def check_fit(
     auto=False,
     slot=None,
     pressed=False,
+    director=False,
 ) -> None:
     """Does the new sheet read as its description (age, gender, job)? One cheap Claude look
     (prompts/look_fit.md, effort low), paid like the sheet; the sheet shows as still being
@@ -235,6 +245,7 @@ def check_fit(
         "files": {"reference_images": [item.sheet_file_id]},
         "fit_images_to": 1024,
         "auto_made": auto,
+        **({"by_director": True} if director else {}),  # a director's look: its run's check
     }
     if slot:
         data["text_for"] = {"slot_id": slot.id, "sheet_file_id": item.sheet_file_id,
@@ -269,7 +280,8 @@ def save_fit(db: Session, job: Job) -> None:
         db.commit()  # the check's answer stays even if the redo is refused (that rolls back)
         try:
             maker, auto = db.get(User, job.created_by_id), bool(job.input.get("auto_made"))
-            queue_sheet(db, maker, item, SheetIn(change=note), True, auto=auto)
+            queue_sheet(db, maker, item, SheetIn(change=note), True, auto=auto,
+                        director=bool(job.input.get("by_director")))  # fmt: skip
             return
         except HTTPException:
             pass  # past the budget: the look shows as it is, with the advice

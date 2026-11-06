@@ -215,8 +215,9 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
   );
 }
 
-/** A run that a person stopped (S3-08): the line saying who and when, and the director's reply with Carry on at its price. */
-export function stoppedParts({ progress: r, onCarryOn, busy, blocked, error }: { progress: Progress; onCarryOn: () => void; busy: boolean; blocked: string | null; error: string | null }) {
+/** A run that a person stopped (S3-08): the line saying who and when, and the director's reply with Carry on at its price
+ *  and Start the plan again (a new run that plans the whole video again; its start card says its "up to" before Make it). */
+export function stoppedParts({ progress: r, onCarryOn, onPlanAgain, busy, planBusy, blocked, error }: { progress: Progress; onCarryOn: () => void; onPlanAgain: () => void; busy: boolean; planBusy: boolean; blocked: string | null; error: string | null }) {
   const s = r.stopped!;
   return {
     line: `${s.by} stopped the director at ${clock(s.at)}. Nothing more is being spent.`,
@@ -224,8 +225,11 @@ export function stoppedParts({ progress: r, onCarryOn, busy, blocked, error }: {
       <div className="flex flex-col gap-2">
         <p className="leading-[21px]">{`Stopped. ${s.made ? `The ${s.made} finished clip${s.made === 1 ? " is" : "s are"} kept.` : "Nothing was finished yet."} Tell me what to change, or carry on where I left off.`}</p>
         <div className="flex flex-wrap gap-2">
-          <Button busy={busy} disabled={!!blocked} reason={blocked} onClick={onCarryOn}>
+          <Button busy={busy} disabled={!!blocked || planBusy} reason={blocked} onClick={onCarryOn}>
             {`Carry on · up to ${s.carry_on} more`}
+          </Button>
+          <Button variant="secondary" busy={planBusy} disabled={!!blocked || busy} reason={blocked} onClick={onPlanAgain}>
+            Start the plan again
           </Button>
         </div>
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
@@ -291,7 +295,7 @@ const money = (n: Note) => (n.spent_usd != null ? `$${n.spent_usd.toFixed(2)}` :
 
 /** The delivery note (S3-09, S3-10, P-08) in Reed's three parts (5 Nov, #1340): What I made, with what it watched and redid
  *  at its times; What remains uncertain, the director's words and what the server knows is still open; What I need from
- *  you, as the server says it ("ready to post" only when nothing is open); and the real cost. `onWatch`: the changes it made, watched (the outline comes off). */
+ *  you, as the server says it ("ready to post" only when nothing is open); and what the video has cost so far, as its header says it (S3-12). `onWatch`: the changes it made, watched (the outline comes off). */
 export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatch?: () => void; changes: number }) {
   const part = (title: string, body: ReactNode) => (
     <div className="flex flex-col gap-1">
@@ -358,7 +362,7 @@ export function PastNote({ note: n }: { note: Note }) {
   const [open, setOpen] = useState(false);
   return (
     <details onToggle={(e) => setOpen(e.currentTarget.open)} className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-muted">
-      <summary className="cursor-pointer list-none tabular-nums max-lg:min-h-control max-lg:content-center">{["Delivery note", `Cut ${n.cut}`, n.seconds > 0 && mmss(n.seconds), money(n)].filter(Boolean).join(" · ")}</summary>
+      <summary className="cursor-pointer list-none tabular-nums max-lg:min-h-control max-lg:content-center">{["Delivery note", n.cut != null && `Cut ${n.cut}`, n.seconds > 0 && mmss(n.seconds), money(n)].filter(Boolean).join(" · ")}</summary>
       {open && (
         <div className="mt-2 text-text">
           <DeliveryNote note={n} changes={0} />

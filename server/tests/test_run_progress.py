@@ -101,7 +101,7 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
     assert c["frame_file_id"] and c["take_id"] and c["number"] == 1
     assert c["model"] and c["label"] and c["changed"] and c["state"] == "redone"  # its cut's watch
     assert c["note"] and not c["note"].startswith(("The watch", "c1"))
-    assert p["spent"] > 0 and p["up_to"] > 0 and p["spent_usd"] == 0  # the stand-ins are free
+    assert p["spent"] > 0 and p["up_to"] >= p["spent"] and p["spent_usd"] > 0  # as the header
     assert _progress(editor, pid)["spent_usd"] is None  # editors never see dollars
 
     mine = next(m for m in owner.get(f"/projects/{pid}/director").json()["thread"]
@@ -109,14 +109,12 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
     note = mine["note"]
     assert note["made"] == "The cut is made with each clip's best take."
     cuts = db.query(FinalVideo).filter_by(project_id=pid).count()  # it cut, watched and cut again
-    assert (note["cut"], note["clips"], note["seconds"]) == (cuts, 1, 5) and cuts > 1
+    assert (note["cut"], note["clips"], note["seconds"]) == (1, 1, 5) and cuts > 1  # its Cut 1
     assert note["open"] == [  # the stand-in's last watch repeats a finding: still open
         "Clip 1: the opening face changes between shots. Not fixed.",
         "The takes weren't checked one by one.",
     ]  # checks are off here
-    assert note["needs"] == delivery.LOOK_FIRST and note["cost"].startswith(
-        "$0.00 spent of up to $"
-    )
+    assert note["needs"] == delivery.LOOK_FIRST
     texts = [r["text"] for r in note["redid"]]  # what it watched and redid, with when
     muted = "Clip 1: a stray sound nobody asked for. Muted a stretch of clip 1 instead of " \
             "remaking it."  # fmt: skip
@@ -148,8 +146,8 @@ def test_the_director_writes_the_notes_words_and_the_server_the_rest(app, db, ow
     assert note["unsure"] == "The end holds long; say “shorter end”."
     texts = [r["text"] for r in note["redid"]]
     assert "Clip 1: garbled words burned in. Remade without them." in texts  # no "c1: " left
-    seen = delivery.shown(db, project, note, owner=False)
-    assert seen["needs"] == "Your OK on clip 1." and seen["spent_usd"] is None
+    seen = delivery.shown(note, owner=False)
+    assert seen["needs"].startswith("Your OK on clip 1. Look at") and seen["spent_usd"] is None
 
 
 def test_each_clip_says_what_happened_to_it(app, db, owner, editor, monkeypatch):
@@ -365,17 +363,20 @@ def test_another_editor_marks_what_they_watched(app, db, owner, editor):
     assert _progress(editor, pid)["changed"][0]["watched"] is False
 
 
-def test_the_real_cost_is_never_kept_where_an_editor_can_read_it(app, db, owner, editor):
-    """Any teammate can read a job's output (GET /jobs): the note keeps credits and the run's
-    times, and the owner's dollars are read from Usage when the owner reads it."""
+def test_the_note_says_the_headers_spent_and_keeps_no_dollars(app, db, owner, editor):
+    """One spent figure: the owner's note says what the run charged, in dollars at the header's
+    rate (not the stand-ins' real $0.00). Any teammate can read a job's output (GET /jobs), so
+    the note keeps credits only; the dollars are worked out when the owner reads it."""
     pid = _done(app, db, owner, editor)
     deliver = director.turns(db, db.get(Project, pid))[-1]
-    assert "spent_usd" not in deliver.output["note"] and deliver.output["note"]["since"]
-    listed = editor.get(f"/jobs/{deliver.id}").json()
-    assert "spent_usd" not in str(listed)
+    assert "spent_usd" not in str(editor.get(f"/jobs/{deliver.id}").json())
     note = next(m for m in owner.get(f"/projects/{pid}/director").json()["thread"]
                 if m.get("note"))["note"]  # fmt: skip
-    assert note["spent_usd"] == 0 and note["cost"].startswith("$0.00 spent of up to $")
+    head = owner.get(f"/projects/{pid}/idea").json()
+    assert note["spent"] == head["spent"]["credits"] > 0
+    assert note["spent_usd"] == head["spent"]["usd"] > 0
+    usd, most = head["spent"]["usd"], head["up_to"]["usd"]
+    assert note["cost"] == f"${usd:.2f} spent of up to ${most:.2f}"
 
 
 def test_a_held_turn_the_owner_declined_reads_as_stopped_with_the_reason(app, db, owner, editor):
@@ -424,7 +425,7 @@ def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeyp
     db.add(ItemCheck(project_id=pid, target="take", target_id=take.id, status="done"))
     db.commit()
     note = delivery.note(db, project, deliver, {"made": "A short clip."})
-    assert note["open"] == [] and delivery.shown(db, project, note, True)["needs"] == (
+    assert note["open"] == [] and delivery.shown(note, True)["needs"] == (
         delivery.NOTHING)  # fmt: skip
     w.clear()
     w["state"] = "none"  # then: a cut no one watched
@@ -443,7 +444,7 @@ def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeyp
         "The cut wasn't watched.", "Clip 1's take wasn't checked.",
         "Clip 1's take is waiting for the owner's OK: remaking clip 1 goes past the video's "
         "budget."]  # fmt: skip
-    shown = delivery.shown(db, project, note, False)
+    shown = delivery.shown(note, False)
     assert shown["needs"] == delivery.LOOK_FIRST and "ready to post" not in shown["needs"]
     assert "Clip 1's take wasn't checked." in delivery.plain(shown).splitlines()
 
@@ -453,7 +454,9 @@ def test_ready_to_post_only_when_nothing_is_open(app, db, owner, editor, monkeyp
     db.commit()
     note = delivery.note(db, project, deliver, {"made": "x", "needs": "Your OK on clip 1."})
     assert "Clip 1: Mia's face drifts. Kept as it is." in note["open"]
-    assert delivery.shown(db, project, note, True)["needs"] == "Your OK on clip 1."
+    assert delivery.shown(note, True)["needs"] == (
+        "Your OK on clip 1. Look at what remains uncertain before you post it."
+    )  # still open
 
 
 def test_the_director_md_delivery_lines_are_reeds():
@@ -513,7 +516,7 @@ def test_what_is_open_never_lists_what_was_fixed_and_names_each_step(
         "budget."]  # fmt: skip
 
     note = {**note, "open": [], "unsure": "The ending may feel long."}
-    assert delivery.shown(db, project, note, True)["needs"] == delivery.LOOK_FIRST
+    assert delivery.shown(note, True)["needs"] == delivery.LOOK_FIRST
 
 
 def test_every_open_problem_is_listed_and_every_check_that_didnt_finish(
@@ -567,3 +570,50 @@ def test_the_stand_in_says_watched_only_when_it_watched_this_cut():
     assert (out["tool"], out["why"]) == ("deliver", "The cut is made.")
     state["watch"] = {"state": "done", "current": True, "findings": []}
     assert director.choose(state)["why"] == "The cut is made and watched."
+
+
+def test_the_director_never_says_ready_to_post_while_something_is_open():
+    """Reed: a cut that exists isn't ready to post. Whatever the director wrote, it never
+    reads as ready while something is open or uncertain; its real asks are kept word for word
+    (QA on #1355: deleting sentences lost asks)."""
+    base = {"made": "x", "redid": [], "unsure": "", "needs": "", "open": [], "spent": 1,
+            "up_to": 10, "cut": 1, "seconds": 5, "clips": 1}  # fmt: skip
+    shown = lambda **o: delivery.shown({**base, **o}, False)["needs"]  # noqa: E731
+    assert shown() == delivery.NOTHING
+    assert shown(needs="Nothing. It’s ready to post.") == "Nothing. It’s ready to post."
+    for o in ({"open": ["The cut wasn't watched."]}, {"unsure": "The end may feel long."}):
+        assert shown(needs="Nothing. It’s ready to post.", **o) == delivery.LOOK_FIRST
+        assert shown(**o) == delivery.LOOK_FIRST
+
+
+def test_every_way_of_saying_ready_is_held_back_and_every_ask_is_kept():
+    """QA on #1355: readiness said any way (or a note asking nothing) reads LOOK_FIRST; an
+    ask stays whole, after "Not ready to post yet." when it mentions being ready."""
+    for said in ("ready for posting", "All set.", "You’re all set!", "You can post it.",
+                 "It’s ready.", "The cut is ready.", "Everything’s ready.", "Ready to go.",
+                 "Good to post.", "Go ahead and post it.", "Feel free to post it.",
+                 "Ready for upload.", "Ready to be shared.", "It is ready to be posted.",
+                 "Ready-to-post.", "good-to-go", "ready  to post", "Ready\nto post.",
+                 "Nothing else needed.", "No action needed.", "Nothing to approve.",
+                 "Nothing at this time.", "N/A", "Nothing. It’s ready to post.",
+                 "Nothing to approve."):  # fmt: skip
+        assert delivery.needs(said, True) == delivery.LOOK_FIRST, said
+    look, yet = delivery.LOOK, delivery.NOT_YET
+    for ask in ("Your OK on clip 1, and it’s ready to post.",
+                "It’s ready to post, but listen to clip 3 first.",
+                'Say "go." Then it’s ready to post.',
+                "Confirm the voice — it’s all set apart from that.",
+                "Is it ready to share with the client?"):  # fmt: skip
+        assert delivery.needs(ask, True) == f"{yet} {ask} {look}", ask
+    for ask in ("The final cut is ready.", "Your video is ready.", "Ready whenever you are.",
+                "Just post it.", "Nothing needed — post it as is.", "Ready to ship.",
+                "Approve it, then post it."):  # fmt: skip  # mentions ready or posting: led
+        assert delivery.needs(ask, True) == f"{yet} {ask} {look}", ask
+    for ask in ("Approve it.", "Approve it?", "Do you approve?", "Do you want it shorter?",
+                "OK it?", "Go ahead?", "Nothing else. Approve it.",
+                "No, approve it."):  # fmt: skip  # a short ask is never swallowed
+        assert delivery.needs(ask, True) == f"{ask} {look}", ask
+    assert delivery.needs("Your OK on clip 1", True) == f"Your OK on clip 1. {look}"
+    assert delivery.needs("Check clip 3;", True) == f"Check clip 3. {look}"
+    assert delivery.needs("Wait…", True) == f"Wait… {look}"
+    assert delivery.needs('Say "go."', True) == f'Say "go." {look}'  # no stray full stop

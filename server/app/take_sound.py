@@ -12,7 +12,7 @@ and the music bed are their own layers. Each effect has its own loudness against
 its loudness is measured and brought to the target, then a limiter caps its samples at -4 dBFS (the
 alarm in th-20s was the one effect louder than the voice). The sound is the take's sound
 layer (its made_with "sound"): the final cut mixes it under the take's own sound, so a narrated
-video keeps it under the voice with the music ducked (clip_takes._narrated_mix), and a new or
+video keeps it under the voice with the music ducked (cut_render.level), and a new or
 removed one puts the cut out of date. Priced and charged like a take (about $0.0061 a run,
 billed by GPU time); a failed run is tried again once on its own, then Make again (rule 22).
 Remove takes it off: the take is as it was made, silent B-roll silent again."""
@@ -109,7 +109,7 @@ def price(db: Session, workspace_id: int) -> Decimal:
 
 
 def sung(db: Session, project: Project) -> bool:
-    """A song video: its cut drops the takes' own sound for the song (clip_takes.song_cut)."""
+    """A song video: its cut drops the takes' own sound for the song (cut_render.song_cut)."""
     from app.narration import KIND
 
     song = db.get(SongTake, project.song_take_id) if project.song_take_id else None
@@ -177,7 +177,7 @@ def add(db: Session, user: User, project: Project, rows: list[ProjectClip], aske
 def silent(db: Session, storage, take: ClipTake) -> bool:
     """The take was made with no sound (B-roll asked for none, or a model with none), or its
     file has no audio."""
-    from app.clip_takes import _probe
+    from app.cut_render import _probe
 
     made = db.get(Job, take.job_id)
     if not ((made.input if made else {}).get("input") or {}).get("generate_audio"):
@@ -234,15 +234,6 @@ def loudness(made: dict) -> float:
     return float(made.get("db", LEVELS.get(made["how"], LEVELS["normal"])))
 
 
-def under(db: Session, storage, take: ClipTake | None, video: bytes) -> bytes:
-    """The take with its added sound mixed under its own (free: ffmpeg)."""
-    made = added(take)
-    if not made:
-        return video
-    return apply(video, storage.get(db.get(StoredFile, made["file_id"]).key),
-                 loudness(made))  # fmt: skip
-
-
 def measured(folder: Path, name: str) -> float | None:
     """A file's integrated loudness (LUFS, ffmpeg's loudnorm measurement); None when it has
     nothing loud enough to measure."""
@@ -266,7 +257,7 @@ def gain(loud: float | None, level: float) -> float:
 def apply(video: bytes, sound: bytes, level: float) -> bytes:
     """`sound`'s audio brought to `level` LU against the voice and limited, under the take's
     own (or alone, a silent take); the picture copied as it is, the length the take's."""
-    from app.clip_takes import _probe
+    from app.cut_render import _probe
 
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)

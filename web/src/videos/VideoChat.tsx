@@ -24,6 +24,7 @@ import { useOnline, useRail } from "../useMedia";
 import { plain, useDirectorRun, useMovesRefresh } from "./director";
 import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview";
 import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
+import { InsteadCard } from "./InsteadCard";
 import { DeliveryNote, Failed, PastNote, RunCard, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
 import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 
@@ -63,6 +64,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
+  const [editing, setEditing] = useState(false); // the cut editor is open: the chat narrows (S7)
   const [side, setSide] = useState<"chat" | "preview">(params.get("tab") || params.get("step") ? "preview" : "chat"); // the phone's switch
   const [stopping, setStopping] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -169,12 +171,12 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const chat = (
     <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
   );
-  const preview = <Preview p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
+  const preview = <Preview onEditor={setEditing} p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
     <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
       {rail ? (
         <>
-          <section aria-label="Chat" className="flex min-h-0 w-[min(600px,50%)] shrink-0 flex-col border-r border-border bg-surface">
+          <section aria-label="Chat" className={`flex min-h-0 shrink-0 flex-col border-r border-border bg-surface ${editing ? "w-[400px]" : "w-[min(600px,50%)]"}`}>
             {header}
             {chat}
           </section>
@@ -342,6 +344,20 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       return refreshJobs(queryClient);
     },
   });
+  // "Start the plan again" (S3-08): a new run, as Carry on starts one, that plans the whole video again after Make it.
+  const planAgain = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/projects/{project_id}/director/plan-again", { params: { path: { project_id: id } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["director", id], data);
+      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
+      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
+      return refreshJobs(queryClient);
+    },
+  });
   // A start card waiting for Make it is the press, as are a stopped or failed run's own (Carry on, its fixes): the general
   // one stands aside (S3-02, S3-08, S3-11).
   const startOpen = cards.some((a) => a.kind === "start" && isOpen(a));
@@ -350,7 +366,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const mayStart = fs ? owner : maker; // a freestyle's run is the owner's to start again; a script video's, its maker's
   const blocked = run?.start_blocked || null;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
-  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => again.mutate(), busy: again.isPending, blocked, error: again.isError ? again.error.message : null }) : null;
+  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), again.mutate()), onPlanAgain: () => (again.reset(), planAgain.mutate()), busy: again.isPending, planBusy: planAgain.isPending, blocked, error: (again.error ?? planAgain.error)?.message ?? null }) : null;
   const presses = !archived && !lookOnly && (
     <>
       {ended && mayStart && p && (
@@ -373,6 +389,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
     onSuccess: (data) => {
       queryClient.setQueryData(["director", id], data);
       if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
+      void queryClient.invalidateQueries({ queryKey: ["asks", id] }); // a locked line's answer comes at once (S3-14)
       return refreshJobs(queryClient);
     },
   });
@@ -460,6 +477,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
               <Item key={t.id} t={t} owner={owner} words={cards.some((a) => a.id === t.ask_id) ? null : t.text}>
                 {(() => {
                   const a = cards.find((x) => x.id === t.ask_id);
+                  if (a?.kind === "instead") return <InsteadCard ask={a} />; // S3-14: what can change instead of a locked line
                   return a && <AskCard ask={a} owner={owner} onChangePlan={a.kind === "start" ? focusBox : undefined} onWithdraw={withdrawFor(a)} />;
                 })()}
               </Item>

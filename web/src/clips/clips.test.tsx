@@ -114,7 +114,7 @@ test("the presses: Another take, Change this… with a note, Edit the prompt, Us
     "POST /projects/50/clips/3/change": [201, {}],
     "PUT /projects/50/clips/3": [200, {}],
     "POST /projects/50/clips/3/takes/31/use": [200, {}],
-    "POST /projects/50/video": [201, { file_id: 901, take_ids: [], out_of_date: false }],
+    "POST /projects/50/cut": [202, { number: 2, making: { number: 2 }, versions: [], going: [] }],
     "POST /projects/50/storyboard/frames/72/pick": [200, {}],
     "POST /projects/50/storyboard/frames/72/approve": [200, {}],
   });
@@ -134,7 +134,7 @@ test("the presses: Another take, Change this… with a note, Edit the prompt, Us
   await vi.waitFor(() => expect(calls.find((x) => x.key === "PUT /projects/50/clips/3")?.body).toEqual({ prompt: "A new prompt.", references: [] }));
   await userEvent.click(await within(c).findByRole("button", { name: "Use this take · free" }));
   await vi.waitFor(() => expect(calls.some((x) => x.key === "POST /projects/50/clips/3/takes/31/use")).toBe(true));
-  await vi.waitFor(() => expect(calls.some((x) => x.key === "POST /projects/50/video")).toBe(true)); // the cut, made again by itself
+  await vi.waitFor(() => expect(calls.some((x) => x.key === "POST /projects/50/cut")).toBe(true)); // the cut, made again by itself
   // Take 1 was made from still 1: picking that still back brings take 1 back, free, with no new take (S-gaps-08 2).
   await userEvent.click(within(c).getByRole("button", { name: "Use this still · free · take 1 comes back" }));
   await vi.waitFor(() => expect(calls.find((x) => x.key === "POST /projects/50/storyboard/frames/72/pick")?.body).toEqual({ file_id: 799 }));

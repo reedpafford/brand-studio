@@ -8,6 +8,7 @@ from app.enhance import project_context
 from app.models.looks import LookSwitch
 from app.models.projects import Project
 from app.models.script_library import Script
+from tests.conftest import make_cut
 from tests.test_script_produce import _published
 
 
@@ -90,7 +91,7 @@ def test_a_video_takes_its_scripts_look_and_its_prompts_use_its_own(owner, edito
 
 @pytest.mark.usefixtures("own_look")
 def test_a_look_change_puts_its_stills_and_clips_out_of_date_and_undo_brings_them_back(
-    owner, editor, db
+    app, owner, editor, db
 ):
     from app.models.breakdowns import BreakdownVersion
     from app.models.clips import ClipTake, ProjectClip
@@ -124,7 +125,7 @@ def test_a_look_change_puts_its_stills_and_clips_out_of_date_and_undo_brings_the
     assert frame["still_stale"] and not frame["approved"]
     (shown,) = editor.get(f"{video}/clips").json()
     assert shown["take_stale"] and not shown["approved"]
-    made = editor.post(f"{video}/video")
+    made = make_cut(app, db, editor, video)
     assert (made.status_code, made.json()["detail"]) == (409, looks.OTHER.format("1 clip was"))
 
     back = owner.patch(video, json={"look": "house"}).json()  # Undo: current again, free

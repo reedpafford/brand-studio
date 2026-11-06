@@ -12,7 +12,7 @@ from app.models.projects import Project
 from app.providers.fake_local import hear_cut
 from app.providers.local import LocalProvider
 from app.worker import run_once
-from tests.conftest import run_writer
+from tests.conftest import make_cut, run_writer
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
 
@@ -96,7 +96,7 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     editor.post(f"{base}/clips/{clip['id']}/generate")
     _work(app, db, FakeSeedance([_mp4("red")]))
     editor.post(f"{base}/clips/{clip['id']}/approve")
-    assert editor.post(f"{base}/video").status_code == 201
+    assert make_cut(app, db, editor, base).status_code == 200
     run = {"id": "r1", "turn": 3, "redos": {}}
     assert watch_cut.start(db, user, project, run) == "Watching the cut."
     db.commit()

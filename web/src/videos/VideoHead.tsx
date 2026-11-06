@@ -276,7 +276,8 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
         )}
         {menu}
       </div>
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        {/* beside the cut editor the chat is 400px: the status and the money go under the title (S7) */}
         <h1 className="min-w-0 max-w-[300px] shrink-0 truncate text-lg font-semibold">{head.title}</h1>
         <StatusWords status={status} /> {/* its reason gives way before the title does (a question's words are long) */}
         <span className="flex-1" />

@@ -13,7 +13,7 @@ from decimal import Decimal
 from statistics import median
 from types import SimpleNamespace
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import asks, model_map
@@ -22,7 +22,7 @@ from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, ProjectClip
-from app.models.jobs import WAITING, Job, JobStatus, Usage
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.models.seen import TakeSeen
 from app.models.storyboards import StoryboardFrame
@@ -40,8 +40,8 @@ PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "song": "vo
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
           "split_clip": "plan",
           "make_take": "takes", "pick_take": "takes", "splice_word": "takes", "mute": "takes",
-          "add_sound": "takes", "host": "host", "final_cut": "cut", "watch_cut": "cut",
-          "deliver": "cut"}  # fmt: skip  # the step each of the director's tools works on
+          "add_sound": "takes", "host": "host", "final_cut": "cut", "edit_cut": "cut",
+          "watch_cut": "cut", "deliver": "cut"}  # fmt: skip  # each tool's step
 
 
 def money(credits: Decimal | float, owner: bool) -> str:
@@ -117,6 +117,15 @@ def _found(row: ItemCheck | None) -> list[dict]:
     return [f for i, f in enumerate(row.findings or []) if i not in gone] if row else []
 
 
+def _set_aside(turns: list[Job]) -> datetime | None:
+    """A "Start the plan again" run's press, once its old takes were set aside (S3-08): takes
+    made before it, unless picked again, aren't a clip's made take on its card."""
+    from app import director
+
+    run = turns[-1].input.get(RUN) if turns else None
+    return director._pressed(run) if run and run.get(director.UNPICKED) else None
+
+
 class _Video:
     """Everything the record reads, in a fixed number of queries however many clips."""
 
@@ -136,9 +145,12 @@ class _Video:
                        if have and c["id"] not in have]  # fmt: skip
         ids = [c.id for c in self.clips if c.id]
         self.takes: dict[int, list[ClipTake]] = defaultdict(list)
+        aside = _set_aside(turns)  # Start the plan again: takes from before the press don't count
+        picks = {c.picked_take_id for c in self.clips}
         for t in db.scalars(select(ClipTake).where(ClipTake.clip_id.in_(ids))
                             .order_by(ClipTake.number)):  # fmt: skip
-            self.takes[t.clip_id].append(t)
+            if not (aside and t.created_at < aside and t.id not in picks):
+                self.takes[t.clip_id].append(t)
         tids = [t.id for ts in self.takes.values() for t in ts]
         self.checks: dict[int, dict[str, ItemCheck]] = defaultdict(dict)  # the newest of each
         for c in db.scalars(select(ItemCheck).where(ItemCheck.target.in_(("take", "words")),
@@ -472,10 +484,11 @@ def price_of(db: Session, project: Project) -> Decimal:
 
 
 def run_up_to(db: Session, project: Project) -> Decimal:
-    """The "up to" of the run under way or delivered: the price its Make it approved (with any
-    OK at the director's own limit, rule 34), so the header, the start card, the run's card and
-    its note say one figure; before any Make it, the price a new run would show. A freestyle's
-    video, hidden or in its brand, reads its sends' approved total, as its header does."""
+    """The video's "up to" once a run is under way or delivered: what every Make it approved
+    (`asks.approved_total`, board S3-12), so the header, the start card, the run's card and
+    its note say one figure on every run; before any Make it, the price a new run would show.
+    A freestyle's video, hidden or in its brand, reads its sends' approved total, as its
+    header does."""
     from app import asks
     from app.credits import approved
     from app.models.freestyles import Freestyle
@@ -485,22 +498,30 @@ def run_up_to(db: Session, project: Project) -> Decimal:
         return approved(db, fs)
     if project.hidden:
         return price_of(db, project)
-    got = asks.approved_run(db, project)
-    return got[0] if got else price_of(db, project)
+    got = asks.approved_total(db, project)
+    return got if got is not None else price_of(db, project)
 
 
-def spent(db: Session, project: Project, since: datetime,
-          until: datetime | None = None) -> tuple[Decimal, Decimal]:  # fmt: skip
-    """(credits charged, real dollars) on the video from `since` to `until`: a run's spend."""
-    from app.credits import COUNTED
+def spent(db: Session, project: Project) -> tuple[Decimal, Decimal]:
+    """(what the video has charged so far, its "up to"), in credits, as its header says them
+    (board S3-12: the whole video's figures, one for the header, the run card and the note):
+    every counted job on it, and the most its OKs let it reach, never below what it spent,
+    rounded up as the header rounds it. The most it can reach is every Make it's price
+    (`run_up_to`), or, when more, what it spent outside its newest run (a charge before a run
+    or a press between runs, QA on #1355) plus that run's whole price."""
+    from app import asks, ideas
 
-    mine = (Job.project_id == project.id, Job.created_at >= since,
-            *((Job.created_at <= until,) if until else ()))  # fmt: skip
-    credits = db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(
-        *mine, Job.status.in_(COUNTED)))  # fmt: skip
-    usd = db.scalar(select(func.coalesce(func.sum(Usage.cost_usd), 0)).join(
-        Job, Job.id == Usage.job_id).where(*mine))  # fmt: skip
-    return Decimal(credits), Decimal(usd)
+    used = ideas.facts(db, [project]).used.get(project.id, Decimal(0))
+    run = asks.approved_run(db, project, waiting=True)
+    reach = used - run[1] + run[0] if run else Decimal(0)
+    return used, ideas._up(max(run_up_to(db, project), reach, used))
+
+
+def dollars(credits: Decimal) -> float:
+    """Credits as the owner reads them, in dollars at the header's rate (`ideas._money`)."""
+    from app.models.credits import USD_PER_CREDIT
+
+    return float(round(credits * USD_PER_CREDIT * 100) / 100)
 
 
 def _changes(video: _Video, turns: list[Job], since: datetime) -> str:
@@ -539,6 +560,9 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     held = held.order_by(Job.id)
     holds = None if how else db.scalar(held.limit(1))
     revising = any(r != run_id and ending(t)[0] == "delivered" for r, t in every.items())
+    notes = [(j.output or {}).get("note") for r, t in every.items() if r != run_id for j in t]
+    cut = next((n["cut"] for n in reversed(notes) if isinstance(n, dict) and n.get("cut")), None)
+    stays = f"{f'Cut {cut}' if cut else 'The cut'} stays as it is"  # a revision's delivered cut
     scenes = [{"id": sid, "name": name, "clips": [c for c in cells if c["scene"] == sid]}
               for sid, name in video.scenes()]  # fmt: skip
     other = [c for c in cells if c["scene"] not in {s["id"] for s in scenes}]
@@ -548,8 +572,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     at = next((n for n, s in enumerate(scenes, 1) if s["done"] < s["total"]), len(scenes))
     total, made = len(cells), sum(c["state"] in DONE for c in cells)
     redone = sum(c["changed"] for c in cells)
-    charged, usd = spent(db, project, start)
-    up_to = run_up_to(db, project)
+    charged, up_to = spent(db, project)
     if how == "delivered":
         head = ("delivered", _took(turns), _n(total, "clip") + (
             f" · {redone} redone after watching" if redone else ""), "done")  # fmt: skip
@@ -567,9 +590,13 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         and viewer
         and asks.may_start(db, viewer, project)
     ):  # its start card, theirs to press (S3-02)
-        head = ("waiting", "Ready to make", "No generation started: press Make it", "wait")
+        first = "No generation started: press Make it"
+        sub = f"{stays} until you press Make it" if revising else first
+        head = ("waiting", "Ready to make", sub, "wait")
     elif holds is not None:
         why = (holds.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
+        if revising and holds.input.get(asks.START):  # a revision's start card, the owner's
+            why = f"{stays} until the owner says yes"
         head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner's OK",
                 why, "wait")  # fmt: skip
     elif revising:
@@ -594,7 +621,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "minutes_left": None if how else _left(video, cells, start, now),
            "steps": steps(db, video, turns, cells, how, holds is not None, owner),
            "spent": float(charged), "up_to": float(up_to),
-           "spent_usd": float(usd) if owner else None,
+           "spent_usd": dollars(charged) if owner else None,
            "changed": [{k: c[k] for k in ("clip_id", "number", "take_id", "frame_file_id",
                                           "watched")} for c in cells if c["changed"]],
            "stopped": None, "failed": None}  # fmt: skip
@@ -700,6 +727,7 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
     """The director's part of the chat: one item a run (its progress card in a line, `run`
     naming the record) and each delivery's note; its cards are app/asks'."""
     from app import delivery
+    from app.director import _edit_of
 
     out, every, owner = [], runs(db, project), bool(viewer and viewer.is_owner)
     for run_id, turns in every.items():
@@ -713,13 +741,23 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
         status = "done" if how else "held" if head.get("status") == "waiting" else "running"
         out.append({"id": f"r{turns[0].id}", "kind": "move", "at": turns[0].created_at.isoformat(),
                     "who": "Director", "text": text, "status": status, "run": run_id})  # fmt: skip
-        for j in turns:  # the owner's OK at its own limit is its card's answer (app/asks)
+        for j in turns:  # its cut edits, each with Undo (the owner's OKs are app/asks' cards)
+            if (
+                (j.output or {}).get("tool") == "edit_cut"
+                and (edit := _edit_of(db, j, "edit_cut", "done"))
+                and not (j.input.get("result") or "Refused").startswith("Refused")
+            ):
+                done = said(j.input.get("result") or "")  # S7-03: "Clip 9 re-timed · Undo"
+                out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
+                            "who": "Director", "status": "done", "text": done,
+                            "edit": edit})  # fmt: skip
             if j.input.get("result") == "Delivered.":
-                note = delivery.shown(db, project, (j.output or {}).get("note"), owner)
+                kept = (j.output or {}).get("note")
+                note = delivery.shown(kept, owner)
+                words = kept if isinstance(kept, str) and kept else j.input["ended"]  # an old one
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
                             "who": "Director", "status": "done", "note": note,
-                            "text": delivery.plain(note) if note
-                            else said(j.input["ended"])})  # fmt: skip
+                            "text": delivery.plain(note) if note else said(words)})  # fmt: skip
     return out
 
 

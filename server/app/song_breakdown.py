@@ -68,7 +68,7 @@ def fit(data: dict, broll: bool = False) -> dict:
 def _apart(clip: dict, timed: dict) -> list[dict]:
     """F7 (Reed, 3 Nov: "generating several clips and splicing them together"): a B-roll clip
     with a shot shorter than a clip can be (MIN_CLIP) is made as one clip a shot, each at least
-    MIN_CLIP long and cut to its shot's time in the edit (clip_takes.song_cut); "c3", "c3b"."""
+    MIN_CLIP long and cut to its shot's time in the edit (cut_render.song_cut); "c3", "c3b"."""
     ids = clip.get("shot_ids", [])
     short = [s for s in ids if s in timed and timed[s]["end"] - timed[s]["start"] < MIN_CLIP]
     if len(ids) < 2 or not short:

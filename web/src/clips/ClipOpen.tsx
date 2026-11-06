@@ -466,7 +466,8 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       if (!cut) return;
       setRecut(true);
       try {
-        await api.POST("/projects/{project_id}/video", { params: { path: { project_id: p.id } } });
+        const made = await api.POST("/projects/{project_id}/cut", { params: { path: { project_id: p.id } } }); // the next cut (#1299)
+        if (made.data) queryClient.setQueryData(["project-cut", p.id], made.data);
       } finally {
         setRecut(false);
       }

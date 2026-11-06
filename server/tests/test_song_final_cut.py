@@ -6,12 +6,13 @@ import subprocess
 
 from sqlalchemy import select
 
-from app import clip_takes
+from app import cut_render
+from app.cut import SONG_CHANGED
 from app.models.clips import ProjectClip
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
-from app.routes.project_clips import SONG_CHANGED
+from tests.conftest import make_cut
 from tests.test_song_takes import _video, _work, song  # noqa: F401 - fixture
 
 
@@ -44,7 +45,7 @@ def _song(seconds: float, tmp_path) -> bytes:
 
 def test_each_take_is_cut_to_its_slice_and_a_short_one_holds(tmp_path):
     long, short = _clip(4, tmp_path), _clip(1, tmp_path)
-    data = clip_takes.song_cut([long, short], [2.5, 3.0], _song(8, tmp_path))
+    data = cut_render.song_cut([long, short], [2.5, 3.0], _song(8, tmp_path))
     got = _probe(data, tmp_path)
     assert abs(got["seconds"] - 5.5) < 0.2  # 2.5 s cut + 1 s held to 3 s; never the song's 8
     assert got["streams"] == ["audio", "video"]
@@ -69,11 +70,11 @@ def test_a_song_video_is_cut_to_the_song(app, db, owner, editor, song, tmp_path)
     assert all(r.song_slice for r in rows)
     assert rows[0].song_slice["start"] == 0
     songs = editor.get(f"{video}/songs").json()
-    made = editor.post(f"{video}/video")
-    assert made.status_code == 201, made.text
+    made = make_cut(app, db, editor, video)
+    assert made.status_code == 200, made.text
     assert made.json()["song_take_id"] == songs["song_take_id"] and not made.json()["out_of_date"]
     got = _probe(editor.get(f"/files/{made.json()['file_id']}").content, tmp_path)
-    from app.routes.project_clips import song_end
+    from app.cut import song_end
 
     take = db.get(SongTake, songs["song_take_id"])
     end = min(max(r.song_slice["end"] for r in rows), song_end(take))  # a breath after the
@@ -97,14 +98,14 @@ def test_after_a_song_change_the_old_clips_are_never_cut_to_it(app, db, owner, e
     longer.style_line = "pop"
     db.commit()
     assert editor.put(f"{video}/song", json={"take_id": longer.id}).status_code == 200
-    made = editor.post(f"{video}/video")
+    made = make_cut(app, db, editor, video)
     count = len(editor.get(f"{video}/clips").json())
     assert (made.status_code, made.json()["detail"]) == (409, SONG_CHANGED.format(count))
 
 
 def test_a_song_video_ends_a_breath_after_its_last_line():
     """Song-Producer: the cut ends about 1 s after the last sung line, then fades."""
-    from app.clip_takes import ends_at
+    from app.cut import ends_at
 
     assert ends_at([5, 5, 5], 11.0) == [5, 5, 1.0]  # the third clip shortened to the end
     assert ends_at([5, 5, 5], 9.5) == [5, 4.5]  # a clip wholly after it drops
@@ -114,7 +115,7 @@ def test_a_song_video_ends_a_breath_after_its_last_line():
 def test_a_short_take_is_slowed_to_fill_its_piece_never_sped_up(tmp_path):
     import subprocess
 
-    from app.clip_takes import _length, song_cut
+    from app.cut_render import _length, song_cut
 
     def clip(name, seconds):
         path = tmp_path / name

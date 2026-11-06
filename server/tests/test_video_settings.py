@@ -12,6 +12,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.routes.video_settings import NOT_YOURS
+from tests.conftest import make_cut
 from tests.helpers import product
 from tests.test_breakdown import BREAKDOWN
 from tests.test_looks import _a_file
@@ -60,7 +61,9 @@ def test_the_choices_carry_their_prices_and_the_scripts_language(owner, editor, 
     assert got["language"] == "en" and "1:1" in got["shapes"]
 
 
-def test_a_model_switch_outdates_its_clips_and_switching_back_brings_them_back(owner, editor, db):
+def test_a_model_switch_outdates_its_clips_and_switching_back_brings_them_back(
+    app, owner, editor, db
+):
     video, pid = _made(owner, editor, db)
     url = f"{video}/settings"
     seen = editor.post(f"{url}/preview", json={"video_model": "seedance-2.0"}).json()
@@ -72,7 +75,7 @@ def test_a_model_switch_outdates_its_clips_and_switching_back_brings_them_back(o
     (clip,) = editor.get(f"{video}/clips").json()
     assert clip["take_stale"] and not clip["approved"]
     assert editor.get(f"{video}/storyboard").json()[0]["approved"]  # a still isn't a clip
-    made = editor.post(f"{video}/video")
+    made = make_cut(app, db, editor, video)
     assert (made.status_code, made.json()["detail"]) == (409, vs.OTHER.format("1 clip was"))
     assert db.get(Project, pid).video_model == "seedance-2.0"
 

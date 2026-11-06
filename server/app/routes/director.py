@@ -50,12 +50,19 @@ class DeliveryNoteOut(BaseModel):
     needs: str  # What I need from you; "Nothing. It’s ready to post." only when nothing is
     # open, else "Nothing yet, but look at what remains uncertain before you post it."
     cost: str  # "$9.84 spent of up to $16.86"; an editor's "96 credits used of up to 164 (59%…)"
-    spent: float  # credits the run charged
-    up_to: float  # the video's "up to", in credits
-    spent_usd: float | None  # the owner only: what it really cost
-    cut: int  # Cut 1, Cut 2, … (S3-12: "Delivery note · Cut 1 · 0:58 · $9.84")
+    spent: float  # credits the whole video had charged at this cut, as its header (S3-12)
+    up_to: float  # the video's "up to", in credits, never below `spent`
+    spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
+    cut: int | None = None  # Cut 1, Cut 2, … (S3-12: "Delivery note · Cut 1 · 0:58 · $9.84");
+    # None on a note kept before cuts were numbered
     seconds: float  # the cut's length
     clips: int
+
+
+class EditRef(BaseModel):
+    id: int
+    at: float  # seconds into the cut ("0:24")
+    undone: bool
 
 
 class ThreadItem(BaseModel):
@@ -73,6 +80,7 @@ class ThreadItem(BaseModel):
     files: list[int] | None = None  # a message's pictures or clips, this video's only (rule 12)
     run: str | None = None  # a run's progress card: GET …/director/progress is its record
     note: DeliveryNoteOut | None = None  # a delivery: its note
+    edit: EditRef | None = None  # an edit_cut move's edit: Undo beside it (POST …/cut/edits/…)
 
 
 class ClipCellOut(BaseModel):
@@ -127,7 +135,7 @@ class RunStoppedOut(BaseModel):
     at: str
     made: int
     total: int
-    carry_on: str  # "Carry on · up to $10.74 more": the rest of the video's "up to"
+    carry_on: str  # "Carry on · up to $X more": Carry on starts a new run, so its whole "up to"
 
 
 class RunFixOut(BaseModel):
@@ -175,9 +183,9 @@ class ProgressOut(BaseModel):
     counts: ClipCountsOut
     minutes_left: int | None  # "about 2 h 10 min left"
     steps: list[RunStepOut]
-    spent: float  # credits charged this run
-    up_to: float  # the video's "up to", in credits
-    spent_usd: float | None  # the owner only: what it really cost
+    spent: float  # credits the whole video has charged, as its header says (S3-12)
+    up_to: float  # the video's "up to", in credits, never below `spent`
+    spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
     changed: list[ChangedClipOut]  # "Changed after watching" / "Watch the changes"
     stopped: RunStoppedOut | None  # stopped by a person (S3-08)
     failed: RunFailedOut | None  # stopped on a problem, with its fixes (S3-11)
@@ -209,7 +217,7 @@ class DirectorOut(BaseModel):
     unread: int = 0  # notes waiting for the next Make it ("Start again with this note")
     run_price: float = 0  # before Make it (again): the most one run may charge, "up to" (rule 34)
     spent: float = 0  # what the newest run has charged (held and waiting jobs not counted)
-    started: bool = False  # Make it was pressed on the newest run ("No generation started" before)
+    started: bool = False  # Make it was pressed on this video ("No generation started" before)
     waiting: list[WaitingQuestion] = []  # open questions, oldest first: the pinned bar (S4-03)
     make_it: int | None = None  # its start card, when this person may press Make it (S3-02):
     # POST /asks/{id}/answer {"how": "make_it"}; null otherwise (an editor's held send waits)
@@ -236,7 +244,7 @@ def _out(db: Session, user: User, project) -> DirectorOut:
         bool(last)
         and last.input[director.RUN].get("ok", True)
         and not (last.input.get(director.START) and last.status == JobStatus.needs_owner_approval)
-    )
+    ) or asks.approved_run(db, project) is not None  # a run made it before: a revision (S3-12)
     return DirectorOut(status=status, ended=ended, turns=turns,
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,
@@ -269,6 +277,19 @@ def start(project_id: int, user: User = Depends(current_user), db: Session = Dep
     POST /asks/{id}/answer)."""
     project = get_project(db, user, project_id)
     director.start(db, user, project, hold=asks.start_hold(db, user, project))
+    return _out(db, user, project)
+
+
+@router.post("/plan-again", response_model=DirectorOut, status_code=201,
+             dependencies=[Depends(generation_on)])  # fmt: skip
+def plan_again(project_id: int, user: User = Depends(current_user),
+               db: Session = Depends(get_db)):  # fmt: skip
+    """ "Start the plan again" (S3-08): a new run, as Make it starts one (its treatment first,
+    then its start card), that plans the whole video again after Make it instead of carrying
+    on from its shots. What was made stays (earlier plans and takes); 409 while a run goes on."""
+    project = get_project(db, user, project_id)
+    _mine(db, user, project.id)  # as Make it: the video's maker or the owner
+    director.start(db, user, project, hold=asks.start_hold(db, user, project), fresh=True)
     return _out(db, user, project)
 
 
