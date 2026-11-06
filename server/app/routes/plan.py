@@ -46,7 +46,7 @@ class SceneOut(BaseModel):
 
 class AdviceOut(BaseModel):
     scene_id: str | None  # None: about the whole plan
-    kind: str  # two_places, no_product, not_in_cast, too_long
+    kind: str  # two_places, not_in_cast, too_long
     text: str
 
 
@@ -126,8 +126,8 @@ class ApproveOut(BaseModel):
 
 def _kind(text: str) -> str:
     low = text.lower()
-    for word, kind in (("two places", "two_places"), ("product", "no_product"),
-                       ("cast", "not_in_cast"), ("runs about", "too_long")):  # fmt: skip
+    for word, kind in (("two places", "two_places"), ("cast", "not_in_cast"),
+                       ("runs about", "too_long")):  # fmt: skip
         if word in low:
             return kind
     return "advice"

@@ -63,7 +63,7 @@ def test_the_plans_advice_names_its_press():
         in problems
     )
     assert "Advice: scene 1: char:9 isn't in the cast" in problems
-    assert "Advice: the product is never shown; ★ a line" in problems
+    assert not any("product is never shown" in p for p in problems)  # the script decides
     wrong_star = _plan(GOOD.scenes[0], _scene(2, "INT. KITCHEN — DAY", [7], product="product:7"))
     assert check.plan(SCRIPT, wrong_star, ["char:1"], ["product:1"]) == [
         "scene 2: ★ product:7 isn't the brand's product or screen"
