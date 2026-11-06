@@ -602,7 +602,8 @@ export interface paths {
         put?: never;
         /**
          * Withdraw Freestyle
-         * @description The maker takes back a send still waiting for the owner. Nothing was spent.
+         * @description The maker takes back a send still waiting for the owner, or one whose plan failed
+         *     before its start card (its video goes, as a declined one's). Nothing was spent.
          */
         post: operations["withdraw_freestyle_freestyles__freestyle_id__withdraw_post"];
         delete?: never;
