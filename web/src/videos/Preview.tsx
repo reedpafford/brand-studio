@@ -91,6 +91,47 @@ function CutPane(props: PaneProps) {
   );
 }
 
+type Cut = components["schemas"]["CutOut"];
+const and = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+
+/** Cut 1 | Cut 2 · making (S3-12): the cuts made so far, each watchable, and the next while it's made. The cut before stays
+ *  watchable until the new one is ready, and what the new one replaces shows as going out of date. */
+function CutSwitch({ cut, picked, onPick }: { cut: Cut; picked: number | null; onPick: (n: number) => void }) {
+  if (cut.versions.length < 2 && !cut.making) return null;
+  const tab = "flex items-center rounded-sm px-3 py-1 text-sm max-lg:min-h-control";
+  return (
+    <div className="flex flex-col gap-3">
+      <div role="radiogroup" aria-label="Which cut" className="flex w-fit flex-wrap gap-0.5 rounded-md bg-surface-2 p-0.5">
+        {cut.versions.map((v) => (
+          <button key={v.number} type="button" role="radio" aria-checked={v.number === picked} onClick={() => onPick(v.number)} className={`${tab} ${v.number === picked ? "bg-surface text-text shadow-raised" : "text-muted hover:text-text"}`}>
+            {`Cut ${v.number}`}
+          </button>
+        ))}
+        {cut.making && (
+          <span role="radio" aria-checked={false} aria-disabled className={`${tab} text-muted`}>
+            {`Cut ${cut.making.number} · making`}
+          </span>
+        )}
+      </div>
+      {cut.making && cut.number != null && <p className="text-sm text-muted">{`Cut ${cut.number} stays watchable until Cut ${cut.making.number} is ready.`}</p>}
+      {cut.making && cut.going.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <h3 className="text-xs font-semibold text-muted">Going out of date</h3>
+          <ul className="flex flex-wrap gap-2">
+            {cut.going.map((g) => (
+              <li key={g.piece} className="relative h-[85px] w-12 overflow-hidden rounded-md bg-surface-2">
+                {g.file_id != null && <video src={`${fileUrl(g.file_id)}#t=0.1`} muted preload="metadata" aria-hidden className="size-full object-cover" />}
+                <span className="absolute inset-x-0 bottom-0 whitespace-nowrap bg-black/60 text-center text-[9px] leading-4 text-white">out of date</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted">{and(cut.going.map((g) => g.label))}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Watch (S3-09): the cut, its downloads and what changed after watching. */
 function CutWatch({ p, head, progress, run }: PaneProps) {
   const { media, progress: now } = useProgress(p.id);
@@ -115,9 +156,13 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
   const settings = useVideoSettings(p.id);
   const songChanged = useSongChanged(p.id, video?.song_take_id);
   const remake = useMakeCut(p.id); // made on the server; the cut before keeps playing
+  const live = useCut(p.id).data;
+  const [picked, setPicked] = useState<number | null>(null); // an earlier cut to watch (S3-12); none: the one that plays
   const left = progress.clips.total - progress.clips.approved;
   if (!video) return null; // CutPane shows the editor until there's a cut
-  const name = mp4(head?.title ?? p.name);
+  const older = live?.versions.find((v) => v.number === picked && v.number !== live.number) ?? null;
+  const file = older?.file_id ?? video.file_id;
+  const name = older ? mp4(head?.title ?? p.name).replace(/\.mp4$/, `-cut-${older.number}.mp4`) : mp4(head?.title ?? p.name);
   const owner = head?.spent.usd != null;
   const s = settings.data;
   const model = s && (s.video_models.find((m) => m.id === s.video_model) ?? s.video_models.find((m) => m.default))?.name;
@@ -134,20 +179,21 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
   return (
     <div className="space-y-5">
       {remake.isError && <Banner title="The cut couldn't be made again.">Nothing was charged. {remake.error.message}</Banner>}
-      {now.video.outOfDate && (
+      {now.video.outOfDate && !live?.making && ( // while the next cut is made it says so beside the switch (S3-12)
         <Banner tone="warning" title="Out of date." action={<Button variant="secondary" busy={remake.isPending} disabled={!!held} reason={held} onClick={() => remake.mutate()}>Make it again</Button>}>
           {left === 0 && !video.out_of_date && olderLook > 0 ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.` : songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.
         </Banner>
       )}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-        <video ref={player} controls src={fileUrl(video.file_id)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
+        <video ref={player} controls src={fileUrl(file)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
         <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={setPicked} />}
           <div className="flex flex-col gap-1 max-sm:hidden">
-            <h2 className="text-lg font-semibold">Final cut</h2>
+            {!(live && (live.versions.length > 1 || live.making)) && <h2 className="text-lg font-semibold">Final cut</h2>}
             <p className="text-sm tabular-nums text-muted">{[media.seconds > 0 && mmss(media.seconds), p.aspect_ratio, `${progress.clips.total} clip${progress.clips.total === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
           </div>
           <div className="flex flex-col gap-2">
-            <a className={`${buttonClass("primary")} justify-start`} href={fileUrl(video.file_id)} download={name}>
+            <a className={`${buttonClass("primary")} justify-start`} href={fileUrl(file)} download={name}>
               <Download size={16} strokeWidth={1.75} aria-hidden />
               Download MP4
             </a>

@@ -2,6 +2,7 @@ import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { editor, owner } from "../test/people";
+import { cutOut } from "../test/cut";
 import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
@@ -741,4 +742,39 @@ test("S3-07: before the owner's OK its video's thread is closed, so the send's o
   expect(screen.getAllByRole("region", { name: /^Make it/ })).toHaveLength(1);
   await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
+});
+
+test("S3-12: while Cut 2 is made, Cut 1 stays watchable; the switch plays and downloads any cut made; what it replaces is going out of date", async () => {
+  setViewport(1440);
+  const making = cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }], making: { number: 2, percent: 40, doing: "laying the B-roll", about_seconds: 240, changes: 2 }, going: [{ piece: "c7", label: "Clip 7", file_id: 207 }, { piece: "c9", label: "the ending", file_id: 209 }] });
+  server(owner, null, run({ status: "running" }), { "GET /projects/50/cut": [200, making], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }] });
+  const r = renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  const which = await within(panel).findByRole("radiogroup", { name: "Which cut" });
+  expect(within(which).getByRole("radio", { name: "Cut 1" })).toHaveAttribute("aria-checked", "true");
+  expect(within(which).getByRole("radio", { name: "Cut 2 · making" })).toHaveAttribute("aria-disabled", "true");
+  expect(within(panel).getByText("Cut 1 stays watchable until Cut 2 is ready.")).toBeInTheDocument();
+  expect(within(panel).getByRole("heading", { name: "Going out of date" })).toBeInTheDocument();
+  expect(within(panel).getByText("Clip 7 and the ending")).toBeInTheDocument();
+  expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/80");
+  r.unmount();
+  server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, cutOut()], "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const done = await screen.findByRole("tabpanel", { name: "Cut" });
+  const cuts = await within(done).findByRole("radiogroup", { name: "Which cut" });
+  expect(within(cuts).getByRole("radio", { name: "Cut 2" })).toHaveAttribute("aria-checked", "true");
+  expect(within(done).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/90");
+  await userEvent.click(within(cuts).getByRole("radio", { name: "Cut 1" }));
+  expect(within(done).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/80");
+  expect(within(done).getByRole("link", { name: "Download MP4" })).toHaveAttribute("download", "beer-gut-doctor-rant-cut-1.mp4");
+  expect(within(done).queryByText(/stays watchable/)).toBeNull();
+});
+
+test("S3-09: one cut and nothing being made: no switch, the heading reads Final cut", async () => {
+  setViewport(1440);
+  server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }] })], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByRole("heading", { name: "Final cut" })).toBeInTheDocument();
+  expect(within(panel).queryByRole("radiogroup", { name: "Which cut" })).toBeNull();
 });
