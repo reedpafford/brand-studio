@@ -438,15 +438,15 @@ def _with_note(prompt: str, note: str) -> str:
 
 
 def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
-    """What one more take costs: the estimate `enqueue` charges, and the take check that rides
-    along while checks are on (`item_checks.rides`)."""
-    from app import item_checks
+    """What one more take costs: the estimate `enqueue` charges, and the director's watch of
+    it that rides along while watches are on (`take_watch.rides`)."""
+    from app import take_watch
 
     m = model_map.of_clip(project, clip)
     job = {"model": m.id, "input": {"resolution": model_map.resolution(m)}}
     units = Decimal(model_map.seconds(m, clip.seconds))  # Omni: its fixed length
     take = estimate(db, project.workspace_id, "video", units, job)
-    return take + item_checks.rides(db, project, clip)
+    return take + take_watch.rides(db, project, clip)
 
 
 def save_take(db: Session, job: Job) -> None:
@@ -463,17 +463,9 @@ def save_take(db: Session, job: Job) -> None:
     db.add(take)
     db.flush()
     pick(clip, take)
-    from app.item_checks import queue_safely  # P4: Advice only, never a block
+    from app import take_watch  # rule 11: the director watches and hears it as it lands
 
-    breakdown = db.get(BreakdownVersion, clip.breakdown_id).data
-    shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
-    refs = [r["id"] for r in clip.references or [] if r["kind"] == "image"]
-    queue_safely(db, job, "take", take.id, take.file_id, refs, clip.breakdown_id, shots)
-    from app import take_words  # what it says against the script's lines: Advice only
-
-    by_id = {s["id"]: s for sc in breakdown.get("scenes", []) for s in sc.get("shots", [])}
-    said = [by_id[i] for i in shots if i in by_id]
-    take_words.queue_safely(db, job, take.id, take.file_id, said, take.prompt or "")
+    take_watch.queue_safely(db, job, take, clip)
 
 
 def pick(clip: ProjectClip, take: ClipTake) -> None:

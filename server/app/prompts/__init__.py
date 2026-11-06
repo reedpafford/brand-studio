@@ -38,6 +38,7 @@ SCHEMAS = {
     "language_sample": schemas.ScriptDrafts,  # flows VS1: a language's sample test
     "director": schemas.DirectorTurn,  # director-chat.md §5: one decision a turn
     "watch_cut": schemas.CutWatch,  # the director's eyes on the finished cut
+    "take_watch": schemas.TakeWatch,  # rule 11: every take looked at as it lands
     "treatment": schemas.Treatment,  # the director's first move: why it holds a viewer
     "review_stills": schemas.StillsReview,  # the stills against the treatment, before takes
 }
@@ -56,6 +57,7 @@ NO_RULES = {
     "item_check",
     "watch_cut",
     "review_stills",
+    "take_watch",
 }  # not script writers: the rules would only add tokens
 
 
@@ -711,32 +713,38 @@ def item_check_input(
     shot: str,
     sheets: list[tuple[str, str]],
     product: tuple[str, str] | None = None,
-    frames: int = 0,
     cast: list[str] | None = None,
     screens: list[tuple[str, str]] | None = None,
     screen_rules: list[str] | None = None,
 ) -> str:
-    """The user message for item_check; the images go before it, in this order: the item (a
-    still, or a take's `frames` in order), each sheet in `sheets` ((id, "Mia: ...")), then the
-    product's image when the shot shows it ((id, "Iron Paws peanut butter bag")).
-    `shot` is what the item should show (its action and who's in it). Take check slice 2:
-    `cast` names who should be in the shot, `screens` ((id, "fomo Home screen")) are the
-    brand's screens, their images after the product's, and `screen_rules` the brand notes'
-    lines about screens (only with screens). With none of them, the message is as before."""
-    seen = (
-        f"Images 1–{frames} are frames of one take, in order"
-        if frames > 1
-        else "Image 1 is the still"
-    )
-    n, refs = max(frames, 1), []
+    """The user message for item_check (a still); the images go before it, in this order: the
+    still, each sheet in `sheets` ((id, "Mia: ...")), then the product's image when the shot
+    shows it ((id, "Iron Paws peanut butter bag")). `shot` is what the still should show (its
+    action and who's in it); `cast`, `screens` and `screen_rules` as `references` says."""
+    told = references(1, sheets, product, cast, screens, screen_rules)
+    return f"<item>Image 1 is the still.</item>\n<shot>{shot.strip()}</shot>\n{told}"
+
+
+def references(
+    before: int,
+    sheets: list[tuple[str, str]],
+    product: tuple[str, str] | None = None,
+    cast: list[str] | None = None,
+    screens: list[tuple[str, str]] | None = None,
+    screen_rules: list[str] | None = None,
+) -> str:
+    """<references> (and <cast>, <screens>, <screen_rules>) for a look at an item, its
+    pictures numbered after the item's own `before` images: each sheet, the product's image,
+    then the brand's screens. `cast` names who should be in the shot, `screen_rules` the brand
+    notes' lines about screens (only with screens)."""
+    n, refs = before, []
     for ref_id, what in sheets:
         n += 1
         refs.append(f'<sheet image="{n}" id="{ref_id}">{what.strip()}</sheet>')
     if product:
         n += 1
         refs.append(f'<product image="{n}" id="{product[0]}">{product[1].strip()}</product>')
-    text = (f"<item>{seen}.</item>\n<shot>{shot.strip()}</shot>\n"
-            "<references>\n" + "\n".join(refs) + "\n</references>")  # fmt: skip
+    text = "<references>\n" + "\n".join(refs) + "\n</references>"
     if cast:
         text += f"\n<cast>{', '.join(cast)}</cast>"
     if screens:
@@ -748,6 +756,27 @@ def item_check_input(
     return text
 
 
+def take_watch_input(clip: str, shot: str, fmt: str, prompt: str, heard: list[dict],
+                     over: list[dict], measured: str, strips: list[str], told: str,
+                     remakes_left: int) -> str:  # fmt: skip
+    """The user message for take_watch; the images go before it: the strips (`strips` says
+    what each is, numbered from 1, the spectrogram last when there's sound), then the
+    references `told` (`references`, numbered after them). `heard`: the take's own words
+    ({word, start, end}); `over`: a narration's or song's words over it, in take seconds."""
+    seen = "\n".join(f"[Image{n}] {what}" for n, what in enumerate(strips, 1))
+    words = lambda ws: json.dumps(  # noqa: E731
+        [{"word": w["word"], "start": w["start"], "end": w["end"]} for w in ws],
+        ensure_ascii=False)  # fmt: skip
+    return (
+        f"<clip>{escape(clip)}</clip>\n<shot>{escape(shot.strip())}</shot>\n"
+        f"<format>{escape(fmt)}</format>\n<prompt>\n{escape(prompt.strip())}\n</prompt>\n"
+        f"<heard>{words(heard)}</heard>\n"
+        + (f"<over>{words(over)}</over>\n" if over else "")
+        + f"<measured>\n{escape(measured)}\n</measured>\n<strips>\n{escape(seen)}\n</strips>\n"
+        f"{told}\n<remakes_left>{remakes_left}</remakes_left>"
+    )
+
+
 def watch_cut_input(
     script: str,
     plan: str,
@@ -755,17 +784,21 @@ def watch_cut_input(
     transcript: list[dict],
     frames: list[tuple[int, str]],
     look: str,
+    measured: str = "",
 ) -> str:
-    """The user message for watch_cut; the frames go before it, in time order (24 at most).
-    `cut` is the clips in cut order ({clip_id, start, end, take_id, shots, other_takes}, cut
-    seconds), `transcript` the cut's heard words ({word, start, end, clip_id}), `frames`
-    (n, "c3 at 12.4 s (shot 3.2 starts)") for each image, and `look` the look's name."""
+    """The user message for watch_cut; the pictures go before it, in time order: filmstrips
+    (each frame labelled with its time and the word said then) and the spectrogram. `cut` is
+    the clips in cut order ({clip_id, start, end, take_id, shots, other_takes}, cut seconds),
+    `transcript` the cut's heard words ({word, start, end, clip_id}), `frames` (n, "c2–c4,
+    4.0–9.0 s: spread over the whole") for each picture, `look` the look's name and
+    `measured` app/deep_watch's facts (motion, jumps, loudness, silences)."""
     seen = "\n".join(f"[Image{n}] {label.strip()}" for n, label in frames)
     return (
         f"<look>{escape(look.strip())}</look>\n<script>{escape(script.strip())}</script>\n"
         f"<plan>{escape(plan.strip())}</plan>\n<cut>{json.dumps(cut, ensure_ascii=False)}</cut>\n"
         f"<transcript>{json.dumps(transcript, ensure_ascii=False)}</transcript>\n"
         f"<frames>\n{escape(seen)}\n</frames>"
+        + (f"\n<measured>\n{escape(measured)}\n</measured>" if measured else "")
     )
 
 

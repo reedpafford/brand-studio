@@ -10,6 +10,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import watch_report
 from app.db import utcnow
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -36,7 +37,8 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     rows = _remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
     return {"made": said(decision.get("made") or decision.get("why") or ""),
             "redid": sorted(rows, key=lambda r: r["at"]),
-            "unsure": said(decision.get("unsure") or ""),
+            "unsure": " ".join(x for x in (said(decision.get("unsure") or ""),
+                                           watch_report.doubts(db, project)) if x),
             "needs": said(decision.get("needs") or ""),
             "spent": float(credits), "up_to": float(price_of(db, project)),
             "since": turns[0].created_at.isoformat(), "until": utcnow().isoformat(),

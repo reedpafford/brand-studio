@@ -358,13 +358,13 @@ def test_n38_marks_each_host_made_so_far_and_every_video_starts_with_no_switches
     assert "how" not in cols
 
 
-def test_n39_drops_the_omni_voice_and_narration_only(tmp_path):
+def test_n40_drops_the_omni_voice_and_narration_only(tmp_path):
     """Reed, 5 Nov: a narrated video keeps its narration throughout, so nothing describes an
     Omni voice or turns its speech off; the columns go, and come back on a downgrade."""
     url = f"sqlite:///{tmp_path}/m.db"
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "n39")
+    command.upgrade(cfg, "n40")
     engine = create_engine(url)
 
     def cols() -> set[str]:
@@ -372,5 +372,5 @@ def test_n39_drops_the_omni_voice_and_narration_only(tmp_path):
             return {c[1] for c in conn.execute(text("PRAGMA table_info(projects)")).all()}
 
     assert not {"omni_voice", "narration_only"} & cols() and "voice" in cols()
-    command.downgrade(cfg, "n38")
+    command.downgrade(cfg, "n39")
     assert {"omni_voice", "narration_only"} <= cols()

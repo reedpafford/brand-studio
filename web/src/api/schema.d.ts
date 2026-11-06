@@ -5333,6 +5333,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/checks/watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Watched
+         * @description What the director's watch found, take by take as each landed and in the cut, and
+         *     what it did: the progress card, the delivery note and the Clips tab read it.
+         */
+        get: operations["watched_projects__project_id__checks_watch_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scripts/{script_id}/drafts/{slot}/plan": {
         parameters: {
             query?: never;
@@ -6815,6 +6836,20 @@ export interface components {
             /** Inferred */
             inferred: boolean;
         };
+        /** FaultOut */
+        FaultOut: {
+            /** Kind */
+            kind: string;
+            /** At */
+            at: number | null;
+            /** Says */
+            says: string;
+            /**
+             * Verified
+             * @default true
+             */
+            verified: boolean;
+        };
         /**
          * FigureSpot
          * @description Where a shot's figure is written on this screen (screen_figures.py), in pixels.
@@ -6883,6 +6918,11 @@ export interface components {
             at?: number | null;
             /** Mute */
             mute?: number[] | null;
+            /**
+             * Verified
+             * @default true
+             */
+            verified: boolean;
         };
         /** FixIn */
         FixIn: {
@@ -7349,6 +7389,7 @@ export interface components {
             error: string;
             /** Credits */
             credits: number;
+            watch?: components["schemas"]["WatchOut"] | null;
         };
         /** Idea */
         Idea: {
@@ -8093,6 +8134,53 @@ export interface components {
         LanguageSwitchIn: {
             /** On */
             on: boolean;
+        };
+        /** LatestOut */
+        LatestOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "watching" | "done" | "failed" | "skipped";
+            /**
+             * Found
+             * @default
+             */
+            found: string | null;
+            /**
+             * Did
+             * @default
+             */
+            did: string | null;
+            /** Action */
+            action?: ("keep" | "redo" | "held" | "flagged" | "unsure" | "superseded") | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string | null;
+            /** At */
+            at?: string | null;
+            /**
+             * Faults
+             * @default []
+             */
+            faults: components["schemas"]["FaultOut"][];
+            /** Credits */
+            credits?: number | null;
+            /** Remake Credits */
+            remake_credits?: number | null;
+            /** Remake Take */
+            remake_take?: number | null;
+            /**
+             * Waiting
+             * @default false
+             */
+            waiting: boolean;
+            /** Clip Id */
+            clip_id: string;
+            /** Take */
+            take: number;
         };
         /** LimitsIn */
         LimitsIn: {
@@ -9696,6 +9784,21 @@ export interface components {
             /** Since */
             since: string | null;
         };
+        /** RedidOut */
+        RedidOut: {
+            /** At */
+            at: number;
+            /** Clip Id */
+            clip_id: string;
+            /** Take */
+            take: number;
+            /** Found */
+            found: string | null;
+            /** Did */
+            did: string | null;
+            /** Action */
+            action: string;
+        };
         /** RedidRowOut */
         RedidRowOut: {
             /** At */
@@ -11106,6 +11209,25 @@ export interface components {
              * @default []
              */
             mutes: number[][];
+            watch?: components["schemas"]["WatchOut"] | null;
+            /** Remade From */
+            remade_from?: number | null;
+        };
+        /** TakesWatchedOut */
+        TakesWatchedOut: {
+            /** Watched */
+            watched: number;
+            /** Watching */
+            watching: number;
+            /** Redone */
+            redone: number;
+            /** Held */
+            held: number;
+            /** Flagged */
+            flagged: number;
+            /** Unsure */
+            unsure: number;
+            latest: components["schemas"]["LatestOut"] | null;
         };
         /** TextFitOut */
         TextFitOut: {
@@ -11814,6 +11936,62 @@ export interface components {
             id: number;
             /** Folder Id */
             folder_id: number | null;
+        };
+        /**
+         * WatchOut
+         * @description What the director found looking at and measuring this take, and what it did (rule 11).
+         */
+        WatchOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "watching" | "done" | "failed" | "skipped";
+            /**
+             * Found
+             * @default
+             */
+            found: string | null;
+            /**
+             * Did
+             * @default
+             */
+            did: string | null;
+            /** Action */
+            action?: ("keep" | "redo" | "held" | "flagged" | "unsure" | "superseded") | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string | null;
+            /** At */
+            at?: string | null;
+            /**
+             * Faults
+             * @default []
+             */
+            faults: components["schemas"]["FaultOut"][];
+            /** Credits */
+            credits?: number | null;
+            /** Remake Credits */
+            remake_credits?: number | null;
+            /** Remake Take */
+            remake_take?: number | null;
+            /**
+             * Waiting
+             * @default false
+             */
+            waiting: boolean;
+        };
+        /** WatchedOut */
+        WatchedOut: {
+            takes: components["schemas"]["TakesWatchedOut"];
+            /** Redid */
+            redid: components["schemas"]["RedidOut"][];
+            /** Cut */
+            cut: {
+                [key: string]: unknown;
+            };
         };
         /** WeekLine */
         WeekLine: {
@@ -22733,6 +22911,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    watched_projects__project_id__checks_watch_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedOut"];
                 };
             };
             /** @description Validation Error */

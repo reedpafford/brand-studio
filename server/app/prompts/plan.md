@@ -16,12 +16,12 @@ Give each scene its part.
 
 **Proven patterns** (the parts in order; a part can take several scenes):
 - **Pet supplement:** Problem (the symptoms, played big and funny) → Failed fixes (the sprays, creams and pills that don't work) → Why (the hidden cause, shown inside the body) → Discovery (she finds the product) → Proof (weeks later, the symptoms gone) → Payoff (the product, then the pet with it, to the lens).
-- **Trading app:** Doubt (someone says he'll fail) → The way out (he opens the app, others lean in) → Grind (small wins, one dip) → Payoff (rich, the doubter sees it) → End line (the phone to the lens).
-- **Other app:** Frustration (the old way, played big) → Discovery (the app opens) → First win → Life after (bigger, easier) → End line (the app on the phone to the lens).
-- **Food and drink:** Craving → The letdown (the ordinary option) → The find → First bite (close, slow, sensory) → Shared joy → End line (the product to camera).
-- **Beauty and care:** The insecurity → Tries that fail → Discovery → The routine → The glow (someone notices) → End line.
-- **Health and fitness:** Low point (no energy, the struggle) → Discovery → Small wins → The change → End line.
-- **Local service:** The problem → The call or visit → The care (the team at work) → The result → End line.
+- **Trading app:** Doubt (someone says he'll fail) → The way out (he opens the app, others lean in) → Grind (small wins, one dip) → Payoff (rich, the doubter sees it) → Ending (the script's own; the phone to the lens when it ends on a call to action).
+- **Other app:** Frustration (the old way, played big) → Discovery (the app opens) → First win → Life after (bigger, easier) → Ending (the script's own; the app on the phone to the lens when it ends on a call to action).
+- **Food and drink:** Craving → The letdown (the ordinary option) → The find → First bite (close, slow, sensory) → Shared joy → Ending (the script's own; the product to camera when it ends on a call to action).
+- **Beauty and care:** The insecurity → Tries that fail → Discovery → The routine → The glow (someone notices) → Ending (the script's own).
+- **Health and fitness:** Low point (no energy, the struggle) → Discovery → Small wins → The change → Ending (the script's own).
+- **Local service:** The problem → The call or visit → The care (the team at work) → The result → Ending (the script's own).
 
 **The cast.** One cast for the whole video, from <cast> only, named once in `cast` by their ids: the same people and animals in every scene. Each scene lists who is in it. Never add a person the cast doesn't have; a passer-by is part of the place, not the cast.
 

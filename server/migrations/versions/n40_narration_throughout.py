@@ -3,15 +3,15 @@ it, so drops `projects.omni_voice` (the voice described to Omni) and `projects.n
 (the switch that turned that speech off). `project_clips.model` may still carry a "speaks"
 key from #1327; nothing reads it now (no video made one in the day between).
 
-Revision ID: n39
-Revises: n38
+Revision ID: n40
+Revises: n39
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n39"
-down_revision = "n38"
+revision = "n40"
+down_revision = "n39"
 branch_labels = None
 depends_on = None
 

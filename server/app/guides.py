@@ -15,7 +15,7 @@ FIXED = {*TOKENS, *DATA, "lanes"}
 # Every writing step gets the whole brief (Reed, 2 Nov: one director, briefed by the guides).
 BRIEFED = {"treatment", "plan", "plan_scene", "breakdown", "song_breakdown", "narrated_breakdown",
            "storyboard", "clip_prompts", "song_clip_prompts", "narrated_clip_prompts",
-           "review_stills", "watch_cut", "director"}  # fmt: skip
+           "review_stills", "watch_cut", "take_watch", "director"}  # fmt: skip
 KIND = {"": "dialogue", "story": "dialogue"}  # a script's kind names its format (song, narrated)
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
 

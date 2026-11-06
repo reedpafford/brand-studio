@@ -1,9 +1,10 @@
-"""The director watches its cut (`watch_cut`, Reed: "watch and make those fixes if something
-is off"): a free local listen of the finished video (its words and when, its shot changes)
-picks up to FRAMES frames on those boundaries, then one Claude look at them with the words,
-the script and the plan says what's off, clip by clip, each with a fix: redo with a note, pick
-another take, mute a span, or keep. Priced "up to" on the director's own limit (a run's
-spent()), never the video's budget. Advice for the director: Next-Server's tools act on it.
+"""The director looks at its cut (`watch_cut`, Reed: "watch and make those fixes
+if something is off"; rule 11): a free local pass over the finished video (its words and when,
+and app/deep_watch: frames sampled over the whole cut and at 10 a second round its jumps and cuts,
+its motion and loudness measured, a spectrogram of its sound), then one Claude look at them
+with the words, the script and the plan says what's off, clip by clip, each with a fix: redo
+with a note, pick another take, mute a span, or keep. Priced "up to" on the director's own
+limit (a run's spent()), never the video's budget. Advice for the director, who acts on it.
 
 Findings are checked before the director reads them: a mute stays inside one clip and never
 covers a script word (rule 19), and is given in that clip's take seconds, ready for
@@ -26,26 +27,12 @@ from app.models.projects import Project
 
 log = logging.getLogger(__name__)
 
-FRAMES, FEWEST = 24, 16  # frames a watch looks at: about one a second, 16 to 24
+OVERVIEW = (0.8, 16, 48)  # frames a second spread over the cut, 16 to 48 of them
+DENSE = 4  # windows sampled at 10 a second, on its jumps and cuts
 LISTEN, STEP, KIND = "cut_listen", "watch_cut", "check-claude"
 NO_CUT = "Make the cut first."
+SEEN = ("story", "picture", "cast", "text", "screen")  # kinds the frames can show
 FIXES = ("redo", "pick", "mute", "keep")
-
-
-def frames_at(
-    length: float, cuts: list[float], words: list[dict], spans: list[dict], count: int
-) -> list[dict]:
-    """Where a watch looks: on the cut's shot changes and where its lines start (a word after
-    a pause), the most spread out, filled in evenly (take_frames.moments); each with its clip
-    and what it sits on."""
-    from app.take_frames import AFTER, moments
-
-    starts = [w for n, w in enumerate(words) if n == 0 or w["start"] - words[n - 1]["end"] > 0.4]
-    marks = {round(t + AFTER, 2): "a shot starts" for t in cuts}
-    for w in starts:
-        marks.setdefault(round(w["start"] + AFTER, 2), f'the word "{w["word"].strip()}"')
-    return [{"t": t, "clip_id": clip_at(spans, t), "label": marks.get(t, "even spacing")}
-            for t in moments(length, [m - AFTER for m in marks], count)]  # fmt: skip
 
 
 def clip_at(spans: list[dict], t: float) -> str:
@@ -68,8 +55,9 @@ def spans_of(lengths: list[tuple[str, int, float]], total: float) -> list[dict]:
 
 
 def count_for(length: float) -> int:
-    """About a frame a second, 16 to 24."""
-    return max(FEWEST, min(FRAMES, round(length)))
+    """Frames spread over the whole cut: about 0.8 a second, 16 to 48."""
+    every, fewest, most = OVERVIEW
+    return max(fewest, min(most, round(length * every)))
 
 
 def _cut(db: Session, project: Project) -> FinalVideo | None:
@@ -102,8 +90,8 @@ def start(db: Session, user: User, project: Project, run: dict | None) -> str:
 
 
 def heard_cut(db: Session, job: Job) -> None:
-    """The listen is done (its words, frames and where each clip sits): the look is queued,
-    on the director's own limit."""
+    """The listen is done (its words, strips, measurements and where each clip sits): the look
+    is queued, on the director's own limit."""
     from app import plans, prompts
     from app.clip_prompts import newest
     from app.item_checks import latest, shown, verdict
@@ -111,9 +99,9 @@ def heard_cut(db: Session, job: Job) -> None:
 
     project = db.get(Project, job.project_id)
     out, user = job.output or {}, db.get(User, job.created_by_id)
-    spans, frames = out.get("spans", []), out.get("frames", [])
-    if not frames:
-        raise RuntimeError("The cut had no frames to look at.")
+    spans, strips = out.get("spans", []), out.get("strips", [])
+    if not strips:
+        raise RuntimeError("The cut had nothing to look at.")
     bd = newest(db, project)
     data = bd.data if bd else {"scenes": [], "clips": []}
     shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
@@ -136,8 +124,8 @@ def heard_cut(db: Session, job: Job) -> None:
                         for t in others]})  # fmt: skip
     version = plans.script(db, project)
     plan = plans.current(db, project)
-    labels = [(n, f"{f['clip_id']} at {f['t']:.1f} s ({f['label']})")
-              for n, f in enumerate(frames, 1)]  # fmt: skip
+    labels = [(n, f"{_clips(spans, f['start'], f['end'])}, {f['start']:.1f}–{f['end']:.1f} s: "
+                  f"{f['what']}") for n, f in enumerate(strips, 1)]  # fmt: skip
     text = prompts.watch_cut_input(
         version.text if version else "",
         _plan(plan, version),
@@ -147,6 +135,7 @@ def heard_cut(db: Session, job: Job) -> None:
         project.look
         if not project.broll_look  # a hosted video's B-roll in another look
         else f"{project.look} (the host and cast); B-roll in {project.broll_look}",
+        out.get("measured_text", ""),
     )
     from app.director import treatment_block
 
@@ -161,7 +150,7 @@ def heard_cut(db: Session, job: Job) -> None:
     from app.credits import estimate, past_approved
     from app.director import GRANT, past_own
 
-    units = len(frames) + 1  # "up to": a look a frame, and the words; the director's own limit
+    units = len(strips) + 2  # "up to": a look a picture, the words and the facts; its own limit
     look = estimate(db, project.workspace_id, KIND, Decimal(units), data)
     run = (data["director_run"] or {}).get("id")
     wait = past_own(db, project, run, look)
@@ -169,6 +158,12 @@ def heard_cut(db: Session, job: Job) -> None:
     wait = wait or past_approved(db, project, user, look)
     enqueue(db, user, KIND, data, units=units, project=project, provider="claude",
             prepaid=not wait, wait=wait)  # fmt: skip  # a freestyle past its price: an OK first
+
+
+def _clips(spans: list[dict], start: float, end: float) -> str:
+    """The clips a strip covers: "c2" or "c2–c4"."""
+    inside = [s["clip_id"] for s in spans if s["end"] > start and s["start"] <= end] or [""]
+    return inside[0] if len(inside) == 1 else f"{inside[0]}–{inside[-1]}"
 
 
 def _plan(plan: dict | None, version) -> str:
@@ -187,7 +182,7 @@ def _bare(text: str) -> list[str]:
     return re.findall(r"[a-z0-9']+", text.lower())
 
 
-PAUSE = 0.4  # seconds between words that start a new heard line (as frames_at reads them)
+PAUSE = 0.4  # seconds between words that start a new heard line
 
 
 def _scripted(word: str, said: set[str]) -> bool:
@@ -225,13 +220,24 @@ def _lines(words: list[dict]) -> list[list[dict]]:
 
 def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> list[dict]:
     """The look's findings the director can act on: a mute inside one clip and over no
-    script word, in that clip's take seconds; a pick of one of the clip's other takes."""
+    script word, in that clip's take seconds; a pick of one of the clip's other takes; a redo
+    only when the frames show it (one only the transcript, a measurement or the spectrogram
+    suggests is kept, said as not confirmed: Reed, 4 Nov)."""
     spans = {c["clip_id"]: c for c in cut}
     said = _script_words(script)
     spoken = [line for line in _lines(words) if _holds_script(line, said)]
     out = []
     for f in (answer.get("findings") or [])[:6]:
         f = {**f, "fix": "pick" if f.get("fix") == "other_take" else f.get("fix")}
+        sure = f.get("evidence") == "picture" and f.get("kind") in SEEN
+        if f["fix"] == "redo" and not sure:  # a doubt is never paid for (Reed, 4 Nov)
+            f = {
+                **f,
+                "fix": "keep",
+                "says": f"{f['says'].rstrip('.')} (not confirmed)",
+                "note": "Not remade: the transcript, a measurement or the sound's picture suggests "
+                "it, but the frames don't show it.",
+            }
         span = spans.get(f.get("clip_id"))
         why = ""
         if span is None or f["fix"] not in FIXES:
