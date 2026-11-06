@@ -21,7 +21,7 @@ export function useAsks(projectId: number, live: boolean) {
   return useQuery({
     queryKey: ["asks", projectId],
     enabled: projectId > 0,
-    refetchInterval: (q) => (live || (q.state.data ?? []).some((a) => ["uploading", "generating", "held"].includes(a.state)) ? 4_000 : false),
+    refetchInterval: (q) => (live || (q.state.data ?? []).some((a) => ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? ""))) ? 4_000 : false),
     queryFn: async () => (await api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } })).data ?? [],
   });
 }
@@ -258,16 +258,16 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
       </>
     );
   } else if (held) {
-    // An editor's Generate options past their allowance waits for the owner (S4-03): Withdraw it, or upload instead.
+    // An editor’s Generate options past their allowance, or clone, waits for the owner (S4-03, flow.md): Withdraw it (the card opens again), or upload instead of options.
     body = <p className="text-[13px]">{voice ? `You asked to clone this voice (up to ${said(a.clone)}, ${cloneTo}). The owner has been asked; nothing is charged while it waits.` : `You asked for 3 generated ${NOUN[a.kind] ?? "options"} (up to ${said(a.generate)}). The owner has been asked; nothing is charged while it waits.`}</p>;
-    foot = voice ? null : (
+    foot = (
       <>
         {can("cancel") && (
           <Button variant="secondary" busy={act.isPending} onClick={() => go({}, "cancel")}>
             Withdraw
           </Button>
         )}
-        {can("upload") && (
+        {can("upload") && !voice && (
           <Button variant="secondary" icon={Upload} onClick={() => picker.current?.click()}>
             Upload instead
           </Button>
@@ -341,7 +341,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
         {a.state === "failed" && (
           <p className="flex items-center gap-2 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
             <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
-            {voice ? "The voice didn’t clone. Nothing was charged." : "The picture service made nothing. Nothing was charged."}
+            {voice ? ((a.answer as { withdrawn?: boolean } | null)?.withdrawn ? "The clone this card used was withdrawn before it was made. Nothing was charged." : "The voice didn’t clone. Nothing was charged.") : "The picture service made nothing. Nothing was charged."}
           </p>
         )}
         {!shown && (a.state !== "failed" || voice) && !generating && (can("upload") || can("reply") || can("generate") || can("clone")) && (
@@ -501,7 +501,7 @@ export const isOpen = (a: Ask) => OPEN.includes(a.state);
 export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }: { projectId: number; change: boolean; upTo: number | null | undefined; sentAt: string; owner: boolean; onWithdraw: () => void }) {
   const price = { credits: upTo ?? 0, usd: null };
   const ask: Ask = {
-    id: 0, project_id: projectId, kind: "start", topic: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
+    id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is while it waits; nothing is charged." : "The owner has been asked. Nothing is made or charged while it waits.",
     money: { up_to: price, clips: [], sent_at: sentAt, held: "", what: "" },

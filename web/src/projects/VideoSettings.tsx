@@ -169,7 +169,7 @@ export function VideoSettings({ project: p, finished, song = true, broll, notMad
     queryKey: ["video-settings-preview", p.id, asking?.choice.body],
     queryFn: () => must(api.POST("/projects/{project_id}/settings/preview", { params: { path: { project_id: p.id } }, body: asking!.choice.body })).then((r) => r.data! as PreviewOut),
   });
-  const refresh = () => Promise.all([["video-settings", p.id], ["director", p.id], ["project", p.id], ["project-estimate", p.id], ["storyboard", p.id], ["project-clips", p.id], ["assets", p.id], ["missing-looks", p.id]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
+  const refresh = () => Promise.all([["video-settings", p.id], ["director", p.id], ["project", p.id], ["project-estimate", p.id], ["storyboard", p.id], ["project-clips", p.id], ["assets", p.id]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
   const apply = useMutation({ mutationFn: (body: SettingIn) => must(api.POST("/projects/{project_id}/settings", { params: { path: { project_id: p.id } }, body })).then((r) => r.data!) });
   const label = (f: Field) => (f.key === "video_model" && broll ? "B-roll model" : (ROW[f.key] ?? f.label));
   const switchTo = (field: Field, choice: Choice) => {

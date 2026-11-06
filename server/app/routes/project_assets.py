@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, cast_roles, clip_prompts, looks, merge_roles
+from app import advice, breakdown, cast_roles, clip_prompts, locks, looks, merge_roles
 from app.auth import current_user
 from app.credits import COUNTED, fits, price
 from app.db import get_db
@@ -25,7 +25,7 @@ from app.models.projects import Project
 from app.models.script_library import CastMerge, Script, ScriptCastSlot, ScriptDraft
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
-from app.routes.library import LookFitOut, pick_item, sheet_status
+from app.routes.library import LookFitOut, _waiting_sheets, pick_item, sheet_status
 from app.routes.projects import get_project, video_writer
 from app.routes.script_cast import (
     MergePreview,
@@ -96,6 +96,15 @@ class AssetOut(BaseModel):
     # golden retriever): what it shows, and the role's name and description put right.
     text_fit: TextFitOut | None = None
     text_check_credits: int | None = None  # its words not yet read against this sheet: Check
+    # The Cast tab (v6 S5): the clips it's in ("in 9 of 9 clips", "Clips 2–4 wait for him"),
+    # the picture someone uploaded for it (its sheet is drawn from it), the saved character's
+    # version ("Goth GF" v4), the sheet job drawing now (Cancel), and whether this person may
+    # unlock a role locked on the script (its author or the owner, before it's published).
+    clip_ids: list[str] = []
+    photo_file_id: int | None = None
+    library_version: int | None = None
+    drawing_job_id: int | None = None
+    script_unlock: bool = False
 
 
 class SlotTextIn(BaseModel):
@@ -159,6 +168,9 @@ def _row(
         look_fit=item.look_fit if item else None,
         look_needed=needed,
         look_copy_id=copy.id if copy else None,
+        photo_file_id=item.source_photo_file_id if item and own(item) else None,
+        library_version=item.version if item and not own(item) else None,
+        drawing_job_id=next((j.id for j in _waiting_sheets(copy or item)), None) if item else None,
     )
 
 
@@ -210,6 +222,19 @@ def _text(row: AssetOut, slot, item, project: Project, user: User) -> None:
             update_look=look, update_script=script, note=note)  # fmt: skip
 
 
+def _script_videos(db: Session, script_id: int) -> list[Project]:
+    """The videos made from any version of a script."""
+    drafts = select(ScriptDraft.id).where(ScriptDraft.script_id == script_id)
+    return list(db.scalars(select(Project).where(Project.script_draft_id.in_(drafts))))
+
+
+def _script_editable(db: Session, slot, user: User) -> bool:
+    """A role locked on its script can be unlocked by the script's author or the owner, until
+    the script is published (then it's final for everyone)."""
+    script = db.get(Script, slot.script_id)
+    return (user.is_owner or script.created_by_id == user.id) and not script.published
+
+
 def _script_words(db: Session, slot, user: User) -> bool:
     """Rule 31: a published script's role words are the owner's to change; before
     publishing, its author's too."""
@@ -227,6 +252,7 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
     bd = _newest(db, project)
     data = bd.data if bd else {"scenes": []}
     shots = [s for scene in data["scenes"] for s in scene["shots"]]
+    by_id = {s["id"]: s for s in shots}
     used = list(dict.fromkeys(c for s in shots for c in s["character_ids"]))
     places = list(dict.fromkeys(s["place_id"] for s in shots if s.get("place_id")))
     out, seen = [], set()
@@ -252,6 +278,8 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         seen.add(f"char:{item_id}")
         if item:
             _text(out[-1], slot, item, project, user)
+        if slot.library_item_id:
+            out[-1].script_unlock = _script_editable(db, slot, user)
     for ref in used:
         if ref in seen or not ref.startswith("char:"):
             continue
@@ -281,6 +309,10 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
             for s in shots
             if refs & {*s["character_ids"], s.get("place_id"), *s.get("screen_ids", [])}
         )
+        row.clip_ids = [c["id"] for c in data.get("clips", [])
+                        if any(refs & {*by_id[i]["character_ids"], by_id[i].get("place_id"),
+                                       *by_id[i].get("screen_ids", [])}
+                               for i in c["shot_ids"] if i in by_id)]  # fmt: skip
         slot = roles.get(row.slot_id)
         seen = {f"char:{cast_roles.picked(project, slot)}"} if slot else set()
         if slot and not row.shots and not any(seen & set(s["character_ids"]) for s in shots):
@@ -366,6 +398,8 @@ def _open_slot(db: Session, project: Project, slot_id: int) -> ScriptCastSlot:
         raise HTTPException(404, "No such cast slot in this video.")
     if slot.library_item_id:
         raise HTTPException(409, f"{slot.role} is locked to one look for every version.")
+    if locks.role_locked(project, slot.id):
+        raise HTTPException(409, f"{slot.role}'s look is locked in this video. Unlock it first.")
     return slot
 
 
@@ -453,6 +487,66 @@ def _make_look(
     queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+class PhotoIn(BaseModel):
+    file_id: int
+
+
+@router.post("/slots/{slot_id}/upload", response_model=list[AssetOut])
+def upload_look(
+    project_id: int,
+    slot_id: int,
+    body: PhotoIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload (the Cast tab, free): the picture becomes the role's look for this video only,
+    never the brand's (rule 12). Its sheet is drawn from it later: by the director's run, or by
+    Make a look on the role (priced there)."""
+    from app.routes.files import get_file
+
+    project = get_project(db, user, project_id)
+    slot = _open_slot(db, project, slot_id)
+    photo = get_file(db, user, body.file_id, "image")
+    look = LibraryItem(
+        workspace_id=project.workspace_id,
+        kind=Kind.character,
+        name=cast_roles.short(slot.role) or slot.role,
+        notes=slot.description or slot.role,
+        owner_project_id=project.id,
+        sheet_look=project.look or "house",
+        source_photo_file_id=photo.id,
+    )
+    db.add(look)
+    db.flush()
+    project.slot_looks = {**project.slot_looks, str(slot.id): look.id}
+    kept = {**(project.own_looks or {}).get(str(slot.id), {}), look.sheet_look: look.id}
+    project.own_looks = {**(project.own_looks or {}), str(slot.id): kept}
+    _cast(db, user, project, slot, look)
+    db.commit()
+    return list_assets(project_id, user, db)
+
+
+@router.delete("/slots/{slot_id}/script-lock", response_model=list[AssetOut])
+def unlock_on_script(
+    project_id: int, slot_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Unlock a role locked on its script (every version): its author or the owner, until the
+    script is published."""
+    project = get_project(db, user, project_id)
+    slot = next((s for s in _slots(db, project) if s.id == slot_id), None)
+    if not slot or not slot.library_item_id:
+        raise HTTPException(404, "That role isn't locked on the script.")
+    if not _script_editable(db, slot, user):
+        raise HTTPException(403, f"{slot.role} is locked on the script. Only its author or "
+                                 "the owner can unlock it, before it's published.")  # fmt: skip
+    for video in _script_videos(db, slot.script_id):  # every video of it keeps the character
+        if str(slot.id) not in (video.slot_cast or {}):
+            video.slot_cast = {**(video.slot_cast or {}), str(slot.id): slot.library_item_id}
+    slot.library_item_id = slot.sheet_file_id = slot.locked_by_id = None
+    db.commit()
+    return list_assets(project_id, user, db)
 
 
 NOT_IN_LOOK = "This character isn't one that needs its own look in this video."

@@ -15,7 +15,7 @@ const project = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
   cast_ids: [], reference_file_id: null, estimate_credits: 30, budget_credits: 600, credits_used: 0, budget_pct: 0, product_variants: {}, created_by_id: 3, created_by_name: "Sam",
 };
-const asset = { kind: "character", ref: "char:5", role: "Bo", library_item_id: 5, name: "Bo", locked: false, sheet_status: "approved", ready: true };
+const asset = { kind: "character", ref: "char:5", role: "Bo", library_item_id: 5, name: "Bo", locked: false, sheet_status: "approved", ready: true, description: "", shots: 1, clip_ids: ["c1"] };
 const frame = { id: 1, clip_id: "c1", shot_id: "1.1", prompt: "p", reference_ids: [], problems: [], kept: [], file_id: 40, approved: false, stale: false, earlier: [], change: null };
 const take = (id: number, number: number) => ({ id, number, file_id: 50 + id, created_at: `2026-10-26T10:4${number}:00` });
 const clip = { id: 3, clip_id: "c1", seconds: 8, prompt: "Bo sniffs the salmon", references: [], problems: [], kept: [], file_id: 51, takes: [take(1, 1)], picked_take_id: 1, approved: false, stale: false, take_credits: 24, inserts: [] };
@@ -33,7 +33,6 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/clips": [200, [clip]],
   "GET /projects/9/video": [200, { file_id: 60, take_ids: [1], out_of_date: false }],
   "GET /projects/9/assets": [200, [asset]],
-  "GET /projects/9/assets/missing-looks": [200, { slot_ids: [], roles: [], credits: 0, usual_credits: 0, reason: null }],
   "GET /library/character": [200, []],
   "GET /library/character/5": [200, { id: 5, kind: "character", name: "Bo", version: 1, sheet_file_id: 70, sheet_status: "approved" }],
   "GET /brands/1/screens": [200, []],

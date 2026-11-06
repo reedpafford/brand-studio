@@ -228,10 +228,14 @@ def clone(db: Session, user: User, brand_id: int, storage, stored: StoredFile, n
 
     if not name.strip():
         raise HTTPException(422, NO_NAME)
+    was = None  # a new row; else what the brand's voice had, put back if the clone is withdrawn
     if (made := existing(db, user.workspace_id, brand_id, stored, name)) is not None:
         if state(db, made)[0] in ("cloning", "ready", "may_expire"):
             return made  # reused: never charged again
         voice = made  # failed or gone: cloned again, the same voice in the brand
+        lost = voice.lost_at.isoformat() if voice.lost_at else None
+        was = {"sample_file_id": voice.sample_file_id, "lost_at": lost,
+               "provider_voice_id": voice.provider_voice_id, "job_id": voice.job_id}  # fmt: skip
         voice.sample_file_id, voice.lost_at, voice.provider_voice_id = stored.id, None, None
         check_sample(storage, stored)
     else:
@@ -244,7 +248,7 @@ def clone(db: Session, user: User, brand_id: int, storage, stored: StoredFile, n
         db.flush()
     job = enqueue(db, user, "voice", {
         "step": STEP, "model": CLONER, "voice_row_id": voice.id, "voice_name": voice.name,
-        "brand_id": brand_id,
+        "brand_id": brand_id, "was": was,
         "input": {"model": TRAINED_FOR, "need_volume_normalization": True,
                   "need_noise_reduction": False},
         "files": {"voice_file": [stored.id]}}, units=1, provider="replicate",
@@ -252,6 +256,20 @@ def clone(db: Session, user: User, brand_id: int, storage, stored: StoredFile, n
     voice.job_id = job.id
     db.commit()
     return voice
+
+
+def withdrawn(voice: Voice, job: Job) -> None:
+    """A clone withdrawn before it ran (`job`, cancelled): a row it made is removed (never
+    made, so not one of the brand's voices); a brand's voice it was cloning again gets back
+    what it had (QA on #1353: a withdraw never removes an existing voice)."""
+    if "was" not in job.input:  # a clone asked for before this was kept: left as it is
+        return
+    if (was := job.input["was"]) is None:
+        voice.archived_at = utcnow()
+        return
+    voice.sample_file_id, voice.provider_voice_id = was["sample_file_id"], was["provider_voice_id"]
+    voice.job_id = was["job_id"]
+    voice.lost_at = datetime.fromisoformat(was["lost_at"]) if was["lost_at"] else None
 
 
 def existing(
