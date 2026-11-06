@@ -1097,3 +1097,64 @@ def test_withdrawing_a_clone_of_a_brand_voice_never_removes_that_voice(app, db, 
     db.expire_all()
     nate = db.get(Voice, nate.id)
     assert nate.archived_at is None and nate.sample_file_id == first and nate.job_id is None
+
+
+def test_a_revision_never_says_no_generation_started(app, db, owner, editor):
+    """QA on the cut screens (board S3-12, "Working · revising · $9.84 spent"): once a run has
+    made the video, the header never says "No generation started" again, while a revision
+    plans or waits on its own Make it; before the first Make it, it does (S3-02). A revision's
+    waiting start card says the delivered cut stays as it is until it's pressed, or, held for
+    the owner, until the owner says yes."""
+    pid, _ = _video(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    _start(app, db, owner, pid)
+    assert owner.get(url).json()["started"] is False  # the first start card waits
+    first = owner.get(f"{url}/progress").json()
+    assert first["title"] == "Ready to make"
+    assert first["sub"] == "No generation started: press Make it"
+    _make_it(app, db, owner, pid)
+    assert owner.get(url).json()["started"] is True
+    cut = [t["note"]["cut"] for t in owner.get(url).json()["thread"] if t.get("note")][-1]
+    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    editor.post(url)  # Make it again, the editor's: the revision plans first
+    assert owner.get(f"{url}/progress").json()["status"] == "revising"
+    assert owner.get(url).json()["started"] is True
+    _run(app, db, ticks=4, start=False)  # its start card waits, past the budget: the owner's
+    mine = owner.get(f"{url}/progress").json()
+    assert mine["title"] == "Ready to make"
+    assert mine["sub"] == f"Cut {cut} stays as it is until you press Make it"
+    theirs = editor.get(f"{url}/progress").json()
+    assert theirs["title"] == "Waiting for the owner's OK"
+    assert theirs["sub"] == f"Cut {cut} stays as it is until the owner says yes"
+    assert owner.get(url).json()["started"] is True and editor.get(url).json()["started"] is True
+
+
+def test_notes_kept_before_their_parts_existed_still_show(app, db, owner, editor):
+    """QA on the test site's videos: a delivery's note kept as plain words, or as a dict from
+    before the cut was numbered, shows as it is (never a 500); a revision's start card then says
+    "The cut stays as it is", with no number."""
+    pid, _ = _video(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    _start(app, db, owner, pid)
+    _make_it(app, db, owner, pid)
+    delivered = next(j for j in director.turns(db, db.get(Project, pid))
+                     if j.input.get("result") == "Delivered.")  # fmt: skip
+    for old, cut in (({"made": "The cut.", "spent": 9, "up_to": 20}, None),
+                     ("Here's the cut. Nothing else.", None)):  # fmt: skip
+        delivered.output = {**delivered.output, "note": old}
+        db.commit()
+        for who in (owner, editor):
+            r = who.get(url)
+            assert r.status_code == 200, r.text
+            (line,) = [t for t in r.json()["thread"] if t["id"] == f"t{delivered.id}"]
+            if isinstance(old, str):
+                assert line["note"] is None and line["text"] == old  # its words, as they were
+            else:
+                assert line["note"]["cut"] is cut and line["note"]["made"] == "The cut."
+                assert line["note"]["redid"] == [] and "The cut." in line["text"]
+    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    editor.post(url)  # Make it again, the editor's: held for the owner
+    _run(app, db, ticks=4, start=False)
+    mine, theirs = owner.get(f"{url}/progress").json(), editor.get(f"{url}/progress").json()
+    assert mine["sub"] == "The cut stays as it is until you press Make it"
+    assert theirs["sub"] == "The cut stays as it is until the owner says yes"

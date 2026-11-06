@@ -362,7 +362,7 @@ export function PastNote({ note: n }: { note: Note }) {
   const [open, setOpen] = useState(false);
   return (
     <details onToggle={(e) => setOpen(e.currentTarget.open)} className="rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-muted">
-      <summary className="cursor-pointer list-none tabular-nums max-lg:min-h-control max-lg:content-center">{["Delivery note", `Cut ${n.cut}`, n.seconds > 0 && mmss(n.seconds), money(n)].filter(Boolean).join(" · ")}</summary>
+      <summary className="cursor-pointer list-none tabular-nums max-lg:min-h-control max-lg:content-center">{["Delivery note", n.cut != null && `Cut ${n.cut}`, n.seconds > 0 && mmss(n.seconds), money(n)].filter(Boolean).join(" · ")}</summary>
       {open && (
         <div className="mt-2 text-text">
           <DeliveryNote note={n} changes={0} />
