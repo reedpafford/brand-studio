@@ -1158,3 +1158,25 @@ def test_notes_kept_before_their_parts_existed_still_show(app, db, owner, editor
     mine, theirs = owner.get(f"{url}/progress").json(), editor.get(f"{url}/progress").json()
     assert mine["sub"] == "The cut stays as it is until you press Make it"
     assert theirs["sub"] == "The cut stays as it is until the owner says yes"
+
+
+def test_a_video_delivered_before_start_cards_never_reads_no_generation_started(
+    app, db, owner, editor
+):
+    """QA on the cut screens: a video the test site delivered before start cards existed (its
+    turns carry no `ok`, it has no start card) says what was spent while a new run plans or its
+    cut is remade, never "No generation started" (S3-12)."""
+    pid, _ = _video(app, owner, editor, db)
+    _start(app, db, owner, pid)
+    _make_it(app, db, owner, pid)
+    for j in db.query(Job).filter(Job.project_id == pid):  # as it was before start cards
+        data = {k: v for k, v in j.input.items() if k not in (asks.START, "price")}
+        if isinstance(data.get(director.RUN), dict):
+            data[director.RUN] = {k: v for k, v in data[director.RUN].items() if k != "ok"}
+        j.input = data
+    db.commit()
+    url = f"/projects/{pid}/director"
+    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    owner.post(url)  # a new run: planning before its own Make it
+    assert owner.get(url).json()["started"] is True
+    assert editor.get(url).json()["started"] is True

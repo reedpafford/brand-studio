@@ -582,7 +582,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                if how == "needs_fix" else None)  # fmt: skip
         plain = how == "needs_fix" or why == "Stopped."
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
-                f"{made} of {total} clips made" if plain else said(why),
+                f"{made} of {_n(total, 'clip')} made" if plain else said(why),
                 "bad" if how == "needs_fix" else "stop")  # fmt: skip
     elif (
         holds is not None
@@ -606,7 +606,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                 "now")  # fmt: skip
     else:
         head = ("working", "Cutting it together" if total else "Planning",
-                f"{total} clips made" if total else "", "now")  # fmt: skip
+                f"{_n(total, 'clip')} made" if total else "", "now")  # fmt: skip
     again = price_of(db, project)  # carrying on is a new run: its whole "up to" (rule 36)
     for c in cells:  # a press's price as it charges: the take with the check that rides along
         if c["state"] in ("waiting", "failed"):

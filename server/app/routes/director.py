@@ -13,7 +13,6 @@ from app.advice import SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
-from app.models.jobs import JobStatus
 from app.routes.clips import generation_on
 from app.routes.projects import _mine, get_project, video_writer
 from app.schemas import UtcTime
@@ -240,11 +239,15 @@ def _out(db: Session, user: User, project) -> DirectorOut:
         blocked = director.blocked(db, project)
     except HTTPException as no:
         blocked = no.detail
-    started = (
-        bool(last)
-        and last.input[director.RUN].get("ok", True)
-        and not (last.input.get(director.START) and last.status == JobStatus.needs_owner_approval)
-    ) or asks.approved_run(db, project) is not None  # a run made it before: a revision (S3-12)
+    from app import run_progress
+    from app.credits import COUNTED
+
+    # a run made it before (a pressed start card, or a run from before start cards, whose turns
+    # carry no `ok`): a revision or a remade cut after it never reads "No generation started"
+    # (S3-12); planning before the first Make it, and a start card still waiting, do (S3-02)
+    every = [j for run in run_progress.runs(db, project).values() for j in run]
+    started = asks.approved_run(db, project) is not None or any(
+        j.input[director.RUN].get("ok", True) and j.status in COUNTED for j in every)  # fmt: skip
     return DirectorOut(status=status, ended=ended, turns=turns,
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,

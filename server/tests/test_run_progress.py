@@ -258,7 +258,7 @@ def test_stopped_by_a_person_says_who_and_what_carrying_on_costs(app, db, owner,
     assert owner.post(f"{url}/stop").status_code == 200
     p = _progress(owner, pid)
     assert (p["status"], p["title"], p["tone"]) == ("stopped", "Stopped", "stop")
-    assert p["sub"] == f"{p['made']} of {p['clips']} clips made"
+    assert p["sub"] == f"{p['made']} of {p['clips']} clip{'' if p['clips'] == 1 else 's'} made"
     assert p["stopped"]["by"] == "Reed" and p["stopped"]["at"]
     assert p["stopped"]["carry_on"].startswith("$")  # "Carry on · up to $10.74 more"
     assert _progress(editor, pid)["stopped"]["carry_on"].endswith("credits")
@@ -617,3 +617,11 @@ def test_every_way_of_saying_ready_is_held_back_and_every_ask_is_kept():
     assert delivery.needs("Check clip 3;", True) == f"Check clip 3. {look}"
     assert delivery.needs("Wait…", True) == f"Wait… {look}"
     assert delivery.needs('Say "go."', True) == f'Say "go." {look}'  # no stray full stop
+
+
+def test_one_clip_is_said_as_one_clip_while_it_is_cut(app, db, owner, editor):
+    """S7-04: "Cutting it together · 1 clip made", never "1 clips"."""
+    pid = _done(app, db, owner, editor)
+    _going(db, pid)  # the run goes on: its clips made, the cut next
+    p = _progress(owner, pid)
+    assert (p["title"], p["sub"]) == ("Cutting it together", "1 clip made")

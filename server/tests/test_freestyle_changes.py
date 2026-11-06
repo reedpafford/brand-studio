@@ -175,3 +175,19 @@ def test_after_a_change_the_header_the_run_card_and_the_note_say_one_up_to(
 
     if branded:  # its video's page: header, run card and note say one spent, one up to
         one_figure(owner, editor, project.id)
+
+
+def test_a_change_after_the_delivery_never_reads_no_generation_started(app, owner, editor, db):
+    """QA on the cut screens: a freestyle's video in its brand, delivered on its own OK, then a
+    change being planned and waiting for the owner, says what was spent, never "No generation
+    started" (S3-12)."""
+    from tests.conftest import first_brand
+
+    fs = _delivered(app, owner, editor, db, first_brand(owner))
+    url = f"/projects/{fs['project_id']}/director"
+    assert owner.get(url).json()["started"] is True  # delivered
+    editor.post(f"/freestyles/{fs['id']}/messages", json={"text": CHANGE})
+    for ticks in (1, 3):  # the change plans, then waits for the owner's OK
+        _run(app, db, ticks=ticks, start=False)
+        assert owner.get(url).json()["started"] is True
+        assert editor.get(url).json()["started"] is True
