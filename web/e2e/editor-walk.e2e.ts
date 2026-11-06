@@ -130,8 +130,8 @@ async function walk(ed: Page, brand: number, title: string, tag: string) {
   if (!(await next(ed, /^Next: Final cut/, `${tag} clips`, 60_000))) return;
   // Final cut
   await state(ed, `${tag} downloads`);
-  // The whole video is put together by itself once every clip is approved; Make the video is only there when it isn't yet.
-  if (await btn(ed, /^Make the video/).isEnabled().catch(() => false)) await btn(ed, /^Make the video/).click();
+  // The whole video is put together by itself once every clip is approved; Make the cut is only there when it isn't yet.
+  if (await btn(ed, /^Make the cut/).isEnabled().catch(() => false)) await btn(ed, /^Make the cut/).click();
   await expect(ed.getByRole("link", { name: /Download MP4/ })).toBeVisible({ timeout: 120_000 }).catch(async () => block(ed, `${tag} downloads`, "no final video to download"));
   await state(ed, `${tag} done`);
   console.log(tag, "page errors", JSON.stringify(errors));
