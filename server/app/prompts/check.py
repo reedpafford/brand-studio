@@ -1252,11 +1252,12 @@ def plan(
     fmt: str = "dialogue",
     max_seconds: float = 0,
 ) -> list[str]:
-    """The plan's checks, free (flows P1). Fixes (the plan can't be used): a line missing,
-    twice or out of order, a line that isn't the script's, a ★ that isn't the brand's. Advice
-    (never a block, each with its press): two places in a scene, the product never shown,
-    someone not in the cast, a scene longer than one clip. With fixes, the plan job asks
-    once more, inside the same job and charged once; if the second answer still has fixes,
+    """The plan's checks, free (flows P1). Fixes (the plan can't be used): a line missing, twice
+    or out of order, a line that isn't the script's, a ★ that isn't the brand's. Advice (never
+    a block, each with its press): two places in a scene, someone not in the cast, a scene
+    longer than one clip. A plan with no product shown is fine: the script decides (Reed, 6
+    Nov: "it should literally follow the script exactly, every time"). With fixes, the plan job
+    asks once more, inside the same job and charged once; if the second answer still has fixes,
     the job ends as failed ("The plan didn't finish. Nothing was charged.") and no plan with a
     missing or reordered line is ever shown (Next-Lead on #866, as with song directions)."""
     problems, words = [], dict(enumerate(script.splitlines(), 1))
@@ -1287,8 +1288,6 @@ def plan(
         if max_seconds and seconds > max_seconds:
             problems.append(f"{ADVICE}scene {sc.id} runs about {round(seconds)} s, over one "
                             f"clip's {round(max_seconds)} s; Split here")  # fmt: skip
-    if result.scenes and not any(x.product for sc in result.scenes for x in sc.lines):
-        problems.append(f"{ADVICE}the product is never shown; ★ a line")
     return problems
 
 
