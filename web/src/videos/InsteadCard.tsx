@@ -1,0 +1,42 @@
+import { Check, Clock, Film, LoaderCircle, Mic } from "lucide-react";
+import { said, useAskActions, type Ask } from "./AskCard";
+
+const ICON = { softer: Mic, cut_away: Film, pause: Clock } as const;
+const MADE: Record<string, string> = { held: "Waiting for the owner’s OK", making: "Being made. The cut is made again once it’s in", done: "Made. The cut is made again with it" };
+
+/** What the director can change instead of a locked line (S3-14): the script's words are set, so its reply offers each
+ *  thing this video can really make instead, priced as its press charges ("up to"; free when it is). A press makes it at
+ *  once: the card says what was chosen and how it's going, and the other choices stay pressable. */
+export function InsteadCard({ ask: a }: { ask: Ask }) {
+  const act = useAskActions(a);
+  const chosen = a.choices.filter((c) => c.made);
+  const press = (key: string) => act.mutate({ body: { how: "instead", choice: key } });
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="leading-[21px]">{a.question}</p>
+      {chosen.length > 0 && (
+        <p className="flex items-center gap-2 text-[13px] text-muted">
+          <Check size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+          {`You chose: ${chosen.map((c) => c.title).join(", ")}`}
+        </p>
+      )}
+      <div className="mt-0.5 flex flex-col gap-2">
+        {a.choices.map((c) => {
+          const Icon = ICON[c.do as keyof typeof ICON] ?? Clock;
+          const busy = act.isPending && act.variables?.body && (act.variables.body as { choice?: string }).choice === c.key;
+          const price = c.price ? `up to ${said(c.price)}` : "free";
+          return (
+            <button key={c.key} type="button" disabled={!a.can.includes("instead") || !!c.made || act.isPending} onClick={() => press(c.key)} className="flex items-start gap-2 rounded-md border border-border-button px-2.5 py-[9px] text-left text-[13px] enabled:hover:bg-surface-2 disabled:cursor-default max-lg:min-h-control">
+              {busy ? <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 animate-spin" /> : <Icon size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />}
+              <span className="min-w-0">
+                <span className="block font-semibold">{c.title}</span>
+                <span className="block text-xs leading-4 text-muted">{c.made ? MADE[c.made] : `${c.why} · ${price}`}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {act.isError && <p role="alert" className="text-sm text-danger">{act.error?.message}</p>}
+    </div>
+  );
+}

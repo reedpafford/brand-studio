@@ -23,6 +23,7 @@ import { useOnline, useRail } from "../useMedia";
 import { plain, useDirectorRun, useMovesRefresh } from "./director";
 import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview";
 import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
+import { InsteadCard } from "./InsteadCard";
 import { DeliveryNote, Failed, PastNote, RunCard, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
 import { MoveDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 
@@ -369,6 +370,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
     onSuccess: (data) => {
       queryClient.setQueryData(["director", id], data);
       if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
+      void queryClient.invalidateQueries({ queryKey: ["asks", id] }); // a locked line's answer comes at once (S3-14)
       return refreshJobs(queryClient);
     },
   });
@@ -456,6 +458,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
               <Item key={t.id} t={t} owner={owner} words={cards.some((a) => a.id === t.ask_id) ? null : t.text}>
                 {(() => {
                   const a = cards.find((x) => x.id === t.ask_id);
+                  if (a?.kind === "instead") return <InsteadCard ask={a} />; // S3-14: what can change instead of a locked line
                   return a && <AskCard ask={a} owner={owner} onChangePlan={a.kind === "start" ? focusBox : undefined} onWithdraw={withdrawFor(a)} />;
                 })()}
               </Item>

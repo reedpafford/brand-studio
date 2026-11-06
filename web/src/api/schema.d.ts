@@ -5898,6 +5898,11 @@ export interface components {
             kind: string;
             /** Topic */
             topic: string;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
             /** Question */
             question: string;
             /** Why */
@@ -11050,6 +11055,17 @@ export interface components {
             title: string;
             /** Why */
             why: string;
+            /**
+             * Do
+             * @default
+             */
+            do: string;
+            price?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Made
+             * @default
+             */
+            made: string;
         };
         /** StoryboardIn */
         StoryboardIn: {

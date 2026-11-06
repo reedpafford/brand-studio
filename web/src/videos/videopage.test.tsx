@@ -779,3 +779,35 @@ test("S3-09: a note with nothing uncertain and nothing open has no What remains 
   const n = await screen.findByRole("region", { name: "Delivery note" });
   expect(within(n).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["What I made", "What I need from you"]);
 });
+
+// S3-14: an editor asks to change a locked line; the reply offers what can change instead, priced, and the Script tab
+// says the words are set, with the asked words marked.
+const instead = (o: object = {}) => ask({ id: 12, kind: "instead", topic: "", subject: "beer gut", question: "The script’s words are set for this script, so I can’t change “beer gut”. Here’s what I can change instead:", why: "", state: "offered", saved_in: "", saved: [], pick: null, generate: null, choices: [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "" }], can: ["instead"], ...o });
+
+test("S3-14: the reply to a locked line offers what can change instead at its price; a press makes it; the Script tab is set", async () => {
+  setViewport(1440);
+  const thread = [item("m1", "message", "Kel", "Can we change “beer gut” to “belly”? It feels a bit harsh.", null, later, { answered: true }), item("a12", "move", "Director", "The script’s words are set…", null, later, { kind: "ask", ask_id: 12 })];
+  const calls = server(editor, null, run({ status: "delivered", thread }), { ...cards(instead()), "POST /asks/12/answer": [200, instead({ choices: [{ key: "A", title: "Say it softer", why: "", do: "softer", price: price(4), made: "making" }], can: [] })], "GET /projects/50/script": [200, { version: 1, source: "paste", words: 9, created_by_id: 1, created_at: at, text: "DR. PICKLE: Your beer gut after the weekend?\nDR. PICKLE: Every pint sits there." }] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("The script’s words are set for this script, so I can’t change “beer gut”. Here’s what I can change instead:")).toBeInTheDocument();
+  const softer = screen.getByRole("button", { name: /^Say it softer/ });
+  expect(softer).toHaveTextContent("Dr. Pickle says it more softly. Redo the voice line and clip 2 · up to 4 credits"); // credits only (rule 4)
+  await userEvent.click(softer);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Script" }));
+  expect(await screen.findByText("Published script · the words are set")).toBeInTheDocument();
+  expect(screen.getByText("beer gut", { selector: "mark" })).toBeInTheDocument();
+});
+
+test("S3-14: once chosen, the card says so and how it's going; the other choices stay pressable; a free one says free", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "held" }, { key: "B", title: "Shorter pause after it", why: "Tighten 0.4 s", do: "pause", price: null, made: "" }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices })));
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("You chose: Say it softer")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Say it softer/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /^Say it softer/ })).toHaveTextContent("Waiting for the owner’s OK");
+  const pause = screen.getByRole("button", { name: /^Shorter pause after it/ });
+  expect(pause).toBeEnabled();
+  expect(pause).toHaveTextContent("Tighten 0.4 s · free");
+});

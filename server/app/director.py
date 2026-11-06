@@ -23,6 +23,7 @@ from app import (
     breakdown_fix,
     director_song,
     director_tools,
+    locked_line,
     take_mute,
     take_sound,
     word_splice,
@@ -113,6 +114,8 @@ def say(db: Session, user: User, project: Project, text: str, files: list[int] =
         raise HTTPException(429, TOO_MANY)
     said = {"by": user.id, "text": text, "at": now.isoformat(), "run": run_id,
             **({"files": list(files)} if files else {})}  # fmt: skip
+    if not going and (instead := locked_line.offer(db, user, project, text)):
+        said["offer"] = instead.id  # answered at once (S3-14): no run reads it
     project.director_chat = [*every, said]
     db.commit()
     if going and going.status == JobStatus.needs_owner_approval and going.input.get(START):
@@ -173,8 +176,8 @@ def leftover(db: Session, project: Project) -> list[int]:
     out = []
     for n, m in enumerate(project.director_chat or []):
         run = m.get("run")
-        if run is not None and run == live:
-            continue  # its next turn reads it
+        if run is not None and run == live or m.get("offer"):
+            continue  # its next turn reads it; or answered at once with what can change (S3-14)
         seen[run] = seen.get(run, 0) + 1
         if run is None or seen[run] > read.get(run, 0):
             out.append(n)
@@ -194,7 +197,8 @@ def thread(db: Session, project: Project, viewer: User | None = None) -> list[di
         place[m.get("run")] = place.get(m.get("run"), 0) + 1
         out.append({"id": f"m{n}", "kind": "message", "at": m["at"],
                     "who": user_name(db, m["by"]), "text": m["text"], "status": None, "why": "",
-                    "answered": place[m.get("run")] in done.get(m.get("run"), set()),
+                    "answered": bool(m.get("offer"))
+                    or place[m.get("run")] in done.get(m.get("run"), set()),
                     "files": m.get("files", [])})  # fmt: skip
     written = db.scalars(select(Job).where(Job.project_id == project.id,
                                            Job.input["step"].as_string() == "treatment",
