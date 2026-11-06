@@ -28,6 +28,7 @@ from app.clip_takes import still_wanted
 from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
+from app.models.accounts import User
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import (
@@ -447,7 +448,9 @@ def _within_real_budget(db: Session, job: Job) -> bool:
     from app.settings import get_settings
 
     settings = get_settings()
-    if no := real_budget_refusal(db, settings, job.provider, job.credits):
+    maker = db.get(User, job.created_by_id) if job.created_by_id else None
+    if no := real_budget_refusal(db, settings, job.provider, job.credits,
+                                 bool(maker and maker.is_owner)):  # fmt: skip
         _fail(db, job, no, "real budget refused")
         db.commit()
         return False

@@ -58,7 +58,7 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
     onSuccess: (fs) => navigate(sentTo(fs, owner, brandId)),
   });
   const ready = reel?.status === "ready" || (mode === "look" && reel?.status === "done");
-  const readEst: Estimate | undefined = readPrice ? { credits: readPrice.credits, usd: readPrice.usd, held: "", budget: null } : undefined;
+  const readEst: Estimate | undefined = readPrice ? { credits: readPrice.credits, usd: readPrice.usd, held: "", budget: null, expected: false } : undefined;
   const est = mode === "look" ? lookEst : readEst;
   const disabled = !ready || (mode === "look" && !words.trim());
   const press = <Press owner={owner} est={est} busy={go.isPending} disabled={disabled} onClick={() => go.mutate()} go={mode === "look" ? "Make it" : "Watch it and write the script"} wide={!rail} />;

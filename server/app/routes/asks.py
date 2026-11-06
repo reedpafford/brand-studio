@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import ask_options, asks, director, hidden, locked_line
 from app.auth import current_user
-from app.credits import USD_PER_CREDIT, budget, budget_used, price
+from app.credits import USD_PER_CREDIT, budget, budget_used, price, uncapped
 from app.db import get_db
 from app.models.accounts import User
 from app.models.asks import Ask
@@ -81,6 +81,7 @@ class MoneyCard(BaseModel):
     budget: AskPrice | None = None
     past: AskPrice | None = None  # how far past the budget it goes
     usual: AskPrice | None = None  # the start card's "Usually it's nearer …"
+    expected: bool = False  # up_to is what it will probably cost, not a most (owner_uncapped)
     clips: list[HeldClip] = []
     sent_at: UtcTime
     held: str  # the hold's own words
@@ -233,6 +234,16 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         card.why = ("That's the most this run can charge: the first takes and their checks, up "
                     f"to {director.MAX_REDOS} remakes a clip, and my own time. Usually it's "
                     f"nearer {_said(money.usual)}.")  # fmt: skip
+        if uncapped(user):  # Reed, 6 Nov: no limit on his test site, so the likely cost
+            money.up_to, money.usual, money.expected = (
+                _price(user, _expected(db, project)),
+                None,
+                True,
+            )
+            card.question = f"Make it? About {_said(money.up_to)} (estimate)."
+            card.why = ("That's what this run will probably cost: the first takes and their "
+                        "checks, my usual time and a watch of the cut. Nothing stops it at a "
+                        "limit here; what it really spends shows as it goes.")  # fmt: skip
         if held and held[0].input.get(asks.CARRIES):  # carrying on after the owner's Stop
             money.usual = None
             card.question = f"Carry on for up to {_said(money.up_to)} more?"
@@ -294,6 +305,14 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         card.can = []
     card.money = money
     return card
+
+
+def _expected(db: Session, project: Project) -> Decimal:
+    from app.models.script_library import ScriptDraft
+    from app.routes.estimate import expected
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    return expected(db, draft, project) if draft else Decimal(0)
 
 
 def _usual(db: Session, project: Project) -> Decimal:
