@@ -672,3 +672,43 @@ def test_a_word_change_starts_no_run_and_any_other_note_does(app, db, owner, edi
     both = "Change “bought the dip” to “bought the top”, and make the end brighter."
     out = editor.post(url(pid), json={"text": both}).json()
     assert _card(editor, pid)["choices"] and out["status"] == "running"  # both, at once
+
+
+def test_the_boards_path_a_new_video_from_a_published_script_gets_the_reply_at_once(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on the test site (S3-14): the owner publishes a script, the editor makes the video
+    from it in New video, it's delivered, and the editor's note asks only to change its words.
+    The reply comes at once in the chat, no run starts and nothing waits for the owner, and
+    every choice on it can be pressed."""
+    from decimal import Decimal
+
+    from app.routes import freestyles
+    from tests.test_freestyle_dialogue import SCRIPT
+    from tests.test_freestyle_dialogue import _run as run_freestyle
+    from tests.test_new_video import _published
+
+    app.state.settings.fake_providers = True
+    monkeypatch.setattr(freestyles, "budget", lambda db, project: Decimal(10_000))
+    sent = editor.post(
+        "/freestyles", json={"shape": "9:16", "script_id": _published(owner, SCRIPT)}
+    )
+    assert sent.status_code == 201, sent.text
+    fs = sent.json()
+    run_freestyle(app, db, ticks=160)
+    out = editor.get(f"/projects/{fs['project_id']}/director").json()
+    assert out["status"] == "delivered", [t["text"] for t in out["thread"]][-4:]
+    pid, jobs = fs["project_id"], db.query(Job).count()
+    note = "Change “The market opened at nine” to “The bell rang at nine”"
+    r = editor.post(f"/freestyles/{fs['id']}/messages", json={"text": note})
+    assert r.status_code == 201, r.text
+    db.expire_all()
+    assert db.query(Job).count() == jobs  # no run, no model, nothing held for the owner
+    assert r.json()["status"] == "delivered" and not director.active(db, db.get(Project, pid))
+    card = _card(editor, pid)
+    assert card["state"] == "offered" and card["choices"] and card["can"] == ["instead"]
+    assert all(c["cannot"] == "" for c in card["choices"])  # never "The director is working"
+    thread = editor.get(f"/projects/{pid}/director").json()["thread"]
+    assert any(t["kind"] == "ask" and t.get("ask_id") == card["id"] for t in thread)  # in chat
+    said = next(t for t in thread if t["kind"] == "message" and t["text"] == note)
+    assert said["answered"]  # answered: no Make it again waits for it
