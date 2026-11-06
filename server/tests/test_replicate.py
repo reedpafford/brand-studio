@@ -259,3 +259,27 @@ def test_token_from_env_goes_to_the_api_only(app, owner, db, fake, monkeypatch):
     downloads = [r for r in fake.requests if "replicate.delivery" in str(r.url)]
     assert api and all(r.headers["authorization"] == "Bearer r8_secret" for r in api)
     assert downloads and all("authorization" not in r.headers for r in downloads)
+
+
+def test_a_model_with_no_duration_input_is_charged_for_its_fixed_length_not_failed():
+    """The real-run audit: Omni has no duration (its clips are fixed_seconds long); a take
+    Replicate made and charged, with no reported length, was marked failed by an
+    AttributeError, with no retry. It's charged as its fixed length, estimated."""
+    omni = get_model("gemini-omni-1.1")
+    assert omni.duration is None and omni.fixed_seconds == 10
+    out = "https://replicate.delivery/out.mp4"
+    done = {"id": "o1", "status": "succeeded", "version": omni.provider_version,
+            "input": {"prompt": "a cat trades"}, "output": out}  # fmt: skip
+
+    def handler(request):
+        if str(request.url).endswith("/out.mp4"):
+            return httpx.Response(200, content=MP4, headers={"content-type": "video/mp4"})
+        return httpx.Response(200, json=done)
+
+    provider = ReplicateProvider(
+        BASE, httpx.Client(transport=httpx.MockTransport(handler)), token="test-token"
+    )
+    result = provider.poll("o1")
+    assert result.state == "succeeded", result.error
+    (usage,) = result.usage
+    assert (usage.units, usage.unit, usage.estimated) == (Decimal(10), "second", True)
