@@ -95,7 +95,9 @@ def _voices(db: Session, brand: Brand) -> list[dict]:
     for said, pid in takes:
         videos.setdefault(said, set()).add(pid)
     rows = voices.rows(db, brand.workspace_id, brand.id)
-    out = [{"id": f"voice:{v.id}", "name": v.name, "note": v.description, "file_id": None,
+    out = [{"id": f"voice:{v.id}", "name": v.name, "file_id": None,
+            "note": (f"Described: \u201c{v.description}\u201d" if v.kind == "described"
+                     else v.description),
             "used_in": len(videos.get(f"voice:{v.id}", ())), "sample_file_id": v.sample_file_id,
             "sample_url": _url(voices.sample_name(v))}
            for v in rows  # what narration reads: a ready clone, or one described in words

@@ -544,6 +544,7 @@ def test_describe_it_saves_a_brand_voice_read_in_the_nearest_app_voice(app, db, 
     other = _ask(db, pid, {"kind": "voice", "subject": "Mia", "question": "Mia's voice?"})
     offered = {o["id"]: o for o in _card(editor, other)["saved"]}
     assert offered[f"voice:{voice.id}"]["name"] == "Dana"  # usable wherever voices are picked
+    assert offered[f"voice:{voice.id}"]["note"] == "Described: \u201clate 40s, tired, warm\u201d"
     assert offered[f"voice:{voice.id}"]["sample_url"].endswith("English_Graceful_Lady.mp3")
     same = {"how": "describe", "text": "Late 40s, tired, warm"}
     again = editor.post(f"/asks/{other.id}/answer", json=same)
