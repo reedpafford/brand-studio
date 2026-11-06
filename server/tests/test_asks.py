@@ -555,6 +555,11 @@ def test_describe_it_saves_a_brand_voice_read_in_the_nearest_app_voice(app, db, 
     him = editor.post(f"/asks/{mark.id}/answer", json={"how": "describe",
                                                         "text": "Late 40s, tired"})  # fmt: skip
     assert him.json()["answer"]["uses"] == "Roger"  # S4-01: Mark gets a man's voice
+    ava = _ask(db, pid, {"kind": "voice", "subject": "Ava", "question": "Which voice should Ava "
+                         "have?", "why": "She talks for the whole 30 s."})  # fmt: skip
+    her = editor.post(f"/asks/{ava.id}/answer", json={"how": "describe", "text": "Late 40s, tired"})
+    assert her.json()["answer"]["uses"] == "Graceful Lady"  # the same words: never his voice
+    assert her.json()["answer"]["option"] != him.json()["answer"]["option"]
 
 
 def test_a_product_shot_answer_picks_that_product_for_the_video(app, db, owner, editor):

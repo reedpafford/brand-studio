@@ -476,11 +476,14 @@ def test_a_described_voice_is_the_brands_and_is_read_in_its_app_voice(db, owner)
     assert db.query(Job).count() == 0  # nothing made, nothing charged
     renamed = voices.describe(db, user, brand, "late 30s, dry, quick", "Dana Q")
     assert renamed.id == dana.id and renamed.name == "Dana Q"  # the same words: renamed
-    assert voices.describe(db, user, brand, "something else", "Dana Q").id == dana.id  # a name
+    assert voices.describe(db, user, brand, "quick and bright", "Dana Q").id == dana.id  # a name
+    other = voices.describe(db, user, brand, "deep male voice", "Dana Q")  # never a man's voice
+    assert other.id != dana.id and other.provider_voice_id == "Austin"
     dana.archived_at = utcnow()
     db.commit()
-    back = voices.describe(db, user, brand, "late 30s, dry, quick")
-    assert back.id == dana.id and back.archived_at is None  # a removed one comes back
+    fresh = voices.describe(db, user, brand, "late 30s, dry, quick")
+    assert fresh.id != dana.id and dana.archived_at is not None  # a removed one stays removed
+    dana.archived_at = None
     dana.provider_voice_id = "Gone_Voice"  # an app voice no longer offered
     db.commit()
     with pytest.raises(HTTPException) as gone:

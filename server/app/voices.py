@@ -266,26 +266,23 @@ def describe(db: Session, user: User, brand_id: int, text: str, name: str = "",
              about: str = "") -> Voice:  # fmt: skip
     """A voice described in words, saved to the brand (Reed, 6 Nov): no new voice is made (no
     model, no paid call); it's read in the app voice nearest the words (`closest`, `about`
-    whoever it's for), with that voice's free sample. As a clone's are: the same words, or
-    the same name, in this brand are the voice already saved (a removed one comes back), and
-    a new name given with the same words renames it."""
+    whoever it's for), with that voice's free sample. As a clone's are: a saved voice with the
+    same words, or the same name, read in that same app voice is the one used again (a new
+    name with the same words renames it); a removed one is never brought back silently."""
     said = " ".join(text.split())[:500]
     if not said:
         raise HTTPException(422, NO_DESCRIPTION)
-    named_as = name.strip()[:120]
+    named_as, key = name.strip()[:120], closest(said, about)
     rows = db.scalars(select(Voice).where(
         Voice.workspace_id == user.workspace_id, Voice.brand_id == brand_id,
-        Voice.kind == "described").order_by(Voice.archived_at.is_not(None),
-                                            Voice.id.desc())).all()  # fmt: skip
-    same = next((v for v in rows if v.description.lower() == said.lower()), None) or next(
-        (v for v in rows if named_as and v.archived_at is None
-         and v.name.strip().lower() == named_as.lower()), None)  # fmt: skip
+        Voice.kind == "described", Voice.provider_voice_id == key,
+        Voice.archived_at.is_(None)).order_by(Voice.id.desc())).all()  # fmt: skip
+    same = next((v for v in rows if v.description.lower() == said.lower()), None)
     if same is not None:
-        same.archived_at = None
-        if named_as and same.description.lower() == said.lower():
-            same.name = named_as
+        same.name = named_as or same.name
         return same
-    key = closest(said, about)
+    if named_as and (same := next((v for v in rows if v.name.lower() == named_as.lower()), None)):
+        return same
     voice = Voice(workspace_id=user.workspace_id, brand_id=brand_id, kind="described",
                   name=named_as or DESCRIBED, description=said,
                   provider="elevenlabs" if key in ELEVENLABS else "minimax",
