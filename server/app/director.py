@@ -30,7 +30,7 @@ from app import (
     take_sound,
     word_splice,
 )
-from app.credits import COUNTED, FREESTYLE, lock
+from app.credits import COUNTED, FREESTYLE, lock, uncapped
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.asks import Ask
@@ -130,7 +130,7 @@ def carry_on(db: Session, user: User, project: Project) -> Job:
     if _carry_waiting(db, project):
         db.rollback()
         raise HTTPException(409, CARRY_WAITING)
-    left = run_progress.carry_left(db, project)
+    left = run_progress.carry_left(db, project, whole=uncapped(user))  # uncapped: whatever's left
     if left is None:
         db.rollback()
         return start(db, user, project, hold=asks.start_hold(db, user, project))
@@ -415,11 +415,16 @@ def _redos(db: Session, project: Project, run: dict) -> dict[str, int]:
     return out
 
 
+def clip_no(clip_id: str) -> str:
+    """A clip as people read it: "1" for c1, "1b" for a split's c1b (the web's clipNo)."""
+    return clip_id.removeprefix("c")
+
+
 def named(text: str) -> str:
-    """A move as people read it: clips as they see them ("clip 1", never "c1"), and a note
-    still open without what OPEN tells the director to do (QA-3)."""
+    """A move as people read it: clips as they see them ("clip 1", "clip 1b", never "c1"), and
+    a note still open without what OPEN tells the director to do (QA-3)."""
     text = re.sub(r"^(Refused: note \d+ is still open\.).*", r"\1", text, flags=re.S)
-    return re.sub(r"\bc(\d+)\b", r"clip \1", text)
+    return re.sub(r"\bc(\d+[a-z]?)\b", r"clip \1", text)
 
 
 def blocked(db: Session, project: Project) -> str:
@@ -540,14 +545,29 @@ def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:
     return Decimal(charged), oks
 
 
-def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal) -> str:
+def own_usd(db: Session, run: dict) -> Decimal:
+    """The real-cost backstop for this run: MAX_USD, and as much again for each OK the owner
+    gave at its own limit, as that limit grows (audit 6 Nov: else it stops after the OK). None
+    on the owner's own run with `owner_uncapped` (Reed, 6 Nov)."""
+    if uncapped(db.get(User, run.get("by") or 0)):
+        return Decimal("Infinity")
+    return MAX_USD * (1 + own_charged(db, run["id"])[1])
+
+
+def _limit_usd(most: Decimal) -> float | None:
+    """<allowed>'s own_time_limit_usd: None when there's none (JSON has no infinity)."""
+    return None if most.is_infinite() else float(most)
+
+
+def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal,
+             user: User) -> str:  # fmt: skip
     """A run's next turn or watch that would take its charges past the director's own limit
     (the Producer): it waits for the owner, the owner's own run too, with a freestyle's
     reason for a step past its price, else OWN_LIMIT. Each OK grants another limit's worth,
-    not one step. "" if it fits."""
+    not one step. "" if it fits, and always on the owner's own run with `owner_uncapped`."""
     from app.credits import PAST_APPROVED, price
 
-    if not run_id:
+    if not run_id or uncapped(user):
         return ""
     charged, oks = own_charged(db, run_id)
     if charged + credits <= own_limit() * (1 + oks):
@@ -855,9 +875,10 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
              result=DELIVERED if made else "")  # fmt: skip
         db.commit()
         return last
-    if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= MAX_USD:
+    most = own_usd(db, run)
+    if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= most:
         why = (f"It stopped after {MAX_TURNS} turns." if run["turn"] >= MAX_TURNS
-               else f"It stopped at ${MAX_USD} of its own time.")  # fmt: skip
+               else f"It stopped at ${most} of its own time.")  # fmt: skip
         if last is not None:
             _end(last, why)
             db.commit()
@@ -885,13 +906,13 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
         data = {**data, asks.BEFORE: True}
-        if asks.past_planning(db, project, turn, plan=False):
+        if not uncapped(user) and asks.past_planning(db, project, turn, plan=False):
             data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
     else:  # past its own limit, or a freestyle's price, the run pauses for an OK
         from app.credits import estimate, past_approved
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
-        wait = past_own(db, project, run["id"], turn)
+        wait = past_own(db, project, run["id"], turn, user)
         data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
         wait = wait or past_approved(db, project, user, turn)
     try:
@@ -1089,7 +1110,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
                "redos_used": _redos(db, project, run), "own_time_usd": float(spent(db, run["id"])),
-               "own_time_limit_usd": float(MAX_USD),
+               "own_time_limit_usd": _limit_usd(own_usd(db, run)),
                "replans_left": MAX_REPLANS - run.get("replans", 0),
                "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
                "narrations_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
@@ -1191,10 +1212,10 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     price = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
     if before:  # a check's own fix of the plan always runs: it's the same plan, counted
         data, wait = {**data, asks.BEFORE: True}, ""
-        if not redo and asks.past_planning(db, project, price, plan=True):
+        if not redo and not uncapped(user) and asks.past_planning(db, project, price, plan=True):
             data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
     else:
-        wait = past_own(db, project, (run or {}).get("id"), price)
+        wait = past_own(db, project, (run or {}).get("id"), price, user)
         data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
         wait = wait or past_approved(db, project, user, price)
     enqueue(db, user, "write-claude", data, project=project, provider="claude",

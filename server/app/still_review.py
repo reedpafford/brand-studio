@@ -62,7 +62,7 @@ def start(db: Session, user: User, project: Project, run: dict | None) -> str:
             "files": {"reference_images": [f.file_id for f in drawn]}}  # fmt: skip
     units = len(drawn)
     look = estimate(db, project.workspace_id, KIND, Decimal(units), data)
-    wait = past_own(db, project, (run or {}).get("id"), look)
+    wait = past_own(db, project, (run or {}).get("id"), look, user)
     data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
     wait = wait or past_approved(db, project, user, look)
     enqueue(db, user, KIND, data, units=units, project=project, provider="claude",

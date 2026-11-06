@@ -50,7 +50,7 @@ test("a song breakdown: each shot shows its stretch of the song, Sung or B-roll,
   setViewport(1440);
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ song: timed })] });
   open();
-  const clip = await screen.findByLabelText("Clip c1");
+  const clip = await screen.findByLabelText("Clip 1");
   const first = within(clip).getByLabelText("Shot 1.1");
   expect(within(first).getByText("0:00–0:03")).toBeInTheDocument();
   expect(within(first).getByText("B-roll")).toBeInTheDocument();

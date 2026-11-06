@@ -13,6 +13,7 @@ from app.advice import SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
+from app.models.projects import Project
 from app.routes.clips import generation_on
 from app.routes.projects import _mine, get_project, video_writer
 from app.schemas import UtcTime
@@ -86,7 +87,7 @@ class ClipCellOut(BaseModel):
     """One clip on the filmstrip and in the Clips list (S3-03, S6-01, S6-04, S6-05, P-10)."""
 
     clip_id: str  # "c15"
-    number: int  # 15: "Clip 15"
+    number: str  # "15": "Clip 15"; "1b" for a split's c1b (director.clip_no)
     scene: int  # its scene's id
     label: str  # what it shows: "Dr. Pickle points at the clock"
     seconds: int
@@ -136,6 +137,7 @@ class RunStoppedOut(BaseModel):
     total: int
     carry_on: str  # "Carry on · up to $10.74 more": what's left of this run's own approved
     # price (rule 34); with none of it left, a new run's whole price
+    free: bool = False  # the owner's uncapped site: just "Carry on", the same run, no limit
 
 
 class RunStopOut(BaseModel):
@@ -195,11 +197,31 @@ class ProgressOut(BaseModel):
     spent: float  # credits the whole video has charged, as its header says (S3-12)
     up_to: float  # the video's "up to", in credits, never below `spent`
     spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
+    # The owner's uncapped test site (Reed, 6 Nov): this run's own provider charges, whether
+    # some aren't reported yet, and what the run will probably cost (an estimate)
+    actual_usd: float | None = None
+    listed_usd: float | None = None  # of it, at list price (the provider gave no figure)
+    unreported: bool = False  # a job still running: its cost comes later
+    expected_usd: float | None = None
+    cost: str = ""  # "$5.00 spent on this run, $4.00 of it at list price"
     changed: list[ChangedClipOut]  # "Changed after watching" / "Watch the changes"
     stopped: RunStoppedOut | None  # stopped by a person (S3-08); carry_on "" while an
     # editor's Carry on waits for the owner's OK (its card says so)
     stops: list[RunStopOut] = []  # Stops it carried on from, oldest first
     failed: RunFailedOut | None  # stopped on a problem, with its fixes (S3-11)
+
+
+def _expected_usd(db: Session, user: User, project: Project) -> float | None:
+    """On the owner's uncapped site: a run's expected cost, in dollars, rounded up."""
+    import math
+
+    from app.credits import uncapped
+    from app.models.credits import USD_PER_CREDIT
+    from app.routes.asks import _expected
+
+    if not uncapped(user):
+        return None
+    return math.ceil(_expected(db, project) * USD_PER_CREDIT * 100) / 100
 
 
 class SeenIn(BaseModel):
@@ -227,6 +249,8 @@ class DirectorOut(BaseModel):
     thread: list[ThreadItem] = []  # the whole chat on the video, every run, oldest first
     unread: int = 0  # notes waiting for the next Make it ("Start again with this note")
     run_price: float = 0  # before Make it (again): the most one run may charge, "up to" (rule 34)
+    run_expected_usd: float | None = None  # the owner's uncapped site: what it will probably
+    # cost instead, in dollars ("Make it again · about $8.01")
     spent: float = 0  # what the newest run has charged (held and waiting jobs not counted)
     started: bool = False  # Make it was pressed on this video ("No generation started" before)
     waiting: list[WaitingQuestion] = []  # open questions, oldest first: the pinned bar (S4-03)
@@ -262,6 +286,7 @@ def _out(db: Session, user: User, project) -> DirectorOut:
                        unread=len(director.leftover(db, project)),
                        run_price=0 if status == "running" and started
                        else float(asks.run_price(db, project)),
+                       run_expected_usd=_expected_usd(db, user, project),
                        spent=float(director.charged(db, project)), started=started,
                        waiting=[WaitingQuestion(id=a.id, topic=a.topic, question=a.question)
                                 for a in asks.waiting(db, project)],

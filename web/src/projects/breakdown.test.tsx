@@ -45,13 +45,12 @@ function open() {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("with no breakdown it offers to make one and shows the cost", async () => {
-  const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "POST /projects/9/breakdown": [201, { id: 8, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
+test("with no breakdown, the director makes it: a video's Shots has no press of its own (S8)", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }] });
   open();
   expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Make the breakdown · up to 6 credits" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown")).toBe(true));
-  expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
+  expect(screen.getByText(/The director splits the script into scenes, shots and clips once the plan is approved/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Make the breakdown|Try again/ })).toBeNull();
 });
 
 test("a song video's shots being made (started by Approve the plan) show as running, not \"No breakdown yet\"", async () => {
@@ -66,8 +65,8 @@ test("the breakdown shows scenes, clips and shots with names, the spoken line an
   open();
   expect(await screen.findByText(/Hook: “Mia's coffee freezes mid-air as the chart drops\.”/)).toBeInTheDocument();
   expect(screen.getByText(/1 scene · 2 shots · 1 clip · 5 s of 30 s planned/)).toBeInTheDocument();
-  const clip = screen.getByLabelText("Clip c1");
-  expect(within(clip).getByText("Clip c1 · 5 s")).toBeInTheDocument();
+  const clip = screen.getByLabelText("Clip 1");
+  expect(within(clip).getByText("Clip 1 · 5 s")).toBeInTheDocument();
   expect(within(clip).getByText("End")).toBeInTheDocument();
   expect(within(clip).getByText("End line")).toBeInTheDocument();
   const second = within(clip).getByLabelText("Shot 1.2");
@@ -111,12 +110,11 @@ test("a real problem stays a red row, apart from the advice", async () => {
   expect(within(box).queryByText(/slow hook/)).toBeNull();
 });
 
-test("Redo asks first when the breakdown was edited, and a failed run says nothing was charged", async () => {
-  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+test("a video's Shots offers no Redo or Make it again: the director makes its shots (S8)", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ source: "edit" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Redo · up to 6 credits" }));
-  expect(confirm).toHaveBeenCalledWith("Replace this breakdown? Your edits are kept in History.");
+  expect(await screen.findByText(/Hook:/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Redo|^Make it again/ })).toBeNull();
 });
 
 const twoClips = () =>
@@ -137,7 +135,7 @@ test("editing a shot changes only the draft; Save sends the whole breakdown and 
   await userEvent.type(action, "Mia sips her coffee");
   await userEvent.clear(screen.getByLabelText("Shot 1.1 seconds"));
   await userEvent.type(screen.getByLabelText("Shot 1.1 seconds"), "5");
-  expect(screen.getByText("Clip c1 · 8 s")).toBeInTheDocument(); // 5 + 2.5 rounded up
+  expect(screen.getByText("Clip 1 · 8 s")).toBeInTheDocument(); // 5 + 2.5 rounded up
   // On a phone Save and Discard take the action bar's place, so Next steps aside until the edits are saved.
   expect(screen.queryByRole("button", { name: "Next: Storyboard" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Discard" }).closest("div.border-t")).toHaveClass("[&_button]:w-full");
@@ -169,13 +167,13 @@ test("Split cuts a clip after a shot and Join puts it back together; ids and sec
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, twoClips()] });
   open();
   await userEvent.click(await screen.findByRole("button", { name: "More for shot 1.1" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Split clip c1 after shot 1.1" }));
-  expect(screen.getByText("Clip c1 · 3 s")).toBeInTheDocument();
-  expect(screen.getByText("Clip c2 · 3 s")).toBeInTheDocument(); // 2.5 rounded up
+  await userEvent.click(screen.getByRole("menuitem", { name: "Split clip 1 after shot 1.1" }));
+  expect(screen.getByText("Clip 1 · 3 s")).toBeInTheDocument();
+  expect(screen.getByText("Clip 2 · 3 s")).toBeInTheDocument(); // 2.5 rounded up
   await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Join clip c1 with the next clip" }));
-  expect(screen.getByText("Clip c1 · 6 s")).toBeInTheDocument();
-  expect(screen.queryByText(/Clip c2/)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("menuitem", { name: "Join clip 1 with the next clip" }));
+  expect(screen.getByText("Clip 1 · 6 s")).toBeInTheDocument();
+  expect(screen.queryByText(/Clip 2 ·/)).not.toBeInTheDocument();
 });
 
 test("Go to scrolls to the shot or clip a problem names and outlines it", async () => {
@@ -196,12 +194,6 @@ test("Discard throws the draft away", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Discard" }));
   expect(screen.queryByLabelText("Unsaved changes")).not.toBeInTheDocument();
   expect(screen.queryByText(/EXTRA/)).not.toBeInTheDocument();
-});
-
-test("Reed past the budget gets the plain button: pressing it is his approval", async () => {
-  fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
-  open();
-  expect(await screen.findByRole("button", { name: "Redo · up to 6 credits" })).toBeEnabled();
 });
 
 test("'lines 2 ◂' lights those lines in the script, and a script line lights its shot", async () => {
@@ -235,7 +227,7 @@ describe("on a phone", () => {
     open();
     await userEvent.click(await screen.findByRole("button", { name: "Problems" }));
     const sheet = await screen.findByRole("dialog", { name: "Problems (2)" });
-    expect(within(sheet).getByText("Clip c1 is 17 s; the model allows 4–15 s.")).toBeInTheDocument();
+    expect(within(sheet).getByText("Clip 1 is 17 s; the model allows 4–15 s.")).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: "Go to: Shot 1.2 is a loss moment but shows no fomo screen." }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -249,12 +241,12 @@ describe("on a phone", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Done" }));
     expect(screen.getByText(/EXTRA/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Split clip c1 after shot 1.1" }));
-    expect(screen.getByText("Clip c2 · 3 s")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Join clip c1 with the next clip" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Split clip 1 after shot 1.1" }));
+    expect(screen.getByText("Clip 2 · 3 s")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Join clip 1 with the next clip" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "More for shot 1.1" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Join clip c1 with the next clip" }));
-    expect(screen.queryByText(/Clip c2/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Join clip 1 with the next clip" }));
+    expect(screen.queryByText(/Clip 2 ·/)).not.toBeInTheDocument();
   });
 });
 
@@ -426,8 +418,3 @@ test("removing a place or a screen the video doesn't have says how to use it aga
   expect(await screen.findByText("Removed Bin Lot from shot 1.1. To use it again, add it in Cast & places, then pick it in this shot.")).toBeInTheDocument();
 });
 
-test("Make the breakdown shows the server's price for it (the clip prompts' rewrite included), not the writing rate", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "GET /projects/9/breakdown/price": [200, { credits: 12 }] });
-  open();
-  expect(await screen.findByRole("button", { name: /Make the breakdown · (up to )?12 credits/ })).toBeInTheDocument();
-});

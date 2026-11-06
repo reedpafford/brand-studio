@@ -1095,3 +1095,52 @@ test("Flow-QA M6: a run that ended by itself is read again at once: no Stop or '
   await screen.findByText("The director stopped");
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/50/director").length).toBeGreaterThan(1)); // read again, not left
 });
+
+test("S3-02 (QA on #1383): before Make it the Plan tab shows the director's treatment as the plan's scenes, nothing spent", async () => {
+  setViewport(1440);
+  const story = { hook: "The glowing spine.", logline: "A doctor shows the weekend's damage.", why_it_holds: "A gross picture first.", beats: [{ id: "b1", lines: [1], purpose: "hook", picture: "The glowing spine, slow push in." }, { id: "b2", lines: [2, 3], purpose: "what beer does", picture: "Beer pours through the see-through body." }], ending: "The capsule." };
+  const r = run({ status: "running", make_it: null, thread: [item("t1", "move", "Director", "Here's how I'll make it.", "done", at, { treatment: story })] });
+  server(owner, null, r, { "GET /projects/50": [200, { ...project, freestyle_id: null, plan_status: "none", planned_seconds: 60 }], "GET /projects/50/idea": [200, head({ status: status("waiting", "Waiting for your OK") })] });
+  renderApp("/b/1/videos/50?tab=plan");
+  const plan = await screen.findByRole("region", { name: "Plan" });
+  expect(within(plan).getByText("2 scenes · about 60 s")).toBeInTheDocument();
+  expect(within(within(plan).getByLabelText("Scene 2")).getByText("2. What beer does")).toBeInTheDocument();
+  expect(within(within(plan).getByLabelText("Scene 2")).getByText("Lines 2–3")).toBeInTheDocument();
+  expect(within(plan).getByText("The director plans each scene's shots and clips after Make it.")).toBeInTheDocument();
+  expect(screen.queryByText(/No plan yet/)).toBeNull();
+});
+
+test("QA on #1383: the owner's Make it says dollars, as every owner press does (rule 4)", async () => {
+  setViewport(1440);
+  server(owner, null, run({ status: "none", turns: [], thread: [], run_price: 40 }), { "GET /projects/50/idea": [200, head({ usd_per_credit: 0.1028 })] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: "Make it · up to $4.12" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /credits/ })).toBeNull();
+});
+
+// Reed, 6 Nov (BS_OWNER_UNCAPPED, his test site): no limit, so the owner reads what it will probably cost and what the
+// providers really charged; never "up to", never a budget below what's spent.
+test("uncapped: the start card is an estimate, the header and the run card read the providers' spend, never a budget", async () => {
+  setViewport(1440);
+  const start = ask({ kind: "start", topic: "", question: "Make it? About $9.10 (estimate).", why: "That's what this run will probably cost.", saved: [], money: held$({ up_to: price(91, 9.1), expected: true }), can: ["make_it"] });
+  const going = record({ actual_usd: 3.2, listed_usd: 0, unreported: true, expected_usd: 9.1, cost: "$3.20 spent on this run, more not reported yet" });
+  const top = head({ spent: money(60, 16.77), up_to: null, budget: null, expected: money(91, 9.1), actual: true, listed_usd: 4, unreported: false });
+  server(owner, null, run({ status: "running", thread: [card, asked()] }), { ...cards(start), "GET /projects/50/idea": [200, top], "GET /projects/50/director/progress": [200, going] });
+  renderApp("/b/1/videos/50");
+  const startCard = await screen.findByRole("region", { name: "Make it? About $9.10 (estimate)." });
+  expect(within(startCard).getByRole("button", { name: "Make it · about $9.10" })).toBeInTheDocument();
+  const banner = await screen.findByRole("banner");
+  expect(await within(banner).findByText("This video so far $16.77 ($4.00 of it at list price) ·", { exact: false })).toBeInTheDocument();
+  expect(within(banner).getByText("this run about $9.10 (estimate)")).toBeInTheDocument();
+  expect(within(banner).queryByText(/budget|up to/)).toBeNull();
+  expect(await screen.findByText("$3.20 spent on this run, more not reported yet · about $9.10 (estimate)")).toBeInTheDocument();
+});
+
+test("uncapped: Carry on is just Carry on, the same run; Make it again says about its estimate", async () => {
+  setViewport(1440);
+  const stopped = record({ status: "stopped", title: "Stopped", tone: "stop", stopped: { by: "Reed", at, made: 1, total: 4, carry_on: "", free: true } });
+  server(owner, null, run({ status: "ended", thread: [card], run_expected_usd: 8.01 }), { "GET /projects/50/director/progress": [200, stopped] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: "Carry on" })).toBeInTheDocument();
+  expect(screen.queryByText(/Carry on · up to/)).toBeNull();
+});

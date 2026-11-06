@@ -48,7 +48,7 @@ test("Reed opens In production from the rail and sees the version being made, wi
   const row = page.getByRole("link", { name: new RegExp(`^${title}, version A, .*, at [A-Z][a-z]+`) });
   await expect(row).toBeVisible();
   await row.click();
-  await expect(page).toHaveURL(/\/projects\/\d+/);
+  await expect(page).toHaveURL(/\/videos\/\d+/); // the old /projects/<id> address redirects here at once
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/production");
   await expect(page.getByRole("link", { name: new RegExp(`^${title}, version A, `) })).toBeVisible();
@@ -78,7 +78,7 @@ test("Reed releases a version he started by mistake, and it leaves In production
   const row = page.getByRole("link", { name: new RegExp(`^${title}, version A, `) });
   await expect(row).toBeVisible();
   await row.click();
-  await expect(page).toHaveURL(/\/projects\/\d+/);
+  await expect(page).toHaveURL(/\/videos\/\d+/); // the old /projects/<id> address redirects here at once
   // The video page's own menu, by its exact name: In production's row menu ("More for <title> · A") can still be on screen
   // while the navigation finishes, and opening that one instead was the intermittent timeout.
   await page.getByRole("button", { name: `More for ${title}`, exact: true }).click();

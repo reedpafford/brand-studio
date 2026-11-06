@@ -88,6 +88,22 @@ export async function makeIt(page: Page, projectId: number) {
 }
 
 /**
+ * Stands in for the director's plan move (S8: a video's Plan tab has no plan presses of its own): makes the plan on the
+ * stand-in (unless `make` is false, when one is already on its way), then approves it, which makes the shots.
+ */
+export async function planAndApprove(page: Page, projectId: number, make = true) {
+  const base = `/api/projects/${projectId}/plan`;
+  if (make) expect((await page.request.post(base)).status()).toBe(201);
+  const ready = async () => {
+    const r = await page.request.get(base);
+    const p = r.ok() ? ((await r.json()) as { status: string; scenes: unknown[]; job: unknown }) : null;
+    return p?.status === "ready" && p.scenes.length > 0 && !p.job;
+  };
+  await expect.poll(ready, { timeout: 60_000 }).toBe(true);
+  expect((await page.request.post(`${base}/approve`)).ok()).toBe(true);
+}
+
+/**
  * Stands in for the person's "Approve cast & places" press until the Cast tab draws it (#1324):
  * while the page is open, every video whose cast and places wait for the OK, with every look
  * drawn, is approved as shown (the same route the button calls). Stills and takes wait for it.

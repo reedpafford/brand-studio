@@ -27,14 +27,13 @@ export type Plan = {
   advice: { scene_id: string; kind: string; text: string }[];
   job?: Job | null;
   estimate_credits: number;
-  approve_credits?: number | null;
   stop?: string | null;
   out_of_date?: boolean;
   earlier?: { id: number; version: number; source: string; made_at: string | null }[];
   after?: { shots: number; clips: number } | null;
   change_scene_credits?: number; // #928: Change this scene… and Update the plan exist when the plan carries it
 };
-type Project = { id: number; plan_status?: "none" | "ready" | "approved" | null; plan_credits?: number | null };
+type Project = { id: number; plan_status?: "none" | "ready" | "approved" | null };
 
 // The plan routes are Builder-Server-8's (#893); until they are in the generated schema they are called with fetch.
 export async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: object): Promise<T> {
@@ -199,11 +198,12 @@ function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene:
 }
 
 /** Where a plan lives: a video's, or the owner's on a script version (flows S6, #934), whose routes are the same less
- *  Earlier plans, Change this scene… and Update the plan. */
+ *  Earlier plans, Change this scene… and Update the plan. On a video the director makes and approves the plan (S8): its
+ *  Make the plan, Write it myself, Approve and Make a new plan are the owner's script plan's alone. */
 export type PlanHome = { base: string; key: unknown[]; refresh: unknown[][]; script?: boolean };
 
-/** The Scenes view: every P1 state, editing with Undo, and the step's one amber, "Approve the plan · makes the shots". */
-export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; planCredits?: number | null; onApproved: () => void }) {
+/** The Scenes view: every P1 state and editing with Undo. */
+export function Scenes({ home, onApproved }: { home: PlanHome; onApproved: () => void }) {
   const [pressed, setPressed] = useState<number | null>(null); // when a plan job was last started here
   const { base } = home;
   const plan = usePlan(base, home.key, pressed);
@@ -231,7 +231,7 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
       onApproved();
     },
   });
-  // With no plan yet, the video carries the plan's price (#893); else it's one Claude call, priced from the rates.
+  // One Claude call, priced from the rates until the plan carries its own.
   const rates = useQuery({ queryKey: ["rates"], queryFn: async () => (await api.GET("/credits/rates")).data ?? [] });
   const latest = [make, stopMaking, byHand, useEarlier, save, approve, changeScene, update].reduce((a, m) => (m.submittedAt > a.submittedAt ? m : a));
   const refused = latest.isError && !(latest === save && noProduct) ? latest.error.message : null;
@@ -263,10 +263,10 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
       </div>
     );
   const stop = p?.stop ?? null;
-  const price = p?.estimate_credits ?? planCredits ?? rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit ?? null;
-  // On a script the plan is optional and Next stays the step's amber press, so its presses are secondary there.
-  const makeButton = (label: string, primary = !home.script) => (
-    <Button variant={primary ? "primary" : "secondary"} charge="estimate" price={price} disabled={!!stop} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
+  const price = p?.estimate_credits ?? rates.data?.find((r) => r.kind === "write-claude")?.credits_per_unit ?? null;
+  // On a script the plan is optional and Next stays the step's amber press, so its presses are secondary.
+  const makeButton = (label: string) => (
+    <Button variant="secondary" charge="estimate" price={price} disabled={!!stop} reason={stop} busy={make.isPending} onClick={() => make.mutate()}>
       {label}
     </Button>
   );
@@ -274,16 +274,17 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
     return (
       <div className="space-y-3">
         {job?.status === "failed" && (
-          <Banner title={job.reason ?? "The plan didn't finish."} action={makeButton("Try again", false)}>
-            Nothing was charged. Or plan the scenes yourself.
+          <Banner title={job.reason ?? "The plan didn't finish."} action={home.script && makeButton("Try again")}>
+            {home.script ? "Nothing was charged. Or plan the scenes yourself." : "Nothing was charged. Tell the director in the chat to try again."}
           </Banner>
         )}
         {refused && <p role="alert" className={errorClass}>{refused}</p>}
-        <EmptyState icon={MapPin} title="No plan yet" action={job?.status === "failed" ? undefined : makeButton("Make the plan")}>
-          Turn the script into scenes: where each line happens and what we see.
-          {home.script && " Optional: each new video of this version starts from it once you approve it. Skip it and it's made when an editor starts."}
+        <EmptyState icon={MapPin} title="No plan yet" action={home.script && job?.status !== "failed" ? makeButton("Make the plan") : undefined}>
+          {home.script
+            ? "Turn the script into scenes: where each line happens and what we see. Optional: each new video of this version starts from it once you approve it. Skip it and it's made when an editor starts."
+            : "The director makes the plan after Make it: where each line happens and what we see."}
         </EmptyState>
-        <Button variant="ghost" busy={byHand.isPending} onClick={() => byHand.mutate()}>Write it myself · free</Button>
+        {home.script && <Button variant="ghost" busy={byHand.isPending} onClick={() => byHand.mutate()}>Write it myself · free</Button>}
       </div>
     );
 
@@ -344,13 +345,13 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
             canRewrite ? (
               <Button variant="secondary" charge="estimate" price={price} disabled={!!stop} reason={stop} busy={update.isPending} onClick={() => askFirst(() => update.mutate())}>Update the plan</Button>
             ) : (
-              makeButton("Make a new plan", false)
+              home.script && makeButton("Make a new plan")
             )
           }
         >
           {canRewrite
             ? "The script's words changed since this plan was made. Updating keeps the scenes whose lines didn't change; this one is kept under Earlier plans."
-            : `The script's words changed since this plan was made. A new plan is made from the new words${home.script ? "." : "; this one is kept under Earlier plans."}`}
+            : `The script's words changed since this plan was made. ${home.script ? "A new plan is made from the new words." : "Tell the director in the chat to plan again."}`}
         </Banner>
       )}
       {approved ? (
@@ -378,19 +379,22 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
           </li>
         ))}
       </ul>
-      {!approved && (
-        <Button variant={home.script ? "secondary" : "primary"} charge="estimate" price={home.script ? undefined : (p.approve_credits ?? null)} disabled={!home.script && !!stop} reason={home.script ? null : stop} busy={approve.isPending} onClick={() => approve.mutate()}>
-          {home.script ? "Approve the plan" : "Approve the plan · makes the shots"}
-        </Button>
+      {!approved &&
+        (home.script ? (
+          <Button variant="secondary" busy={approve.isPending} onClick={() => approve.mutate()}>Approve the plan</Button>
+        ) : (
+          <p className="text-sm text-muted">The director approves the plan and makes the shots from it.</p>
+        ))}
+      {home.script && (
+        <details className="rounded-lg border border-border bg-surface px-4">
+          <summary className="flex min-h-11 cursor-pointer items-center py-2 font-medium">Make a new plan{price !== null && <span className="whitespace-pre font-normal tabular-nums text-muted">{" · "}{pressLabel(price, "estimate")}</span>}</summary>
+          <div className="space-y-2 pb-4">
+            <TextArea label="What to change (optional)" rows={2} maxLength={500} placeholder="Make it funnier: he's a drama queen" value={note} onChange={(e) => setNote(e.target.value)} />
+            {makeButton("Make a new plan")}
+            <p className="text-sm text-muted">The new plan takes this one's place.</p>
+          </div>
+        </details>
       )}
-      <details className="rounded-lg border border-border bg-surface px-4">
-        <summary className="flex min-h-11 cursor-pointer items-center py-2 font-medium">Make a new plan{price !== null && <span className="whitespace-pre font-normal tabular-nums text-muted">{" · "}{pressLabel(price, "estimate")}</span>}</summary>
-        <div className="space-y-2 pb-4">
-          <TextArea label="What to change (optional)" rows={2} maxLength={500} placeholder="Make it funnier: he's a drama queen" value={note} onChange={(e) => setNote(e.target.value)} />
-          {makeButton("Make a new plan", false)}
-          <p className="text-sm text-muted">{home.script ? "The new plan takes this one's place." : "This plan is kept under Earlier plans; one press brings it back, free."}</p>
-        </div>
-      </details>
       {earlier.length > 0 && !home.script && (
         <details className="rounded-lg border border-border bg-surface px-4">
           <summary className="flex min-h-11 cursor-pointer items-center py-2 font-medium">Earlier plans · {earlier.length}</summary>
@@ -410,7 +414,7 @@ export function Scenes({ home, planCredits, onApproved }: { home: PlanHome; plan
             "It goes back to Ready to check. New videos start from it once you approve it again, and the shots preview says it was made for an older plan."
           ) : (
             <>
-              It goes back to Ready to check, and its shots are made again from the new plan once you approve it.
+              It goes back to Ready to check, and the director makes its shots again once it approves the new plan.
               {outOfDate && ` This puts ${outOfDate} out of date.`} Your current final cut stays downloadable.
             </>
           )}
@@ -453,10 +457,10 @@ export function PlanStep({ shots, project }: { shots: ReactNode; project?: Proje
     <div className="space-y-4">
       <div role="tablist" aria-label="Plan views" className="flex items-center gap-1 border-b border-border">
         {tab("scenes", "Scenes", null)}
-        {tab("shots", "Shots", approved ? null : "Approve the plan first")}
-        {!approved && <span className="ml-2 text-sm text-muted">Shots: approve the plan first</span>}
+        {tab("shots", "Shots", approved ? null : "The director makes them once the plan is approved")}
+        {!approved && <span className="ml-2 text-sm text-muted">Shots: once the plan is approved</span>}
       </div>
-      {view === "scenes" ? <Scenes home={{ base: `/projects/${project.id}/plan`, key: ["plan", project.id], refresh: [["project", project.id]] }} planCredits={project.plan_credits} onApproved={() => go("shots")} /> : shots}
+      {view === "scenes" ? <Scenes home={{ base: `/projects/${project.id}/plan`, key: ["plan", project.id], refresh: [["project", project.id]] }} onApproved={() => go("shots")} /> : shots}
     </div>
   );
 }
