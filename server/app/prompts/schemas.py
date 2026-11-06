@@ -581,7 +581,9 @@ class Treatment(BaseModel):
     beats: list[Beat] = Field(
         description="The video in order; together every line but the scene headings, once."
     )
-    ending: str = Field(description="The payoff and the call to action, and why they land.")
+    ending: str = Field(
+        description="The payoff, and the call to action when the script has one, and why they land."
+    )
 
 
 # --- Review the stills (the Producer, 2 Nov): against the treatment, before any take ---
