@@ -6987,7 +6987,7 @@ export interface components {
             /** Spent Usd */
             spent_usd: number | null;
             /** Cut */
-            cut: number;
+            cut?: number | null;
             /** Seconds */
             seconds: number;
             /** Clips */

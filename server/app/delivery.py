@@ -244,7 +244,11 @@ def _fixed(db: Session, project: Project, spans: list[dict], turns: list[Job]) -
     return out
 
 
-def shown(note: dict | None, owner: bool) -> dict | None:
+BLANK = {"made": "", "redid": [], "unsure": "", "open": [], "needs": "", "spent": 0, "up_to": 0,
+         "cut": None, "seconds": 0, "clips": 0}  # fmt: skip
+
+
+def shown(note: dict | str | None, owner: bool) -> dict | None:
     """The note as this person reads it, with its cost line in the header's figures at this
     cut (the whole video's, board S3-12): dollars to the owner ("$9.84 spent of up to
     $16.86"), credits only to anyone else ("96 credits used of up to 164 (59% of the
@@ -252,8 +256,9 @@ def shown(note: dict | None, owner: bool) -> dict | None:
     from app.credits import price
     from app.models.credits import USD_PER_CREDIT
 
-    if not note:
+    if not isinstance(note, dict) or not note:  # none, or plain words from before (the chat's)
         return None
+    note = {**BLANK, **note}  # a note kept before a part existed: that part is empty
     used = Decimal(str(note["spent"]))
     up_to = max(Decimal(str(note["up_to"])), used)  # a note from before the guard
     if owner:
