@@ -60,7 +60,7 @@ ON_YOU = "Waiting on your answer; everything else is made."  # parked on open qu
 
 
 def start(db: Session, user: User, project: Project, *, hold: str = "",
-          extra: dict | None = None, frozen: bool = True) -> Job:  # fmt: skip
+          extra: dict | None = None, frozen: bool = True, fresh: bool = False) -> Job:  # fmt: skip
     """A run on a video made from a published script (its words are locked): its first turn.
     Every way in starts the same (S3-02): its plan (the treatment) first, charged at its real
     cost on the video's planning allowance (`asks.past_planning`), then the run waits on its
@@ -69,11 +69,12 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     past what's left of its budget); "" lets the video's own editor press it (S2-06).
     `extra`: more of its input (the freestyle it's for), carried to the start card.
     `frozen=False`: a freestyle's, whose version is frozen and published when its run starts
-    (`freestyles.freeze`)."""
+    (`freestyles.freeze`). `fresh`: "Start the plan again" (S3-08): after Make it the run
+    plans the whole video again instead of carrying on from its shots (`fresh`)."""
     if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id, "ok": False,
-           "hold": hold}  # fmt: skip
+           "hold": hold, **({FRESH: utcnow().isoformat()} if fresh else {})}  # fmt: skip
     lock(db, Project, project.id)  # the notes it takes can't change under it
     db.refresh(project)
     left = set(leftover(db, project))  # every note no run has read: this run reads them
@@ -780,6 +781,26 @@ def refresh(db: Session, job: Job) -> bool:
     return kept and not over(db, job.input[RUN]["id"])  # the last check, right before the call
 
 
+FRESH = "fresh"  # in a run: when "Start the plan again" was pressed (S3-08)
+
+
+def fresh(db: Session, project: Project, run: dict | None) -> tuple[bool, bool]:
+    """A run started with "Start the plan again": (it still needs its own new plan, it still
+    needs the shots from it). The video's plan and shots from before it don't count."""
+    from datetime import datetime
+
+    from app import plans
+    from app.models.breakdowns import BreakdownVersion
+
+    if not (at := (run or {}).get(FRESH)):
+        return False, False
+    at, plan = datetime.fromisoformat(at), plans.current(db, project)
+    made = datetime.fromisoformat(plan["made_at"]) if plan and plan.get("made_at") else None
+    newest = db.scalar(select(func.max(BreakdownVersion.created_at)).where(
+        BreakdownVersion.project_id == project.id))  # fmt: skip
+    return made is None or made < at, newest is None or newest < at
+
+
 def turn_input(db: Session, project: Project, run: dict, job_id: int | None = None) -> dict:
     """The director's prompt (app/prompts/director.md, the Director's) and the brand, then the
     video's state, its run's last actions and what it still may do."""
@@ -811,6 +832,11 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
         "treatment": "written" if own else "none",
         "started": run.get("ok", True),
     }  # this run's; started: Make it was pressed
+    plan, shots = fresh(db, project, run)  # "Start the plan again": no plan or shots of its own yet
+    if plan:
+        video["plan"] = "none"
+    if shots:
+        video["shots"], video["missing_looks"] = "none", []
     from app.routes.reel_video import look_reference
 
     questions, reel = asks.for_director(db, project), look_reference(db, project)
