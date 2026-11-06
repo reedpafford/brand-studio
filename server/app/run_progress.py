@@ -256,7 +256,7 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
         why = (last.error or "It didn't finish").rstrip(".")
         free = "nothing was charged" in why.lower()  # the refusal says so itself
         note = f"{why}." if free else f"{why}. Nothing was charged."
-        return {**out, "state": "failed", "note": note,
+        return {**out, "state": "failed", "note": priced(note, owner),
                 "credits": money(last.credits, owner)}  # fmt: skip
     if row.clip_id in too_long(video.problems):  # longer than the model makes: never sent
         m = video.engine
@@ -643,7 +643,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                if how == "needs_fix" else None)  # fmt: skip
         plain = how == "needs_fix" or why == "Stopped."
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
-                f"{made} of {_n(total, 'clip')} made" if plain else said(why),
+                f"{made} of {_n(total, 'clip')} made" if plain else priced(said(why), owner),
                 "bad" if how == "needs_fix" else "stop")  # fmt: skip
     elif (
         holds is not None
@@ -701,7 +701,8 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                      "carried_at": w["carried_at"]} for j in turns
                     if (w := j.input.get("was_stopped")) and w.get("stopped_by")]  # fmt: skip
     if how == "needs_fix":
-        out["failed"] = _failed(db, video, cells, why, owner, again, uncapped(viewer))
+        out["failed"] = _failed(db, video, cells, priced(why, owner), owner, again,
+                                uncapped(viewer), budget_now(db, project, turns))  # fmt: skip
     return out
 
 
@@ -738,20 +739,34 @@ def _blamed(cells: list[dict], why: str) -> dict | None:
 BUDGET = "real-AI budget"  # credits.REAL_DONE and NO_START: the test site's cap
 
 
+def priced(text: str, owner: bool) -> str:
+    """Words as this person reads them (rule 4): the owner's dollars, an editor's never ("The
+    test site's real-AI budget ($20.00) is used up" reads "… budget is used up")."""
+    return text if owner else re.sub(r"\s*\(\$[\d,.]+\)", "", text)
+
+
+def budget_now(db: Session, project: Project, turns: list[Job]) -> str:
+    """What the real-AI budget would say to the run's next step now, as its starter's (the
+    owner's own when he's uncapped, never); "" when it would go."""
+    from app.credits import estimate, real_budget_refusal
+    from app.settings import get_settings
+
+    starter = db.get(User, (turns[-1].input.get(RUN) or {}).get("by") or 0) if turns else None
+    step = estimate(db, project.workspace_id, "write-claude", Decimal(1), {})
+    return real_budget_refusal(db, get_settings(), "claude", step,
+                               bool(starter and starter.is_owner))  # fmt: skip
+
+
 def _failed(db: Session, video: _Video, cells: list[dict], why: str, owner: bool,
-            again: Decimal, free: bool = False) -> dict:  # fmt: skip
+            again: Decimal, free: bool = False, blocked: str = "") -> dict:  # fmt: skip
     """What stopped the run, and its one-click fixes (rule 22): the clip that failed made
     again at its own price, a clip too long for the model split (S3-11), or carry on from
     where it stopped."""
     carry = {"kind": "carry_on", "label": "Carry on",
              "price": "" if free else money(again, owner)}  # uncapped: no "up to"  # fmt: skip
-    if BUDGET in why or any(BUDGET in c["note"] for c in cells if c["state"] == "failed"):
-        return {
-            "title": "The director stopped",
-            "why": said(why),
-            "clip": None,
-            "fixes": [],
-        }  # the real-AI budget is used up: a press would be refused again
+    if blocked:  # the real-AI budget would refuse its next step now: a press would only be
+        return {"title": "The director stopped", "why": priced(blocked, owner), "clip": None,
+                "fixes": []}  # refused again (it comes back once the budget allows)  # fmt: skip
     bad = _blamed(cells, why)
     long = next((c for c in cells if c["state"] == "too_long"), None)
     if bad is None and long is not None and "makes at most" in why:  # it stopped on that
@@ -817,7 +832,7 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
         head = {} if how else record(db, project, viewer) or {}  # the newest run, as they see it
         if how:
             text = (_took(turns) if how == "delivered" else "Stopped" if why == "Stopped."
-                    else said(why))  # fmt: skip
+                    else priced(said(why), owner))  # fmt: skip
         else:  # its card in a line
             text = " · ".join(x for x in (head.get("title"), head.get("sub")) if x)
         status = "done" if how else "held" if head.get("status") == "waiting" else "running"

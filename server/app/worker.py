@@ -125,12 +125,17 @@ def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
         error_detail=detail[:2000],
         finished_at=utcnow(),
     ):
+        db.commit()  # the failure is kept whatever the handlers below do
         db.refresh(job)
-        if job.input.get("step"):
-            step_failed(db, job, again=False)
-        else:
-            explain(db, job)
-        db.commit()
+        try:  # what waits on it is told; never let that stop the worker (it runs at boot too)
+            if job.input.get("step"):
+                step_failed(db, job, again=False)
+            else:
+                explain(db, job)
+            db.commit()
+        except Exception:
+            db.rollback()
+            log.exception("job %s: telling what waits on it failed", job.id)
         _then(db, job, None)
 
 

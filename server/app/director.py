@@ -597,6 +597,7 @@ def after(db: Session, job: Job, storage) -> None:
 
 
 RETRIED = "retried"  # in a failed turn's input: the same turn was asked again (`_again`)
+RETRIED_SAID = "My answer was cut off or unreadable; asked again."  # its line in <last_actions>
 
 
 def _again(db: Session, job: Job) -> bool:
@@ -607,7 +608,10 @@ def _again(db: Session, job: Job) -> bool:
 
     if job.retry_of_id or (job.error_detail or "") not in (RAN_OUT, UNREADABLE):
         return False
-    job.input = {**job.input, RETRIED: True}
+    if not _write(db, job, {**job.input, RETRIED: True}):  # a Stop landed: no retry, kept
+        db.refresh(job)
+        return True
+    db.refresh(job)
     db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
                provider=job.provider, input={k: v for k, v in job.input.items() if k != RETRIED},
                project_id=job.project_id, brand_id=job.brand_id, credits=job.credits,
@@ -1134,7 +1138,8 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
 
     system, brief = project_context(db, project, STEP)
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
-             "result": j.input.get("result")} for j in turns(db, project)
+             "result": RETRIED_SAID if j.input.get(RETRIED) else j.input.get("result")}
+            for j in turns(db, project)
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
@@ -1778,6 +1783,8 @@ def _failed_too_often(db: Session, project: Project, run: dict) -> str:
     for job in db.scalars(select(Job).where(Job.project_id == project.id,
                                             Job.status == JobStatus.failed,
                                             Job.created_at >= first.created_at)):  # fmt: skip
+        if job.input.get(RETRIED):  # asked again on its own (`_again`): not a failure
+            continue
         what = _item(db, job)
         counts[what] = counts.get(what, 0) + 1
         if counts[what] > MAX_REDOS:
