@@ -119,9 +119,11 @@ def test_a_ugc_talkers_heygen_take_is_watched_and_its_clips_carry_it(app, db, ow
 
 def test_the_delivery_note_judges_a_presenter_by_its_host_pieces(app, db, owner):
     """QA on #1340: a presenter's host is watched as its pieces, not as takes: a clean watch
-    isn't "not checked", a confirmed finding is listed once as kept, and a doubt stays only in
-    "What remains uncertain"."""
+    isn't "not checked", a confirmed finding is listed once as kept, a doubt stays only in
+    "What remains uncertain", an earlier narration's piece isn't listed, and a piece the watch
+    made again is a row of what it redid, after the new piece's watch too."""
     from app import delivery
+    from app.models.clips import HostPiece
     from app.watch_cut import _cut
 
     fs = _sent(owner, "presenter", NARRATION)
@@ -129,8 +131,11 @@ def test_the_delivery_note_judges_a_presenter_by_its_host_pieces(app, db, owner)
     video = _video(db, fs)
     spans = delivery._spans(db, _cut(db, video))
     said = delivery.open_items(db, video, spans)
-    assert not [x for x in said if "presenter" in x], said  # every piece watched, clean
+    assert not [x for x in said if "host" in x], said  # every piece watched, clean
     piece = host.rows(db, video)[1]
+    db.add(
+        HostPiece(project_id=video.id, take_id=piece.take_id + 999, number=1, file_id=piece.file_id)
+    )  # an earlier narration's piece: not in use
     check = db.query(ItemCheck).filter_by(target="piece", target_id=piece.id).one()
     check.findings = [{"kind": "motion", "role": "", "text": "A hand melts", "at": 1.0,
                        "change_note": "", "verified": True},
@@ -138,17 +143,22 @@ def test_the_delivery_note_judges_a_presenter_by_its_host_pieces(app, db, owner)
                        "change_note": "", "verified": False}]  # fmt: skip
     db.commit()
     said = delivery.open_items(db, video, spans)
-    assert [x for x in said if "presenter" in x] == [
-        "The presenter's piece 1: A hand melts. Kept as it is."
+    assert [x for x in said if "host" in x] == [
+        "The host's piece 1: A hand melts. Kept as it is."
     ]  # the doubt isn't "kept"
     check.status = "failed"
     db.commit()
-    assert "The presenter's piece 1 wasn't checked." in delivery.open_items(db, video, spans)
-    piece.watch = {**piece.watch, "state": "done", "action": "redo",
-                   "did": "Remade it on HeyGen Avatar IV with “hands still”.",
-                   "faults": [{"kind": "motion", "at": 1.0, "says": "A hand melts",
-                               "verified": True}]}  # fmt: skip
+    assert "The host's piece 1 wasn't checked." in delivery.open_items(db, video, spans)
+    since = director.turns(db, video)[0].created_at
+    job = _jobs(db, video, "host_piece")[0]
+    db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
+               provider=job.provider, project_id=video.id, status=JobStatus.succeeded,
+               input={**job.input, host_watch.REDO: piece.id,
+                      host_watch.NOTE: "hands still on the desk"}))  # fmt: skip
     db.commit()
-    (row,) = delivery._host_rows(db, video)  # a host remake is a row of what it redid
-    assert row["text"] == ("The presenter's piece 1: Remade it on HeyGen Avatar IV with “hands "
-                           "still”.") and row["at"] >= 0  # fmt: skip
+    (row,) = delivery._host_rows(db, video, since)  # though the new piece's watch said keep
+    assert row == {
+        "at": round(piece.start, 1),
+        "clip": "host",
+        "text": "The host's piece 1: made again with “hands still on the desk”.",
+    }

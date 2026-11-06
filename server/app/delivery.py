@@ -38,7 +38,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     spans = _spans(db, cut)
     credits, _ = spent(db, project, turns[0].created_at)
     rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
-            + _host_rows(db, project))  # fmt: skip
+            + _host_rows(db, project, turns[0].created_at))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
             "open": open_items(db, project, spans, decision.get("needs") or ""),
             "redid": sorted(rows, key=lambda r: r["at"]),
@@ -105,17 +105,15 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
 
 
 def _host_open(db: Session, project: Project) -> list[str]:
-    """A presenter's host pieces in use: each one not watched, or with what its watch found
-    and confirmed (its doubts are in "What remains uncertain")."""
-    from app import item_checks
-    from app.models.clips import HostPiece
+    """A presenter's host pieces in use (not an earlier narration's): each one not watched,
+    or with what its watch found and confirmed (its doubts are in "What remains uncertain")."""
+    from app import host, item_checks
 
-    mine = select(HostPiece).where(HostPiece.project_id == project.id).order_by(HostPiece.number)
-    rows = [r for r in db.scalars(mine) if r.number and r.file_id]
+    rows = [r for r in host.rows(db, project) if r.number and r.file_id]
     checks = item_checks.latest(db, "piece", [r.id for r in rows])
     out = []
     for r in rows:
-        who = f"The presenter's piece {r.number}"
+        who = f"The host's piece {r.number}"
         check = checks.get(r.id)
         for f in _found(check):
             if f.get("verified", True):
@@ -125,19 +123,26 @@ def _host_open(db: Session, project: Project) -> list[str]:
     return out
 
 
-def _host_rows(db: Session, project: Project) -> list[dict]:
-    """The presenter's pieces the watch remade, as rows of "What I watched and redid", at
-    their time on the narration's clock."""
+def _host_rows(db: Session, project: Project, since) -> list[dict]:
+    """The host's pieces the watch made again this run, as rows of "What I watched and
+    redid", at their place on the narration's clock: from the remakes themselves, since a
+    remade piece's own watch replaces the one that asked for it."""
+    from app import host, host_watch
+    from app.models.jobs import JobStatus
+
+    rows = {r.id: r for r in host.rows(db, project)}
+    made = db.scalars(select(Job).where(Job.project_id == project.id, Job.created_at >= since,
+                                        Job.status == JobStatus.succeeded)
+                      .order_by(Job.id))  # fmt: skip
     out = []
-    for x in watch_report.redid(db, project):
-        if x["clip_id"] == "host" and x["action"] == "redo":
-            out.append(
-                {
-                    "at": x["at"],
-                    "clip": "host",
-                    "text": f"The presenter's piece {x['take']}: {said(x['did'] or '')}",
-                }
-            )
+    for j in made:
+        row = rows.get(j.input.get(host_watch.REDO))
+        if row is None:
+            continue
+        fix = (j.input.get(host_watch.NOTE) or "").strip().rstrip(".")
+        out.append({"at": round(row.start, 1), "clip": "host",
+                    "text": f"The host's piece {row.number}: made again"
+                            + (f" with “{said(fix)}”." if fix else ".")})  # fmt: skip
     return out
 
 
