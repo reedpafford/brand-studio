@@ -45,7 +45,8 @@ class HostOut(BaseModel):
     pieces: list[HostPieceOut]
     credits: float  # Make the host: what isn't made yet
     # The Cast tab's Presenter (S5-02): the cast look that says the narration, and the voice
-    # the narration in use is read in (null until it's made).
+    # the narration in use is read in; before one is made, the voice it will be read in (a
+    # person's pick, else the presenter's own saved voice, else the style's).
     presenter_id: int | None = None
     voice: str | None = None
 
@@ -55,8 +56,11 @@ def _out(db: Session, project) -> HostOut:
         return HostOut(on=False, state="none", pieces=[], credits=0)
     who = host.host_look(db, project)
     take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
+    from app import director_song
+
+    said = take.voice if take and take.kind == narration.KIND else director_song._voice(db, project)
     return HostOut(on=True, **host.state(db, project), presenter_id=who.id if who else None,
-                   voice=take.voice if take and take.kind == narration.KIND else None)  # fmt: skip
+                   voice=said)  # fmt: skip
 
 
 @router.get("", response_model=HostOut)

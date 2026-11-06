@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Eye, Image as ImageIcon, LoaderCircle, Pencil, RefreshCw, Volume2 } from "lucide-react";
+import { ArrowLeftRight, Download, Eye, Image as ImageIcon, LoaderCircle, Pencil, RefreshCw, Volume2 } from "lucide-react";
 import { api, errorText, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
@@ -10,6 +10,8 @@ import { mp4, type Head } from "../videos/VideoHead";
 import { spent, upTo } from "../videos/money";
 import { blocking } from "../projects/problems";
 import { RowStatus } from "./RowStatus";
+import { SwapBroll } from "../cut/SwapBroll";
+import { useCut } from "../projects/useProgress";
 import { markWatched, type Clip, type Frame, type Row, type Scene, type Take } from "./data";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -440,6 +442,9 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
   const viewOnly = useViewOnly();
   const [box, setBox] = useState<null | { kind: "change" | "still" | "sound" | "prompt"; text: string }>(null);
   const [recut, setRecut] = useState(false);
+  const [swapping, setSwapping] = useState(false);
+  const cut = useCut(p.id).data;
+  const piece = row.broll && cut?.can_edit ? cut.timeline.pieces.find((x) => x.clip_id === row.clip_id) : undefined; // in the cut
   const path = { project_id: p.id, clip_id: clip.id };
   const frame = frames.find((f) => f.clip_id === clip.clip_id);
   const changePrice = useQuery({ queryKey: ["clip-change-price", clip.id, clip.takes.length], retry: false, queryFn: async () => (await must(api.GET("/projects/{project_id}/clips/{clip_id}/change", { params: { path } }))).data!.credits });
@@ -536,6 +541,11 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       {!clip.stale && <Priced wide={phone} icon={Pencil} label="Change this…" price={changePrice.isError ? undefined : changePrice.data == null ? null : upTo(head, changePrice.data)} disabled={changePrice.isError} reason={changePrice.isError ? changePrice.error.message : null} onClick={() => setBox({ kind: "change", text: "" })} />}
       <Priced wide={phone} icon={RefreshCw} label={clip.takes.length ? "Another take" : "Make the take"} price={takePrice} busy={run.isPending} disabled={!!takeBlock} reason={takeBlock} onClick={() => take()} />
       {picked && clip.sound?.state === "none" && <Priced wide={phone} icon={Volume2} label="Add sound effects" price={upTo(head, clip.sound.credits)} onClick={() => setBox({ kind: "sound", text: "" })} />}
+      {piece && !viewOnly && (
+        <Button variant="secondary" icon={ArrowLeftRight} aria-expanded={swapping} className={phone ? "w-full justify-start" : ""} onClick={() => setSwapping(!swapping)}>
+          Swap B-roll <span className="font-normal text-muted">· free</span>
+        </Button>
+      )}
       {picked && clip.sound?.state === "ready" && (
         <Button variant="secondary" icon={Volume2} className={phone ? "w-full justify-start" : ""} onClick={() => go(() => must(api.DELETE("/projects/{project_id}/clips/{clip_id}/sound", { params: { path } })))}>
           Remove the sound effects
@@ -549,6 +559,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       )}
     </div>
   );
+  const swapBox = swapping && piece && <SwapBroll projectId={p.id} piece={piece.id} onDone={() => setSwapping(false)} />;
   const boxes = { change: ["Change this…", "What should change in this clip?"], still: ["Change the still…", "What should change in the still?"], sound: ["Add sound effects", "Slight footsteps, wind…"], prompt: ["The director’s prompt", ""] } as const;
   const boxPrice = box?.kind === "change" ? changePrice.data : box?.kind === "still" ? stillPrice.data : box?.kind === "sound" ? clip.sound?.credits : undefined;
   return (
@@ -695,6 +706,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
             </div>
           )}
           {presses}
+          {swapBox}
         </>
       )}
     </section>

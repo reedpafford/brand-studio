@@ -111,15 +111,18 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 clip = re.sub(r"^(clip\s*|c)", "", str(clip or "").strip(), flags=re.I)
                 return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
-            held = 0
+            held, asked = 0, watch_cut.redo_findings(db, project)  # what the cut's watch found
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=decision.get("note") or "")
                 try:
-                    project_clips.generate(clip_id=row.id, request=request, body=note, **me)
+                    job = project_clips.generate(clip_id=row.id, request=request, body=note, **me)
                 except cast_gate.Waiting:  # its cast or places wait for the OK: the rest go on
                     db.rollback()
                     held += 1
+                else:
+                    if found := asked.get(row.clip_id):  # the take in the cut says why (S6-03)
+                        watch_cut.redone(db, project, row, found, job, note.note)
             return _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))

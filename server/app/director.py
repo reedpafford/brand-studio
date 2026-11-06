@@ -392,8 +392,8 @@ def _watched(db: Session, project: Project) -> list[dict]:
     out = []
     for x in watch_report.watched(db, project):
         w = x["watch"]
-        if w.get("action") not in watch_report.ACTED:
-            continue
+        if w.get("action") not in watch_report.ACTED or (x["item"].watch or {}).get("by") == "cut":
+            continue  # a redo the watch of the cut asked for: its turn and the note say it
         what = (f"The host's piece {x['number']}" if x["clip_id"] == "host" else
                 f"Clip {x['clip_id'].removeprefix('c')}, take {x['number']}")  # fmt: skip
         out.append({"id": f"w-{x['clip_id']}-{x['item'].id}", "kind": "move", "at": w["at"],

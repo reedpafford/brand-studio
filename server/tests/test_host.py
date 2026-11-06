@@ -208,3 +208,30 @@ def test_seedance_1_lite_is_offered_for_b_roll_and_never_sent_a_sound_switch():
     sent, _ = p_video.fit("seedance-1-lite", {"prompt": "x", "generate_audio": True}, {})
     assert "generate_audio" not in sent
     assert p_video.fit("seedance-2.5", {"generate_audio": True}, {})[0]["generate_audio"]
+
+
+def test_a_saved_presenter_is_in_the_cast_with_its_own_voice_before_make_it(app, db, owner):
+    """QA (S5-02): a presenter video whose presenter is saved in the brand (Mark, his own voice
+    Roger). Before Make it, the Cast tab's Presenter reads the voice it will be read in (his,
+    never another saved voice), and Mark is in the cast list with the OK the chat card asks."""
+    from tests.conftest import first_brand, upload
+    from tests.helpers import with_sheet
+
+    brand = first_brand(owner)
+    mark = owner.post("/library/character", json={
+        "name": "Mark", "voice_stock_key": "Roger", "brand_ids": [brand],
+        "image_file_ids": [upload(owner)]}).json()  # fmt: skip
+    with_sheet(db, mark["id"])
+    body = {"type": "presenter", "look": "house", "shape": "9:16", "text": NARRATION,
+            "brand_id": brand, "cast_ids": [mark["id"]]}  # fmt: skip
+    sent = owner.post("/freestyles", json=body)
+    assert sent.status_code == 201, sent.text
+    _run(app, db, ticks=6, start=False)  # its plan, then its start card: nothing made yet
+    pid = owner.get(f"/freestyles/{sent.json()['id']}").json()["project_id"]
+    said = owner.get(f"/projects/{pid}/host").json()
+    assert (said["presenter_id"], said["voice"]) == (mark["id"], "Roger")  # his, not a clone
+    rows = owner.get(f"/projects/{pid}/assets").json()
+    (row,) = [r for r in rows if r["library_item_id"] == mark["id"]]
+    assert row["kind"] == "character" and row["name"] == "Mark"
+    cast = owner.get(f"/projects/{pid}/cast").json()
+    assert [i["library_item_id"] for i in cast["items"] if i["kind"] == "character"] == [mark["id"]]

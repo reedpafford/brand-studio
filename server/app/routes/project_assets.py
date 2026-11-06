@@ -286,6 +286,12 @@ def list_assets(project_id: int, user: User = Depends(current_user), db: Session
         out.append(_row("character", ref, "", db.get(LibraryItem, int(ref[5:])), False,
                         project=project))  # fmt: skip
         out[-1].look_credits = out[-1].look_credits or (look if out[-1].look_needed else None)
+    from app import host
+
+    # S5-02: a presenter talks over the B-roll, in no shot, yet is in the cast and its OK
+    who = host.host_look(db, project) if host.presents(db, project) else None
+    if who is not None and f"char:{who.id}" not in {r.ref for r in out}:
+        out.append(_row("character", f"char:{who.id}", "", who, False, project=project))
     for ref in places:
         place = db.get(LibraryItem, int(ref.split(":")[1]))
         out.append(_row("place", ref, "", place, False))

@@ -6,6 +6,7 @@ import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { recutRefused } from "./ClipOpen";
+import { cutOut } from "../test/cut";
 
 // The Clips tab (v6 S6-01 to S6-06, P-10, P-11, S-gaps-08): a short video's grid, the list grouped by scene with its
 // filters, one clip open with its stills and takes, what the director's watch found and did, and its priced presses.
@@ -66,6 +67,20 @@ test("S6-01: a short video opens as cards: each clip's length, state and what it
   expect(within(list).getByRole("button", { name: /Scene 1 · Hook/ })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "All clips" }));
   expect(await screen.findByRole("button", { name: "Open clip 1" })).toBeInTheDocument();
+});
+
+test("S6-03: Swap B-roll on a clip in the cut offers the cut editor's choices and swaps it, free", async () => {
+  setViewport(1440);
+  const swaps = [{ kind: "in_cut", take_id: 32, label: "In the cut", file_id: 532, poster_file_id: null }, { kind: "take", take_id: 31, label: "Take 1", file_id: 531, poster_file_id: null }];
+  const calls = server(owner, 24, { "GET /projects/50/cut": [200, cutOut()], "GET /projects/50/cut/swaps/c3": [200, swaps], "POST /projects/50/cut/edits": [201, cutOut()] });
+  open("&clip=c3");
+  const c = await screen.findByRole("region", { name: "Clip 3" });
+  await userEvent.click(await within(c).findByRole("button", { name: "Swap B-roll · free" }));
+  const list = await within(c).findByRole("list", { name: "Swap B-roll for" });
+  expect(within(list).queryByRole("button", { name: "Swap for In the cut" })).toBeNull(); // what's in the cut isn't offered
+  await userEvent.click(within(list).getByRole("button", { name: "Swap for Take 1" }));
+  await vi.waitFor(() => expect(calls.find((x) => x.key === "POST /projects/50/cut/edits")?.body).toEqual({ snap: false, kind: "swap", piece: "c3", take_id: 31 }));
+  expect(await screen.findByText("Swapped for Take 1, free. Make the cut in the Cut tab to see it.")).toBeInTheDocument();
 });
 
 test("S6-02 / S6-03: one clip open: what the watch found and did, its stills and takes, model and why, words, cost, prompt and priced presses", async () => {

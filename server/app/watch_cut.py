@@ -309,3 +309,31 @@ def state(db: Session, project: Project) -> dict:
 
 
 watch_state = state  # the name Next-Server's first wiring used
+
+
+def redo_findings(db: Session, project: Project) -> dict[str, dict]:
+    """The newest watch of the cut's findings that ask for a clip to be made again, by clip."""
+    w = state(db, project)
+    if w.get("state") != "done":
+        return {}
+    return {f["clip_id"]: f for f in w.get("findings") or []
+            if f.get("fix") == "redo" and f.get("clip_id")}  # fmt: skip
+
+
+def redone(db: Session, project: Project, row: ProjectClip, found: dict, job: Job,
+           note: str = "") -> None:  # fmt: skip
+    """A clip made again because the watch of the cut found something (S6-03, rule 11): the
+    take that was in the cut says what was found and what was done, as a take's own watch
+    does, so the clip shows "What I found / What I did" and the take reads as dropped."""
+    from app.db import utcnow
+    from app.model_map import of_clip
+    from app.run_progress import said as plain
+
+    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+    if take is None:
+        return
+    said = f" with “{plain(note).rstrip('.')}” in the prompt" if note.strip() else ""
+    take.watch = {**(take.watch or {}), "state": "done", "action": "redo",
+                  "found": plain(found["says"]).rstrip(".") + ".",
+                  "did": f"Made it again on {of_clip(project, row).name}{said}.",
+                  "remake_job_id": job.id, "by": "cut", "at": utcnow().isoformat()}  # fmt: skip

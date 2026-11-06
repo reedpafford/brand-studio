@@ -624,3 +624,19 @@ def test_one_clip_is_said_as_one_clip_while_it_is_cut(app, db, owner, editor):
     _going(db, pid)  # the run goes on: its clips made, the cut next
     p = _progress(owner, pid)
     assert (p["title"], p["sub"]) == ("Cutting it together", "1 clip made")
+
+
+def test_a_clip_redone_after_the_cuts_watch_says_what_it_found_and_did(app, db, owner, editor):
+    """QA (S6-03, S6-06, P-11): a clip the director made again because the watch of the cut
+    found something says so on the clip (rule 11): the take that was in the cut reads as
+    dropped, with what was found and what was done, as a take's own watch does."""
+    pid = _done(app, db, owner, editor)
+    (clip,) = owner.get(f"/projects/{pid}/clips").json()
+    first, second = sorted(clip["takes"], key=lambda t: t["number"])[:2]
+    w = first["watch"]
+    assert (w["action"], w["state"]) == ("redo", "done")
+    assert w["found"] == "the opening face changes between shots."  # the cut's watch's words
+    thread = owner.get(f"/projects/{pid}/director").json()["thread"]
+    assert not [m for m in thread if m["id"].startswith("w-")]  # its turn and the note say it
+    assert w["did"].startswith("Made it again on ") and w["did"].endswith(".")
+    assert clip["picked_take_id"] == second["id"]  # the new take is in the cut
