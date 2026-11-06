@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app import director, locked_line
 from app.models.asks import Ask
-from app.models.clips import ClipTake, FinalVideo, ProjectClip
+from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.providers import get_providers
@@ -57,7 +57,8 @@ def test_a_note_to_change_the_scripts_words_is_answered_at_once(app, db, owner, 
     assert card["question"] == ("The script’s words are set for this script, so I can’t change "
                                 "“bought the dip”. Here’s what I can change instead:")  # fmt: skip
     assert card["state"] == "offered" and card["can"] == ["instead"]
-    (softer,) = card["choices"]
+    softer, pause = card["choices"]  # as drawn: Say it softer, then what the cut can change
+    assert pause["do"] == "pause"  # (no presenter here to cut away from)
     assert (softer["title"], softer["do"], softer["made"]) == ("Say it softer", "softer", "")
     assert softer["why"] == "Nate says it more softly. Redo the voice line and clip 1"
     row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
@@ -89,7 +90,7 @@ def test_saying_it_softer_makes_a_take_and_once_its_watch_is_clean_the_cut_again
     was = (cut.id, list(cut.take_ids))
     pressed = _press(editor, db, pid)
     choice = pressed["choices"][0]
-    assert choice["made"] == "making" and pressed["can"] == []
+    assert choice["made"] == "making" and pressed["can"] == ["instead"]  # the pause stays
     job = db.query(Job).filter(Job.kind == "video").order_by(Job.id.desc()).first()
     assert job.input[locked_line.FOR] == [card["id"], "A"]
     assert job.credits <= choice["price"]["credits"]  # never past the "up to" it showed
@@ -214,6 +215,7 @@ def test_nothing_is_offered_where_the_clip_doesnt_carry_the_voice(app, db, owner
 
     pid = _delivered(app, db, owner, editor)
     monkeypatch.setattr(director_song, "kind", lambda db, project: "narrated")
+    monkeypatch.setattr(locked_line, "_goes", lambda *a: False)  # nor anything in the cut
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK}).json()
     assert out["unread"] == 1  # it waits for the director, as any note does
     assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
@@ -414,10 +416,12 @@ def test_a_take_that_went_since_is_never_offered_or_used(app, db, owner, editor,
     assert editor.get(f"/projects/{pid}/asks").status_code == 200
     card = _card(editor, pid)
     c = card["choices"][0]
-    assert c["then"] == "" and locked_line.GONE in c["said"]
+    assert c["then"] == "" and c["said"] == locked_line.GONE  # its text, not added to
     no = editor.post(f"/asks/{card['id']}/answer",
                      json={"how": "instead", "choice": "A", "option": "use"})  # fmt: skip
-    assert no.status_code == 409 and no.json()["detail"].endswith(locked_line.GONE)
+    assert (no.status_code, no.json()["detail"]) == (409, locked_line.GONE)
+    again = editor.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert again.json()["detail"] == "Clip 1 isn't in this video any more."  # its real reason
     bad = editor.post(f"/asks/{card['id']}/answer",
                       json={"how": "instead", "choice": "A", "option": "other"})  # fmt: skip
     assert bad.status_code == 422
@@ -436,3 +440,215 @@ def test_the_cut_isnt_made_over_a_pick_someone_made_since(app, db, owner, editor
     said, cut = locked_line._cut(db, db.get(Project, pid), take, app.state.storage)
     assert not cut and said == ("Made and watched, but clip 1 now uses another take, so the cut "
                                 "stays as it was.")  # fmt: skip
+
+
+# --- In the cut (#1299's edits, free): cut away while it's said, a shorter pause after it ----
+
+
+def _presenter(app, db, owner, monkeypatch) -> int:
+    """A delivered Presenter video (board S3-14's own format), made by the owner."""
+    from app.models.freestyles import Freestyle
+    from tests.test_freestyle_dialogue import _run as _fs_run
+    from tests.test_freestyle_song import NARRATION, _sent
+
+    monkeypatch.setattr("app.director_song._on", lambda db, draft: True)
+    monkeypatch.setattr(app.state.settings, "kie_suno", True)
+    fs = _sent(owner, "presenter", NARRATION)
+    _fs_run(app, db, ticks=160)
+    pid = db.get(Freestyle, fs["id"]).project_id
+    assert owner.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+    return pid
+
+
+ON_A_PRESENTER = "Can we change “the wait” to “the pause”? It feels a bit harsh."
+
+
+def test_on_a_presenter_video_it_offers_cutting_away_free_and_makes_the_cut(
+    app, db, owner, monkeypatch
+):
+    from app import cut
+    from app.models.clips import CutEdit
+
+    pid = _presenter(app, db, owner, monkeypatch)
+    out = owner.post(f"/projects/{pid}/director/messages", json={"text": ON_A_PRESENTER}).json()
+    assert out["unread"] == 0
+    card = _card(owner, pid)
+    (away,) = card["choices"]  # no Say it softer: the presenter's narration carries the voice
+    assert (away["title"], away["do"], away["price"]) == ("Cut away while it’s said", "cut_away",
+                                                          None)  # free  # fmt: skip
+    assert away["why"].startswith("Show the B-roll instead of ") and away["why"].endswith(
+        "’s face on that line")  # fmt: skip
+    jobs = db.query(Job).filter(Job.kind != cut.STEP).count()
+    pressed = owner.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert pressed.status_code == 200, pressed.text
+    done = pressed.json()["choices"][0]
+    assert done["made"] == "done" and done["said"].startswith("Done. Making Cut ")
+    assert done["said"].endswith(" with it.")
+    edit = db.query(CutEdit).filter_by(project_id=pid).one()
+    assert (edit.kind, edit.data["hidden"], edit.director) == ("presenter", True, False)
+    tl, _ = cut.timeline(db, db.get(Project, pid))
+    said = locked_line._spoken(tl, "the wait")
+    assert edit.data["start"] <= said[0] and said[1] <= edit.data["end"]  # over that line
+    assert db.query(Job).filter(Job.kind != cut.STEP).count() == jobs  # nothing paid
+    assert cut.making(db, db.get(Project, pid)) is not None  # the next cut is being made
+    again = owner.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert (again.status_code, again.json()["detail"]) == (409, "That's made already.")
+
+
+def test_a_shorter_pause_after_it_trims_the_clip_to_its_last_word_free(app, db, owner, editor):
+    from app import cut
+    from app.models.clips import CutEdit
+
+    pid = _delivered(app, db, owner, editor)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    card = _card(editor, pid)
+    pause = next(c for c in card["choices"] if c["do"] == "pause")
+    assert pause["title"] == "Shorter pause after it" and pause["price"] is None
+    gap = float(pause["why"].removeprefix("Tighten ").removesuffix(" s"))
+    assert gap >= locked_line.PAUSE
+    pressed = editor.post(f"/asks/{card['id']}/answer",
+                          json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert pressed.status_code == 200, pressed.text
+    edit = db.query(CutEdit).filter_by(project_id=pid).one()
+    assert edit.kind == "trim"
+    tl, _ = cut.timeline(db, db.get(Project, pid))
+    piece = next(p for p in tl["pieces"] if p["id"] == edit.data["piece"])
+    end = max(w["end"] for w in tl["words"] if piece["start"] <= w["start"] < piece["end"])
+    assert abs(piece["end"] - (end + cut.TAIL)) < 0.05  # just after the last word, none cut
+    softer = next(c for c in _card(editor, pid)["choices"] if c["do"] == "softer")
+    assert softer["made"] == "" and softer["price"]  # the other choices stay pressable
+
+
+def test_a_cut_choice_that_cant_be_made_isnt_offered(app, db, owner, editor, monkeypatch):
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr(locked_line, "_goes", lambda *a: False)  # the cut editor refuses it
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    assert [c["do"] for c in _card(editor, pid)["choices"]] == ["softer"]
+
+
+def test_words_for_the_picture_too_never_mark_a_note_answered():
+    from tests.test_script_library import SCRIPT
+
+    for other in ("It's too cold.", "It looks cheap.", "It's too sharp.", "It's too strong."):
+        said = f"Change “bought the dip” to “bought more”. {other}"
+        assert locked_line.asked(said, SCRIPT) == ("bought the dip", False), other
+
+
+def test_only_tone_words_mark_a_note_answered():
+    from tests.test_script_library import SCRIPT
+
+    for other in (
+        "It's too dark.",
+        "This is blurry.",
+        "It's too loud.",
+        "It's too long.",
+        "It is slow.",
+    ):  # picture or sound: the director's (QA on d0c187c8)
+        said = f"Change “bought the dip” to “bought more”. {other}"
+        assert locked_line.asked(said, SCRIPT) == ("bought the dip", False), other
+    for tone in ("It's too harsh.", "It sounds rude.", "That's a bit much.", "It feels off."):
+        said = f"Change “bought the dip” to “bought more”. {tone}"
+        assert locked_line.asked(said, SCRIPT) == ("bought the dip", True), tone
+
+
+def _pause_card(app, db, owner, editor, text=ASK):
+    pid = _delivered(app, db, owner, editor)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": text})
+    card = _card(editor, pid)
+    return pid, card, next(c for c in card["choices"] if c["do"] == "pause")
+
+
+def test_the_offered_pause_is_worked_out_again_each_time_it_is_shown(app, db, owner, editor):
+    """QA on e89ffa80: once the clip's ending is trimmed another way, the card says the pause
+    is already short, with no press, and a press says that (not that the words moved)."""
+    from app import cut, cut_edits
+
+    pid, card, pause = _pause_card(app, db, owner, editor)
+    project = db.get(Project, pid)
+    edit, _, _ = locked_line._pause_edit(db, project, "bought the dip")
+    cut_edits.add(
+        db, editor_user(db, project), project, "trim", {**edit, "end": edit["end"] - cut.TAIL + 0.1}
+    )  # another way, in the Cut tab
+    db.commit()
+    now = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert now["cannot"] == "The pause after it is already short." and now["price"] is None
+    no = editor.post(f"/asks/{card['id']}/answer",
+                     json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert (no.status_code, no.json()["detail"]) == (409, "The pause after it is already short.")
+
+
+def editor_user(db, project):
+    from app.models.accounts import User
+
+    return db.get(User, project.created_by_id)
+
+
+def test_a_cut_choice_waits_while_a_cut_is_made_and_comes_back_once_undone(app, db, owner, editor):
+    from app import cut_edits
+
+    pid, card, pause = _pause_card(app, db, owner, editor)
+    pressed = editor.post(f"/asks/{card['id']}/answer",
+                          json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert pressed.status_code == 200, pressed.text
+    done = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert done["made"] == "done" and done["said"].startswith("Done. Making Cut ")
+    project = db.get(Project, pid)
+    edit = db.query(CutEdit).filter_by(project_id=pid).one()
+    still = locked_line.now(db, project, {"do": "pause"}, "bought the dip")[1]
+    assert still.startswith("Cut ") and still.endswith("is being made; try again when it's ready.")
+    _run(app, db, ticks=6, start=False)  # the cut is made
+    cut_edits.undo(db, project, edit.id)  # taken back in the Cut tab
+    db.commit()
+    back = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert (back["made"], back["said"], back["cannot"]) == ("", "Undone in the Cut tab.", "")
+    assert back["why"].startswith("Tighten ")  # pressable again
+    again = editor.post(f"/asks/{card['id']}/answer",
+                        json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert again.status_code == 200, again.text
+
+
+def test_a_free_cut_press_isnt_stopped_by_the_generation_switch(app, db, owner, editor):
+    pid, card, pause = _pause_card(app, db, owner, editor)
+    app.state.settings.generation_enabled = False
+    app.state.settings.fake_providers = False  # paid generation off on this server
+    softer = next(c for c in card["choices"] if c["do"] == "softer")
+    paid = editor.post(f"/asks/{card['id']}/answer",
+                       json={"how": "instead", "choice": softer["key"]})  # fmt: skip
+    assert paid.status_code == 503
+    free = editor.post(f"/asks/{card['id']}/answer",
+                       json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert free.status_code == 200, free.text
+
+
+def test_words_mid_line_say_it_trims_after_the_clips_last_spoken_word(app, db, owner, editor):
+    text = "Can we change “all your money” to “your cash”?"
+    _, _, pause = _pause_card(app, db, owner, editor, text)
+    assert pause["why"].endswith("s after the clip’s last spoken word")
+
+
+def test_a_cut_that_cant_be_read_never_breaks_the_cards(app, db, owner, editor, monkeypatch):
+    """Whatever goes wrong trying an edit on the cut, the card says it can't be made now and
+    every card on the video still reads (the lead, on a11d71c1)."""
+    from app import cut_edits
+
+    pid, card, pause = _pause_card(app, db, owner, editor)
+
+    def broken(*a, **k):
+        raise RuntimeError("a bad cut")
+
+    monkeypatch.setattr(cut_edits, "add", broken)
+    listed = editor.get(f"/projects/{pid}/asks")
+    assert listed.status_code == 200
+    now = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert now["cannot"] == "The cut can't take that edit now. Change it in the Cut tab instead."
+    monkeypatch.setattr(locked_line, "_pause_edit", broken)
+    now = next(c for c in _card(editor, pid)["choices"] if c["do"] == "pause")
+    assert now["cannot"] == locked_line.UNSURE
+    no = editor.post(f"/asks/{card['id']}/answer",
+                     json={"how": "instead", "choice": pause["key"]})  # fmt: skip
+    assert (no.status_code, no.json()["detail"]) == (409, locked_line.UNSURE)
+    db.expire_all()
+    db.get(Project, pid).director_chat = []
+    db.commit()
+    out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    assert out.status_code == 201  # a new reply still comes, without that choice

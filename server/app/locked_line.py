@@ -12,6 +12,7 @@ comes back clean that clip is approved and the cut is made again (free, rule 35:
 from a take nobody watched). Each choice keeps what happened to it on the card
 (`answer.chosen`); the other choices stay pressable."""
 
+import logging
 import re
 from decimal import Decimal
 from types import SimpleNamespace
@@ -26,6 +27,7 @@ from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 
+log = logging.getLogger(__name__)
 KIND = "instead"
 OFFERED = "offered"  # its state: answered by the server; never a question that waits
 FOR = "instead_for"  # in a take job's input: [the card, the choice] whose press made it
@@ -45,9 +47,15 @@ ASKS = (
 POLITE = re.compile(
     r"^(?:(?:can|could|would|will)\s+(?:we|you|i|it\s+be)\b|please\b|maybe\b)\s*", re.I
 )
-REASON = re.compile(  # a bare verdict on those words: "It feels a bit harsh."
+TONE = (
+    "harsh|rude|mean|cringe|cringey|cringy|off|wrong|much|crude|blunt|aggressive|offensive|"
+    "crass|cheesy|insulting|negative|judgy|judgmental|preachy|weird|"
+    "awkward|snarky|condescending|gross|edgy|unkind|pushy|salesy|forced"
+)
+REASON = re.compile(  # a bare verdict on the words' tone: "It feels a bit harsh." (never the
+    # picture or the sound: "It's too dark." stays for the director)
     r"^(?:it|that|this)(?:['’]s|\s+(?:is|feels|sounds|reads|seems|comes\s+across))"
-    r"(?:\s+(?:a\s+bit|a\s+little|too|so|quite|kind\s+of|really|very))?\s+[a-z-]+$",
+    rf"(?:\s+(?:a\s+bit|a\s+little|too|so|quite|kind\s+of|really|very))?\s+(?:{TONE})$",
     re.I,
 )
 
@@ -100,7 +108,8 @@ def offer(db: Session, user: User, project: Project, text: str) -> tuple[Ask, bo
         return None
     words, only = found
     shot = _said_in(db, project, words)
-    choices = [c for c in (_softer(db, project, shot),) if c]
+    choices = [c for c in (_softer(db, project, shot), _safely(_cut_away, db, user, project, words),
+                           _safely(_pause, db, user, project, words)) if c]  # fmt: skip
     if not choices:
         return None
     ask = Ask(workspace_id=project.workspace_id, project_id=project.id, kind=KIND,
@@ -142,6 +151,130 @@ def _softer(db: Session, project: Project, shot: dict | None) -> dict | None:
             "do": "softer", "clip": shot["clip"]}  # fmt: skip
 
 
+# --- In the cut (#1299's edits, free): where the words are said, and what can change there ----
+
+
+class _DryRun(Exception):
+    """Raised inside a savepoint to take back an edit tried only to see that it goes through."""
+
+
+def _goes(db: Session, user: User, project: Project, kind: str, asked: dict) -> bool:
+    """Whether this edit to the cut goes through now (every check the editor's own has: no
+    spoken word cut, a piece no shorter than its least), tried and taken back."""
+    from app import cut, cut_edits
+
+    try:
+        with db.begin_nested():
+            cut_edits.add(db, user, project, kind, asked)
+            raise _DryRun
+    except _DryRun:
+        return True
+    except cut.Refused:
+        return False
+    except Exception:  # one bad cut never breaks the cards: it just can't be offered now
+        log.exception("project %s: trying a %s edit for a locked line failed", project.id, kind)
+        return False
+
+
+def _safely(offer_it, db: Session, user: User, project: Project, words: str) -> dict | None:
+    """A cut choice to offer, or None: a cut that can't be read never stops the reply."""
+    try:
+        return offer_it(db, user, project, words)
+    except Exception:
+        log.exception("project %s: offering a locked line's cut choice failed", project.id)
+        return None
+
+
+def _spoken(tl: dict, words: str) -> tuple[float, float, int] | None:
+    """Where the cut says these words: (start, end, the index of their last word), or None."""
+    want = re.findall(r"[a-z0-9']+", _plain(words))
+    heard = [re.sub(r"[^a-z0-9']", "", _plain(w["word"])) for w in tl["words"]]
+    for i in range(len(heard) - len(want) + 1):
+        if want and heard[i : i + len(want)] == want:
+            j = i + len(want) - 1
+            return tl["words"][i]["start"], tl["words"][j]["end"], j
+    return None
+
+
+def _cut_away(db: Session, user: User, project: Project, words: str) -> dict | None:
+    """ "Cut away while it's said": the presenter hidden over the line that says the words, so
+    the B-roll under it shows (free). Only in a video with a presenter laid over the B-roll
+    (a UGC talker is in its own clips: they can't be swapped for B-roll)."""
+    from app import cut
+
+    span = _away_span(db, project, words)
+    if span is None or not _goes(
+        db, user, project, "presenter", {"start": span[0], "end": span[1], "hidden": True}
+    ):
+        return None
+    tl, _ = cut.timeline(db, project)
+    name = tl["presenter"]["name"]
+    name = name[0].lower() + name[1:] if name.startswith("The ") else name  # "the presenter"
+    return {
+        "title": "Cut away while it’s said",
+        "why": f"Show the B-roll instead of {name}’s face on that line",
+        "do": "cut_away",
+    }
+
+
+def _away_span(db: Session, project: Project, words: str) -> tuple[float, float] | None:
+    """The line that says the words, in cut seconds (at least a piece's least)."""
+    from app import cut
+
+    if cut.newest(db, project) is None:
+        return None
+    tl, _ = cut.timeline(db, project)
+    said = _spoken(tl, words) if tl["presenter"] else None
+    if said is None:
+        return None
+    a, b, _ = said
+    line = next(((s, e) for s, e in tl.get("lines") or [] if s <= a < e), None)
+    a, b = line if line else (a, b)
+    return round(a, 2), round(max(b, a + cut.MIN), 2)
+
+
+def _pause(db: Session, user: User, project: Project, words: str) -> dict | None:
+    """ "Shorter pause after it": in a dialogue video, the clip that says these words (its
+    line) trimmed to just after its last spoken word ("Tighten 0.4 s", free). A narration's or
+    a song's own pauses are in its audio, so they can't be tightened here."""
+    edit = _pause_edit(db, project, words)
+    if edit is None or not _goes(db, user, project, "trim", edit[0]):
+        return None
+    return {"title": "Shorter pause after it", "why": _pause_why(edit), "do": "pause"}
+
+
+def _pause_why(edit: tuple[dict, float, bool]) -> str:
+    """ "Tighten 0.4 s"; after the clip's last spoken word when the words are mid-line."""
+    return f"Tighten {edit[1]:g} s" + (" after the clip’s last spoken word" if edit[2] else "")
+
+
+PAUSE = 0.2  # seconds: a pause shorter than this after the words is left as it is
+
+
+def _pause_edit(db: Session, project: Project,
+                words: str) -> tuple[dict, float, bool] | None:  # fmt: skip
+    """The trim that tightens the pause after the words' line, by how much, and whether the
+    words are mid-line (it trims after the clip's last spoken word); None if none."""
+    from app import cut
+
+    if cut.newest(db, project) is None:
+        return None
+    tl, _ = cut.timeline(db, project)
+    said = _spoken(tl, words) if tl["mode"] == "takes" else None
+    if said is None:
+        return None
+    _, said_end, _ = said
+    piece = next((p for p in tl["pieces"] if p["start"] <= said_end <= p["end"]), None)
+    if piece is None:
+        return None
+    end = max(w["end"] for w in tl["words"] if piece["start"] <= w["start"] < piece["end"])
+    mid = end > said_end + 0.01
+    gap = round(piece["end"] - end - cut.TAIL, 1)  # after its line: its last spoken word
+    if gap < PAUSE:
+        return None
+    return {"piece": piece["id"], "end": round(end + cut.TAIL, 2)}, gap, mid
+
+
 def _voiced(db: Session, project: Project, clip: str) -> bool:
     """The line is said outside the clip's take: a song or narrated video (a presenter's
     narration too), or a UGC talker's clip."""
@@ -164,7 +297,7 @@ def _row(db: Session, project: Project, clip: str) -> ProjectClip | None:
 # --- A choice on the card: whether it can be made, its price, its press, what happened -------
 
 
-def cannot(db: Session, project: Project, choice: dict) -> str:
+def cannot(db: Session, project: Project, choice: dict, words: str = "") -> str:
     """Why this choice can't be made now ("" when it can), checked when shown and pressed."""
     from app import director
 
@@ -178,7 +311,54 @@ def cannot(db: Session, project: Project, choice: dict) -> str:
         if row.picked_take_id is None or _voiced(db, project, row.clip_id):
             return f"Clip {n} has no take of its own in the cut now."
         return ""
+    if choice.get("do") in ("cut_away", "pause"):
+        return now(db, project, choice, words)[1]
     return "This can't be made here."
+
+
+def director_going(db: Session, project: Project) -> bool:
+    from app import director
+
+    return director.active(db, project) is not None
+
+
+UNSURE = "The cut can't be read for this right now. Change it in the Cut tab instead."
+
+
+def now(db: Session, project: Project, choice: dict, words: str) -> tuple[str, str]:
+    """A cut choice as it stands now, worked out again whenever it's shown or pressed: its
+    detail line ("Tighten 0.4 s") and why it can't be made ("" when it can; tried and taken
+    back, as the cut editor would take it). A cut that can't be read never breaks the card."""
+    try:
+        return _now(db, project, choice, words)
+    except Exception:
+        log.exception("project %s: working out a locked line's %s failed", project.id,
+                      choice.get("do"))  # fmt: skip
+        return choice.get("why", ""), UNSURE
+
+
+def _now(db: Session, project: Project, choice: dict, words: str) -> tuple[str, str]:
+    from app import cut
+
+    why = choice.get("why", "")
+    if job := cut.making(db, project):
+        return why, f"Cut {job.input.get('number')} is being made; try again when it's ready."
+    if cut.newest(db, project) is None:
+        return why, "There's no cut yet."
+    user = db.get(User, project.created_by_id)
+    if choice["do"] == "pause":
+        edit = _pause_edit(db, project, words)
+        if edit is None:
+            return why, "The pause after it is already short."
+        why, kind, asked = _pause_why(edit), "trim", edit[0]
+    else:
+        span = _away_span(db, project, words)
+        if span is None:
+            return why, "The cut doesn't show the presenter while those words are said."
+        kind, asked = "presenter", {"start": span[0], "end": span[1], "hidden": True}
+    if not _goes(db, user, project, kind, asked):
+        return why, "The cut can't take that edit now. Change it in the Cut tab instead."
+    return why, ""
 
 
 def price(db: Session, project: Project, choice: dict) -> Decimal | None:
@@ -189,6 +369,8 @@ def price(db: Session, project: Project, choice: dict) -> Decimal | None:
     if choice.get("do") == "softer":
         row = _row(db, project, choice.get("clip") or "")
         return take_credits(db, project, row) if row is not None else None
+    if choice.get("do") in ("cut_away", "pause"):
+        return Decimal(0)  # an edit and the cut made again: free
     return None
 
 
@@ -201,10 +383,16 @@ def made(db: Session, ask: Ask, key: str) -> tuple[str, str, int | None]:
     mine = ((ask.answer or {}).get("chosen") or {}).get(key)
     if not mine:
         return "", "", None
+    if mine.get("edit"):
+        from app.models.clips import CutEdit
+
+        edit = db.get(CutEdit, mine["edit"])
+        if edit is None or edit.undone_at is not None:  # taken back in the Cut tab
+            return "", "Undone in the Cut tab.", None
     if "outcome" in mine:
         use = mine.get("use")
         if use and _gone(db, ask, use):  # its take or clip went since (a new plan): no press
-            return "kept", f"{mine['outcome']} {GONE}", None
+            return "kept", GONE, None
         return ("done" if mine.get("cut") else "kept"), mine["outcome"], use
     job = db.get(Job, mine.get("job") or 0)
     if job is None or job.status in (JobStatus.failed, JobStatus.cancelled):
@@ -282,17 +470,21 @@ def choose(db: Session, user: User, ask: Ask, key: str, storage, option=None) ->
     state, said, use = made(db, ask, key)
     if option == "use":
         if use is None:
-            raise HTTPException(409, said if GONE in said else "There's no take to use here.")
+            raise HTTPException(409, GONE if said == GONE else "There's no take to use here.")
         from app import director
 
         if director.active(db, project):
             raise HTTPException(409, RUNNING)
         said, cut = _cut(db, project, db.get(ClipTake, use), storage, user, chosen=True)
         return _outcome(db, ask, key, said, cut=cut)
-    if state:
+    if state in ("held", "making", "watching"):
         raise HTTPException(409, "That's already being made.")
-    if why := cannot(db, project, found):
+    if state == "done":
+        raise HTTPException(409, "That's made already.")
+    if why := cannot(db, project, found, ask.subject):
         raise HTTPException(409, why)
+    if state:  # made already (done, or kept with what happened): say that, not "being made"
+        raise HTTPException(409, GONE if said == GONE else "That's made already.")
     done = DOES[found["do"]](db, user, project, ask, found, storage)
     from app.db import utcnow
 
@@ -317,7 +509,46 @@ def _say_softer(db: Session, user: User, project: Project, ask: Ask, choice: dic
     return {"job": job.id}
 
 
-DOES = {"softer": _say_softer}  # what each kind of choice does when pressed
+def _edit_the_cut(db: Session, user: User, project: Project, ask: Ask, choice: dict,
+                  storage) -> dict:  # fmt: skip
+    """Cut away, or a shorter pause: the edit (free, the person's, with Undo in the cut editor),
+    worked out again from where the words are said now, then the cut made again."""
+    from app import cut, cut_edits
+
+    if choice["do"] == "cut_away":
+        span = _away_span(db, project, ask.subject)
+        kind, asked = "presenter", (span and {"start": span[0], "end": span[1], "hidden": True})
+    else:
+        edit = _pause_edit(db, project, ask.subject)
+        kind, asked = "trim", (edit and edit[0])
+    if not asked:
+        raise HTTPException(409, "The cut doesn't say those words where it did: make the cut "
+                            "again first, or change it in the cut editor.")  # fmt: skip
+    try:
+        row = cut_edits.add(db, user, project, kind, asked)
+    except cut.Refused as no:
+        db.rollback()
+        raise HTTPException(409, str(no)) from no
+    db.commit()
+    said, made = _make_cut(db, project, user, storage)
+    return {"edit": row.id, "outcome": f"Done. {said}", "cut": made}
+
+
+def _make_cut(db: Session, project: Project, user: User, storage) -> tuple[str, bool]:
+    """The next cut, free (cut.make's own route); or plainly why not."""
+    from app.routes import cut
+
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(storage=storage)))
+    try:
+        made = cut.make(project_id=project.id, request=request, user=user, db=db)
+    except HTTPException as no:
+        db.rollback()
+        return (f"The cut wasn’t made again: {no.detail} Make the cut from the Cut tab once "
+                "that’s done.", False)  # fmt: skip
+    return f"Making Cut {made.making.number if made.making else made.number} with it.", True
+
+
+DOES = {"softer": _say_softer, "cut_away": _edit_the_cut, "pause": _edit_the_cut}  # its press
 
 
 def after(db: Session, job: Job, storage) -> None:
