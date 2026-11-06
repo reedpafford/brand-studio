@@ -196,6 +196,13 @@ def test_each_clip_says_what_happened_to_it(app, db, owner, editor, monkeypatch)
     db.commit()
     assert (cell()["state"], cell()["note"]) == (
         "failed", "The service was busy. Nothing was charged.")  # fmt: skip
+    from app.credits import REAL_DONE
+
+    held.error = REAL_DONE.format(20)  # it says so itself: not twice (audit 6 Nov)
+    db.commit()
+    assert cell()["note"] == REAL_DONE.format(20)
+    held.error = "The service was busy."
+    db.commit()
     again = take_credits(db, db.get(Project, pid), row)  # as Make a take quotes it
     assert cell()["credits"] == run_progress.money(again, True)
 
