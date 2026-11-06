@@ -373,9 +373,9 @@ SHOT = re.compile(r"^(?:shot\s+)?(\d+)\.\d+\b:?\s*", re.I)  # a finding's "3.1 s
 def _redrawn(db: Session, project: Project, first: Job, shots: set[str]) -> str:
     """Why the run's stills were redrawn, from its review's worst finding, as one short reason
     in plain words (rule 23): "the capsule label faced away"; a finding in the review's own
-    shape ("3.1 shows him sitting; the beat is the jar exploding") reads "clip 3's still shows
-    him sitting", never a bare shot number."""
-    from app import still_review
+    shape ("4.2 shows him sitting; the beat is the jar exploding") names the clip that shot is
+    in ("clip 14's still shows him sitting"), never a bare shot number."""
+    from app import clip_prompts, still_review
 
     if not shots:
         return ""
@@ -383,12 +383,17 @@ def _redrawn(db: Session, project: Project, first: Job, shots: set[str]) -> str:
                                         Job.input["step"].as_string() == still_review.STEP,
                                         Job.status == JobStatus.succeeded))  # fmt: skip
     every = [f for j in rows for f in (j.output or {}).get("findings") or []]
-    found = [said(f.get("problem", "")) for f in every if f.get("shot_id") in shots]
-    p = next((p for p in found if p.strip(" .")), "")
-    if not p:
+    f = next((f for f in every if f.get("shot_id") in shots
+              and said(f.get("problem", "")).strip(" .")), None)  # fmt: skip
+    if f is None:
         return ""
+    p = said(f["problem"])
     if m := SHOT.match(p):
-        p = f"clip {m[1]}'s still {p[m.end() :]}"
+        bd = clip_prompts.newest(db, project)
+        clip = next((c["id"] for c in (bd.data if bd else {}).get("clips", [])
+                     if f["shot_id"] in c.get("shot_ids", [])), "")  # fmt: skip
+        whose = f"clip {clip.removeprefix('c')}'s" if clip else "the"
+        p = f"{whose} still {p[m.end() :]}"
     p = p.split("; ", 1)[0].strip().rstrip(".")
     word = p.split(" ", 1)[0]
     return p[0].lower() + p[1:] if word in LOWER else p  # never a name ("Dr. Pickle's")

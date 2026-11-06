@@ -119,12 +119,23 @@ def test_stills_say_how_many_were_redrawn_and_why_in_plain_words(app, db, owner,
     db.commit()
     said = _step(owner, pid, "stills")["text"]  # a name keeps its capital; no raw clip id
     assert said == "Stills: 1 drawn, 2 redrawn (Dr. Pickle's coat is green)"
+    from app import clip_prompts
+
+    bd = clip_prompts.newest(db, project)  # shot 1.2 in its own clip: scene 1, clip 2
+    bd.data = {
+        **bd.data,
+        "clips": [
+            {**bd.data["clips"][0], "shot_ids": ["1.1"]},
+            {**bd.data["clips"][0], "id": "c2", "shot_ids": ["1.2"]},
+        ],
+    }
+    turns[-1].input = {**turns[-1].input, director.RUN: {**run, "redraws": {"1.2": 1}}}
     review.output = {"ready": False, "findings": [  # the review prompt's own shape, worst first
-        {"shot_id": "1.1", "problem": "1.1 shows him sitting; the beat is the jar exploding"},
-        {"shot_id": "1.1", "problem": "The jar is empty; it should be full"}]}  # fmt: skip
+        {"shot_id": "1.2", "problem": "1.2 shows him sitting; the beat is the jar exploding"},
+        {"shot_id": "1.2", "problem": "The jar is empty; it should be full"}]}  # fmt: skip
     db.commit()
-    said = _step(owner, pid, "stills")["text"]  # one reason, no bare shot number
-    assert said == "Stills: 1 drawn, 2 redrawn (clip 1's still shows him sitting)"
+    said = _step(owner, pid, "stills")["text"]  # one reason, the shot's clip, no shot number
+    assert said == "Stills: 1 drawn, 1 redrawn (clip 2's still shows him sitting)"
 
 
 def test_clip_prompts_say_each_model_with_how_many_and_why(app, db, owner, editor, monkeypatch):
