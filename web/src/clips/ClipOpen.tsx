@@ -72,7 +72,7 @@ function Found({ clip, head, phone, onRemake, onKeep, busy }: { clip: Clip; head
   const dropped = clip.takes.find((t) => t.watch?.action === "redo" && (t.watch.found || t.watch.did));
   if (!dropped) return null;
   const w = dropped.watch!;
-  const cost = w.remake_credits != null ? ` ${spent(head, w.remake_credits)}.` : "";
+  const cost = w.remake_credits ? ` ${spent(head, w.remake_credits)}.` : ""; // nothing spent: no price
   return (
     <p className="flex items-start gap-2 rounded-lg bg-accent-soft px-3 py-2.5 text-sm text-accent-text">
       <Eye size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />

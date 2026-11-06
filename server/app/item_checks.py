@@ -7,12 +7,14 @@ run on the free stand-in until the Producer approves a real test (BS_ITEM_CHECKS
 
 import logging
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import AfterValidator, BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import looks, prompts
+from app.advice import said
 from app.credits import estimate, fits
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -38,11 +40,19 @@ class FindingOut(BaseModel):
     verified: bool = True  # a watch's doubt (not confirmed): shown, never remade on its own
 
 
+def _said(found: list[FindingOut]) -> list[FindingOut]:
+    """A finding's line and note as people read them (no stored id, app/advice.said)."""
+    return [f.model_copy(update={"text": said(f.text), "note": said(f.note)}) for f in found]
+
+
+Said = Annotated[list[FindingOut], AfterValidator(_said)]
+
+
 class CheckOut(BaseModel):
     id: int
     status: str  # checking, ok, advice, failed or skipped
-    findings: list[FindingOut]  # the ones not dismissed (Looks fine)
-    kept: list[FindingOut] = []  # the ones a person kept as they are: still shown, with Undo
+    findings: Said  # the ones not dismissed (Looks fine)
+    kept: Said = []  # the ones a person kept as they are: still shown, with Undo
 
 
 def on() -> bool:

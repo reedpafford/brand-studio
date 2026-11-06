@@ -263,7 +263,7 @@ function RoleCard({ a, c }: { a: Asset; c: Ctx }) {
       await must(api.PUT("/projects/{project_id}/assets/slots/{slot_id}", { params: { path }, body: { library_item_id: id } }));
       const video = await queryClient.fetchQuery({ queryKey: ["project", c.projectId], staleTime: 0, queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: c.projectId } } })).data ?? null });
       const redrew = (video?.cast_redraw as { redrawn_for_cast?: { count: number; credits: number } } | null | undefined)?.redrawn_for_cast;
-      if (redrew) toast(`Redrew ${redrew.count} still${redrew.count === 1 ? "" : "s"} for the new cast · ${spent(c.head, redrew.credits)}.`);
+      if (redrew) toast(`Redrew ${redrew.count} still${redrew.count === 1 ? "" : "s"} for the new cast${redrew.credits > 0 ? ` · ${spent(c.head, redrew.credits)}` : ""}.`);
     });
   const makeLook = () =>
     go(async () => {
