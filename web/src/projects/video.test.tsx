@@ -81,13 +81,18 @@ test("after a breakdown edit, the finished video stays downloadable and Clips st
   expect(screen.getByText("Out of date.")).toBeInTheDocument();
 });
 
-test("the server's video still matches its takes, but a clip is unapproved: Downloads says Out of date and the real count (#761 QA-2)", async () => {
+test("Flow-QA M2: a clip's new take, not approved by anyone, never stops Make it again (V6 has no per-clip Approve); a clip with no take does", async () => {
   setViewport(390);
-  fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]], "GET /projects/9/clips": [200, [{ ...done, approved: false }]], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] });
-  open("?step=downloads");
+  const routes = { ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] as [number, unknown] };
+  fakeServer({ ...routes, "GET /projects/9/clips": [200, [{ ...done, approved: false }]] });
+  const first = renderApp("/b/1/videos/9?step=downloads");
   expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
   expect(screen.getByText("Out of date.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Approve every clip first (1 left)");
+  expect(screen.getByRole("button", { name: "Make it again" })).toBeEnabled();
+  first.unmount();
+  fakeServer({ ...routes, "GET /projects/9/clips": [200, [{ ...done, approved: false, picked_take_id: null }]] });
+  open("?step=downloads");
+  expect(await screen.findByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Make every clip’s take first (1 left)");
 });
 
 test("the Cut tab watches the cut, and Edit opens the cut editor (screen 10)", async () => {

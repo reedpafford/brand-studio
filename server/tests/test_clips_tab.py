@@ -194,3 +194,18 @@ def test_editing_a_prompt_never_buys_a_take(app, db, editor, setup, clip):  # no
     assert videos() == before and [t["id"] for t in after["takes"]] == [take["id"]]
     assert after["picked_take_id"] == take["id"] and after["approved"] is True
     assert after["take_stale"] is True and after["take_credits"] > 0  # "Another take · up to"
+
+
+def test_another_take_then_make_the_cut_with_no_approve_anywhere(app, db, editor, setup, clip):  # noqa: F811
+    """Flow-QA M2 (V6 has no per-clip Approve, Reed on #1329): a person's Another take goes into
+    the cut by itself, unapproved, and their Make the cut makes the cut at once: the press is
+    their OK on the takes in it."""
+    base = f"/projects/{setup['project']}"
+    _two_takes(app, db, editor, base, clip)
+    db.expire_all()
+    row = db.get(ProjectClip, clip["id"])
+    assert row.picked_take_id and not row.approved  # the newest take, in the cut, unapproved
+    made = editor.post(f"{base}/cut")
+    assert made.status_code == 202, made.text  # never "Approve every clip to make the video"
+    status = editor.get(f"{base}/idea").json()["status"]
+    assert "ready to check" not in (status.get("reason") or "")  # nothing waits on a person
