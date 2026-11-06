@@ -1851,11 +1851,9 @@ def test_an_edits_null_fields_leave_each_setting_as_it_is():
     that isn't null; so null (never false or 0) means "leave it", and the schema says so."""
     from app import cut_edits
 
-    sent = json.dumps(schemas.CutMove.model_json_schema())
     for field in ("hidden", "removed", "loop", "quieter_db"):
         said = schemas.CutMove.model_fields[field].description
         assert "null leaves it as it is" in said.replace("\n", " "), field
-    assert "{default" not in sent or True  # the SDK's own copy is checked above
     blank = {"kind": "music", "piece": "", "start": None, "end": None, "at": None, "take_id": 0,
              "side": "", "size": "", "hidden": None, "quieter_db": None, "gaps": "rise",
              "removed": None, "loop": None, "edit_id": 0}  # fmt: skip
@@ -1870,7 +1868,4 @@ def test_an_edits_null_fields_leave_each_setting_as_it_is():
     shown = schemas.CutMove.model_validate({**blank, "kind": "presenter", "gaps": "",
                                             "size": "small"}).model_dump()  # fmt: skip
     assert "hidden" not in cut_edits._presenter(tl, shown)[0]  # null: hidden stays as it was
-    assert (
-        "director.md"
-        and "what the edit doesn't change is null" in (HERE / "director.md").read_text()
-    )
+    assert "what the edit doesn't change is null" in (HERE / "director.md").read_text()
