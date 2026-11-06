@@ -348,8 +348,18 @@ def redraw(db: Session, project: Project, user, frames: list) -> dict | None:
 
     if not frames:
         return None
+    from app import cast_gate
+
     try:
-        inputs = [storyboard.render_input(db, project, f) for f in frames]
+        pairs, waiting = [], None
+        for f in frames:  # one that waits for the cast and places OK stays out of date
+            try:
+                pairs.append((f, storyboard.render_input(db, project, f)))
+            except cast_gate.Waiting as no:
+                waiting = no
+        if waiting is not None and not pairs:
+            raise waiting
+        frames, inputs = [f for f, _ in pairs], [i for _, i in pairs]
     except HTTPException as e:  # e.g. the new look's sheet isn't approved yet
         result = {"redraw_refused": {"count": len(frames), "credits": 0, "reason": e.detail}}
         project.cast_redraw = result

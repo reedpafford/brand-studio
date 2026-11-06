@@ -138,7 +138,8 @@ def queue_sheet(
     after = worst(sheet, check, checked, changed) - sheet - check  # redo + its check
     # auto_made: Assets made it by itself; its check and redo say so too ("Made 3 looks · 7")
     data = {**job, "step": "sheet", "library_item_id": item.id, "changed": changed,
-            "after_check": str(after), "auto_made": auto, "sheet_look_id": look}  # fmt: skip
+            "after_check": str(after), "auto_made": auto, "sheet_look_id": look,
+            "change": body.change.strip(), "fit_redo": fit_redo}  # fmt: skip  # why (Cast)
     return enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db, user, "image", data, project=project, provider="replicate",
         hold=check + after, prepaid=fit_redo,
@@ -183,7 +184,9 @@ def slot_for(db: Session, item: LibraryItem):
 
 
 def save_sheet(db: Session, job: Job) -> None:
-    """A new sheet waits for an editor's approval (a new version of the item)."""
+    """A new sheet (a new version of the item). A Cast & places sheet waits for a person's
+    approval (rule 8). A look made for one video is that video's at once: its person approves
+    it with the rest of the cast and places in one go (app/cast_gate.py), never card by card."""
     item = db.get(LibraryItem, job.input["library_item_id"])
     file_ids = (job.output or {}).get("file_ids") or []
     if not item or not file_ids:
@@ -194,7 +197,8 @@ def save_sheet(db: Session, job: Job) -> None:
         item.look_sheets = {**(item.look_sheets or {}), look: {"file_id": file_ids[0],
                                                                "approved": False}}  # fmt: skip
         return
-    item.sheet_file_id, item.sheet_approved, item.look_fit = file_ids[0], False, None
+    item.sheet_file_id, item.look_fit = file_ids[0], None
+    item.sheet_approved = bool(item.owner_project_id)
     if is_checked(item):
         after = Decimal(job.input.get("after_check", "0"))
         auto = bool(job.input.get("auto_made"))

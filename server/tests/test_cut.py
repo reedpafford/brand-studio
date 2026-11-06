@@ -7,7 +7,7 @@ from datetime import timedelta
 
 import pytest
 
-from app import cut, cut_edits, cut_render
+from app import cut, cut_edits, cut_render, director
 from app.models.clips import ClipTake, FinalVideo
 from app.models.files import StoredFile
 from app.models.projects import Project
@@ -326,7 +326,10 @@ def test_asked_in_the_chat_the_director_edits_the_cut_with_an_undo_each(
     fs = _sent(owner, "presenter", NARRATION)
     _run(app, db, ticks=160)
     video = _video(db, fs)
-    before = owner.get(f"/projects/{video.id}/cut").json()["number"]
+    before = owner.get(f"/projects/{video.id}/cut").json()
+    # however often it cut and watched before delivering, its first delivery is Cut 1 (S3-12)
+    assert (before["number"], [v["number"] for v in before["versions"]]) == (1, [1])
+    assert db.query(FinalVideo).filter_by(project_id=video.id).count() > 1  # it did cut again
     monkeypatch.setattr("app.director.GAP", timedelta(0))  # two notes a moment apart
     for text in ("Move the presenter to the left.", "Tighten it, the middle drags a bit."):
         said = owner.post(f"/freestyles/{fs['id']}/messages", json={"text": text})
@@ -341,7 +344,10 @@ def test_asked_in_the_chat_the_director_edits_the_cut_with_an_undo_each(
     assert [m["edit"]["id"] for m in moves] == [e.id for e in edits]
     assert moves[1]["text"].startswith(edits[1].said)
     got = owner.get(f"/projects/{video.id}/cut").json()
-    assert got["number"] > before and got["changes"] == 0  # cut again with both, and watched
+    assert got["changes"] == 0  # cut again with both, and watched: one Cut per delivery
+    assert [v["number"] for v in got["versions"]] == [1, 2, 3] and got["number"] == 3
+    notes = [j.output["note"] for j in director.turns(db, video) if (j.output or {}).get("note")]
+    assert notes[-1]["cut"] == 3  # the note names the cut as the switch does
     assert got["timeline"]["presenter"]["spans"][0]["side"] == "left"
     assert all(e["director"] and e["in_cut"] for e in got["edits"])
     assert db.get(Freestyle, fs["id"]).project_id == video.id

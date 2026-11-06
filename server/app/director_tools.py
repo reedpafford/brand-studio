@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import cast_gate
 from app.models.accounts import User
 from app.models.clips import ClipTake, ProjectClip
 from app.models.projects import Project
@@ -23,8 +24,9 @@ log = logging.getLogger(__name__)
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
-         "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings",
-         "split_clip")  # fmt: skip
+         "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place",
+         "change_look", "ask_cast_ok", "split_clip")  # fmt: skip
+WAITING = "{} for the cast and places OK."
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -73,15 +75,23 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 breakdown.fix_cast(**me)
             except HTTPException:
                 pass  # every shot already has it
-            project_assets.approve_all(**me)  # the looks it moves on with
-            storyboard.make(body=storyboard.StoryboardIn(), **me)
+            from app.breakdown import complete_cast
+
+            if complete_cast(db, project):  # every speaker a role, as opening Cast does: a
+                db.commit()  # role with no look is then made by make_looks
+            storyboard.make(body=storyboard.StoryboardIn(), **me)  # the looks: the person's OK
             return "Making the storyboard."
         if tool == "stills":
-            frames = db.scalars(select(StoryboardFrame).where(
-                StoryboardFrame.project_id == pid, StoryboardFrame.file_id.is_(None)))  # fmt: skip
-            for frame in list(frames):
-                storyboard.render(frame_id=frame.id, body=None, **me)
-            return "Drawing the stills."
+            frames = db.scalars(select(StoryboardFrame).where(StoryboardFrame.project_id == pid,
+                                StoryboardFrame.file_id.is_(None))).all()  # fmt: skip
+            held = 0
+            for frame in frames:
+                try:
+                    storyboard.render(frame_id=frame.id, body=None, **me)
+                except cast_gate.Waiting:  # only those that show what waits for the OK
+                    db.rollback()
+                    held += 1
+            return _held("Drawing the stills.", held, frames, "still")
         if tool == "clip_prompts":
             storyboard.approve_all(**me)  # the stills it moves on with
             project_clips.write_prompts(body=None, **me)
@@ -96,11 +106,16 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 clip = re.sub(r"^(clip\s*|c)", "", str(clip or "").strip(), flags=re.I)
                 return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
+            held = 0
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=decision.get("note") or "")
-                project_clips.generate(clip_id=row.id, request=request, body=note, **me)
-            return f"Making {_n(len(rows), 'take')}."
+                try:
+                    project_clips.generate(clip_id=row.id, request=request, body=note, **me)
+                except cast_gate.Waiting:  # its cast or places wait for the OK: the rest go on
+                    db.rollback()
+                    held += 1
+            return _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))
             project_clips.pick_take(clip_id=row.id, take_id=decision["take_id"], **me)
@@ -175,6 +190,26 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
             move = {**(decision.get("ask") or {}), "closed": decision.get("why") or ""}
             return asks.asked(db, project, (run or {}).get("id"), move)
+        if tool == "add_place":  # a place for some shots, made for this video only
+            from app.routes import cast
+
+            move = decision.get("look") or {}
+            if no := locks.refusal(project, "cast"):
+                return f"{no} {CAST_LOCKED}"
+            body = cast.PlaceIn(name=(move.get("name") or "").strip()[:120] or None,
+                                description=(move.get("description") or "")[:2000],
+                                shot_ids=move.get("shot_ids") or [],
+                                library_item_id=move.get("library_item_id"))  # fmt: skip
+            item = cast.add_place(db, user, project, body)
+            look = "it has its look" if item.sheet_file_id else "its look is next"
+            return f"Added {item.name} for shots {', '.join(body.shot_ids)}; {look}."
+        if tool == "change_look":  # Change this… on a character or place, priced
+            from app.routes import cast
+
+            name = ((decision.get("look") or {}).get("name") or "").strip()
+            return cast.change_look(db, user, project, name, decision.get("note") or "")
+        if tool == "ask_cast_ok":  # the card: the person approves the whole set at once
+            return cast_gate.ask(db, project, (run or {}).get("id"))
         if tool == "treatment":  # the story first (the Director's step), on its own limit
             from app.director import write_treatment
 
@@ -255,6 +290,15 @@ def _clips(db: Session, project_id: int, clip_id: str | None) -> list[ProjectCli
     if clip_id:
         return [r for r in rows if r.clip_id == clip_id]
     return [r for r in rows if r.picked_take_id is None]
+
+
+def _held(said: str, held: int, rows, what: str) -> str:
+    """What a stills or takes move did, and how many wait for the cast and places OK."""
+    if not held:
+        return said
+    if held == len(rows):
+        return f"Refused: {WAITING.format('They all wait')}"
+    return f"{said} {WAITING.format(_n(held, what) + (' waits' if held == 1 else ' wait'))}"
 
 
 def _n(n: int, what: str) -> str:

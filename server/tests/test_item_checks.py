@@ -7,7 +7,7 @@ import pytest
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
 from tests.conftest import run_writer, upload
-from tests.helpers import with_sheet
+from tests.helpers import approve_cast, with_sheet
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 from tests.test_replicate import BASE
@@ -28,6 +28,7 @@ def test_stills_are_checked_only_when_the_scope_is_everything(app, db, editor, s
     url = f"/projects/{setup['project']}/storyboard"
     editor.post(url, json={})
     _run(app, db, FakeClaude(_frames(f"char:{mom['id']}", f"screen:{setup['screen']}")))
+    approve_cast(editor, setup["project"])  # the person's OK on the cast
     frame = editor.get(url).json()[0]
 
     def draw():
