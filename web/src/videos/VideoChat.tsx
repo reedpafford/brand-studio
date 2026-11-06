@@ -338,6 +338,19 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       return refreshJobs(queryClient);
     },
   });
+  // "Start the plan again" (S3-08): a new run, as Carry on starts one, that plans the whole video again after Make it.
+  const planAgain = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/projects/{project_id}/director/plan-again", { params: { path: { project_id: id } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["director", id], data);
+      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
+      return refreshJobs(queryClient);
+    },
+  });
   // A start card waiting for Make it is the press, as are a stopped or failed run's own (Carry on, its fixes): the general
   // one stands aside (S3-02, S3-08, S3-11).
   const startOpen = cards.some((a) => a.kind === "start" && isOpen(a));
@@ -346,7 +359,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const mayStart = fs ? owner : maker; // a freestyle's run is the owner's to start again; a script video's, its maker's
   const blocked = run?.start_blocked || null;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
-  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => again.mutate(), busy: again.isPending, blocked, error: again.isError ? again.error.message : null }) : null;
+  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => again.mutate(), onPlanAgain: () => planAgain.mutate(), busy: again.isPending, planBusy: planAgain.isPending, blocked, error: (again.error ?? planAgain.error)?.message ?? null }) : null;
   const presses = !archived && !lookOnly && (
     <>
       {ended && mayStart && p && (

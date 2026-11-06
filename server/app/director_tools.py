@@ -48,6 +48,11 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(storage=storage)))
     try:
         if tool == "plan":  # the video's plan first when it needs one, as the Plan step does
+            from app.director import fresh
+
+            if fresh(db, project, run)[0]:  # "Start the plan again": a whole new plan (S3-08)
+                plan_route.make(body=None, **me)
+                return "Planning the whole video again."
             status = plans.status(db, project)
             if (note := (decision.get("note") or "").strip()) and status != "none":
                 plan_route.make(body=plan_route.NoteIn(note=note[:500]), **me)  # Make a new plan
@@ -82,6 +87,9 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         if tool == "clip_prompts":
             storyboard.approve_all(**me)  # the stills it moves on with
             project_clips.write_prompts(body=None, **me)
+            from app.director import unpick_old_takes
+
+            unpick_old_takes(db, project, run)  # "Start the plan again": every clip made anew
             return "Writing the clip prompts."
         if tool == "make_take":
             from app import talker

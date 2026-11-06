@@ -342,6 +342,21 @@ test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
 });
 
+test("S3-08: Start the plan again starts a new run that plans the whole video again; it says why when it can't", async () => {
+  setViewport(1440);
+  const stopped = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "$10.74" } });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director/plan-again": [201, run()] });
+  const first = renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Start the plan again" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director/plan-again")).toBe(true));
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // not Carry on
+  first.unmount();
+  server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director/plan-again": [409, { detail: "The director is already building this video." }] });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Start the plan again" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("The director is already building this video.");
+});
+
 test("S3-11: a step that failed says why in plain words, with its one-click fixes", async () => {
   setViewport(1440);
   const failed = record({ status: "needs_fix", title: "Stopped at clip 4", sub: "3 of 4 clips made", tone: "bad", scenes: scenes.slice(0, 1), failed: { title: "Clip 4 couldn’t be made", why: "The service was busy. Nothing was charged.", clip: 44, fixes: [{ kind: "again", label: "Try again", price: "$0.32" }, { kind: "carry_on", label: "Carry on", price: "$10.74" }] } });
