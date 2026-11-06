@@ -585,3 +585,19 @@ def test_the_director_never_says_ready_to_post_while_something_is_open():
         assert shown(needs="Your OK on clip 1. Then it's ready to post.", **o) == (
             "Your OK on clip 1. Look at what remains uncertain before you post it."
         )
+
+
+def test_every_way_of_saying_ready_is_held_back_and_every_ask_is_kept():
+    """QA on #1355: readiness said any way goes while something is open; an ask (a question,
+    or one with a condition) stays whole."""
+    for said in ("ready for posting", "All set.", "You’re all set!", "You can post it.",
+                 "It’s ready.", "Ready for you to post.", "It is ready to be posted.",
+                 "Ready-to-post.", "good-to-go", "ready  to post", "Ready\nto post.",
+                 "Nothing else needed.", "Nothing is needed."):  # fmt: skip
+        assert delivery.needs(said, True) == delivery.LOOK_FIRST, said
+    for ask in ("It’s ready to post once you OK clip 1.",
+                "Let me know when you’re ready to go ahead with the darker ending.",
+                "Is it ready to share with the client?",
+                "Is the ending ready to cut?"):  # fmt: skip
+        assert delivery.needs(ask, True) == f"{ask} {delivery.LOOK}", ask
+    assert delivery.needs("Your OK on clip 1", True) == f"Your OK on clip 1. {delivery.LOOK}"

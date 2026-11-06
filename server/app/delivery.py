@@ -274,19 +274,28 @@ def shown(db: Session, project: Project, note: dict | None, owner: bool) -> dict
             "spent_usd": float(usd) if owner else None}  # fmt: skip
 
 
-READY = re.compile(r"[^.!?]*\b(?:ready to (?:post|go|publish|share)|good to go)\b[^.!?]*[.!?]?",
-                   re.I)  # fmt: skip
+READY = re.compile(
+    r"\bready[\s-]+(?:to[\s-]+(?:post|publish|share|upload)|for[\s-]+(?:posting|you[\s-]+to"
+    r"[\s-]+post)|to[\s-]+be[\s-]+posted)\b|\bgood[\s-]+to[\s-]+go\b|\ball[\s-]+set\b"
+    r"|\byou[\s-]+can[\s-]+post\b|\b(?:it|that)(?:'|’)?s[\s-]+ready\b|\bit[\s-]+is[\s-]+ready\b"
+    r"|\bnothing(?:[\s-]+else)?(?:[\s-]+is)?[\s-]+(?:needed|left|required)\b",
+    re.I,
+)
+ASK = re.compile(r"\?|\b(?:once|after|when|if|until|unless|before)\b", re.I)  # an ask, kept
 LOOK = "Look at what remains uncertain before you post it."
 
 
 def needs(said_: str, unsettled: bool) -> str:
     """What I need from you, as the server lets it stand (Reed: a cut that exists isn't ready
     to post): "ready to post" only when nothing is open or uncertain; else never, whatever the
-    director wrote. Its real asks stay, followed by LOOK."""
+    director wrote. A sentence that only says it's ready goes; an ask (a question, or one with
+    a condition: "once you OK clip 1") stays whole, followed by LOOK."""
     if not unsettled:
         return said_ or NOTHING
-    asks = re.sub(r"\s+", " ", READY.sub("", said_ or "")).strip()
-    asks = "" if re.fullmatch(r"(?i)(nothing|none)[.!]?", asks) else asks
+    kept = [x for x in re.split(r"(?<=[.!?])\s+", re.sub(r"\s+", " ", said_ or "").strip())
+            if x and not (READY.search(x) and not ASK.search(x))]  # fmt: skip
+    kept = [x for x in kept if not re.fullmatch(r"(?i)(?:nothing|none)[.!]?", x)]
+    asks = " ".join(x if x[-1] in ".!?" else f"{x}." for x in kept)
     return f"{asks} {LOOK}" if asks else LOOK_FIRST
 
 
