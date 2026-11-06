@@ -1097,3 +1097,33 @@ def test_withdrawing_a_clone_of_a_brand_voice_never_removes_that_voice(app, db, 
     db.expire_all()
     nate = db.get(Voice, nate.id)
     assert nate.archived_at is None and nate.sample_file_id == first and nate.job_id is None
+
+
+def test_a_revision_never_says_no_generation_started(app, db, owner, editor):
+    """QA on the cut screens (board S3-12, "Working · revising · $9.84 spent"): once a run has
+    made the video, the header never says "No generation started" again, while a revision
+    plans or waits on its own Make it; before the first Make it, it does (S3-02). A revision's
+    waiting start card says the delivered cut stays as it is until it's pressed, or, held for
+    the owner, until the owner says yes."""
+    pid, _ = _video(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    _start(app, db, owner, pid)
+    assert owner.get(url).json()["started"] is False  # the first start card waits
+    first = owner.get(f"{url}/progress").json()
+    assert first["title"] == "Ready to make"
+    assert first["sub"] == "No generation started: press Make it"
+    _make_it(app, db, owner, pid)
+    assert owner.get(url).json()["started"] is True
+    cut = [t["note"]["cut"] for t in owner.get(url).json()["thread"] if t.get("note")][-1]
+    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    editor.post(url)  # Make it again, the editor's: the revision plans first
+    assert owner.get(f"{url}/progress").json()["status"] == "revising"
+    assert owner.get(url).json()["started"] is True
+    _run(app, db, ticks=4, start=False)  # its start card waits, past the budget: the owner's
+    mine = owner.get(f"{url}/progress").json()
+    assert mine["title"] == "Ready to make"
+    assert mine["sub"] == f"Cut {cut} stays as it is until you press Make it"
+    theirs = editor.get(f"{url}/progress").json()
+    assert theirs["title"] == "Waiting for the owner's OK"
+    assert theirs["sub"] == f"Cut {cut} stays as it is until the owner says yes"
+    assert owner.get(url).json()["started"] is True and editor.get(url).json()["started"] is True

@@ -560,6 +560,8 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     held = held.order_by(Job.id)
     holds = None if how else db.scalar(held.limit(1))
     revising = any(r != run_id and ending(t)[0] == "delivered" for r, t in every.items())
+    notes = [(j.output or {}).get("note") for r, t in every.items() if r != run_id for j in t]
+    cut = next((n["cut"] for n in reversed(notes) if isinstance(n, dict) and n.get("cut")), None)
     scenes = [{"id": sid, "name": name, "clips": [c for c in cells if c["scene"] == sid]}
               for sid, name in video.scenes()]  # fmt: skip
     other = [c for c in cells if c["scene"] not in {s["id"] for s in scenes}]
@@ -587,9 +589,12 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         and viewer
         and asks.may_start(db, viewer, project)
     ):  # its start card, theirs to press (S3-02)
-        head = ("waiting", "Ready to make", "No generation started: press Make it", "wait")
+        sub = f"Cut {cut} stays as it is until you press Make it" if cut else ""
+        head = ("waiting", "Ready to make", sub or "No generation started: press Make it", "wait")
     elif holds is not None:
         why = (holds.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
+        if cut and holds.input.get(asks.START):  # a revision's start card, the owner's to press
+            why = f"Cut {cut} stays as it is until the owner says yes"
         head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner's OK",
                 why, "wait")  # fmt: skip
     elif revising:

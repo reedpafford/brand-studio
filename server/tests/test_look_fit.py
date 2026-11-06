@@ -204,3 +204,25 @@ def test_one_credit_is_said_as_one_credit(owner, editor, db):
     me = db.query(User).filter_by(email=editor.get("/auth/me").json()["email"]).one()
     held = enqueue(db, me, "video-480p", {}, units=2)
     assert "your week's 1 credit (" in held.input["held"]
+
+
+def test_a_directors_look_its_check_redo_and_their_check_are_its_runs(app, db, editor):
+    """QA on #1355: a look the director made is checked, and redone once if it reads wrong, all
+    marked as the director's, so they count inside its run's price; a person's never are."""
+    for director in (True, False):
+        item = _look(editor, db, image_file_ids=[upload(editor)])
+        sheet = db.get(
+            Job, editor.post(f"/library/character/{item.id}/sheet", json={}).json()["id"]
+        )
+        if director:  # as its make_looks tool starts it (DIRECTOR_TOOL)
+            sheet.input = {**sheet.input, "by_director": True}
+        _landed(db, item, sheet)
+        (check,) = _waiting(db, item, "look_fit")
+        _run(app, db, FakeClaude(CHILD))  # it reads wrong: redone once
+        db.expire_all()
+        (redo,) = _waiting(db, item, "sheet")
+        _landed(db, item, redo)
+        (again,) = _waiting(db, item, "look_fit")
+        marks = [j.input.get("by_director", False) for j in (check, redo, again)]
+        assert marks == [director] * 3, (director, marks)
+        _run(app, db, FakeClaude({"fits": True, "seen": "a teacher", "problem": ""}))
