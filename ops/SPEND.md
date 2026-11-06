@@ -167,3 +167,10 @@
 | 2026-11-06 | FOMO-House-Builder | Seedance redo total | | 35.00 cap (set by the builder; Reed named no amount) | 19.16 | Reed |
 | 2026-11-06 | FOMO-House-Builder | "Her Dad Said I'd Never Afford Her" (58 s, 480p), live site project 90 / script 99, jobs 2894–2923: video 5.96, Claude 2.27, images 0.89 | | | 9.12 (app job records) | Reed ("yea do 480p") |
 | 2026-11-06 | FOMO-House-Builder | 6 Nov Seedance round total (redo 19.16 + Her Dad 9.12) | | 35.00 cap (set by the builder) | 28.28 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad round 2 (Reed: "Lets make more, how we discussed"): live site jobs 2924–2981, the c6/c7 re-shoot (1.44, superseded by v3) + setup for projects 91–93 (Landlord, Boss, Brother; paused at stills, no clips) | | | 7.65 (app job records) | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad v3: Replicate bytedance/seedance-2.5 direct 480p 43 s (4.42) + google/nano-banana 6 phone frames (0.23); flagged/failed not charged | 43 s + 6 images | | 4.65 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad v4 (over-the-shoulder phone re-shoot): seedance-2.5 20 s / 5 clips (2.06) + nano-banana 5 frames (0.20) | 20 s + 5 images | | 2.25 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad v5 (three continuous acts with reference images): seedance-2.5 77 s | 77 s | | 7.92 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad v6 (act 2 redo): seedance-2.5 y8mb78d8…, 28ss9h2d…, n4vnrz4v…, wgfbzcp7… (46 s, 4.72) + nano-banana ×3 (0.12) | 46 s + 3 images | | 4.85 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad v7 fixes: seedance-2.5 bcymn9h2…, rxc62wh2…, aaqzkw92… (15 s, 1.54) + nano-banana ×4 (0.16) | 15 s + 4 images | | 1.70 | Reed |
+| 2026-11-06 | FOMO-House-Builder | Her Dad round 2 running total | | 35.00 cap (set by the builder) | 29.02 | Reed |
