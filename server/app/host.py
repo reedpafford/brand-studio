@@ -299,7 +299,21 @@ def still_input(db: Session, project: Project, row: HostPiece) -> dict:
            f"The host, drawn in this look: {look}")  # fmt: skip
     prompt = talker.STILL_PROMPT if talker.on(db, project) else STILL_PROMPT
     job = drawn(image_model(project), prompt.format(who=who), project.aspect_ratio, sheet)
-    return {**job, "step": STILL, "project_id": project.id, "host_piece_id": row.id}
+    return {**job, "step": STILL, "project_id": project.id, "host_piece_id": row.id,
+            "made_with": {"cast": _cast(db, project)}}  # fmt: skip
+
+
+def _cast(db: Session, project: Project, check: bool = False) -> dict[str, str]:
+    """The host as the cast and places OK knows them; `check`: refused while they wait for it
+    (every piece shows them, a still or one piece made again)."""
+    from app import cast_gate
+    from app.storyboard import assets
+
+    item, known = host_look(db, project), assets(db, project)
+    who = [f"char:{item.id}"] if item else []
+    if check:
+        cast_gate.require(db, project, who, known)
+    return cast_gate.stamp(db, project, who, known)
 
 
 def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int,
@@ -319,6 +333,7 @@ def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int
         room = talker.LONGEST_MOTION - len(GREEN) - 1
         said = " ".join(motion.split())[:room]
         data = talker.piece_input(project, row, still, f"{said} {GREEN}")
+    data = {**data, "made_with": {**(data.get("made_with") or {}), "cast": _cast(db, project)}}
     return enqueue(db, user, "video", {**data, **(mark or {})}, units=_seconds(row),
                    project=project, provider=talker.PROVIDER, **kwargs)  # fmt: skip
 
@@ -337,6 +352,7 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
         raise HTTPException(409, NO_NARRATION)
     if talker.on(db, project) and not talker.clips(db, project):  # never seen: nothing spent
         raise HTTPException(409, talker.NO_SHOTS)
+    _cast(db, project, check=True)
     have = rows(db, project) or _plan(db, storage, project, take)
     jobs = _jobs(db, project)
     if any(_state(r, jobs.get(r.id)) == "making" for r in have):

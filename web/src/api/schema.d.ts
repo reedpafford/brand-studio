@@ -4453,48 +4453,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project_id}/assets/approve-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Approve All
-         * @description Approve all (Reed, 2026-10-26): every look made for this video or its script whose sheet
-         *     is drawn and waits for approval. Roles still drawing or with no look are listed with why;
-         *     library characters and locked roles are never counted. Undo takes back exactly these.
-         */
-        post: operations["approve_all_projects__project_id__assets_approve_all_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/assets/approve-all/undo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Undo Approve All
-         * @description Undo Approve all: exactly the looks it approved go back to waiting for approval.
-         */
-        post: operations["undo_approve_all_projects__project_id__assets_approve_all_undo_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/projects/{project_id}/assets/slots/{slot_id}/merge/preview": {
         parameters: {
             query?: never;
@@ -4598,6 +4556,155 @@ export interface paths {
          * @description Undo "They're different" on this video.
          */
         delete: operations["undo_dismiss_projects__project_id__assets_maybe_same_dismiss_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read
+         * @description The Cast view's set and its checkpoint. Free.
+         */
+        get: operations["read_projects__project_id__cast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cast/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve
+         * @description Approve cast & places: the person making the video (or the owner) approves the whole
+         *     set as they saw it. Stills and takes that waited for it go on. Free.
+         */
+        post: operations["approve_projects__project_id__cast_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cast/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep
+         * @description Keep them: stills and takes made with an earlier look stay as they are and stop
+         *     counting as needing an update (who and when are kept). Free; Remake stays priced.
+         */
+        post: operations["keep_projects__project_id__cast_keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cast/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Place
+         * @description Set where some of the plan's shots happen: a brand place, or one made for this video
+         *     only (never in Cast & places). Free; its look is a separate press, and the clip prompts of
+         *     those shots are rewritten within the budget, as after a cast change.
+         */
+        post: operations["new_place_projects__project_id__cast_places_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cast/places/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pick Place
+         * @description Pick from the brand's places: every shot at this place happens there instead. Free; its
+         *     clip prompts are then rewritten within the budget, as after a cast change.
+         */
+        put: operations["pick_place_projects__project_id__cast_places__item_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cast/places/{item_id}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Place
+         * @description Upload a photo of the place: it's this video's look for it, never the brand's (rule
+         *     12). Free: its sheet is drawn by Make a look or the director's make_looks (a brand place's
+         *     shots then move to it, and their clip prompts are rewritten within the budget).
+         */
+        post: operations["upload_place_projects__project_id__cast_places__item_id__upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cast/places/{item_id}/make-look": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Place Look
+         * @description Make a look for this video only (paid from its budget, "up to" its row's look_credits):
+         *     a place with none is drawn from its words or uploaded photo; a brand place gets a copy
+         *     drawn for this video. It's shown with the rest for the cast and places OK.
+         */
+        post: operations["make_place_look_projects__project_id__cast_places__item_id__make_look_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6379,6 +6486,128 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CastApproveIn */
+        CastApproveIn: {
+            /** Seen */
+            seen: {
+                [key: string]: string;
+            };
+        };
+        /** CastItemOut */
+        CastItemOut: {
+            /** Ref */
+            ref: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "character" | "place";
+            /** Name */
+            name: string;
+            /** Library Item Id */
+            library_item_id: number | null;
+            /** Version */
+            version: number | null;
+            /** Source */
+            source: ("library" | "uploaded" | "video" | "script") | null;
+            /** Preview File Id */
+            preview_file_id: number | null;
+            /**
+             * Readiness
+             * @enum {string}
+             */
+            readiness: "ready" | "needs_look" | "drawing" | "waiting_for_owner";
+            /**
+             * Approval
+             * @enum {string}
+             */
+            approval: "approved" | "changed" | "new";
+            /** Sig */
+            sig: string;
+            /** Clip Ids */
+            clip_ids: string[];
+            /** Changes */
+            changes: ("look" | "words" | "voice")[];
+            voice?: components["schemas"]["CastVoiceOut"] | null;
+            was_voice?: components["schemas"]["CastVoiceOut"] | null;
+            /** Made By */
+            made_by?: string | null;
+            /** Made At */
+            made_at?: string | null;
+            /** Revised By */
+            revised_by?: string | null;
+            /** Revised At */
+            revised_at?: string | null;
+            /** Revised Why */
+            revised_why?: string | null;
+            /** Was Preview File Id */
+            was_preview_file_id?: number | null;
+        };
+        /** CastKeepIn */
+        CastKeepIn: {
+            /** Stills */
+            stills?: string[] | null;
+            /** Clips */
+            clips?: string[] | null;
+        };
+        /** CastNotReadyOut */
+        CastNotReadyOut: {
+            /** Ref */
+            ref: string;
+            /** Name */
+            name: string;
+            /** Why */
+            why: string;
+        };
+        /** CastOut */
+        CastOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "not_ready" | "ready" | "approved";
+            /** Approved By */
+            approved_by: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /** Asked */
+            asked: boolean;
+            /**
+             * Can Approve
+             * @default false
+             */
+            can_approve: boolean;
+            /** Items */
+            items: components["schemas"]["CastItemOut"][];
+            /** Waiting */
+            waiting: string[];
+            /** Not Ready */
+            not_ready: components["schemas"]["CastNotReadyOut"][];
+            /** Paused Clips */
+            paused_clips: string[];
+            update: components["schemas"]["CastUpdateOut"];
+            previews: components["schemas"]["PreviewsOut"];
+        };
+        /** CastUpdateOut */
+        CastUpdateOut: {
+            /** Stills */
+            stills: string[];
+            /** Clips */
+            clips: string[];
+            /** Credits */
+            credits: number;
+            /** Clips Credits */
+            clips_credits: number;
+            /** Kept Items */
+            kept_items: components["schemas"]["KeptOut"][];
+        };
+        /** CastVoiceOut */
+        CastVoiceOut: {
+            /** Name */
+            name: string;
+            /** Sample Url */
+            sample_url: string | null;
+        };
         /** ChangeIn */
         ChangeIn: {
             /** Note */
@@ -8108,6 +8337,20 @@ export interface components {
             /** Problem */
             problem: string;
         };
+        /** KeptOut */
+        KeptOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "still" | "clip";
+            /** Id */
+            id: string;
+            /** By */
+            by: string;
+            /** At */
+            at: string;
+        };
         /**
          * Kind
          * @enum {string}
@@ -9145,6 +9388,30 @@ export interface components {
             /** Variant */
             variant: string;
         };
+        /** PlaceIn */
+        PlaceIn: {
+            /** Shot Ids */
+            shot_ids: string[];
+            /** Library Item Id */
+            library_item_id?: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** PlacePickIn */
+        PlacePickIn: {
+            /** Library Item Id */
+            library_item_id: number;
+        };
+        /** PlaceUploadIn */
+        PlaceUploadIn: {
+            /** File Id */
+            file_id: number;
+        };
         /** PlanIn */
         PlanIn: {
             /** Scenes */
@@ -9342,6 +9609,20 @@ export interface components {
             used_in_count: number;
             /** Was File Id */
             was_file_id: number | null;
+        };
+        /**
+         * PreviewsOut
+         * @description "Previews so far: $0.48 of the approved budget": the looks made for this video.
+         */
+        PreviewsOut: {
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd: number | null;
+            /** Budget Credits */
+            budget_credits: number;
+            /** Budget Usd */
+            budget_usd: number | null;
         };
         /** ProduceOut */
         ProduceOut: {
@@ -21354,72 +21635,6 @@ export interface operations {
             };
         };
     };
-    approve_all_projects__project_id__assets_approve_all_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApproveAllOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    undo_approve_all_projects__project_id__assets_approve_all_undo_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["app__advice__UndoIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssetOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     merge_preview_projects__project_id__assets_slots__slot_id__merge_preview_get: {
         parameters: {
             query: {
@@ -21613,6 +21828,246 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SamePair"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__cast_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_projects__project_id__cast_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CastApproveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_projects__project_id__cast_keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CastKeepIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_place_projects__project_id__cast_places_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pick_place_projects__project_id__cast_places__item_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlacePickIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_place_projects__project_id__cast_places__item_id__upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceUploadIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_place_look_projects__project_id__cast_places__item_id__make_look_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastOut"];
                 };
             };
             /** @description Validation Error */

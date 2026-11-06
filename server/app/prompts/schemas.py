@@ -676,12 +676,32 @@ class AskMove(BaseModel):
     )
 
 
+class LookMove(BaseModel):
+    name: str = Field(description="The place or character as people call it ('The penthouse').")
+    description: str = Field(
+        default="",
+        description="For add_place: what the place looks like, in a sentence, from the plan and "
+        "the treatment (the light, the time of day, what's in it). Else empty.",
+    )
+    shot_ids: list[str] = Field(
+        default_factory=list,
+        description="For add_place: the plan's shots that happen there, e.g. ['3.1', '3.2'].",
+    )
+    library_item_id: int | None = Field(
+        default=None,
+        description="For add_place: the place to use (a place card's answer: the brand's saved "
+        "one, or the one made for this video from its photo), by its id; null makes a new one "
+        "for this video from `description`.",
+    )
+
+
 class DirectorTurn(BaseModel):
     tool: Literal[
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
-        "mute", "splice_word", "add_sound", "song", "narration", "host", "ask", "wait",
-        "deliver", "stop", "clip_model", "settings", "split_clip",
+        "mute", "splice_word", "add_sound", "song", "narration", "host", "ask", "add_place",
+        "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model", "settings",
+        "split_clip",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -752,6 +772,12 @@ class DirectorTurn(BaseModel):
         default=None,
         description="For settings with setting look, aspect_ratio or presenter: the new value "
         "(a style id, '9:16', or talks / corner / acts); null for the style's own. Else null.",
+    )
+    look: LookMove | None = Field(
+        default=None,
+        description="For add_place: the place, its look in words and the plan's shots there. "
+        "For change_look: the character or place by name (as <video>'s cast_ok names it), "
+        "with the change in `note`. Else null.",
     )
     word: str | None = Field(
         default=None,

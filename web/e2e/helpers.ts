@@ -86,3 +86,28 @@ export async function makeIt(page: Page, projectId: number) {
     .toBeTruthy();
   expect((await page.request.post(`/api/asks/${card}/answer`, { data: { how: "make_it" } })).ok()).toBe(true);
 }
+
+/**
+ * Stands in for the person's "Approve cast & places" press until the Cast tab draws it (#1324):
+ * while the page is open, every video whose cast and places wait for the OK, with every look
+ * drawn, is approved as shown (the same route the button calls). Stills and takes wait for it.
+ */
+export function approveCastWhenReady(page: Page): void {
+  void (async () => {
+    while (!page.isClosed()) {
+      try {
+        const videos: { id: number }[] = (await (await page.request.get("/api/projects")).json()) ?? [];
+        for (const { id } of videos) {
+          const cast = await page.request.get(`/api/projects/${id}/cast`);
+          if (!cast.ok()) continue;
+          const shown: { state: string; items: { ref: string; sig: string }[] } = await cast.json();
+          if (shown.state !== "ready") continue;
+          await page.request.post(`/api/projects/${id}/cast/approve`, { data: { seen: Object.fromEntries(shown.items.map((i) => [i.ref, i.sig])) } });
+        }
+      } catch {
+        // the page is closing, or a video went away mid-read: try again next round
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  })();
+}

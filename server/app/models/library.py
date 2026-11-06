@@ -73,7 +73,8 @@ class LibraryItem(Entity, Base):
     # never listed in Cast & places and never offered elsewhere (gaps #19).
     owner_project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"))
     owner_script_id: Mapped[int | None] = mapped_column(ForeignKey("scripts.id"))
-    copied_from_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))  # unused
+    # The look this video's own one replaced here (a new photo, a saved place made its own)
+    copied_from_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))
 
     brands: Mapped[list[Brand]] = relationship(secondary=item_brands)
 
