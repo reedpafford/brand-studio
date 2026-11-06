@@ -48,7 +48,7 @@ export function Player({
         onPause={() => setPlaying(false)}
         onClick={toggle}
       />
-      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-(image:--media-shade) px-3 pt-6 pb-2.5 text-on-media max-lg:gap-4 max-lg:px-[17px] max-lg:pb-[17px]">
+      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-(image:--media-shade) px-3 pt-6 pb-2.5 text-on-media max-lg:gap-5 max-lg:px-[17px] max-lg:pb-[31px]">
         <input
           type="range"
           aria-label="Where in the cut"
@@ -57,7 +57,7 @@ export function Player({
           step={0.1}
           value={Math.min(at, length)}
           onChange={(e) => onTime(Number(e.target.value))}
-          className="h-[3px] w-full cursor-pointer accent-white max-lg:-my-5 max-lg:h-11" // a 44px hit area on a phone, the same thin bar
+          className="h-[3px] w-full cursor-pointer accent-white max-lg:-my-[18px] max-lg:h-10" // a 40px tap area on a phone, the same thin bar
         />
         <div className="flex items-center gap-2.5 text-xs font-medium tabular-nums max-lg:gap-1.5">
           <button type="button" className={HIT} aria-label={playing ? "Pause" : "Play"} onClick={toggle}>
@@ -79,9 +79,9 @@ export function Player({
   );
 }
 
-/** A 44px hit area round a 16px icon on a phone; the look stays the same (board P-12). Sound and Full screen sit 44px
- *  apart; `relative` puts the buttons over the time label and over the seek bar's tap area below its line. */
-const HIT = "relative grid shrink-0 place-items-center max-lg:-m-3.5 max-lg:size-11";
+/** On a phone a 44px tap area hangs down from each 16px icon (the look stays P-12's), so it starts about 20px below the
+ *  seek bar's line and touch never pulls a tap on the bar into a button; Sound and Full screen sit 44px apart. */
+const HIT = "relative grid shrink-0 place-items-center max-lg:-mx-3.5 max-lg:-mb-7 max-lg:size-11 max-lg:items-start";
 
 /** The words under the player (S7-01): said, the one now, still to come. A click on a word plays from it. */
 export function Words({
