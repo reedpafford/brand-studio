@@ -61,7 +61,7 @@ function VideoCard({ p, brandId, job }: { p: Project; brandId: number; job?: Job
           : step === "storyboard"
             ? f.total === 0 ? "Ready for the storyboard" : `${f.approved} of ${plural(f.total, "frame")} approved`
             : step === "clips"
-              ? c.total === 0 ? "Ready for clips" : `${c.approved} of ${plural(c.total, "clip")} approved`
+              ? c.total === 0 ? "Ready for clips" : `${c.taken} of ${plural(c.total, "clip")} made`
               : `Ready · ${media.seconds || p.planned_seconds} s · ${shape}`;
   const second =
     p.status === "needs_owner_approval" ? <Badge>Waiting for the owner's OK</Badge>

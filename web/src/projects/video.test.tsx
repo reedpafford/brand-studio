@@ -83,13 +83,19 @@ test("after a breakdown edit, the finished video stays downloadable and Clips st
 
 test("Flow-QA M2: a clip's new take, not approved by anyone, never stops Make it again (V6 has no per-clip Approve); a clip with no take does", async () => {
   setViewport(390);
-  const routes = { ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/video": [200, { file_id: 60, take_ids: [2], out_of_date: false }] as [number, unknown] };
+  const routes = { ...toClips, "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, stale: true }]] as [number, unknown], "GET /projects/9/video": [200, { file_id: 60, take_ids: [1], out_of_date: true }] as [number, unknown] };
   fakeServer({ ...routes, "GET /projects/9/clips": [200, [{ ...done, approved: false }]] });
   const first = renderApp("/b/1/videos/9?step=downloads");
   expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
   expect(screen.getByText("Out of date.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make it again" })).toBeEnabled();
   first.unmount();
+  // Once its cut has that take, the cut is current: unapproved never reads Out of date for good (QA on #1379).
+  fakeServer({ ...routes, "GET /projects/9/clips": [200, [{ ...done, approved: false }]], "GET /projects/9/video": [200, { file_id: 61, take_ids: [2], out_of_date: false }] });
+  const cut = renderApp("/b/1/videos/9?step=downloads");
+  expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/61"));
+  expect(screen.queryByText("Out of date.")).toBeNull();
+  cut.unmount();
   fakeServer({ ...routes, "GET /projects/9/clips": [200, [{ ...done, approved: false, picked_take_id: null }]] });
   open("?step=downloads");
   expect(await screen.findByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Make every clip’s take first (1 left)");

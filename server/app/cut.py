@@ -418,7 +418,8 @@ def ready(db: Session, project: Project, storage) -> None:
     if left := sum(c.picked_take_id is None for c in clips):  # every clip needs its take
         raise HTTPException(409, f"Make every clip's take first ({left} left).")
     # V6 has no per-clip Approve (Reed on #1329): a person's Make the cut is their OK on the takes
-    # in it; the director's own cut still waits for its takes to pass their checks and watch.
+    # in it. The director's own cut still needs each clip approved, which only a clean check
+    # (take_approval, rule 21) or a person's Use this take does.
     if DIRECTOR_TOOL.get() and (left := sum(not c.approved for c in clips)):
         raise HTTPException(409, f"Approve every clip to make the video ({left} left).")
     if other := sum(looks.take_other(db, project, c) for c in clips):  # VS1: never mixed looks

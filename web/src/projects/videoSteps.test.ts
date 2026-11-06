@@ -6,7 +6,7 @@ const base: VideoProgress = {
   script: true,
   shots: { made: true, stale: false, problems: 0 },
   frames: { total: 0, approved: 0, stale: false },
-  clips: { total: 0, approved: 0, stale: false },
+  clips: { total: 0, taken: 0, stale: false },
   video: { made: false, outOfDate: false },
   assets: { total: 1, ready: 1, seen: true },
 };
@@ -22,7 +22,7 @@ test("the takes wait until every still is approved", () => {
 });
 
 test("made work stays open when an earlier step changes; its paid presses wait, saying where to put it right", () => {
-  const made = { ...base, frames: { total: 2, approved: 2, stale: false }, clips: { total: 2, approved: 1, stale: false } };
+  const made = { ...base, frames: { total: 2, approved: 2, stale: false }, clips: { total: 2, taken: 1, stale: false } };
   expect(videoLock("clips", { ...made, shots: { ...made.shots, stale: true } })).toBeNull();
   expect(videoHold("clips", { ...made, shots: { ...made.shots, stale: true } })).toMatchObject({ at: "plan" });
   expect(videoHold("clips", { ...made, frames: { ...made.frames, stale: true } })).toMatchObject({ at: "storyboard" });

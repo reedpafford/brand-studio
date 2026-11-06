@@ -10,6 +10,10 @@ export class PaneBoundary extends Component<{ tab: string; children: ReactNode }
     return { failed: true };
   }
 
+  componentDidCatch(error: unknown) {
+    console.error(`The ${this.props.tab} tab couldn't show this video`, error); // which tab, for whoever reads the console
+  }
+
   componentDidUpdate(before: { tab: string }) {
     if (before.tab !== this.props.tab && this.state.failed) this.setState({ failed: false }); // another tab: try afresh
   }
