@@ -459,7 +459,7 @@ def approved_run(db: Session, project: Project) -> tuple[Decimal, Decimal] | Non
     card = db.scalar(select(Job).where(
         Job.project_id == project.id, Job.input[START].as_boolean(), Job.status.in_(COUNTED))
         .order_by(Job.id.desc()).limit(1))  # fmt: skip
-    if card is None or not card.input.get("price"):
+    if card is None or not Decimal(str(card.input.get("price") or 0)):
         return None
     rows = db.scalars(select(Job).where(Job.project_id == project.id, Job.id >= card.id,
                                         Job.status.in_(COUNTED))).all()  # fmt: skip

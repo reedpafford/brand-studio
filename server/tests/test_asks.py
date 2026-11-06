@@ -822,6 +822,11 @@ def test_the_header_the_run_card_and_the_note_say_the_up_to_its_make_it_approved
     card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
     assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
     price = card["money"]["up_to"]["credits"]
+    _run(app, db, ticks=40, start=False)
+    notes = [
+        t["note"] for t in owner.get(f"/projects/{pid}/director").json()["thread"] if t.get("note")
+    ]
+    assert notes and abs(notes[-1]["up_to"] - price) < 1  # the note, kept at its delivery
     monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(7)))  # far apart
     assert abs(owner.get(f"/projects/{pid}/idea").json()["up_to"]["credits"] - price) < 1
     assert abs(owner.get(f"/projects/{pid}/director/progress").json()["up_to"] - price) < 1

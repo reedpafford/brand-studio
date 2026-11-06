@@ -357,9 +357,12 @@ def price_of(db: Session, project: Project) -> Decimal:
 def run_up_to(db: Session, project: Project) -> Decimal:
     """The "up to" of the run under way or delivered: the price its Make it approved (with any
     OK at the director's own limit, rule 34), so the header, the start card, the run's card and
-    its note say one figure; before any Make it, the price a new run would show."""
+    its note say one figure; before any Make it, the price a new run would show. A freestyle's
+    video reads its sends' approved total (`price_of`), as its header does (`fs.up_to`)."""
     from app import asks
 
+    if project.hidden:
+        return price_of(db, project)
     got = asks.approved_run(db, project)
     return got[0] if got else price_of(db, project)
 
