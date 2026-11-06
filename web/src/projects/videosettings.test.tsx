@@ -202,3 +202,31 @@ test("a lane the looks list doesn't carry yet reads as its style and its words, 
   expect(await screen.findByRole("button", { name: /Style Paper · Flat/ })).toBeInTheDocument();
   expect(document.body.textContent).not.toContain("paper-flat");
 });
+
+test("a presenter's video has a Presenter chip after the B-roll model: talks, corner or acts; a switch sends just that (S-gaps-05 V1, L3)", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ ...base, "GET /projects/9/settings": [200, { ...settings, presenter: null, presenter_now: "talks" }] });
+  open();
+  const row = await screen.findByRole("region", { name: "Video settings" });
+  const chips = within(row).getAllByRole("button").map((b) => b.textContent);
+  expect(chips.indexOf("Presenter Talks to camera")).toBe(chips.findIndex((t) => /^Video model/.test(t ?? "")) + 1);
+  await userEvent.click(within(row).getByRole("button", { name: "Presenter Talks to camera" }));
+  const panel = await screen.findByRole("dialog", { name: "Presenter" });
+  expect(within(panel).getByRole("button", { name: /Talks to camera/ })).toHaveAttribute("aria-pressed", "true");
+  expect(within(panel).getByRole("button", { name: /Acts in the story/ })).toBeInTheDocument();
+  const corner = within(panel).getByRole("button", { name: /^In a corner/ });
+  expect(corner).toHaveTextContent("In a corner· HeyGen, over the B-roll");
+  await userEvent.click(corner);
+  const ask = await screen.findByRole("alertdialog", { name: "Switch to In a corner?" });
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings/preview")?.body).toEqual({ presenter: "corner" }));
+  await userEvent.click(within(ask).getByRole("button", { name: "Switch" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings")?.body).toEqual({ presenter: "corner" }));
+});
+
+test("a video with no presenter has no Presenter chip", async () => {
+  setViewport(1440);
+  fakeServer(base);
+  open();
+  const row = await screen.findByRole("region", { name: "Video settings" });
+  expect(within(row).queryByRole("button", { name: /^Presenter/ })).toBeNull();
+});
