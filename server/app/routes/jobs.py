@@ -315,12 +315,13 @@ def enqueue(
             wait = PAST_APPROVED if project.hidden else OVER_BUDGET
         elif project is None and input.get(ON_SCRIPT):
             wait = SCRIPT_MEDIA
-    if wait == PAST_APPROVED and project is not None and whole:
+    if wait in (PAST_APPROVED, OVER_BUDGET) and project is not None and whole:
         from app import asks
         from app.credits import past_price
 
-        if past_price(db, project, user, whole):  # past its run's price: the card says what
-            input = {**input, asks.PAST_PRICE: True, asks.HELD_CREDITS: str(whole)}  # was judged
+        input = {**input, asks.HELD_CREDITS: str(whole)}  # what the hold judged: its card's up to
+        if wait == PAST_APPROVED and past_price(db, project, user, whole):  # past its run's price
+            input = {**input, asks.PAST_PRICE: True}
     if DIRECTOR_TOOL.get():  # started by a director's tool, through the button's own route
         input = {**input, BY_DIRECTOR: True}
     job = Job(
