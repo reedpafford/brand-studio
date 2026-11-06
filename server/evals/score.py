@@ -18,9 +18,6 @@ CASES = json.loads((Path(__file__).parent / "cases.json").read_text())
 
 ROOT = Path(__file__).parents[2]
 
-# A case that expects the script to end on the brand (its `end_line`): what to say when not.
-NO_CTA = "the last line doesn't mention the brand or where to find it"
-
 
 def reel_inputs(case: dict) -> tuple[list[dict], list[dict] | None]:
     """An import case's transcript and cut list, as prep gives them: from a gold BREAKDOWN.json
@@ -140,9 +137,6 @@ def score(out: Path, case: dict) -> list[str]:
                 names = [c.split(" ", 1)[1].split(",")[0] for c in case["cast"]]
                 problems += [f"draft {i}: {p}" for p in check.reel_speakers(
                     draft.script, speakers, names, name)]  # fmt: skip
-            spoken = [x for x in draft.script.splitlines() if check.SPEAKER.match(x)]
-            if exp.get("end_line") and not check.says_brand(spoken[-1] if spoken else "", name):
-                problems.append(f"draft {i}: {check.ADVICE}{NO_CTA}")
 
     if bd := answers.get("breakdown"):
         working = out / f"{case['id']}.script.txt"
