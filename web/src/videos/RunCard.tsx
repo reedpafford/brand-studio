@@ -209,6 +209,11 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
             {r.sub}
           </p>
         )}
+        {r.actual_usd != null && (
+          <p className="mt-2 text-xs tabular-nums text-muted">
+            {[r.cost || `$${r.actual_usd.toFixed(2)} spent on this run`, r.expected_usd != null && `about $${r.expected_usd.toFixed(2)} (estimate)`].filter(Boolean).join(" · ")}
+          </p>
+        )}
         {open && steps}
       </div>
     </section>
@@ -228,9 +233,9 @@ export function stoppedParts({ progress: r, onCarryOn, onPlanAgain, busy, planBu
       <div className="flex flex-col gap-2">
         <p className="leading-[21px]">{`Stopped. ${s.made ? `The ${s.made} finished clip${s.made === 1 ? " is" : "s are"} kept.` : "Nothing was finished yet."} Tell me what to change, or carry on where I left off.`}</p>
         <div className="flex flex-wrap gap-2">
-          {s.carry_on && ( // "": an editor's Carry on waits for the owner's OK, on its own card
+          {(s.carry_on || s.free) && ( // "": an editor's Carry on waits for the owner's OK, on its own card
             <Button busy={busy} disabled={!!blocked || planBusy} reason={blocked} onClick={onCarryOn}>
-              {`Carry on · up to ${s.carry_on} more`}
+              {s.free ? "Carry on" : `Carry on · up to ${s.carry_on} more`}
             </Button>
           )}
           <Button variant="secondary" busy={planBusy} disabled={!!blocked || busy} reason={blocked} onClick={onPlanAgain}>

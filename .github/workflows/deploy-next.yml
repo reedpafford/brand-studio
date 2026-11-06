@@ -108,9 +108,12 @@ jobs:
           NARRATION_MUSIC_PAID: ${{ vars.NEXT_NARRATION_MUSIC_PAID || 'false' }}
           NARRATION_MUSIC_BUDGET: ${{ vars.NEXT_NARRATION_MUSIC_BUDGET_USD || '0' }}
           SITE_READ_REAL: ${{ vars.NEXT_SITE_READ_REAL || 'false' }}
+          # Reed, 6 Nov: the owner's own work has no money holds; prices are estimates, spend is
+          # the providers' own. Editors are held as before. Off unless this repo variable is true.
+          OWNER_UNCAPPED: ${{ vars.NEXT_OWNER_UNCAPPED || 'false' }}
         run: |
           {
-            for name in FAKE GENERATION REPLICATE ANTHROPIC HEYGEN KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET LANGUAGE_TESTS LANGUAGE_BUDGET REAL_BUDGET REAL_SINCE ITEM_CHECKS_PAID ITEM_CHECK_SCOPE NARRATION_MUSIC_PAID NARRATION_MUSIC_BUDGET SITE_READ_REAL; do
+            for name in FAKE GENERATION REPLICATE ANTHROPIC HEYGEN KIE KIE_BUDGET KIE_HOSTS LOOK_SAMPLES LOOK_BUDGET LANGUAGE_TESTS LANGUAGE_BUDGET REAL_BUDGET REAL_SINCE ITEM_CHECKS_PAID ITEM_CHECK_SCOPE NARRATION_MUSIC_PAID NARRATION_MUSIC_BUDGET SITE_READ_REAL OWNER_UNCAPPED; do
               printf 'export %s=%q\n' "$name" "${!name}"
             done
             cat deploy/next/remote-deploy.sh

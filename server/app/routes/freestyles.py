@@ -32,6 +32,7 @@ from app.credits import (
     budget_used,
     estimate,
     lock,
+    uncapped,
 )
 from app.credits import price as whole
 from app.db import get_db, utcnow
@@ -149,6 +150,7 @@ class EstimateOut(BaseModel):
     held: str = ""  # why the caller's send would wait for the owner ("" : it starts at once)
     budget: float | None = None  # a script's video's budget, for "past this video's budget"
     usd: float | None = None  # the owner's: the same most in dollars, rounded up to the cent
+    expected: bool = False  # the owner's, uncapped: what it will probably cost, not a most
 
 
 def _out_estimate(user: User, credits: Decimal, **more) -> EstimateOut:
@@ -602,8 +604,13 @@ def estimate_freestyle(
         _setup(db, user, project, body, pasted=made is None)
         wait = hold(db, user, script, draft, project)
         left = budget(db, project) - budget_used(db, project)  # what's left of it
-        out = _out_estimate(user, run_price(db, draft, project), held=wait,
-                            budget=left if script else None)  # fmt: skip
+        if uncapped(user):  # Reed, 6 Nov: his test site shows what it will probably cost
+            from app.routes.estimate import expected
+
+            out = _out_estimate(user, expected(db, draft, project), expected=True)
+        else:
+            out = _out_estimate(user, run_price(db, draft, project), held=wait,
+                                budget=left if script else None)  # fmt: skip
         db.rollback()
         return out
     fs = Freestyle(id=0, look=look, shape=shape, brand_id=None)
