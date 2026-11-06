@@ -49,7 +49,7 @@ function look(c: Cell): "todo" | "making" | "redo" | "fresh" | "bad" | "done" {
   if (c.state === "making") return "making";
   if (c.changed && !c.watched) return "fresh";
   if (c.state === "redone" || c.state === "text" || c.state === "flagged" || c.state === "waiting") return "redo";
-  if (c.state === "failed") return "bad";
+  if (c.state === "failed" || c.state === "too_long") return "bad"; // too long for its model: never shown as done
   return "done";
 }
 const RING = { fresh: "outline outline-[1.5px] outline-offset-1 outline-accent", redo: "outline outline-[1.5px] outline-offset-1 outline-need-dot", bad: "outline outline-[1.5px] outline-offset-1 outline-danger", making: "outline outline-[1.5px] outline-offset-1 outline-accent", todo: "", done: "" };

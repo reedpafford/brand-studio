@@ -14,7 +14,7 @@ export type Progress = {
   script: boolean;
   shots: { made: boolean; stale: boolean; problems: number };
   frames: { total: number; approved: number; stale: boolean };
-  clips: { total: number; approved: number; stale: boolean };
+  clips: { total: number; taken: number; stale: boolean }; // taken: clips with their take (V6 has no per-clip Approve)
   video: { made: boolean; outOfDate: boolean };
 };
 
@@ -33,9 +33,9 @@ export function lockReason(step: StepId, p: Progress): string | null {
   if (p.frames.total === 0) return "Make the storyboard first";
   if (left > 0 || p.frames.stale) return p.frames.stale ? "Redo the out of date frames first" : `Approve every storyboard frame first (${left} left)`;
   if (step === "clips") return null;
-  const unapproved = p.clips.total - p.clips.approved;
+  const untaken = p.clips.total - p.clips.taken; // as the cut asks (M2): a take for each clip, never an Approve
   if (p.clips.total === 0) return "Make the clips first";
-  if (unapproved > 0) return `Approve every clip first (${unapproved} left)`;
+  if (untaken > 0) return `Make every clip’s take first (${untaken} left)`;
   return null;
 }
 
@@ -61,7 +61,7 @@ function isDone(step: StepId, p: Progress): boolean {
     case "storyboard":
       return p.frames.total > 0 && p.frames.approved === p.frames.total && !p.frames.stale;
     case "clips":
-      return p.clips.total > 0 && p.clips.approved === p.clips.total && !p.clips.stale;
+      return p.clips.total > 0 && p.clips.taken === p.clips.total && !p.clips.stale;
     case "final":
       return p.video.made && !p.video.outOfDate;
   }
