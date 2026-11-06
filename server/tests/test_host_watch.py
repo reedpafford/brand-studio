@@ -115,3 +115,40 @@ def test_a_ugc_talkers_heygen_take_is_watched_and_its_clips_carry_it(app, db, ow
     ] == [{"at": 1.0}, {"at": None}]  # its own seconds; the whole take's too
     assert watch_report.part({**done, "faults": [{"at": 5.0}]}, 2.0, 4.0)["action"] == "keep"
     assert watch_report.part({"state": "watching"}, 2.0, 4.0) == {"state": "watching"}
+
+
+def test_the_delivery_note_judges_a_presenter_by_its_host_pieces(app, db, owner):
+    """QA on #1340: a presenter's host is watched as its pieces, not as takes: a clean watch
+    isn't "not checked", a confirmed finding is listed once as kept, and a doubt stays only in
+    "What remains uncertain"."""
+    from app import delivery
+    from app.watch_cut import _cut
+
+    fs = _sent(owner, "presenter", NARRATION)
+    _run(app, db, ticks=160)
+    video = _video(db, fs)
+    spans = delivery._spans(db, _cut(db, video))
+    said = delivery.open_items(db, video, spans)
+    assert not [x for x in said if "presenter" in x], said  # every piece watched, clean
+    piece = host.rows(db, video)[1]
+    check = db.query(ItemCheck).filter_by(target="piece", target_id=piece.id).one()
+    check.findings = [{"kind": "motion", "role": "", "text": "A hand melts", "at": 1.0,
+                       "change_note": "", "verified": True},
+                      {"kind": "lipsync", "role": "", "text": "The lips may be late", "at": 2.0,
+                       "change_note": "", "verified": False}]  # fmt: skip
+    db.commit()
+    said = delivery.open_items(db, video, spans)
+    assert [x for x in said if "presenter" in x] == [
+        "The presenter's piece 1: A hand melts. Kept as it is."
+    ]  # the doubt isn't "kept"
+    check.status = "failed"
+    db.commit()
+    assert "The presenter's piece 1 wasn't checked." in delivery.open_items(db, video, spans)
+    piece.watch = {**piece.watch, "state": "done", "action": "redo",
+                   "did": "Remade it on HeyGen Avatar IV with “hands still”.",
+                   "faults": [{"kind": "motion", "at": 1.0, "says": "A hand melts",
+                               "verified": True}]}  # fmt: skip
+    db.commit()
+    (row,) = delivery._host_rows(db, video)  # a host remake is a row of what it redid
+    assert row["text"] == ("The presenter's piece 1: Remade it on HeyGen Avatar IV with “hands "
+                           "still”.") and row["at"] >= 0  # fmt: skip

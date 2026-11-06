@@ -37,7 +37,8 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
         FinalVideo.project_id == project.id, FinalVideo.id <= cut.id)) if cut else 0  # fmt: skip
     spans = _spans(db, cut)
     credits, _ = spent(db, project, turns[0].created_at)
-    rows = _remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
+    rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
+            + _host_rows(db, project))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
             "open": open_items(db, project, spans, decision.get("needs") or ""),
             "redid": sorted(rows, key=lambda r: r["at"]),
@@ -83,13 +84,16 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
     checks = {k: item_checks.latest(db, k, ids) for k in ("take", "words")}
     for s in spans:
         take, n = s["take"], _clip(s["row"])
+        if (take.made_with or {}).get("talker"):
+            continue  # cut from the talker's take: watched as the host's piece, below
         for k in ("take", "words"):
             for f in _found(checks[k].get(take.id)):
-                if not _fixed_free(db, take, f):
+                if f.get("verified", True) and not _fixed_free(db, take, f):  # doubts: unsure
                     out.append(f"{n}: {said(f['text']).rstrip('.')}. Kept as it is.")
         mine = [checks[k].get(take.id) for k in ("take", "words")]
         if item_checks.on() and (mine[0] is None or any(c and c.status != "done" for c in mine)):
             out.append(f"{n}'s take wasn't checked.")  # none, failed, skipped or never finished
+    out += _host_open(db, project)
     held = db.scalars(select(Job).where(Job.project_id == project.id,
                                         Job.status == JobStatus.needs_owner_approval))  # fmt: skip
     for j in held:
@@ -97,6 +101,43 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
         line = f"{_item(db, j)} is waiting for the owner's OK" + (f": {why}." if why else ".")
         if line not in out:
             out.append(line)
+    return out
+
+
+def _host_open(db: Session, project: Project) -> list[str]:
+    """A presenter's host pieces in use: each one not watched, or with what its watch found
+    and confirmed (its doubts are in "What remains uncertain")."""
+    from app import item_checks
+    from app.models.clips import HostPiece
+
+    mine = select(HostPiece).where(HostPiece.project_id == project.id).order_by(HostPiece.number)
+    rows = [r for r in db.scalars(mine) if r.number and r.file_id]
+    checks = item_checks.latest(db, "piece", [r.id for r in rows])
+    out = []
+    for r in rows:
+        who = f"The presenter's piece {r.number}"
+        check = checks.get(r.id)
+        for f in _found(check):
+            if f.get("verified", True):
+                out.append(f"{who}: {said(f['text']).rstrip('.')}. Kept as it is.")
+        if item_checks.on() and (check is None or check.status != "done"):
+            out.append(f"{who} wasn't checked.")
+    return out
+
+
+def _host_rows(db: Session, project: Project) -> list[dict]:
+    """The presenter's pieces the watch remade, as rows of "What I watched and redid", at
+    their time on the narration's clock."""
+    out = []
+    for x in watch_report.redid(db, project):
+        if x["clip_id"] == "host" and x["action"] == "redo":
+            out.append(
+                {
+                    "at": x["at"],
+                    "clip": "host",
+                    "text": f"The presenter's piece {x['take']}: {said(x['did'] or '')}",
+                }
+            )
     return out
 
 
