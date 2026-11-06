@@ -454,8 +454,7 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
 
     m = model_map.of_clip(project, clip)
     job = {"model": m.id, "input": {"resolution": model_map.resolution(m)}}
-    units = Decimal(model_map.seconds(m, clip.seconds))  # Omni: its fixed length
-    take = estimate(db, project.workspace_id, "video", units, job)
+    take = estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
     return take + take_watch.rides(db, project, clip)
 
 

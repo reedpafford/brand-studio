@@ -617,8 +617,9 @@ def generate(
     model = model_map.of_clip(project, row)  # its own (the director's), else the video's
     files = {k: job_input["files"].get(k, []) for k in clip_takes.KEYS.values()}
     _check_media_length(db, request.app.state.storage, model, files)
-    units = model_map.seconds(model, row.seconds)  # Omni: its fixed length, up to
-    return enqueue(db, user, "video", job_input, units=units, project=project, provider="replicate")
+    return enqueue(
+        db, user, "video", job_input, units=row.seconds, project=project, provider="replicate"
+    )
 
 
 @router.get("/clips/{clip_id}/change", response_model=PriceOut)

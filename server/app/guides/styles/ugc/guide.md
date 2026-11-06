@@ -37,9 +37,11 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - No captions, titles or overlay text in any picture (rule 32). A product label or a phone screen that matters is in the picture and its words are stated exactly.
 
 ## Clips
-- The talker is made with HeyGen Avatar IV from one still, in one take, lip-synced to the video's own voice-over (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."), so the voice keeps its real inflection. A shot where the talker acts in the story is made like the B-roll, on Omni 1.2, which keeps their face from their picture (Reed, 6 Nov: "Omni is more for the realistic stuff").
+- How the talker is made depends on how they appear in the video (Reed, 6 Nov):
+  - In one spot the whole time (talking to camera, or in a corner over the B-roll): HeyGen Avatar IV from one still, in one take, lip-synced to the video's own voice-over (the MiniMax voice when they talk to camera), so the voice keeps its real inflection (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."). Omni 1.2 makes only the B-roll shown over or between their take.
+  - Moving around or acting in the story (not in one spot): there's no HeyGen take; their shots are made on Omni 1.2 like the B-roll, which keeps their face from their picture (Reed, 6 Nov: "Omni is more for the realistic stuff").
 - A talker shot is one continuous take: the camera locked off or nearly (no push-ins, no pans on the talker), the speaker talking into the lens with small natural head movement, blinks and hand gestures at the bottom of the frame.
-- B-roll shots move gently: a slow push-in, a still frame with movement inside it, or a phone's handheld drift. A list of things gets one short shot per item. Short B-roll pictures (under the video model's shortest clip) are separate generated clips, spliced together in the edit. B-roll is made with Omni 1.2 (Reed, 6 Nov: "Omni is more for the realistic stuff"): realistic phone footage with the place's own sound and no one speaking, so the narration runs over it.
+- B-roll shots move gently: a slow push-in, a still frame with movement inside it, or a phone's handheld drift. A list of things gets one short shot per item. Short B-roll pictures (under the video model's shortest clip) are separate generated clips, spliced together in the edit. B-roll is always made with Omni 1.2 (Reed, 6 Nov: "Omni is more for the realistic stuff"): realistic phone footage with the place's own sound and no one speaking, so the narration runs over it.
 - The talker's voice runs across the B-roll: it never stops for a cutaway.
 
 ## Breakdown

@@ -283,14 +283,17 @@ def test_an_official_model_runs_on_its_own_endpoint_and_is_known_by_name():
     assert _model_id_from_version({"version": SEEDANCE.provider_version}) == "seedance-2.5"
 
 
-def test_a_take_with_no_length_sent_or_reported_is_charged_its_longest_not_failed():
+@pytest.mark.parametrize(("sent", "seconds"), [({}, 15), ({"duration": 6}, 6)])
+def test_a_take_with_no_length_reported_is_charged_its_length_not_failed(sent, seconds):
     """The real-run audit: a take Replicate made and charged, with no reported length, was
-    marked failed by an AttributeError, with no retry. It's charged as its model's longest
-    clip (Omni 1.2: 15 s), estimated, and matched to the model by name (no version)."""
+    marked failed by an AttributeError, with no retry. It's charged the length it was sent,
+    else its model's longest clip (Omni 1.2: 15 s), estimated, and matched to the model by
+    name (no version)."""
     out = "https://replicate.delivery/out.mp4"
     done = {"id": "o1", "status": "succeeded", "version": None,
             "model": "google/gemini-omni-1.2-flash",
-            "input": {"prompt": "a cat trades", "resolution": "720p"}, "output": out}  # fmt: skip
+            "input": {"prompt": "a cat trades", "resolution": "720p", **sent},
+            "output": out}  # fmt: skip
 
     def handler(request):
         if str(request.url).endswith("/out.mp4"):
@@ -303,4 +306,4 @@ def test_a_take_with_no_length_sent_or_reported_is_charged_its_longest_not_faile
     result = provider.poll("o1")
     assert result.state == "succeeded", result.error
     (usage,) = result.usage
-    assert (usage.units, usage.unit, usage.estimated) == (Decimal(15), "second", True)
+    assert (usage.units, usage.unit, usage.estimated) == (Decimal(seconds), "second", True)
