@@ -471,6 +471,24 @@ def approved_run(db: Session, project: Project) -> tuple[Decimal, Decimal] | Non
     return Decimal(str(card.input["price"])) + oks * own_limit(), spent
 
 
+def approved_total(db: Session, project: Project) -> Decimal | None:
+    """What every Make it on the video has approved (board S3-12: "up to $17.18" is the first
+    run's $16.86 plus the change's $0.32): each start card's price, plus another of the
+    director's own limit for each OK at it (rule 34); None before any Make it. The video's
+    "up to" in its header, its run card and its note. `approved_run` is the newest run's own."""
+    from app.credits import COUNTED
+    from app.director import GRANT, own_limit
+
+    rows = db.scalars(select(Job).where(Job.project_id == project.id,
+                                        Job.status.in_(COUNTED))).all()  # fmt: skip
+    prices = [Decimal(str(j.input.get("price") or 0)) for j in rows if j.input.get(START)]
+    if not any(prices):
+        return None
+    oks = sum(1 for j in rows if j.input.get(GRANT)
+              and (j.input.get("director_run") or j.input.get("by_director")))  # fmt: skip
+    return sum(prices, Decimal(0)) + oks * own_limit()
+
+
 def past_run(db: Session, project: Project, credits: Decimal) -> bool:
     """Whether a run's step of `credits` would take it past the price its Make it approved:
     then it waits for the owner, the owner's own run too (Reed, 4 Nov)."""

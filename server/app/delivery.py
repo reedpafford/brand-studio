@@ -18,7 +18,7 @@ from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
-from app.run_progress import RUN, _found, _model, run_up_to, runs, said, spent, watched
+from app.run_progress import RUN, _found, _model, dollars, runs, said, spent, watched
 
 NOTHING = "Nothing. It’s ready to post."  # only when nothing is open (`open_items`)
 LOOK_FIRST = "Nothing yet, but look at what remains uncertain before you post it."
@@ -35,7 +35,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     number = db.scalar(select(func.count()).where(
         FinalVideo.project_id == project.id, FinalVideo.id <= cut.id)) if cut else 0  # fmt: skip
     spans = _spans(db, cut)
-    credits, _ = spent(db, project, turns[0].created_at)
+    credits, up_to = spent(db, project)  # the whole video's, at this cut (board S3-12)
     rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
             + _host_rows(db, project, turns[0].created_at))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
@@ -44,7 +44,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "unsure": " ".join(x for x in (said(decision.get("unsure") or ""),
                                            watch_report.doubts(db, project)) if x),
             "needs": said(decision.get("needs") or ""),
-            "spent": float(credits), "up_to": float(run_up_to(db, project)),
+            "spent": float(credits), "up_to": float(up_to),
             "cut": number, "clips": len(spans),
             "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
 
@@ -245,27 +245,27 @@ def _fixed(db: Session, project: Project, spans: list[dict], turns: list[Job]) -
 
 
 def shown(note: dict | None, owner: bool) -> dict | None:
-    """The note as this person reads it, with its cost line: dollars to the owner ("$9.84
-    spent of up to $16.86", what the run charged, at the header's rate: one spent figure),
-    credits only to anyone else ("96 credits used of up to 164 (59% of the budget)")."""
+    """The note as this person reads it, with its cost line in the header's figures at this
+    cut (the whole video's, board S3-12): dollars to the owner ("$9.84 spent of up to
+    $16.86"), credits only to anyone else ("96 credits used of up to 164 (59% of the
+    budget)"). The "up to" is never below what was spent."""
     from app.credits import price
     from app.models.credits import USD_PER_CREDIT
 
     if not note:
         return None
-    up_to, usd = Decimal(str(note["up_to"])), None
+    used = Decimal(str(note["spent"]))
+    up_to = max(Decimal(str(note["up_to"])), used)  # a note from before the guard
     if owner:
-        usd = round(Decimal(str(note["spent"])) * USD_PER_CREDIT * 100) / 100  # as `ideas._money`
         most = math.ceil(up_to * USD_PER_CREDIT * 100) / 100
-        cost = f"${usd:.2f} spent of up to ${most:.2f}"
+        cost = f"${dollars(used):.2f} spent of up to ${most:.2f}"
     else:
-        pct = round(100 * note["spent"] / note["up_to"]) if note["up_to"] else 0
-        cost = (f"{round(note['spent'])} credits used of up to {price(up_to)} "
-                f"({pct}% of the budget)")  # fmt: skip
+        pct = round(100 * used / up_to) if up_to else 0
+        cost = f"{round(used)} credits used of up to {price(up_to)} ({pct}% of the budget)"
     still = note.get("open", [])
     return {**note, "open": still, "needs": needs(note["needs"], bool(still or note["unsure"])),
-            "cost": cost,
-            "spent_usd": float(usd) if owner else None}  # fmt: skip
+            "cost": cost, "up_to": float(up_to),
+            "spent_usd": dollars(used) if owner else None}  # fmt: skip
 
 
 READY = re.compile(

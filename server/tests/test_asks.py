@@ -809,24 +809,81 @@ def test_a_cards_clone_is_saved_to_the_brands_voices_and_reused_never_charged_ag
     assert db.query(Job).filter(Job.kind == "voice").count() == 1  # one paid call in all
 
 
-def test_the_header_the_run_card_and_the_note_say_the_up_to_its_make_it_approved(
+def one_figure(owner, editor, pid: int) -> dict:
+    """The header, the run card and the newest note say one spent and one "up to", the whole
+    video's (board S3-12), to the owner in dollars and to an editor in credits; the "up to" is
+    never below what was spent. Returns the owner's header."""
+    mine = {}
+    for who in (owner, editor):
+        head = who.get(f"/projects/{pid}/idea").json()
+        card = who.get(f"/projects/{pid}/director/progress").json()
+        note = [t["note"] for t in who.get(f"/projects/{pid}/director").json()["thread"]
+                if t.get("note")][-1]  # fmt: skip
+        spent, top = head["spent"], head["up_to"]
+        assert abs(spent["credits"] - card["spent"]) < 0.001 > abs(spent["credits"] - note["spent"])
+        assert top["credits"] == card["up_to"] == note["up_to"] >= note["spent"], (top, card, note)
+        assert spent["usd"] == card["spent_usd"] == note["spent_usd"]
+        if spent["usd"] is not None:
+            assert note["cost"] == f"${spent['usd']:.2f} spent of up to ${top['usd']:.2f}"
+            mine = head
+        else:
+            assert note["cost"].startswith(f"{round(note['spent'])} credits used of up to ")
+    return mine
+
+
+def _make_it(app, db, who, pid: int) -> float:
+    """Make it (again) on the video's start card; the run delivers. Returns its price."""
+    who.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=4, start=False)
+    card = [c for c in who.get(f"/projects/{pid}/asks").json() if c["kind"] == "start"][-1]
+    assert who.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
+    _run(app, db, ticks=40, start=False)
+    return card["money"]["up_to"]["credits"]
+
+
+def test_the_header_the_run_card_and_the_note_say_one_figure_on_every_run(
     app, db, owner, editor, monkeypatch
 ):
-    """One "up to" after Make it: the start card's price, not the budget beside the director's
-    limit (QA on #1354: the header said $13.01 while the card and the note said $14.73)."""
+    """QA on #1355 (board S3-12): one spent and one "up to", the whole video's, in the header,
+    the run card and the note: after the first run (the "up to" is its Make it's price, not the
+    budget beside the director's limit, QA on #1354), and after Make it again (the first
+    run's price plus the change's, and what both spent)."""
     from decimal import Decimal
 
+    pid, _ = _video(app, owner, editor, db)
+    first = _make_it(app, db, owner, pid)
+    monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(7)))  # far apart
+    head = one_figure(owner, editor, pid)
+    assert abs(head["up_to"]["credits"] - first) < 1 and head["spent"]["credits"] > 0
+    spent = head["spent"]["credits"]
+    owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
+    second = _make_it(app, db, owner, pid)
+    head = one_figure(owner, editor, pid)
+    assert abs(head["up_to"]["credits"] - (first + second)) < 1  # every Make it, not the last
+    assert head["spent"]["credits"] >= spent  # both runs', not the revision's alone
+
+
+def test_after_an_ok_past_the_price_the_up_to_is_never_below_what_was_spent(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1355: the owner's OK past the price Make it approved (S3-07) lets the run spend
+    more than it; the header, the run card and the note then say "up to" what was spent."""
+    from decimal import Decimal
+
+    monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(500)))
     pid, _ = _video(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     _run(app, db, ticks=4, start=False)
     card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
     assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
-    price = card["money"]["up_to"]["credits"]
-    _run(app, db, ticks=40, start=False)
-    notes = [
-        t["note"] for t in owner.get(f"/projects/{pid}/director").json()["thread"] if t.get("note")
-    ]
-    assert notes and abs(notes[-1]["up_to"] - price) < 1  # the note, kept at its delivery
-    monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(7)))  # far apart
-    assert abs(owner.get(f"/projects/{pid}/idea").json()["up_to"]["credits"] - price) < 1
-    assert abs(owner.get(f"/projects/{pid}/director/progress").json()["up_to"] - price) < 1
+    _priced_down(db, pid, "12")
+    url = f"/projects/{pid}/director/progress"
+    for _ in range(40):  # every OK past the price, until it delivers
+        if owner.get(url).json()["status"] == "delivered":
+            break
+        _run(app, db, ticks=10, start=False)
+        for held in [c for c in owner.get(f"/projects/{pid}/asks").json()
+                     if c["kind"] == "budget" and c["state"] == "open"]:  # fmt: skip
+            owner.post(f"/asks/{held['id']}/answer", json={"how": "approve"})
+    head = one_figure(owner, editor, pid)
+    assert head["spent"]["credits"] > 12 and head["up_to"]["credits"] == head["spent"]["credits"]

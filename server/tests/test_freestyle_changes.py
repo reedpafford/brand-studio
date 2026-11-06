@@ -163,3 +163,7 @@ def test_after_a_change_the_header_the_run_card_and_the_note_say_one_up_to(
     note = [j.output["note"] for j in director.turns(db, project) if (j.output or {}).get("note")]
     assert abs(card - top) < 1 and abs(note[-1]["up_to"] - top) < 1, (top, card, note[-1]["up_to"])
     assert top >= float(held["freestyle"]["total"]) - 1  # every send approved, not the change alone
+    from tests.test_asks import one_figure
+
+    if branded:  # its video's page: header, run card and note say one spent, one up to
+        one_figure(owner, editor, project.id)

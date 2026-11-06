@@ -13,7 +13,7 @@ from decimal import Decimal
 from statistics import median
 from types import SimpleNamespace
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import asks, model_map
@@ -22,7 +22,7 @@ from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, ProjectClip
-from app.models.jobs import WAITING, Job, JobStatus, Usage
+from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.models.seen import TakeSeen
 from app.models.storyboards import StoryboardFrame
@@ -355,10 +355,11 @@ def price_of(db: Session, project: Project) -> Decimal:
 
 
 def run_up_to(db: Session, project: Project) -> Decimal:
-    """The "up to" of the run under way or delivered: the price its Make it approved (with any
-    OK at the director's own limit, rule 34), so the header, the start card, the run's card and
-    its note say one figure; before any Make it, the price a new run would show. A freestyle's
-    video, hidden or in its brand, reads its sends' approved total, as its header does."""
+    """The video's "up to" once a run is under way or delivered: what every Make it approved
+    (`asks.approved_total`, board S3-12), so the header, the start card, the run's card and
+    its note say one figure on every run; before any Make it, the price a new run would show.
+    A freestyle's video, hidden or in its brand, reads its sends' approved total, as its
+    header does."""
     from app import asks
     from app.credits import approved
     from app.models.freestyles import Freestyle
@@ -368,22 +369,26 @@ def run_up_to(db: Session, project: Project) -> Decimal:
         return approved(db, fs)
     if project.hidden:
         return price_of(db, project)
-    got = asks.approved_run(db, project)
-    return got[0] if got else price_of(db, project)
+    got = asks.approved_total(db, project)
+    return got if got is not None else price_of(db, project)
 
 
-def spent(db: Session, project: Project, since: datetime,
-          until: datetime | None = None) -> tuple[Decimal, Decimal]:  # fmt: skip
-    """(credits charged, real dollars) on the video from `since` to `until`: a run's spend."""
-    from app.credits import COUNTED
+def spent(db: Session, project: Project) -> tuple[Decimal, Decimal]:
+    """(what the video has charged so far, its "up to"), in credits, as its header says them
+    (board S3-12: the whole video's figures, one for the header, the run card and the note):
+    every counted job on it, and `run_up_to` never below that, rounded up as the header
+    rounds it."""
+    from app import ideas
 
-    mine = (Job.project_id == project.id, Job.created_at >= since,
-            *((Job.created_at <= until,) if until else ()))  # fmt: skip
-    credits = db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(
-        *mine, Job.status.in_(COUNTED)))  # fmt: skip
-    usd = db.scalar(select(func.coalesce(func.sum(Usage.cost_usd), 0)).join(
-        Job, Job.id == Usage.job_id).where(*mine))  # fmt: skip
-    return Decimal(credits), Decimal(usd)
+    used = ideas.facts(db, [project]).used.get(project.id, Decimal(0))
+    return used, ideas._up(max(run_up_to(db, project), used))
+
+
+def dollars(credits: Decimal) -> float:
+    """Credits as the owner reads them, in dollars at the header's rate (`ideas._money`)."""
+    from app.models.credits import USD_PER_CREDIT
+
+    return float(round(credits * USD_PER_CREDIT * 100) / 100)
 
 
 def _changes(video: _Video, turns: list[Job], since: datetime) -> str:
@@ -431,8 +436,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     at = next((n for n, s in enumerate(scenes, 1) if s["done"] < s["total"]), len(scenes))
     total, made = len(cells), sum(c["state"] in DONE for c in cells)
     redone = sum(c["changed"] for c in cells)
-    charged, usd = spent(db, project, start)
-    up_to = run_up_to(db, project)
+    charged, up_to = spent(db, project)
     if how == "delivered":
         head = ("delivered", _took(turns), _n(total, "clip") + (
             f" · {redone} redone after watching" if redone else ""), "done")  # fmt: skip
@@ -477,7 +481,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "minutes_left": None if how else _left(video, cells, start, now),
            "steps": steps(db, video, turns, cells, how, holds is not None, owner),
            "spent": float(charged), "up_to": float(up_to),
-           "spent_usd": float(usd) if owner else None,
+           "spent_usd": dollars(charged) if owner else None,
            "changed": [{k: c[k] for k in ("clip_id", "number", "take_id", "frame_file_id",
                                           "watched")} for c in cells if c["changed"]],
            "stopped": None, "failed": None}  # fmt: skip
