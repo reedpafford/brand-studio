@@ -121,7 +121,8 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
             row.data = snap(row.data, take.timing or {} if take else {})
         else:
             order = [s["id"] for scene in row.data["scenes"] for s in scene["shots"]]
-            if song := carried(db, row.project_id, order):
+            long = {s["id"]: s.get("seconds", 1) for sc in row.data["scenes"] for s in sc["shots"]}
+            if song := carried(db, row.project_id, order, long):
                 row.data = {**row.data, "song": song}
         take = db.get(SongTake, (row.data.get("song") or {}).get("take_id") or 0)
         broll = bool(take and take.kind == "narration")  # every shot under a narration
@@ -199,9 +200,11 @@ def _slice(mapper, connection, clip: ProjectClip) -> None:
         clip.song_slice = slice_of(data or {}, clip.clip_id)
 
 
-def carried(db: Session, project_id: int, order: list[str]) -> dict | None:
+def carried(db: Session, project_id: int, order: list[str],
+            seconds: dict[str, float] | None = None) -> dict | None:  # fmt: skip
     """The song part a new plan with these shots (in order) gets from the rows before it:
-    each shot's newest time on the same take, packed back to back (`repack`)."""
+    each shot's newest time on the same take, a cut shot's pieces sharing its time
+    (`cut_spans`), packed back to back (`repack`)."""
     datas = db.scalars(
         select(BreakdownVersion.data).where(BreakdownVersion.project_id == project_id)
         .order_by(BreakdownVersion.id.desc()).limit(HISTORY)
@@ -213,8 +216,31 @@ def carried(db: Session, project_id: int, order: list[str]) -> dict | None:
     for song in reversed([s for s in songs if s["take_id"] == take_id]):  # newest wins
         known.update(song["shots"])
     end = max(t["end"] for t in songs[0]["shots"].values())
+    known.update(cut_spans(known, order, seconds or {}))
     timed = {sid: known[sid] for sid in order if sid in known}
     return {"take_id": take_id, "shots": repack(order, timed, end)}
+
+
+def cut_spans(known: dict[str, dict], order: list[str], seconds: dict[str, float]) -> dict:
+    """A shot cut at its sentence breaks ("4.1" into "4.1.1", "4.1.2": breakdown_fix._cut):
+    each piece takes its share of the shot's time in the song, by its length, and keeps the
+    rest of what was known of it (who sings in it), so the shots after it don't move."""
+    pieces: dict[str, list[str]] = {}
+    for sid in order:
+        if sid not in known and sid.count(".") > 1 and (whole := sid.rsplit(".", 1)[0]) in known:
+            pieces.setdefault(whole, []).append(sid)
+    out = {}
+    for whole, ids in pieces.items():
+        t = known[whole]
+        at, stop = t["start"], t.get("own_end", t["end"])
+        share = sum(seconds.get(i, 1) for i in ids) or 1
+        for i in ids:
+            end = at + (stop - at if i == ids[-1] else (stop - t["start"]) * seconds.get(i, 1)
+                        / share)  # fmt: skip
+            out[i] = {**{k: v for k, v in t.items() if k != "own_end"}, "start": round(at, 2),
+                      "end": round(end, 2)}  # fmt: skip
+            at = end
+    return out
 
 
 HISTORY = 50  # rows looked back through for a shot an Undo brings back

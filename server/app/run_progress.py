@@ -11,11 +11,13 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 from statistics import median
+from types import SimpleNamespace
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import asks, model_map
+from app.breakdown_fix import too_long
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.checks import ItemCheck
@@ -24,6 +26,7 @@ from app.models.jobs import WAITING, Job, JobStatus, Usage
 from app.models.projects import Project
 from app.models.seen import TakeSeen
 from app.models.storyboards import StoryboardFrame
+from app.prompts.schemas import Breakdown
 
 TYPICAL_TAKE = 180  # seconds a take takes, until this workspace has made some
 HELD = JobStatus.needs_owner_approval
@@ -35,6 +38,7 @@ ORDER = ("read", "plan", "cast", "voice", "stills", "prompts", "takes", "watchin
 PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "song": "voice",
           "narration": "voice", "storyboard": "stills", "stills": "stills",
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
+          "split_clip": "plan",
           "make_take": "takes", "pick_take": "takes", "splice_word": "takes", "mute": "takes",
           "add_sound": "takes", "host": "host", "final_cut": "cut", "edit_cut": "cut",
           "watch_cut": "cut", "deliver": "cut"}  # fmt: skip  # each tool's step
@@ -122,9 +126,15 @@ class _Video:
 
         self.project, bd = project, newest(db, project)
         self.data = bd.data if bd else {}
+        self.problems = (bd.problems or []) if bd else []  # "clip c4: 115 s is outside 4–12 s"
         self.clips = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
                                 .order_by(ProjectClip.id)).all()  # fmt: skip
-        ids = [c.id for c in self.clips]
+        # a planned clip with no prompt yet is to do, once clips are written (before: Planning)
+        have = {c.clip_id for c in self.clips}
+        self.clips += [SimpleNamespace(id=None, clip_id=c["id"], seconds=c["seconds"],
+                                       picked_take_id=None) for c in self.data.get("clips", [])
+                       if have and c["id"] not in have]  # fmt: skip
+        ids = [c.id for c in self.clips if c.id]
         self.takes: dict[int, list[ClipTake]] = defaultdict(list)
         for t in db.scalars(select(ClipTake).where(ClipTake.clip_id.in_(ids))
                             .order_by(ClipTake.number)):  # fmt: skip
@@ -160,7 +170,8 @@ class _Video:
             .order_by(Job.id.desc()).limit(20)).all()  # fmt: skip
         took = [(b - a).total_seconds() for a, b in spans if b and b > a]
         self.typical = median(took) if took else TYPICAL_TAKE
-        self.model = video_model(project).name
+        self.engine = video_model(project)
+        self.model = self.engine.name
         shots = {x["id"]: x for s in self.data.get("scenes", []) for x in s.get("shots", [])}
         self.shots = {c["id"]: [shots[i] for i in c["shot_ids"] if i in shots]
                       for c in self.data.get("clips", [])}  # fmt: skip
@@ -228,6 +239,10 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
         why = (last.error or "It didn't finish").rstrip(".")
         return {**out, "state": "failed", "note": f"{why}. Nothing was charged.",
                 "credits": money(last.credits, owner)}  # fmt: skip
+    if row.clip_id in too_long(video.problems):  # longer than the model makes: never sent
+        m = video.engine
+        return {**out, "state": "too_long",
+                "note": f"{m.name} makes at most {m.duration.max} s a clip"}  # fmt: skip
     if picked is None:
         return {**out, "state": "todo"}
     if now_found:  # the take in use still has what its watch found: a person decides
@@ -404,7 +419,9 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         head = ("delivered", _took(turns), _n(total, "clip") + (
             f" · {redone} redone after watching" if redone else ""), "done")  # fmt: skip
     elif how:
-        bad = _blamed(cells, why) if how == "needs_fix" else None
+        long = next((c for c in cells if c["state"] == "too_long"), None)
+        bad = (_blamed(cells, why) or (long if "makes at most" in why else None)
+               if how == "needs_fix" else None)  # fmt: skip
         plain = how == "needs_fix" or why == "Stopped."
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
                 f"{made} of {total} clips made" if plain else said(why),
@@ -452,7 +469,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                           "made": made, "total": total,
                           "carry_on": money(again, owner)}  # fmt: skip
     if how == "needs_fix":
-        out["failed"] = _failed(video, cells, why, owner, again)
+        out["failed"] = _failed(db, video, cells, why, owner, again)
     return out
 
 
@@ -486,16 +503,62 @@ def _blamed(cells: list[dict], why: str) -> dict | None:
                  and re.search(rf"\bclip {c['number']}\b", named)), None)  # fmt: skip
 
 
-def _failed(video: _Video, cells: list[dict], why: str, owner: bool, again: Decimal) -> dict:
+def _failed(db: Session, video: _Video, cells: list[dict], why: str, owner: bool,
+            again: Decimal) -> dict:  # fmt: skip
     """What stopped the run, and its one-click fixes (rule 22): the clip that failed made
-    again at its own price, or carry on from where it stopped."""
+    again at its own price, a clip too long for the model split (S3-11), or carry on from
+    where it stopped."""
     carry = {"kind": "carry_on", "label": "Carry on", "price": money(again, owner)}
     bad = _blamed(cells, why)
+    long = next((c for c in cells if c["state"] == "too_long"), None)
+    if bad is None and long is not None and "makes at most" in why:  # it stopped on that
+        return _too_long(db, video, long, owner, carry)
     if bad is None:
         return {"title": "The director stopped", "why": said(why), "clip": None, "fixes": [carry]}
     again = {"kind": "again", "label": "Try again", "price": bad["credits"]}
     return {"title": f"Clip {bad['number']} couldn’t be made", "why": bad["note"],
             "clip": video.pk(bad["clip_id"]), "fixes": [again, carry]}  # fmt: skip
+
+
+def _too_long(db: Session, video: _Video, c: dict, owner: bool, carry: dict) -> dict:
+    """S3-11: a clip longer than its model makes. Split it at its sentence breaks (free; the
+    words don't change), with the price of what the new clips then need, or a model that
+    makes longer clips (Video settings)."""
+    from app import breakdown_fix, plans
+
+    m, n = video.engine, c["number"]
+    version = plans.script(db, video.project)
+    into = breakdown_fix.split_preview(video.data, version.text if version else "",
+                                       c["clip_id"], m.duration.min, m.duration.max)  # fmt: skip
+    head = {"title": f"Clip {n} couldn’t be made", "clip": video.pk(c["clip_id"]),
+            "why": f"Clip {n} runs {c['seconds']} s, but {m.name} makes at most "
+                   f"{m.duration.max} s a clip. Nothing was charged."}  # fmt: skip
+    longer = {"kind": "model", "label": "Use a model that makes longer clips…", "price": None}
+    if not into:
+        return {**head, "fixes": [longer, carry],
+                "offer": "One of its sentences is too long to split. Make its shot shorter, or "
+                         "use a model that makes longer clips."}  # fmt: skip
+    said = next(p for p in video.problems if too_long([p]) == [c["clip_id"]])
+    split = {"kind": "split", "label": f"Split it into {len(into)} clips", "price": "free",
+             "problem": said, "then": money(_then(db, video.project, into), owner)}  # fmt: skip
+    return {**head, "fixes": [split, longer],
+            "offer": f"I can split it into {len(into)} clips at the sentence breaks. The words "
+                     "don’t change, and the split itself is free."}  # fmt: skip
+
+
+def _then(db: Session, project: Project, clips: list) -> Decimal:
+    """What a split's new clips then need, "up to" (rule 36): a still for each of their
+    shots, their prompts written, and a take of each with the watch that rides along."""
+    from app import clip_prompts, take_watch
+    from app.routes.estimate import _claude, _still, _video
+
+    ws = project.workspace_id
+    shots = sum(len(c.shot_ids) for c in clips)
+    calls = len(clip_prompts.batches(Breakdown(hook="", scenes=[], clips=clips),
+                                     [c.id for c in clips]))  # fmt: skip
+    return (_still(db, ws, project) * shots + _claude(db, ws) * calls
+            + _video(db, ws, sum(c.seconds for c in clips), project)
+            + take_watch.per_take(db, ws) * len(clips))  # fmt: skip
 
 
 def thread_items(db: Session, project: Project, viewer: User | None) -> list[dict]:

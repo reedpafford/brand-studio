@@ -6626,7 +6626,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "todo" | "making" | "waiting" | "failed" | "flagged" | "text" | "redone" | "done";
+            state: "todo" | "making" | "waiting" | "failed" | "too_long" | "flagged" | "text" | "redone" | "done";
             /** Frame File Id */
             frame_file_id: number | null;
             /** Take Id */
@@ -6848,6 +6848,11 @@ export interface components {
             redid: components["schemas"]["RedidRowOut"][];
             /** Unsure */
             unsure: string;
+            /**
+             * Open
+             * @default []
+             */
+            open: string[];
             /** Needs */
             needs: string;
             /** Cost */
@@ -10449,6 +10454,11 @@ export interface components {
             title: string;
             /** Why */
             why: string;
+            /**
+             * Offer
+             * @default
+             */
+            offer: string;
             /** Clip */
             clip: number | null;
             /** Fixes */
@@ -10460,11 +10470,18 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "again" | "carry_on";
+            kind: "again" | "carry_on" | "split" | "model";
             /** Label */
             label: string;
             /** Price */
             price: string | null;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /** Then */
+            then?: string | null;
         };
         /** RunSceneOut */
         RunSceneOut: {
