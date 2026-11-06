@@ -17,7 +17,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app import asks, director, guides, looks, needs_you
-from app.credits import COUNTED
+from app.credits import COUNTED, actual_usd, uncapped
 from app.models.accounts import User
 from app.models.clips import ProjectClip
 from app.models.credits import USD_PER_CREDIT
@@ -313,7 +313,11 @@ class Head(BaseModel):
     status: Status
     spent: Money  # every charge on the video so far, the director's own included
     up_to: Money | None  # the most the run the owner approved may charge; None: not known yet
-    budget: Money  # the video's budget (a step past it waits for the owner's OK)
+    budget: Money | None  # the video's budget (a step past it waits for the owner's OK); None
+    # on the owner's uncapped test site, which has none (Reed, 6 Nov)
+    expected: Money | None = None  # uncapped: what its run will probably cost (an estimate)
+    actual: bool = False  # uncapped: `spent` is the providers' own charges, in dollars
+    unreported: bool = False  # uncapped: some of it isn't reported yet
     folder: Named | None  # None: Unsorted
     format: str  # "Presenter"; "" for a video with no script
     style: str  # "Dr. Pickle"
@@ -355,6 +359,18 @@ def head(db: Session, user: User, p: Project) -> Head:
     except ValueError:  # a format since taken out of the guides
         kind = ""
     folder = db.get(Folder, p.live_folder_id) if p.live_folder_id else None
+    if uncapped(user):  # the providers' own spend and the likely cost; no limit, no budget
+        from app.routes.asks import _expected
+
+        real, pending = actual_usd(db, p.id)
+        return Head(
+            title=fs.title if fs is not None else p.name, status=status,
+            spent=Money(credits=float(used), usd=float(round(real, 2))), budget=None, up_to=None,
+            expected=_money(user, _expected(db, p), math.ceil), actual=True, unreported=pending,
+            folder=Named(id=folder.id, name=folder.name) if folder else None,
+            format=kind, style=_style(p.look), seconds=p.planned_seconds or p.breakdown_seconds,
+            song=narration.video_kind(db, p) == "song", usd_per_credit=float(USD_PER_CREDIT),
+        )  # fmt: skip
     return Head(
         title=fs.title if fs is not None else p.name, status=status,
         spent=_money(user, used), budget=_money(user, Decimal(p.budget_credits)),

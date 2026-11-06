@@ -575,6 +575,20 @@ def _changes(video: _Video, turns: list[Job], since: datetime) -> str:
     return f"{done} of {_n(total, 'change')}"
 
 
+def _actual(db: Session, project: Project, viewer: User | None, since) -> dict:
+    """On the owner's uncapped test site: the run's own provider charges since its first turn,
+    whether some aren't reported yet, and its expected cost; nothing anywhere else."""
+    from app.credits import actual_usd, uncapped
+
+    if not uncapped(viewer):
+        return {}
+    from app.routes.asks import _expected
+
+    real, pending = actual_usd(db, project.id, since)
+    return {"actual_usd": float(round(real, 2)), "unreported": pending,
+            "expected_usd": dollars(_expected(db, project))}  # fmt: skip
+
+
 def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     """The newest run's progress record, as `ProgressOut` reads it; None before any run."""
     from app.auth import user_name
@@ -657,7 +671,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "minutes_left": None if how else _left(video, cells, start, now),
            "steps": steps(db, video, turns, cells, how, holds is not None, owner),
            "spent": float(charged), "up_to": float(up_to),
-           "spent_usd": dollars(charged) if owner else None,
+           "spent_usd": dollars(charged) if owner else None, **_actual(db, project, viewer, start),
            "changed": [{k: c[k] for k in ("clip_id", "number", "take_id", "frame_file_id",
                                           "watched")} for c in cells if c["changed"]],
            "stopped": None, "failed": None}  # fmt: skip

@@ -209,6 +209,11 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
             {r.sub}
           </p>
         )}
+        {r.actual_usd != null && (
+          <p className="mt-2 text-xs tabular-nums text-muted">
+            {[`$${r.actual_usd.toFixed(2)} spent on this run${r.unreported ? " (some cost not reported yet)" : ""}`, r.expected_usd != null && `about $${r.expected_usd.toFixed(2)} (estimate)`].filter(Boolean).join(" · ")}
+          </p>
+        )}
         {open && steps}
       </div>
     </section>

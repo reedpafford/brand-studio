@@ -195,6 +195,11 @@ class ProgressOut(BaseModel):
     spent: float  # credits the whole video has charged, as its header says (S3-12)
     up_to: float  # the video's "up to", in credits, never below `spent`
     spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
+    # The owner's uncapped test site (Reed, 6 Nov): this run's own provider charges, whether
+    # some aren't reported yet, and what the run will probably cost (an estimate)
+    actual_usd: float | None = None
+    unreported: bool = False
+    expected_usd: float | None = None
     changed: list[ChangedClipOut]  # "Changed after watching" / "Watch the changes"
     stopped: RunStoppedOut | None  # stopped by a person (S3-08); carry_on "" while an
     # editor's Carry on waits for the owner's OK (its card says so)

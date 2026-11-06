@@ -35,6 +35,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     number = cut.number if cut else 0  # Cut N as the switch and the editor name it
     spans = _spans(db, cut)
     credits, up_to = spent(db, project)  # the whole video's, at this cut (board S3-12)
+    real = _real(db, project, job, turns[0].created_at)  # the owner's uncapped site only
     rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
             + _host_rows(db, project, turns[0].created_at))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
@@ -45,7 +46,19 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "needs": said(decision.get("needs") or ""),
             "spent": float(credits), "up_to": float(up_to),
             "cut": number, "clips": len(spans),
-            "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
+            "seconds": round(sum(s["seconds"] for s in spans), 1), **real}  # fmt: skip
+
+
+def _real(db: Session, project: Project, job: Job, since) -> dict:
+    """On the owner's uncapped test site (Reed, 6 Nov), what this run really cost at its
+    providers (Usage), and whether some of it isn't reported yet; nothing anywhere else."""
+    from app.credits import actual_usd, uncapped
+    from app.models.accounts import User
+
+    if not uncapped(db.get(User, job.input[RUN].get("by") or 0)):
+        return {}
+    usd, pending = actual_usd(db, project.id, since)
+    return {"actual_usd": float(round(usd, 2)), "unreported": pending}
 
 
 def open_items(db: Session, project: Project, spans: list[dict], asked: str = "") -> list[str]:
@@ -266,6 +279,9 @@ def shown(note: dict | str | None, owner: bool) -> dict | None:
     else:
         pct = round(100 * used / up_to) if up_to else 0
         cost = f"{round(used)} credits used of up to {price(up_to)} ({pct}% of the budget)"
+    if owner and note.get("actual_usd") is not None:  # the providers' own, never flat credits
+        cost = f"${note['actual_usd']:.2f} spent on this run (the providers' own charges)"
+        cost += ", and some cost not reported yet" if note.get("unreported") else ""
     still = note.get("open", [])
     return {**note, "open": still, "needs": needs(note["needs"], bool(still or note["unsure"])),
             "cost": cost, "up_to": float(up_to),

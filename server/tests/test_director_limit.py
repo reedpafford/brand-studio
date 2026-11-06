@@ -4,32 +4,43 @@ the owner, the owner's own run too. One OK grants another limit's worth, not one
 
 from decimal import Decimal
 
-import pytest
-
 from app import director
 from app.credits import PAST_APPROVED
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.settings import get_settings
 from tests.test_director import _made, _run
 from tests.test_freestyle_dialogue import _run as _run_fakes
 
 
-@pytest.fixture(autouse=True)
-def _limits_on(monkeypatch):
-    """Reed turned the limits off for now (6 Nov); these tests keep them working for when
-    they come back."""
-    monkeypatch.setattr(director, "OWN_LIMITS", True)
-
-
-def test_with_the_limits_off_a_run_never_waits_at_its_own_limit(app, db, owner, editor,
-                                                                monkeypatch):  # fmt: skip
-    monkeypatch.setattr(director, "OWN_LIMITS", False)
+def test_uncapped_the_owners_run_never_waits_at_its_own_limit_nor_stops_at_its_cost(
+    app, db, owner, editor, monkeypatch
+):
+    """Reed, 6 Nov (BS_OWNER_UNCAPPED, his test site): the owner's own run has no own limit and
+    no real-cost backstop; <allowed> says there's none. Off, both hold (the tests below)."""
+    monkeypatch.setattr(get_settings(), "owner_uncapped", True)
     monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))  # a run's own is about 61
+    monkeypatch.setattr(director, "spent", lambda db, run_id: director.MAX_USD * 3)
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     _run(app, db)
-    assert not [j for j in _held(db, pid) if "own limit" in (j.input.get("held") or "")]
-    assert director.own_usd(db, "any") == Decimal("Infinity")
+    assert not _held(db, pid)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    turn = director.turns(db, db.get(Project, pid))[-1]
+    assert director.own_usd(db, turn.input[director.RUN]).is_infinite()
+    assert director._limit_usd(director.own_usd(db, turn.input[director.RUN])) is None
+
+
+def test_uncapped_an_editors_run_still_waits_at_its_own_limit(app, db, owner, editor,
+                                                             monkeypatch):  # fmt: skip
+    monkeypatch.setattr(get_settings(), "owner_uncapped", True)
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    assert any("own limit" in (j.input.get("held") or "") or j.input.get("held") ==
+               PAST_APPROVED for j in _held(db, pid))  # fmt: skip
 
 
 def _held(db, pid) -> list[Job]:
@@ -124,10 +135,12 @@ def test_the_real_cost_backstop_grows_with_each_ok(app, db, owner, editor, monke
     (held,) = _held(db, pid)
     (run,) = {j.input[director.RUN]["id"] for j in db.query(Job).filter(Job.project_id == pid)
               if j.input.get(director.RUN)}  # fmt: skip
-    assert director.own_usd(db, run) == director.MAX_USD  # no OK yet
+    by = {"id": run, "by": db.query(Job).filter(Job.project_id == pid).first().input[
+        director.RUN]["by"]}  # fmt: skip
+    assert director.own_usd(db, by) == director.MAX_USD  # no OK yet
     assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
     db.expire_all()
-    assert director.own_usd(db, run) == 2 * director.MAX_USD
+    assert director.own_usd(db, by) == 2 * director.MAX_USD
     monkeypatch.setattr(director, "spent", lambda db, run_id: director.MAX_USD + 1)  # past $5
     _run(app, db)
     out = editor.get(f"/projects/{pid}/director").json()

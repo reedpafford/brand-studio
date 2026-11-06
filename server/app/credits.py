@@ -261,9 +261,37 @@ def price(total: Decimal) -> int:
     return max(1, math.ceil(total))
 
 
+def uncapped(user: User | None) -> bool:
+    """The owner's own work, on a site with BS_OWNER_UNCAPPED (Reed, 6 Nov): no monetary hold
+    at all. Never an editor's, and nowhere the setting is off."""
+    from app.settings import get_settings
+
+    return bool(user is not None and user.is_owner and get_settings().owner_uncapped)
+
+
+def actual_usd(db: Session, project_id: int, since=None) -> tuple[Decimal, bool]:
+    """What the providers really charged for this video's jobs from `since` (Usage.cost_usd:
+    Claude's planning, directing, reviews and watches, the media and voices, and billable
+    failures and retries), and whether some of it isn't reported yet (a job still running, or
+    a charge recorded from its price because its provider didn't say)."""
+    from app.models.jobs import Usage
+
+    mine = select(Job.id).where(Job.project_id == project_id)
+    if since is not None:
+        mine = mine.where(Job.created_at >= since)
+    real = select(func.coalesce(func.sum(Usage.cost_usd), 0)).where(Usage.job_id.in_(mine))
+    paid = db.scalar(real.where(Usage.estimated.is_(False)))
+    guessed = db.scalar(select(func.count()).where(Usage.job_id.in_(mine), Usage.estimated))
+    going = db.scalar(select(func.count()).where(Job.id.in_(mine),
+                                                 Job.status == JobStatus.running))  # fmt: skip
+    return Decimal(paid), bool(guessed or going)
+
+
 def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
     """Why `total` more credits on this video would go over, or "" when it fits its budget
-    (the owner's too: work made by itself stays within it)."""
+    (the owner's too: work made by itself stays within it, unless `uncapped`)."""
+    if uncapped(user):
+        return ""
     if budget_used(db, project) + total <= project.budget_credits:  # as the hold counts it
         return ""
     return "would go over this video's budget."
@@ -276,7 +304,10 @@ PAST_APPROVED = f"{WAIT_OK}this goes past the price approved."  # a freestyle's 
 def past_approved(db: Session, project: Project, user: User, credits: Decimal) -> str:
     """A run's step its Make it doesn't cover: PAST_APPROVED, and it waits for the owner on a
     card, the owner's own run too (rule 34; Reed, 4 Nov: anything beyond the authorized budget
-    needs the owner's OK); a freestyle's past the prices its sends were approved at; else ""."""
+    needs the owner's OK); a freestyle's past the prices its sends were approved at; else "".
+    Never for the owner's own work when `uncapped`."""
+    if uncapped(user):
+        return ""
     if _over_freestyle(db, project, user, credits):
         return PAST_APPROVED
     return PAST_APPROVED if past_price(db, project, user, credits) else ""
@@ -288,7 +319,8 @@ def past_price(db: Session, project: Project, user: User, credits: Decimal) -> b
     figures."""
     from app import asks
 
-    return not _over_freestyle(db, project, user, credits) and asks.past_run(db, project, credits)
+    return (not uncapped(user) and not _over_freestyle(db, project, user, credits)
+            and asks.past_run(db, project, credits))  # fmt: skip
 
 
 def _over_freestyle(db: Session, project: Project, user: User, credits: Decimal) -> bool:
@@ -352,11 +384,15 @@ def real_spent(db: Session, settings) -> Decimal:
     return Decimal(db.scalar(query)) * USD_PER_CREDIT
 
 
-def real_budget_refusal(db: Session, settings, provider: str, credits: Decimal) -> str:
+def real_budget_refusal(db: Session, settings, provider: str, credits: Decimal,
+                        owner: bool = False) -> str:  # fmt: skip
     """The plain refusal when a paid call of `credits` would take the test site's real spend
     past its budget (and on the test site with no budget or start time set, any paid call: the
-    test site deploys many times an hour, so the count never restarts by itself); else ""."""
+    test site deploys many times an hour, so the count never restarts by itself); else "".
+    The owner's own call with `owner_uncapped` and no budget set (0) is never stopped."""
     if provider in FREE_LANES or not real_capped(settings):
+        return ""
+    if owner and settings.owner_uncapped and not settings.real_budget_usd > 0:
         return ""
     budget = Decimal(str(settings.real_budget_usd))
     if not settings.real_budget_since:  # not set up: nothing paid runs

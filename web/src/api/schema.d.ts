@@ -8099,7 +8099,18 @@ export interface components {
             status: components["schemas"]["Status"];
             spent: components["schemas"]["Money"];
             up_to: components["schemas"]["Money"] | null;
-            budget: components["schemas"]["Money"];
+            budget: components["schemas"]["Money"] | null;
+            expected?: components["schemas"]["Money"] | null;
+            /**
+             * Actual
+             * @default false
+             */
+            actual: boolean;
+            /**
+             * Unreported
+             * @default false
+             */
+            unreported: boolean;
             folder: components["schemas"]["Named"] | null;
             /** Format */
             format: string;
@@ -9538,6 +9549,11 @@ export interface components {
             past?: components["schemas"]["AskPrice"] | null;
             usual?: components["schemas"]["AskPrice"] | null;
             /**
+             * Expected
+             * @default false
+             */
+            expected: boolean;
+            /**
              * Clips
              * @default []
              */
@@ -10370,6 +10386,15 @@ export interface components {
             up_to: number;
             /** Spent Usd */
             spent_usd: number | null;
+            /** Actual Usd */
+            actual_usd?: number | null;
+            /**
+             * Unreported
+             * @default false
+             */
+            unreported: boolean;
+            /** Expected Usd */
+            expected_usd?: number | null;
             /** Changed */
             changed: components["schemas"]["ChangedClipOut"][];
             stopped: components["schemas"]["RunStoppedOut"] | null;
@@ -13261,6 +13286,11 @@ export interface components {
             budget?: number | null;
             /** Usd */
             usd?: number | null;
+            /**
+             * Expected
+             * @default false
+             */
+            expected: boolean;
         };
         /** PriceOut */
         app__routes__library__PriceOut: {
