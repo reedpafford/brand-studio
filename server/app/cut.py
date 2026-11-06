@@ -111,17 +111,9 @@ def _take_seconds(db: Session, take: ClipTake | None, planned: float) -> float:
     return float(asked or planned)
 
 
-def _omni(db: Session, project: Project, clips: list[ProjectClip]) -> dict[str, list[float]]:
-    """A narrated video's clips whose talker says its lines on Omni (app/model_map), with the
-    cut seconds those lines are said (the narration is muted then, Reed, 4 Nov)."""
-    from app import model_map
-
-    return {clips[n].clip_id: [a, b] for n, (a, b) in model_map.spoken(db, project, clips).items()}
-
-
 def synced(p: dict) -> bool:
-    """A piece whose picture says the words: a talker's lip-sync, or a line said on Omni."""
-    return bool(p.get("lipsync") or p.get("omni"))
+    """A piece whose picture says the words: a talker's lip-sync."""
+    return bool(p.get("lipsync"))
 
 
 def _heard(db: Session, take: ClipTake | None) -> list[dict]:
@@ -143,7 +135,6 @@ def base(db: Session, project: Project) -> dict:
         lengths = ends_at(lengths, song_end(voice)) if mode == "song" else lengths
     pieces, at = [], 0.0
     synced = talker.clips(db, project)  # a talker's clips lip-sync the narration
-    omni = _omni(db, project, clips) if mode == "narrated" else {}  # lines said on Omni
     made = next(iter(host.rows(db, project)[1:]), None) if synced else None
     voiced = made.file_id if made else None  # the talker take in use (a take's made_with "talker")
     for r, d in zip(clips, lengths, strict=False):
@@ -151,14 +142,12 @@ def base(db: Session, project: Project) -> dict:
                        "source": label(r.clip_id), "start": round(at, 2),
                        "end": round(at + d, 2), "from": 0.0, "whole": mode == "takes",
                        "edited": False, "director": False,
-                       "lipsync": r.clip_id in synced, "omni": r.clip_id in omni,
+                       "lipsync": r.clip_id in synced,
                        **({"picture": round(d, 2), "voiced": voiced}
-                          if r.clip_id in synced else {}),
-                       **({"picture": round(d, 2)} if r.clip_id in omni else {})})  # fmt: skip
+                          if r.clip_id in synced else {})})  # fmt: skip
         at += d
     total = round(at, 2)
     tl = {
-        "omni": omni,
         "mode": mode,
         "pieces": pieces,
         "length": total,

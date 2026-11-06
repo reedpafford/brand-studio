@@ -75,7 +75,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "aspect_ratio": project.aspect_ratio,
         "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
     }, {k: v for k, v in files.items() if v})  # fmt: skip
-    take, sent = model_map.fit(model, take, sent, model_map.speech(db, project, clip))  # Omni
+    take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
     return {
         "step": "clip_take",
         "project_id": project.id,
@@ -88,9 +88,6 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
                 db, project, images, model.id, (clip.song_slice or {}).get("sung_shots")
             ),
             **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
-            **(
-                {"speaks": True} if model_map.speaks(clip, project) else {}
-            ),  # on Omni, in its voice
         },
         "brand_id": project.brand_id,
         "fit_images_to": LONG_SIDE[resolution],
