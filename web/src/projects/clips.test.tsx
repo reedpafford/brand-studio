@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
+import { cutOut } from "../test/cut";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
@@ -242,27 +243,28 @@ test("the video waits for every approval, says how many are left, then stitches 
   const calls2 = fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({ approved: true, file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]],
-    "POST /projects/9/cut": [202, { number: null, making: { number: 1, percent: 0, doing: "putting the clips together", about_seconds: 10, changes: 0 } }],
+    "GET /projects/9/cut": [200, cutOut({ number: null, file_id: null, versions: [] })],
+    "POST /projects/9/cut": [202, cutOut({ number: null, file_id: null, making: { number: 1, percent: 0, doing: "putting the clips together", about_seconds: 10, changes: 0 } })],
   });
   open("?stage=final");
-  const make = await screen.findByRole("button", { name: "Make the video" });
+  const make = await screen.findByRole("button", { name: /Make the cut/ });
   await vi.waitFor(() => expect(make).toBeEnabled());
   await userEvent.click(make);
   await vi.waitFor(() => expect(calls2.some((c) => c.key === "POST /projects/9/cut")).toBe(true));
 });
 
-test("a finished video is on the Final video step: it can be played and downloaded, and says when it is out of date", async () => {
+test("a finished video is on the Final video step: the cut editor plays it and says what isn't in the cut yet", async () => {
   setViewport(1440);
   fakeServer({
     ...base,
     "GET /projects/9/clips": [200, [clip({ approved: true, file_id: 70, takes: [{ id: 5, number: 1, file_id: 70 }], picked_take_id: 5 })]],
-    "GET /projects/9/video": [200, { file_id: 90, take_ids: [4], out_of_date: true }],
+    "GET /projects/9/video": [200, { number: 1, file_id: 90, take_ids: [4], out_of_date: true }],
+    "GET /projects/9/cut": [200, cutOut({ number: 1, out_of_date: true })],
   });
   open("?stage=final");
-  const box = await screen.findByLabelText("Final video");
-  expect(within(box).getByRole("link", { name: "Download the older video" })).toHaveAttribute("download", "Mia buys the dip.mp4");
-  expect(within(box).getByText("Out of date", { selector: "span" })).toBeInTheDocument();
-  expect(within(box).getByRole("button", { name: "Make the video again" })).toBeInTheDocument();
+  const box = await screen.findByLabelText("Cut editor");
+  expect(within(box).getByRole("heading", { name: "Cut 1" })).toBeInTheDocument();
+  expect(within(box).getByRole("button", { name: /Make the cut/ })).toBeInTheDocument();
 });
 
 test("the storyboard's Next: Clips opens this step once every frame is approved", async () => {

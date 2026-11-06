@@ -46,7 +46,7 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
   }
   await page.getByRole("button", { name: /Next: Clips/ }).click();
 
-  // Clips: write the prompts, make a take, approve it. Final video: put the clips together.
+  // Clips: write the prompts, make a take, approve it. Final video: the cut editor makes the first cut (free).
   await page.getByRole("button", { name: /Write clip prompts/ }).click();
   await expect(page.getByRole("listitem", { name: "Clip c1" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: /^Make clip/ }).first().click();
@@ -54,7 +54,7 @@ test("a script becomes a finished video, step by step, at no cost", async ({ pag
   await expect(page.getByText(/^Approved by the check/).first()).toBeVisible({ timeout: 90_000 });
   await expect(page.getByRole("button", { name: "Undo approval" }).first()).toBeVisible();
   await page.getByRole("button", { name: /Next: Final video/ }).click();
-  await page.getByRole("button", { name: "Make the video", exact: true }).click();
+  await page.getByRole("button", { name: /^Make the cut/ }).click();
   await expect(page.getByRole("link", { name: "Download MP4" })).toBeVisible({ timeout: 60_000 });
 
   // It cost nothing real: every job is a stand-in, and the video is a real MP4 file.

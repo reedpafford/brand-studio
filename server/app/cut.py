@@ -12,6 +12,7 @@ keeps playing. A story video's takes sit back to back (trims ripple); a narrated
 video's pieces share their edges on the voice's clock (a trim moves the edge)."""
 
 import copy
+import re
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -116,6 +117,17 @@ def synced(p: dict) -> bool:
     return bool(p.get("lipsync"))
 
 
+def poster(db: Session, take_id: int | None) -> int | None:
+    """A take's picture for the timeline: the storyboard still it was made from, if any."""
+    from app.models.storyboards import StoryboardFrame
+
+    take = db.get(ClipTake, take_id) if take_id else None
+    job = db.get(Job, take.job_id) if take else None
+    given = ((job.input or {}).get("files") or {}).get("reference_images") or [] if job else []
+    return db.scalar(select(StoryboardFrame.file_id).where(StoryboardFrame.file_id.in_(given))
+                     .limit(1)) if given else None  # fmt: skip
+
+
 def _heard(db: Session, take: ClipTake | None) -> list[dict]:
     from app.word_splice import _heard
 
@@ -188,7 +200,7 @@ def _bed_name(db: Session, voice: SongTake) -> str:
                                       Job.input["step"].as_string() == "narration_bed")
                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
     said = ((job.input or {}).get("input") or {}).get("prompt", "") if job else ""
-    return said.split(",")[0].split(".")[0].strip()[:40] or "Music"
+    return re.split(r"[,.:;]", said)[0].strip()[:40] or "Music"
 
 
 def active(db: Session, project: Project) -> list[CutEdit]:
@@ -426,7 +438,9 @@ def doing(tl: dict) -> str:
     """What making it does, as the banner says it."""
     music = ", music under the voice" if tl["music"] and not tl["music"]["removed"] else ""
     if tl["presenter"]:
-        return f"laying {tl['presenter']['name']} over the B-roll{music}"
+        name = tl["presenter"]["name"]
+        name = "the presenter" if name == "The presenter" else name
+        return f"laying {name} over the B-roll{music}"
     if tl["mode"] == "narrated":
         return f"putting the B-roll under the voice{music}"
     return "putting the clips to the song" if tl["mode"] == "song" else "putting the clips together"

@@ -11,7 +11,7 @@ import { BriefEditor } from "./BriefEditor";
 import { ClipsPane } from "./ClipsPane";
 import { Notes, useEnhance } from "./Enhance";
 import { EstimateNote } from "./EstimateNote";
-import { FinalPane } from "./FinalPane";
+import { CutEditor } from "../cut/CutEditor";
 import { Meter, WaitingBadge } from "./Meter";
 import { useMayManageVideo, useVideoActions } from "./ReleaseVideo";
 import { VideoMenu } from "../videos/VideoHead";
@@ -82,7 +82,13 @@ export function ProjectPage() {
     setPanel(true);
   };
   const target = { id: id, name: p.name, creditsUsed: p.credits_used };
-  const menu = mayManage(p) && <VideoMenu title={p.name} onRelease={p.script_draft_id ? () => video.release(target) : undefined} onArchive={p.script_draft_id ? undefined : () => video.archive(target)} />;
+  const menu = mayManage(p) && (
+    <VideoMenu
+      title={p.name}
+      onRelease={p.script_draft_id ? () => video.release(target) : undefined}
+      onArchive={p.script_draft_id ? undefined : () => video.archive(target)}
+    />
+  );
   // Only its maker or the owner may change a video (the server refuses the rest): anyone else can look, with every changing press greyed out.
   const lookOnly = !mayManage(p) && !p.archived_at;
   const maker = p.created_by_name || "someone else";
@@ -109,18 +115,31 @@ export function ProjectPage() {
         // On a phone the video's own line replaces the brand bar: back, name, how much is used, and a thin meter.
         <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-border bg-bg">
           <div className="flex h-14 items-center gap-1 px-2">
-            <Link to={`/b/${brandId}/videos`} aria-label="Videos" className="grid size-control shrink-0 place-items-center rounded-md text-accent-text hover:bg-surface-2">
+            <Link
+              to={`/b/${brandId}/videos`}
+              aria-label="Videos"
+              className="grid size-control shrink-0 place-items-center rounded-md text-accent-text hover:bg-surface-2"
+            >
               <ChevronLeft size={20} strokeWidth={1.75} aria-hidden />
             </Link>
             {renaming === null ? (
               <>
                 <h1 className="min-w-0 flex-1 truncate type-card">{p.name}</h1>
-                <span className={`shrink-0 text-sm font-medium tabular-nums ${p.budget_pct > 100 ? "text-danger" : p.budget_pct >= 75 ? "text-warning" : "text-accent-text"}`}>
+                <span
+                  className={`shrink-0 text-sm font-medium tabular-nums ${p.budget_pct > 100 ? "text-danger" : p.budget_pct >= 75 ? "text-warning" : "text-accent-text"}`}
+                >
                   {Math.round(p.budget_pct)}%<span className="sr-only"> of the budget used</span>
                 </span>
-                {!lookOnly && <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
-                  <Pencil size={20} strokeWidth={1.75} aria-hidden />
-                </button>}
+                {!lookOnly && (
+                  <button
+                    type="button"
+                    aria-label="Rename"
+                    onClick={() => setRenaming(p.name)}
+                    className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2"
+                  >
+                    <Pencil size={20} strokeWidth={1.75} aria-hidden />
+                  </button>
+                )}
                 {menu}
               </>
             ) : (
@@ -128,7 +147,10 @@ export function ProjectPage() {
             )}
           </div>
           <div className="h-1 bg-surface-2" aria-hidden>
-            <div className={`h-full ${p.budget_pct > 100 ? "bg-danger" : p.budget_pct >= 75 ? "bg-warning" : "bg-accent"}`} style={{ width: `${Math.min(100, Math.max(0, p.budget_pct))}%` }} />
+            <div
+              className={`h-full ${p.budget_pct > 100 ? "bg-danger" : p.budget_pct >= 75 ? "bg-warning" : "bg-accent"}`}
+              style={{ width: `${Math.min(100, Math.max(0, p.budget_pct))}%` }}
+            />
           </div>
         </div>
       )}
@@ -137,9 +159,16 @@ export function ProjectPage() {
           rail && (
             <h1 className="flex min-w-0 items-center gap-2 type-page">
               <span className="min-w-0 break-words">{p.name}</span>
-              {!lookOnly && <button type="button" aria-label="Rename" onClick={() => setRenaming(p.name)} className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2">
-                <Pencil size={20} strokeWidth={1.75} aria-hidden />
-              </button>}
+              {!lookOnly && (
+                <button
+                  type="button"
+                  aria-label="Rename"
+                  onClick={() => setRenaming(p.name)}
+                  className="grid size-control shrink-0 place-items-center rounded-md text-muted hover:bg-surface-2"
+                >
+                  <Pencil size={20} strokeWidth={1.75} aria-hidden />
+                </button>
+              )}
             </h1>
           )
         ) : (
@@ -151,7 +180,14 @@ export function ProjectPage() {
             }}
           >
             <div className="min-w-0 flex-1">
-              <Field label="Name" value={renaming} onChange={(e) => setRenaming(e.target.value)} error={rename.isError ? rename.error.message : null} maxLength={120} autoFocus />
+              <Field
+                label="Name"
+                value={renaming}
+                onChange={(e) => setRenaming(e.target.value)}
+                error={rename.isError ? rename.error.message : null}
+                maxLength={120}
+                autoFocus
+              />
             </div>
             <Button type="submit" busy={rename.isPending} disabled={!renaming.trim()}>
               Save
@@ -172,7 +208,12 @@ export function ProjectPage() {
         )}
       </div>
       {video.dialog}
-      {lookOnly && <Banner tone="info" title={`This is ${p.created_by_name ? `${maker}'s` : "someone else's"} video. You can look, but only ${maker} or the owner can change it.`} />}
+      {lookOnly && (
+        <Banner
+          tone="info"
+          title={`This is ${p.created_by_name ? `${maker}'s` : "someone else's"} video. You can look, but only ${maker} or the owner can change it.`}
+        />
+      )}
       {p.status === "needs_owner_approval" && <WaitingBadge />}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
@@ -189,25 +230,41 @@ export function ProjectPage() {
         {rail ? nextButton : nextButton && <ActionBar phone>{nextButton}</ActionBar>}
       </div>
       <ViewOnly on={lookOnly}>
-      {step === "brief" && (
-        <Card>
-          <BriefEditor project={p} hasScript={progress.script} onEditing={setEditingBrief} />
-        </Card>
-      )}
-      {step === "script" && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0">
-            <ScriptTab projectId={id} enhance={enhance} />
+        {step === "brief" && (
+          <Card>
+            <BriefEditor project={p} hasScript={progress.script} onEditing={setEditingBrief} />
+          </Card>
+        )}
+        {step === "script" && (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0">
+              <ScriptTab projectId={id} enhance={enhance} />
+            </div>
+            <div className="min-w-0">
+              <Notes e={enhance} />
+            </div>
           </div>
-          <div className="min-w-0">
-            <Notes e={enhance} />
-          </div>
-        </div>
-      )}
-      {step === "shots" && <BreakdownPane projectId={id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={setDirty} />}
-      {step === "storyboard" && <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "clips" && <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />}
-      {step === "final" && <FinalPane projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
+        )}
+        {step === "shots" && (
+          <BreakdownPane
+            projectId={id}
+            brandId={p.brand_id}
+            scriptVersion={script.data?.version ?? 0}
+            plannedSeconds={p.planned_seconds ?? 0}
+            used={p.credits_used}
+            budget={p.budget_credits}
+            line={line}
+            onShowLines={showLines}
+            onDirty={setDirty}
+          />
+        )}
+        {step === "storyboard" && (
+          <StoryboardPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} used={p.credits_used} budget={p.budget_credits} />
+        )}
+        {step === "clips" && (
+          <ClipsPane projectId={id} brandId={p.brand_id} aspect={p.aspect_ratio} projectName={p.name} used={p.credits_used} budget={p.budget_credits} />
+        )}
+        {step === "final" && <CutEditor projectId={id} aspect={p.aspect_ratio} projectName={p.name} />}
       </ViewOnly>
       {!rail && (
         <Card>

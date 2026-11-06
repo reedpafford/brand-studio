@@ -36,7 +36,11 @@ export function useCut(projectId: number) {
   const cut = useQuery({
     queryKey: ["project-cut", projectId],
     queryFn: async () => (await api.GET("/projects/{project_id}/cut", { params: { path: { project_id: projectId } } })).data ?? null,
-    refetchInterval: (q) => (q.state.data?.making ? 2000 : false),
+    // while it's made, while the director edits it, or while a sound effect is made
+    refetchInterval: (q) => {
+      const c = q.state.data;
+      return c && (c.making || c.director.editing || c.timeline.sfx.some((s) => s.state === "making")) ? 2000 : false;
+    },
   });
   const number = cut.data?.number;
   const seen = useRef(number);
