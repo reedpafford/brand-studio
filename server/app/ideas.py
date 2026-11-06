@@ -46,7 +46,7 @@ Sort = Literal["newest", "oldest", "name"]  # Newest is the latest activity (S-g
 class Status(BaseModel):
     kind: Kind
     words: str  # "Needs you"
-    reason: str | None = None  # "Check the scene plan", "14 of 24", "by Reed"
+    reason: str | None = None  # "Approve 2 looks", "14 of 24", "by Reed"
     at: UtcTime | None = None  # stopped or archived: when ("by Reed at 10:14", "Archived 28 Oct")
     made: int = 0  # working: clips with a take, of `total` (the card's bar)
     total: int = 0
