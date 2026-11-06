@@ -7,7 +7,7 @@
 # LOOK_BUDGET (with REPLICATE while real look samples are switched on), and LANGUAGE_TESTS,
 # LANGUAGE_BUDGET (with ANTHROPIC while real language tests are switched on), and with the
 # stand-ins off: REAL_BUDGET, REAL_SINCE, ITEM_CHECKS_PAID, NARRATION_MUSIC_PAID,
-# NARRATION_MUSIC_BUDGET and SITE_READ_REAL; ITEM_CHECK_SCOPE either way.
+# NARRATION_MUSIC_BUDGET and SITE_READ_REAL; ITEM_CHECK_SCOPE and OWNER_UNCAPPED either way.
 set -euo pipefail
 
 main() {
@@ -51,7 +51,8 @@ main() {
       echo "REPLICATE_API_TOKEN=$REPLICATE"
       echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
       echo "HEYGEN_API_KEY=${HEYGEN:-}"  # UGC talkers (HeyGen Avatar IV)
-      echo "BS_REAL_BUDGET_USD=${REAL_BUDGET:-0}"  # every paid call stops at it (0: none runs)
+      echo "BS_REAL_BUDGET_USD=${REAL_BUDGET:-0}"  # every paid call stops at it (0: none runs,
+      # but the owner's own when he's uncapped, below)
       if [ -n "${REAL_SINCE:-}" ]; then echo "BS_REAL_BUDGET_SINCE=$REAL_SINCE"; fi  # unset: none runs
       # Each paid path that's off until a real test is approved (all inside the budget above).
       echo "BS_ITEM_CHECKS_PAID=${ITEM_CHECKS_PAID:-false}"  # the take check (eyes, screens, cast)
@@ -70,6 +71,7 @@ main() {
       *) echo "::warning::NEXT_ITEM_CHECK_SCOPE is key_takes, all_takes or everything; using key_takes." >&2
          echo "BS_ITEM_CHECK_SCOPE=key_takes" ;;
     esac
+    echo "BS_OWNER_UNCAPPED=${OWNER_UNCAPPED:-false}"  # Reed, 6 Nov: no money holds on the owner's own work
     if [ -n "${KIE:-}" ]; then  # Suno through KIE, stopped at the test budget
       hosts=$(printf '%s' "${KIE_HOSTS:-}" | tr -d ' ' | sed 's/[^,][^,]*/"&"/g')
       echo "BS_KIE_SUNO=true"

@@ -145,6 +145,33 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
             + director.own_limit())  # fmt: skip
 
 
+TYPICAL_TURNS = 14  # a run's usual turns, treatment to deliver: for its expected cost only
+WATCH_LOOKS = 12  # a cut watch's usual pictures (its frame strips, the words and the facts)
+
+
+def expected(db: Session, draft: ScriptDraft, video=None) -> Decimal:
+    """What a run will probably cost (Reed, 6 Nov: the owner's test site, `owner_uncapped`):
+    with enough finished videos of its format and style, their credits a second
+    (`scorecard.forecast`); else the version's own price (its first takes and their checks),
+    its song or narration and the presenter's host made once, and the director's usual turns
+    and one watch of the cut, at their own prices. No allowance, no remakes bound: an estimate,
+    never a limit."""
+    from app import director_song, host, narration, scorecard, watch_cut
+
+    found = scorecard.forecast(db, draft, video)
+    if found["basis"] != "estimate":
+        return Decimal(str(found["credits"]))
+    script = db.get(Script, draft.script_id)
+    ws = script.workspace_id
+    seconds = quoted_seconds(db, draft, video)
+    said = narration.longest(db, draft, video) if script.kind == "narrated" else seconds
+    audio = director_song.price(db, draft) / (1 + director_song.REMAKES)  # made once
+    talks = host.run_price(db, draft, said, video, 0)
+    turns = TYPICAL_TURNS * estimate(db, ws, "write-claude", Decimal(1), {})
+    watch = estimate(db, ws, watch_cut.KIND, Decimal(WATCH_LOOKS), {})
+    return version_cost(db, draft, video) + audio + talks + turns + watch
+
+
 def _looks(db: Session, project: Project) -> tuple:
     """The looks still to make (rule 36: up to what Make a look can charge): each role's
     first look and each one with none in the video's look, by the quote's own rules."""

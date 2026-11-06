@@ -6,6 +6,7 @@ Failed and cancelled jobs stop counting; on success the real cost replaces the e
 
 import logging
 import math
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -261,9 +262,64 @@ def price(total: Decimal) -> int:
     return max(1, math.ceil(total))
 
 
+def uncapped(user: User | None) -> bool:
+    """The owner's own work, on a site with BS_OWNER_UNCAPPED (Reed, 6 Nov): no monetary hold
+    at all. Never an editor's, and nowhere the setting is off."""
+    from app.settings import get_settings
+
+    return bool(user is not None and user.is_owner and get_settings().owner_uncapped)
+
+
+@dataclass
+class Spent:
+    """A video's (or a run's) spend at its providers, as the owner's uncapped site shows it."""
+
+    usd: Decimal  # every charge: as the provider reported it, else at its list price
+    listed: Decimal  # of it, counted at list price (the provider gave no figure)
+    pending: bool  # a job still running: its cost isn't reported yet
+
+    def words(self, where: str) -> str:
+        """ "$5.00 spent on this run, $4.00 of it at list price, more not reported yet"."""
+        said = f"${self.usd:.2f} spent {where}"
+        said += f", ${self.listed:.2f} of it at list price" if self.listed else ""
+        return said + (", more not reported yet" if self.pending else "")
+
+
+def actual_usd(db: Session, project_id: int, since=None, until=None) -> Spent:
+    """What this video's jobs from `since` (to `until`) cost at their providers: each job's
+    Usage (Claude's planning, directing, reviews and watches, the media and voices, billable
+    failures and retries), its estimated rows counted at list price; a job sent with no Usage
+    row (a dropped connection, as `real_spent` counts it) at its own price; a job still
+    running isn't reported yet."""
+    from app.models.jobs import Usage
+
+    window = [Job.project_id == project_id]
+    window += [Job.created_at >= since] if since is not None else []
+    window += [Job.created_at <= until] if until is not None else []
+    jobs = db.scalars(select(Job).where(*window)).all()
+    rows: dict[int, list] = {}
+    for u in db.scalars(select(Usage).where(Usage.job_id.in_([j.id for j in jobs] or [0]))):
+        rows.setdefault(u.job_id, []).append(u)
+    usd = listed = Decimal(0)
+    pending = False
+    for j in jobs:
+        if mine := rows.get(j.id):
+            usd += sum((Decimal(u.cost_usd) for u in mine), Decimal(0))
+            listed += sum((Decimal(u.cost_usd) for u in mine if u.estimated), Decimal(0))
+        elif j.status == JobStatus.running:
+            pending = True
+        elif (j.provider_ref and not j.provider_ref.startswith(STAND_IN)
+              and j.provider not in FREE_LANES):  # fmt: skip
+            usd += j.credits * USD_PER_CREDIT
+            listed += j.credits * USD_PER_CREDIT
+    return Spent(usd.quantize(Decimal("0.01")), listed.quantize(Decimal("0.01")), pending)
+
+
 def fits(db: Session, project: Project, user: User, total: Decimal) -> str:
     """Why `total` more credits on this video would go over, or "" when it fits its budget
-    (the owner's too: work made by itself stays within it)."""
+    (the owner's too: work made by itself stays within it, unless `uncapped`)."""
+    if uncapped(user):
+        return ""
     if budget_used(db, project) + total <= project.budget_credits:  # as the hold counts it
         return ""
     return "would go over this video's budget."
@@ -276,7 +332,10 @@ PAST_APPROVED = f"{WAIT_OK}this goes past the price approved."  # a freestyle's 
 def past_approved(db: Session, project: Project, user: User, credits: Decimal) -> str:
     """A run's step its Make it doesn't cover: PAST_APPROVED, and it waits for the owner on a
     card, the owner's own run too (rule 34; Reed, 4 Nov: anything beyond the authorized budget
-    needs the owner's OK); a freestyle's past the prices its sends were approved at; else ""."""
+    needs the owner's OK); a freestyle's past the prices its sends were approved at; else "".
+    Never for the owner's own work when `uncapped`."""
+    if uncapped(user):
+        return ""
     if _over_freestyle(db, project, user, credits):
         return PAST_APPROVED
     return PAST_APPROVED if past_price(db, project, user, credits) else ""
@@ -288,7 +347,8 @@ def past_price(db: Session, project: Project, user: User, credits: Decimal) -> b
     figures."""
     from app import asks
 
-    return not _over_freestyle(db, project, user, credits) and asks.past_run(db, project, credits)
+    return (not uncapped(user) and not _over_freestyle(db, project, user, credits)
+            and asks.past_run(db, project, credits))  # fmt: skip
 
 
 def _over_freestyle(db: Session, project: Project, user: User, credits: Decimal) -> bool:
@@ -359,11 +419,15 @@ def real_spent(db: Session, settings) -> Decimal:
     return total * USD_PER_CREDIT + over
 
 
-def real_budget_refusal(db: Session, settings, provider: str, credits: Decimal) -> str:
+def real_budget_refusal(db: Session, settings, provider: str, credits: Decimal,
+                        owner: bool = False) -> str:  # fmt: skip
     """The plain refusal when a paid call of `credits` would take the test site's real spend
     past its budget (and on the test site with no budget or start time set, any paid call: the
-    test site deploys many times an hour, so the count never restarts by itself); else ""."""
+    test site deploys many times an hour, so the count never restarts by itself); else "".
+    The owner's own call with `owner_uncapped` and no budget set (0) is never stopped."""
     if provider in FREE_LANES or not real_capped(settings):
+        return ""
+    if owner and settings.owner_uncapped and not settings.real_budget_usd > 0:
         return ""
     budget = Decimal(str(settings.real_budget_usd))
     if not settings.real_budget_since:  # not set up: nothing paid runs

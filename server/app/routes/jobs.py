@@ -290,7 +290,7 @@ def enqueue(
     later step this press already pays for (e.g. Change it's still or take), checked together.
     A held job on a video gets its card (`asks.held`)."""
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
-    if no := real_budget_refusal(db, get_settings(), provider, credits + hold):
+    if no := real_budget_refusal(db, get_settings(), provider, credits + hold, user.is_owner):
         raise HTTPException(409, no)  # the Producer's cap, before anything is reserved
     if project is not None:
         lock(db, Project, project.id)
