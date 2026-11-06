@@ -92,7 +92,7 @@ export function Item({ t, words, why, owner, children, first, excerpt, ref }: { 
           <div className="min-w-0 space-y-1 empty:hidden">
             {story ? (
               <TreatmentCard t={story} changed={t.text.startsWith("Changed the treatment")} />
-            ) : going ? (
+            ) : going && words != null ? (
               <p className="flex items-center gap-2 text-sm text-muted">
                 <span aria-hidden className="inline-flex h-5 items-center gap-1">
                   <i className="size-1.5 rounded-full bg-faint" />
