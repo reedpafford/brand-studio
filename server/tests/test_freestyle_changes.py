@@ -5,6 +5,8 @@ During a run it's only a note, read at the next turn."""
 
 from decimal import Decimal
 
+import pytest
+
 from app import credits, director
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job
@@ -18,8 +20,9 @@ def _held(owner):
     return owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
 
 
-def _delivered(app, owner, editor, db) -> dict:
-    fs = editor.post("/freestyles", json=BODY).json()
+def _delivered(app, owner, editor, db, brand_id=None) -> dict:
+    body = {**BODY, "brand_id": brand_id} if brand_id else BODY
+    fs = editor.post("/freestyles", json=body).json()
     _run(app, db, ticks=4, start=False)  # the treatment, then its start card (S3-02)
     (first,) = _held(owner)
     owner.post(f"/jobs/{first['id']}/approve")
@@ -138,10 +141,15 @@ def test_a_model_switch_before_the_run_moves_its_price_and_past_the_ok_only_the_
     assert fs.up_to == run_price(db, draft, video) > cheaper
 
 
-def test_after_a_change_the_header_the_run_card_and_the_note_say_one_up_to(app, owner, editor, db):
+@pytest.mark.parametrize("branded", [False, True])
+def test_after_a_change_the_header_the_run_card_and_the_note_say_one_up_to(
+    app, owner, editor, db, branded
+):
     """A freestyle's "up to" is its sends' approved total: the header, the change's run card and
-    its note agree (QA on #1354: the change's run alone read its own price)."""
-    fs = _delivered(app, owner, editor, db)
+    its note agree (QA on #1354: the change's run alone read its own price), in a brand too."""
+    from tests.conftest import first_brand
+
+    fs = _delivered(app, owner, editor, db, first_brand(owner) if branded else None)
     editor.post(f"/freestyles/{fs['id']}/messages", json={"text": CHANGE})
     _run(app, db, ticks=4, start=False)
     (held,) = _held(owner)
