@@ -1249,6 +1249,10 @@ def test_past_the_first_runs_price_the_card_says_the_boards_words_in_its_figures
     past = _said(m["past"], True)
     assert card["question"] == f"{m['what']}? That goes {past} past the budget."
     total = round(m["spent"]["usd"] + m["up_to"]["usd"], 2)
+    assert m["past"]["usd"] > 0 and m["past"]["usd"] == round(total - m["budget"]["usd"], 2)
+    waiting = db.query(Job).filter(Job.project_id == pid, Job.status == "needs_owner_approval")
+    judged = sum(Decimal(j.input[asks.HELD_CREDITS]) for j in waiting)  # what the hold judged
+    assert judged > 0 and m["up_to"]["credits"] >= float(judged)  # Approve covers all of it
     assert card["why"].endswith(
         f"takes this video to up to ${total:.2f} ({_said(m['spent'], True)} spent plus up to "
         f"{_said(m['up_to'], True)}); its budget is {_said(m['budget'], True)}."
@@ -1256,6 +1260,8 @@ def test_past_the_first_runs_price_the_card_says_the_boards_words_in_its_figures
     assert m["over"] == "the budget" and card["can"] == ["approve", "keep"]
     theirs = next(c for c in editor.get(f"/projects/{pid}/asks").json() if c["id"] == card["id"])
     t = theirs["money"]
+    sums = t["spent"]["credits"] + t["up_to"]["credits"] - t["budget"]["credits"]
+    assert t["past"]["credits"] > 0 and t["past"]["credits"] == sums
     past = _said(t["past"], False)
     assert theirs["question"] == f"{t['what']}? That goes {past} past the budget."
     assert theirs["why"].endswith("The owner has been asked; nothing is charged while it waits.")
@@ -1291,12 +1297,15 @@ def test_past_a_later_runs_price_the_card_speaks_in_that_runs_own_figures(
         f"{m['what']}? That goes {_said(m['past'], True)} past the {p} approved for this run."
     )
     total = round(m["spent"]["usd"] + m["up_to"]["usd"], 2)
+    assert m["past"]["usd"] > 0 and m["past"]["usd"] == round(total - m["budget"]["usd"], 2)
     assert card["why"].endswith(
         f"takes this run to up to ${total:.2f} ({_said(m['spent'], True)} spent in this run plus "
         f"up to {_said(m['up_to'], True)}); this run's approved price is {p}."
     )  # fmt: skip
     theirs = next(c for c in editor.get(f"/projects/{pid}/asks").json() if c["id"] == card["id"])
     t = theirs["money"]
+    sums = t["spent"]["credits"] + t["up_to"]["credits"] - t["budget"]["credits"]
+    assert t["past"]["credits"] > 0 and t["past"]["credits"] == sums
     over = f"the {_said(t['budget'], False)} approved for this run"
     assert theirs["question"] == f"{t['what']}? That goes {_said(t['past'], False)} past {over}."
     assert "$" not in theirs["question"] + theirs["why"]

@@ -199,3 +199,11 @@ test("rule 34: on a later run the budget card goes past that run's own approved 
   expect(screen.getByText(/this run's approved price is \$2\.50\.$/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Approve · up to $0.90 more" })).toBeInTheDocument();
 });
+
+test("rule 34 on a phone: a later run's budget card is titled shorter, past this run's price", async () => {
+  setViewport(390);
+  const later = { ...budget, ask: { ...budget.ask, money: { ...money(ago(31)), past: price(0.6), over: "the $2.50 approved for this run" } } };
+  fakeServer({ ...base, "GET /needs-you": [200, { ...inbox, questions: [], stuck: [], money: [later] }] });
+  renderApp("/approvals");
+  expect(await screen.findByRole("heading", { name: "Redo 2 clips · $0.60 past this run’s price" })).toBeInTheDocument();
+});

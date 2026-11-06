@@ -512,6 +512,7 @@ def _start_job(db: Session, project: Project) -> Job | None:
 
 
 PAST_PRICE = "past_price"  # in a held job: past the price its run's Make it approved
+HELD_CREDITS = "held_credits"  # …and what the hold judged: the step with its check and redo
 
 
 def approved_run(
@@ -628,12 +629,9 @@ def held(db: Session, job: Job) -> None:
     ("Redo clips 9 and 12" is one card). An option's hold shows on its own question card."""
     if job.project_id is None or opts.ASK in job.input:
         return
-    from app.credits import PAST_APPROVED
 
     kind = ("start" if job.input.get(START) else "plan" if job.input.get(PLAN_OK)
             else "own" if job.input.get("own_grant") else "budget")  # fmt: skip
-    if kind == "budget" and job.input.get("held") == PAST_APPROVED:  # past the price approved:
-        job.input = {**job.input, PAST_PRICE: True}  # its own OK covers it
     if kind == "budget":
         for ask in db.scalars(
             select(Ask).where(
