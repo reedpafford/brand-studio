@@ -71,6 +71,7 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
                        for t in dict.fromkeys(p["take_id"] for p in tl["pieces"])},
            "voice": _key(db, voice.file_id) if voice else None,
            "last_word": tl.get("last_word") or 0.0,
+           "spoken": _spoken(db, project, tl),
            "music": {**{k: music[k] for k in ("quieter_db", "gaps", "loop")},
                      "key": _key(db, music["file_id"]),
                      "lines": tl.get("lines") or []} if music else None,
@@ -83,6 +84,22 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
                                   "height": SIZES[s["size"]]}
                                  for s in tl["presenter"]["spans"]]}  # fmt: skip
     return out
+
+
+def _spoken(db: Session, project: Project, tl: dict) -> dict:
+    """A narrated cut's clips whose talker says its lines on Omni (app/model_map): the cut
+    seconds the narration is muted (only while those lines are said; the narration's clock
+    doesn't move with edits) and the pieces whose own sound plays at full (Reed, 4 Nov)."""
+    from app import model_map
+    from app.cut import rows
+
+    if tl["mode"] != "narrated":
+        return {"spans": [], "full": []}
+    clips = rows(db, project)
+    said = model_map.spoken(db, project, clips)
+    ids = {clips[n].clip_id for n in said}
+    return {"spans": [list(s) for s in said.values()],
+            "full": [i for i, p in enumerate(tl["pieces"]) if p["clip_id"] in ids]}  # fmt: skip
 
 
 def _prepare(src: dict, storage) -> tuple[bytes, bool]:
@@ -126,7 +143,11 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
             r["mode"] == "narrated",
             bed,
             [p["from"] for p in pieces],
-            {**(music or {}), "last_word": r.get("last_word") or 0},
+            {
+                **(music or {}),
+                "last_word": r.get("last_word") or 0,
+                "spoken": r.get("spoken") or {},
+            },
         )
     progress(85)
     if r["host"]:
@@ -293,16 +314,21 @@ def song_cut(
 def _narrated_mix(folder: Path, lengths: list[float], froms: list[float], music: bool,
                   fade: str, mix: dict | None) -> list[str]:  # fmt: skip
     """Each take's own sound from its in-point (silence if it has none), the narration on top,
-    the music under it at its level (`level`), made loud enough and faded."""
+    the music under it at its level (`level`), made loud enough and faded. `spoken`: an Omni
+    talker's lines play in its own sound at full, the narration muted only while they're said."""
     n, total = len(lengths), sum(lengths)
+    spoken = (mix or {}).get("spoken") or {}
+    full = set(spoken.get("full") or [])
+    mute = "".join(f",volume=enable='between(t,{a:.3f},{b:.3f})':volume=0"
+                   for a, b in spoken.get("spans") or [])  # fmt: skip
     takes = [f"[{i}:a]{SAME},atrim=start={froms[i]},asetpts=PTS-STARTPTS,atrim=duration={d},"
-             f"apad=whole_dur={d},volume={TAKES}[a{i}]"
+             f"apad=whole_dur={d},volume={1 if i in full else TAKES}[a{i}]"
              if _probe(folder, f"{i}.mp4", "a:0", "index")
              else f"anullsrc=r=44100:cl=stereo,atrim=duration={d}[a{i}]"
              for i, d in enumerate(lengths)]  # fmt: skip
     joined_a = "".join(f"[a{i}]" for i in range(n))
-    graph = [*takes, f"{joined_a}concat=n={n}:v=0:a=1[takes]",
-             f"[{n}:a]{SAME},atrim=duration={total},apad=whole_dur={total}[voice]"]  # fmt: skip
+    voice = f"[{n}:a]{SAME},atrim=duration={total},apad=whole_dur={total}{mute}[voice]"
+    graph = [*takes, f"{joined_a}concat=n={n}:v=0:a=1[takes]", voice]
     if music:
         graph.append(f"[{n + 1}:a]{SAME},atrim=duration={total},apad=whole_dur={total},"
                      f"{level(mix)}[under]")  # fmt: skip

@@ -46,6 +46,9 @@ class CatalogueModel(BaseModel):
     last_frame: bool = False
     audio: Literal["switch", "always"] | None = None
     lip_sync: bool = False  # video models: a song slice sets the mouth (Sung shots, VS1)
+    # Reed's model map (4 Nov): only for a talker's shots, never B-roll or a video's model (Omni)
+    talker_only: bool = False
+    fixed_seconds: int = 0  # no duration input: every clip comes back about this long
     price: Price
     price_source: str
 

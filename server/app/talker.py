@@ -53,10 +53,11 @@ TOO_LONG = "The narration runs past HeyGen's 10 minutes. Shorten the script to m
 
 
 def on(db: Session, project: Project) -> bool:
-    """A Presenter video in a talker's style."""
+    """A Presenter video whose presenter talks to camera in their own room (its style's start
+    for UGC, or chosen for the video: app/host.how)."""
     from app import host
 
-    return project.look in LOOKS and host.on(db, project)
+    return host.on(db, project) and host.how(project) == "talks"
 
 
 def _spoken(data: dict, clip_id: str) -> bool:
@@ -67,19 +68,25 @@ def _spoken(data: dict, clip_id: str) -> bool:
 
 
 def clips(db: Session, project: Project) -> set[str]:
-    """The newest plan's talker clips: they take no take of their own."""
+    """The newest plan's talker clips: they take no take of their own (one the talker says on
+    Omni instead is made like any take: app/model_map)."""
+    from app import model_map
     from app.clip_prompts import newest
 
     bd = newest(db, project) if on(db, project) else None
     data = bd.data if bd else {}
-    return {c["id"] for c in data.get("clips", []) if _spoken(data, c["id"])}
+    on_omni = {r.clip_id for r in db.scalars(select(ProjectClip).where(
+        ProjectClip.project_id == project.id)) if model_map.speaks(r, project)}  # fmt: skip
+    return {c["id"] for c in data.get("clips", []) if _spoken(data, c["id"])} - on_omni
 
 
 def says(db: Session, project: Project, clip: ProjectClip) -> bool:
+    from app import model_map
     from app.models.breakdowns import BreakdownVersion
 
     bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
-    return bool(bd) and on(db, project) and _spoken(bd.data, clip.clip_id)
+    spoken = bool(bd) and on(db, project) and _spoken(bd.data, clip.clip_id)
+    return spoken and not model_map.speaks(clip, project)  # on Omni: its own take
 
 
 def share(db: Session, project: Project) -> dict:

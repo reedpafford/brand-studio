@@ -21,6 +21,7 @@ from app import (
     host,
     item_checks,
     looks,
+    model_map,
     narration,
     prompts,
     take_approval,
@@ -133,6 +134,15 @@ class PromptVersionOut(BaseModel):
     current: bool
 
 
+class ClipModelOut(BaseModel):
+    """The model a clip is made with and why (v6 S6-02's "Model" and "Why")."""
+
+    id: str
+    name: str
+    why: str
+    by: Literal["director", "person", "map"]  # who chose it: the model map is the default
+
+
 class ProjectClipOut(BaseModel):
     id: int
     clip_id: str
@@ -159,6 +169,7 @@ class ProjectClipOut(BaseModel):
     look_fix: str | None = None  # the look's fix to offer when its takes are refused (ST2)
     versions: list[PromptVersionOut] = []  # OR3: this prompt's versions, the one in hand first
     sound: SoundOut | None = None  # the picked take's added sound effects; null with no take
+    model: ClipModelOut | None = None  # v6 F: the model it's made with and one line on why
 
 
 def _versions(db: Session, row: ProjectClip) -> list[PromptVersionOut]:
@@ -182,7 +193,7 @@ _stale = clip_prompts.is_stale
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
                 "take_stale", "approved", "retrying", "retried", "auto_fix",
-                "look_fix", "versions", "sound")  # fmt: skip
+                "look_fix", "versions", "sound", "model")  # fmt: skip
     project = db.get(Project, row.project_id)
     asked = row.change or {}
     if asked.get("status") == "changing":
@@ -230,6 +241,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         change=asked or None,
         versions=_versions(db, row),
         sound=take_sound.state(db, next((t for t in takes if t.id == row.picked_take_id), None)),
+        model=ClipModelOut(**model_map.why(db, project, row)),
     )
 
 
@@ -497,12 +509,11 @@ def generate(
         if wrong := check.redo_note(note, bd, row.clip_id):
             raise HTTPException(422, " ".join(wrong))
     job_input = clip_takes.take_input(db, project, row, note)
-    model = clip_takes.video_model(project)
+    model = model_map.of_clip(project, row)  # its own (the director's), else the video's
     files = {k: job_input["files"].get(k, []) for k in clip_takes.KEYS.values()}
     _check_media_length(db, request.app.state.storage, model, files)
-    return enqueue(
-        db, user, "video", job_input, units=row.seconds, project=project, provider="replicate"
-    )
+    units = model_map.seconds(model, row.seconds)  # Omni: its fixed length, up to
+    return enqueue(db, user, "video", job_input, units=units, project=project, provider="replicate")
 
 
 @router.get("/clips/{clip_id}/change", response_model=PriceOut)

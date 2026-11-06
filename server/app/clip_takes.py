@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from app import looks, model_map, p_video, screen_figures, video_settings
 from app.advice import names, stops
-from app.breakdown import video_model
 from app.clip_prompts import MODERATED, assets, prompt_version
 from app.credits import estimate, fits
 from app.db import utcnow
@@ -44,9 +43,8 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     shots = next((c["shot_ids"] for c in breakdown["clips"] if c["id"] == clip.clip_id), [])
     require_cast_sheets(db, breakdown, shots, known)
     require_looks(would_show(db, project, breakdown, shots), known)
-    unsent = model_map.unsent(
-        looks.drawn(project), video_model(project).id, _shots(breakdown, shots)
-    )
+    model = model_map.of_clip(project, clip)  # its own (the director's), else the video's
+    unsent = model_map.unsent(looks.drawn(project), model.id, _shots(breakdown, shots))
     drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
@@ -69,8 +67,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         files[KEYS[kind]].append(file_ids[0])
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
-    model = video_model(project)
-    resolution = model.take_resolution
+    resolution = model_map.resolution(model)
     take, sent = p_video.fit(model.id, {
         "prompt": _with_note(in_english(prompt), note),
         "duration": clip.seconds,
@@ -78,6 +75,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "aspect_ratio": project.aspect_ratio,
         "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
     }, {k: v for k, v in files.items() if v})  # fmt: skip
+    take, sent = model_map.fit(model, take, sent, model_map.speech(db, project, clip))  # Omni
     return {
         "step": "clip_take",
         "project_id": project.id,
@@ -90,6 +88,9 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
                 db, project, images, model.id, (clip.song_slice or {}).get("sung_shots")
             ),
             **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
+            **(
+                {"speaks": True} if model_map.speaks(clip, project) else {}
+            ),  # on Omni, in its voice
         },
         "brand_id": project.brand_id,
         "fit_images_to": LONG_SIDE[resolution],
@@ -165,8 +166,9 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
 
     if talker.says(db, project, clip):
         raise HTTPException(409, talker.SAID)
-    m = video_model(project)
-    if clip.seconds <= m.duration.max:
+    m = model_map.of_clip(project, clip)
+    most = m.fixed_seconds or m.duration.max
+    if clip.seconds <= most:
         return
     bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
     shots = next((c["shot_ids"] for c in (bd.data if bd else {}).get("clips", [])
@@ -175,7 +177,7 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
             "Make its shot shorter in the breakdown, or switch the video model in Settings to "
             "one that makes longer clips (free)")  # fmt: skip
     raise HTTPException(409, f"This clip is {clip.seconds} s, but {m.name} makes at most "
-                        f"{m.duration.max} s a clip. {then}. Nothing was charged.")  # fmt: skip
+                        f"{most} s a clip. {then}. Nothing was charged.")  # fmt: skip
 
 
 ENGLISH = ("Language: every spoken line is in American English, and any text on screen is in "
@@ -440,9 +442,10 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
     along while checks are on (`item_checks.rides`)."""
     from app import item_checks
 
-    m = video_model(project)
-    job = {"model": m.id, "input": {"resolution": m.take_resolution}}
-    take = estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
+    m = model_map.of_clip(project, clip)
+    job = {"model": m.id, "input": {"resolution": model_map.resolution(m)}}
+    units = Decimal(model_map.seconds(m, clip.seconds))  # Omni: its fixed length
+    take = estimate(db, project.workspace_id, "video", units, job)
     return take + item_checks.rides(db, project, clip)
 
 

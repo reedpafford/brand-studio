@@ -282,6 +282,37 @@ def named(db: Session, workspace_id: int, said: str, brand_id: int | None) -> Vo
     return voice if voice and mine(voice, workspace_id, brand_id) else None
 
 
+STOCK = "stock:"  # a video's own voice (projects.voice): "stock:<app voice>" or "voice:<id>"
+NOT_A_VOICE = "There's no such voice for this brand. Pick an app voice or one saved to this brand."
+
+
+def from_ref(ref: str | None) -> str | None:
+    """A video's voice setting as narration names it: "stock:Roger" is "Roger", "voice:12"
+    stays; None for anything else."""
+    if (ref or "").startswith(STOCK):
+        return ref[len(STOCK) :]
+    return ref if (ref or "").startswith(PREFIX) else None
+
+
+def checked(db: Session, project, ref: str | None) -> str | None:
+    """A person's voice for this video, checked: an app voice, or a voice this brand may use
+    that isn't removed (422 in plain words otherwise); None goes back to the video's own."""
+    if ref is None:
+        return None
+    said = from_ref(ref)
+    if not said or not usable(db, project.workspace_id, project.brand_id, said):
+        voice = named(db, project.workspace_id, said or "", project.brand_id)
+        raise HTTPException(422, REMOVED.format(name=voice.name) if voice else NOT_A_VOICE)
+    return ref
+
+
+def picked(db: Session, project) -> str | None:
+    """The voice a person set for this video (its settings or a voice card's answer), as
+    narration names it, while it can still be used; else None."""
+    said = from_ref(project.voice)
+    return said if said and usable(db, project.workspace_id, project.brand_id, said) else None
+
+
 def mine(voice: Voice, workspace_id: int, brand_id: int | None) -> bool:
     """The voice may be used here: its workspace, and a style's voice or this brand's."""
     return voice.workspace_id == workspace_id and voice.brand_id in (None, brand_id)
@@ -348,7 +379,7 @@ def default_for(db: Session, project) -> str | None:
     from app import host, looks
 
     ensure_style_voices(db, project.workspace_id)
-    item = host.host_look(db, project) if host.on(db, project) else None
+    item = host.host_look(db, project) if host.presents(db, project) else None
     own = f"{PREFIX}{item.voice_id}" if item is not None and item.voice_id else None
     if own and usable(db, project.workspace_id, project.brand_id, own):
         return own  # a removed one (or another brand's) falls back: host_note says so
@@ -370,7 +401,7 @@ def host_note(db: Session, project) -> str:
     happened and what to do, in plain words; "" otherwise."""
     from app import host
 
-    item = host.host_look(db, project) if host.on(db, project) else None
+    item = host.host_look(db, project) if host.presents(db, project) else None
     voice = db.get(Voice, item.voice_id) if item is not None and item.voice_id else None
     if voice is None or usable(db, project.workspace_id, project.brand_id, f"{PREFIX}{voice.id}"):
         return ""
