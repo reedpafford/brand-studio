@@ -320,8 +320,6 @@ def head(db: Session, user: User, p: Project) -> Head:
     up (rule 36)."""
     from app import narration, run_progress
     from app.models.folders import Folder
-    from app.models.script_library import ScriptDraft
-    from app.routes.estimate import run_price
     from app.script_library import format_id
 
     known = facts(db, [p])
@@ -329,11 +327,8 @@ def head(db: Session, user: User, p: Project) -> Head:
     used = known.used.get(p.id, Decimal(0))
     fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
     top: Decimal | None
-    if fs is not None and fs.up_to or asks.approved_total(db, p):  # one figure (S3-12)
-        top = run_progress.spent(db, p)[1]  # with the run card and the note
-    elif status.reason == START and not used:
-        draft = db.get(ScriptDraft, p.script_draft_id) if p.script_draft_id else None
-        top = Decimal(str(run_price(db, draft, p))) if draft else None
+    if (fs is not None and fs.up_to) or asks.approved_total(db, p) or status.reason == START:
+        top = run_progress.spent(db, p)[1]  # one figure with the start, run card and note
     else:
         top = _most(p, known)
     script = narration.video_script(db, p)

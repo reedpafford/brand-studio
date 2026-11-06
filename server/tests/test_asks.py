@@ -809,11 +809,10 @@ def test_a_cards_clone_is_saved_to_the_brands_voices_and_reused_never_charged_ag
     assert db.query(Job).filter(Job.kind == "voice").count() == 1  # one paid call in all
 
 
-def one_figure(owner, editor, pid: int) -> dict:
+def one_figure(owner, editor, pid: int) -> float:
     """The header, the run card and the newest note say one spent and one "up to", the whole
     video's (board S3-12), to the owner in dollars and to an editor in credits; the "up to" is
-    never below what was spent. Returns the owner's header."""
-    mine = {}
+    never below what was spent. Returns the "up to" in credits."""
     for who in (owner, editor):
         head = who.get(f"/projects/{pid}/idea").json()
         card = who.get(f"/projects/{pid}/director/progress").json()
@@ -825,55 +824,87 @@ def one_figure(owner, editor, pid: int) -> dict:
         assert spent["usd"] == card["spent_usd"] == note["spent_usd"]
         if spent["usd"] is not None:
             assert note["cost"] == f"${spent['usd']:.2f} spent of up to ${top['usd']:.2f}"
-            mine = head
         else:
             assert note["cost"].startswith(f"{round(note['spent'])} credits used of up to ")
-    return mine
+    return top["credits"]
 
 
-def _make_it(app, db, who, pid: int) -> float:
-    """Make it (again) on the video's start card; the run delivers. Returns its price."""
+def _up(credits) -> float:
+    """Credits as the header rounds an "up to" (to the thousandth, up)."""
+    from decimal import Decimal
+
+    from app.ideas import _up
+
+    return float(_up(Decimal(str(credits))))
+
+
+def _start(app, db, who, pid: int) -> Job:
+    """The video's run asked for: its plan, then its start card waiting for Make it."""
     who.post(f"/projects/{pid}/director")
     _run(app, db, ticks=4, start=False)
-    card = [c for c in who.get(f"/projects/{pid}/asks").json() if c["kind"] == "start"][-1]
+    db.expire_all()
+    return db.query(Job).filter(Job.project_id == pid, Job.input[asks.START].as_boolean(),
+                                Job.status == "needs_owner_approval").one()  # fmt: skip
+
+
+def _make_it(app, db, who, pid: int):
+    """Make it (again) on the video's start card; the run delivers. Returns its price."""
+    from decimal import Decimal
+
+    card = next(c for c in who.get(f"/projects/{pid}/asks").json()
+                if c["kind"] == "start" and c["state"] == "open")  # fmt: skip
+    price = Decimal(_start_job(db, pid).input["price"])
     assert who.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
     _run(app, db, ticks=40, start=False)
-    return card["money"]["up_to"]["credits"]
+    return price
+
+
+def _start_job(db, pid: int) -> Job:
+    db.expire_all()
+    return db.query(Job).filter(Job.project_id == pid, Job.input[asks.START].as_boolean()) \
+        .order_by(Job.id.desc()).first()  # fmt: skip
+
+
+def _spent(owner, pid: int):
+    from decimal import Decimal
+
+    return Decimal(str(owner.get(f"/projects/{pid}/idea").json()["spent"]["credits"]))
 
 
 def test_the_header_the_run_card_and_the_note_say_one_figure_on_every_run(
     app, db, owner, editor, monkeypatch
 ):
-    """QA on #1355 (board S3-12): one spent and one "up to", the whole video's, in the header,
-    the run card and the note: after the first run (the "up to" is its Make it's price, not the
-    budget beside the director's limit, QA on #1354), and after Make it again (the first
-    run's price plus the change's, and what both spent)."""
+    """QA on #1355 (boards S3-02, S3-09, S3-12): one spent and one "up to", the whole video's.
+    While the start card waits, the header says its price; after the first run, the price its
+    Make it approved, its planning included (not the budget beside the director's limit, QA on
+    #1354); after Make it again, both prices."""
     from decimal import Decimal
 
-    pid, _ = _video(app, owner, editor, db)
-    first = _make_it(app, db, owner, pid)
     monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(7)))  # far apart
-    head = one_figure(owner, editor, pid)
-    assert head["up_to"]["credits"] > first - 1 and head["spent"]["credits"] > 0  # its price
-    spent = head["spent"]["credits"]
+    pid, _ = _video(app, owner, editor, db)
+    card = _start(app, db, owner, pid)
+    head = owner.get(f"/projects/{pid}/idea").json()
+    assert head["spent"]["credits"] > 0  # its planning
+    assert head["up_to"]["credits"] == _up(card.input["price"])  # the start card's figure
+    first = _make_it(app, db, owner, pid)
+    assert one_figure(owner, editor, pid) == _up(first)
     owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
+    _start(app, db, owner, pid)
     second = _make_it(app, db, owner, pid)
-    head = one_figure(owner, editor, pid)
-    assert head["up_to"]["credits"] > first + second - 1  # every Make it (cards round up)
-    assert head["spent"]["credits"] >= spent  # both runs', not the revision's alone
+    assert one_figure(owner, editor, pid) == _up(first + second)  # every Make it, not the last
 
 
-def test_after_an_ok_past_the_price_the_up_to_is_never_below_what_was_spent(
+def test_after_an_ok_past_the_price_the_up_to_is_what_the_run_can_still_charge(
     app, db, owner, editor, monkeypatch
 ):
     """QA on #1355: the owner's OK past the price Make it approved (S3-07) lets the run spend
-    more than it; the header, the run card and the note then say "up to" what was spent."""
+    more than it; the "up to" is what was spent plus what is left of the price (the steps
+    past it are covered by their own OKs), never below what was spent."""
     from decimal import Decimal
 
     monkeypatch.setattr(Project, "budget_credits", property(lambda p: Decimal(500)))
     pid, _ = _video(app, owner, editor, db)
-    owner.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=4, start=False)
+    _start(app, db, owner, pid)
     card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
     assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
     _priced_down(db, pid, "12")
@@ -885,8 +916,11 @@ def test_after_an_ok_past_the_price_the_up_to_is_never_below_what_was_spent(
         for held in [c for c in owner.get(f"/projects/{pid}/asks").json()
                      if c["kind"] == "budget" and c["state"] == "open"]:  # fmt: skip
             owner.post(f"/asks/{held['id']}/answer", json={"how": "approve"})
-    head = one_figure(owner, editor, pid)
-    assert head["up_to"]["credits"] >= head["spent"]["credits"] > 12
+    db.expire_all()
+    price, against = asks.approved_run(db, db.get(Project, pid))
+    spent = _spent(owner, pid)
+    assert spent > price and against <= price  # past its price, on the owner's OKs
+    assert one_figure(owner, editor, pid) == _up(spent + price - against)
 
 
 def _charge(db, pid: int, credits: int) -> None:
@@ -903,15 +937,16 @@ def test_the_up_to_covers_a_charge_before_the_run_and_a_press_between_runs(app, 
     can still be charged on top of it."""
     pid, _ = _video(app, owner, editor, db)
     _charge(db, pid, 7)
+    _start(app, db, owner, pid)
     first = _make_it(app, db, owner, pid)
-    head = one_figure(owner, editor, pid)
-    assert head["up_to"]["credits"] > first + 7 - 1  # the 7 before it, and its whole price
-    _charge(db, pid, 9)  # a press between runs
-    before = owner.get(f"/projects/{pid}/idea").json()["spent"]["credits"]
+    assert one_figure(owner, editor, pid) == _up(7 + first)  # the 7 before it, then its price
+    _charge(db, pid, 90)  # a big press between runs: past what the first price covered
+    before = _spent(owner, pid)
     owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
+    _start(app, db, owner, pid)
     second = _make_it(app, db, owner, pid)
-    head = one_figure(owner, editor, pid)
-    assert head["up_to"]["credits"] > before + second - 1  # all spent before it, then its price
+    assert before + second > first + second  # what it can reach, not every price alone
+    assert one_figure(owner, editor, pid) == _up(before + second)
 
 
 def _sample(app, client, name="nate.mp3") -> int:
