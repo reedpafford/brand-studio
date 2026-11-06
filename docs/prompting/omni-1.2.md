@@ -7,7 +7,7 @@ Official sources only, read 2026-11-06 (the model launched 5 Nov). Every rule sa
 - **[Guide]** DeepMind's prompt guide: https://deepmind.google/models/gemini-omni/prompt-guide/
 - **[Card]** Model card: https://deepmind.google/models/model-cards/gemini-omni-1-2-flash/
 
-Not read yet: Replicate's input schema and price (the `/api` pages render empty without sign-in; fetch
+Not read yet: Replicate's input schema (the `/api` pages render empty without sign-in; fetch
 `GET api.replicate.com/v1/models/google/gemini-omni-1.2-flash` with our token, which is free, and save it as
 `server/tests/fixtures/replicate/google_gemini-omni-1.2-flash.json`), and the Omni Flash model card PDF.
 Our catalogue still has Omni **1.1** (`gemini-omni-1.1`, fixed 10 s, talker-only).
@@ -30,10 +30,8 @@ Our catalogue still has Omni **1.1** (`gemini-omni-1.1`, fixed 10 s, talker-only
   - Edit a clip up to 15 s; edits keep the source's length and shape.
   - Extend from the last 10 s of a clip, 3–10 s per turn, 30 s total. Speech can continue when extending a
     clip Omni made, not an uploaded one.
-- **Price:** Google's own rate is about $0.023/s at 360p, $0.07/s at 720p, $0.104/s at 1080p, $0.209/s at 4k
-  (720p: about $0.70 for 10 s, $1.04 for 15 s); 1.1 was about $0.10/s [Price]. Replicate's price isn't shown
-  publicly; read it from the schema call above before quoting. Our catalogue prices 1.1 on Replicate at
-  $0.15/s 720p.
+- **Price on Replicate: $0.11 a second at 720p**, what we use (the model page, read by Reed 6 Nov): $1.10 for
+  10 s, $1.65 for 15 s. Google's own API rate is lower, about $0.07/s at 720p [Price]. 1.1 was $0.15/s on Replicate.
 - **1.2 vs 1.1** [Rep][API]: up to 15 s and set to the second; holds faces, clothing, product labels and brand
   colours better; "dialogue sounds more natural with better lip sync"; cheaper. From 3 Dec 2026, Google routes
   every 1.1 request to 1.2.
@@ -91,8 +89,11 @@ Our catalogue still has Omni **1.1** (`gemini-omni-1.1`, fixed 10 s, talker-only
   and animation [Guide][API]. (Our rule 32: no captions; in-world text stated exactly.)
 
 ## 9. Edits, extensions, first/last frame
-- Edits: short and surgical; wordy edit prompts cause unintended changes. Say what changes **and** what
-  stays: "Keep the people, their dialogue and the camera move the same." [Rep][API].
+- Edits: pass the clip as `video` (up to 15 s) and say the change; "the model leaves the rest of the clip
+  alone" [Rep]. Keep it short and surgical; wordy edit prompts cause unintended changes. Say what changes
+  **and** what stays: "make it night and raining, keep everything else the same" [Rep]; "Keep the people,
+  their dialogue and the camera move the same." [Rep][API]. An edit keeps the clip's length and shape, and
+  can't be combined with any image input [Rep].
 - Extend: "Extend this video" / "The scene continues: …"; say whether it continues or cuts; re-mention or
   re-attach anything from more than 10 s back [API].
 - First/last frame: describe the first frame, the move between, and exactly what the last frame shows [Guide].
@@ -115,7 +116,7 @@ Our catalogue still has Omni **1.1** (`gemini-omni-1.1`, fixed 10 s, talker-only
 | 4 | At most 3 images a person, 2 people | `reference_images[: max_reference_images]` cuts the list without regard to people | Cap per person and per clip; a shot with 3+ cast needs another plan (wide, or Seedance) | must |
 | 5 | Sound always made; say "no music" / "no dialogue" in words | Seedance's audio line ("No music, background music, BGM…") | Short Omni audio line; quoted speech with the speaker named | should |
 | 6 | Multi-shot by default | Seedance shot list (fine), but single-shot clips don't say "one continuous shot" | Add it when a clip is one shot | should |
-| 7 | Edit with "keep everything else the same" | No edit path | A cheap continuity fix (wardrobe, a prop) once built | nice |
+| 7 | Edit a made clip with `video` + "keep everything else the same" | "Change this…" on a take always makes a new take from the prompt | Use an Omni edit for a small change to a take that's nearly right (a wardrobe colour, a prop, the light, night instead of day, a background), keeping the acting, timing and voice. Billed like a take (inference: per second of output). The person still sees the price first (rule 24) and the old take stays | should (Reed, 6 Nov: "It might even help with editing") |
 | 8 | No voice input or cross-clip voice control | — | Movie: write each character's voice the same way in every clip; test whether it holds (Movie spec test 2) | must for Movie |
 
 Reed's 6 Nov plan (in the style-verification session): Omni 1.2 for B-roll overlay clips, Movie, and anything
