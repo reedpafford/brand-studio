@@ -86,7 +86,7 @@ class ClipCellOut(BaseModel):
     """One clip on the filmstrip and in the Clips list (S3-03, S6-01, S6-04, S6-05, P-10)."""
 
     clip_id: str  # "c15"
-    number: int  # 15: "Clip 15"
+    number: str  # "15": "Clip 15"; "1b" for a split's c1b (director.clip_no)
     scene: int  # its scene's id
     label: str  # what it shows: "Dr. Pickle points at the clock"
     seconds: int

@@ -148,7 +148,7 @@ test("the owner's note after a delivery is saved; Make it again makes it (a note
   const done = fs({ status: "delivered", file_id: 8, thread: [item("m1", "message", "Reed", SCRIPT), item("t2", "move", "Director", "Every take checked clean.", "done", later)] });
   const delivered = run({ status: "delivered", turns: [{ turn: 3, tool: "deliver", why: "", result: "Delivered.", status: "succeeded", created_at: later }] });
   const noted = { ...delivered, unread: 1, thread: [item("m0", "message", "Reed", "Cut 2 seconds.", null, "2026-11-04T10:30:00Z")] };
-  const calls = server(owner, done, delivered, { "POST /projects/50/director/messages": [201, noted], "POST /projects/50/director": [201, run()] });
+  const calls = server(owner, done, delivered, { "POST /projects/50/director/messages": [201, noted], "POST /projects/50/director": [201, run()], "GET /projects/50/idea": [200, head({ usd_per_credit: 0.1028 })] });
   renderApp("/b/1/videos/50");
   const box = await ready();
   expect(screen.getByRole("button", { name: "Send to the director" })).toBeDisabled(); // nothing to send yet
@@ -157,7 +157,7 @@ test("the owner's note after a delivery is saved; Make it again makes it (a note
   expect(calls.find((c) => c.key === "POST /projects/50/director/messages")?.body).toEqual({ text: "Cut 2 seconds." });
   expect(within(screen.getByRole("list", { name: "Conversation with the director" })).getByText("Cut 2 seconds.")).toBeInTheDocument();
   expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false);
-  await userEvent.click(screen.getByRole("button", { name: "Make it again · up to 40 credits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Make it again · up to $4.12" })); // the owner's dollars (rule 4)
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
 });
 
@@ -1069,4 +1069,18 @@ test("Flow-QA M6: a run that ended by itself is read again at once: no Stop or '
   renderApp("/b/1/videos/50");
   await screen.findByText("The director stopped");
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/50/director").length).toBeGreaterThan(1)); // read again, not left
+});
+
+test("S3-02 (QA on #1383): before Make it the Plan tab shows the director's treatment as the plan's scenes, nothing spent", async () => {
+  setViewport(1440);
+  const story = { hook: "The glowing spine.", logline: "A doctor shows the weekend's damage.", why_it_holds: "A gross picture first.", beats: [{ id: "b1", lines: [1], purpose: "hook", picture: "The glowing spine, slow push in." }, { id: "b2", lines: [2, 3], purpose: "what beer does", picture: "Beer pours through the see-through body." }], ending: "The capsule." };
+  const r = run({ status: "running", make_it: null, thread: [item("t1", "move", "Director", "Here's how I'll make it.", "done", at, { treatment: story })] });
+  server(owner, null, r, { "GET /projects/50": [200, { ...project, freestyle_id: null, plan_status: "none", planned_seconds: 60 }], "GET /projects/50/idea": [200, head({ status: status("waiting", "Waiting for your OK") })] });
+  renderApp("/b/1/videos/50?tab=plan");
+  const plan = await screen.findByRole("region", { name: "Plan" });
+  expect(within(plan).getByText("2 scenes · about 60 s")).toBeInTheDocument();
+  expect(within(within(plan).getByLabelText("Scene 2")).getByText("2. What beer does")).toBeInTheDocument();
+  expect(within(within(plan).getByLabelText("Scene 2")).getByText("Lines 2–3")).toBeInTheDocument();
+  expect(within(plan).getByText("The director plans each scene's shots and clips after Make it.")).toBeInTheDocument();
+  expect(screen.queryByText(/No plan yet/)).toBeNull();
 });

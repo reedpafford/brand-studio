@@ -35,3 +35,6 @@ export function plainWords(text: string, nameOf: (id: string) => string): string
 
 /** A problem about a character with no approved look: the fix is in Cast. */
 export const aboutMissingLook = (text: string) => /sheet isn't attached|no approved (sheet|look)|needs an approved (sheet|look)|has no look/i.test(text);
+
+/** A clip as people read it: "1" for c1, "1b" for a split's c1b (S9: never the plan's own "c1b"; the server's clip_no). */
+export const clipNo = (id: string) => id.replace(/^c/i, "");

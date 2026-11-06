@@ -27,6 +27,7 @@ import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from ".
 import { InsteadCard } from "./InsteadCard";
 import { DeliveryNote, Failed, PastNote, RunCard, stopLines, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
 import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
+import { upTo } from "./money";
 
 type Project = components["schemas"]["ProjectOut"];
 type Run = components["schemas"]["DirectorOut"];
@@ -170,7 +171,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
   const chat = (
-    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
+    <Chat head={head.data ?? undefined} p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
   );
   const preview = <Preview onEditor={setEditing} p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
@@ -306,7 +307,7 @@ function useRunEnd(id: number, card: string | undefined, director: string | unde
 
 /** The conversation (oldest first, newest at the bottom), and the box under it. A freestyle's thread is its first words,
  *  moves and held sends, with the notes saved on its video; a video made from a script reads its director's thread. */
-function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, onSettings, phone, progress }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; onSettings: () => void; phone: boolean; progress: Progress | null }) {
+function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, onSettings, phone, progress, head }: { head?: Head; p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; onSettings: () => void; phone: boolean; progress: Progress | null }) {
   const queryClient = useQueryClient();
   const id = p?.id ?? fs?.project_id ?? 0;
   const actions = useFreestyleActions(fs?.id ?? null);
@@ -408,8 +409,9 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const presses = !archived && !lookOnly && (
     <>
       {ended && mayStart && p && (
-        <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
-          {startLabel}
+        // The owner's price in dollars, an editor's in credits (rule 4), as every press says it.
+        <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={owner ? undefined : run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
+          {owner && run?.run_price ? `${startLabel} · ${upTo(head, run.run_price)}` : startLabel}
         </Button>
       )}
     </>

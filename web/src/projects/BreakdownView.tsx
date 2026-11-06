@@ -11,7 +11,7 @@ import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User
 import { Badge, Banner, Button, Menu, MenuItem } from "../components";
 import { errorText as errorClass } from "../ui";
 import { blocking, CAST } from "./problems";
-import { plainWords } from "./names";
+import { clipNo, plainWords } from "./names";
 import { AdviceList, useKeep } from "./Keep";
 import { useBreakdownFixes, useFixCast, useRemoveRef, type RefKind } from "./BreakdownFixes";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown } from "./breakdownEdit";
@@ -19,8 +19,6 @@ import { EditableText, lineLabel, lines, ShotEditor, type Picks } from "./ShotEd
 import { SongShotTime } from "../scripts/VideoSong";
 import { videoQuery } from "./useProgress";
 
-/** A clip as people read it: "Clip 1", "Clip 1b" (S9: never the plan's own "c1b"). */
-export const clipNo = (id: string) => id.replace(/^c/i, "");
 
 export function BreakdownView(props: {
   row: components["schemas"]["BreakdownOut"];

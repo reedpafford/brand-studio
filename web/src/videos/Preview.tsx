@@ -19,6 +19,8 @@ import { CastPane } from "../cast/CastPane";
 import { ClipsPane } from "../clips/ClipsPane";
 import { notInShots, useAssets } from "../cast/useAssets";
 import { Empty, SOON } from "./Empty";
+import { TreatmentPlan, newestTreatment } from "./Treatment";
+import { useDirectorRun } from "./director";
 import { mp4, type Head } from "./VideoHead";
 import { Filmstrip, SceneRow, useSeen, type Progress } from "./RunCard";
 import { useAsks } from "./AskCard";
@@ -309,6 +311,8 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
   const { script } = useProgress(p.id);
   const settings = useVideoSettings(p.id);
   const clips = useProjectClips(p.id).data ?? [];
+  const story = newestTreatment(useDirectorRun(p.id).data?.thread); // the director's treatment, its first move
+  const planless = ((p as { plan_status?: string | null }).plan_status ?? "none") === "none";
   // The video's own choices (shape, models, style), on every video; the director keeps what a person changed (Reed: "the
   // option to change models for each ad"). Its drawn place is coming from the design session.
   const choices = (
@@ -317,8 +321,15 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
       <ShapeRow shape={!settings.data} projectId={p.id} aspect={p.aspect_ratio} platform={p.platform} />
     </>
   );
-  // While the director starts, before any plan: what fills in here (S3-01). With no run, the plan or what makes it.
-  if (head?.status.kind === "working" && !progress.shots.made && ((p as { plan_status?: string | null }).plan_status ?? "none") === "none")
+  // Before any plan: the treatment as its scenes once it's written (S3-02), else what fills in here (S3-01).
+  if (planless && !progress.shots.made && story)
+    return (
+      <>
+        {choices}
+        <TreatmentPlan t={story} seconds={p.planned_seconds} />
+      </>
+    );
+  if (head?.status.kind === "working" && !progress.shots.made && planless)
     return (
       <>
         {choices}

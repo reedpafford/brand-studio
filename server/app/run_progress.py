@@ -212,6 +212,7 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
     `changed`: the director made its take again (its watch, or a note); `watched`: this person
     has watched that take since; `found`: its watch found something on one of its takes."""
     from app.credits import WAIT_OK
+    from app.director import clip_no
 
     takes, jobs = video.takes.get(row.id, []), video.jobs.get(row.id, [])
     held = next((j for j in jobs if j.status == HELD), None)
@@ -225,7 +226,7 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
     changed = bool(picked and picked.number > 1 and job and job.input.get("by_director"))
     shots = video.shots.get(row.clip_id) or [{}]
     scene = str(shots[0].get("id", "")).split(".")[0]
-    out = {"clip_id": row.clip_id, "number": int(row.clip_id.removeprefix("c") or 0),
+    out = {"clip_id": row.clip_id, "number": clip_no(row.clip_id),
            "scene": int(scene) if scene.isdigit() else 0, "seconds": row.seconds,
            "label": (shots[0].get("action") or "").split(". ")[0].strip().rstrip("."),
            "model": _model(picked, model_map.own_name(row) or video.model),

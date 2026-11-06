@@ -45,13 +45,12 @@ function open() {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("with no breakdown it offers to make one and shows the cost", async () => {
-  const calls = fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "POST /projects/9/breakdown": [201, { id: 8, kind: "write-claude", status: "queued", credits: 6, project_id: 9 }] });
+test("with no breakdown, the director makes it: a video's Shots has no press of its own (S8)", async () => {
+  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }] });
   open();
   expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole("button", { name: "Make the breakdown · up to 6 credits" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/9/breakdown")).toBe(true));
-  expect(await screen.findByText(/Making the breakdown…/)).toBeInTheDocument();
+  expect(screen.getByText(/The director splits the script into scenes, shots and clips once the plan is approved/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Make the breakdown|Try again/ })).toBeNull();
 });
 
 test("a song video's shots being made (started by Approve the plan) show as running, not \"No breakdown yet\"", async () => {
@@ -111,12 +110,11 @@ test("a real problem stays a red row, apart from the advice", async () => {
   expect(within(box).queryByText(/slow hook/)).toBeNull();
 });
 
-test("Redo asks first when the breakdown was edited, and a failed run says nothing was charged", async () => {
-  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+test("a video's Shots offers no Redo or Make it again: the director makes its shots (S8)", async () => {
   fakeServer({ ...base, "GET /projects/9/breakdown": [200, breakdown({ source: "edit" })] });
   open();
-  await userEvent.click(await screen.findByRole("button", { name: "Redo · up to 6 credits" }));
-  expect(confirm).toHaveBeenCalledWith("Replace this breakdown? Your edits are kept in History.");
+  expect(await screen.findByText(/Hook:/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Redo|^Make it again/ })).toBeNull();
 });
 
 const twoClips = () =>
@@ -196,12 +194,6 @@ test("Discard throws the draft away", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Discard" }));
   expect(screen.queryByLabelText("Unsaved changes")).not.toBeInTheDocument();
   expect(screen.queryByText(/EXTRA/)).not.toBeInTheDocument();
-});
-
-test("Reed past the budget gets the plain button: pressing it is his approval", async () => {
-  fakeServer({ ...base, "GET /auth/me": [200, { ...editor, id: 1, role: "owner" }], "GET /projects/9": [200, { ...project, credits_used: 56, budget_credits: 60 }], "GET /projects/9/breakdown": [200, breakdown()] });
-  open();
-  expect(await screen.findByRole("button", { name: "Redo · up to 6 credits" })).toBeEnabled();
 });
 
 test("'lines 2 ◂' lights those lines in the script, and a script line lights its shot", async () => {
@@ -426,8 +418,3 @@ test("removing a place or a screen the video doesn't have says how to use it aga
   expect(await screen.findByText("Removed Bin Lot from shot 1.1. To use it again, add it in Cast & places, then pick it in this shot.")).toBeInTheDocument();
 });
 
-test("Make the breakdown shows the server's price for it (the clip prompts' rewrite included), not the writing rate", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }], "GET /projects/9/breakdown/price": [200, { credits: 12 }] });
-  open();
-  expect(await screen.findByRole("button", { name: /Make the breakdown · (up to )?12 credits/ })).toBeInTheDocument();
-});

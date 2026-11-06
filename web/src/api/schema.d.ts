@@ -7045,7 +7045,7 @@ export interface components {
             /** Clip Id */
             clip_id: string;
             /** Number */
-            number: number;
+            number: string;
             /** Scene */
             scene: number;
             /** Label */

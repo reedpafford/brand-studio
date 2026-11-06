@@ -1,16 +1,15 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, errorText, must } from "../api/client";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../api/client";
 import { useBrandPieces } from "../clip/BrandPieces";
 import { Elapsed, GOING, useJobs } from "../clip/History";
-import { Clapperboard, RotateCcw } from "lucide-react";
-import { Banner, Button, EmptyState, Skeleton } from "../components";
+import { Clapperboard } from "lucide-react";
+import { Banner, EmptyState, Skeleton } from "../components";
 import { WaitingBadge } from "./Meter";
 import { errorText as errorClass } from "../ui";
 import { BreakdownView } from "./BreakdownView";
 import { refName, useRoleNames } from "./names";
 import { BreakdownVersions } from "./VersionLists";
-import { refreshJobs } from "../jobs/refresh";
 
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
@@ -30,39 +29,17 @@ export function useBreakdown(projectId: number, scriptVersion: number) {
 export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onDirty?: (dirty: boolean) => void }) {
   const { projectId, brandId, scriptVersion } = props;
   const queryClient = useQueryClient();
-  const path = { project_id: projectId };
   const { pieces } = useBrandPieces(brandId);
-  const [startedJob, setStartedJob] = useState<number | null>(null);
-  const [asked, setAsked] = useState(false);
-
   const current = useBreakdown(projectId, scriptVersion);
   const jobs = useJobs();
-  // What Make the shots charges (#996): the writing call, plus the clip prompts' rewrite once the video has them.
-  const price = useQuery({
-    queryKey: ["breakdown-price", projectId],
-    queryFn: async () => (await must(api.GET("/projects/{project_id}/breakdown/price", { params: { path: { project_id: projectId } } }))).data!.credits,
-  });
-  const cost = price.data ?? null; // null: not known yet, the press waits
 
-  // Our own run: the job we started, or any job the server says is a breakdown (a song or narrated
-  // video's is song_breakdown / narrated_breakdown; Approve the plan starts it from another step).
-  const mine = jobs.data?.filter((j) => j.project_id === projectId && (j.id === startedJob || !!j.step?.endsWith("breakdown"))).sort((a, b) => b.id - a.id)[0];
-  // Between pressing the button and the job showing up in the list, it is already running.
-  const running = (!!mine && GOING.includes(mine.status)) || (startedJob !== null && !mine);
+  // The video's shots are the director's to make (S8: no Make the breakdown or Redo here; the owner's script plan keeps
+  // its own). The run making them: any job the server says is a breakdown (a song or narrated video's is song_breakdown /
+  // narrated_breakdown; approving the plan starts it).
+  const mine = jobs.data?.filter((j) => j.project_id === projectId && !!j.step?.endsWith("breakdown")).sort((a, b) => b.id - a.id)[0];
+  const running = !!mine && GOING.includes(mine.status);
   const failed = mine?.status === "failed";
-
-  const make = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/breakdown", { params: { path } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
-    onSuccess: (job) => {
-      setStartedJob(job.id);
-      refreshJobs(queryClient);
-    },
-  });
-  // When our run finishes, fetch the new breakdown.
+  // When the run finishes, fetch the new breakdown.
   const finished = mine?.status === "succeeded" ? mine.id : null;
   useEffect(() => {
     if (finished === null) return;
@@ -78,24 +55,6 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   if (current.isPending) return <p className="text-muted">Loading…</p>;
   if (current.isError) return <p role="alert" className={errorClass}>Could not load the breakdown. Try again.</p>;
   const row = current.data;
-
-  const makeButton = (label: string, opts: { ask?: string; primary?: boolean } = {}) => (
-    <Button
-      variant={opts.primary ? "primary" : "secondary"}
-      icon={label === "Redo" ? RotateCcw : undefined}
-      charge="estimate" price={cost}
-      busy={make.isPending}
-      disabled={running || asked}
-      onClick={() => {
-        if (opts.ask && !window.confirm(opts.ask)) return;
-        setAsked(false);
-        make.mutate();
-      }}
-    >
-      {label}
-    </Button>
-  );
-  const problem = make.error ? <p role="alert" className={errorClass}>{make.error.message}</p> : null;
 
   if (running)
     return (
@@ -117,17 +76,13 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   if (!row)
     return (
       <section className="space-y-3" aria-label="Breakdown">
-        {failed && (
-          <Banner title="The breakdown didn't finish." action={makeButton("Try again")}>
-            Nothing was charged.
-          </Banner>
-        )}
-        {!failed && (
-          <EmptyState icon={Clapperboard} title="No breakdown yet" action={makeButton("Make the breakdown", { primary: true })}>
-            Claude splits your script into scenes, shots and clips. Nothing is filmed yet.
+        {failed ? (
+          <Banner title="The breakdown didn't finish.">Nothing was charged. Tell the director in the chat to try again.</Banner>
+        ) : (
+          <EmptyState icon={Clapperboard} title="No breakdown yet">
+            The director splits the script into scenes, shots and clips once the plan is approved. Nothing is filmed yet.
           </EmptyState>
         )}
-        {problem}
       </section>
     );
 
@@ -140,7 +95,7 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
       : null;
   return (
     <div className="space-y-4">
-      <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={makeButton} failed={failed} problem={problem} name={name} line={props.line} onShowLines={props.onShowLines} onDirty={props.onDirty} />
+      <BreakdownView key={row.id} row={row} projectId={projectId} brandId={brandId} scriptVersion={scriptVersion} plannedSeconds={props.plannedSeconds} makeButton={() => null} failed={failed} problem={null} name={name} line={props.line} onShowLines={props.onShowLines} onDirty={props.onDirty} />
       <BreakdownVersions projectId={projectId} hold={versionsHold} />
     </div>
   );

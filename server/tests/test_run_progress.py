@@ -98,7 +98,7 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
     (scene,) = p["scenes"]
     assert (scene["name"], scene["total"], scene["done"]) == ("INT. KITCHEN — MORNING", 1, 1)
     (c,) = scene["clips"]
-    assert c["frame_file_id"] and c["take_id"] and c["number"] == 1
+    assert c["frame_file_id"] and c["take_id"] and c["number"] == "1"
     assert c["model"] and c["label"] and c["changed"] and c["state"] == "redone"  # its cut's watch
     assert c["note"] and not c["note"].startswith(("The watch", "c1"))
     assert p["spent"] > 0 and p["up_to"] >= p["spent"] and p["spent_usd"] > 0  # as the header
