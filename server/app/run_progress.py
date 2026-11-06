@@ -609,6 +609,8 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     every = runs(db, project)
     if not every:
         return None
+    # The run's own starter, not whoever reads it: an editor's run is held as theirs (QA #1396)
+    starter = db.get(User, (list(every.values())[-1][-1].input.get(RUN) or {}).get("by") or 0)
     run_id, turns = list(every.items())[-1]
     owner, (how, why) = bool(viewer and viewer.is_owner), ending(turns)
     now, start = utcnow(), turns[0].created_at
@@ -693,7 +695,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         left = carry_left(db, project)  # the rest of this run's own price; else a new run's
         waits = director._carry_waiting(db, project) is not None  # its Carry on is the owner's
         figure = "" if waits else money(left if left else again, owner)
-        free = uncapped(viewer) and carry_left(db, project, whole=True) is not None
+        free = uncapped(starter) and carry_left(db, project, whole=True) is not None
         out["stopped"] = {"by": user_name(db, by[STOPPED_BY]), "at": by["stopped_at"],
                           "made": made, "total": total, "carry_on": "" if free else figure,
                           "free": free}  # fmt: skip
@@ -702,7 +704,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                     if (w := j.input.get("was_stopped")) and w.get("stopped_by")]  # fmt: skip
     if how == "needs_fix":
         out["failed"] = _failed(db, video, cells, priced(why, owner), owner, again,
-                                uncapped(viewer), budget_now(db, project, turns))  # fmt: skip
+                                uncapped(starter), budget_now(db, project, turns))  # fmt: skip
     return out
 
 
