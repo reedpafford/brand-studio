@@ -217,6 +217,9 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
 
 /** A run that a person stopped (S3-08): the line saying who and when, and the director's reply with Carry on at its price
  *  and Start the plan again (a new run that plans the whole video again; its start card says its "up to" before Make it). */
+/** The Stops a run carried on from (S3-08), as lines in the chat: "Reed stopped the director at 10:31 · carried on at 10:40". */
+export const stopLines = (r: Progress) => (r.stops ?? []).map((x) => `${x.by} stopped the director at ${clock(x.at)} · carried on at ${clock(x.carried_at)}.`);
+
 export function stoppedParts({ progress: r, onCarryOn, onPlanAgain, busy, planBusy, blocked, error }: { progress: Progress; onCarryOn: () => void; onPlanAgain: () => void; busy: boolean; planBusy: boolean; blocked: string | null; error: string | null }) {
   const s = r.stopped!;
   return {
@@ -225,9 +228,11 @@ export function stoppedParts({ progress: r, onCarryOn, onPlanAgain, busy, planBu
       <div className="flex flex-col gap-2">
         <p className="leading-[21px]">{`Stopped. ${s.made ? `The ${s.made} finished clip${s.made === 1 ? " is" : "s are"} kept.` : "Nothing was finished yet."} Tell me what to change, or carry on where I left off.`}</p>
         <div className="flex flex-wrap gap-2">
-          <Button busy={busy} disabled={!!blocked || planBusy} reason={blocked} onClick={onCarryOn}>
-            {`Carry on · up to ${s.carry_on} more`}
-          </Button>
+          {s.carry_on && ( // "": an editor's Carry on waits for the owner's OK, on its own card
+            <Button busy={busy} disabled={!!blocked || planBusy} reason={blocked} onClick={onCarryOn}>
+              {`Carry on · up to ${s.carry_on} more`}
+            </Button>
+          )}
           <Button variant="secondary" busy={planBusy} disabled={!!blocked || busy} reason={blocked} onClick={onPlanAgain}>
             Start the plan again
           </Button>

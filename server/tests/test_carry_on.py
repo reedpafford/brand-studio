@@ -292,3 +292,82 @@ def test_after_the_editors_own_stop_they_carry_on_inside_the_rest(app, db, owner
     assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
     turn = director.turns(db, db.get(Project, pid))[-1]
     assert turn.status != JobStatus.needs_owner_approval
+
+
+def _held_carry(app, db, owner, editor) -> tuple[int, dict]:
+    """The owner stopped the run, the editor pressed Carry on: it waits on the owner's card."""
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _until(app, db, pid)
+    _stop(owner, db, app, pid)
+    assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    card = next(a for a in owner.get(f"/projects/{pid}/asks").json()
+                if a["kind"] == "start" and a["state"] == "open")  # fmt: skip
+    return pid, card
+
+
+def _still_stopped(client, pid: int) -> None:
+    out = client.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "ended" and out["ended"] == "Stopped."
+    stopped = client.get(f"/projects/{pid}/director/progress").json()["stopped"]
+    assert stopped and stopped["by"] and stopped["carry_on"]  # its Stop line and its presses
+    assert client.get(f"/projects/{pid}/idea").json()["status"]["kind"] == "stopped"
+
+
+def test_while_the_owners_ok_waits_the_run_stays_stopped(app, db, owner, editor):
+    pid, _ = _held_carry(app, db, owner, editor)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["ended"] == "Stopped."  # nothing goes on before the owner says yes
+    assert editor.get(f"/projects/{pid}/director/progress").json()["stopped"]["carry_on"] == ""
+    again = editor.post(f"/projects/{pid}/director/carry-on")
+    assert (again.status_code, again.json()["detail"]) == (409, director.CARRY_WAITING)
+
+
+def test_a_declined_carry_on_leaves_the_run_stopped(app, db, owner, editor):
+    pid, card = _held_carry(app, db, owner, editor)
+    r = owner.post(f"/asks/{card['id']}/answer", json={"how": "decline"})
+    assert r.status_code == 200, r.text
+    _run(app, db, ticks=3, start=False)
+    _still_stopped(editor, pid)
+
+
+def test_a_withdrawn_carry_on_leaves_the_run_stopped(app, db, owner, editor):
+    pid, card = _held_carry(app, db, owner, editor)
+    r = editor.post(f"/asks/{card['id']}/answer", json={"how": "withdraw"})
+    assert r.status_code == 200, r.text
+    _run(app, db, ticks=3, start=False)
+    _still_stopped(editor, pid)
+
+
+def test_an_approved_carry_on_goes_on_and_its_later_oks_raise_its_price(app, db, owner, editor):
+    pid, card = _held_carry(app, db, owner, editor)
+    project = db.get(Project, pid)
+    price = asks.approved_run(db, project)[0]
+    assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
+    _run(app, db, ticks=3, start=False)
+    db.expire_all()
+    stops = editor.get(f"/projects/{pid}/director/progress").json()["stops"]
+    assert len(stops) == 1 and stops[0]["by"] and stops[0]["carried_at"] >= stops[0]["at"]
+    later = director.turns(db, project)[-1]  # an OK at the director's own limit, after it
+    later.input = {**later.input, director.GRANT: True}
+    db.commit()
+    assert asks.approved_run(db, project)[0] == price + director.own_limit()
+
+
+def test_a_carry_on_that_cant_queue_its_turn_takes_everything_back(app, db, owner, editor,
+                                                                   monkeypatch):  # fmt: skip
+    import pytest
+
+    pid = _stopped(app, db, owner, editor)
+    project = db.get(Project, pid)
+    before = len(director.turns(db, project))
+
+    def broken(*a, **k):
+        raise RuntimeError("the queue is down")
+
+    monkeypatch.setattr(director, "_turn", broken)
+    with pytest.raises(RuntimeError):
+        editor.post(f"/projects/{pid}/director/carry-on")
+    db.expire_all()
+    assert len(director.turns(db, project)) == before
+    assert editor.get(f"/projects/{pid}/director").json()["ended"] == "Stopped."  # as it was

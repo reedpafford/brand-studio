@@ -544,7 +544,8 @@ def approved_run(
                  and not j.input.get(PLAN_OK)), Decimal(0))  # fmt: skip
     oks = sum(1 for j in mine if j.input.get(GRANT))  # each OK at its own limit grants another
     if card.input.get(CARRIES):  # carrying a stopped run on: the run's own price, not the rest
-        return Decimal(str(card.input[CARRIES])), spent  # (its OKs are in it already)
+        later = sum(1 for j in mine if j.id > card.id and j.input.get(GRANT))  # (its OKs till
+        return Decimal(str(card.input[CARRIES])) + later * own_limit(), spent  # then are in it)
     return Decimal(str(card.input["price"])) + oks * own_limit(), spent
 
 

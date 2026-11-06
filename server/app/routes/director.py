@@ -138,6 +138,15 @@ class RunStoppedOut(BaseModel):
     # price (rule 34); with none of it left, a new run's whole price
 
 
+class RunStopOut(BaseModel):
+    """A Stop the run carried on from (S3-08): "Reed stopped the director at 10:31 · carried
+    on at 10:40"."""
+
+    by: str
+    at: str
+    carried_at: str
+
+
 class RunFixOut(BaseModel):
     kind: Literal["again", "carry_on", "split", "model"]  # again: POST …/clips/{clip}/generate;
     # carry_on: POST …/director; split: POST …/breakdown/fix {problems: [problem]} (free);
@@ -187,7 +196,9 @@ class ProgressOut(BaseModel):
     up_to: float  # the video's "up to", in credits, never below `spent`
     spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
     changed: list[ChangedClipOut]  # "Changed after watching" / "Watch the changes"
-    stopped: RunStoppedOut | None  # stopped by a person (S3-08)
+    stopped: RunStoppedOut | None  # stopped by a person (S3-08); carry_on "" while an
+    # editor's Carry on waits for the owner's OK (its card says so)
+    stops: list[RunStopOut] = []  # Stops it carried on from, oldest first
     failed: RunFailedOut | None  # stopped on a problem, with its fixes (S3-11)
 
 

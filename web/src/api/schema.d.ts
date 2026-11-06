@@ -10365,6 +10365,11 @@ export interface components {
             /** Changed */
             changed: components["schemas"]["ChangedClipOut"][];
             stopped: components["schemas"]["RunStoppedOut"] | null;
+            /**
+             * Stops
+             * @default []
+             */
+            stops: components["schemas"]["RunStopOut"][];
             failed: components["schemas"]["RunFailedOut"] | null;
         };
         /** ProjectClipIn */
@@ -11029,6 +11034,19 @@ export interface components {
             text: string;
             /** Sub */
             sub: string;
+        };
+        /**
+         * RunStopOut
+         * @description A Stop the run carried on from (S3-08): "Reed stopped the director at 10:31 · carried
+         *     on at 10:40".
+         */
+        RunStopOut: {
+            /** By */
+            by: string;
+            /** At */
+            at: string;
+            /** Carried At */
+            carried_at: string;
         };
         /** RunStoppedOut */
         RunStoppedOut: {

@@ -25,7 +25,7 @@ import { plain, useDirectorRun, useMovesRefresh } from "./director";
 import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview";
 import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
 import { InsteadCard } from "./InsteadCard";
-import { DeliveryNote, Failed, PastNote, RunCard, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
+import { DeliveryNote, Failed, PastNote, RunCard, stopLines, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
 import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -512,6 +512,12 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
                   <RunCard progress={progress} phone={phone} />
                   {heldSend(t)}
                 </Item>
+                {stopLines(progress).map((line) => (
+                  <li key={line} className="flex items-center gap-2 pl-[34px] text-xs text-muted">
+                    <CircleStop size={12} strokeWidth={1.75} aria-hidden className="shrink-0 text-faint" />
+                    {line}
+                  </li>
+                ))}
                 {progress.stopped && (
                   <>
                     <li className="flex items-center gap-2 pl-[34px] text-xs text-muted">

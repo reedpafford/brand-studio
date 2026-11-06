@@ -971,3 +971,17 @@ test("S3-14 on a Presenter video: Cut away while it's said is free, and its pres
   await userEvent.click(button);
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A" }));
 });
+
+test("S3-08: a run carried on shows the Stop it carried on from; an editor's Carry on waiting for the owner has no press of its own", async () => {
+  setViewport(1440);
+  const going = record({ stops: [{ by: "Reed", at: "2026-11-04T10:14:00Z", carried_at: "2026-11-04T10:20:00Z" }] });
+  server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, going] });
+  const view = renderApp("/b/1/videos/50");
+  expect(await screen.findByText(/^Reed stopped the director at \d\d:\d\d · carried on at \d\d:\d\d\.$/)).toBeInTheDocument();
+  view.unmount();
+  const waiting = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "" } });
+  server(editor, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, waiting] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: "Start the plan again" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Carry on/ })).toBeNull();
+});

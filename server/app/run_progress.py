@@ -662,10 +662,16 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "stopped": None, "failed": None}  # fmt: skip
     by = next((j.input for j in turns if j.input.get(STOPPED_BY)), None)
     if how == "stopped" and by:  # a person's Stop (a declined turn: its reason is the sub)
+        from app import director
+
         left = carry_left(db, project)  # the rest of this run's own price; else a new run's
+        waits = director._carry_waiting(db, project) is not None  # its Carry on is the owner's
+        figure = "" if waits else money(left if left else again, owner)
         out["stopped"] = {"by": user_name(db, by[STOPPED_BY]), "at": by["stopped_at"],
-                          "made": made, "total": total,
-                          "carry_on": money(left if left else again, owner)}  # fmt: skip
+                          "made": made, "total": total, "carry_on": figure}  # fmt: skip
+    out["stops"] = [{"by": user_name(db, w["stopped_by"]), "at": w["stopped_at"],
+                     "carried_at": w["carried_at"]} for j in turns
+                    if (w := j.input.get("was_stopped")) and w.get("stopped_by")]  # fmt: skip
     if how == "needs_fix":
         out["failed"] = _failed(db, video, cells, why, owner, again)
     return out
