@@ -557,6 +557,9 @@ def _act(db: Session, job: Job, storage) -> None:
     unpick_old_takes(db, project, run)  # "Start the plan again": its new shots are made
     if tool == "pick_take" and (aside := _aside(db, project, run, decision)):
         return _record(db, job, run, aside)
+    swap = decision.get("edit") or {} if tool == "edit_cut" else {}
+    if swap.get("kind") == "swap" and (aside := _aside(db, project, run, swap)):
+        return _record(db, job, run, aside)  # a swap to a set-aside take: refused as a pick is
     if tool == "deliver":
         watch = _watch(db, project)
         watched = watch.get("current") and watch.get("state") in ("done", "failed")
