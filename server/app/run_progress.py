@@ -176,8 +176,12 @@ class _Video:
         mine = TakeSeen.user_id == (viewer.id if viewer else 0)
         seen = select(TakeSeen.take_id).where(mine, TakeSeen.take_id.in_(tids))
         self.seen = set(db.scalars(seen))
-        spans = db.execute(select(Job.started_at, Job.finished_at).where(
-            Job.workspace_id == project.workspace_id, Job.kind == "video",
+        from app.credits import FREE_LANES
+        from app.providers import STAND_IN
+
+        real = Job.provider.not_in(FREE_LANES) & ~Job.provider_ref.like(f"{STAND_IN}%")  # the
+        spans = db.execute(select(Job.started_at, Job.finished_at).where(  # stand-ins' 1 min
+            Job.workspace_id == project.workspace_id, Job.kind == "video", real,  # never counts
             Job.status == JobStatus.succeeded, Job.started_at.is_not(None))
             .order_by(Job.id.desc()).limit(20)).all()  # fmt: skip
         took = [(b - a).total_seconds() for a, b in spans if b and b > a]

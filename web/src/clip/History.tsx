@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { api, polled } from "../api/client";
 import { serverTime } from "../time";
 
 // Job clocks and the caller's jobs, shared by the video and script steps (Freestyle replaced Quick clip and its History).
@@ -12,7 +12,7 @@ export const GOING = ["queued", "running", "needs_owner_approval"];
 export function useJobs() {
   return useQuery({
     queryKey: ["jobs"],
-    queryFn: async () => (await api.GET("/jobs")).data ?? [],
+    queryFn: () => polled(api.GET("/jobs"), []),
     refetchInterval: (q) => (q.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
 }

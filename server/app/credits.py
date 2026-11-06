@@ -342,14 +342,21 @@ def real_spent(db: Session, settings) -> Decimal:
     """What real calls sent since `real_budget_since` came to, at their credits (the price we
     charge, above the real cost: it errs safe). A job counts once sent, whatever after; a
     stand-in's never does (the dry run counted them)."""
-    query = select(func.coalesce(func.sum(Job.credits), 0)).where(
-        Job.provider.not_in(FREE_LANES),
-        Job.provider_ref.is_not(None),  # sent
-        Job.provider_ref.not_like(f"{STAND_IN}%"),  # to a real provider
-    )
+    from app.models.jobs import Usage
+
+    sent = [Job.provider.not_in(FREE_LANES), Job.provider_ref.is_not(None),  # sent
+            Job.provider_ref.not_like(f"{STAND_IN}%")]  # to a real provider  # fmt: skip
     if settings.real_budget_since:
-        query = query.where(Job.started_at >= settings.real_budget_since)
-    return Decimal(db.scalar(query)) * USD_PER_CREDIT
+        sent.append(Job.started_at >= settings.real_budget_since)
+    total = Decimal(db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(*sent)))
+    # Claude's charge is capped at its shown price, but its real cost can be more (the audit):
+    # where the recorded real cost is above it, that's what counts.
+    claude = (select(Job.credits, func.coalesce(func.sum(Usage.cost_usd), 0))
+              .outerjoin(Usage, Usage.job_id == Job.id).where(*sent, Job.provider == "claude")
+              .group_by(Job.id, Job.credits))  # fmt: skip
+    over = sum((max(Decimal(0), Decimal(usd) - credits * USD_PER_CREDIT)
+                for credits, usd in db.execute(claude)), Decimal(0))  # fmt: skip
+    return total * USD_PER_CREDIT + over
 
 
 def real_budget_refusal(db: Session, settings, provider: str, credits: Decimal) -> str:

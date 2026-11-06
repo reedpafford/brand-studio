@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { api, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { refreshJobs } from "../jobs/refresh";
 
@@ -27,7 +27,7 @@ export function useDirectorRun(projectId: number, enabled = true) {
   return useQuery({
     queryKey: ["director", projectId],
     enabled,
-    queryFn: async () => (await api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } })).data ?? null,
+    queryFn: () => polled(api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } }), null),
     refetchInterval: (q) => (q.state.data?.status === "running" ? 5_000 : false),
   });
 }

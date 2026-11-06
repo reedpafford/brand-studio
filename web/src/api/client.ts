@@ -17,3 +17,12 @@ export async function must<T extends { response: Response; error?: unknown }>(ca
   if (!result.response.ok) throw new Error(errorText(result.error));
   return result;
 }
+
+/** A polled read (a run card, the header, the clips): its data, or `none` when there is nothing (404). Any other refusal
+ *  throws, so polling goes on with the last data shown: one 502 during a deploy never empties or freezes the page. */
+export async function polled<T, N>(call: Promise<{ data?: T; response: Response; error?: unknown }>, none: N): Promise<T | N> {
+  const { data, response, error } = await call;
+  if (response.ok) return data ?? none;
+  if (response.status === 404) return none;
+  throw new Error(errorText(error));
+}

@@ -462,6 +462,8 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
         db.commit()  # stopped before its call: no call is made, so nothing is charged
         return True
+    ref = "sync" if provider.paid or job.provider in FREE_LANES else f"{STAND_IN}sync"
+    sent = update(Job).where(Job.id == job.id).values(provider_ref=ref)  # a stand-in's: marked
     try:  # a Claude check that looks at a picture gets it as data, like other providers
         result = provider.run(job.kind, _files_as_data(db, storage, job))
         result = recheck(job.input, result, lambda again: provider.run(job.kind, again))
@@ -473,16 +475,17 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
             _fail(db, job, FAILED, repr(exc))
         db.commit()
         return True
-    except NetworkError:
+    except NetworkError:  # sent, then the connection dropped: it may have been charged
+        db.execute(sent)  # so it counts against the real budget (the audit: it counted $0)
         _fail(db, job, UNSURE, CHECK)
         db.commit()
         return True
     except Exception as exc:  # noqa: BLE001 - any other provider error fails the job
+        db.execute(sent)
         _fail(db, job, _plain(job, repr(exc)), repr(exc))
         db.commit()
         return True
-    ref = "sync" if provider.paid or job.provider in FREE_LANES else f"{STAND_IN}sync"
-    db.execute(update(Job).where(Job.id == job.id).values(provider_ref=ref))  # a stand-in's: marked
+    db.execute(sent)
     _finish(db, job, provider, result, storage)
     return True
 

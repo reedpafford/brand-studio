@@ -29,7 +29,9 @@ export function useRunProgress(projectId: number) {
     refetchInterval: (q) => (["working", "revising", "waiting"].includes(q.state.data?.status ?? "") ? 3000 : false),
     queryFn: async (): Promise<Progress | null> => {
       const r = await fetch(`/api/projects/${projectId}/director/progress`, { credentials: "same-origin" });
-      return r.ok ? ((await r.json()) as Progress | null) : null;
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error("The run's progress didn't load."); // polling goes on with what it showed (a deploy's 502)
+      return (await r.json()) as Progress | null;
     },
   });
 }

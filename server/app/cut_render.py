@@ -110,7 +110,9 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     pieces = r["pieces"]
     videos = [made[str(p["take_id"])] for p in pieces]
     if r["mode"] == "takes" and all(p["whole"] and not p["from"] for p in pieces):
-        data = stitch(videos, reencode=laid)  # as made: copied where it can be
+        # As made: copied when every take is the same format, else joined with each take's
+        # own sound (a silent one, or one with no audio track, gets silence; no drift).
+        data = (not laid and stitch(videos)) or joined(videos, [(0.0, None)] * len(videos))
     elif r["mode"] == "takes":
         data = joined(videos, [(p["from"], None if p["whole"] else p["length"]) for p in pieces])
     else:
@@ -146,26 +148,30 @@ def seconds(data: bytes) -> float:
         return _length(Path(tmp), "f")
 
 
-def stitch(videos: list[bytes], reencode: bool = False) -> bytes:
-    """Join MP4 clips in order into one MP4 with ffmpeg (no credits). Clips from one model share
-    a format, so streams are copied; if that fails (or some clips have cut-ins, so formats may
-    differ) they are re-encoded."""
+VIDEO = "codec_name,width,height,r_frame_rate,pix_fmt"
+AUDIO = "codec_name,sample_rate,channels"
+
+
+def stitch(videos: list[bytes]) -> bytes | None:
+    """Join MP4 clips in order by copying their streams (no credits), only when every clip has
+    the same video and audio format, its audio track included (ffmpeg's concat copy takes the
+    streams from the first file and still succeeds, so a silent first take or mixed sizes and
+    sample rates lose or drift the sound). None when they differ, or the copy fails: then they
+    are joined by re-encoding (`joined`)."""
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         names = []
         for n, data in enumerate(videos):
             (folder / f"{n}.mp4").write_bytes(data)
-            names.append(f"file '{n}.mp4'")
-        (folder / "list.txt").write_text("\n".join(names))
-        base = ["ffmpeg", "-v", "error", "-y", "-f", "concat", "-i", "list.txt"]
-        codecs = [["-c", "copy"], ["-c:v", "libx264", "-c:a", "aac"]][int(reencode) :]
-        for codec in codecs:
-            done = subprocess.run(  # noqa: S603 - fixed arguments; file names are ours
-                [*base, *codec, "out.mp4"], cwd=folder, capture_output=True, timeout=600
-            )
-            if done.returncode == 0:
-                return (folder / "out.mp4").read_bytes()
-        raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
+            names.append(f"{n}.mp4")
+        kinds = {(_probe(folder, f, "v:0", VIDEO), _probe(folder, f, "a:0", AUDIO)) for f in names}
+        if len(kinds) != 1 or not next(iter(kinds))[0]:
+            return None
+        (folder / "list.txt").write_text("\n".join(f"file '{f}'" for f in names))
+        copy = ["ffmpeg", "-v", "error", "-y", "-f", "concat", "-i", "list.txt", "-c", "copy"]
+        done = subprocess.run([*copy, "out.mp4"], cwd=folder, capture_output=True,  # noqa: S603
+                              timeout=600)  # fmt: skip
+        return (folder / "out.mp4").read_bytes() if done.returncode == 0 else None
 
 
 def joined(videos: list[bytes], cuts: list[tuple[float, float | None]]) -> bytes:

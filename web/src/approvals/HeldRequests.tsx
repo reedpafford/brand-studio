@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { api, errorText } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import { Banner, Button, buttonClass, creditsText } from "../components";
 import { serverTime } from "../time";
 import { useMe } from "../auth/useMe";
@@ -53,7 +53,7 @@ export function askedAgo(iso: string, now = Date.now()) {
 export function useMyRequests() {
   return useQuery({
     queryKey: ["jobs", "mine"],
-    queryFn: async () => (await api.GET("/jobs", { params: { query: { mine: true } } })).data ?? [],
+    queryFn: () => polled(api.GET("/jobs", { params: { query: { mine: true } } }), []),
     refetchInterval: (q) => (q.state.data?.some((j) => j.status === "needs_owner_approval") ? 15_000 : false),
   });
 }
@@ -80,7 +80,7 @@ export function HeldRequests({ where }: { where: HeldWhere }) {
     enabled: owner && !("quick" in where),
     queryKey: ["held-jobs"],
     refetchInterval: 30_000,
-    queryFn: async () => (await api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } })).data ?? [],
+    queryFn: () => polled(api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } }), []),
   });
   const withdraw = useMutation({
     mutationFn: async (j: Job) => {
