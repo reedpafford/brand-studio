@@ -1,0 +1,196 @@
+"""Board S3-08's Carry on: after a person's Stop, "Carry on · up to $10.74 more" is what's left
+of the stopped run's OWN approved price ($16.86 − $6.12; rule 34, Reed 6 Nov: each run its own
+price, so a run never spends another's leftover). Inside it the same run goes on under the
+owner's existing OK, with no new start card; past it, its steps wait for the owner. An editor
+reads credits. All on the stand-ins (no paid call)."""
+
+from decimal import Decimal
+
+from app import asks, director, run_progress
+from app.credits import PAST_APPROVED
+from app.models.asks import Ask
+from app.models.clips import ProjectClip
+from app.models.freestyles import Freestyle
+from app.models.jobs import Job, JobStatus
+from app.models.projects import Project
+from app.providers import get_providers
+from app.worker import run_once
+from tests.conftest import first_brand
+from tests.helpers import make_it, ok_when_asked
+from tests.test_director import _made, _run
+
+
+def _until(app, db, pid: int, ticks=120, made=1) -> None:
+    """The run goes on until `made` clips have a take, as the person approves when asked."""
+    providers = get_providers(app.state.settings, app.state.storage)
+    for _ in range(ticks):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        ok_when_asked(db)
+        make_it(db)
+        picked = db.query(ProjectClip).filter(ProjectClip.project_id == pid,
+                                              ProjectClip.picked_take_id.is_not(None))  # fmt: skip
+        if picked.count() >= made:
+            return
+
+
+def _stop(client, db, app, pid: int) -> None:
+    assert client.post(f"/projects/{pid}/director/stop").json()["ended"] == "Stopped."
+    _run(app, db, ticks=4, start=False)  # what it started finishes; no more turns
+
+
+def _stopped(app, db, owner, editor) -> int:
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _until(app, db, pid)
+    _stop(editor, db, app, pid)
+    return pid
+
+
+def _left(db, pid: int) -> Decimal:
+    price, spent = asks.approved_run(db, db.get(Project, pid))
+    return price - spent
+
+
+def _starts(db, pid: int) -> int:
+    return db.query(Ask).filter_by(project_id=pid, kind="start").count()
+
+
+def test_the_figure_is_the_rest_of_the_stopped_runs_own_price(app, db, owner, editor):
+    pid = _stopped(app, db, owner, editor)
+    left = _left(db, pid)
+    assert left > 0 and run_progress.carry_left(db, db.get(Project, pid)) == left
+    owners = owner.get(f"/projects/{pid}/director/progress").json()["stopped"]["carry_on"]
+    editors = editor.get(f"/projects/{pid}/director/progress").json()["stopped"]["carry_on"]
+    assert owners == run_progress.money(left, True) and owners.startswith("$")  # dollars
+    assert editors == run_progress.money(left, False) and editors.endswith("credits")  # credits
+    head = owner.get(f"/projects/{pid}/idea").json()  # one run: the header's sum, to the cent
+    diff = Decimal(str(head["up_to"]["usd"])) - Decimal(str(head["spent"]["usd"]))
+    assert abs(Decimal(owners[1:]) - diff) <= Decimal("0.01")
+
+
+def test_inside_it_the_same_run_goes_on_with_no_new_start_card(app, db, owner, editor):
+    pid = _stopped(app, db, owner, editor)
+    project = db.get(Project, pid)
+    stopped = director.turns(db, project)[-1].input[director.RUN]
+    cards, card = _starts(db, pid), asks.approved_run(db, project)[0]
+    r = editor.post(f"/projects/{pid}/director/carry-on")  # the editor's own video
+    assert r.status_code == 201, r.text
+    assert r.json()["status"] == "running" and r.json()["started"]  # no Make it again
+    assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 409  # one at a time
+    run = director.turns(db, project)[-1].input[director.RUN]
+    assert run[director.CARRIED] == stopped["id"] and run["ok"]
+    assert run["redos"] == stopped["redos"] and run["turn"] >= stopped["turn"]  # the same run
+    _run(app, db, ticks=120, start=False)  # nobody presses Make it: none is needed
+    db.expire_all()
+    assert _starts(db, pid) == cards  # no new start card
+    assert asks.approved_run(db, project)[0] == card  # under the same OK
+    tools = [(t.output or {}).get("tool") for t in director.turns(db, project)]
+    assert "treatment" not in tools  # it goes on where it left off
+    assert director.turns(db, project)[-1].input.get("result") == director.DELIVERED
+    held = db.query(Job).filter_by(project_id=pid, status=JobStatus.needs_owner_approval)
+    assert held.count() == 0
+
+
+def test_past_it_a_step_waits_for_the_owner(app, db, owner, editor):
+    pid = _stopped(app, db, owner, editor)
+    project = db.get(Project, pid)
+    card = db.query(Job).filter(Job.project_id == pid, Job.input[asks.START].as_boolean()
+                                ).order_by(Job.id.desc()).first()  # fmt: skip
+    spent = asks.approved_run(db, project)[1]
+    card.input = {**card.input, "price": str(spent + Decimal("0.01"))}  # almost none left
+    db.commit()
+    assert run_progress.carry_left(db, project) == Decimal("0.01")
+    assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    _run(app, db, ticks=20, start=False)
+    db.expire_all()
+    held = db.query(Job).filter_by(project_id=pid, status=JobStatus.needs_owner_approval).all()
+    assert held and held[0].input.get("held") == PAST_APPROVED  # the owner's OK first
+    assert [a for a in owner.get(f"/projects/{pid}/asks").json() if a["state"] == "open"]
+
+
+def test_with_no_make_it_it_is_a_new_run_with_its_start_card(app, db, owner, editor):
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=3, start=False)  # its plan, then its card: never pressed
+    _stop(editor, db, app, pid)
+    assert run_progress.carry_left(db, db.get(Project, pid)) is None
+    cards = _starts(db, pid)
+    assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    run = director.turns(db, db.get(Project, pid))[-1].input[director.RUN]
+    assert not run["ok"] and director.CARRIED not in run  # its plan, then its own card
+    _run(app, db, ticks=6, start=False)  # a new run: its plan waits on the planning cap's OK
+    cards_now = db.query(Ask).filter(Ask.project_id == pid, Ask.kind.in_(("start", "plan")))
+    assert cards_now.count() > cards  # (or its own start card), never the old run's OK
+
+
+def test_after_a_delivery_and_a_second_run_it_is_that_runs_own_rest(app, db, owner, editor):
+    """Rule 34 per run: once a run delivered, a second run's Carry on is what's left of the
+    second run's own price, never the first run's leftover."""
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=120)
+    project = db.get(Project, pid)
+    assert director.turns(db, project)[-1].input.get("result") == director.DELIVERED
+    first = _left(db, pid)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 slower."})
+    assert editor.post(f"/projects/{pid}/director").status_code == 201  # Make it again
+    providers = get_providers(app.state.settings, app.state.storage)
+    for _ in range(40):  # its own start card pressed, then it works a turn or two
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        ok_when_asked(db)
+        make_it(db)
+        rows = director.turns(db, project)
+        if rows[-1].input[director.RUN].get("ok") and len(rows) > 3:
+            break
+    second = director.turns(db, project)[-1].input[director.RUN]
+    assert second["ok"]
+    _stop(editor, db, app, pid)
+    card = db.query(Job).filter(Job.project_id == pid, Job.input[asks.START].as_boolean()
+                                ).order_by(Job.id.desc()).first()  # fmt: skip
+    assert card.input[director.RUN]["id"] == second["id"]  # the second run's own Make it
+    left = run_progress.carry_left(db, project)
+    price, spent = asks.approved_run(db, project)
+    assert left == price - spent and price == Decimal(str(card.input["price"]))
+    assert left != first  # never the first run's leftover
+
+
+def test_a_freestyles_carry_on_is_its_runs_own_rest(app, db, owner):
+    from tests.test_freestyle_dialogue import BODY
+
+    app.state.settings.fake_providers = True
+    fs = owner.post("/freestyles", json={**BODY, "brand_id": first_brand(owner)}).json()
+    pid = db.get(Freestyle, fs["id"]).project_id
+    _until(app, db, pid)
+    _stop(owner, db, app, pid)
+    db.expire_all()
+    left = _left(db, pid)
+    stopped = owner.get(f"/projects/{pid}/director/progress").json()["stopped"]
+    assert stopped["carry_on"] == run_progress.money(left, True)
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    run = director.turns(db, db.get(Project, pid))[-1].input[director.RUN]
+    assert run["ok"] and run[director.CARRIED]
+
+
+def test_carrying_on_a_stopped_plan_again_run_keeps_its_press(app, db, owner, editor):
+    """#1360: Stop after Start the plan again set the old takes aside, then Carry on: the same
+    run goes on, keeping the press, so every clip is still made again."""
+    pid = _stopped(app, db, owner, editor)
+    assert editor.post(f"/projects/{pid}/director/plan-again").status_code == 201
+    providers = get_providers(app.state.settings, app.state.storage)
+    project = db.get(Project, pid)
+    for _ in range(120):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        ok_when_asked(db)
+        make_it(db)
+        if director.turns(db, project)[-1].input[director.RUN].get(director.UNPICKED):
+            break
+    run = director.turns(db, project)[-1].input[director.RUN]
+    assert run.get(director.UNPICKED)
+    _stop(editor, db, app, pid)
+    assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    carried = director.turns(db, project)[-1].input[director.RUN]
+    assert carried["ok"] and carried[director.CARRIED] == run["id"]
+    assert carried[director.FRESH] == run[director.FRESH] and carried[director.UNPICKED]

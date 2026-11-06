@@ -4437,6 +4437,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/director/carry-on": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carry On
+         * @description Carry on (S3-08) after a person's Stop: the same run goes on where it left off under the
+         *     owner's existing OK, up to what's left of its own approved price ("up to $X more"); a step
+         *     past that waits for the owner. With nothing of it left, a new run with its own start card,
+         *     as Make it starts one. 409 while a run goes on.
+         */
+        post: operations["carry_on_projects__project_id__director_carry_on_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/director/messages": {
         parameters: {
             query?: never;
@@ -22275,6 +22298,37 @@ export interface operations {
         };
     };
     plan_again_projects__project_id__director_plan_again_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    carry_on_projects__project_id__director_carry_on_post: {
         parameters: {
             query?: never;
             header?: never;

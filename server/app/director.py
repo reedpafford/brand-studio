@@ -100,6 +100,35 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     return _turn(db, user, project, run, extra=extra)
 
 
+CARRIED = "carried"  # in a run carried on after a person's Stop: the run it goes on from
+KEPT = ("turn", "redos", "watches", "replans", "redraws", director_song.REMADE)  # its counts
+
+
+def carry_on(db: Session, user: User, project: Project) -> Job:
+    """Carry on (S3-08): a run a person stopped goes on where it left off under the owner's
+    existing OK, with no new start card, while its own approved price has something left
+    (`run_progress.carry_left`). It is the same run (rule 34: its holds and counts are its
+    own): what it charges counts against that price, and a step past it waits for the owner as
+    any does (`asks.past_run`). A stopped "Start the plan again" press is kept. With nothing
+    left of that price, or no Make it before the Stop, it's a new run with its own start card."""
+    from app import run_progress
+
+    if why := blocked(db, project):
+        raise HTTPException(409, why)
+    if run_progress.carry_left(db, project) is None:
+        return start(db, user, project, hold=asks.start_hold(db, user, project))
+    old = dict(turns(db, project)[-1].input[RUN])
+    run = {**{k: old[k] for k in KEPT if k in old}, **_replanning(db, project),
+           "id": uuid.uuid4().hex, "by": user.id, "ok": True, "hold": "",
+           CARRIED: old.get(CARRIED) or old["id"]}  # fmt: skip
+    lock(db, Project, project.id)
+    db.refresh(project)
+    if notes := set(leftover(db, project)):  # what was said since the Stop: it reads them
+        project.director_chat = [{**m, "run": run["id"]} if n in notes else m
+                                 for n, m in enumerate(project.director_chat)]  # fmt: skip
+    return _turn(db, user, project, run)
+
+
 def say(db: Session, user: User, project: Project, text: str, files: list[int] = ()) -> None:
     """A person's note to the director (director-chat.md §1 item 4), kept in the thread with
     any pictures or clips sent with it (for this video only, rule 12; the director looks at
@@ -982,8 +1011,9 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
     asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed}
              for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
     # new: no earlier turn was given it. answered: a move named it ("Note N"); else still open
+    mine = [run["id"], *([run[CARRIED]] if run.get(CARRIED) else [])]  # carried on: its run's
     own = db.scalar(select(Job.id).where(Job.input["step"].as_string() == "treatment",
-                                         Job.input[RUN]["id"].as_string() == run["id"],
+                                         Job.input[RUN]["id"].as_string().in_(mine),
                                          Job.status.in_(COUNTED)).limit(1))  # fmt: skip
     video = {
         **video_state(db, project),

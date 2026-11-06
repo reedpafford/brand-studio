@@ -334,13 +334,14 @@ test("S3-03/04: the run is one card: its frames scene by scene, the scene being 
 test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its price starts it again", async () => {
   setViewport(1440);
   const stopped = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "$10.74" } });
-  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director": [201, run()] });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, stopped], "POST /projects/50/director/carry-on": [201, run()] });
   renderApp("/b/1/videos/50");
   expect(await screen.findByText(/^Reed stopped the director at \d\d:\d\d\. Nothing more is being spent\.$/)).toBeInTheDocument();
   expect(screen.getByText("Stopped. The 3 finished clips are kept. Tell me what to change, or carry on where I left off.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull(); // Carry on is the press here
   await userEvent.click(screen.getByRole("button", { name: "Carry on · up to $10.74 more" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director/carry-on")).toBe(true)); // the same run, under the owner's OK
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // not a new run
 });
 
 test("S3-08: Start the plan again starts a new run that plans the whole video again; it says why when it can't", async () => {

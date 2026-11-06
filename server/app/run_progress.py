@@ -529,6 +529,23 @@ def spent(db: Session, project: Project) -> tuple[Decimal, Decimal]:
     return used, ideas._up(max(run_up_to(db, project), reach, used))
 
 
+def carry_left(db: Session, project: Project) -> Decimal | None:
+    """Board S3-08's "Carry on · up to $10.74 more": what's left of the stopped run's OWN
+    approved price (rule 34, Reed 6 Nov: each run its own price; a run is one pass from its
+    Make it to its delivery or Stop): that price, with its OKs at the director's own limit,
+    less what the run has charged against it (`asks.approved_run`). None when the newest run
+    wasn't stopped by a person, had no Make it, or has nothing of its price left."""
+    every = runs(db, project)
+    rows = list(every.values())[-1] if every else []
+    if not any(j.input.get(STOPPED_BY) for j in rows):
+        return None
+    if not any(j.input[RUN].get("ok", True) for j in rows):  # stopped before its Make it
+        return None
+    got = asks.approved_run(db, project)
+    left = got[0] - got[1] if got else Decimal(0)
+    return left if left > 0 else None
+
+
 def dollars(credits: Decimal) -> float:
     """Credits as the owner reads them, in dollars at the header's rate (`ideas._money`)."""
     from app.models.credits import USD_PER_CREDIT
@@ -640,9 +657,10 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "stopped": None, "failed": None}  # fmt: skip
     by = next((j.input for j in turns if j.input.get(STOPPED_BY)), None)
     if how == "stopped" and by:  # a person's Stop (a declined turn: its reason is the sub)
+        left = carry_left(db, project)  # the rest of this run's own price; else a new run's
         out["stopped"] = {"by": user_name(db, by[STOPPED_BY]), "at": by["stopped_at"],
                           "made": made, "total": total,
-                          "carry_on": money(again, owner)}  # fmt: skip
+                          "carry_on": money(left if left else again, owner)}  # fmt: skip
     if how == "needs_fix":
         out["failed"] = _failed(db, video, cells, why, owner, again)
     return out

@@ -344,7 +344,22 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       return refreshJobs(queryClient);
     },
   });
-  // "Start the plan again" (S3-08): a new run, as Carry on starts one, that plans the whole video again after Make it.
+  // Carry on after a person's Stop (S3-08): the same run goes on under the owner's OK, up to the rest of its own price.
+  const carry = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/projects/{project_id}/director/carry-on", { params: { path: { project_id: id } } });
+      if (!data) throw new Error(errorText(error));
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["director", id], data);
+      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
+      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
+      void queryClient.invalidateQueries({ queryKey: ["run-progress", id] });
+      return refreshJobs(queryClient);
+    },
+  });
+  // "Start the plan again" (S3-08): a new run with its own start card that plans the whole video again after Make it.
   const planAgain = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director/plan-again", { params: { path: { project_id: id } } });
@@ -366,7 +381,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const mayStart = fs ? owner : maker; // a freestyle's run is the owner's to start again; a script video's, its maker's
   const blocked = run?.start_blocked || null;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
-  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), again.mutate()), onPlanAgain: () => (again.reset(), planAgain.mutate()), busy: again.isPending, planBusy: planAgain.isPending, blocked, error: (again.error ?? planAgain.error)?.message ?? null }) : null;
+  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), carry.mutate()), onPlanAgain: () => (carry.reset(), planAgain.mutate()), busy: carry.isPending, planBusy: planAgain.isPending, blocked, error: (carry.error ?? planAgain.error)?.message ?? null }) : null;
   const presses = !archived && !lookOnly && (
     <>
       {ended && mayStart && p && (
