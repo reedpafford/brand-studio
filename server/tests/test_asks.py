@@ -1097,3 +1097,22 @@ def test_withdrawing_a_clone_of_a_brand_voice_never_removes_that_voice(app, db, 
     db.expire_all()
     nate = db.get(Voice, nate.id)
     assert nate.archived_at is None and nate.sample_file_id == first and nate.job_id is None
+
+
+def test_a_revision_never_says_no_generation_started(app, db, owner, editor):
+    """QA on the cut screens (board S3-12, "Working · revising · $9.84 spent"): once a run has
+    made the video, the header never says "No generation started" again, while a revision
+    plans or waits on its own Make it; before the first Make it, it does (S3-02)."""
+    pid, _ = _video(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    _start(app, db, owner, pid)
+    assert owner.get(url).json()["started"] is False  # the first start card waits
+    _make_it(app, db, owner, pid)
+    assert owner.get(url).json()["started"] is True
+    owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    owner.post(url)  # Make it again: the revision plans first
+    assert owner.get(f"{url}/progress").json()["status"] == "revising"
+    assert owner.get(url).json()["started"] is True
+    _run(app, db, ticks=4, start=False)  # its start card waits
+    assert owner.get(f"{url}/progress").json()["status"] == "waiting"
+    assert owner.get(url).json()["started"] is True and editor.get(url).json()["started"] is True
