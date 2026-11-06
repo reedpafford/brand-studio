@@ -138,8 +138,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             if len(rows) != 1:
                 return "Refused: name one clip."
             said = model_map.choose(db, project, rows[0], decision.get("model"),
-                                    decision.get("why") or "", decision.get("value") == "speaks",
-                                    decision.get("note") or "")  # fmt: skip
+                                    decision.get("why") or "")  # fmt: skip
             db.commit()
             return said
         if tool == "settings":  # the Plan tab's switch, from the chat; a person's choice stays

@@ -88,15 +88,10 @@ def take_stale(db: Session, project: Project, clip: ProjectClip) -> bool:
 
 def made_stale(project: Project, clip: ProjectClip, take: ClipTake) -> bool:
     """This take of the clip made with another video model, shape, flavour or Sung shots."""
-    from app.model_map import of_clip, speaks
+    from app.model_map import of_clip
 
     sung = (clip.song_slice or {}).get("sung_shots")
-    made = take.made_with or {}
-    if made.get("model") and bool(made.get("speaks")) != speaks(
-        clip, project
-    ):  # Omni speech on or off
-        return True
-    return _stale(project, made, of_clip(project, clip).id, sung)
+    return _stale(project, take.made_with or {}, of_clip(project, clip).id, sung)
 
 
 # --- Choices and prices ----------------------------------------------------------------------
@@ -128,9 +123,6 @@ def check(db: Session, user: User, project: Project, values: dict) -> dict:
         from app import voices
 
         value = voices.checked(db, project, value)
-    elif field == "narration_only":  # Reed, 4 Nov: no talker speaks on Omni here
-        if value not in (None, True, False):
-            raise HTTPException(422, "Narration only is on or off.")
     elif field == "presenter":  # Reed's L3: how a Presenter video's presenter appears
         from app import host
 
@@ -405,7 +397,6 @@ def settings(db: Session, project: Project) -> dict:
                     for e in reversed(project.settings_log or [])],
         "presenter": project.presenter,  # null: the style's start (`presenter_now` says it)
         "presenter_now": _presenter(db, project),
-        "narration_only": bool(project.narration_only),
         "voice": project.voice,  # null: the video's own (its host's, its style's or the default)
         "look": project.look, "broll_look": project.broll_look,
         "video_model": project.video_model,

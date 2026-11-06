@@ -733,30 +733,25 @@ class DirectorTurn(BaseModel):
     model: str | None = Field(
         default=None,
         description="For clip_model: the catalogue id of the model that makes this clip "
-        "(with value 'speaks' on Omni, the talker says the clip's scripted words in Omni's own "
-        "voice, only for a dramatic moment, an interaction, a reveal or a punchline, never "
-        "merely because they move; `note` describes that voice the first time) "
-        "('seedance-1-lite' where it's enough for a B-roll shot, 'gemini-omni-1.1' for a "
-        "talker's own shot where they move, act or take part in the story, never B-roll); null "
+        "('seedance-1-lite' where it's enough for a B-roll shot; 'gemini-omni-1.1' only for a "
+        "talker's shot that needs what Seedance can't give, named in `why`, never because they "
+        "appear or move, never B-roll); null "
         "puts the clip back on the video's model. For settings with setting video_model or "
         "image_model: the model's id, null for Auto. Else null.",
     )
     setting: Literal[
-        "look", "video_model", "image_model", "aspect_ratio", "presenter", "narration_only"
+        "look", "video_model", "image_model", "aspect_ratio", "presenter"
     ] | None = Field(
         default=None,
         description="For settings: which of the video's settings to switch, when a person asks "
         "in the chat or the treatment chose it: look (the style), video_model, image_model, "
-        "aspect_ratio (the shape), presenter (how the presenter appears: talks, corner or "
-        "acts) or narration_only (on when a person says 'narration only': no talker speaks on "
-        "Omni). A setting a person chose themselves stays theirs. Else null.",
+        "aspect_ratio (the shape) or presenter (how the presenter appears: talks, corner or "
+        "acts). A setting a person chose themselves stays theirs. Else null.",
     )  # fmt: skip
     value: str | None = Field(
         default=None,
-        description="For settings with setting look, aspect_ratio, presenter or narration_only: "
-        "the new value (a style id, '9:16', talks / corner / acts, or on / off); null for the "
-        "style's own. For clip_model, 'speaks' when the talker says the clip's words on Omni. "
-        "Else null.",
+        description="For settings with setting look, aspect_ratio or presenter: the new value "
+        "(a style id, '9:16', or talks / corner / acts); null for the style's own. Else null.",
     )
     word: str | None = Field(
         default=None,

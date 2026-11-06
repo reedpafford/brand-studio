@@ -190,16 +190,26 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     from app.clip_takes import take_credits
 
     fresh = [c for c in planned if c["id"] not in {r.clip_id for r in clips}]
-    # each made clip at its own model (Omni's fixed length) with its check; new ones as planned,
-    # a talker's shot on Omni when the presenter acts (QA on #1327: before its row exists)
+    # each made clip at its own model (one on Omni: its fixed length) with its watch; the
+    # planned clips still to write at the video model; nothing defaults to Omni (Reed, 5 Nov),
+    # but a photoreal presenter who acts is quoted on Omni for their shots, the director's path
+    # for them, or on the video's own model when that costs more: the press may stay on it
+    # (rule 36: the "up to" never below what it can charge)
     omni = model_map.on_omni(db, project, bd.data) if bd_ok else set()
     acting = [c for c in fresh if c["id"] in omni]
     rest = (sum(c["seconds"] for c in fresh) if clips else seconds_left) - sum(
         c["seconds"] for c in acting
     )
-    takes = (sum((take_credits(db, project, c) for c in clips if not c.picked_take_id),
-                 Decimal(0)) + _video(db, ws, max(rest, 0), project)
-             + sum((model_map.omni_take(db, project, c["seconds"]) for c in acting), Decimal(0))
+    made = Decimal(0)
+    for c in clips:
+        if not c.picked_take_id:
+            own = take_credits(db, project, c)
+            made += (max(own, model_map.omni_take(db, project, c.seconds)
+                         + take_watch.rides(db, project, c))
+                     if model_map.expected(db, project, c) else own)  # fmt: skip
+    takes = (made + _video(db, ws, max(rest, 0), project)
+             + sum((max(model_map.omni_take(db, project, c["seconds"]),
+                        _video(db, ws, c["seconds"], project)) for c in acting), Decimal(0))
              + take_watch.per_take(db, ws) * len(fresh))  # fmt: skip
     rewrite = clip_prompts.to_rewrite(db, project) if clips else []
     rows = [
