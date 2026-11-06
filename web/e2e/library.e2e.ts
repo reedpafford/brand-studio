@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Library" })).toBeVisible();
 });
 
-// A retry runs the serial group again from here: what a failed attempt made goes first, so fomo starts empty again.
+// A retry (or a --repeat-each round) runs the serial group again from here: what an earlier attempt made goes first, so fomo starts empty again.
 async function forget(page: Page, names: string[]) {
   const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
   const fomo = brands.find((b) => b.name === "fomo")!.id;
@@ -27,7 +27,7 @@ async function forget(page: Page, names: string[]) {
 }
 
 test("an empty brand's Make one draws a new character's sheet, its page opens, and a person approves it (S8-02, S8-07, L5)", async ({ page }, info) => {
-  if (info.retry) await forget(page, ["Max", "Rex"]);
+  if (info.retry || info.repeatEachIndex) await forget(page, ["Max", "Rex"]);
   await expect(page.getByRole("heading", { name: "No characters in fomo yet" })).toBeVisible();
   await page.getByRole("button", { name: /^Make one · up to \$/ }).click();
   const form = page.getByRole("form", { name: "New character" });

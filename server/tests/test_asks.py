@@ -1180,3 +1180,25 @@ def test_a_video_delivered_before_start_cards_never_reads_no_generation_started(
     owner.post(url)  # a new run: planning before its own Make it
     assert owner.get(url).json()["started"] is True
     assert editor.get(url).json()["started"] is True
+
+
+def test_a_start_card_after_a_stopped_run_says_nothing_more_is_made(app, db, owner, editor):
+    """QA on #1367: Make it, Stop, then Make it again: generation has started (the header shows
+    what was spent), so the new start card never says "No generation started"; with no cut
+    delivered it says nothing more is made until it's pressed, or until the owner says yes."""
+    pid, _ = _video(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    _start(app, db, owner, pid)
+    card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
+    assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
+    _run(app, db, ticks=6, start=False)  # it generates for a while
+    assert owner.post(f"{url}/stop").status_code == 200
+    assert owner.get(f"/projects/{pid}/idea").json()["spent"]["credits"] > 0
+    editor.post(url)  # Make it again, the editor's: its card waits for the owner
+    _run(app, db, ticks=4, start=False)
+    mine, theirs = owner.get(f"{url}/progress").json(), editor.get(f"{url}/progress").json()
+    assert (mine["title"], mine["sub"]) == (
+        "Ready to make", "Nothing more is made until you press Make it")  # fmt: skip
+    assert (theirs["title"], theirs["sub"]) == (
+        "Waiting for the owner's OK", "Nothing more is made until the owner says yes")  # fmt: skip
+    assert owner.get(url).json()["started"] is True and editor.get(url).json()["started"] is True
