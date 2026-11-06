@@ -395,5 +395,21 @@ def test_a_photoreal_acting_presenters_planned_shots_are_quoted_on_omni(
     omni = float(model_map.omni_take(db, ugc, first["seconds"]))
     seedance = float(model_map._model("seedance-2.0").credits_per_unit("480p")) * first["seconds"]
     assert abs(left() - (talks - seedance + omni)) < 0.02  # that shot on Omni, the rest as before
+    ugc.video_model = "seedance-2.5"  # dearer than Omni for a long shot: that price stands
+    first["seconds"] = 15
+    row.data = copy.deepcopy(data)
+    db.flush()
+    seedance_15 = float(model_map._model("seedance-2.5").credits_per_unit("480p")) * 15
+    assert seedance_15 > float(model_map.omni_take(db, ugc, 10))  # dearer than Omni's 10 s
+    ugc.presenter = None
+    db.flush()
+    talks_25 = left()
+    ugc.presenter = "acts"
+    db.flush()
+    assert abs(left() - talks_25) < 0.02  # the long shot quoted at 2.5's price, never Omni's
     monkeypatch.setattr(model_map, "PHOTOREAL", ())
+    ugc.video_model = None
+    first["seconds"] = 4
+    row.data = copy.deepcopy(data)
+    db.flush()
     assert abs(left() - talks) < 0.02  # a drawn style: Seedance, as ever

@@ -193,7 +193,8 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     # each made clip at its own model (one on Omni: its fixed length) with its watch; the
     # planned clips still to write at the video model; nothing defaults to Omni (Reed, 5 Nov),
     # but a photoreal presenter who acts is quoted on Omni for their shots, the director's path
-    # for them (rule 36: the "up to" never below what it can charge)
+    # for them, or on the video's own model when that costs more: the press may stay on it
+    # (rule 36: the "up to" never below what it can charge)
     omni = model_map.on_omni(db, project, bd.data) if bd_ok else set()
     acting = [c for c in fresh if c["id"] in omni]
     rest = (sum(c["seconds"] for c in fresh) if clips else seconds_left) - sum(
@@ -202,13 +203,13 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     made = Decimal(0)
     for c in clips:
         if not c.picked_take_id:
-            made += (
-                model_map.omni_take(db, project, c.seconds) + take_watch.rides(db, project, c)
-                if model_map.expected(db, project, c)
-                else take_credits(db, project, c)
-            )
+            own = take_credits(db, project, c)
+            made += (max(own, model_map.omni_take(db, project, c.seconds)
+                         + take_watch.rides(db, project, c))
+                     if model_map.expected(db, project, c) else own)  # fmt: skip
     takes = (made + _video(db, ws, max(rest, 0), project)
-             + sum((model_map.omni_take(db, project, c["seconds"]) for c in acting), Decimal(0))
+             + sum((max(model_map.omni_take(db, project, c["seconds"]),
+                        _video(db, ws, c["seconds"], project)) for c in acting), Decimal(0))
              + take_watch.per_take(db, ws) * len(fresh))  # fmt: skip
     rewrite = clip_prompts.to_rewrite(db, project) if clips else []
     rows = [

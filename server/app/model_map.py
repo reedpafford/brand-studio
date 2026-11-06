@@ -172,6 +172,7 @@ def expected(db, project, clip) -> bool:
     from app import host
 
     return (not (clip.model or {}).get("id") and host.how(project) == "acts"
+            and clip.seconds <= _model(OMNI).fixed_seconds  # longer: Omni can't make it
             and needs(project) == LIKENESS and shows_talker(db, project, clip))  # fmt: skip
 
 
@@ -185,9 +186,10 @@ def on_omni(db, project, data: dict) -> set[str]:
     if item is None:
         return set()
     shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
-    return {c["id"] for c in data.get("clips", [])
-            if any(f"char:{item.id}" in (shots.get(i, {}).get("character_ids") or [])
-                   for i in c["shot_ids"])}  # fmt: skip
+    most = _model(OMNI).fixed_seconds  # a longer clip can't be made on Omni
+    return {c["id"] for c in data.get("clips", []) if c.get("seconds", 0) <= most
+            and any(f"char:{item.id}" in (shots.get(i, {}).get("character_ids") or [])
+                    for i in c["shot_ids"])}  # fmt: skip
 
 
 def omni_take(db, project, clip_seconds: int):
