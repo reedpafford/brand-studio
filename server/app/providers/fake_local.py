@@ -48,8 +48,8 @@ def transcript(path: Path) -> list[dict]:
 
 
 def hear_take(path: Path, job: dict) -> list[dict]:
-    """Stand-in hearing of a take: its script lines, one every 2 s. A marker in the take's
-    prompt walks each finding (QA): fake:drop-line (the last line isn't said),
+    """Stand-in hearing of a take: its script lines at a speaking pace inside the take. A
+    marker in the take's prompt walks each finding (QA): fake:drop-line (the last line isn't said),
     fake:extra-line (an unscripted line after them), fake:misname (the brand said "Fobo"),
     fake:says-brand (said right, "fomo") or fake:gasp (a gasp after the lines). Each line has
     its words and when, as whisper gives them."""
@@ -64,9 +64,36 @@ def hear_take(path: Path, job: dict) -> list[dict]:
         lines = [*lines, "(gasps)"]
     if "fake:says-brand" in prompt:  # the brand said right (a clean copy for a splice)
         lines = [f"{lines[0]} I love fomo." if lines else "I love fomo.", *lines[1:]]
-    return [{"start": 2.0 * i + 0.5, "end": 2.0 * i + 1.8, "text": t, "speaker": None,
-             "words": _spread(t, 2.0 * i + 0.5, 2.0 * i + 1.8)}
-            for i, t in enumerate(lines)]  # fmt: skip
+    from app.song_timing import length
+
+    try:
+        seconds = length(path)
+    except ValueError:  # not a real video (a unit test's path): the lines as they come
+        seconds = 0.0
+    return _timed(lines, seconds)
+
+
+SAY_PACE, SAY_GAP, SAY_LEAD = (
+    1 / 3.4,
+    0.7,
+    0.5,
+)  # a word (narration's measured 3.3-3.5 a second), a pause
+
+
+def _timed(lines: list[str], seconds: float) -> list[dict]:
+    """The lines as a person says them in the take: about 3.4 words a second from 0.5 s in,
+    0.7 s between lines, always inside the take (squeezed when it's shorter, as a real take
+    is cut to its clip), so every word sits where the cut can keep it."""
+    need = sum(len(t.split()) * SAY_PACE for t in lines) + SAY_GAP * max(len(lines) - 1, 0)
+    room = seconds - 2 * SAY_LEAD if seconds > 2 * SAY_LEAD else need
+    fit = min(1.0, room / need) if need else 1.0
+    out, at = [], SAY_LEAD if seconds > 2 * SAY_LEAD else 0.0
+    for text in lines:
+        took = len(text.split()) * SAY_PACE * fit
+        out.append({"start": round(at, 2), "end": round(at + took, 2), "text": text,
+                    "speaker": None, "words": _spread(text, at, at + took)})  # fmt: skip
+        at += took + SAY_GAP * fit
+    return out
 
 
 def _spread(text: str, start: float, end: float) -> list[dict]:
