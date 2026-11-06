@@ -3,7 +3,7 @@ order: 8
 on: no
 hidden: yes
 image_model: auto
-video_model: gemini-omni-1.2
+video_model: seedance-2.0
 blurb: An original painted watercolour world: translucent washes, soft blooms and paper texture, with gentle motion.
 
 <!-- From Starpop's watercolor-ads skill (docs/research/starpop-2026-10-28, rule 20): a painted world, not a filter. -->

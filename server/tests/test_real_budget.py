@@ -111,3 +111,39 @@ def test_stand_in_work_never_counts_against_the_real_budget(app, owner, db):
     run_once(db, get_providers(app.state.settings, app.state.storage))
     assert db.query(J).one().provider_ref  # sent to the stand-in, at its price
     assert owner.get("/credits/real-budget").json()["spent_usd"] == 0
+
+
+def test_claude_counts_its_real_cost_and_a_dropped_call_counts_too(owner, db, real):
+    """The real-run audit: a Claude job's credits are capped at its shown price, so the budget
+    undercounted what Claude really cost; and a call whose connection dropped counted $0 (it
+    was never marked sent). Now the recorded real cost counts where it's more, and a dropped
+    call counts at its price."""
+    from app.credits import real_spent
+    from app.models.jobs import Usage
+    from app.providers import NetworkError
+    from app.worker import _run_sync
+
+    real.real_budget_usd = 100.0  # room for both
+    boss = db.query(User).filter_by(email="reed@example.com").one()
+    job = enqueue(db, boss, "write-claude", {"prompt": "p"}, provider="claude")
+    job.status, job.started_at, job.provider_ref = JobStatus.succeeded, utcnow(), "sync"
+    cost = job.credits * USD_PER_CREDIT * 3  # Claude really cost three times its price
+    db.add(Usage(workspace_id=job.workspace_id, job_id=job.id, provider="claude", kind="tokens",
+                 units=Decimal(1), unit="call", cost_usd=cost))  # fmt: skip
+    db.commit()
+    assert real_spent(db, real) == cost  # its real cost, not capped
+
+    dropped = enqueue(db, boss, "write-claude", {"prompt": "q"}, provider="claude")
+    dropped.status, dropped.started_at = JobStatus.running, utcnow()
+    db.commit()
+
+    class Down:
+        paid = True
+
+        def run(self, kind, data):
+            raise NetworkError("connection reset")
+
+    _run_sync(db, dropped, Down(), None)
+    db.refresh(dropped)
+    assert dropped.provider_ref == "sync"  # sent: it may have been charged
+    assert real_spent(db, real) == cost + dropped.credits * USD_PER_CREDIT  # never $0

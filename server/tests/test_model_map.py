@@ -43,17 +43,19 @@ def _move(app, db, video, **decision) -> str:
     return director_tools.run(db, user, video, decision, app.state.storage)
 
 
-def test_omni_1_2_replaces_1_1_and_seedance_2_0_as_the_styles_model(owner):
-    """Reed, 6 Nov: "1.2 replaces 1.1. Omni is used in place of seedance 2.0 (b-roll, skeleton,
-    claymation, zack d)"; House, Disney Pixar and songs stay on Seedance 2.5."""
+def test_omni_1_2_replaces_1_1_and_makes_the_realistic_style(owner):
+    """Reed, 6 Nov: "1.2 replaces 1.1"; "keep seedance for the animated and expression-full ones
+    for now. Omni is more for the realistic stuff": UGC on Omni, the animated styles on
+    Seedance (2.5 for House, Disney Pixar and songs; 2.0 for the rest)."""
     omni = get_model(model_map.OMNI)
     assert get_model("gemini-omni-1.1") is None
     assert (omni.duration.min, omni.duration.max, omni.take_resolution, omni.audio) == (
         3, 15, "720p", "always")  # fmt: skip
     assert model_map.OMNI in {m["id"] for m in owner.get("/models").json()}
-    for look in ("skeleton", "claymation", "zack-d", "dr-pickle", "ugc"):
-        for kind in ("narrated", "story"):
-            assert video_model(look=look, kind=kind).id == model_map.OMNI, (look, kind)
+    for kind in ("narrated", "story"):
+        assert video_model(look="ugc", kind=kind).id == model_map.OMNI, kind
+        for look in ("skeleton", "claymation", "zack-d", "dr-pickle"):
+            assert video_model(look=look, kind=kind).id == "seedance-2.0", (look, kind)
     for look in ("house", "disney-pixar"):
         assert video_model(look=look, kind="story").id == "seedance-2.5", look
     assert video_model(look="skeleton", kind="song").id == "seedance-2.5"  # songs lip-sync

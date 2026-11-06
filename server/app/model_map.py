@@ -1,18 +1,19 @@
 """Reed's model map (4 Nov, changed 6 Nov): which model makes what, and what each needs sent. A
 presenter talker is HeyGen Avatar IV from a still with our MiniMax voice; every other shot is the
-style's video model: Seedance 2.5 for House and Disney Pixar (and songs), Gemini Omni 1.2 where
-Seedance 2.0 was (B-roll, Skeleton, Claymation, Zack D, Dr. Pickle, UGC; Reed, 6 Nov: "1.2 replaces
-1.1. Omni is used in place of seedance 2.0"). Omni always makes its own sound and takes no audio:
-in a shot where no one speaks its prompt says so, and a narrated video keeps its narration
-throughout (Reed, 5 Nov). The director may put any clip on another model and says why (`choose`);
-the Clips tab shows each clip's model and why (`why`). Photoreal Seedance B-roll (rule 10's
-exception, Reed, 4 Nov) describes the person from their approved character description, in the same
-words in every prompt (clip_takes._in_words), instead of attaching their photo or an opening still
-with them in it; products and screens stay attached. Why: in th-20s
-(.context/tests/th-20s/REPORT.md) every Seedance 2.0 take sent a photoreal teenager's photo was
-refused ("sensitive", E005) and 1 Lite refused it as invalid input (E006), not charged. That test
-doesn't show every photoreal reference is refused, and words don't guarantee the person looks the
-same in every shot. HeyGen, Omni and stylised characters keep their references."""
+style's video model: Seedance 2.5 for House and Disney Pixar (and songs), Seedance 2.0 for the
+other animated styles, and Gemini Omni 1.2 for the realistic one, UGC (Reed, 6 Nov: "1.2 replaces
+1.1"; "keep seedance for the animated and expression-full ones for now. Omni is more for the
+realistic stuff"). Omni always makes its own sound and takes no audio: in a shot where no one
+speaks its prompt says so, and a narrated video keeps its narration throughout (Reed, 5 Nov). The
+director may put any clip on another model and says why (`choose`); the Clips tab shows each clip's
+model and why (`why`). Photoreal Seedance B-roll (rule 10's exception, Reed, 4 Nov) describes the
+person from their approved character description, in the same words in every prompt
+(clip_takes._in_words), instead of attaching their photo or an opening still with them in it;
+products and screens stay attached. Why: in th-20s (.context/tests/th-20s/REPORT.md) every Seedance
+2.0 take sent a photoreal teenager's photo was refused ("sensitive", E005) and 1 Lite refused it as
+invalid input (E006), not charged. That test doesn't show every photoreal reference is refused, and
+words don't guarantee the person looks the same in every shot. HeyGen, Omni and stylised characters
+keep their references."""
 
 import re
 

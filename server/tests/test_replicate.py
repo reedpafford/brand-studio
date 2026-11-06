@@ -281,3 +281,26 @@ def test_an_official_model_runs_on_its_own_endpoint_and_is_known_by_name():
     found = {"version": None, "model": "google/gemini-omni-1.2-flash"}
     assert _model_id_from_version(found) == "gemini-omni-1.2"
     assert _model_id_from_version({"version": SEEDANCE.provider_version}) == "seedance-2.5"
+
+
+def test_a_take_with_no_length_sent_or_reported_is_charged_its_longest_not_failed():
+    """The real-run audit: a take Replicate made and charged, with no reported length, was
+    marked failed by an AttributeError, with no retry. It's charged as its model's longest
+    clip (Omni 1.2: 15 s), estimated, and matched to the model by name (no version)."""
+    out = "https://replicate.delivery/out.mp4"
+    done = {"id": "o1", "status": "succeeded", "version": None,
+            "model": "google/gemini-omni-1.2-flash",
+            "input": {"prompt": "a cat trades", "resolution": "720p"}, "output": out}  # fmt: skip
+
+    def handler(request):
+        if str(request.url).endswith("/out.mp4"):
+            return httpx.Response(200, content=MP4, headers={"content-type": "video/mp4"})
+        return httpx.Response(200, json=done)
+
+    provider = ReplicateProvider(
+        BASE, httpx.Client(transport=httpx.MockTransport(handler)), token="test-token"
+    )
+    result = provider.poll("o1")
+    assert result.state == "succeeded", result.error
+    (usage,) = result.usage
+    assert (usage.units, usage.unit, usage.estimated) == (Decimal(15), "second", True)

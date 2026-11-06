@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, CircleCheckBig, CircleStop, Clock, LoaderCircle, TriangleAlert, X } from "lucide-react";
-import { api, errorText } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Button } from "../components";
@@ -26,7 +26,7 @@ export function useRunProgress(projectId: number, enabled = true) {
     queryKey: ["run-progress", projectId],
     enabled: enabled && projectId > 0,
     refetchInterval: (q) => (q.state.data && (LIVE.includes(q.state.data.status) || making(q.state.data)) ? 3_000 : false),
-    queryFn: async () => (await api.GET("/projects/{project_id}/director/progress", { params: { path: { project_id: projectId } } })).data ?? null,
+    queryFn: () => polled(api.GET("/projects/{project_id}/director/progress", { params: { path: { project_id: projectId } } }), null),
   });
 }
 
