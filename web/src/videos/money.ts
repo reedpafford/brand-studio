@@ -20,5 +20,14 @@ export function spent(head: Head | undefined, credits: number) {
   return n <= 1 && credits < 1 ? "under 1 credit" : `${n} credit${n === 1 ? "" : "s"}`;
 }
 
+/** What the video has spent, exactly as its header says it (the server's own figure: the owner's dollars, an editor's
+ *  whole credits), so the two always agree on one screen; else from `credits`. */
+export function spentAsHeader(head: Head | undefined, credits: number) {
+  const m = head?.spent;
+  if (m?.usd != null) return `$${m.usd.toFixed(2)}`;
+  const n = Math.round(m ? m.credits : credits);
+  return `${n} credit${n === 1 ? "" : "s"}`;
+}
+
 /** "N credit" or "N credits". */
 export const credits = (n: number) => `${n} credit${n === 1 ? "" : "s"}`;

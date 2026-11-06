@@ -163,10 +163,8 @@ test("an editor's third tab is My requests, not Needs you (S-gaps-04 R3)", async
   expect(screen.queryByRole("link", { name: /Needs you/ })).not.toBeInTheDocument();
 });
 
-test("the account menu (bottom of the rail) has the theme choices and Sign out; Team is a rail row, not in the menu; Escape closes it", async () => {
+test("the account menu (bottom of the rail) has Sign out and no theme choice (light only, rule 33); Team is a rail row, not in the menu; Escape closes it", async () => {
   setViewport(1440);
-  localStorage.removeItem("bs.theme");
-  document.documentElement.removeAttribute("data-theme");
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /projects": [200, []], "POST /auth/logout": [204, null] });
   renderAt("/b/1/projects");
   const menu = await screen.findByRole("button", { name: "Account menu" });
@@ -174,16 +172,11 @@ test("the account menu (bottom of the rail) has the theme choices and Sign out; 
   expect(screen.getByText("reed@b.co")).toBeInTheDocument();
   expect(within(screen.getByRole("menu", { name: "Account" })).queryByRole("link", { name: "Team" })).toBeNull();
   expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Team" })).toHaveAttribute("href", "/team");
-  expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
-  await userEvent.click(screen.getByRole("menuitemradio", { name: "Light" }));
-  expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-  expect(screen.getByRole("menuitemradio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
-  await userEvent.click(screen.getByRole("menuitemradio", { name: "System" }));
-  expect(document.documentElement.getAttribute("data-theme")).toBe("system");
+  expect(screen.queryByRole("group", { name: "Theme" })).toBeNull(); // light only for now
+  expect(screen.queryByRole("menuitemradio", { name: "Dark" })).toBeNull();
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByRole("menuitem", { name: "Sign out" })).not.toBeInTheDocument();
   expect(menu).toHaveFocus();
-  document.documentElement.removeAttribute("data-theme");
 });
 
 test("an editor's account menu has no Team link", async () => {
@@ -357,7 +350,6 @@ test("an editor's account menu names their role and how much of the week is left
   const menu = screen.getByRole("menu", { name: "Account" });
   expect(within(menu).getByText("· Editor")).toBeInTheDocument();
   expect(await within(menu).findByText("142 of 200 left")).toBeInTheDocument();
-  expect(within(menu).getByRole("menuitemradio", { name: "System" })).toBeInTheDocument();
 });
 
 test("the rail's account row says Owner, and the brand menu has a Brands heading over colour squares (v5 A_Shell, A_Account)", async () => {

@@ -93,6 +93,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const actions = useFreestyleActions(fsId);
   const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`));
   useMovesRefresh(id, (fs?.thread.length ?? 0) + (run?.turns.length ?? 0), `${fs?.status}:${run?.status}`);
+  useRunEnd(id, liveRun?.status, run?.status);
   const stop = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director/stop", { params: { path: { project_id: id } } });
@@ -289,6 +290,18 @@ function Loading({ phone }: { phone: boolean }) {
       </section>
     </div>
   );
+}
+
+/** M6 (Flow-QA, 6 Nov): when the run's card and the director's own read disagree on whether it goes on (a run that ended by
+ *  itself, or one that just started), each read again: the header, the presses and the card follow at once, never a dead end
+ *  until reload (rule 22). */
+function useRunEnd(id: number, card: string | undefined, director: string | undefined) {
+  const queryClient = useQueryClient();
+  const going = card === undefined ? undefined : ["working", "revising", "waiting"].includes(card);
+  useEffect(() => {
+    if (going === undefined || director === undefined || going === (director === "running")) return;
+    for (const queryKey of [["director", id], ["idea", id], ["run-progress", id]]) void queryClient.invalidateQueries({ queryKey });
+  }, [going, director, id, queryClient]);
 }
 
 /** The conversation (oldest first, newest at the bottom), and the box under it. A freestyle's thread is its first words,

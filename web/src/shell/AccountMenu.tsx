@@ -1,11 +1,9 @@
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChartColumn, ChevronRight, Clapperboard, Settings, UserPlus, UserRound, type LucideIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Menu, MenuItem } from "../components";
-import { applyTheme, getTheme, type Theme } from "../theme";
 
 // Reed's Studio pages: rows in the rail after Needs you; on a phone, rows in the More tab (S-gaps-04 R3).
 export const STUDIO: [string, string, LucideIcon][] = [
@@ -15,16 +13,9 @@ export const STUDIO: [string, string, LucideIcon][] = [
   ["/settings", "Settings", Settings],
 ];
 
-const THEMES: { id: Theme; label: string }[] = [
-  { id: "dark", label: "Dark" },
-  { id: "light", label: "Light" },
-  { id: "system", label: "System" },
-];
-
 export function AccountMenu({ inRail, iconOnly, row }: { inRail?: boolean; iconOnly?: boolean; /** A phone's More list (S-gaps-04 R3): "Your account" */ row?: boolean } = {}) {
   const { data: me } = useMe();
   const signOut = useSignOut();
-  const [theme, setTheme] = useState<Theme>(getTheme);
   // An editor's week, as the My credits row shows it: "142 of 200 left" (v5 A_Account).
   const week = useQuery({
     enabled: me?.role === "editor",
@@ -82,27 +73,6 @@ export function AccountMenu({ inRail, iconOnly, row }: { inRail?: boolean; iconO
               {week && left !== null && <span className="text-sm tabular-nums text-muted">{Math.floor(left)} of {Math.floor(week.quick_clip_credits_allowed)} left</span>}
             </Link>
           )}
-          {/* v5 A_Account: Theme as one segmented control, Dark / Light / System. */}
-          <div role="group" aria-label="Theme" className="mt-1 flex items-center gap-3 border-t border-border px-3 pb-1 pt-2">
-            <span className="text-sm text-muted">Theme</span>
-            <span className="ml-auto inline-flex rounded-md border border-border-strong bg-bg p-0.5">
-              {THEMES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={theme === t.id}
-                  className={`min-h-control rounded px-2.5 text-sm lg:min-h-control-dense ${theme === t.id ? "bg-surface-3 font-medium text-text ring-1 ring-inset ring-border-strong" : "text-muted hover:text-text"}`}
-                  onClick={() => {
-                    applyTheme(t.id);
-                    setTheme(t.id);
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </span>
-          </div>
           <div className="mt-1 border-t border-border pt-1">
             <MenuItem onClick={() => signOut.mutate()}>Sign out</MenuItem>
           </div>

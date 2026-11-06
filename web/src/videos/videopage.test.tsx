@@ -1050,3 +1050,23 @@ test("S3-08: a run carried on shows the Stop it carried on from; an editor's Car
   expect(await screen.findByRole("button", { name: "Start the plan again" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Carry on/ })).toBeNull();
 });
+
+test("Flow-QA S7: while a step waits, the header never shows a budget below what's spent: the video's spent against its up to", async () => {
+  setViewport(1440);
+  const waits = { status: status("waiting", "Waiting for your OK"), spent: money(124, 12.73), up_to: money(250, 25.71), budget: money(54, 5.56) };
+  server(owner, null, run({ status: "running" }), { "GET /projects/50/idea": [200, head(waits)] });
+  renderApp("/b/1/videos/50");
+  const top = await screen.findByRole("banner");
+  expect(await within(top).findByText("$12.73 spent ·", { exact: false })).toBeInTheDocument();
+  expect(within(top).getByText("up to $25.71")).toBeInTheDocument();
+  expect(within(top).queryByText(/budget \$5\.56/)).toBeNull();
+});
+
+test("Flow-QA M6: a run that ended by itself is read again at once: no Stop or 'already building' left behind", async () => {
+  setViewport(1440);
+  const failed = record({ status: "needs_fix", title: "Stopped at clip 4", tone: "bad", failed: { title: "The director stopped", why: "It stopped.", offer: "", clip: null, fixes: [{ kind: "carry_on", label: "Carry on", price: "$10.74", problem: "", then: null }] } });
+  const calls = server(owner, null, run({ status: "running", start_blocked: "The director is already building this video.", thread: [card] }), { "GET /projects/50/director/progress": [200, failed] });
+  renderApp("/b/1/videos/50");
+  await screen.findByText("The director stopped");
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/50/director").length).toBeGreaterThan(1)); // read again, not left
+});
