@@ -1,10 +1,8 @@
-import type { StepState } from "../components";
-import { isDone, isStale, lockReason, type Progress, type StepId } from "./steps";
+import { lockReason, type Progress, type StepId } from "./steps";
 
-/** A video made from a library version has four steps: Plan (Scenes | Shots, Shots being the breakdown), Cast (the looks;
- *  the library stays "Cast & places"), Clips (each clip with its still and takes; kept here as two ids), Final cut.
- *  The old six-step page keeps `steps.ts`. */
-export const VIDEO_STEPS = [
+/** What the video page's panes wait on (v6 S3: the preview panel's Clips tab until screen 8): the stills and the takes
+ *  each wait for the steps before them. The old six-step page keeps `steps.ts`. */
+const VIDEO_STEPS = [
   { id: "plan", label: "Plan", old: "shots" },
   { id: "cast", label: "Cast", old: "shots" },
   { id: "storyboard", label: "Stills", old: "storyboard" }, // the stills part of Clips
@@ -12,13 +10,6 @@ export const VIDEO_STEPS = [
   { id: "downloads", label: "Final cut", old: "final" }, // the address keeps "downloads", so old links still land here
 ] as const satisfies readonly { id: string; label: string; old: StepId }[];
 type VideoStepId = (typeof VIDEO_STEPS)[number]["id"];
-
-// Old addresses keep working: ?step=breakdown opens Plan (on Shots), ?step=assets opens Cast.
-const OLD: Record<string, VideoStepId> = { breakdown: "plan", assets: "cast", make: "storyboard" };
-export const videoStepFromParams = (params: URLSearchParams): VideoStepId => {
-  const asked = params.get("step") ?? "";
-  return OLD[asked] ?? VIDEO_STEPS.find((s) => s.id === asked)?.id ?? "plan";
-};
 
 export type VideoProgress = Progress & { assets: { total: number; ready: number; seen: boolean } };
 
@@ -57,44 +48,4 @@ export function videoHold(step: VideoStepId, now: VideoProgress): { why: string;
   const left = now.assets.total - now.assets.ready;
   if (left > 0) return { why: `${left === 1 ? "A look in the cast isn't" : `${left} looks in the cast aren't`} ready. Make or approve ${left === 1 ? "it" : "them"} in Cast first.`, at: "cast" };
   return null;
-}
-
-/** Where a link to a locked step should land: the first earlier step that isn't finished (or is out of date), since that is what blocks it. */
-export function videoBlocker(step: VideoStepId, p: VideoProgress): VideoStepId {
-  const before = VIDEO_STEPS.slice(0, VIDEO_STEPS.findIndex((s) => s.id === step));
-  // Cast blocks only when a look isn't ready: never having opened it (its ✓ waits for that) doesn't (A15, Next-Layout's 390 walk).
-  const blocks = (id: VideoStepId) => (id === "cast" ? p.assets.ready < p.assets.total : !done(id, p) || isStale(VIDEO_STEPS.find((s) => s.id === id)!.old, p));
-  return before.find((s) => blocks(s.id))?.id ?? "plan";
-}
-
-function done(step: VideoStepId, p: VideoProgress): boolean {
-  // Plan is done when the plan is approved and its shots are made. Until the plan has a status of its own
-  // (Builder-Server-8's plan_status), the made shots decide; existing videos read as approved from their breakdown.
-  if (step === "plan") return isDone("shots", p);
-  if (step === "cast") return p.assets.seen && p.assets.ready === p.assets.total; // no ✓ before it has been looked at (#749 LW9)
-  return isDone(VIDEO_STEPS.find((s) => s.id === step)!.old, p);
-}
-
-export function videoStepStates(current: VideoStepId, p: VideoProgress): { id: VideoStepId; label: string; state: StepState; reason?: string }[] {
-  return VIDEO_STEPS.map((s) => {
-    const reason = videoLock(s.id, p);
-    const stale = s.id !== "cast" && isStale(s.old, p);
-    const state: StepState = s.id === current ? "current" : reason !== null ? "todo" : stale ? "stale" : done(s.id, p) ? "done" : "open";
-    return { id: s.id, label: s.label, state, reason: reason ?? undefined };
-  });
-}
-
-export const videoNext = (step: VideoStepId) => VIDEO_STEPS[VIDEO_STEPS.findIndex((s) => s.id === step) + 1] ?? null;
-
-/** The tab row shows four steps (v4): the stills and the takes are one tab, Clips, as they are one place per clip. The
- *  addresses keep ?step=storyboard and ?step=clips, so the locks and old links stay as they are. */
-export const isClips = (step: VideoStepId) => step === "storyboard" || step === "clips";
-export function videoTabStates(current: VideoStepId, p: VideoProgress) {
-  const all = videoStepStates(current, p);
-  const [stills, clips] = [all[2], all[3]];
-  // Its mark: where you are, locked until the stills can be made, out of date if either part is, done once the clips are.
-  const state: StepState = isClips(current) ? "current" : stills.state === "todo" ? "todo" : stills.state === "stale" || clips.state === "stale" ? "stale" : clips.state === "done" ? "done" : "open";
-  // Opening it lands on the takes once clips exist, else on the stills.
-  const tab = { id: clips.state !== "todo" && p.clips.total > 0 ? "clips" : "storyboard", label: "Clips", state, reason: stills.reason };
-  return [all[0], all[1], tab, all[4]];
 }

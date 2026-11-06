@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Lock, Settings2 } from "lucide-react";
+import { ChevronDown, Lock, RefreshCw, Settings2 } from "lucide-react";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { Badge, Button, creditsText, Dialog, Panel, Skeleton, useToast, wholeCredits } from "../components";
@@ -9,6 +9,10 @@ import { LookPicker, lookName, useLooks, type Look } from "../scripts/Looks";
 import { SongSetting } from "../scripts/VideoSong";
 import { useRail } from "../useMedia";
 import { errorText as errorClass } from "../ui";
+import { useHead } from "../videos/VideoHead";
+
+const setting = "inline-flex h-control lg:h-[30px] shrink-0 items-center gap-[5px] whitespace-nowrap rounded-sm border border-border-button bg-surface px-[9px] text-xs font-medium text-text";
+type Money = components["schemas"]["Money"];
 
 type Project = components["schemas"]["ProjectOut"];
 type SettingsOut = components["schemas"]["SettingsOut"];
@@ -95,8 +99,17 @@ function confirmText(field: Field, choice: Choice, p: PreviewOut, finished: bool
   return lines;
 }
 
-/** A setting that can't be changed here, as one plain line: "Style: House · set on the script" (item 7). */
-export function LockedSetting({ field: f }: { field: Field }) {
+/** A setting that can't be changed here, as one plain line: "Style: House · set on the script" (item 7); `chip`: as a
+ *  chip in this video's settings row, with that label. */
+export function LockedSetting({ field: f, chip }: { field: Field; chip?: string }) {
+  if (chip)
+    // This video's settings row (S-gaps-05 V1): a lock on the chip, the reason on hover.
+    return (
+      <span className={setting} title={`${f.label} is ${f.locked}`}>
+        <Lock size={12} strokeWidth={1.75} aria-hidden className="text-muted" />
+        <span className="font-normal text-muted">{chip}</span> {f.valueLabel}
+      </span>
+    );
   return (
     <span className="inline-flex min-h-control items-center gap-1.5 px-2 text-sm">
       <Lock size={16} strokeWidth={1.75} aria-hidden className="text-muted" />
@@ -107,15 +120,22 @@ export function LockedSetting({ field: f }: { field: Field }) {
   );
 }
 
-/** The Video settings row (flows VS1): Shape · Flavour · Look · Video model · Picture model · Language, and the Song on a song video.
- *  Each setting shows its choice and price; a pick is previewed, confirmed (Not yet / Switch), applied with Undo. On a phone it is one line that opens a sheet. */
-export function VideoSettings({ project: p, finished, song = true }: { project: Project; finished: boolean; song?: boolean }) {
+// The row's own words (S-gaps-05 V1): a presenter's or narrator's clips are its B-roll.
+const ROW: Record<string, string> = { video_model: "Video model", image_model: "Pictures" };
+
+/** This video's settings, at the top of its Plan tab (S-gaps-05 V1; flows VS1): Shape · Flavour · Style · Video model ·
+ *  Pictures · Language, and the Song on a song video, for the owner and editors (editors see credits). A pick is previewed,
+ *  confirmed (Not yet / Switch) and applied; then a line says the new "up to" and offers Undo. The director keeps what a
+ *  person changed. On a phone it is one line that opens a sheet. */
+export function VideoSettings({ project: p, finished, song = true, broll, notMade }: { project: Project; finished: boolean; song?: boolean; broll?: boolean; notMade: number }) {
   const rail = useRail();
   const owner = useMe().data?.role === "owner";
   const queryClient = useQueryClient();
   const toast = useToast();
   const looks = useLooks();
   const settings = useVideoSettings(p.id);
+  const head = useHead(p.id);
+  const [changed, setChanged] = useState<{ label: string; was?: Money | null; now?: Money | null; model: boolean; undo: () => void } | null>(null);
   const [sheet, setSheet] = useState(false);
   const [picking, setPicking] = useState<Field | null>(null);
   const [asking, setAsking] = useState<{ field: Field; choice: Choice } | null>(null);
@@ -124,18 +144,24 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
     queryKey: ["video-settings-preview", p.id, asking?.choice.body],
     queryFn: () => must(api.POST("/projects/{project_id}/settings/preview", { params: { path: { project_id: p.id } }, body: asking!.choice.body })).then((r) => r.data! as PreviewOut),
   });
-  const refresh = () => Promise.all([["video-settings", p.id], ["project", p.id], ["project-estimate", p.id], ["storyboard", p.id], ["project-clips", p.id], ["assets", p.id], ["missing-looks", p.id]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
+  const refresh = () => Promise.all([["video-settings", p.id], ["director", p.id], ["project", p.id], ["project-estimate", p.id], ["storyboard", p.id], ["project-clips", p.id], ["assets", p.id], ["missing-looks", p.id]].map((k) => queryClient.invalidateQueries({ queryKey: k })));
   const apply = useMutation({ mutationFn: (body: SettingIn) => must(api.POST("/projects/{project_id}/settings", { params: { path: { project_id: p.id } }, body })).then((r) => r.data!) });
-  const switchTo = (field: Field, choice: Choice) =>
+  const label = (f: Field) => (f.key === "video_model" && broll ? "B-roll model" : (ROW[f.key] ?? f.label));
+  const switchTo = (field: Field, choice: Choice) => {
+    const before = head.data?.up_to;
     apply.mutate(choice.body, {
       onSuccess: async ({ was }) => {
         setAsking(null);
         setPicking(null);
+        setSheet(false); // on a phone the line with the new price and Undo shows under the row
         await refresh();
+        const now = (await head.refetch()).data?.up_to;
         // Undo sends `was` back with undo: true, so it is never refused (even over the limit); the old stills and takes become current again.
-        toast(`${field.label}: ${choice.label}.`, () => apply.mutate({ ...(was as SettingIn), undo: true }, { onSuccess: () => void refresh(), onError: (e) => toast(e.message, undefined, "error") }));
+        const undo = () => apply.mutate({ ...(was as SettingIn), undo: true }, { onSuccess: () => (setChanged(null), void refresh(), void head.refetch()), onError: (e) => toast(e.message, undefined, "error") });
+        setChanged({ label: label(field), was: before, now, model: field.key === "video_model", undo });
       },
     });
+  };
 
   if (settings.isPending) return <Skeleton className="h-control" />;
   if (settings.isError || !settings.data) return null; // the server doesn't offer settings yet: nothing to press
@@ -143,14 +169,18 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   const fields = fieldsOf(settings.data, looks.data, p.look_locked);
   const chip = (f: Field) =>
     f.locked ? (
-      <LockedSetting key={f.key} field={f} />
+      <LockedSetting key={f.key} field={f} chip={label(f)} />
     ) : (
-    <Button key={f.key} variant="ghost" dense trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setPicking(f)}>
-      <span className="text-muted">{f.label}:</span> {f.valueLabel}
-      {f.price && <>{" "}<span className="text-xs text-muted tabular-nums">· {f.price}</span></>}
-    </Button>
+      <button key={f.key} type="button" className={`${setting} hover:bg-surface-2`} aria-haspopup="dialog" title={f.price} onClick={() => setPicking(f)}>
+        <span className="font-normal text-muted">{label(f)}</span> {f.valueLabel}
+        <ChevronDown size={12} strokeWidth={1.75} aria-hidden />
+      </button>
     );
-  const language = <Badge>Language: {languageName(settings.data.language)} (from the script)</Badge>;
+  const language = (
+    <span className={setting} title="From the script">
+      <span className="font-normal text-muted">Language</span> {languageName(settings.data.language)}
+    </span>
+  );
   const items = (
     <>
       {fields.map(chip)}
@@ -158,10 +188,31 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
       {language}
     </>
   );
+  const money = (m?: Money | null) => (!m ? "" : m.usd != null ? `up to $${m.usd.toFixed(2)}` : `up to ${Math.ceil(m.credits - 1e-9)} credits`);
+  const note = changed && (
+    <p role="status" className="flex items-center gap-2 rounded-md bg-accent-soft px-2.5 py-2 text-sm text-accent-text">
+      <RefreshCw size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+      <span>
+        {changed.label} changed
+        {changed.was && changed.now && money(changed.was) !== money(changed.now) ? (
+          <>
+            : {money(changed.was)} → <b className="font-semibold">{money(changed.now)}</b>.
+          </>
+        ) : (
+          "."
+        )}
+        {changed.model && notMade > 0 && ` ${notMade} clip${notMade === 1 ? "" : "s"} not made yet will use it.`}
+      </span>
+      <button type="button" className="ml-auto shrink-0 font-semibold hover:underline max-lg:min-h-control max-lg:px-2" onClick={changed.undo}>
+        Undo
+      </button>
+    </p>
+  );
   const row = rail ? (
-    <section aria-label="Video settings" className="flex flex-wrap items-center gap-1">
-      <Settings2 size={20} strokeWidth={1.75} aria-hidden className="text-muted" />
-      {items}
+    <section aria-label="Video settings" className="flex flex-col gap-2">
+      <p className="text-xs font-semibold text-muted">This video’s settings</p>
+      <div className="flex flex-wrap gap-2">{items}</div>
+      {note}
     </section>
   ) : (
     <Button variant="ghost" spread icon={Settings2} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setSheet(true)}>
@@ -175,6 +226,7 @@ export function VideoSettings({ project: p, finished, song = true }: { project: 
   return (
     <>
       {row}
+      {!rail && note}
       {sheet && !picking && (
         <Panel title="Video settings" onClose={() => setSheet(false)}>
           <div className="flex flex-col items-stretch gap-2 [&>*]:justify-start">{items}</div>

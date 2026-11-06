@@ -63,7 +63,7 @@ test("S2-01/02: the owner's cards come from the guides; the press says the most 
   expect(screen.getByText("Most it can charge, including redos and the director’s time. Usually less.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it · up to $16.86" }));
   await vi.waitFor(() => expect(posted(calls)).toEqual({ type: "dialogue", look: "dr-pickle", shape: "9:16", brand_id: 1, folder_id: 4, broll_look: null, text: SCRIPT, cast_ids: [], attachments: [] }));
-  expect(await screen.findByRole("list", { name: "Thread" })).toBeInTheDocument(); // the video's chat
+  expect(await screen.findByRole("list", { name: "Conversation with the director" })).toBeInTheDocument(); // the video's chat (S3)
 });
 
 test("a style plays its test sample, one at a time; House shows its site still with no tag", async () => {

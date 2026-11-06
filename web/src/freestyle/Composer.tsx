@@ -1,6 +1,4 @@
 import { useState, type ReactNode } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, errorText } from "../api/client";
 import { ArrowUp } from "lucide-react";
 import { Button } from "../components";
 import { lookName, useLooks } from "../scripts/Looks";
@@ -26,46 +24,19 @@ export function SendPress({ owner, price, busy, disabled, wide, onClick }: { own
   );
 }
 
-/** The owner's note on a finished video is saved for Make it again (a note never starts a run by itself, the Producer). */
-function useSaveNote(projectId: number | undefined, freestyleId: number) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (text: string) => {
-      const { data, error } = await api.POST("/projects/{project_id}/director/messages", { params: { path: { project_id: projectId ?? 0 } }, body: { text } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["director", projectId], data);
-      return queryClient.invalidateQueries({ queryKey: ["freestyle", freestyleId] });
-    },
-  });
-}
-
-/** The change box under a thread (B_VideoRunning): "Tell the director what to change", the status line under it and the
- *  send arrow. Enter sends, Shift+Enter is a new line. An editor's change goes to the owner; `saveTo` (the owner, nothing
- *  running): saved on that video for Make it again. `closed`: one quiet line saying when it opens (E_EditorSent);
- *  `disabled`: the box, greyed, with the status line saying why (B_VideoWaiting). */
-export function ChangeBox({ fs, status, closed, disabled, saveTo }: { fs: Freestyle; status: ReactNode; closed?: string | null; disabled?: boolean; saveTo?: number }) {
+/** The change box under an older freestyle's thread: "Tell the director what to change", the status line and the send
+ *  arrow. Enter sends, Shift+Enter is a new line. An editor's change goes to the owner. */
+export function ChangeBox({ fs, status }: { fs: Freestyle; status: ReactNode }) {
   const [text, setText] = useState("");
-  const asked = useFreestyleActions(fs.id).change;
-  const saved = useSaveNote(saveTo, fs.id);
-  const change = saveTo ? saved : asked;
-  const go = () => text.trim() && !change.isPending && !closed && !disabled && change.mutate(text.trim(), { onSuccess: () => setText("") });
+  const change = useFreestyleActions(fs.id).change;
+  const go = () => text.trim() && !change.isPending && change.mutate(text.trim(), { onSuccess: () => setText("") });
   const rail = useRail();
-  if (closed)
-    return (
-      <p className="flex min-h-control items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
-        <span>Tell the director what to change</span>
-        <span>{closed}</span>
-      </p>
-    );
   const said = (
     <p className="text-sm text-muted" role="status">
       {change.isError ? <span className="text-danger">{change.error.message}</span> : status}
     </p>
   );
-  const send = <Button type="submit" variant="secondary" dense icon={ArrowUp} busy={change.isPending} disabled={!text.trim() || disabled} aria-label="Send the change" />;
+  const send = <Button type="submit" variant="secondary" dense icon={ArrowUp} busy={change.isPending} disabled={!text.trim()} aria-label="Send the change" />;
   // On a phone (B_PhoneVideo): the line above, then a one-line box with the send beside it.
   return (
     <form
@@ -86,7 +57,6 @@ export function ChangeBox({ fs, status, closed, disabled, saveTo }: { fs: Freest
         rows={rail ? 2 : 1}
         maxLength={2000}
         value={text}
-        disabled={disabled}
         placeholder="Tell the director what to change"
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {

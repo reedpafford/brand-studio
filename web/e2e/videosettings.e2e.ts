@@ -9,9 +9,9 @@ for (const width of [1440, 390]) {
     const brandId = await emptyBrand(page, `Settings Co ${width}`);
     const id = (await (await page.request.post("/api/projects", { data: { brand_id: brandId, name: "Settings test", planned_seconds: 20 } })).json()).id;
     const before = await (await page.request.get(`/api/projects/${id}/settings`)).json();
-    await page.goto(`/b/${brandId}/videos/${id}`);
+    await page.goto(`/b/${brandId}/videos/${id}?tab=plan`); // S-gaps-05 V1: the settings sit at the top of Plan
     if (width === 390) await page.getByRole("button", { name: /^Settings: / }).click();
-    await page.getByRole("button", { name: /Video model: / }).click();
+    await page.getByRole("button", { name: /^Video model / }).click();
     const other = before.video_models.find((m: { default: boolean; over_cap: boolean }) => !m.default && !m.over_cap);
     await page.getByRole("button", { name: new RegExp(other.name) }).first().click();
     const ask = page.getByRole("alertdialog", { name: `Switch to ${other.name}?` });

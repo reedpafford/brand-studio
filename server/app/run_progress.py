@@ -514,7 +514,7 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
         status = "done" if how else "held" if head.get("status") == "waiting" else "running"
         out.append({"id": f"r{turns[0].id}", "kind": "move", "at": turns[0].created_at.isoformat(),
                     "who": "Director", "text": text, "status": status, "run": run_id})  # fmt: skip
-        for j in turns:  # the owner's OK at its own limit is its card's answer (app/asks)
+        for j in turns:  # its cut edits, each with Undo (the owner's OKs are app/asks' cards)
             if (
                 (j.output or {}).get("tool") == "edit_cut"
                 and (edit := _edit_of(db, j, "edit_cut", "done"))

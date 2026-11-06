@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { lastBrand, useBrands } from "../shell/useBrands";
 import { ChangeBox, useSettingsWords } from "./Composer";
-import { VideoChat } from "../videos/VideoChat";
+import { VideoPage } from "../videos/VideoChat";
 import { Status, Thread } from "./Thread";
 import { busy, useFreestyle, useFreestyleActions, useFreestyles, type Freestyle } from "./useFreestyle";
 
@@ -50,7 +50,7 @@ export function FreestylePage() {
   if (video.data) return <Navigate to={`/b/${video.data.brand_id}/videos/${video.data.id}`} replace />;
   if (fs?.project_id && fs.brand_id && !brandId) return <Navigate to={`/b/${fs.brand_id}/freestyle/${fs.id}`} replace />; // in its brand
   // An editor's send before the owner's OK: its video isn't theirs to read yet, so its chat opens here, by the freestyle.
-  if (fs?.project_id) return video.isPending ? null : <VideoChat p={{ id: fs.project_id, brand_id: fs.brand_id ?? 0 }} freestyleId={fs.id} />;
+  if (fs?.project_id) return video.isPending ? null : <VideoPage projectId={fs.project_id} brandId={fs.brand_id ?? 0} freestyleId={fs.id} />;
   return (
     <div className="lg:grid lg:min-h-screen lg:grid-cols-[260px_minmax(0,1fr)]">
       <List owner={owner} current={id} className="hidden lg:flex" />

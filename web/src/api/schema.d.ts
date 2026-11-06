@@ -388,6 +388,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/idea": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Idea Head
+         * @description One idea's header on its video page (S3, P-04): status with its reason, used, up to,
+         *     budget, its folder, format, style and length. Read-only and free.
+         */
+        get: operations["idea_head_projects__project_id__idea_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/folders/{folder_id}": {
         parameters: {
             query?: never;
@@ -7565,6 +7586,28 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * Head
+         * @description One idea's header on its video page (S3, P-04, P-05): its status with the reason, what
+         *     it has used, the most its run may charge, its budget, where it's filed and what it is.
+         */
+        Head: {
+            /** Title */
+            title: string;
+            status: components["schemas"]["Status"];
+            spent: components["schemas"]["Money"];
+            up_to: components["schemas"]["Money"] | null;
+            budget: components["schemas"]["Money"];
+            folder: components["schemas"]["Named"] | null;
+            /** Format */
+            format: string;
+            /** Style */
+            style: string;
+            /** Seconds */
+            seconds: number | null;
+            /** Song */
+            song: boolean;
+        };
         /** HeldClip */
         HeldClip: {
             /** Clip */
@@ -8873,6 +8916,13 @@ export interface components {
             };
             /** Price Source */
             price_source: string;
+        };
+        /** Money */
+        Money: {
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd?: number | null;
         };
         /**
          * MoneyCard
@@ -13457,6 +13507,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IdeasOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    idea_head_projects__project_id__idea_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Head"];
                 };
             };
             /** @description Validation Error */
