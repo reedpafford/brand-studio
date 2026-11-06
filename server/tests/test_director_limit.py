@@ -4,12 +4,32 @@ the owner, the owner's own run too. One OK grants another limit's worth, not one
 
 from decimal import Decimal
 
+import pytest
+
 from app import director
 from app.credits import PAST_APPROVED
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from tests.test_director import _made, _run
 from tests.test_freestyle_dialogue import _run as _run_fakes
+
+
+@pytest.fixture(autouse=True)
+def _limits_on(monkeypatch):
+    """Reed turned the limits off for now (6 Nov); these tests keep them working for when
+    they come back."""
+    monkeypatch.setattr(director, "OWN_LIMITS", True)
+
+
+def test_with_the_limits_off_a_run_never_waits_at_its_own_limit(app, db, owner, editor,
+                                                                monkeypatch):  # fmt: skip
+    monkeypatch.setattr(director, "OWN_LIMITS", False)
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))  # a run's own is about 61
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    assert not [j for j in _held(db, pid) if "own limit" in (j.input.get("held") or "")]
+    assert director.own_usd(db, "any") == Decimal("Infinity")
 
 
 def _held(db, pid) -> list[Job]:
