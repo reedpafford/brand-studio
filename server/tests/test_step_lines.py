@@ -58,9 +58,10 @@ def test_a_presenters_cast_line_names_the_presenter_and_the_voice(app, db, owner
     face = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character, name="Dr. Pickle",
                        brands=[brand])  # fmt: skip
     clone = Voice(workspace_id=project.workspace_id, brand_id=brand.id, name="Dr. Pickle",
-                  kind="cloned", provider="minimax")  # fmt: skip
+                  kind="cloned", provider="minimax", provider_voice_id="v1")  # fmt: skip
     style = Voice(workspace_id=project.workspace_id, brand_id=None, look="dr-pickle",
-                  name="Dr. Pickle", kind="cloned", provider="minimax")  # fmt: skip
+                  name="Dr. Pickle", kind="cloned", provider="minimax",
+                  provider_voice_id="v2")  # fmt: skip
     db.add_all([face, clone, style])
     db.commit()
     monkeypatch.setattr(host, "presents", lambda db, p: True)
@@ -121,21 +122,18 @@ def test_stills_say_how_many_were_redrawn_and_why_in_plain_words(app, db, owner,
     assert said == "Stills: 1 drawn, 2 redrawn (Dr. Pickle's coat is green)"
     from app import clip_prompts
 
-    bd = clip_prompts.newest(db, project)  # shot 1.2 in its own clip: scene 1, clip 2
+    bd = clip_prompts.newest(db, project)  # a scene 2 shot in clip 1: named by its clip
     bd.data = {
         **bd.data,
-        "clips": [
-            {**bd.data["clips"][0], "shot_ids": ["1.1"]},
-            {**bd.data["clips"][0], "id": "c2", "shot_ids": ["1.2"]},
-        ],
+        "clips": [{**bd.data["clips"][0], "shot_ids": [*bd.data["clips"][0]["shot_ids"], "2.1"]}],
     }
-    turns[-1].input = {**turns[-1].input, director.RUN: {**run, "redraws": {"1.2": 1}}}
+    turns[-1].input = {**turns[-1].input, director.RUN: {**run, "redraws": {"2.1": 1}}}
     review.output = {"ready": False, "findings": [  # the review prompt's own shape, worst first
-        {"shot_id": "1.2", "problem": "1.2 shows him sitting; the beat is the jar exploding"},
-        {"shot_id": "1.2", "problem": "The jar is empty; it should be full"}]}  # fmt: skip
+        {"shot_id": "2.1", "problem": "2.1 shows him sitting; the beat is the jar exploding"},
+        {"shot_id": "2.1", "problem": "The jar is empty; it should be full"}]}  # fmt: skip
     db.commit()
     said = _step(owner, pid, "stills")["text"]  # one reason, the shot's clip, no shot number
-    assert said == "Stills: 1 drawn, 1 redrawn (clip 2's still shows him sitting)"
+    assert said == "Stills: 1 drawn, 1 redrawn (clip 1's still shows him sitting)"
 
 
 def test_clip_prompts_say_each_model_with_how_many_and_why(app, db, owner, editor, monkeypatch):
