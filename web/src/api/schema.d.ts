@@ -1217,7 +1217,8 @@ export interface paths {
         put?: never;
         /**
          * Cancel
-         * @description Cancel the options being made (or held for the owner): nothing more is charged.
+         * @description Cancel the options being made (or held for the owner), or withdraw a voice card's clone
+         *     still waiting for the owner's OK (the card opens again): nothing more is charged.
          */
         post: operations["cancel_asks__ask_id__cancel_post"];
         delete?: never;
