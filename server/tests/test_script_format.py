@@ -62,7 +62,13 @@ def test_a_draft_changes_format_but_a_song_stays_a_song(owner, cooking):
 
 
 def test_a_freestyle_type_is_a_format_and_its_script_carries_it(owner, db, cooking):
-    body = {"type": "cooking", "look": "house", "shape": "9:16", "text": "MIA: Salt first."}
+    body = {
+        "type": "cooking",
+        "look": "house",
+        "shape": "9:16",
+        "text": "MIA: Salt first.",
+        "brand_id": first_brand(owner),
+    }
     fs = owner.post("/freestyles", json=body)
     assert fs.status_code == 201, fs.text
     row = db.get(Freestyle, fs.json()["id"])

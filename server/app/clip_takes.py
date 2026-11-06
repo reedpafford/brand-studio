@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import looks, model_map, p_video, screen_figures, video_settings
+from app import cast_gate, looks, model_map, p_video, screen_figures, video_settings
 from app.advice import names, stops
 from app.clip_prompts import MODERATED, assets, prompt_version
 from app.credits import estimate, fits
@@ -30,7 +30,7 @@ KEYS = {"image": "reference_images", "video": "reference_videos", "audio": "refe
 
 
 def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
-               drop: tuple[str, ...] = ()) -> dict:  # fmt: skip
+               drop: tuple[str, ...] = (), check: bool = True) -> dict:  # fmt: skip
     """The Seedance job for one clip: its prompt as written (it already says which picture is
     which), the project's aspect ratio, and its references by file id in the clip's order.
     `drop`: references left out for a look-alike retry ("frame:", then "char:"), each of their
@@ -67,6 +67,10 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         files[KEYS[kind]].append(file_ids[0])
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
+    attached = [r["id"] for r in clip.references or []]
+    shown = cast_gate.refs(db, project, breakdown, shots, attached, known)
+    if check:  # then the cast and places OK (a price read needs none)
+        cast_gate.require(db, project, shown, known)
     resolution = model_map.resolution(model)
     take, sent = p_video.fit(model.id, {
         "prompt": _with_note(in_english(prompt), note),
@@ -88,6 +92,9 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
                 db, project, images, model.id, (clip.song_slice or {}).get("sung_shots")
             ),
             **({"prompt_version": v} if (v := prompt_version(clip)) else {}),
+            "cast": cast_gate.stamp(
+                db, project, shown, known
+            ),  # as approved: a change makes it old
         },
         "brand_id": project.brand_id,
         "fit_images_to": LONG_SIDE[resolution],

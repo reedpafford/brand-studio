@@ -5,14 +5,14 @@ order they were made), `edit_ids` (JSON list, default []) and `timeline` (JSON, 
 New table `cut_edits`: one edit to a video's cut, replayed in order (app/cut.py).
 
 Revision ID: n42
-Revises: n40
+Revises: n41
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "n42"
-down_revision = "n40"
+down_revision = "n41"
 branch_labels = None
 depends_on = None
 
