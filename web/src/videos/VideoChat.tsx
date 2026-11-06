@@ -324,6 +324,16 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const heldMove = [...items].reverse().find((t) => t.kind === "move" && t.status === "held")?.id;
   const refreshAsks = useAskRefresh(id);
   const cards = useAsks(id, running || (run?.waiting?.length ?? 0) > 0).data ?? [];
+  // The pinned bar reads the run's waiting questions: a card answered or closed anywhere (here, in Needs you, by the
+  // director's own pick) leaves it at once, and the run is read again so a new question joins it.
+  const asked = (run?.waiting ?? []).filter((w) => { const c = cards.find((a) => a.id === w.id); return !c || isOpen(c); });
+  const states = cards.map((a) => `${a.id}:${a.state}`).join(",");
+  const lastStates = useRef(states);
+  useEffect(() => {
+    if (lastStates.current === states) return;
+    lastStates.current = states;
+    void queryClient.invalidateQueries({ queryKey: ["director", id] });
+  }, [states, id, queryClient]);
   const newest = `${items.length}:${items.at(-1)?.id}:${progress?.run}:${progress?.status}:${progress?.failed ? 1 : 0}:${cards.length}`; // a card's own changes don't pull the chat down
   useEffect(() => {
     scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
@@ -536,7 +546,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
         {actions.withdraw.isError && <p role="alert" className="mt-2 text-sm text-danger">{actions.withdraw.error.message}</p>}
       </div>
       {presses && <div className="flex flex-wrap items-center justify-end gap-2 px-5 pb-1 empty:hidden">{presses}</div>}
-      <WaitingBar waiting={run?.waiting ?? []} />
+      <WaitingBar waiting={asked} />
       <Composer placeholder={placeholder} closed={closed} note={note} error={send.isError ? send.error.message : null} busy={send.isPending} onSend={go} upload={!viaFreestyle} />
     </>
   );
