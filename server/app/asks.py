@@ -545,6 +545,15 @@ def approved_run(
     return Decimal(str(card.input["price"])) + oks * own_limit(), spent
 
 
+def runs_made(db: Session, project: Project) -> int:
+    """How many runs on the video got past their Make it (a pressed start card each)."""
+    from app.credits import COUNTED
+
+    return db.scalar(select(func.count(Job.id)).where(
+        Job.project_id == project.id, Job.input[START].as_boolean(),
+        Job.status.in_(COUNTED))) or 0  # fmt: skip
+
+
 def approved_total(db: Session, project: Project) -> Decimal | None:
     """What every Make it on the video has approved (board S3-12: "up to $17.18" is the first
     run's $16.86 plus the change's $0.32): each start card's price, plus another of the

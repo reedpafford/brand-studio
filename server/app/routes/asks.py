@@ -85,6 +85,8 @@ class MoneyCard(BaseModel):
     sent_at: UtcTime
     held: str  # the hold's own words
     what: str = ""  # past the budget: what it makes, "Redo clips 9 and 12" (Needs you's title)
+    over: str = "the budget"  # what it goes past: "the budget" (a first run, S3-07), or on a
+    # later run (rule 34) "the $16.86 approved for this run" ("… · $1.54 past {over}")
 
 
 class AskOut(BaseModel):
@@ -251,20 +253,27 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         spent = budget_used(db, project)
         top = budget(db, project) if project.hidden else project.budget_credits
         run = asks.approved_run(db, project)
+        later = False
         if run and any(j.input.get(asks.PAST_PRICE) for j in held):  # past its Make it's price
-            top, spent = run  # the price approved is this run's budget (S3-06)
+            top, spent = run  # the run's own price and what it charged against it (rule 34)
+            later = asks.runs_made(db, project) > 1  # after a delivery or a stop: the run's words
         money.spent, money.budget = _price(user, spent), _price(user, top)
         money.past = _price(user, max(Decimal(0), spent + more - top))
         money.clips, money.what = _clips(db, project, held), _what(db, held)
-        card.question = f"{money.what}? That goes {_said(money.past)} past the budget."
+        money.over = f"the {_said(money.budget)} approved for this run" if later else "the budget"
+        card.question = f"{money.what}? That goes {_said(money.past)} past {money.over}."
         notes = " ".join(dict.fromkeys(j.input["note"] for j in held
                                        if isinstance(j.input.get("note"), str)))  # fmt: skip
         if owner:  # the total is the sum of the figures shown, each rounded up
             total = AskPrice(credits=money.spent.credits + money.up_to.credits,
                              usd=round(money.spent.usd + money.up_to.usd, 2))  # fmt: skip
-            card.why = (f"{notes} {_said(money.spent)} spent plus up to {_said(money.up_to)} "
-                        f"makes up to {_said(total)}; the budget is {_said(money.budget)}."
-                        ).strip()  # fmt: skip
+            doing = _doing(money.what, len(money.clips))
+            card.why = (f"{notes} {doing} takes this run to up to {_said(total)} "
+                        f"({_said(money.spent)} spent in this run plus up to {_said(money.up_to)});"
+                        f" this run's approved price is {_said(money.budget)}." if later else
+                        f"{notes} {doing} takes this video to up to {_said(total)} "
+                        f"({_said(money.spent)} spent plus up to {_said(money.up_to)}); its "
+                        f"budget is {_said(money.budget)}.").strip()  # fmt: skip
         else:
             card.why = f"{notes} The owner has been asked; nothing is charged while it waits."
             card.why = card.why.strip()
@@ -284,6 +293,12 @@ def _usual(db: Session, project: Project) -> Decimal:
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     return version_cost(db, draft, project) if draft else Decimal(0)
+
+
+def _doing(what: str, clips: int) -> str:
+    """The held steps as the start of a sentence (S3-07): "Redoing them", "Making it"."""
+    verb = {"Redo": "Redoing", "Make": "Making"}.get(what.split(" ")[0])
+    return f"{verb} {'them' if clips > 1 or ' and ' in what else 'it'}" if verb else "That"
 
 
 def _what(db: Session, jobs: list[Job]) -> str:
