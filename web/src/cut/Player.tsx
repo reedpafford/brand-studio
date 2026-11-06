@@ -48,7 +48,7 @@ export function Player({
         onPause={() => setPlaying(false)}
         onClick={toggle}
       />
-      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-(image:--media-shade) px-3 pt-6 pb-2.5 text-on-media max-lg:gap-5 max-lg:px-[17px] max-lg:pb-[31px]">
+      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-(image:--media-shade) px-3 pt-6 pb-2.5 text-on-media max-lg:gap-6 max-lg:px-[17px] max-lg:pb-[31px]">
         <input
           type="range"
           aria-label="Where in the cut"
@@ -57,7 +57,7 @@ export function Player({
           step={0.1}
           value={Math.min(at, length)}
           onChange={(e) => onTime(Number(e.target.value))}
-          className="h-[3px] w-full cursor-pointer accent-white max-lg:-my-[18px] max-lg:h-10" // a 40px tap area on a phone, the same thin bar
+          className="h-[3px] w-full cursor-pointer accent-white max-lg:-my-5 max-lg:h-11" // a 44px tap area on a phone, the same thin bar
         />
         <div className="flex items-center gap-2.5 text-xs font-medium tabular-nums max-lg:gap-1.5">
           <button type="button" className={HIT} aria-label={playing ? "Pause" : "Play"} onClick={toggle}>
