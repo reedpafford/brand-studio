@@ -1,10 +1,12 @@
-import { screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
 import { editor } from "../test/people";
+import { ViewOnly } from "../components";
+import { ChoicePanel } from "./VideoSettings";
 
 const project = {
   id: 9, brand_id: 1, name: "Bo tries salmon · B", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
@@ -253,4 +255,13 @@ test("a video with no presenter has no Presenter chip", async () => {
   open();
   const row = await screen.findByRole("region", { name: "Video settings" });
   expect(within(row).queryByRole("button", { name: /^Presenter/ })).toBeNull();
+});
+
+test("a video for looking (someone else's, or a send waiting for the owner's OK) shows its setting's choices greyed (QA on #1380)", async () => {
+  const pick = vi.fn();
+  const field = { key: "video_model", label: "Video model", current: "auto", valueLabel: "Auto", choices: [{ id: "auto", label: "Auto", body: {} }, { id: "p-video", label: "P-Video", body: {} }] };
+  render(<ViewOnly on><ChoicePanel field={field as never} owner={false} onPick={pick} onClose={() => {}} /></ViewOnly>);
+  expect(screen.getByRole("button", { name: "P-Video" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "P-Video" })).catch(() => {});
+  expect(pick).not.toHaveBeenCalled();
 });
