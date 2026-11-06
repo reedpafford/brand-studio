@@ -848,12 +848,13 @@ test("S3-12: a new cut finishing while an older one is picked keeps that pick; t
 
 test("S3-12: a failed cut says why in Watch with its way forward, and the cut before keeps playing", async () => {
   setViewport(1440);
-  const failed = cutOut({ failed: { number: 3, why: "Cut 3 couldn't be made: the music is shorter than the cut. Nothing was charged.", fixes: ["loop_music", "again"] } });
+  const why = "Cut 3 couldn’t be made: the music is shorter than the cut. Nothing was charged.";
+  const failed = cutOut({ failed: { number: 3, why, fixes: ["loop_music", "again"] } });
   const calls = server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, failed], "GET /projects/50/video": [200, { file_id: 90, take_ids: [], out_of_date: false }], "POST /projects/50/cut/fix": [202, cutOut()] });
   renderApp("/b/1/videos/50?tab=cut");
   const panel = await screen.findByRole("tabpanel", { name: "Cut" });
-  expect(await within(panel).findByText("Cut 3 couldn’t be made.")).toBeInTheDocument();
-  expect(within(panel).getByText("Cut 3 couldn't be made: the music is shorter than the cut. Nothing was charged.")).toBeInTheDocument();
+  expect(await within(panel).findByText(why)).toBeInTheDocument(); // said once, as the server says it
+  expect(within(panel).queryAllByText(/couldn’t be made/)).toHaveLength(1);
   expect(within(panel).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/90");
   await userEvent.click(within(panel).getByRole("button", { name: "Loop the music to fit · free" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/cut/fix")?.body).toEqual({ fix: "loop_music" }));

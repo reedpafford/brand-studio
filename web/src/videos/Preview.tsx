@@ -89,7 +89,7 @@ const nextCut = (cut: Cut) => (cut.making && !cut.versions.some((v) => v.number 
 function CutSwitch({ cut, picked, onPick }: { cut: Cut; picked: number | null; onPick: (n: number) => void }) {
   const making = nextCut(cut);
   if (cut.versions.length < 2 && !making) return null;
-  const tab = "flex items-center rounded-sm px-3 py-1 text-sm max-lg:min-h-control";
+  const tab = "flex min-h-control items-center rounded-sm px-3 text-sm lg:min-h-control-dense";
   return (
     <div className="flex flex-col gap-3">
       <div role="radiogroup" aria-label="Which cut" className="flex w-fit flex-wrap gap-0.5 rounded-md bg-surface-2 p-0.5">
@@ -175,7 +175,7 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
       {remake.isError && <Banner title="The cut couldn't be made again.">Nothing was charged. {remake.error.message}</Banner>}
       {live?.failed && ( // a failed cut says why with its way forward; the one before keeps playing (rule 22)
         <Banner
-          title={`Cut ${live.failed.number} couldn’t be made.`}
+          title={live.failed.why}
           action={live.can_edit && live.failed.fixes.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {live.failed.fixes.map((f, i) => (
@@ -185,12 +185,10 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
               ))}
             </div>
           ) : undefined}
-        >
-          {live.failed.why}
-        </Banner>
+        />
       )}
       {now.video.outOfDate && !live?.making && ( // while the next cut is made it says so beside the switch (S3-12)
-        <Banner tone="warning" title="Out of date." action={<Button variant="secondary" busy={remake.isPending} disabled={!!held} reason={held} onClick={() => remake.mutate()}>Make it again</Button>}>
+        <Banner tone="warning" title="Out of date." action={live?.failed ? undefined /* the failed cut's own fixes come first */ : <Button variant="secondary" busy={remake.isPending} disabled={!!held} reason={held} onClick={() => remake.mutate()}>Make it again</Button>}>
           {left === 0 && !video.out_of_date && olderLook > 0 ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.` : songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.
         </Banner>
       )}
