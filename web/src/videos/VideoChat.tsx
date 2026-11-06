@@ -421,6 +421,12 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), carry.mutate()), onPlanAgain: () => (carry.reset(), planAgain.mutate()), busy: carry.isPending, planBusy: planAgain.isPending, blocked, error: (carry.error ?? planAgain.error)?.message ?? null }) : null;
   const presses = !archived && !lookOnly && (
     <>
+      {p?.held && fs && maker && !owner && !running && state !== "waiting" && (
+        // Its plan failed before its start card: nothing waits for the owner, and Withdraw is the way on (QA on #1380).
+        <Button variant="secondary" dense busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate(undefined, { onSuccess: () => onGone?.("Withdrawn. Nothing was charged.") })}>
+          Withdraw the request
+        </Button>
+      )}
       {ended && mayStart && p && (
         <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
           {startLabel}

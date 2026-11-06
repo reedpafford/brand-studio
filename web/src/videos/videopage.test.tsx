@@ -1142,3 +1142,14 @@ test("Flow-QA M6: a run that ended by itself is read again at once: no Stop or '
   await screen.findByText("The director stopped");
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/50/director").length).toBeGreaterThan(1)); // read again, not left
 });
+
+test("QA on #1380: a held send whose plan failed before its start card says so, and its sender can withdraw it", async () => {
+  setViewport(1440);
+  const sent = fs({ status: "stopped", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("f1", "move", "Director", "A turn failed; nothing more was done. Start it again to go on.", "refused")] });
+  const calls = server(editor, sent, run({ status: "ended", ended: "A turn failed; nothing more was done. Start it again to go on.", turns: [] }), { "GET /projects/50": [200, { ...project, held: true, created_by_id: 2 }], "POST /freestyles/9/withdraw": [200, { ...sent, status: "withdrawn" }] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("A turn failed; nothing more was done. Start it again to go on.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Withdraw the request" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
+  expect(await screen.findByRole("heading", { name: "My requests" })).toBeInTheDocument();
+});

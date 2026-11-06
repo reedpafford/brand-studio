@@ -372,6 +372,11 @@ def test_the_owners_note_on_a_held_send_is_his_and_its_start_card_comes_back(
         _run(app, db, ticks=1, start=False)
     held = db.query(Job).filter(Job.project_id == pid, Job.status == "needs_owner_approval").all()
     assert [j.input.get(asks.START) for j in held] == [True], [j.input for j in held]
+    sender, boss = (who.get("/auth/me").json()["id"] for who in (editor, owner))
+    assert held[0].created_by_id == sender  # the send stays theirs (My requests)
+    planned = db.query(Job).filter(Job.project_id == pid, Job.id < held[0].id,
+                                   Job.input["before_ok"].as_boolean()).all()  # fmt: skip
+    assert boss in {j.created_by_id for j in planned}  # his planning, by him (spend by person)
     assert not any(j.input.get(asks.PLAN_OK) for j in held)  # never "used its allowance"
     cards = owner.get(f"/projects/{pid}/asks").json()
     start = [c for c in cards if c["kind"] == "start" and c["state"] == "open"]
@@ -383,3 +388,41 @@ def test_the_owners_note_on_a_held_send_is_his_and_its_start_card_comes_back(
     assert r.status_code == 409  # the sender's own change waits for the OK too (unheld)
     made = owner.post(f"/asks/{start[0]['id']}/answer", json={"how": "make_it"})
     assert made.status_code == 200, made.text  # his Make it, on the card that came back
+
+
+def test_a_held_sends_failed_plan_stays_open_with_its_failure_and_withdraw(app, owner, editor, db):
+    """QA on #1380: a send whose plan fails before its start card has nothing waiting, but it
+    never 404s for its sender: it opens, says what failed, and Withdraw takes it back (then it
+    goes, as a declined one does)."""
+    from app.providers import Result, get_providers
+    from app.worker import run_once
+
+    brand = first_brand(owner)
+    fs = editor.post("/freestyles", json={**BODY, "brand_id": brand}).json()
+    _run(app, db, ticks=1, start=False)  # its first turn: the plan is asked for
+    providers = get_providers(app.state.settings, app.state.storage)
+    real = providers["claude"]
+
+    class Down:  # Claude is down: its plan and the turn after it fail
+        def __getattr__(self, name):
+            return getattr(real, name)
+
+        def run(self, kind, data):
+            return Result("failed", error="Claude is down")
+
+    providers["claude"] = Down()
+    for _ in range(3):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+    pid = editor.get(f"/freestyles/{fs['id']}").json()["project_id"]
+    waits = ("queued", "running", "needs_owner_approval")
+    assert not db.query(Job).filter(Job.project_id == pid, Job.status.in_(waits)).all()
+    got = editor.get(f"/projects/{pid}")
+    assert got.status_code == 200 and got.json()["held"] is True  # open, for looking
+    assert pid in [i["id"] for i in editor.get(f"/brands/{brand}/tree").json()["unsorted"]["ideas"]]
+    said = [t["text"] for t in editor.get(f"/freestyles/{fs['id']}").json()["thread"]]
+    assert any("failed" in t for t in said), said  # what failed shows
+    out = editor.post(f"/freestyles/{fs['id']}/withdraw")
+    assert out.status_code == 200 and out.json()["status"] == "withdrawn", out.text
+    db.expire_all()
+    assert editor.get(f"/projects/{pid}").status_code == 404  # withdrawn: nothing left of it

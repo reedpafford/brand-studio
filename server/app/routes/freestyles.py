@@ -703,7 +703,8 @@ def send_message(
 def withdraw_freestyle(
     freestyle_id: int, user: User = Depends(current_user), db: Session = Depends(_db)
 ):
-    """The maker takes back a send still waiting for the owner. Nothing was spent."""
+    """The maker takes back a send still waiting for the owner, or one whose plan failed
+    before its start card (its video goes, as a declined one's). Nothing was spent."""
     fs = _get(db, user, freestyle_id)
     if fs.created_by_id != user.id:
         raise HTTPException(403, "Only whoever made this freestyle can withdraw it.")
@@ -711,7 +712,11 @@ def withdraw_freestyle(
     ids = [j.id for j in _jobs(db, fs).values() if j.status == JobStatus.needs_owner_approval]
     done = db.execute(update(Job).where(Job.id.in_(ids), held)  # can't race the owner's OK
                       .values(status=JobStatus.cancelled, finished_at=utcnow()))  # fmt: skip
-    if not done.rowcount:
+    video = db.get(Project, fs.project_id) if fs.project_id else None
+    gone = video and video.hidden and hidden.held_sends(db, user, video.brand_id, video.id)
+    if not done.rowcount and gone:
+        ids, video.archived_at = list(_jobs(db, fs)), utcnow()  # its plan failed: nothing waits
+    elif not done.rowcount:
         raise HTTPException(409, "Nothing is waiting to withdraw.")
     for job in db.scalars(select(Job).where(Job.id.in_(ids))):
         job.input = {**job.input, WITHDRAWN: True}

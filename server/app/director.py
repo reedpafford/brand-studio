@@ -252,10 +252,17 @@ def _plan_first(db: Session, project: Project, held: Job, by: User) -> None:
     if done.rowcount != 1:
         return
     db.refresh(held)
-    run = {**held.input[RUN], "ok": False, **({asks.OWNER_PLAN: True} if by.is_owner else {})}
+    run = {**held.input[RUN], "ok": False, **({asks.OWNER_PLAN: by.id} if by.is_owner else {})}
     held.input = {**held.input, "result": PLAN_FIRST}
     db.commit()
-    _turn(db, db.get(User, run["by"]), project, run)
+    _turn(db, _by(db, run), project, run)
+
+
+def _by(db: Session, run: dict) -> User:
+    """Whose turn it is: the run's own person, or the owner while he plans again before Make
+    it after his note (OWNER_PLAN: his spend, in reports by person; QA on #1380)."""
+    planner = run.get(asks.OWNER_PLAN) if not run.get("ok", True) else None
+    return db.get(User, planner or run["by"])
 
 
 def chat(project: Project, run_id: str) -> list[dict]:
@@ -616,7 +623,7 @@ def wake(db: Session, project: Project) -> None:
     ):
         return  # it goes on when the cast and places are approved, a question is answered, or
         # someone asks for more
-    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
+    _turn(db, _by(db, last.input[RUN]), project, dict(last.input[RUN]))
 
 
 def _parked(db: Session, project: Project, last: Job) -> bool:
@@ -730,7 +737,7 @@ def _act(db: Session, job: Job, storage) -> None:
         if watch.get("state") in ("watching", "done") and watch.get("current"):
             return _record(db, job, run, WATCHED_AGAIN)  # not a watch; it goes on
     db.commit()  # the turn's answer is kept whatever the tool does
-    user = db.get(User, run["by"])
+    user = _by(db, run)
     result = director_tools.run(db, user, project, decision, storage, run)
     if tool == "watch_cut" and not result.startswith("Refused"):
         run["watches"] = run.get("watches", 0) + 1
@@ -865,6 +872,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         return last
     before = not run.get("ok", True)  # before Make it: planning, on its allowance
     card = before and last is not None and _ready(db, project, run, last)
+    if card and run.get(asks.OWNER_PLAN):  # the start card stays its sender's send (My requests)
+        user = db.get(User, run["by"])
     run = {**run, "turn": run["turn"] + 1, **({"ok": True} if card else {})}
     prompt = turn_input(db, project, run)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
@@ -954,7 +963,7 @@ def keep_plan(db: Session, project: Project, job: Job) -> None:
     the plan it has (a held planning turn was the run's last: the run goes on from it)."""
     if active(db, project) is None and job.input.get("step") == STEP:
         run = dict(job.input[RUN])
-        _turn(db, db.get(User, run["by"]), project, run)
+        _turn(db, _by(db, run), project, run)
     else:
         wake(db, project)
 
