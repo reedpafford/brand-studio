@@ -317,7 +317,7 @@ function Plan({ script, slot, brandId, readOnly }: { script: Script; slot: numbe
   // A problem that names a shot ("shot 2.1") sits under that shot's clip, with a warning dot on the row (C_Breakdown).
   const open = p!.problems.filter((x) => !p!.kept.includes(x));
   const clipOf = (problem: string) => {
-    const shot = /\bshot (\d+\.\d+)/i.exec(problem)?.[1];
+    const shot = /\bshot (\d+(?:\.\d+)+)/i.exec(problem)?.[1];
     return shot ? plan.clips.find((c) => c.shot_ids.includes(shot))?.id : undefined;
   };
   const loose = open.filter((x) => !clipOf(x));

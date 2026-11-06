@@ -18,7 +18,15 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app import asks, director_song, director_tools, take_mute, take_sound, word_splice
+from app import (
+    asks,
+    breakdown_fix,
+    director_song,
+    director_tools,
+    take_mute,
+    take_sound,
+    word_splice,
+)
 from app.credits import COUNTED, FREESTYLE, lock
 from app.db import utcnow
 from app.models.accounts import User
@@ -968,6 +976,12 @@ def video_state(db: Session, project: Project) -> dict:
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
+    have = {c["clip_id"] for c in clips}  # a planned clip with no prompt yet (after a split)
+    clips += [{"clip_id": c["id"], "stale": True, "picked_take_id": None,
+               "shots": [{"id": i, "action": shots[i].get("action", ""), "line": shots[i].get(
+                   "line")} for i in c["shot_ids"] if i in shots],
+               "takes": [], "muted": [], "sound": {}} for c in data.get("clips", [])
+              if c["id"] not in have]  # fmt: skip
     video = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id).limit(1))
     waiting = _waiting(db, project)
     acted = [j for j in turns(db, project) if "result" in j.input]
@@ -988,6 +1002,7 @@ def video_state(db: Session, project: Project) -> dict:
         "locked": {k: v for k, v in (project.locks or {}).items() if k != "look_picked"},
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
         "shots": "ready" if bd else "none",
+        "too_long": _splittable(db, project, bd),  # split_clip
         "missing_looks": [s.role for s in _missing(db, project)] if bd else [],
         "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id)},
         "clips": clips,
@@ -1000,6 +1015,23 @@ def video_state(db: Session, project: Project) -> dict:
         "watch": _watch(db, project),  # its last watch of the cut, and its findings
         "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
+
+
+def _splittable(db: Session, project: Project, bd) -> list[str]:
+    """The clips longer than the video model makes that split_clip can cut; one that can't
+    (a sentence longer than the model makes) is refused at its take with what to do."""
+    from app import plans
+    from app.breakdown import video_model
+
+    if bd is None:
+        return []
+    m, version = video_model(project), plans.script(db, project)
+    text = version.text if version else ""
+    return [
+        c
+        for c in breakdown_fix.too_long(bd.problems or [])
+        if breakdown_fix.split_into(bd.data, text, c, m.duration.min, m.duration.max) > 1
+    ]
 
 
 def choose(state: dict) -> dict:
@@ -1033,6 +1065,9 @@ def choose(state: dict) -> dict:
         return audio
     if state["shots"] == "none":
         return go("plan", "There are no shots yet.")
+    if long := state.get("too_long"):  # before its stills: the split makes new shots
+        return go("split_clip", f"{long[0]} is longer than the video model makes: split it.",
+                  clip_id=long[0])  # fmt: skip
     if state["missing_looks"]:
         return go("make_looks", "Some roles have no look yet.")
     if not state["stills"]["frames"]:

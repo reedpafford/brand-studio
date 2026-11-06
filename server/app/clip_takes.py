@@ -159,8 +159,9 @@ def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: li
 
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     """A clip longer than the video model makes is refused before any charge (QA #1013),
-    never sent cut short: the breakdown's Split fix makes it into clips it can. One shot
-    can't be split: it's made shorter, or the video's model one that makes longer clips. A UGC
+    never sent cut short: the breakdown's Split fix makes it into clips it can, between its
+    shots and at its sentence breaks. One sentence can't be split: it's made shorter, or the
+    video's model one that makes longer clips. A UGC
     talker's clip is never made: it's cut from the talker's take (app/talker.py)."""
     from app import talker
 
@@ -170,10 +171,15 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     most = m.fixed_seconds or m.duration.max
     if clip.seconds <= most:
         return
+    from app import breakdown_fix, plans
+
     bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
-    shots = next((c["shot_ids"] for c in (bd.data if bd else {}).get("clips", [])
-                  if c["id"] == clip.clip_id), [])  # fmt: skip
-    then = ("Split it in the breakdown (free), then make it" if len(shots) > 1 else
+    version = plans.script(db, project)
+    lo = m.duration.min if m.duration else 1  # Omni has one fixed length, no range
+    parts = breakdown_fix.split_into(bd.data, version.text if version else "", clip.clip_id,
+                                     lo, most) if bd else 1  # fmt: skip
+    offered = bd is not None and clip.clip_id in breakdown_fix.too_long(bd.problems or [])
+    then = ("Split it in the breakdown (free), then make it" if parts > 1 and offered else
             "Make its shot shorter in the breakdown, or switch the video model in Settings to "
             "one that makes longer clips (free)")  # fmt: skip
     raise HTTPException(409, f"This clip is {clip.seconds} s, but {m.name} makes at most "
