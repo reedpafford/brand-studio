@@ -367,11 +367,14 @@ def _cast(db: Session, project: Project, slots: list, face) -> str:
 
 
 LOWER = ("The", "A", "An", "It", "Its", "This", "That", "His", "Her", "Their", "One", "Some")
+SHOT = re.compile(r"^(?:shot\s+)?(\d+)\.\d+\b:?\s*", re.I)  # a finding's "3.1 shows him ..."
 
 
 def _redrawn(db: Session, project: Project, first: Job, shots: set[str]) -> str:
-    """Why the run's stills were redrawn, from its review's findings: "the capsule label faced
-    away" (two reasons at most), in plain words (rule 23)."""
+    """Why the run's stills were redrawn, from its review's worst finding, as one short reason
+    in plain words (rule 23): "the capsule label faced away"; a finding in the review's own
+    shape ("3.1 shows him sitting; the beat is the jar exploding") reads "clip 3's still shows
+    him sitting", never a bare shot number."""
     from app import still_review
 
     if not shots:
@@ -380,12 +383,15 @@ def _redrawn(db: Session, project: Project, first: Job, shots: set[str]) -> str:
                                         Job.input["step"].as_string() == still_review.STEP,
                                         Job.status == JobStatus.succeeded))  # fmt: skip
     every = [f for j in rows for f in (j.output or {}).get("findings") or []]
-    found = [said(f.get("problem", "")).rstrip(".") for f in every if f.get("shot_id") in shots]
-    out = []
-    for p in [p for p in dict.fromkeys(found) if p][:2]:
-        word = p.split(" ", 1)[0]
-        out.append(p[0].lower() + p[1:] if word in LOWER else p)  # never a name ("Dr. Pickle's")
-    return "; ".join(out)
+    found = [said(f.get("problem", "")) for f in every if f.get("shot_id") in shots]
+    p = next((p for p in found if p.strip(" .")), "")
+    if not p:
+        return ""
+    if m := SHOT.match(p):
+        p = f"clip {m[1]}'s still {p[m.end() :]}"
+    p = p.split("; ", 1)[0].strip().rstrip(".")
+    word = p.split(" ", 1)[0]
+    return p[0].lower() + p[1:] if word in LOWER else p  # never a name ("Dr. Pickle's")
 
 
 TRIES = 4  # clips read a model for its reason, at most
