@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { makeIt, onBrand, signIn } from "./helpers";
+import { approveCastWhenReady, makeIt, onBrand, signIn } from "./helpers";
 
 // The director (first slice, #1087; v6 S3/P-04/P-05), on the stand-ins: an editor on a video from a published script presses Make it, sees
 // its run's progress (it watches its cut, fixes what it found and cuts again, #1145), and gets the finished cut with
@@ -8,6 +8,7 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
+  approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await onBrand(page, "fomo");
   const brands = (await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[];
   const fomo = brands.find((b) => b.name === "fomo")!.id;

@@ -18,7 +18,7 @@ from app.models.projects import Project
 from app.providers import get_providers
 from app.worker import run_once
 from tests.conftest import PASSWORD
-from tests.helpers import make_it
+from tests.helpers import make_it, ok_when_asked
 from tests.test_director import _made, _run
 
 AGAIN = "Planning the whole video again."
@@ -32,6 +32,7 @@ def _stopped(app, db, owner, editor) -> int:
     for _ in range(80):
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        ok_when_asked(db)  # the person approves the cast and places when asked
         make_it(db)
         if (
             db.query(ProjectClip)
@@ -41,6 +42,11 @@ def _stopped(app, db, owner, editor) -> int:
             break
     stopped = editor.post(f"/projects/{pid}/director/stop").json()
     assert stopped["ended"] == "Stopped.", stopped
+    assert (
+        db.query(ProjectClip)
+        .filter(ProjectClip.project_id == pid, ProjectClip.picked_take_id.is_not(None))
+        .count()
+    )
     _run(app, db, ticks=5)  # what it started finishes; no more turns
     return pid
 
@@ -230,6 +236,7 @@ def test_carrying_on_a_stopped_plan_again_run_still_makes_every_clip_again(app, 
     for _ in range(120):  # until its old takes are set aside, before any new take
         run_once(db, providers, app.state.storage)
         db.expire_all()
+        ok_when_asked(db)  # the person approves the cast and places when asked
         make_it(db)
         if director.turns(db, db.get(Project, pid))[-1].input[director.RUN].get(director.UNPICKED):
             break
@@ -258,3 +265,22 @@ def test_after_a_plan_again_run_delivers_the_next_run_is_a_normal_one(app, db, o
     last.input = {**last.input, "result": "Delivered."}
     db.commit()
     assert director._replanning(db, project) == {}
+
+
+def test_a_plan_again_whose_cast_needs_its_ok_again_waits_for_it_beside_set_aside_takes(
+    app, db, owner, editor
+):
+    """A clip whose takes are all set aside and that waits for the cast and places OK waits for
+    it (never a take before the OK); the others are made again meanwhile."""
+    pid = _stopped(app, db, owner, editor)
+    state = director.video_state(db, db.get(Project, pid))
+    (c,) = state["clips"][:1]
+    base = {**state, "allowed": {}, "treatment": "written", "started": True,
+            "stills_review": {"state": "done"}, "being_made": 0, "held_for_owner": []}  # fmt: skip
+    aside = [{**t, "set_aside": True} for t in c["takes"]]
+    waits = {**c, "takes": aside, "picked_take_id": None, "waits_for_cast": True}
+    free = {**c, "clip_id": "c9", "takes": aside, "picked_take_id": None, "waits_for_cast": False}
+    made = director.choose({**base, "clips": [waits, free]})
+    assert made["tool"] == "make_take" and made["clip_id"] is None  # the one that may be made
+    made = director.choose({**base, "clips": [waits]})
+    assert made["tool"] == "wait" and "cast and places" in made["why"]

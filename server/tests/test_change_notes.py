@@ -13,7 +13,7 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.storyboard import save_still
 from tests.conftest import upload
-from tests.helpers import with_sheet
+from tests.helpers import approve_cast, with_sheet
 from tests.test_cast_roles import _video
 from tests.test_clip_takes import clip  # noqa: F401 - fixture
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
@@ -35,6 +35,7 @@ def _frame(app, db, editor, setup):  # noqa: F811
     url = f"/projects/{setup['project']}/storyboard"
     editor.post(url, json={})
     _run(app, db, FakeClaude(_frames(f"char:{mom.json()['id']}", f"screen:{setup['screen']}")))
+    approve_cast(editor, setup["project"])  # the person's OK on the cast
     frame = db.get(StoryboardFrame, editor.get(url).json()[0]["id"])
     frame.file_id, frame.approved = upload(editor), True  # a still, approved
     db.commit()

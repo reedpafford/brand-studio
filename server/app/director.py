@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app import (
     asks,
     breakdown_fix,
+    cast_gate,
     director_song,
     director_tools,
     take_mute,
@@ -65,6 +66,7 @@ TREATMENT_FIRST = "Refused: the treatment comes first, before Make it."
 PLAN_FIRST = "Changing the plan first."  # a note while the start card waited
 PRE_OK = ("treatment", "ask", "wait", "stop")  # what runs before Make it: planning only
 ON_YOU = "Waiting on your answer; everything else is made."  # parked on open questions
+CAST_WAIT = "Waiting for the cast and places OK."  # its run waits on that point only
 
 
 def start(db: Session, user: User, project: Project, *, hold: str = "",
@@ -344,6 +346,7 @@ def ended(db: Session, project: Project) -> str:
                  if j.input.get("ended")), "")  # fmt: skip
 
 
+DELIVERED = "Delivered."  # a run's last turn's result once it delivered
 STOPPED = "Stopped."  # a person pressed Stop: the run's `ended`, with who and when (S-gaps-01)
 
 
@@ -464,6 +467,16 @@ def wake(db: Session, project: Project) -> None:
         return
     if _waiting(db, project) or _parked(db, project, last):
         return
+    if (
+        last.input["result"] == CAST_WAIT
+        and cast_gate.pending(db, project)
+        and not (
+            _unread(project, last)
+            or asks.answered_since(db, project, (last.started_at or last.created_at).isoformat())
+        )
+    ):
+        return  # it goes on when the cast and places are approved, a question is answered, or
+        # someone asks for more
     _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
 
 
@@ -476,6 +489,11 @@ def _parked(db: Session, project: Project, last: Job) -> bool:
     noted = any(m.get("run") == last.input[RUN]["id"] and m["at"] > at
                 for m in project.director_chat or [])  # fmt: skip
     return not noted and not asks.answered_since(db, project, at)
+
+
+def _unread(project: Project, last: Job) -> bool:
+    """A note in the run that no turn has read yet."""
+    return len(chat(project, last.input[RUN]["id"])) > last.input.get(READ, 0)
 
 
 def sweep(db: Session) -> None:
@@ -524,7 +542,7 @@ def _act(db: Session, job: Job, storage) -> None:
         why = decision.get("why") or "Delivered."
         job.output = {**decision, "note": delivery.note(db, project, job, decision)}
         asks.close_run(db, run["id"], "Delivered without it.")
-        return _end(job, why, result="Delivered.")  # a note it didn't read waits for Make it
+        return _end(job, why, result=DELIVERED)  # a note it didn't read waits for Make it
     if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
     if tool == "make_take" and decision.get("clip_id"):
@@ -537,6 +555,8 @@ def _act(db: Session, job: Job, storage) -> None:
             run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
     if tool == "wait":  # with nothing being made (it read the video before a step saved), the
         idle = not _waiting(db, project)  # next turn reads it again now (`wake`), once
+        if idle and cast_gate.state(db, project)["asked"]:  # what's left waits for their OK
+            return _record(db, job, run, CAST_WAIT)  # (an answer to a question wakes it too)
         if idle and asks.waiting(db, project):  # only questions left: it sleeps until answered
             return _record(db, job, run, ON_YOU)
         rows = [j for j in turns(db, project) if j.id < job.id]
@@ -684,7 +704,7 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         made = video_state(db, project)["cut"] == "made"  # what it has: a cut, or nothing
         last = db.get(Job, last.id)
         _end(last, f"{gave_up}; delivered without it." if made else f"It stopped: {gave_up}.",
-             result="Delivered." if made else "")  # fmt: skip
+             result=DELIVERED if made else "")  # fmt: skip
         db.commit()
         return last
     if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= MAX_USD:
@@ -859,7 +879,7 @@ def _replanning(db: Session, project: Project) -> dict:
     takes stay set aside and every clip is still made again. After that run delivered, the next
     run is a normal one (its earlier takes can be picked back as on any video)."""
     rows = turns(db, project)
-    if not rows or rows[-1].input.get("result") == "Delivered.":
+    if not rows or rows[-1].input.get("result") == DELIVERED:
         return {}
     last = rows[-1].input[RUN]
     return {k: last[k] for k in (FRESH, UNPICKED) if last.get(k)}
@@ -887,6 +907,10 @@ def set_aside(db: Session, project: Project, run: dict | None, clips: list[dict]
         for t in c["takes"]:
             theirs = run.get(UNPICKED) and t["id"] == c["picked_take_id"]
             t["set_aside"] = t["id"] in old and not theirs
+    held = set(_cast_ok(db, project).get("paused_clips") or [])  # a set-aside take isn't one:
+    for c in clips:  # a clip with only those waits for the cast and places OK like one with none
+        now = [t for t in c["takes"] if not t["set_aside"]]
+        c["waits_for_cast"] = c["clip_id"] in held and not now
 
 
 SET_ASIDE = ("Refused: take {} of {} was made before the plan was started again, so it's set "
@@ -1046,7 +1070,7 @@ def video_state(db: Session, project: Project) -> dict:
     """Where the video is, as the director reads it (and `choose` on the stand-ins)."""
     from app.clip_prompts import newest
     from app.item_checks import latest, shown, verdict
-    from app.routes.project_assets import _missing
+    from app.routes.project_assets import _missing, missing_places
     from app.routes.project_clips import out_of_date
 
     bd = newest(db, project)
@@ -1102,6 +1126,10 @@ def video_state(db: Session, project: Project) -> dict:
         Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
     from app.plans import status
 
+    cast = _cast_ok(db, project) if bd else {"state": "none"}
+    held = set(cast.get("paused_clips") or [])
+    for c in clips:
+        c["waits_for_cast"] = c["clip_id"] in held and not c["takes"]
     audio = director_song.state(db, project)  # a song or narrated video's song or narration
     from app import host
 
@@ -1115,8 +1143,11 @@ def video_state(db: Session, project: Project) -> dict:
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
         "shots": "ready" if bd else "none",
         "too_long": _splittable(db, project, bd),  # split_clip
-        "missing_looks": [s.role for s in _missing(db, project)] if bd else [],
-        "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id)},
+        "missing_looks": [*(s.role for s in _missing(db, project)),
+                          *(p.name for p in missing_places(db, project))] if bd else [],
+        "cast_ok": cast,  # the person's OK on the cast and places, and what waits for it
+        "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id),
+                   "waiting": sum(1 for f in frames if not f.file_id and f.clip_id in held)},
         "clips": clips,
         "cut": "none" if not video else
                ("out of date" if project.id in out_of_date(db, [project]) else "made"),
@@ -1127,6 +1158,19 @@ def video_state(db: Session, project: Project) -> dict:
         "watch": _watch(db, project),  # its last watch of the cut, and its findings
         "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
+
+
+def _cast_ok(db: Session, project: Project) -> dict:
+    """The cast and places checkpoint as the director reads it: its state, whether it asked,
+    each item (name, kind, source, readiness, approval), what isn't ready and why, and the
+    clips waiting for it."""
+    said = cast_gate.state(db, project)
+    keep = ("name", "kind", "source", "readiness", "approval", "changes")
+    return {"state": said["state"], "asked": said["asked"],
+            "items": [{k: i[k] for k in keep} for i in said["items"]],
+            "not_ready": [n["why"] for n in said["not_ready"]],
+            "paused_clips": said["paused_clips"],
+            "update": {k: said["update"][k] for k in ("stills", "clips", "credits")}}  # fmt: skip
 
 
 def _splittable(db: Session, project: Project, bd) -> list[str]:
@@ -1184,10 +1228,16 @@ def choose(state: dict) -> dict:
                   clip_id=long[0])  # fmt: skip
     if state["missing_looks"]:
         return go("make_looks", "Some roles have no look yet.")
+    cast = state.get("cast_ok") or {}
+    if cast.get("state") == "ready" and not cast.get("asked"):  # each drawn: the person's OK
+        return go("ask_cast_ok", "all: the cast and places are drawn; they're the person's OK.")
     if not state["stills"]["frames"]:
         return go("storyboard", "The shots are ready; the storyboard is next.")
-    if state["stills"]["drawn"] < state["stills"]["frames"]:
+    stills = state["stills"]
+    if stills["drawn"] + stills.get("waiting", 0) < stills["frames"]:
         return go("stills", "Some frames have no still yet.")
+    if stills.get("waiting"):
+        return go("wait", "The other stills wait for the cast and places OK.")
     review = state.get("stills_review") or {"state": "done"}  # (a hand-made state: none asked)
     if review["state"] == "none":  # its own look at the stills before any take
         return go("review_stills", "The stills are drawn: check them against the treatment.")
@@ -1204,11 +1254,14 @@ def choose(state: dict) -> dict:
         return go("clip_prompts", "The clips need their prompts.")
     # a take that's set aside (an earlier prompt, or before Start the plan again) is never picked
     now = {c["clip_id"]: [t for t in c["takes"] if not t.get("set_aside")] for c in clips}
-    if bare := [c for c in clips if not now[c["clip_id"]] and not c.get("talker")]:
+    if bare := [c for c in clips if not now[c["clip_id"]] and not c.get("talker")
+                and not c.get("waits_for_cast")]:  # fmt: skip
         if all(c["picked_take_id"] is None for c in bare):
             return go("make_take", "Some clips have no take yet.")
         return go("make_take", f"{bare[0]['clip_id']} has no take from its prompt now.",
                   clip_id=bare[0]["clip_id"])  # fmt: skip
+    if any(c.get("waits_for_cast") for c in clips):
+        return go("wait", "The other takes wait for the cast and places OK.")
     clips = [c for c in clips if c["takes"]]  # a talker's are cut from its take at the cut
     for c in clips:  # the brand said wrong, with a clean copy in the same voice (word_splice)
         if c.get("can_splice"):
