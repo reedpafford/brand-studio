@@ -146,3 +146,22 @@ def test_a_model_switch_before_the_run_moves_its_price_and_past_the_ok_only_the_
     assert switch(owner, "seedance-2.5").status_code == 200  # the owner's switch is that OK
     db.expire_all()
     assert fs.up_to == run_price(db, draft, video) > cheaper
+
+
+def test_after_a_change_the_header_the_run_card_and_the_note_say_one_up_to(app, owner, editor, db):
+    """A freestyle's "up to" is its sends' approved total: the header, the change's run card and
+    its note agree (QA on #1354: the change's run alone read its own price)."""
+    fs = _delivered(app, owner, editor, db)
+    editor.post(f"/freestyles/{fs['id']}/messages", json={"text": CHANGE})
+    _run(app, db, ticks=4, start=False)
+    (held,) = _held(owner)
+    owner.post(f"/jobs/{held['id']}/approve")
+    _run(app, db)
+    from app import run_progress
+
+    project = db.get(Project, fs["project_id"])
+    top = owner.get(f"/freestyles/{fs['id']}").json()["up_to"]  # a freestyle's header reads it
+    card = float(run_progress.run_up_to(db, project))  # the run card's
+    note = [j.output["note"] for j in director.turns(db, project) if (j.output or {}).get("note")]
+    assert abs(card - top) < 1 and abs(note[-1]["up_to"] - top) < 1, (top, card, note[-1]["up_to"])
+    assert top >= float(held["freestyle"]["total"]) - 1  # every send approved, not the change alone

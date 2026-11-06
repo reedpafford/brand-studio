@@ -29,11 +29,12 @@ export function useAsks(projectId: number, live: boolean) {
 /** After any answer: the cards, the run (its waiting bar and start card), the header, Needs you and the jobs. */
 export function useAskRefresh(projectId: number) {
   const queryClient = useQueryClient();
-  return () =>
-    Promise.all([
-      ...[["asks", projectId], ["director", projectId], ["idea", projectId], ["run-progress", projectId], ["needs-you"], ["freestyle"]].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
-      refreshJobs(queryClient),
-    ]);
+  // The press waits for its card only; the rest refresh behind it, so a slow read elsewhere never keeps the card busy.
+  return () => {
+    for (const queryKey of [["director", projectId], ["idea", projectId], ["run-progress", projectId], ["needs-you"], ["freestyle"]]) void queryClient.invalidateQueries({ queryKey });
+    void refreshJobs(queryClient);
+    return queryClient.invalidateQueries({ queryKey: ["asks", projectId] });
+  };
 }
 
 /** "$0.24" to the owner, "3 credits" to an editor (rule 4). */
@@ -127,8 +128,8 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const money = ["start", "budget", "own", "plan"].includes(a.kind);
   const voice = a.kind === "voice";
   const brand = a.saved_in.replace(/^Saved in /, "") || "the brand";
-  // Where a clone goes, said before the paid press (Reed, 5 Nov; #1346's `clone_to` once it's on the API).
-  const cloneTo = ((a as Ask & { clone_to?: string }).clone_to || `Saved to ${brand}’s voices`).replace(/^Saved/, "saved");
+  // Where a clone goes, said before the paid press (Reed, 5 Nov; #1346's `clone_to`).
+  const cloneTo = (a.clone_to || `Saved to ${brand}’s voices`).replace(/^Saved/, "saved");
   const [failedUpload, setFailedUpload] = useState("");
   const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setChanging(""), setFailedUpload(""), onDone?.()) });
   const error = act.isError || failedUpload ? <p role="alert" className="text-sm text-danger">{failedUpload || act.error?.message}</p> : null;
@@ -139,7 +140,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
     const [cls, Icon] = HEAD[gone ? "gone" : "done"];
     const ans = a.answer as { name?: string; text?: string; file_id?: number | null; how?: string; reused?: boolean } | null;
     const what = money ? (ans?.how === "withdraw" ? "Withdrawn" : ans?.how === "keep" || ans?.how === "decline" ? "Kept as it is. Nothing was charged for it." : "Approved") : ans?.name ?? ans?.text ?? "";
-    const who = ans?.how === "clone" && ans.reused ? `Using ${ans.name ?? "that voice"}, already in ${brand}’s voices. Nothing was charged.` : a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `picked by ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
+    const who = ans?.how === "clone" && ans.reused ? `Using ${ans.name ?? "that voice"}, already in ${brand}’s voices. Nothing was charged.` : a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `${money ? "by" : "picked by"} ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
     return (
       <section id={`ask-${a.id}`} aria-label={a.question} className="overflow-hidden rounded-[10px] border border-border bg-surface">
         <p className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold ${cls}`}>
@@ -500,10 +501,10 @@ export const isOpen = (a: Ask) => OPEN.includes(a.state);
 export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }: { projectId: number; change: boolean; upTo: number | null | undefined; sentAt: string; owner: boolean; onWithdraw: () => void }) {
   const price = { credits: upTo ?? 0, usd: null };
   const ask: Ask = {
-    id: 0, project_id: projectId, kind: "start", topic: "", state: "held", by_owner: false, created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
+    id: 0, project_id: projectId, kind: "start", topic: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is while it waits; nothing is charged." : "The owner has been asked. Nothing is made or charged while it waits.",
-    money: { up_to: price, clips: [], sent_at: sentAt, held: "" },
+    money: { up_to: price, clips: [], sent_at: sentAt, held: "", what: "" },
   };
   return <AskCard ask={ask} owner={owner} onWithdraw={onWithdraw} />;
 }
