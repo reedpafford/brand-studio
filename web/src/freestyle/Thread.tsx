@@ -66,7 +66,7 @@ function Excerpt({ text }: { text: string }) {
  *  (a price card) under it say so. `first`: what the first message carries in place of its words (a saved script);
  *  `excerpt`: it's the first message, so a pasted script shows as its first lines. */
 export function Item({ t, words, why, owner, children, first, excerpt, ref }: { t: Said; words: ReactNode; why?: string; owner?: boolean; children?: ReactNode; first?: ReactNode; excerpt?: boolean; ref?: Ref<HTMLLIElement> }) {
-  const director = t.kind === "move";
+  const director = t.kind === "move" || t.kind === "ask"; // a card is the director asking
   const story = director ? treatmentOf(t) : null; // the treatment: a card in place of its plain lines (#1192)
   const going = director && (t.status === "running" || t.status === "queued");
   // A long paste (a script) shows its first lines; a short ask reads as it is.

@@ -750,7 +750,8 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
     assert out["status"] == "delivered", (out["ended"], [t["tool"] for t in out["turns"]])
     remade = next(t for t in out["turns"] if t["tool"] == "make_take")
     assert remade["why"] == "Note 1: you asked: Make clip 1 slower and warmer."
-    note = out["turns"][-1]["why"]  # the revision names the ask, fixes nothing it wasn't asked
+    kept = next(m["note"] for m in reversed(out["thread"]) if m.get("note"))
+    note = " ".join((kept["made"], kept["unsure"], kept["needs"]))  # the revision's note
     assert "Note 1: done, as you asked (Make clip 1 slower and warmer.)." in note
     project = db.get(Project, pid)
     run = director.turns(db, project)
@@ -774,7 +775,7 @@ def test_chat_a_change_after_delivery_and_it_delivers_again(app, db, owner, edit
     ids = [m["id"] for m in out["thread"]]
     assert len(set(ids)) == len(ids) and out["thread"][said]["id"] == "m0"
     last = out["thread"][-1]["note"]  # ends on the new delivery note
-    assert "Note 1: done, as you asked" in last["made"] and "I also noticed:" in last["unsure"]
+    assert "Note 1: done, as you asked" in last["made"] and "I also noticed:" in last["needs"]
     assert out["thread"][-1]["text"].startswith(last["made"])
 
 
@@ -922,6 +923,8 @@ def test_every_open_note_is_answered_and_delivery_waits_for_them(
     turns = db.query(Job).filter(Job.input["step"].as_string() == director.STEP).all()
     assert any(j.input.get("result") == director.OPEN.format(2) for j in turns)  # the director's
     whys = [t["why"] for t in out["turns"]]
+    note = next(m["note"] for m in reversed(out["thread"]) if m.get("note"))
+    whys[-1] = " ".join((note["made"], note["unsure"], note["needs"]))  # the delivery's note
     assert whys.count("Note 1: you asked: Make clip 1 warmer.") == 1  # the older note is made
     assert "Note 2: there's no clip 9 in this video." in whys[-1]
     notes = [m for m in out["thread"] if m["kind"] == "message"]
@@ -959,8 +962,8 @@ def test_stand_in_wording_a_script_word_ask_the_noticed_line_and_the_take_picked
              "allowed": {"redos_used": {}, "watches_left": 1}}  # fmt: skip
     out = director.choose(state)
     assert out["tool"] == "deliver", out  # the words aren't changed here: nothing to make
-    assert "Note 1: the script's words stay as written here." in out["why"]
-    assert "I also noticed: a stray sound. Want me to fix it?" in out["why"]
+    assert "Note 1: the script's words stay as written here." in out["made"]
+    assert out["needs"] == "I also noticed: a stray sound. Want me to fix it?"  # a question
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
     _run(app, db)

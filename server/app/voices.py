@@ -220,18 +220,28 @@ def check_sample(storage, stored: StoredFile) -> None:
 
 def clone(db: Session, user: User, brand_id: int, storage, stored: StoredFile, name: str,
           description: str) -> Voice:  # fmt: skip
-    """Clone a voice from a sample: one paid call, held for the owner when an editor asks."""
+    """Clone a voice from a sample into the brand's voices (Reed, 5 Nov: saved to the brand to
+    be reused): one paid call, held for the owner when an editor asks. The same sample, or
+    the same name, in this brand is the clone already made: returned as it is, no new call
+    (a failed or expired one is cloned again in its own row)."""
     from app.routes.jobs import enqueue
 
     if not name.strip():
         raise HTTPException(422, NO_NAME)
-    check_sample(storage, stored)
-    voice = Voice(workspace_id=user.workspace_id, brand_id=brand_id, name=name.strip()[:120],
-                  kind="cloned", provider="minimax", speech_model=SPEAKS,
-                  description=description.strip(), sample_file_id=stored.id,
-                  created_by_id=user.id)  # fmt: skip
-    db.add(voice)
-    db.flush()
+    if (made := existing(db, user.workspace_id, brand_id, stored, name)) is not None:
+        if state(db, made)[0] in ("cloning", "ready", "may_expire"):
+            return made  # reused: never charged again
+        voice = made  # failed or gone: cloned again, the same voice in the brand
+        voice.sample_file_id, voice.lost_at, voice.provider_voice_id = stored.id, None, None
+        check_sample(storage, stored)
+    else:
+        check_sample(storage, stored)
+        voice = Voice(workspace_id=user.workspace_id, brand_id=brand_id,
+                      name=name.strip()[:120], kind="cloned", provider="minimax",
+                      speech_model=SPEAKS, description=description.strip(),
+                      sample_file_id=stored.id, created_by_id=user.id)  # fmt: skip
+        db.add(voice)
+        db.flush()
     job = enqueue(db, user, "voice", {
         "step": STEP, "model": CLONER, "voice_row_id": voice.id, "voice_name": voice.name,
         "brand_id": brand_id,
@@ -242,6 +252,22 @@ def clone(db: Session, user: User, brand_id: int, storage, stored: StoredFile, n
     voice.job_id = job.id
     db.commit()
     return voice
+
+
+def existing(
+    db: Session, workspace_id: int, brand_id: int, stored: StoredFile, name: str
+) -> Voice | None:
+    """This brand's clone (not removed) of the same sample (the same file or the same bytes)
+    or of the same name, if any."""
+    rows = db.scalars(select(Voice).where(
+        Voice.workspace_id == workspace_id, Voice.brand_id == brand_id, Voice.kind == "cloned",
+        Voice.archived_at.is_(None)).order_by(Voice.id.desc())).all()  # fmt: skip
+    same = {f.id for f in db.scalars(select(StoredFile).where(
+        StoredFile.workspace_id == workspace_id, StoredFile.sha256 == stored.sha256))}  # fmt: skip
+    said = name.strip().lower()
+    return next((v for v in rows if v.sample_file_id in same | {stored.id}), None) or next(
+        (v for v in rows if v.name.strip().lower() == said), None
+    )
 
 
 def saved(db: Session, job: Job) -> None:
@@ -308,9 +334,14 @@ def checked(db: Session, project, ref: str | None) -> str | None:
 
 def picked(db: Session, project) -> str | None:
     """The voice a person set for this video (its settings or a voice card's answer), as
-    narration names it, while it can still be used; else None."""
+    narration names it, while it can still be used; else None. A clone still being made (or
+    failed) isn't read yet; an expired one is, so its narration is refused saying what to do,
+    never read in another voice."""
     said = from_ref(project.voice)
-    return said if said and usable(db, project.workspace_id, project.brand_id, said) else None
+    if not said or not usable(db, project.workspace_id, project.brand_id, said):
+        return None
+    saved = named(db, project.workspace_id, said, project.brand_id)
+    return None if saved and state(db, saved)[0] in ("cloning", "failed") else said
 
 
 def mine(voice: Voice, workspace_id: int, brand_id: int | None) -> bool:

@@ -1,8 +1,10 @@
 """The delivery note (v6 piece D: boards S3-09, S3-10, S3-12, P-08), built when the director
 delivers and kept on its deliver turn, so a later run never rewrites it. The director writes
-what it made, what it's unsure of and what it needs (its last turn: DirectorTurn's `made`,
-`unsure` and `needs`); the server adds what it watched and redid, each at its time in the
-cut (the takes it made again and its free fixes), the run's real cost and the cut's number."""
+what it made, what remains uncertain and what it needs from you (its last turn:
+DirectorTurn's `made`, `unsure` and `needs`); the server adds what it watched and redid, each
+at its time in the cut (the takes it made again and its free fixes), what it knows is still
+open (`open_items`), the run's real cost and the cut's number. "Ready to post" is said only
+when nothing is open."""
 
 import math
 from decimal import Decimal
@@ -16,9 +18,10 @@ from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
-from app.run_progress import RUN, _found, _model, price_of, runs, said, spent, watched
+from app.run_progress import RUN, _found, _model, run_up_to, runs, said, spent, watched
 
-NOTHING = "Nothing. It’s ready to post."
+NOTHING = "Nothing. It’s ready to post."  # only when nothing is open (`open_items`)
+LOOK_FIRST = "Nothing yet, but look at what remains uncertain before you post it."
 FIXES = ("mute", "splice_word", "pick_take")  # the free fixes its rows name
 
 
@@ -34,16 +37,140 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
         FinalVideo.project_id == project.id, FinalVideo.id <= cut.id)) if cut else 0  # fmt: skip
     spans = _spans(db, cut)
     credits, _ = spent(db, project, turns[0].created_at)
-    rows = _remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
+    rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
+            + _host_rows(db, project, turns[0].created_at))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
+            "open": open_items(db, project, spans, decision.get("needs") or ""),
             "redid": sorted(rows, key=lambda r: r["at"]),
             "unsure": " ".join(x for x in (said(decision.get("unsure") or ""),
                                            watch_report.doubts(db, project)) if x),
             "needs": said(decision.get("needs") or ""),
-            "spent": float(credits), "up_to": float(price_of(db, project)),
+            "spent": float(credits), "up_to": float(run_up_to(db, project)),
             "since": turns[0].created_at.isoformat(), "until": utcnow().isoformat(),
             "cut": number, "clips": len(spans),
             "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
+
+
+def open_items(db: Session, project: Project, spans: list[dict], asked: str = "") -> list[str]:
+    """What the server knows is still open when the director delivers, said plainly (Reed, 4
+    Nov: a cut that exists isn't ready to post): a cut not watched; each finding of the watch
+    of this cut (kept, or not fixed), but those the note already asks about (`asked`); each
+    take in the cut not checked, or with what its checks found (not what was muted or spliced
+    free); and each step waiting for the owner."""
+    from app import item_checks
+    from app.credits import WAIT_OK
+    from app.director import _item
+    from app.models.jobs import JobStatus
+    from app.watch_cut import state
+
+    out = []
+    watch = state(db, project)
+    if not (watch.get("state") == "done" and watch.get("current")):
+        failed = watch.get("state") == "failed" and watch.get("current")
+        out.append("The watch of the cut failed, so the cut wasn't watched." if failed
+                   else "The cut wasn't watched.")  # fmt: skip
+    where = {s["row"].clip_id: _clip(s["row"]) for s in spans}
+    takes = {s["row"].clip_id: s["take"] for s in spans}
+    for f in watch.get("findings") or [] if watch.get("current") else []:
+        says = said(f.get("says") or "").rstrip(".")
+        if not says or says.lower() in said(asked).lower() or _watch_fixed(f, takes):
+            continue  # asked of the owner in the note, or fixed for free since (a mute, a pick)
+        head = f"{where[f['clip_id']]}: " if f.get("clip_id") in where else ""
+        done = "Kept as it is." if f.get("fix") == "keep" else "Not fixed."
+        out.append(f"{head}{says}. {done}")
+    if spans and not item_checks.on():  # checks are off on this site: said once
+        out.append("The takes weren't checked one by one.")
+    ids = [s["take"].id for s in spans]
+    checks = {k: item_checks.latest(db, k, ids) for k in ("take", "words")}
+    for s in spans:
+        take, n = s["take"], _clip(s["row"])
+        if (take.made_with or {}).get("talker"):
+            continue  # cut from the talker's take: watched as the host's piece, below
+        for k in ("take", "words"):
+            for f in _found(checks[k].get(take.id)):
+                if f.get("verified", True) and not _fixed_free(db, take, f):  # doubts: unsure
+                    out.append(f"{n}: {said(f['text']).rstrip('.')}. Kept as it is.")
+        mine = [checks[k].get(take.id) for k in ("take", "words")]
+        if item_checks.on() and (mine[0] is None or any(c and c.status != "done" for c in mine)):
+            out.append(f"{n}'s take wasn't checked.")  # none, failed, skipped or never finished
+    out += _host_open(db, project)
+    held = db.scalars(select(Job).where(Job.project_id == project.id,
+                                        Job.status == JobStatus.needs_owner_approval))  # fmt: skip
+    for j in held:
+        why = (j.input.get("held") or "").removeprefix(WAIT_OK).rstrip(".")
+        line = f"{_item(db, j)} is waiting for the owner's OK" + (f": {why}." if why else ".")
+        if line not in out:
+            out.append(line)
+    return out
+
+
+def _host_open(db: Session, project: Project) -> list[str]:
+    """A presenter's host pieces in use (not an earlier narration's): each one not watched,
+    or with what its watch found and confirmed (its doubts are in "What remains uncertain")."""
+    from app import host, item_checks
+
+    rows = [r for r in host.rows(db, project) if r.number and r.file_id]
+    checks = item_checks.latest(db, "piece", [r.id for r in rows])
+    out = []
+    for r in rows:
+        who = f"The host's piece {r.number}"
+        check = checks.get(r.id)
+        for f in _found(check):
+            if f.get("verified", True):
+                out.append(f"{who}: {said(f['text']).rstrip('.')}. Kept as it is.")
+        if item_checks.on() and (check is None or check.status != "done"):
+            out.append(f"{who} wasn't checked.")
+    return out
+
+
+def _host_rows(db: Session, project: Project, since) -> list[dict]:
+    """The host's pieces the watch made again this run, as rows of "What I watched and
+    redid", at their place on the narration's clock: from the remakes themselves, since a
+    remade piece's own watch replaces the one that asked for it."""
+    from app import host, host_watch
+    from app.models.jobs import JobStatus
+
+    rows = {r.id: r for r in host.rows(db, project)}
+    made = db.scalars(select(Job).where(Job.project_id == project.id, Job.created_at >= since,
+                                        Job.status == JobStatus.succeeded)
+                      .order_by(Job.id))  # fmt: skip
+    out = []
+    for j in made:
+        row = rows.get(j.input.get(host_watch.REDO))
+        if row is None:
+            continue
+        fix = (j.input.get(host_watch.NOTE) or "").strip().rstrip(".")
+        out.append({"at": round(row.start, 1), "clip": "host",
+                    "text": f"The host's piece {row.number}: made again"
+                            + (f" with “{said(fix)}”." if fix else ".")})  # fmt: skip
+    return out
+
+
+def _watch_fixed(f: dict, takes: dict) -> bool:
+    """A watch finding fixed without a new cut being needed: its stretch muted, or the take
+    it pointed to is the one in the cut."""
+    from app import take_mute
+
+    take = takes.get(f.get("clip_id"))
+    if take is None:
+        return False
+    if f.get("fix") == "mute" and f.get("mute"):
+        span = [round(float(x), 2) for x in f["mute"]]
+        return span in [[round(x, 2) for x in m] for m in take_mute.spans(take)]
+    return f.get("fix") == "pick" and f.get("take_id") == take.id
+
+
+def _fixed_free(db: Session, take: ClipTake, f: dict) -> bool:
+    """A check's finding already fixed for free: its stretch muted, or a brand name heard
+    wrong when every wrong copy of it in the take has a clean one spliced in."""
+    from app import take_mute, word_splice
+
+    if f.get("span") and list(f["span"]) in [list(x) for x in take_mute.spans(take)]:
+        return True
+    done = word_splice.spliced(take)
+    if f.get("kind") != "name" or not done:
+        return False
+    return all(any(x.get("at") == w["at"] for x in done) for w in word_splice.wrong(db, take))
 
 
 def _spans(db: Session, cut: FinalVideo | None) -> list[dict]:
@@ -140,12 +267,15 @@ def shown(db: Session, project: Project, note: dict | None, owner: bool) -> dict
         pct = round(100 * note["spent"] / note["up_to"]) if note["up_to"] else 0
         cost = (f"{round(note['spent'])} credits used of up to {price(up_to)} "
                 f"({pct}% of the budget)")  # fmt: skip
-    return {**note, "needs": note["needs"] or NOTHING, "cost": cost,
+    still = note.get("open", [])
+    unsettled = still or note["unsure"]  # "ready to post" only when nothing is open (Reed)
+    return {**note, "open": still, "needs": note["needs"] or (LOOK_FIRST if unsettled else NOTHING),
+            "cost": cost,
             "spent_usd": float(usd) if owner else None}  # fmt: skip
 
 
 def plain(note: dict) -> str:
     """The note as plain lines: the chat's text for a screen that doesn't draw the card."""
     rows = [f"{int(r['at']) // 60}:{int(r['at']) % 60:02d} {r['text']}" for r in note["redid"]]
-    return "\n".join(p for p in (note["made"], *rows, note["unsure"], note["needs"],
-                                 note["cost"]) if p)  # fmt: skip
+    return "\n".join(p for p in (note["made"], *rows, note["unsure"], *note.get("open", []),
+                                 note["needs"], note["cost"]) if p)  # fmt: skip

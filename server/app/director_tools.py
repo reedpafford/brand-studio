@@ -21,7 +21,7 @@ from app.models.storyboards import StoryboardFrame
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
-         "final_cut", "watch_cut", "ask", "clip_model", "settings")  # fmt: skip
+         "final_cut", "watch_cut", "ask", "clip_model", "settings", "split_clip")  # fmt: skip
 
 
 def run(db: Session, user: User, project: Project, decision: dict, storage,
@@ -138,8 +138,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             if len(rows) != 1:
                 return "Refused: name one clip."
             said = model_map.choose(db, project, rows[0], decision.get("model"),
-                                    decision.get("why") or "", decision.get("value") == "speaks",
-                                    decision.get("note") or "")  # fmt: skip
+                                    decision.get("why") or "")  # fmt: skip
             db.commit()
             return said
         if tool == "settings":  # the Plan tab's switch, from the chat; a person's choice stays
@@ -177,6 +176,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             from app.director import write_treatment
 
             return write_treatment(db, user, project, run, decision.get("note") or "")
+        if tool == "split_clip":  # free: Split the clip, the breakdown's own fix
+            return _split(db, project, decision.get("clip_id") or "", me)
         if tool == "final_cut":
             project_clips.approve_all(**me)  # the picked takes it cuts with
             project_clips.make_video(request=request, **me)
@@ -187,6 +188,24 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
     except ValueError:  # pick_take named no single clip
         return "Refused: name one clip."
     return f"Refused: there's no tool called {tool}."
+
+
+def _split(db: Session, project: Project, clip: str, me: dict) -> str:
+    """A clip longer than the video model makes, split between its shots and at its sentence
+    breaks, as the breakdown's Split the clip does (free; the words don't change)."""
+    from app import breakdown_fix
+    from app.clip_prompts import newest
+    from app.routes import breakdown
+
+    row = newest(db, project)
+    n = clip.removeprefix("c")
+    said = next((p for p in (row.problems if row else []) if breakdown_fix.too_long([p]) == [clip]),
+                None)  # fmt: skip
+    if said is None:
+        return f"Refused: clip {n} isn't longer than the video model makes."
+    before = len(row.data.get("clips", []))
+    made = len(breakdown.fix(body=breakdown.FixIn(problems=[said]), **me).breakdown.clips)
+    return f"Split clip {n} into {made - before + 1} clips at its sentence breaks."
 
 
 def _clips(db: Session, project_id: int, clip_id: str | None) -> list[ProjectClip]:
