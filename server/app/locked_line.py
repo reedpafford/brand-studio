@@ -375,10 +375,10 @@ def _root(db: Session, take: ClipTake) -> ClipTake | None:
 
 def _cut(db: Session, project: Project, take: ClipTake, storage, user: User | None = None,
          chosen: bool = False) -> tuple[str, bool]:  # fmt: skip
-    """That clip approved (only it) and the cut made again, free; or plainly why not. Its
+    """That clip approved (only it) and the next cut started, free; or plainly why not. Its
     watch came back clean, or a person chose the take (`chosen`: their OK, rule 21). A clip
     someone has since put on another take keeps it: the cut isn't made over their pick."""
-    from app.routes import project_clips
+    from app.routes import cut, project_clips
 
     row = db.get(ProjectClip, take.clip_id)
     n = row.clip_id.removeprefix("c")
@@ -394,12 +394,12 @@ def _cut(db: Session, project: Project, take: ClipTake, storage, user: User | No
             project_clips.pick_take(clip_id=row.id, take_id=take.id, **me)
         row.approved = True  # this clip only: its watch came back clean, or a person chose it
         db.flush()
-        project_clips.make_video(request=request, **me)
+        made = cut.make(request=request, **me)  # on the worker; a failed one says why in Cut
     except HTTPException as no:
         db.rollback()
         return (f"{done}, but the cut wasn’t made again: {no.detail} Make the cut from the Cut "
                 "tab once that’s done.", False)  # fmt: skip
-    return f"{done}. The cut is made again with it.", True
+    return f"{done}. Making Cut {made.making.number if made.making else made.number} with it.", True
 
 
 def _outcome(db: Session, ask: Ask, key: str, said: str, cut: bool,

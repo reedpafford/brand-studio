@@ -100,7 +100,7 @@ def test_a_clips_sound_is_tried_again_once_then_make_again_and_remove_undoes_it(
 
 
 def test_the_sound_is_mixed_under_a_silent_take_and_slight_sits_lower():
-    from app.clip_takes import _probe
+    from app.cut_render import _probe
 
     take, sound = fake_local.mp4("9:16", 2), fake_local.mp4("9:16", 2, sound=True)
     out = take_sound.apply(take, sound, take_sound.LEVELS[take_sound.how("slight footsteps")])

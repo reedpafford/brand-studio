@@ -10,7 +10,7 @@ from app.clip_takes import in_english
 from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.worker import run_once
-from tests.conftest import upload
+from tests.conftest import make_cut, upload
 from tests.helpers import _usd_keys, approve_cast, assert_hidden, assert_no_dollars, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
@@ -87,7 +87,7 @@ def _work(app, db, fake):
 def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F811
     base = f"/projects/{setup['project']}"
     url = f"{base}/clips/{clip['id']}"
-    assert editor.post(f"{base}/video").json()["detail"].startswith("Approve every clip")
+    assert make_cut(app, db, editor, base).json()["detail"].startswith("Approve every clip")
     assert editor.post(f"{url}/approve").status_code == 409  # no take yet
     job = editor.post(f"{url}/generate")
     assert job.status_code == 201 and job.json()["credits"] == 5  # 5 s at 480p
@@ -108,8 +108,8 @@ def test_takes_pick_approve_and_stitch(app, db, editor, setup, clip):  # noqa: F
     assert picked["picked_take_id"] == takes[0]["id"] and picked["approved"] is False
     assert editor.post(f"{url}/approve").json()["approved"] is True
 
-    video = editor.post(f"{base}/video")
-    assert video.status_code == 201, video.text
+    video = make_cut(app, db, editor, base)
+    assert video.status_code == 200, video.text
     assert video.json()["take_ids"] == [takes[0]["id"]] and video.json()["out_of_date"] is False
     data = editor.get(f"/files/{video.json()['file_id']}").content
     assert data[4:8] == b"ftyp" or b"ftyp" in data[:64]
@@ -155,7 +155,7 @@ def test_p_video_prompts_never_say_subtitles_captions_or_text():
 def test_clip_with_problems_and_other_workspace(app, editor, outsider, setup, clip):  # noqa: F811
     base = f"/projects/{setup['project']}"
     url = f"{base}/clips/{clip['id']}"
-    assert_hidden(outsider, [("POST", f"{url}/generate"), ("POST", f"{base}/video")])
+    assert_hidden(outsider, [("POST", f"{url}/generate"), ("POST", f"{base}/cut")])
     broken = {"prompt": "too short", "references": clip["references"]}
     editor.put(url, json=broken)
     assert editor.post(f"{url}/generate").json()["detail"] == "Fix this clip's problems first."

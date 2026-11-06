@@ -58,6 +58,12 @@ class DeliveryNoteOut(BaseModel):
     clips: int
 
 
+class EditRef(BaseModel):
+    id: int
+    at: float  # seconds into the cut ("0:24")
+    undone: bool
+
+
 class ThreadItem(BaseModel):
     id: str  # stable: "m3" a message, "r40" a run's progress card, "t41" a delivery, "a7" a card
     kind: Literal["message", "move", "ask"]  # a person's words, the director's, a card (ask_id)
@@ -73,6 +79,7 @@ class ThreadItem(BaseModel):
     files: list[int] | None = None  # a message's pictures or clips, this video's only (rule 12)
     run: str | None = None  # a run's progress card: GET …/director/progress is its record
     note: DeliveryNoteOut | None = None  # a delivery: its note
+    edit: EditRef | None = None  # an edit_cut move's edit: Undo beside it (POST …/cut/edits/…)
 
 
 class ClipCellOut(BaseModel):

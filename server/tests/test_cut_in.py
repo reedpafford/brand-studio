@@ -9,7 +9,7 @@ import pytest
 from PIL import Image
 
 from app.cut_in import apply
-from tests.conftest import png, upload
+from tests.conftest import make_cut, png, upload
 from tests.helpers import approve_cast, with_sheet
 from tests.test_breakdown import BREAKDOWN
 from tests.test_clip_takes import FakeSeedance, _mp4, _work
@@ -78,21 +78,21 @@ def approved(app, db, editor, setup):  # noqa: F811
     return base, clip
 
 
-def test_inserts_start_off_and_can_be_switched_on(db, editor, setup, approved):  # noqa: F811
+def test_inserts_start_off_and_can_be_switched_on(app, db, editor, setup, approved):  # noqa: F811
     base, clip = approved
     (insert,) = editor.get(f"{base}/clips").json()[0]["inserts"]
     assert (insert["shot_id"], insert["name"], insert["use_real_image"]) == ("1.2", "Buy", False)
     assert (insert["start"], insert["end"]) == (3.125, 5.0)  # 2.5 + 1.5 s planned over 5 s
 
-    plain = editor.post(f"{base}/video")
-    assert plain.status_code == 201, plain.text
+    plain = make_cut(app, db, editor, base)
+    assert plain.status_code == 200, plain.text
     assert _frame_at(editor.get(f"/files/{plain.json()['file_id']}").content, 0.5)[1] < 60  # red
 
     url = f"{base}/clips/{clip['id']}/inserts/1.2"
     on = editor.put(url, json={"use_real_image": True}).json()
     assert on["inserts"][0]["use_real_image"] is True and on["approved"] is True
     assert editor.get(f"{base}/video").json()["out_of_date"] is True
-    video = editor.post(f"{base}/video").json()
+    video = make_cut(app, db, editor, base).json()
     assert video["out_of_date"] is False
     data = editor.get(f"/files/{video['file_id']}").content
     assert _frame_at(data, 0.5)[1] > 100  # the 1 s take is all insert (held 1.2 s): orange

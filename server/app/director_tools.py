@@ -6,6 +6,7 @@ tool can change Limits or another person's work. A refusal comes back as its pla
 The approvals a person gives on the step screens are the director's own here: it approves a
 step when it moves on from it (rule 21's self-approval)."""
 
+import logging
 import re
 from types import SimpleNamespace
 
@@ -19,11 +20,12 @@ from app.models.clips import ClipTake, ProjectClip
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 
+log = logging.getLogger(__name__)
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
-         "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place", "change_look",
-         "ask_cast_ok", "split_clip")  # fmt: skip
+         "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place",
+         "change_look", "ask_cast_ok", "split_clip")  # fmt: skip
 WAITING = "{} for the cast and places OK."
 
 
@@ -219,16 +221,53 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             return write_treatment(db, user, project, run, decision.get("note") or "")
         if tool == "split_clip":  # free: Split the clip, the breakdown's own fix
             return _split(db, project, decision.get("clip_id") or "", me)
-        if tool == "final_cut":
+        if tool == "edit_cut":  # free: the cut editor's own edit, marked as the director's
+            try:
+                return _edit_cut(db, project, decision.get("edit") or {}, request, me, run)
+            except HTTPException:
+                raise
+            except Exception:  # never leave the turn without a result (the run would hang)
+                db.rollback()
+                log.exception("project %s: edit_cut failed", pid)
+                return "Refused: that edit couldn't be made. Name its kind, piece and values."
+        if tool == "final_cut":  # free, on the worker: the cut before plays until it's made
+            from app.routes import cut
+
             project_clips.approve_all(**me)  # the picked takes it cuts with
-            project_clips.make_video(request=request, **me)
-            return "Made the cut."
+            made = cut.make(request=request, **me)
+            return f"Making Cut {made.making.number if made.making else (made.number or 1)}."
     except HTTPException as no:
         db.rollback()
         return f"Refused: {no.detail}"
     except ValueError:  # pick_take named no single clip
         return "Refused: name one clip."
     return f"Refused: there's no tool called {tool}."
+
+
+def _edit_cut(db: Session, project: Project, move: dict, request, me: dict,
+              run: dict | None) -> str:  # fmt: skip
+    """One edit through the cut editor's route (its dot and its own Undo on the page); the
+    turn keeps its id (`run["edit_id"]`) so the chat shows Undo beside it."""
+    from pydantic import ValidationError
+
+    from app.routes import cut
+
+    run = run if run is not None else {}
+    run.pop("edit_id", None)
+    if move.get("kind") == "undo":
+        if move.get("edit_id") is None:
+            return "Refused: name the edit to undo (its id in timeline.edits)."
+        out = cut.undo_one(edit_id=int(move["edit_id"]), request=request, **me)
+        said = next((e.said for e in out.edits if e.id == move["edit_id"]), "the edit")
+        return f"Undid: {said}."
+    asked = {k: v for k, v in move.items() if v is not None and k in cut.EditIn.model_fields}
+    try:
+        out = cut.edit(body=cut.EditIn(**asked), request=request, **me)
+    except ValidationError:
+        return "Refused: say the edit's kind and its piece."
+    made = max(out.edits, key=lambda e: e.id)
+    run["edit_id"] = made.id
+    return f"{made.said}. Free; it shows in the next cut."
 
 
 def _split(db: Session, project: Project, clip: str, me: dict) -> str:

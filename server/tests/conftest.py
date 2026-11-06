@@ -193,3 +193,17 @@ def own_look(monkeypatch):
     """A video that keeps no script's style (one made the earlier way), so its own look can
     switch (VS1, n12): the switch tests run on a script's video, which keeps its style now."""
     monkeypatch.setattr("app.looks.script_style", lambda db, project: None)
+
+
+def make_cut(app, db, client, base: str):
+    """Make the cut (POST /projects/N/cut) and run the local lane once, as the worker would:
+    GET …/video after, or POST's own answer when it was refused."""
+    from app.providers.local import LocalProvider
+    from app.worker import run_once
+
+    asked = client.post(f"{base}/cut")
+    if asked.status_code != 202:
+        return asked
+    run_once(db, {"local": LocalProvider(app.state.storage)}, app.state.storage, only={"local"})
+    db.expire_all()
+    return client.get(f"{base}/video")

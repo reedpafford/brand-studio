@@ -109,7 +109,7 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
     note = mine["note"]
     assert note["made"] == "The cut is made with each clip's best take."
     cuts = db.query(FinalVideo).filter_by(project_id=pid).count()  # it cut, watched and cut again
-    assert (note["cut"], note["clips"], note["seconds"]) == (cuts, 1, 5) and cuts > 1
+    assert (note["cut"], note["clips"], note["seconds"]) == (1, 1, 5) and cuts > 1  # its Cut 1
     assert note["open"] == [  # the stand-in's last watch repeats a finding: still open
         "Clip 1: the opening face changes between shots. Not fixed.",
         "The takes weren't checked one by one.",

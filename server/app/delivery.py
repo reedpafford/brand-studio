@@ -10,7 +10,7 @@ import math
 import re
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import watch_report
@@ -32,8 +32,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     turns = runs(db, project)[job.input[RUN]["id"]]
     cut = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id)
                     .order_by(FinalVideo.id.desc()).limit(1))  # fmt: skip
-    number = db.scalar(select(func.count()).where(
-        FinalVideo.project_id == project.id, FinalVideo.id <= cut.id)) if cut else 0  # fmt: skip
+    number = cut.number if cut else 0  # Cut N as the switch and the editor name it
     spans = _spans(db, cut)
     credits, up_to = spent(db, project)  # the whole video's, at this cut (board S3-12)
     rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)

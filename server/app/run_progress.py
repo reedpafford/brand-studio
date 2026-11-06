@@ -40,8 +40,8 @@ PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "song": "vo
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
           "split_clip": "plan",
           "make_take": "takes", "pick_take": "takes", "splice_word": "takes", "mute": "takes",
-          "add_sound": "takes", "host": "host", "final_cut": "cut", "watch_cut": "cut",
-          "deliver": "cut"}  # fmt: skip  # the step each of the director's tools works on
+          "add_sound": "takes", "host": "host", "final_cut": "cut", "edit_cut": "cut",
+          "watch_cut": "cut", "deliver": "cut"}  # fmt: skip  # each tool's step
 
 
 def money(credits: Decimal | float, owner: bool) -> str:
@@ -725,6 +725,7 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
     """The director's part of the chat: one item a run (its progress card in a line, `run`
     naming the record) and each delivery's note; its cards are app/asks'."""
     from app import delivery
+    from app.director import _edit_of
 
     out, every, owner = [], runs(db, project), bool(viewer and viewer.is_owner)
     for run_id, turns in every.items():
@@ -738,7 +739,16 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
         status = "done" if how else "held" if head.get("status") == "waiting" else "running"
         out.append({"id": f"r{turns[0].id}", "kind": "move", "at": turns[0].created_at.isoformat(),
                     "who": "Director", "text": text, "status": status, "run": run_id})  # fmt: skip
-        for j in turns:  # the owner's OK at its own limit is its card's answer (app/asks)
+        for j in turns:  # its cut edits, each with Undo (the owner's OKs are app/asks' cards)
+            if (
+                (j.output or {}).get("tool") == "edit_cut"
+                and (edit := _edit_of(db, j, "edit_cut", "done"))
+                and not (j.input.get("result") or "Refused").startswith("Refused")
+            ):
+                done = said(j.input.get("result") or "")  # S7-03: "Clip 9 re-timed · Undo"
+                out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
+                            "who": "Director", "status": "done", "text": done,
+                            "edit": edit})  # fmt: skip
             if j.input.get("result") == "Delivered.":
                 note = delivery.shown((j.output or {}).get("note"), owner)
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),

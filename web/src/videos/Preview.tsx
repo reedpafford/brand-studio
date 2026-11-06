@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, Lock } from "lucide-react";
-import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Banner, Button, Skeleton, ViewOnly, buttonClass } from "../components";
@@ -14,7 +12,7 @@ import { ShapeRow } from "../projects/ShapeRow";
 import { VideoSettings, useVideoSettings } from "../projects/VideoSettings";
 import { Scorecard } from "../projects/Scorecard";
 import { ScriptText, useLatestScript } from "../projects/ScriptTab";
-import { useProgress, useProjectClips, useProjectVideo } from "../projects/useProgress";
+import { useCut, useMakeCut, useProgress, useProjectClips, useProjectVideo } from "../projects/useProgress";
 import { videoHold, videoLock, type VideoProgress } from "../projects/videoSteps";
 import { FinalSong, SongStrip, useSongChanged } from "../scripts/VideoSong";
 import { CastPane } from "../cast/CastPane";
@@ -50,7 +48,6 @@ export type PaneProps = { p: Project; head: Head | undefined; run: Progress | nu
 
 /** The cut (S3-09): the player, the downloads and what it's made of. The cut editor (screen 10) mounts its own pane here. */
 function CutPane({ p, head, progress, run }: PaneProps) {
-  const queryClient = useQueryClient();
   const { media, progress: now } = useProgress(p.id);
   const cut = useProjectVideo(p.id);
   const video = cut.data;
@@ -72,13 +69,8 @@ function CutPane({ p, head, progress, run }: PaneProps) {
   const clips = useProjectClips(p.id).data ?? [];
   const settings = useVideoSettings(p.id);
   const songChanged = useSongChanged(p.id, video?.song_take_id);
-  const remake = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/video", { params: { path: { project_id: p.id } } });
-      if (!data) throw new Error(errorText(error));
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-video", p.id] }),
-  });
+  const remake = useMakeCut(p.id); // made on the server; the cut before keeps playing
+  const making = useCut(p.id).data?.making;
   const left = progress.clips.total - progress.clips.approved;
   // Every clip approved and no cut yet (a video made by hand): it's put together the first time this opens, for free.
   const ready = !cut.isPending && !video && progress.clips.total > 0 && left === 0;
@@ -90,7 +82,7 @@ function CutPane({ p, head, progress, run }: PaneProps) {
     }
   });
   if (cut.isPending) return <Skeleton className="h-[533px] w-[300px] max-w-full rounded-[10px]" />;
-  if (!video && (remake.isPending || (ready && !remake.isError)))
+  if (!video && (remake.isPending || making || (ready && !remake.isError)))
     return (
       <div className="space-y-3" role="status">
         <p className="text-sm text-muted">Putting your clips together…</p>
@@ -122,7 +114,7 @@ function CutPane({ p, head, progress, run }: PaneProps) {
   ];
   return (
     <div className="space-y-5">
-      {remake.isError && <Banner title="The cut couldn't be made again.">Nothing was charged. {remake.error.message}</Banner>}
+      {remake.isError && <Banner title="The cut couldn’t be made again.">Nothing was charged. {remake.error.message}</Banner>}
       {now.video.outOfDate && (
         <Banner tone="warning" title="Out of date." action={<Button variant="secondary" busy={remake.isPending} disabled={!!held} reason={held} onClick={() => remake.mutate()}>Make it again</Button>}>
           {left === 0 && !video.out_of_date && olderLook > 0 ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.` : songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads. Making it again is free.

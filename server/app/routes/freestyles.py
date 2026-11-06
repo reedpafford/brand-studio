@@ -46,6 +46,7 @@ from app.models.scripts import ScriptVersion
 from app.references import LONG_SIDE
 from app.routes.brands import get_brand
 from app.routes.clips import generation_on
+from app.routes.director import EditRef
 from app.routes.estimate import run_price
 from app.routes.files import get_file
 from app.routes.jobs import CHANGE, DECLINE, PRICE, SAID, WITHDRAWN, enqueue, stop_jobs
@@ -115,6 +116,7 @@ class FreestyleItem(BaseModel):
     files: list[int] = []  # a message's pictures or clips, attached for this video only
     why: str = ""  # a move's reason when it has one (the director-run types)
     treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
+    edit: EditRef | None = None  # an edit_cut move's edit, for its Undo
 
 
 class FreestyleRow(BaseModel):

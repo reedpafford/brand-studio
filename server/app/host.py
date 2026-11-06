@@ -4,9 +4,10 @@ chroma green (the video's picture model, as a storyboard still is drawn), then o
 Avatar IV take of the whole narration from that still, lip-synced to it (Reed, 4 Nov: the
 corner presenter is HeyGen, not P-Video; app/talker.py has HeyGen's settings). Each is a priced
 job like a take; a failed one is tried again once on its own, then Make again makes it (rule
-22). The final cut keys the take over the narrated B-roll (host_layer.lay_over), bottom right
-unless a shot's action is on the right. In the UGC style the host is a talker instead: the
-still is in their own room and the talker's shots are cut from the take (app/talker.py)."""
+22). The cut keys the take over the narrated B-roll (host_layer.lay_over), bottom right unless
+a shot's action is on the right (`sides`; the cut editor's presenter spans after). In the UGC
+style the host is a talker instead: the still is in their own room and the talker's shots are
+cut from the take (app/talker.py)."""
 
 import hashlib
 import math
@@ -21,7 +22,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import guides, host_layer, narration, take_watch, talker, watch_report
+from app import guides, narration, take_watch, talker, watch_report
 from app.credits import estimate
 from app.models.accounts import User
 from app.models.clips import HostPiece, ProjectClip
@@ -445,12 +446,3 @@ def side(action: str) -> str:
 def ready(db: Session, project: Project) -> bool:
     pieces = rows(db, project)[1:]
     return bool(pieces) and all(r.file_id for r in pieces)
-
-
-def lay(db: Session, storage, project: Project, cut: bytes) -> bytes:
-    """The narrated B-roll cut with the host over it (free: ffmpeg); a UGC talker's is in it."""
-    if talker.on(db, project):
-        return cut
-    pieces = rows(db, project)[1:]
-    hosts = [storage.get(db.get(StoredFile, r.file_id).key) for r in pieces]
-    return host_layer.lay_over(cut, hosts, sides(db, project))

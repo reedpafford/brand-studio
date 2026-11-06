@@ -13,7 +13,7 @@ from app.models.projects import Project
 from app.providers.fake_local import FakeWriter, hear_take
 from app.providers.local import LocalProvider
 from app.worker import run_once
-from tests.conftest import run_writer
+from tests.conftest import make_cut, run_writer
 from tests.helpers import approve_cast, shot
 from tests.test_clip_takes import FakeSeedance, _mp4, _work, clip  # noqa: F401 - fixture
 from tests.test_enhance import setup  # noqa: F401 - fixture
@@ -98,7 +98,7 @@ def test_a_weak_take_is_remade_with_its_prompt_rewritten_and_said(app, db, edito
     two = second["takes"][1]
     assert two["watch"]["action"] == "keep" and second["approved"] is True  # clean: in the cut
     assert db.get(ClipTake, two["id"]).made_with["remade_from"] == 1
-    assert editor.post(f"/projects/{setup['project']}/video").status_code == 201
+    assert make_cut(app, db, editor, f"/projects/{setup['project']}").status_code == 200
     seen = editor.get(f"/projects/{setup['project']}/checks/watch").json()
     assert {k: seen["takes"][k] for k in ("watched", "redone", "held", "flagged")} == {
         "watched": 2, "redone": 1, "held": 0, "flagged": 0}  # fmt: skip

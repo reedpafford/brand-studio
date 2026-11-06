@@ -10,6 +10,7 @@ from app import narration
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.prompts import check
+from tests.conftest import make_cut
 from tests.test_song_takes import _approve_plan, _work
 
 WORDS = "Your dog's gut is a mess. Iron Paws fixes it.\nLink in my bio!"
@@ -191,7 +192,7 @@ def test_a_music_prompt_asking_for_vocals_is_written_again_once(app, db, owner, 
 def test_a_narrated_cut_keeps_each_takes_sound_under_the_voice_and_the_music(tmp_path):
     import subprocess
 
-    from app import clip_takes
+    from app import cut_render
     from tests.test_song_final_cut import _clip, _probe, _song
 
     silent = tmp_path / "silent.mp4"
@@ -200,7 +201,7 @@ def test_a_narrated_cut_keeps_each_takes_sound_under_the_voice_and_the_music(tmp
                    check=True)  # fmt: skip
     clips, voice = [_clip(3, tmp_path), silent.read_bytes()], _song(4, tmp_path)
     for music in (_song(2, tmp_path), None):  # a short bed loops; no bed: voice and takes only
-        got = _probe(clip_takes.song_cut(clips, [3.0, 2.0], voice, True, music), tmp_path)
+        got = _probe(cut_render.song_cut(clips, [3.0, 2.0], voice, True, music), tmp_path)
         assert abs(got["seconds"] - 5.0) < 0.2 and got["streams"] == ["audio", "video"]
 
 
@@ -264,8 +265,8 @@ def test_a_narrated_video_is_cut_with_its_narration_and_music(app, db, owner, ed
     _work(app, db)  # its plan (flows 1b), then the shots from it
     _approve_plan(app, db, editor, video)
     _clips_made(app, db, editor, video)
-    made = editor.post(f"{video}/video")
-    assert made.status_code == 201, made.text
+    made = make_cut(app, db, editor, video)
+    assert made.status_code == 200, made.text
     assert made.json()["narration"] == {"voice": "Sarah", "music": True}
 
 
