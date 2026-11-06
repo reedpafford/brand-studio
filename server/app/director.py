@@ -883,7 +883,7 @@ def video_state(db: Session, project: Project) -> dict:
     data = bd.data if bd else {}  # what each clip shows and says (the Director: not only verdicts)
     shots = {x["id"]: x for sc in data.get("scenes", []) for x in sc.get("shots", [])}
     ids_of = {c["id"]: c["shot_ids"] for c in data.get("clips", [])}
-    from app import talker
+    from app import model_map, talker
 
     clips, said = [], talker.clips(db, project)  # a talker's clips come from its take, at the cut
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
@@ -908,6 +908,7 @@ def video_state(db: Session, project: Project) -> dict:
                       "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
                                 if k in ("state", "how")},
                       **word_splice.state(db, row),  # splice_word
+                      **model_map.state(db, project, row),  # clip_model
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
     have = {c["clip_id"] for c in clips}  # a planned clip with no prompt yet (after a split)
     clips += [{"clip_id": c["id"], "stale": True, "picked_take_id": None,

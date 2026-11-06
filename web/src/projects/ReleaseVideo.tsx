@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Ellipsis, Undo2 } from "lucide-react";
 import { api, errorText } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Dialog, Menu, MenuItem } from "../components";
+import { Dialog } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 
@@ -75,39 +74,4 @@ export function useVideoActions(onGone?: (kind: "release" | "archive") => void) 
     </Dialog>
   );
   return { restore, release: (t: VideoTarget) => setAsk({ kind: "release", target: t }), archive: (t: VideoTarget) => setAsk({ kind: "archive", target: t }), dialog };
-}
-
-/** The "..." menu of a video: Release this version and/or Archive video. */
-export function VideoMenu({ title, onRelease, onArchive }: { title: string; onRelease?: () => void; onArchive?: () => void }) {
-  if (!onRelease && !onArchive) return null;
-  const item = (Icon: typeof Undo2, label: string, run: () => void, close: () => void) => (
-    <MenuItem
-      key={label}
-      onClick={() => {
-        close();
-        run();
-      }}
-    >
-      <Icon size={20} strokeWidth={1.75} aria-hidden />
-      {label}
-    </MenuItem>
-  );
-  return (
-    <Menu
-      title={`More for ${title}`}
-      align="right"
-      trigger={(p) => (
-        <button type="button" {...p} aria-label={`More for ${title}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-9">
-          <Ellipsis size={20} strokeWidth={1.75} aria-hidden />
-        </button>
-      )}
-    >
-      {(close) => (
-        <>
-          {onRelease && item(Undo2, "Release this version", onRelease, close)}
-          {onArchive && item(Archive, "Archive video", onArchive, close)}
-        </>
-      )}
-    </Menu>
-  );
 }

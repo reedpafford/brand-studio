@@ -25,7 +25,7 @@ def _enum(schema, field):
 def _up_to(schema, field) -> int:
     text = schema["Input"]["properties"][field]["description"]
     found = re.search(r"(?:up to|max) (\d+)|\(\d+-(\d+) ", text)  # Seedance 1 Lite: "(1-4 images)"
-    return int(found.group(1) or found.group(2))
+    return int(found.group(1) or found.group(2)) if found else None  # Omni's states none
 
 
 @pytest.mark.parametrize("model", catalogue().values(), ids=lambda m: m.id)
@@ -45,7 +45,8 @@ def test_limits_match_replicate_schema(model):
     images = "reference_images" if "reference_images" in props else None
     images = images or ("image_input" if "image_input" in props else "images")
     if images in props:
-        assert model.max_reference_images == _up_to(schema, images)
+        stated = _up_to(schema, images)
+        assert model.max_reference_images == stated if stated else model.max_reference_images
     else:  # speech: no pictures; P-Video: its one `image`, the opening frame
         assert model.max_reference_images == int(opening)
     for kind in ("videos", "audios"):

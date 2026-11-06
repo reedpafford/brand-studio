@@ -23,9 +23,8 @@ for (const width of [1440, 390]) {
 
     const eli = await join("Eli");
     await eli.goto(`/b/${brandId}/videos/${id}?step=plan`);
-    await expect(eli.getByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toBeVisible();
     await expect(eli.getByRole("button", { name: /^Make the plan/ })).toBeDisabled();
-    // No press that changes the video is live; reads (the steps, Show script, Show all) are.
+    // No press that changes the video is live; reads (the tabs, the script, Show all) are.
     const changes = await eli.evaluate(() =>
       [...document.querySelectorAll("main button")]
         .filter((b) => !(b as HTMLButtonElement).disabled)
@@ -33,8 +32,10 @@ for (const width of [1440, 390]) {
         .filter((n) => /^(Make|Approve|Redraw|Draw|Edit|Save|Switch|Use|Delete|Remove|Change|Add|Undo|Write|Keep|Fix|Update|Pick|Rewrite|Merge|Restore)\b/.test(n)),
     );
     expect(changes).toEqual([]);
-    await eli.getByRole("button", { name: "Show script" }).click(); // reading is looking
-    await expect(eli.getByRole("dialog")).toBeVisible();
+    await eli.getByRole("tab", { name: "Script" }).click(); // reading is looking
+    await expect(eli.getByRole("tabpanel", { name: "Script" })).toBeVisible();
+    if (width === 390) await eli.getByRole("tab", { name: "Chat" }).click(); // P-04: the chat is the other side
+    await expect(eli.getByPlaceholder("Only Sam or the owner can change this video.")).toBeVisible(); // the message box says why
 
     await sam.goto(`/b/${brandId}/videos/${id}?step=plan`); // its maker gets no banner
     await expect(sam.getByRole("heading", { name: `Sam's video ${run}` })).toBeVisible();

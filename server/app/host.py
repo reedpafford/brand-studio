@@ -68,8 +68,32 @@ def hosted(script) -> bool:
                                 for f in guides.formats())  # fmt: skip
 
 
-def on(db: Session, project: Project) -> bool:
+# How the presenter appears (Reed's L3, 4 Nov: a saved presenter is a face and a voice; how
+# they appear is chosen per video): talking to camera in their own room with B-roll cut in
+# (HeyGen), in a corner keyed over the B-roll (HeyGen), or acting in the story (Omni)
+HOW = ("talks", "corner", "acts")
+ACTS = "The presenter acts in the story: their shots are made on Omni, with no take to make."
+
+
+def how(project: Project) -> str:
+    """The video's own choice, else its style's start: a UGC talker talks, the rest sit in a
+    corner."""
+    from app import looks
+
+    if project.presenter in HOW:
+        return project.presenter
+    return "talks" if looks.base(project.look or looks.DEFAULT) in talker.LOOKS else "corner"
+
+
+def presents(db: Session, project: Project) -> bool:
+    """A Presenter video, however its presenter appears."""
     return hosted(narration.video_script(db, project))
+
+
+def on(db: Session, project: Project) -> bool:
+    """A Presenter video whose presenter is one HeyGen take (talks or in a corner); one who
+    acts in the story has no take: their shots are made on Omni (app/model_map)."""
+    return presents(db, project) and how(project) != "acts"
 
 
 def _narration(db: Session, project: Project) -> SongTake | None:
@@ -82,7 +106,8 @@ def _narration(db: Session, project: Project) -> SongTake | None:
 def rows(db: Session, project: Project) -> list[HostPiece]:
     """The host of the narration in use: the still (0), then each piece in order."""
     return list(db.scalars(select(HostPiece).where(
-        HostPiece.project_id == project.id, HostPiece.take_id == (project.song_take_id or 0))
+        HostPiece.project_id == project.id, HostPiece.take_id == (project.song_take_id or 0),
+        HostPiece.how == how(project))
         .order_by(HostPiece.number)))  # fmt: skip
 
 
@@ -145,13 +170,30 @@ def price(db: Session, project: Project, number: int | None = None) -> Decimal:
 
 def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None) -> Decimal:
     """A director run's "up to" for the host (rule 36): the still and every second of the
-    narration in one HeyGen take, rounded up a second."""
+    narration in one HeyGen take, rounded up a second. A presenter who acts in the story has
+    no take: their shots on Omni instead, each billed its fixed length, and any clip may carry
+    them (QA on #1327: a short clip still bills 10 s), so every clip of the plan, else as many
+    as the B-roll's seconds can hold at the video model's shortest clip."""
+    from app import model_map
+    from app.catalogue import get_model
     from app.models.script_library import Script
     from app.storyboard import image_model, still_credits
 
     script = db.get(Script, draft.script_id)
     if not hosted(script):
         return Decimal(0)
+    if video is not None and how(video) == "acts":
+        from app.breakdown import video_model
+        from app.clip_prompts import newest
+        from app.routes.estimate import broll_seconds
+
+        omni = get_model(model_map.OMNI)
+        plan = newest(db, video)
+        clips = len((plan.data if plan else {}).get("clips") or []) or math.ceil(
+            broll_seconds(db, script, draft, video) / video_model(video).duration.min
+        )
+        job = {"model": omni.id, "input": {"resolution": model_map.TALKER_RESOLUTION}}
+        return estimate(db, script.workspace_id, "video", Decimal(clips * omni.fixed_seconds), job)
     still = still_credits(db, script.workspace_id, image_model(video))
     return still + _piece_price(db, script.workspace_id, seconds + 1)
 
@@ -208,11 +250,11 @@ def _plan(db: Session, storage, project: Project, take: SongTake) -> list[HostPi
         spans = _spans(take)
     except ValueError as too_long:
         raise HTTPException(409, str(too_long)) from too_long
-    made = [HostPiece(project_id=project.id, take_id=take.id, number=0)]
+    made = [HostPiece(project_id=project.id, take_id=take.id, number=0, how=how(project))]
     for n, (a, b) in enumerate(spans, 1):
         audio = _store(db, storage, project, _cut(sound, a, b), f"host piece {n}.mp3")
         made.append(HostPiece(project_id=project.id, take_id=take.id, number=n, start=a, end=b,
-                              audio_file_id=audio.id))  # fmt: skip
+                              audio_file_id=audio.id, how=how(project)))  # fmt: skip
     db.add_all(made)
     db.flush()
     return made
@@ -277,7 +319,7 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
     from app.routes.jobs import enqueue
 
     if not on(db, project):
-        raise HTTPException(409, NOT_PRESENTER)
+        raise HTTPException(409, ACTS if presents(db, project) else NOT_PRESENTER)
     take = _narration(db, project)
     if take is None:
         raise HTTPException(409, NO_NARRATION)

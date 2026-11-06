@@ -50,19 +50,19 @@ test("when nothing was spent the release text leaves the credits sentence out, a
   fakeServer(base({ "GET /projects/9": [200, project({ credits_used: 0 })] }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon — B" }));
-  expect(screen.queryByRole("menuitem", { name: "Archive video" })).toBeNull();
+  expect(screen.queryByRole("menuitem", { name: "Archive" })).toBeNull();
   await userEvent.click(screen.getByRole("menuitem", { name: "Release this version" }));
   const release = await screen.findByRole("alertdialog");
   expect(release).not.toHaveTextContent("credits already used");
 });
 
-test("a video made before scripts offers Archive video, with its own wording, and no Release", async () => {
+test("a video made before scripts offers Archive, with its own wording, and no Release", async () => {
   setViewport(1440);
   fakeServer(base({ "GET /projects/9": [200, project({ script_draft_id: null })], "POST /projects/9/archive": [200, {}] }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "More for Bo tries salmon — B" }));
   expect(screen.queryByRole("menuitem", { name: "Release this version" })).toBeNull();
-  await userEvent.click(screen.getByRole("menuitem", { name: "Archive video" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
   const archive = await screen.findByRole("alertdialog", { name: 'Archive "Bo tries salmon — B"?' });
   expect(archive).toHaveTextContent("It leaves the lists. Its clips and downloads are kept, and you can restore it. Anything still being made stops and isn't brought back.");
   await userEvent.click(within(archive).getByRole("button", { name: "Archive" }));

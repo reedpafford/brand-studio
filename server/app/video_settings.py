@@ -38,6 +38,9 @@ PAST_OK = (
     "new OK. Nothing changed: pick a model that costs the same or less."
 )
 OTHER = "{} made with other video settings. Make them again, then make the video."
+NO_PRESENTER = "This video has no presenter: its format isn't Presenter."
+PRESENTER = ("Pick how the presenter appears: talks to camera, in a corner over the B-roll, or "
+             "acts in the story.")  # fmt: skip
 
 
 # --- What a still or take was made with ------------------------------------------------------
@@ -85,10 +88,15 @@ def take_stale(db: Session, project: Project, clip: ProjectClip) -> bool:
 
 def made_stale(project: Project, clip: ProjectClip, take: ClipTake) -> bool:
     """This take of the clip made with another video model, shape, flavour or Sung shots."""
-    from app.breakdown import video_model
+    from app.model_map import of_clip, speaks
 
     sung = (clip.song_slice or {}).get("sung_shots")
-    return _stale(project, take.made_with or {}, video_model(project).id, sung)
+    made = take.made_with or {}
+    if made.get("model") and bool(made.get("speaks")) != speaks(
+        clip, project
+    ):  # Omni speech on or off
+        return True
+    return _stale(project, made, of_clip(project, clip).id, sung)
 
 
 # --- Choices and prices ----------------------------------------------------------------------
@@ -116,6 +124,20 @@ def check(db: Session, user: User, project: Project, values: dict) -> dict:
             raise HTTPException(422, NOT_A_MODEL.format("video" if kind == "video" else "picture"))
     elif field == "aspect_ratio" and value not in SHAPES:
         raise HTTPException(422, "Pick a shape: " + ", ".join(SHAPES) + ".")
+    elif field == "voice":  # the narrator for this video (S5-02): an app voice or a saved one
+        from app import voices
+
+        value = voices.checked(db, project, value)
+    elif field == "narration_only":  # Reed, 4 Nov: no talker speaks on Omni here
+        if value not in (None, True, False):
+            raise HTTPException(422, "Narration only is on or off.")
+    elif field == "presenter":  # Reed's L3: how a Presenter video's presenter appears
+        from app import host
+
+        if not host.presents(db, project):
+            raise HTTPException(409, NO_PRESENTER)
+        if value is not None and value not in host.HOW:
+            raise HTTPException(422, PRESENTER)
     elif field == "product_variants":
         value = _check_variants(db, project.brand_id, value or {})
     return {field: value}
@@ -347,6 +369,13 @@ def script_of(db: Session, project: Project):
     return db.get(Script, draft.script_id) if draft else None
 
 
+def _presenter(db: Session, project: Project) -> str | None:
+    """How a Presenter video's presenter appears now; None for any other video."""
+    from app import host
+
+    return host.how(project) if host.presents(db, project) else None
+
+
 def settings(db: Session, project: Project) -> dict:
     """The row's choices, each with its price in credits."""
     from app.breakdown import video_model
@@ -372,6 +401,12 @@ def settings(db: Session, project: Project) -> dict:
     with trying(db, project, {"video_model": None}):
         auto = video_model(project).id  # what Auto means for this video
     return {
+        "changes": [{k: e[k] for k in ("field", "was", "now", "by", "why", "at")}
+                    for e in reversed(project.settings_log or [])],
+        "presenter": project.presenter,  # null: the style's start (`presenter_now` says it)
+        "presenter_now": _presenter(db, project),
+        "narration_only": bool(project.narration_only),
+        "voice": project.voice,  # null: the video's own (its host's, its style's or the default)
         "look": project.look, "broll_look": project.broll_look,
         "video_model": project.video_model,
         "image_model": project.image_model, "aspect_ratio": project.aspect_ratio,

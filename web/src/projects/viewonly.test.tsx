@@ -55,7 +55,7 @@ const live = () => within(screen.getByRole("main")).queryAllByRole("button").fil
 const presses = () => within(screen.getByRole("main")).queryAllByRole("button");
 
 for (const [step, ready] of [
-  ["plan", () => screen.findByRole("heading", { name: "Plan", level: 2 })],
+  ["plan", () => screen.findByRole("tab", { name: "Plan", selected: true })],
   ["cast", () => screen.findByLabelText("Bo")],
   ["storyboard", () => screen.findByLabelText("Frame c1")],
   ["clips", () => screen.findByRole("tab", { name: /Clips/, selected: true })],
@@ -67,16 +67,16 @@ for (const [step, ready] of [
     open(step);
     await ready();
     expect(screen.getAllByText("This is Sam's video. You can look, but only Sam or the owner can change it.")).toHaveLength(1); // one banner, not one per card
-    await vi.waitFor(() => expect(presses().length).toBeGreaterThan(3));
+    await vi.waitFor(() => expect(presses().length).toBeGreaterThan(2));
     expect(live().map((b) => b.textContent?.trim() || b.getAttribute("aria-label")).filter((n) => CHANGES.test(n ?? ""))).toEqual([]);
     for (const f of within(screen.getByRole("main")).queryAllByRole("textbox")) expect(f.matches("[readonly], :disabled")).toBe(true);
-    for (const b of within(screen.getByRole("tablist", { name: "Steps" })).getAllByRole("tab")) expect(b).toBeEnabled(); // moving between steps is looking
-    if (step !== "storyboard" && step !== "clips") expect(screen.getByRole("button", { name: "Show script" })).toBeEnabled(); // Clips (v5) shows its count there
-    const bar = screen.getByRole("region", { name: "Cost" });
-    for (const b of within(bar).queryAllByRole("button").filter((b) => !/^Next:/.test(b.textContent ?? ""))) {
-      expect(b).toBeDisabled();
-      expect(b).toHaveAccessibleDescription("Only Sam or the owner can change this video."); // the step's own press says why
-    }
+    for (const b of within(screen.getByRole("tablist", { name: "Preview" })).getAllByRole("tab")) expect(b).toBeEnabled(); // moving between tabs is looking, the script's too
+    expect(screen.getByLabelText("Tell the director what to change")).toHaveAttribute("placeholder", "Only Sam or the owner can change this video."); // the box says why
+    for (const bar of screen.queryAllByRole("region", { name: "Step press" }))
+      for (const b of within(bar).queryAllByRole("button")) {
+        expect(b).toBeDisabled();
+        expect(b).toHaveAccessibleDescription("Only Sam or the owner can change this video."); // the step's own press says why
+      }
     for (const r of within(screen.getByRole("main")).queryAllByRole("radio")) expect(r).toBeDisabled(); // picking a take changes the video (QA on #977)
     if (step === "downloads") expect(screen.getByRole("link", { name: /Download MP4/ })).toHaveAttribute("href", expect.stringContaining("/api/files/60"));
   });

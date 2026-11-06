@@ -1,11 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Button, creditsLabel, creditsText, wholeCredits } from "../components";
-import { ActionBar } from "../shell/ActionBar";
-import { useRail } from "../useMedia";
-import { Meter } from "./Meter";
+import { Button } from "../components";
 
 /** The step's one amber, as the cost bar shows it: what runs, its price, and why it can't be pressed yet. */
 export type CostAction = {
@@ -38,63 +33,34 @@ export function useCostBarAction(action: CostAction | null) {
   }, [key, set]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/** One cost bar per video: the budget, what finishing costs, and the step's amber with what it leaves. Credits only (rule 4). */
+/** A step's one press, kept at the foot of its preview tab until the director does that step (v6: screen 4 removes it).
+ *  The money is in the video's header now, so this is the press only. An editor's press past the budget is sent to the
+ *  owner, never refused (Hold requests, #1068; never "Ask the owner"). Credits only (rule 4). */
 export function CostBarProvider(props: {
-  projectId: number;
   used: number;
   budget: number;
-  pct: number;
-  /** The director's own time on this video, in credits: never in the budget (DECISIONS #1066), so said apart from it. */
-  director?: number;
   /** Set where the viewer may only look: the step's own press shows greyed out with this reason. */
   lookOnly?: string | null;
-  /** The press when the step has none of its own (Next: …). */
+  /** The press when the step has none of its own. */
   fallback: CostAction | null;
   children: ReactNode;
 }) {
   const [action, setAction] = useState<CostAction | null>(null);
-  const rail = useRail();
   const shown = action && props.lookOnly ? { ...action, reason: props.lookOnly } : (action ?? props.fallback);
-  const estimate = useQuery({
-    queryKey: ["project-estimate", props.projectId, props.used],
-    queryFn: async () => (await api.GET("/projects/{project_id}/estimate", { params: { path: { project_id: props.projectId } } })).data ?? null,
-  });
-  const left = props.budget - props.used;
-  // Past the budget an editor's press is sent to the owner, never refused (Hold requests, #1068; never "Ask the owner").
   const editor = useMe().data?.role === "editor";
-  const sends = editor && shown?.price != null && !shown.reason && shown.price > left;
-  const after = shown?.price != null && !shown.reason && !sends ? left - shown.price : null;
+  const sends = editor && shown?.price != null && !shown.reason && shown.price > props.budget - props.used;
   const value = useMemo(() => setAction, []);
-  const press = shown && (
-    <Button variant={shown.secondary ? "secondary" : "primary"} price={shown.price} charge={shown.upTo ? "estimate" : "fixed"} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
-      {sends ? "Send for approval" : shown.label}
-    </Button>
-  );
-  const bar = (
-    <div role="region" aria-label="Cost" className={rail ? "flex flex-wrap items-center gap-x-8 gap-y-3 rounded-md border border-border bg-surface px-4 py-3 shadow-md" : "space-y-2 text-left"}>
-      <div className="min-w-48 flex-1">
-        <Meter used={props.used} budget={props.budget} pct={props.pct} />
-        {!!props.director && <p className="mt-1 text-xs tabular-nums text-muted">Not in the budget: the director's time, {creditsText(props.director)}.</p>}
-      </div>
-      {estimate.data && (
-        <p className="text-sm tabular-nums text-muted">
-          {estimate.data.remaining_credits === 0 ? "Nothing left to make." : `To finish: about ${creditsLabel(estimate.data.remaining_credits)} (planned)`} · {wholeCredits(Math.max(0, left))} credit{wholeCredits(Math.max(0, left)) === 1 ? "" : "s"} left
-        </p>
-      )}
-      {press && (
-        <div className="flex flex-col items-stretch gap-1 lg:items-end">
-          {after !== null && <p className="text-xs tabular-nums text-muted">This press leaves {wholeCredits(Math.max(0, after))}</p>}
-          {press}
-          {sends && <p className="text-xs text-muted">Goes past the video's budget. Nothing is charged until the owner says yes.</p>}
-        </div>
-      )}
-    </div>
-  );
   return (
     <Ctx.Provider value={value}>
       {props.children}
-      {/* Desktop: lined up with the page's own column and padding, held to the bottom while it scrolls (Reed's walk item 6). */}
-      {rail ? <div className="sticky bottom-4 z-10 mx-auto max-w-content px-4 pb-4 sm:px-8">{bar}</div> : <ActionBar phone>{bar}</ActionBar>}
+      {shown && (
+        <div role="region" aria-label="Step press" className="sticky bottom-0 z-10 -mx-5 mt-4 flex flex-col items-end gap-1 border-t border-border bg-bg/95 px-5 py-3">
+          <Button variant={shown.secondary ? "secondary" : "primary"} price={shown.price} charge={shown.upTo ? "estimate" : "fixed"} usually={shown.usually} reason={shown.reason} disabled={!!shown.reason} busy={shown.busy} onClick={shown.onPress}>
+            {sends ? "Send for approval" : shown.label}
+          </Button>
+          {sends && <p className="text-xs text-muted">Goes past the video's budget. Nothing is charged until the owner says yes.</p>}
+        </div>
+      )}
     </Ctx.Provider>
   );
 }

@@ -180,6 +180,25 @@
    "price_source": "HeyGen API wallet, measured (.context/tests/batch-b, th-20s): Avatar IV type image at 720p 9:16 cost $1.16 for 30.67 s, $0.97 for 25.07 s and $0.66-0.67 for 17.86 s, $0.037-0.039 a second. HeyGen reports no price and its pricing page isn't in its API docs, so quotes and credits use $0.05 a second (never below what it can charge); Usage records the measured $0.039 (providers/heygen.MEASURED)"
   },
   {
+   "id": "gemini-omni-1.1",
+   "name": "Gemini Omni 1.1",
+   "kind": "video",
+   "talker_only": true,
+   "lip_sync": false,
+   "provider_model": "google/gemini-omni-1.1",
+   "provider_version": "ca4def55e462e08063dc733c9eeaf3c25f76bfc816ebbb2458bfe76e07ff50c8",
+   "default": false,
+   "offered": false,
+   "fixed_seconds": 10,
+   "resolutions": ["360p", "720p", "1080p", "4k"],
+   "aspect_ratios": ["9:16", "16:9"],
+   "max_reference_images": 3,
+   "first_frame": true,
+   "audio": "always",
+   "price": {"unit": "second", "usd": {"360p": 0.05, "720p": 0.15, "1080p": 0.23, "4k": 0.45}},
+   "price_source": "replicate.com/google/gemini-omni-1.1 billing table, read 2026-11-03: $0.05/s 360p, $0.15/s 720p, $0.23/s 1080p, $0.45/s 4k of output video. No duration input: batch-b's clip came back 10 s and was charged $1.50 at 720p. Native audio on every clip, no audio input. Its schema states no limit on reference_images; batch-b sent 2, one a person"
+  },
+  {
    "id": "stable-audio-2.5",
    "name": "Stable Audio 2.5",
    "kind": "music",

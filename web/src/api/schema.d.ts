@@ -388,6 +388,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/idea": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Idea Head
+         * @description One idea's header on its video page (S3, P-04): status with its reason, used, up to,
+         *     budget, its folder, format, style and length. Read-only and free.
+         */
+        get: operations["idea_head_projects__project_id__idea_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/folders/{folder_id}": {
         parameters: {
             query?: never;
@@ -6499,6 +6520,23 @@ export interface components {
              */
             skip_screen_ids: number[];
         };
+        /**
+         * ClipModelOut
+         * @description The model a clip is made with and why (v6 S6-02's "Model" and "Why").
+         */
+        ClipModelOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Why */
+            why: string;
+            /**
+             * By
+             * @enum {string}
+             */
+            by: "director" | "person" | "map";
+        };
         /** Cost */
         Cost: {
             /**
@@ -7238,6 +7276,28 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * Head
+         * @description One idea's header on its video page (S3, P-04, P-05): its status with the reason, what
+         *     it has used, the most its run may charge, its budget, where it's filed and what it is.
+         */
+        Head: {
+            /** Title */
+            title: string;
+            status: components["schemas"]["Status"];
+            spent: components["schemas"]["Money"];
+            up_to: components["schemas"]["Money"] | null;
+            budget: components["schemas"]["Money"];
+            folder: components["schemas"]["Named"] | null;
+            /** Format */
+            format: string;
+            /** Style */
+            style: string;
+            /** Seconds */
+            seconds: number | null;
+            /** Song */
+            song: boolean;
         };
         /** HeldClip */
         HeldClip: {
@@ -8535,6 +8595,13 @@ export interface components {
             /** Price Source */
             price_source: string;
         };
+        /** Money */
+        Money: {
+            /** Credits */
+            credits: number;
+            /** Usd */
+            usd?: number | null;
+        };
         /**
          * MoneyCard
          * @description A money card's figures: what the OK lets it charge ("up to"), what's spent and the
@@ -9324,6 +9391,7 @@ export interface components {
              */
             versions: components["schemas"]["PromptVersionOut"][];
             sound?: components["schemas"]["SoundOut"] | null;
+            model?: components["schemas"]["ClipModelOut"] | null;
         };
         /** ProjectCost */
         ProjectCost: {
@@ -10235,6 +10303,32 @@ export interface components {
             end: number;
         };
         /**
+         * SettingChangeOut
+         * @description One switch of a setting (S-gaps-05 V1): a director's has Undo (switch `field` to `was`
+         *     with `undo: true`); a person's own choice is kept from the director.
+         */
+        SettingChangeOut: {
+            /** Field */
+            field: string;
+            /** Was */
+            was: string | boolean | {
+                [key: string]: unknown;
+            } | null;
+            /** Now */
+            now: string | boolean | {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * By
+             * @enum {string}
+             */
+            by: "person" | "director";
+            /** Why */
+            why: string;
+            /** At */
+            at: string;
+        };
+        /**
          * SettingIn
          * @description Exactly one setting.
          */
@@ -10253,6 +10347,12 @@ export interface components {
             product_variants?: {
                 [key: string]: string;
             } | null;
+            /** Presenter */
+            presenter?: ("talks" | "corner" | "acts") | null;
+            /** Narration Only */
+            narration_only?: boolean | null;
+            /** Voice */
+            voice?: string | null;
             /** Undo */
             undo?: boolean | null;
         };
@@ -10284,6 +10384,22 @@ export interface components {
             flavours: {
                 [key: string]: string[];
             };
+            /**
+             * Changes
+             * @default []
+             */
+            changes: components["schemas"]["SettingChangeOut"][];
+            /** Presenter */
+            presenter?: string | null;
+            /** Presenter Now */
+            presenter_now?: ("talks" | "corner" | "acts") | null;
+            /**
+             * Narration Only
+             * @default false
+             */
+            narration_only: boolean;
+            /** Voice */
+            voice?: string | null;
         };
         /** SetupIn */
         SetupIn: {
@@ -11593,6 +11709,12 @@ export interface components {
             product_variants?: {
                 [key: string]: string;
             } | null;
+            /** Presenter */
+            presenter?: ("talks" | "corner" | "acts") | null;
+            /** Narration Only */
+            narration_only?: boolean | null;
+            /** Voice */
+            voice?: string | null;
         };
         /** VideoSongIn */
         VideoSongIn: {
@@ -12980,6 +13102,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IdeasOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    idea_head_projects__project_id__idea_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Head"];
                 };
             };
             /** @description Validation Error */

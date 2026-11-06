@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { makeIt, onBrand, signIn } from "./helpers";
 
-// The director (first slice, #1087), on the stand-ins: an editor on a video from a published script presses Make it, sees
+// The director (first slice, #1087; v6 S3/P-04/P-05), on the stand-ins: an editor on a video from a published script presses Make it, sees
 // its run's progress (it watches its cut, fixes what it found and cuts again, #1145), and gets the finished cut with
 // its note. Credits only, never dollars; nothing paid is called.
 test("at 390, an editor presses Make it and the director delivers the finished cut with its note", async ({ page, browser, baseURL }) => {
@@ -24,43 +24,39 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   const pid = (await made.json()).project_id;
 
   await ed.goto(`/b/${fomo}/videos/${pid}`);
-  await ed.getByRole("button", { name: "Make it" }).click();
+  // v6 P-04: at 390 the video is the chat, with a Chat | Preview switch; Make it starts the director.
+  await ed.getByRole("button", { name: /^Make it/ }).click();
+  await expect(ed.getByRole("tablist", { name: "Chat or preview" })).toBeVisible();
   // Its plan first, then its start card (S3-02): no generation until Make it (its whole "up to" is past what's left of this
   // video's budget, so the owner presses it).
   await makeIt(page, pid);
-  await expect(ed.getByRole("button", { name: "Step 1 of 5 · Director" })).toBeVisible(); // at 390 the tabs are one step button
-  await expect(ed.getByText(/ · \d+ credits? spent so far · you can leave this page$/)).toBeVisible();
-  await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
-  await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
-  await expect(ed.getByLabel("The finished video")).toBeVisible();
-  await expect(ed.getByRole("link", { name: /Download MP4/ })).toBeVisible();
-  await expect(ed.getByText(/^\d+ s · spent \d+ credits? on this run$/)).toBeVisible();
-  await expect(ed.getByRole("heading", { name: "Talk to the director" })).toBeVisible();
-  await expect(ed.getByRole("list", { name: "Locked" })).toBeVisible(); // the locks it builds around, above the conversation
+  await expect(ed.getByRole("banner").getByText(/^Working/)).toBeVisible();
+  await expect(ed.getByRole("banner").getByText(/^Delivered$/)).toBeVisible({ timeout: 200_000 });
+  await expect(ed.getByRole("banner").getByText(/of up to \d+ credits$/)).toBeVisible(); // credits, never dollars (rule 4)
   const thread = ed.getByRole("list", { name: "Conversation with the director" });
-  if (await ed.getByRole("button", { name: /^Show earlier/ }).isVisible()) await ed.getByRole("button", { name: /^Show earlier/ }).click();
+  await expect(thread).toContainText(/Made in \d+ min/, { timeout: 30_000 }); // one progress card a run (v6 piece C), not a row a turn
   const moves = await thread.textContent();
   expect(moves).not.toMatch(/[a-z]+_[a-z_]+|\bc\d+\b|[{}]/); // plain words only: no tool names, clip codes or JSON
-  expect(moves).toMatch(/Made in \d+ min/); // one progress card a run (v6 piece C), not a row a turn
-  expect(moves).toMatch(/\d:\d\d Clip \d+: .*Muted a stretch of clip \d+ instead of remaking it\./); // the note's "watched and redid", with its time
+  expect(moves).toMatch(/Clip \d+: .*Muted a stretch of clip \d+ instead of remaking it\./); // the note's "watched and redid"
   expect(moves).toMatch(/\d+ credits used of up to \d+ \(\d+% of the budget\)/); // its cost, in credits to an editor
-  await expect(ed.locator("p").filter({ hasText: /^The cut is made\b/ }).first()).toBeVisible();
-  expect(await ed.locator("main").textContent()).not.toMatch(/\$\d|ask (Reed|the owner)/i);
-  // Chat (v4): ask for a change after the delivery; the stand-in remakes that clip, cuts and delivers again.
+  expect(await ed.locator("body").textContent()).not.toMatch(/\$\d|ask (Reed|the owner)/i);
+  // P-05: the cut plays in Preview, with its downloads; the tab row always shows (S-gaps-03).
+  await ed.getByRole("tab", { name: "Preview" }).click();
+  await expect(ed.getByRole("tablist", { name: "Preview", exact: true })).toBeVisible();
+  await expect(ed.getByRole("tabpanel", { name: "Cut" }).getByLabel("The cut", { exact: true })).toBeVisible();
+  await expect(ed.getByRole("tabpanel", { name: "Cut" }).getByRole("link", { name: "Download MP4" })).toBeVisible();
+  await ed.getByRole("tab", { name: "Plan" }).click();
+  await expect(ed.getByRole("tabpanel", { name: "Plan" })).toBeVisible();
+  // Chat: ask for a change after the delivery; a note never starts a run by itself (the Producer, 2 Nov): Make it again makes it.
+  await ed.getByRole("tab", { name: "Chat" }).click();
   await ed.getByLabel("Tell the director what to change").fill("Make clip 1 slower.");
   await ed.getByRole("button", { name: "Send to the director" }).click();
   await expect(thread.getByText("Make clip 1 slower.")).toBeVisible();
-  // A message never starts a run by itself (the Producer, 2 Nov): it's saved, and Make it again makes it.
-  const again = ed.getByRole("button", { name: "Make it again" });
-  await expect(ed.getByText("Saved. Press Make it again to make this change.").or(ed.getByRole("button", { name: "Stop" }))).toBeVisible();
-  if (await again.isVisible()) await again.click();
+  await expect(ed.getByText("Saved. Press Make it again to make this change.")).toBeVisible();
+  await ed.getByRole("button", { name: /^Make it again/ }).click();
   await makeIt(page, pid); // its start card again
-  await expect(ed.getByRole("button", { name: "Stop" })).toBeVisible();
-  await expect(ed.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 200_000 });
+  await expect(ed.getByRole("banner").getByText(/^Working/)).toBeVisible();
+  await expect(ed.getByRole("banner").getByText(/^Delivered$/)).toBeVisible({ timeout: 200_000 });
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
-  await ed.getByRole("button", { name: "Step 1 of 5 · Director" }).click(); // the phone keeps its step sheet, the Director first
-  await ed.getByRole("dialog").getByRole("button", { name: /Plan/ }).click();
-  await expect(ed).toHaveURL(/step=plan/);
-  await expect(ed.getByRole("button", { name: /^Step 2 of 5 · Plan/ })).toBeVisible();
 });

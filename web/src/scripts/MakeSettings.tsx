@@ -45,6 +45,8 @@ function useChoices(script: Script, picks: Picks, defaults: Record<string, strin
     image_models: models.data.filter((m) => m.kind === "image").map((m) => ({ id: m.id, name: m.name, credits_per_still: rate(m, "1K"), default: m.default })),
     shapes: ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9"],
     flavours,
+    changes: [], // a version has no video yet: nothing switched, no presenter or voice of its own
+    narration_only: false,
   };
 }
 
