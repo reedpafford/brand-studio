@@ -400,7 +400,8 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   // one stands aside (S3-02, S3-08, S3-11).
   const startOpen = cards.some((a) => a.kind === "start" && isOpen(a));
   const moneyOpen = cards.some((a) => ["start", "budget", "own", "plan"].includes(a.kind) && isOpen(a));
-  const ended = ["delivered", "stopped", "failed", "declined", "withdrawn", "ended", "none"].includes(state) && !moneyOpen && !progress?.stopped && !progress?.failed;
+  // A delivered video's next run starts by talking (S3-12): no press of its own under the note (#1318's was temporary).
+  const ended = ["stopped", "failed", "declined", "withdrawn", "ended", "none"].includes(state) && !moneyOpen && !progress?.stopped && !progress?.failed;
   const mayStart = fs ? owner : maker; // a freestyle's run is the owner's to start again; a script video's, its maker's
   const blocked = run?.start_blocked || null;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
@@ -465,8 +466,8 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const waiting = state === "waiting";
   const fromScript = !!script && !!fs && serverTime(script.created_at) < serverTime(fs.created_at);
   const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “warmer light in scene 2”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
-  const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : "Saved. Press Make it again to make this change.") : viaFreestyle && !owner && !running ? "Each change goes to the owner first. Nothing is spent until they say yes." : null;
-  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
+  const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : null) : viaFreestyle && !owner && !running ? "Each change goes to the owner first. No generation starts until they say yes." : null;
+  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting && !owner ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
   const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;
   const opening = items.find((t) => t.kind === "message")?.id;
   // A freestyle's send held before its video has a card for it: the same held card, with Withdraw the request (S3-07).
@@ -478,9 +479,9 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const withdraw = fs && maker ? () => actions.withdraw.mutate(undefined, { onSuccess: () => void refreshAsks() }) : undefined;
   const withdrawFor = (a: { kind: string }) => (a.kind === "start" ? withdraw : undefined);
   const heldSend = (t: Said) =>
-    !fs || t.id !== heldMove ? null : orphan ? (
+    !fs || t.id !== heldMove ? null : orphan ? ( // the owner answers on the cards themselves: never "the owner has been asked" to him
       <AskCard ask={orphan} owner={owner} onWithdraw={withdrawFor(orphan)} />
-    ) : (waiting || state === "change") && !cards.some((a) => shown.has(a.id) && isOpen(a) && a.can.includes("withdraw")) ? (
+    ) : !owner && (waiting || state === "change") && !cards.some((a) => shown.has(a.id) && isOpen(a) && a.can.includes("withdraw")) ? (
       <HeldSend projectId={id} change={state === "change"} upTo={state === "change" ? changeUpTo : (fs.make_it_up_to ?? fs.up_to)} sentAt={t.at} owner={owner} onWithdraw={withdraw ?? (() => actions.withdraw.mutate())} />
     ) : null;
   // "Change the plan first" (S3-02): the message box, ready for the change.

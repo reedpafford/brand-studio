@@ -143,23 +143,33 @@ test("S3-09: delivered, the cut plays in the Cut tab with its downloads and what
   expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
 });
 
-test("the owner's note after a delivery is saved; Make it again makes it (a note never starts a run by itself)", async () => {
+test("the owner's note after a delivery starts the next run by talking; there's no Make it again press under the note (S3-12)", async () => {
   setViewport(1440);
   const done = fs({ status: "delivered", file_id: 8, thread: [item("m1", "message", "Reed", SCRIPT), item("t2", "move", "Director", "Every take checked clean.", "done", later)] });
   const delivered = run({ status: "delivered", turns: [{ turn: 3, tool: "deliver", why: "", result: "Delivered.", status: "succeeded", created_at: later }] });
-  const noted = { ...delivered, unread: 1, thread: [item("m0", "message", "Reed", "Cut 2 seconds.", null, "2026-11-04T10:30:00Z")] };
-  const calls = server(owner, done, delivered, { "POST /projects/50/director/messages": [201, noted], "POST /projects/50/director": [201, run()] });
+  const going = { ...run(), thread: [item("m0", "message", "Reed", "Cut 2 seconds.", null, "2026-11-04T10:30:00Z")] };
+  const calls = server(owner, done, delivered, { "POST /projects/50/director/messages": [201, going] });
   renderApp("/b/1/videos/50");
   const box = await ready();
+  expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull(); // no leftover press on a delivered video
   expect(screen.getByRole("button", { name: "Send to the director" })).toBeDisabled(); // nothing to send yet
   await userEvent.type(box, "Cut 2 seconds.{Enter}");
-  expect(await screen.findByText("Saved. Press Make it again to make this change.")).toBeInTheDocument();
-  expect(calls.find((c) => c.key === "POST /projects/50/director/messages")?.body).toEqual({ text: "Cut 2 seconds." });
-  expect(within(screen.getByRole("list", { name: "Conversation with the director" })).getByText("Cut 2 seconds.")).toBeInTheDocument();
-  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false);
-  await userEvent.click(screen.getByRole("button", { name: "Make it again · up to 40 credits" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/director/messages")?.body).toEqual({ text: "Cut 2 seconds." }));
+  expect(await within(screen.getByRole("list", { name: "Conversation with the director" })).findByText("Cut 2 seconds.")).toBeInTheDocument();
+  expect(screen.queryByText("Saved. Press Make it again to make this change.")).toBeNull();
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // the note itself starts it
 });
+
+test("M1: the owner is never shown the held-send card or 'once the owner approves' for his own run", async () => {
+  setViewport(1440);
+  const waiting = fs({ status: "waiting", thread: [item("m1", "message", "Reed", SCRIPT), item("t1", "move", "Director", "Ready.", "held")] });
+  server(owner, waiting, run({ status: "running", thread: [] }));
+  renderApp("/b/1/videos/50");
+  await ready();
+  expect(screen.queryByText(/The owner has been asked/)).toBeNull();
+  expect(screen.queryByText(/once the owner approves/)).toBeNull();
+});
+
 
 test("pictures or clips go with a note, for this video only (rule 12)", async () => {
   setViewport(1440);
@@ -612,7 +622,7 @@ test("S3-02: the start-of-run card: Make it · up to its price, Change the plan 
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to $14.40?" });
   expect(within(card).getByText("Ready to start")).toBeInTheDocument();
-  expect(within(card).getByText("Nothing is spent until you press.")).toBeInTheDocument();
+  expect(within(card).getByText("No generation starts until you press.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull();
   await userEvent.click(within(card).getByRole("button", { name: "Change the plan first" }));
   expect(screen.getByLabelText("Tell the director what to change")).toHaveFocus();
@@ -772,7 +782,7 @@ test("S3-07: an editor's send, held before its video has cards, is the same held
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to 164 credits?" });
   expect(within(card).getByText("Waiting for the owner’s OK")).toBeInTheDocument();
-  expect(within(card).getByText("The owner has been asked. Nothing is made or charged while it waits.")).toBeInTheDocument();
+  expect(within(card).getByText("The owner has been asked. No generation starts until they say yes.")).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
 });
@@ -784,7 +794,7 @@ test("S3-07: an editor's change after a delivery waits with its own price from i
   server(editor, sent, run({ status: "delivered", turns: [], run_price: 0 }), { "GET /projects/50": [200, { ...project, created_by_id: 2 }], "GET /jobs": [200, [job]] });
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make this change for up to 23 credits?" });
-  expect(within(card).getByText("The owner has been asked. The cut stays as it is while it waits; nothing is charged.")).toBeInTheDocument();
+  expect(within(card).getByText("The owner has been asked. The cut stays as it is; no generation starts until they say yes.")).toBeInTheDocument();
   expect(within(card).getByRole("button", { name: "Withdraw the request" })).toBeInTheDocument();
 });
 

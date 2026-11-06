@@ -137,8 +137,8 @@ def test_after_a_delivery_and_a_second_run_it_is_that_runs_own_rest(app, db, own
     project = db.get(Project, pid)
     assert director.turns(db, project)[-1].input.get("result") == director.DELIVERED
     first = _left(db, pid)
-    editor.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 slower."})
-    assert editor.post(f"/projects/{pid}/director").status_code == 201  # Make it again
+    out = editor.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 slower."})
+    assert out.json()["status"] == "running"  # the second run starts by talking (S3-12)
     providers = get_providers(app.state.settings, app.state.storage)
     for _ in range(40):  # its own start card pressed, then it works a turn or two
         run_once(db, providers, app.state.storage)

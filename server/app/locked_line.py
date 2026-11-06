@@ -32,6 +32,8 @@ KIND = "instead"
 OFFERED = "offered"  # its state: answered by the server; never a question that waits
 FOR = "instead_for"  # in a take job's input: [the card, the choice] whose press made it
 SET = "The script’s words are set for this script, so I can’t change “{}”. Here’s what I can change instead:"  # noqa: E501
+SET_ONLY = "The script’s words are set for this script, so I can’t change “{}”."  # nothing to
+# offer instead here: the note is answered all the same, and no run starts for it
 SOFTER_NOTE = "Say it more softly and warmly, with less edge. Every word stays as written."
 RUNNING = "The director is working on this video. Tell it in the chat instead."
 QUOTE = re.compile(r"[“\"]([^”\"]{2,80})[”\"]|(?<![\w’'])[‘']([^’']{2,80})[’'](?![\w])")
@@ -110,10 +112,11 @@ def offer(db: Session, user: User, project: Project, text: str) -> tuple[Ask, bo
     shot = _said_in(db, project, words)
     choices = [c for c in (_softer(db, project, shot), _safely(_cut_away, db, user, project, words),
                            _safely(_pause, db, user, project, words)) if c]  # fmt: skip
-    if not choices:
-        return None
+    if not choices and not only:
+        return None  # nothing to offer, and it asks more: the director reads all of it
     ask = Ask(workspace_id=project.workspace_id, project_id=project.id, kind=KIND,
-              subject=words[:120], question=SET.format(words), state=OFFERED,
+              subject=words[:120], question=(SET if choices else SET_ONLY).format(words),
+              state=OFFERED,
               choices=[{"key": chr(65 + n), **c} for n, c in enumerate(choices)])  # fmt: skip
     db.add(ask)
     db.flush()

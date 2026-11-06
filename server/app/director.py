@@ -186,16 +186,19 @@ def _carry_waiting(db: Session, project: Project) -> Job | None:
                      .limit(1))  # fmt: skip
 
 
-def say(db: Session, user: User, project: Project, text: str,
-        files: list[int] = ()) -> Ask | None:  # fmt: skip
+def say(db: Session, user: User, project: Project, text: str, files: list[int] = (),
+        revise: bool = False) -> Ask | None:  # fmt: skip
     """A person's note to the director (director-chat.md §1 item 4), kept in the thread with
     any pictures or clips sent with it (for this video only, rule 12; the director looks at
     them). While a run goes on, its next turn reads it (a turn already in flight, the one
     after); a run waiting on an answer wakes to read it, and one waiting on its start card
-    reads it before Make it ("Change the plan first", S3-02). It never starts a run: after
-    Stop or a delivery it waits, unread, for the next Make it, which reads every unread note.
-    Nothing is charged for it. A note that asks only to change a locked line is answered at
-    once (S3-14): that reply card is returned, and no run needs to read the note."""
+    reads it before Make it ("Change the plan first", S3-02). A note that asks only to change
+    a locked line is answered at once (S3-14): that reply card is returned, and no run needs to
+    read the note. `revise`: after a delivery, any other note starts the next run, as the
+    boards draw revisions (S3-12: by talking, then its start card; the chat's note, from the
+    video's maker or the owner), and one that asks both gets the reply and starts the run for
+    its other half. After a Stop it waits, unread, for Carry on or the next run, which read
+    every unread note. Nothing is charged for the note itself."""
     lock(db, Project, project.id)  # never lost to a run starting or ending as it lands
     db.refresh(project)
     going = active(db, project)
@@ -220,7 +223,20 @@ def say(db: Session, user: User, project: Project, text: str,
         _plan_first(db, project, going)
     elif going:
         wake(db, project)
+    elif (
+        revise
+        and not going
+        and "offer" not in said
+        and _delivered(db, project)
+        and not blocked(db, project)
+    ):  # a revision starts by talking (S3-12): the run, then its own start card
+        start(db, user, project, hold=asks.start_hold(db, user, project))
     return answered
+
+
+def _delivered(db: Session, project: Project) -> bool:
+    rows = turns(db, project)
+    return bool(rows) and rows[-1].input.get("result") == DELIVERED
 
 
 def _plan_first(db: Session, project: Project, held: Job) -> None:

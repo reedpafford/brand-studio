@@ -323,13 +323,15 @@ def message(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Tell the director what to change. While a run goes on, its next turn reads it. It never
-    starts a run: after Stop or a delivery it waits (`unread`) for the next Make it, which
-    reads every unread note and spends as Make it does. Who may: as Make it. At most one
-    note a person every 3 s and 30 a run (429). Nothing is charged for a note."""
+    """Tell the director what to change. While a run goes on, its next turn reads it. After a
+    delivery it starts the next run, which reads it: its plan, then its start card (S3-12;
+    held for the owner when its maker can't press it, and then nothing runs before their yes).
+    After a Stop it waits (`unread`) for Carry on or the next run. Who may: as Make it. At
+    most one note a person every 3 s and 30 a run (429). Nothing is charged for a note."""
     project = get_project(db, user, project_id)
     _mine(db, user, project.id)  # as Make it: the video's maker or the owner
-    director.say(db, user, project, body.text, [_seeable(db, user, f) for f in body.files or []])
+    director.say(db, user, project, body.text, [_seeable(db, user, f) for f in body.files or []],
+                 revise=True)  # fmt: skip
     return _out(db, user, project)
 
 
