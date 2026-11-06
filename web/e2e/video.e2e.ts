@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { approveCastWhenReady, emptyBrand, makeIt, signIn } from "./helpers";
+import { approveCastWhenReady, emptyBrand, makeIt, planAndApprove, signIn } from "./helpers";
 
 // A video made by hand on the video page (v6 S3: the preview panel's Plan, Cast, Clips and Cut tabs) on the free stand-ins.
 const SCRIPT = [
@@ -33,9 +33,11 @@ for (const width of [1440, 390]) {
 
     await page.goto(`/b/${brandId}/videos/${id}?tab=plan`);
     await expect(page.getByRole("tab", { name: "Plan", selected: true })).toBeVisible();
-    // The plan first (item 1b): made on the stand-in, then Approve makes the shots.
-    await page.getByRole("button", { name: /Make the plan/ }).click();
-    await page.getByRole("button", { name: /Approve the plan/ }).click({ timeout: 30_000 });
+    // The plan first (item 1b): the director makes and approves it (S8), stood in for here; approving makes the shots.
+    await expect(page.getByText(/The director makes the plan after Make it/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /Make the plan|Approve the plan/ })).toHaveCount(0);
+    await planAndApprove(page, id);
+    await page.reload();
     await expect(page.getByRole("region", { name: "Scene 1" })).toBeVisible({
       timeout: 30_000,
     });

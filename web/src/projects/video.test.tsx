@@ -49,7 +49,7 @@ test("the preview panel's tabs (v6 S3), and Clips waits for the cast, saying why
   open("?tab=clips");
   const tabs = await screen.findByRole("tablist", { name: "Preview" });
   expect(within(tabs).getAllByRole("tab").map((b) => b.textContent)).toEqual(["Cut", "Clips", "Cast 1", "Plan", "Script"]);
-  expect(await screen.findByText("Approve the cast first (1 left)")).toBeInTheDocument();
+  expect(await screen.findByText("Approve the cast first (1 left).")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Open Cast" }));
   expect(screen.getByRole("tab", { name: "Cast 1", selected: true })).toBeInTheDocument();
 });
@@ -200,7 +200,7 @@ test("a storyboard made before the shots changed stays open, and its stills wait
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/breakdown": [200, { ...breakdown, stale: true }], "GET /projects/9/storyboard": [200, [{ ...frame, approved: false, earlier: [], change: null }, { ...frame, id: 2, clip_id: "c2", approved: false, file_id: null, still_credits: 4, earlier: [], change: null }]] });
   open("?step=storyboard");
-  expect(await screen.findByText("The plan changed after these were made. Make new shots in Plan first.")).toBeInTheDocument();
+  expect(await screen.findByText("The plan changed after these were made. The director makes new shots from it first.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Open Plan" })).toBeInTheDocument();
 });
 
@@ -219,7 +219,7 @@ test("Clips names Plan, where the shots live, when problems in them are in the w
   setViewport(1440);
   fakeServer({ ...toClips, "GET /projects/9/storyboard": [200, []], "GET /projects/9/breakdown": [200, { ...breakdown, problems: ["c1: the shot has no action", "c2: the shot has no setting"] }] });
   open("?step=clips");
-  expect(await screen.findByText("Fix the 2 problems in Plan first")).toBeInTheDocument();
+  expect(await screen.findByText("Fix the 2 problems in Plan first.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Open Plan" })).toBeInTheDocument();
 });
 

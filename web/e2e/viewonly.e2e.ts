@@ -23,7 +23,7 @@ for (const width of [1440, 390]) {
 
     const eli = await join("Eli");
     await eli.goto(`/b/${brandId}/videos/${id}?step=plan`);
-    await expect(eli.getByRole("button", { name: /^Make the plan/ })).toBeDisabled();
+    await expect(eli.getByText(/The director makes the plan after Make it/)).toBeVisible(); // S8: no plan press of its own
     // No press that changes the video is live; reads (the tabs, the script, Show all) are.
     const changes = await eli.evaluate(() =>
       [...document.querySelectorAll("main button")]

@@ -20,19 +20,19 @@ import type { PaneProps } from "../videos/Preview";
 import { approveCast, keepOld, makePlace, pickPlace, uploadPlace, useCast, type Cast, type CastItem } from "./gate";
 import { Presenter } from "./Presenter";
 import { notInShots, useAssets } from "./useAssets";
+import { clipNo } from "../projects/names";
 
 type Asset = components["schemas"]["AssetOut"];
 const NO_LOCKS: components["schemas"]["LocksIO"] = { locks: { cast: false, look: false, length: false, song: false, screens: [], roles: [] }, outfits: {} };
 type Pair = components["schemas"]["SamePair"];
 type State = { tone: Tone; word: string; hollow?: boolean };
 
-const clipNo = (id: string) => Number(id.replace(/^c/i, ""));
-/** "Clips 2–4", "Clip 3", "Clips 2, 5 and 7". */
+/** "Clips 2–4", "Clip 3", "Clips 1, 1b and 2" (a split's clip by its own number, QA on #1383). */
 export function clipsText(ids: string[]) {
-  const n = ids.map(clipNo).filter((x) => !Number.isNaN(x)).sort((a, b) => a - b);
+  const n = [...new Set(ids.map(clipNo).filter(Boolean))].sort((a, b) => parseInt(a) - parseInt(b) || a.localeCompare(b));
   if (n.length === 0) return "";
   if (n.length === 1) return `Clip ${n[0]}`;
-  if (n.every((x, i) => i === 0 || x === n[i - 1] + 1)) return `Clips ${n[0]}–${n.at(-1)}`;
+  if (n.every((x, i) => /^\d+$/.test(x) && (i === 0 || +x === +n[i - 1] + 1))) return `Clips ${n[0]}–${n.at(-1)}`;
   return `Clips ${n.slice(0, -1).join(", ")} and ${n.at(-1)}`;
 }
 const pronoun = (a: Asset) => {

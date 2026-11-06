@@ -4,12 +4,32 @@ the owner, the owner's own run too. One OK grants another limit's worth, not one
 
 from decimal import Decimal
 
+import pytest
+
 from app import director
 from app.credits import PAST_APPROVED
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from tests.test_director import _made, _run
 from tests.test_freestyle_dialogue import _run as _run_fakes
+
+
+@pytest.fixture(autouse=True)
+def _limits_on(monkeypatch):
+    """Reed turned the limits off for now (6 Nov); these tests keep them working for when
+    they come back."""
+    monkeypatch.setattr(director, "OWN_LIMITS", True)
+
+
+def test_with_the_limits_off_a_run_never_waits_at_its_own_limit(app, db, owner, editor,
+                                                                monkeypatch):  # fmt: skip
+    monkeypatch.setattr(director, "OWN_LIMITS", False)
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))  # a run's own is about 61
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    assert not [j for j in _held(db, pid) if "own limit" in (j.input.get("held") or "")]
+    assert director.own_usd(db, "any") == Decimal("Infinity")
 
 
 def _held(db, pid) -> list[Job]:
@@ -92,3 +112,35 @@ def test_a_sends_director_waits_at_its_own_limit(app, owner, editor, db, monkeyp
     charged, _ = _own(db, pid)
     assert charged <= director.own_limit()
     assert not db.get(Project, pid).hidden  # shown from the OK
+
+
+def test_the_real_cost_backstop_grows_with_each_ok(app, db, owner, editor, monkeypatch):
+    """Audit 6 Nov: MAX_USD of its own time didn't grow with the owner's OKs, so a run he let go
+    on still stopped at "$5 of its own time". Each OK at its limit grants as much again."""
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    (held,) = _held(db, pid)
+    (run,) = {j.input[director.RUN]["id"] for j in db.query(Job).filter(Job.project_id == pid)
+              if j.input.get(director.RUN)}  # fmt: skip
+    assert director.own_usd(db, run) == director.MAX_USD  # no OK yet
+    assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
+    db.expire_all()
+    assert director.own_usd(db, run) == 2 * director.MAX_USD
+    monkeypatch.setattr(director, "spent", lambda db, run_id: director.MAX_USD + 1)  # past $5
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]  # under $10 with the OK: it finished
+    ended = [t for t in out["turns"] if "of its own time" in (t.get("result") or "")]
+    assert not ended
+
+
+def test_past_the_backstop_it_stops_and_says_the_figure(app, db, owner, editor, monkeypatch):
+    pid = _made(app, owner, editor, db)
+    late = lambda db, run_id: director.MAX_USD if _turns(db, pid) >= 2 else Decimal(0)  # noqa: E731
+    monkeypatch.setattr(director, "spent", late)  # $5 once it has gone a turn
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] != "delivered" and "It stopped at $5 of its own time." in str(out)

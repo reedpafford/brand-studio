@@ -24,12 +24,17 @@ export function refName(id: string, pieces: Piece[], roles: Map<string, string>)
 
 const REF = /\b(?:char|place|prop|screen|slot|frame):\w+/g;
 
-/** A problem line in words: "c3: char:5 is in the clip…" reads "Clip c3: Mia is in the clip…". A raw id is never shown. `nameOf` is refName for the page's pieces and roles. */
+/** A problem line in words: "c3: char:5 is in the clip…" reads "Clip 3: Mia is in the clip…", and "Clip c1b" reads "Clip 1b"
+ *  as the clip's card does (S9). A raw id is never shown. `nameOf` is refName for the page's pieces and roles. */
 export function plainWords(text: string, nameOf: (id: string) => string): string {
   return text
-    .replace(/^(c\d+): /, "Clip $1: ")
+    .replace(/^c(\d+[a-z]?): /, "Clip $1: ")
+    .replace(/\b([Cc]lip) c(\d+[a-z]?)\b/g, "$1 $2")
     .replace(REF, (id) => (id.startsWith("frame:") ? "the first frame" : nameOf(id).replace(" · cast in Cast", "")));
 }
 
 /** A problem about a character with no approved look: the fix is in Cast. */
 export const aboutMissingLook = (text: string) => /sheet isn't attached|no approved (sheet|look)|needs an approved (sheet|look)|has no look/i.test(text);
+
+/** A clip as people read it: "1" for c1, "1b" for a split's c1b (S9: never the plan's own "c1b"; the server's clip_no). */
+export const clipNo = (id: string) => id.replace(/^c/i, "");

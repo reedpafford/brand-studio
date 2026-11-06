@@ -17,7 +17,7 @@ const idea = (o: object) => ({
 const branch = (o: object) => ({ id: 4, parent_id: null, name: "Week of 3 Nov", count: 2, can_manage: true, ideas: [], more: 0, folders: [], ...o });
 const tree = { folders: [branch({}), branch({ id: 5, name: "UGC testimonials", count: 0 })], unsorted: branch({ id: null, name: "Unsorted", count: 1 }) };
 const page = (ideas: object[], o: object = {}) => ({ total: ideas.length, counts: { all: ideas.length, needs_you: 1, working: 1, delivered: 0 }, archived: 0, folders_inside: 0, makers: [{ id: 1, name: "Reed" }], ideas, ...o });
-const two = [idea({}), idea({ id: 10, title: "Bloated after pizza", status: status("needs_you", "Needs you", { reason: "Check the scene plan" }), cost: { kind: "so_far", credits: 4.09, usd: 0.42 }, made_by: { id: 2, name: "Kel" }, can_manage: false })];
+const two = [idea({}), idea({ id: 10, title: "Bloated after pizza", status: status("needs_you", "Needs you", { reason: "Approve 2 looks" }), cost: { kind: "so_far", credits: 4.09, usd: 0.42 }, made_by: { id: 2, name: "Kel" }, can_manage: false })];
 const base = (me: object, ideas: object = page(two), extra: Record<string, [number, unknown]> = {}): Record<string, [number, unknown]> => ({
   "GET /auth/me": [200, me],
   "GET /brands": [200, [{ id: 1, name: "Resilia", colours: ["#1f7a4f"], tone_notes: "" }, { id: 2, name: "fomo", colours: [] }]],

@@ -176,8 +176,12 @@ class _Video:
         mine = TakeSeen.user_id == (viewer.id if viewer else 0)
         seen = select(TakeSeen.take_id).where(mine, TakeSeen.take_id.in_(tids))
         self.seen = set(db.scalars(seen))
-        spans = db.execute(select(Job.started_at, Job.finished_at).where(
-            Job.workspace_id == project.workspace_id, Job.kind == "video",
+        from app.credits import FREE_LANES
+        from app.providers import STAND_IN
+
+        real = Job.provider.not_in(FREE_LANES) & ~Job.provider_ref.like(f"{STAND_IN}%")  # the
+        spans = db.execute(select(Job.started_at, Job.finished_at).where(  # stand-ins' 1 min
+            Job.workspace_id == project.workspace_id, Job.kind == "video", real,  # never counts
             Job.status == JobStatus.succeeded, Job.started_at.is_not(None))
             .order_by(Job.id.desc()).limit(20)).all()  # fmt: skip
         took = [(b - a).total_seconds() for a, b in spans if b and b > a]
@@ -212,6 +216,7 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
     `changed`: the director made its take again (its watch, or a note); `watched`: this person
     has watched that take since; `found`: its watch found something on one of its takes."""
     from app.credits import WAIT_OK
+    from app.director import clip_no
 
     takes, jobs = video.takes.get(row.id, []), video.jobs.get(row.id, [])
     held = next((j for j in jobs if j.status == HELD), None)
@@ -225,7 +230,7 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
     changed = bool(picked and picked.number > 1 and job and job.input.get("by_director"))
     shots = video.shots.get(row.clip_id) or [{}]
     scene = str(shots[0].get("id", "")).split(".")[0]
-    out = {"clip_id": row.clip_id, "number": int(row.clip_id.removeprefix("c") or 0),
+    out = {"clip_id": row.clip_id, "number": clip_no(row.clip_id),
            "scene": int(scene) if scene.isdigit() else 0, "seconds": row.seconds,
            "label": (shots[0].get("action") or "").split(". ")[0].strip().rstrip("."),
            "model": _model(picked, model_map.own_name(row) or video.model),

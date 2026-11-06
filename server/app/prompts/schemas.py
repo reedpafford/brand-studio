@@ -5,9 +5,9 @@ are stated in the descriptions and checked in `check.py`.
 Asset ids are strings with a kind prefix, as listed in the brand block and the user message:
 `screen:12`, `char:5`, `place:3`, `prop:7`, `frame:c2`."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, WithJsonSchema
 
 # --- Enhance: suggestions anchored to the editor's script ---
 
@@ -643,7 +643,39 @@ class StillsReview(BaseModel):
 
 
 # --- The director (director-chat.md §5): one decision a turn, run by the server ---
-class CutMove(BaseModel):
+# Anthropic's strict schemas allow 24 optional and 16 union-typed parameters in a whole request
+# (a 400 past either). So every director field is required, and one that's often unused is
+# sent as a plain string or integer: "" or 0 means none and reads as None here, so the server's
+# code is unchanged. Only the few with a real "unchanged" (a time, an on/off) stay nullable.
+
+
+def _all_required(schema: dict) -> None:
+    """Every field required; no defaults (the answer gives each one, "" or 0 when unused)."""
+    for prop in schema.get("properties", {}).values():
+        prop.pop("default", None)
+    schema["required"] = list(schema.get("properties", {}))
+
+
+def _none(kind: dict):
+    """A field sent as `kind` ("" or 0 for none, never null), read as None when empty."""
+    return [WithJsonSchema(kind), BeforeValidator(lambda v: None if v == "" or v == 0 and
+                                                  not isinstance(v, bool) else v)]  # fmt: skip
+
+
+Name = Annotated[str | None, *_none({"type": "string"})]  # "": none
+Id = Annotated[int | None, *_none({"type": "integer"})]  # 0: none
+
+
+def _pick(*values: str):
+    """One of `values`, or "" for none (read as None)."""
+    return Annotated[Literal[values] | None, *_none({"type": "string", "enum": ["", *values]})]
+
+
+class Strict(BaseModel):
+    model_config = ConfigDict(json_schema_extra=_all_required)
+
+
+class CutMove(Strict):
     """One free edit to the cut (the cut editor's own, app/cut_edits.py), for edit_cut."""
 
     kind: Literal["trim", "retime", "split", "swap", "presenter", "music", "undo"] = Field(
@@ -653,31 +685,51 @@ class CutMove(BaseModel):
         "(`take_id`); presenter: `side`, `size` or `hidden` over a piece or start..end; "
         "music: `quieter_db` under the voice, `gaps`, or `removed`; undo: an edit (`edit_id`)."
     )
-    piece: str | None = Field(
+    piece: Name = Field(
         default=None, description="The piece from <video>.timeline.pieces, e.g. 'c7' or 'c7.12'."
     )
-    start: float | None = Field(default=None, description="Seconds into the cut.")
-    end: float | None = Field(default=None, description="Seconds into the cut.")
-    at: float | None = Field(default=None, description="For split: seconds into the cut.")
-    take_id: int | None = Field(default=None, description="For swap: a take's id.")
-    side: Literal["left", "right"] | None = None
-    size: Literal["small", "medium", "large"] | None = None
-    hidden: bool | None = None
-    quieter_db: float | None = Field(default=None, description="0 to 30; 18 is 'a lot'.")
-    gaps: Literal["down", "rise"] | None = Field(
+    start: float | None = Field(
+        default=None, description="Seconds into the cut; null when the edit doesn't set it."
+    )
+    end: float | None = Field(
+        default=None, description="Seconds into the cut; null when the edit doesn't set it."
+    )
+    at: float | None = Field(
+        default=None, description="For split: seconds into the cut; else null."
+    )
+    take_id: Id = Field(default=None, description="For swap: a take's id; else 0.")
+    side: _pick("left", "right") = None
+    size: _pick("small", "medium", "large") = None
+    hidden: bool | None = Field(
+        default=None,
+        description="For presenter: true hides it, false shows it again; null leaves it as it is.",
+    )
+    quieter_db: float | None = Field(
+        default=None,
+        description="For music: 0 to 30 dB under the voice (18 is 'a lot'; 0 stops it); null "
+        "leaves it as it is.",
+    )
+    gaps: _pick("down", "rise") = Field(
         default=None, description="When no one speaks the music stays down, or rises."
     )
-    removed: bool | None = None
-    loop: bool | None = Field(default=None, description="For music: loop it to fit the cut.")
-    edit_id: int | None = Field(default=None, description="For undo: from timeline.edits.")
+    removed: bool | None = Field(
+        default=None,
+        description="For music: true takes it out, false puts it back; null leaves it as it is.",
+    )
+    loop: bool | None = Field(
+        default=None,
+        description="For music: true loops it to fit the cut, false plays it once; null leaves it "
+        "as it is.",
+    )
+    edit_id: Id = Field(default=None, description="For undo: from timeline.edits; else 0.")
 
 
-class AskChoice(BaseModel):
+class AskChoice(Strict):
     title: str = Field(description="The choice in a few words: 'He bins the pint'.")
     why: str = Field(description="One plain line: what it does for the story.")
 
 
-class AskMove(BaseModel):
+class AskMove(Strict):
     """The `ask` tool's question (v6 S4-01, S4-02): one card in the chat."""
 
     kind: Literal["cast", "presenter", "voice", "place", "product", "brand_item", "story",
@@ -696,16 +748,16 @@ class AskMove(BaseModel):
     choices: list[AskChoice] = Field(
         default=[], description="story: two to four choices, in order (A, B, …)."
     )
-    pick: str | None = Field(
+    pick: Name = Field(
         default=None,
         description="Your pick: a story choice's letter, or the saved item's name you'd use.",
     )
-    ask_id: int | None = Field(
-        default=None, description="Only to close an open question no longer needed; else null."
+    ask_id: Id = Field(
+        default=None, description="Only to close an open question no longer needed; else 0."
     )
 
 
-class LookMove(BaseModel):
+class LookMove(Strict):
     name: str = Field(description="The place or character as people call it ('The penthouse').")
     description: str = Field(
         default="",
@@ -716,15 +768,15 @@ class LookMove(BaseModel):
         default_factory=list,
         description="For add_place: the plan's shots that happen there, e.g. ['3.1', '3.2'].",
     )
-    library_item_id: int | None = Field(
+    library_item_id: Id = Field(
         default=None,
         description="For add_place: the place to use (a place card's answer: the brand's saved "
-        "one, or the one made for this video from its photo), by its id; null makes a new one "
+        "one, or the one made for this video from its photo), by its id; 0 makes a new one "
         "for this video from `description`.",
     )
 
 
-class DirectorTurn(BaseModel):
+class DirectorTurn(Strict):
     tool: Literal[
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
@@ -736,41 +788,41 @@ class DirectorTurn(BaseModel):
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
         "'stop' when it can't go on (the 'why' says what and why)."
     )  # fmt: skip
-    clip_id: str | None = Field(
+    clip_id: Name = Field(
         default=None,
         description="For make_take, pick_take, mute, splice_word, add_sound, clip_model and "
-        "split_clip: the clip, e.g. 'c3'. For make_take, null makes a first take of every clip "
+        "split_clip: the clip, e.g. 'c3'. For make_take, empty makes a first take of every clip "
         "that has none; for "
-        "add_sound, null adds sound to every silent take in the cut. Else null.",
+        "add_sound, empty adds sound to every silent take in the cut. Else empty.",
     )
-    take_id: int | None = Field(
+    take_id: Id = Field(
         default=None,
         description="For pick_take: the take's id (not its number). For song or narration "
-        "with no note: the take to use. Else null.",
+        "with no note: the take to use. Else 0.",
     )
-    shot_id: str | None = Field(
-        default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else null."
+    shot_id: Name = Field(
+        default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else empty."
     )
-    voice: Literal[
+    voice: _pick(
         "Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger", "English_FriendlyPerson",
         "English_Trustworth_Man", "English_Upbeat_Woman", "English_ConfidentWoman",
         "English_Graceful_Lady",
-    ] | None = Field(
+    ) = Field(
         default=None,
-        description="For narration being made: the narrator's voice; null gives Sarah on the "
+        description="For narration being made: the narrator's voice; empty gives Sarah on the "
         "first narration (a UGC talker: English_FriendlyPerson) and keeps the voice in use on a "
-        "remake. Else null.",
+        "remake. Else empty.",
     )  # fmt: skip
-    emotion: Literal[
+    emotion: _pick(
         "auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent",
         "neutral",
-    ] | None = Field(
+    ) = Field(
         default=None,
-        description="For narration in an English_ voice (MiniMax): the delivery's emotion; null "
+        description="For narration in an English_ voice (MiniMax): the delivery's emotion; empty "
         "or 'auto' lets the voice choose from the words. Its speed follows: an emotion reads "
         "slower, so the speed rises to keep the style's pace, and a remake in the same emotion "
         "is set from the last read's measured pace (the take's 'pace' against 'pace_wanted'). "
-        "Else null.",
+        "Else empty.",
     )  # fmt: skip
     reading: str = Field(
         default="",
@@ -779,28 +831,26 @@ class DirectorTurn(BaseModel):
         "never two in a row), and a few sounds a person makes, e.g. (breath), (chuckle), "
         "(sighs), where they'd really happen; a changed word is refused. Else empty.",
     )
-    model: str | None = Field(
+    model: Name = Field(
         default=None,
         description="For clip_model: the catalogue id of the model that makes this clip "
         "('seedance-1-lite' where it's enough for a B-roll shot; 'gemini-omni-1.1' only for a "
         "talker's shot that needs what Seedance can't give, named in `why`, never because they "
-        "appear or move, never B-roll); null "
+        "appear or move, never B-roll); empty "
         "puts the clip back on the video's model. For settings with setting video_model or "
-        "image_model: the model's id, null for Auto. Else null.",
+        "image_model: the model's id, empty for Auto. Else empty.",
     )
-    setting: Literal[
-        "look", "video_model", "image_model", "aspect_ratio", "presenter"
-    ] | None = Field(
+    setting: _pick("look", "video_model", "image_model", "aspect_ratio", "presenter") = Field(
         default=None,
         description="For settings: which of the video's settings to switch, when a person asks "
         "in the chat or the treatment chose it: look (the style), video_model, image_model, "
         "aspect_ratio (the shape) or presenter (how the presenter appears: talks, corner or "
-        "acts). A setting a person chose themselves stays theirs. Else null.",
+        "acts). A setting a person chose themselves stays theirs. Else empty.",
     )  # fmt: skip
-    value: str | None = Field(
+    value: Name = Field(
         default=None,
         description="For settings with setting look, aspect_ratio or presenter: the new value "
-        "(a style id, '9:16', or talks / corner / acts); null for the style's own. Else null.",
+        "(a style id, '9:16', or talks / corner / acts); empty for the style's own. Else empty.",
     )
     look: LookMove | None = Field(
         default=None,
@@ -808,10 +858,10 @@ class DirectorTurn(BaseModel):
         "For change_look: the character or place by name (as <video>'s cast_ok names it), "
         "with the change in `note`. Else null.",
     )
-    word: str | None = Field(
+    word: Name = Field(
         default=None,
         description="For splice_word: the brand word as the script spells it, e.g. 'fomo', from "
-        "that clip's can_splice; else null.",
+        "that clip's can_splice; else empty.",
     )
     note: str = Field(
         default="",

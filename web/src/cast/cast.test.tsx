@@ -49,6 +49,8 @@ test("clips read as a run or a list", () => {
   expect(clipsText(["c2", "c3", "c4"])).toBe("Clips 2–4");
   expect(clipsText(["c7"])).toBe("Clip 7");
   expect(clipsText(["c2", "c5", "c7"])).toBe("Clips 2, 5 and 7");
+  expect(clipsText(["c1", "c1b", "c2"])).toBe("Clips 1, 1b and 2"); // a split clip (QA on #1383): never NaN
+  expect(clipsText(["c1b"])).toBe("Clip 1b");
 });
 
 test("S5-01 / S-gaps-07: each card says where its look came from and how it stands; one with no look offers the library, Upload and Make one at its up-to price", async () => {
