@@ -59,7 +59,7 @@ function VideoCard({ p, brandId, job }: { p: Project; brandId: number; job?: Job
             ? `${plural(progress.shots.problems, "problem")} to fix`
             : progress.shots.made ? `${plural(media.clips, "clip")} planned` : "Ready for shots"
           : step === "storyboard"
-            ? f.total === 0 ? "Ready for the storyboard" : `${f.approved} of ${plural(f.total, "frame")} approved`
+            ? f.total === 0 ? "Ready for the storyboard" : `${f.drawn} of ${plural(f.total, "frame")} drawn`
             : step === "clips"
               ? c.total === 0 ? "Ready for clips" : `${c.taken} of ${plural(c.total, "clip")} made`
               : `Ready · ${media.seconds || p.planned_seconds} s · ${shape}`;
