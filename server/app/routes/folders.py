@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import folders, ideas
+from app import folders, hidden, ideas
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -144,7 +144,7 @@ def tree(brand_id: int, user: User = Depends(current_user), db: Session = Depend
     depth, each folder's newest own ideas with their status, and Unsorted."""
     brand = get_brand(db, user, brand_id)
     rows = folders.live(db, brand.id)
-    every = list(db.scalars(_live_ideas(db, brand.id)))
+    every = list(db.scalars(_live_ideas(db, brand.id))) + hidden.held_sends(db, user, brand.id)
     known = ideas.facts(db, every)
     newest = sorted(every, key=lambda p: (known.last[p.id], p.id), reverse=True)
     live = {f.id for f in rows}
@@ -202,6 +202,9 @@ def folder_ideas(
     gone = db.scalar(select(func.count()).select_from(
         _live_ideas(db, brand.id, True).where(filed).subquery()))  # fmt: skip
     every = list(db.scalars(_live_ideas(db, brand.id).where(filed)))
+    if held := [] if archived else [p.id for p in hidden.held_sends(db, user, brand.id)]:
+        sent = select(Project).where(Project.id.in_(held), filed)  # a send waiting for the OK
+        every += db.scalars(sent.execution_options(**{hidden.SEE: True})).all()
     makers = {p.created_by_id for p in every if p.created_by_id}
     named = ideas.titles(db, [p.id for p in every])
     title = {p.id: named.get(p.id, p.name) for p in every}

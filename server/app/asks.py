@@ -33,6 +33,7 @@ START = "start_run"  # in a run's held first paid turn: the start-of-run OK (S3-
 BEFORE = "before_ok"  # in a job: planning before Make it, on the video's planning allowance
 PLAN_OK = "plan_ok"  # in a held plan change: past the allowance, the owner's OK first
 PLANNING = "Waiting for the owner's OK: planning before Make it has used its allowance."
+OWNER_PLAN = "owner_plan"  # in a run: the owner's id, his note planning it again (rule 5)
 OPEN = ("open", "uploading")
 NOT_NEEDED = "This question is no longer needed."
 LOCKED = "{} is locked in this video: unlock it in Cast to change who plays them."
@@ -609,8 +610,10 @@ def planned(db: Session, project: Project) -> tuple[int, Decimal, int]:
     check's own fix of one is the same plan), credits
     charged (actual usage, or the price while it runs) and the owner's OKs past it. Read from
     the video's own jobs since its last Make it, so a resend, reopen or refresh never resets
-    it."""
+    it. The owner's own planning (his note on an editor's send, OWNER_PLAN) is his spend,
+    never on the allowance (rule 5; QA on #1380)."""
     from app.credits import COUNTED
+    from app.director import RUN
 
     anchor = db.scalar(select(func.max(Job.id)).where(
         Job.project_id == project.id, Job.input[START].as_boolean(),
@@ -618,6 +621,7 @@ def planned(db: Session, project: Project) -> tuple[int, Decimal, int]:
     rows = db.scalars(select(Job).where(Job.project_id == project.id, Job.id > (anchor or 0),
                                         Job.input[BEFORE].as_boolean(),
                                         Job.status.in_(COUNTED))).all()  # fmt: skip
+    rows = [j for j in rows if not (j.input.get(RUN) or {}).get(OWNER_PLAN)]
     plans = sum(1 for j in rows if j.input.get("step") == "treatment" and not j.input.get("redo"))
     oks = sum(1 for j in rows if j.input.get(PLAN_OK))
     return plans, sum((j.credits for j in rows), Decimal(0)), oks

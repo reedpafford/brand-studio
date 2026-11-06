@@ -207,3 +207,18 @@ test("rule 34 on a phone: a later run's budget card is titled shorter, past this
   renderApp("/approvals");
   expect(await screen.findByRole("heading", { name: "Redo 2 clips · $0.60 past this run’s price" })).toBeInTheDocument();
 });
+
+test("S2-04: an editor's New video waiting for the owner is in My requests with its up to, counted in the rail", async () => {
+  setViewport(1440);
+  const send = { id: 31, status: "needs_owner_approval", project_id: 13, credits: 3, kind: "write-claude", step: "director", created_at: ago(5), held: "Waiting for the owner's OK: every freestyle send is checked first.", freestyle: { id: 9, title: "Gut check", change: false, up_to: 164, total: 164 } };
+  // An answered send reads by its title, never its video's own name (QA on #1380).
+  const answered = { ...send, id: 30, project_id: 14, status: "succeeded", approved: true, held: "", freestyle: { ...send.freestyle, id: 8, title: "Beer gut" } };
+  const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /jobs": [200, [send, answered]], "GET /projects": [200, [{ id: 14, brand_id: 1, name: "MIA: The market opened at nine. · freestyle 8" }]] });
+  renderApp("/requests");
+  expect(await screen.findByText("Gut check")).toBeInTheDocument();
+  expect(await screen.findByText(/^Beer gut ·/)).toBeInTheDocument();
+  expect(screen.queryByText(/freestyle 8/)).toBeNull();
+  expect(screen.getByText(/^New video, waiting for the owner's OK/)).toHaveTextContent(/164 credits$/);
+  expect(calls.find((c) => c.key === "GET /jobs")?.url).toContain("sends=true"); // sends are requests too, not their runs' turns
+  expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: /My requests/ })).toHaveTextContent("1");
+});

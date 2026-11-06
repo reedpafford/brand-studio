@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Lock, RefreshCw, Settings2 } from "lucide-react";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
-import { Badge, Button, creditsText, Dialog, Panel, Skeleton, useToast, wholeCredits } from "../components";
+import { Badge, Button, creditsText, Dialog, Panel, Skeleton, useToast, useViewOnly, wholeCredits } from "../components";
 import { useMe } from "../auth/useMe";
 import { LookPicker, lookName, useLooks, type Look } from "../scripts/Looks";
 import { SongSetting } from "../scripts/VideoSong";
@@ -285,6 +285,7 @@ export function VideoSettings({ project: p, finished, song = true, broll, notMad
 
 /** One setting's choices, each with its price and "No lip-sync"; the one in use is marked. Shared with Make this version's row. */
 export function ChoicePanel({ field, owner, onPick, onClose }: { field: Field; owner: boolean; onPick: (c: Choice) => void; onClose: () => void }) {
+  const viewOnly = useViewOnly(); // a video only its maker or the owner may change, or a send waiting for the owner's OK
   return (
     <Panel title={field.label} onClose={onClose}>
       <ul className="space-y-2">
@@ -295,8 +296,9 @@ export function ChoicePanel({ field, owner, onPick, onClose }: { field: Field; o
               <button
                 type="button"
                 aria-pressed={c.id === field.current}
+                disabled={viewOnly}
                 onClick={() => onPick(c)}
-                className={`flex min-h-control w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-left ${c.id === field.current ? "border-accent bg-accent-soft" : "border-border-strong hover:bg-surface-2"}`}
+                className={`flex min-h-control w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60 ${c.id === field.current ? "border-accent bg-accent-soft" : "border-border-strong hover:bg-surface-2"}`}
               >
                 <span className="font-medium">{c.label}</span>
                 {c.price && <span className="text-sm text-muted tabular-nums">· {c.price}</span>}

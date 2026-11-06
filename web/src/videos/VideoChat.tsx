@@ -6,7 +6,8 @@ import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Dialog, Skeleton } from "../components";
+import { Banner, Button, Dialog, Skeleton, useToast } from "../components";
+import { useRefreshIdeas } from "../folders/ideas";
 import { mmss } from "../freestyle/FromScript";
 import { Item, type Said } from "../freestyle/Thread";
 import { ReelBlock } from "../scripts/ReelImport";
@@ -63,6 +64,8 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const online = useOnline();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
+  const refreshIdeas = useRefreshIdeas();
   const [params, setParams] = useSearchParams();
   const [editing, setEditing] = useState(false); // the cut editor is open: the chat narrows (S7)
   const [side, setSide] = useState<"chat" | "preview">(params.get("tab") || params.get("step") ? "preview" : "chat"); // the phone's switch
@@ -121,11 +124,21 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     );
 
   const turns = run?.turns ?? [];
-  const running = run?.status === "running" && run.make_it == null && !turns.every((t) => t.status === "needs_owner_approval"); // a start card waiting: nothing runs (S3-02)
+  const running = run?.status === "running" && run.make_it == null && turns.at(-1)?.status !== "needs_owner_approval"; // its turn waits on an OK (a start card, S3-02; a send held for the owner, S3-07): nothing runs
   const state = fs ? stateOf(fs, running) : running ? "working" : (run?.status ?? "none");
   const archived = !!p?.archived_at;
   const maker = p ? mayManage(p) : fs?.created_by_name === me?.name;
   const lookOnly = p && !mayManage(p) && !archived ? `Only ${p.created_by_name || "someone else"} or the owner can change this video.` : null;
+  // An editor's send waiting for the owner's OK (the server's `held`): theirs to look at and withdraw, nothing to change or
+  // spend yet (S3-07). An approved video waiting at a limit stays theirs to change.
+  const held = p?.held && !owner ? "This waits for the owner's OK; nothing can change until then." : null;
+  const changes = maker && !archived && !held;
+  // A send withdrawn or declined here leaves nothing behind: the page goes to where it was listed, the tree reads again.
+  const gone = (said: string) => {
+    void refreshIdeas();
+    toast(said);
+    navigate(owner ? `/b/${brandId}/videos?folder=${p?.folder_id ?? "none"}` : "/requests");
+  };
   const cutFile = cut?.file_id ?? fs?.file_id ?? null;
   // The header's status: the server's for a readable video; before the owner's OK, the send's own.
   const fallback: Status = { kind: "waiting", words: owner ? "Waiting for your OK" : "Waiting for the owner", made: 0, total: 0 };
@@ -158,21 +171,21 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       title={title}
       cut={cutFile ? { file: cutFile, name: mp4(title) } : null}
       onStop={!rail && running && maker ? () => setStopping(true) : undefined}
-      onMove={p && maker && !archived ? () => setMoving(true) : undefined}
-      onRename={p && maker && !archived ? () => setRenaming(true) : undefined}
-      onRelease={target && maker && !archived && !finished && p.script_draft_id && !fs ? () => video.release(target) : undefined}
-      onArchive={target && maker && !archived && finished ? () => video.archive(target) : undefined}
+      onMove={p && changes ? () => setMoving(true) : undefined}
+      onRename={p && changes ? () => setRenaming(true) : undefined}
+      onRelease={target && changes && !finished && p.script_draft_id && !fs ? () => video.release(target) : undefined}
+      onArchive={target && changes && finished ? () => video.archive(target) : undefined}
     />
   );
   const header = head.data ? (
-    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={head.data} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={run?.started} />
+    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={head.data} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived || !!held} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={run?.started} />
   ) : (
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
   const chat = (
-    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
+    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} onGone={p?.held ? gone : undefined} />
   );
-  const preview = <Preview onEditor={setEditing} p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
+  const preview = <Preview onEditor={setEditing} p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? held ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
     <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
       {rail ? (
@@ -306,7 +319,7 @@ function useRunEnd(id: number, card: string | undefined, director: string | unde
 
 /** The conversation (oldest first, newest at the bottom), and the box under it. A freestyle's thread is its first words,
  *  moves and held sends, with the notes saved on its video; a video made from a script reads its director's thread. */
-function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, onSettings, phone, progress }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; onSettings: () => void; phone: boolean; progress: Progress | null }) {
+function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, onSettings, phone, progress, onGone }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; onSettings: () => void; phone: boolean; progress: Progress | null; onGone?: (said: string) => void }) {
   const queryClient = useQueryClient();
   const id = p?.id ?? fs?.project_id ?? 0;
   const actions = useFreestyleActions(fs?.id ?? null);
@@ -408,6 +421,12 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), carry.mutate()), onPlanAgain: () => (carry.reset(), planAgain.mutate()), busy: carry.isPending, planBusy: planAgain.isPending, blocked, error: (carry.error ?? planAgain.error)?.message ?? null }) : null;
   const presses = !archived && !lookOnly && (
     <>
+      {p?.held && fs && maker && !owner && !running && state !== "waiting" && (
+        // Its plan failed before its start card: nothing waits for the owner, and Withdraw is the way on (QA on #1380).
+        <Button variant="secondary" dense busy={actions.withdraw.isPending} onClick={() => actions.withdraw.mutate(undefined, { onSuccess: () => onGone?.("Withdrawn. Nothing was charged.") })}>
+          Withdraw the request
+        </Button>
+      )}
       {ended && mayStart && p && (
         <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
           {startLabel}
@@ -467,7 +486,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const fromScript = !!script && !!fs && serverTime(script.created_at) < serverTime(fs.created_at);
   const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “warmer light in scene 2”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
   const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : null) : viaFreestyle && !owner && !running ? "Each change goes to the owner first. No generation starts until they say yes." : null;
-  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting && !owner ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
+  const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting && !owner ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null; // the owner answers it here (S3-06)
   const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;
   const opening = items.find((t) => t.kind === "message")?.id;
   // A freestyle's send held before its video has a card for it: the same held card, with Withdraw the request (S3-07).
@@ -476,13 +495,15 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const shown = new Set(items.filter((t) => t.kind === "ask").map((t) => t.ask_id));
   const orphan = cards.find((a) => ["start", "budget", "own", "plan"].includes(a.kind) && isOpen(a) && !shown.has(a.id));
   // A freestyle's start card withdraws through the freestyle (its frozen send goes too); every other card withdraws itself.
-  const withdraw = fs && maker ? () => actions.withdraw.mutate(undefined, { onSuccess: () => void refreshAsks() }) : undefined;
+  const withdrawn = () => (void refreshAsks(), onGone?.("Withdrawn. Nothing was charged."));
+  const withdraw = fs && maker ? () => actions.withdraw.mutate(undefined, { onSuccess: withdrawn }) : undefined;
   const withdrawFor = (a: { kind: string }) => (a.kind === "start" ? withdraw : undefined);
+  const declined = onGone && (() => onGone("Declined."));
   const heldSend = (t: Said) =>
     !fs || t.id !== heldMove ? null : orphan ? ( // the owner answers on the cards themselves: never "the owner has been asked" to him
-      <AskCard ask={orphan} owner={owner} onWithdraw={withdrawFor(orphan)} />
+      <AskCard ask={orphan} owner={owner} onWithdraw={withdrawFor(orphan)} onDecline={declined} />
     ) : !owner && (waiting || state === "change") && !cards.some((a) => shown.has(a.id) && isOpen(a) && a.can.includes("withdraw")) ? (
-      <HeldSend projectId={id} change={state === "change"} upTo={state === "change" ? changeUpTo : (fs.make_it_up_to ?? fs.up_to)} sentAt={t.at} owner={owner} onWithdraw={withdraw ?? (() => actions.withdraw.mutate())} />
+      <HeldSend projectId={id} change={state === "change"} upTo={state === "change" ? changeUpTo : (fs.make_it_up_to ?? fs.up_to)} sentAt={t.at} owner={owner} onWithdraw={withdraw ?? (() => actions.withdraw.mutate(undefined, { onSuccess: withdrawn }))} />
     ) : null;
   // "Change the plan first" (S3-02): the message box, ready for the change.
   const focusBox = () => document.getElementById("director-box")?.focus();
@@ -517,7 +538,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
                 {(() => {
                   const a = cards.find((x) => x.id === t.ask_id);
                   if (a?.kind === "instead") return <InsteadCard ask={a} />; // S3-14: what can change instead of a locked line
-                  return a && <AskCard ask={a} owner={owner} onChangePlan={a.kind === "start" ? focusBox : undefined} onWithdraw={withdrawFor(a)} />;
+                  return a && <AskCard ask={a} owner={owner} onChangePlan={a.kind === "start" ? focusBox : undefined} onWithdraw={withdrawFor(a)} onDecline={a.kind === "start" ? declined : undefined} />;
                 })()}
               </Item>
             ) : t.kind === "message" ? (
@@ -677,7 +698,7 @@ function Composer({ placeholder, closed, note, error, busy, upload, disabled, on
             go();
           }
         }}
-        className="mt-0.5 min-h-5 resize-none bg-transparent text-base leading-5 outline-none! placeholder:text-[#6f727a] disabled:cursor-not-allowed lg:text-sm"
+        className={`mt-0.5 min-h-5 resize-none bg-transparent text-base leading-5 outline-none! placeholder:text-[#6f727a] disabled:cursor-not-allowed lg:text-sm ${closed ? "max-lg:min-h-10" : ""}`} // why it's closed wraps on a phone
       />
       {files.length > 0 && (
         <ul aria-label="Sent with it, for this video only" className="flex flex-wrap gap-1.5">

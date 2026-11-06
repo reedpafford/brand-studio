@@ -778,13 +778,61 @@ test("S4-03: an editor's Generate options past their allowance waits for the own
 test("S3-07: an editor's send, held before its video has cards, is the same held card in credits, with Withdraw the request", async () => {
   setViewport(390);
   const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Waiting for the owner's OK", "held")] });
-  const calls = server(editor, sent, run({ status: "ended", turns: [] }), { "GET /projects/50": [200, { ...project, created_by_id: 2 }], "POST /freestyles/9/withdraw": [200, { ...sent, status: "withdrawn" }] });
+  const calls = server(editor, sent, run({ status: "ended", turns: [] }), { "GET /projects/50": [200, { ...project, held: true, created_by_id: 2 }], "POST /freestyles/9/withdraw": [200, { ...sent, status: "withdrawn" }] });
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to 164 credits?" });
   expect(within(card).getByText("Waiting for the owner’s OK")).toBeInTheDocument();
   expect(within(card).getByText("The owner has been asked. No generation starts until they say yes.")).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: "Withdraw the request" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
+  // Withdrawn, nothing is left behind (QA on #1380): the page goes to My requests, never "That video doesn't exist".
+  expect(await screen.findByRole("heading", { name: "My requests" })).toBeInTheDocument();
+  expect(screen.getByText("Withdrawn. Nothing was charged.")).toBeInTheDocument();
+  expect(screen.queryByText(/That video doesn't exist/)).toBeNull();
+});
+
+test("QA on #1380: an editor's held send is for looking: no press that changes or spends, no Rename or Move", async () => {
+  setViewport(1440);
+  const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Waiting for the owner's OK", "held")] });
+  server(editor, sent, run({ status: "ended", turns: [] }), { "GET /projects/50": [200, { ...project, held: true, created_by_id: 2, plan_status: "none" }], "GET /projects/50/plan": [404, { detail: "none" }], "GET /projects/50/idea": [200, head({ status: status("waiting", "Waiting for the owner"), spent: money(0, null), up_to: money(164, null), budget: money(164, null) })] });
+  renderApp("/b/1/videos/50?tab=plan");
+  await screen.findByRole("region", { name: "Make it for up to 164 credits?" });
+  const panel = await screen.findByRole("tabpanel", { name: "Plan" });
+  expect(await within(panel).findByRole("button", { name: "1:1" })).toBeDisabled(); // its shape, as every press
+  for (const b of within(panel).queryAllByRole("button", { name: /^(Make|Write|Approve|Switch|Change|Use)\b/ })) expect(b).toBeDisabled();
+  expect(screen.queryByRole("button", { name: /^More for / })).toBeNull(); // no Rename, Move or Release
+  expect(within(panel).getByText("This waits for the owner's OK; nothing can change until then.")).toBeInTheDocument(); // why, on the tab
+});
+
+test("QA on #1380: an approved video waiting at a limit is no held send: its maker can still change it", async () => {
+  setViewport(1440);
+  const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Past this run's price", "held")] });
+  server(editor, sent, run({ status: "running", turns: [] }), { "GET /projects/50": [200, { ...project, held: false, created_by_id: 2, plan_status: "none" }], "GET /projects/50/plan": [404, { detail: "none" }], "GET /projects/50/idea": [200, head({ status: status("waiting", "Waiting for the owner"), spent: money(10, null), up_to: money(164, null), budget: money(164, null) })] });
+  renderApp("/b/1/videos/50?tab=plan");
+  const panel = await screen.findByRole("tabpanel", { name: "Plan" });
+  expect(await within(panel).findByRole("button", { name: "1:1" })).toBeEnabled();
+  expect(within(panel).queryByText(/This waits for the owner's OK/)).toBeNull();
+});
+
+test("S3-06: the owner opening an editor's held send answers its start card in place, with the box open and nothing running", async () => {
+  setViewport(1440);
+  const sent = fs({ status: "waiting", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("h1", "move", "Director", "Waiting for the owner's OK", "held")] });
+  const start = ask({ kind: "start", question: "Make it for up to $16.86?", why: "That's the most this run can charge.", saved: [], money: held$({ up_to: price(164, 16.86) }), can: ["make_it", "decline"] });
+  const r = run({ status: "running", make_it: null, turns: [{ turn: 1, tool: "make_plan", why: "", result: "", status: "succeeded", created_at: at }, { turn: 2, tool: null, why: "", result: "", status: "needs_owner_approval", created_at: at }], thread: [item("a7", "move", "Director", "Make it for up to $16.86?", null, later, { kind: "ask", ask_id: 7 })] });
+  const calls = server(owner, sent, r, { ...cards(start), "GET /projects/50": [200, { ...project, held: true, created_by_id: 2 }], "POST /asks/7/answer": [200, start] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it for up to $16.86?" });
+  expect(screen.getByRole("navigation", { name: "Where it is" })).toBeInTheDocument(); // the video's own header (S3-07)
+  expect(screen.queryByText("Answer it in Needs you")).toBeNull(); // the owner's card itself, not a pointer to Needs you
+  expect(screen.queryByText("The owner has been asked. Nothing is made or charged while it waits.")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Stop" })).toBeNull(); // it waits on an OK: nothing runs to stop
+  expect(screen.getByLabelText("Tell the director what to change")).toBeEnabled(); // "Change the plan first" can use it
+  await userEvent.click(within(card).getByRole("button", { name: "Decline" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "decline" }));
+  // Declined, the send is gone (QA on #1380): the page goes to its folder with the tree read again.
+  expect(await screen.findByText("Declined.")).toBeInTheDocument();
+  await vi.waitFor(() => expect(screen.queryByRole("list", { name: "Conversation with the director" })).toBeNull());
+  expect(calls.filter((c) => c.key.startsWith("GET /brands/1/tree")).length).toBeGreaterThan(0);
 });
 
 test("S3-07: an editor's change after a delivery waits with its own price from its held job, never up to free", async () => {
@@ -1093,4 +1141,15 @@ test("Flow-QA M6: a run that ended by itself is read again at once: no Stop or '
   renderApp("/b/1/videos/50");
   await screen.findByText("The director stopped");
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /projects/50/director").length).toBeGreaterThan(1)); // read again, not left
+});
+
+test("QA on #1380: a held send whose plan failed before its start card says so, and its sender can withdraw it", async () => {
+  setViewport(1440);
+  const sent = fs({ status: "stopped", created_by_name: "Eli", thread: [item("m1", "message", "Eli", SCRIPT), item("f1", "move", "Director", "A turn failed; nothing more was done. Start it again to go on.", "refused")] });
+  const calls = server(editor, sent, run({ status: "ended", ended: "A turn failed; nothing more was done. Start it again to go on.", turns: [] }), { "GET /projects/50": [200, { ...project, held: true, created_by_id: 2 }], "POST /freestyles/9/withdraw": [200, { ...sent, status: "withdrawn" }] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("A turn failed; nothing more was done. Start it again to go on.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Withdraw the request" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /freestyles/9/withdraw")).toBe(true));
+  expect(await screen.findByRole("heading", { name: "My requests" })).toBeInTheDocument();
 });

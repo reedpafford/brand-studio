@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import looks, narration, needs_you, plans, reference, settings_move
+from app import hidden, looks, narration, needs_you, plans, reference, settings_move
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
     budget_used,
@@ -81,6 +81,7 @@ class ProjectOut(BaseModel):
     look: str = "house"  # how its pictures are drawn (VS1)
     look_redo_credits: float = 0  # redrawing and remaking what was made in another look (VS1)
     freestyle_id: int | None = None  # P3: made through a freestyle (the director's chat view)
+    held: bool = False  # an editor's send waiting for the owner's OK: for looking (S3-07)
     look_locked: bool = False  # made from a published script: it keeps that style (item 7)
     planned_seconds: int | None  # a set length; null: the breakdown decides
     breakdown_seconds: int | None  # the newest breakdown's length
@@ -132,6 +133,18 @@ def _mine(db: Session, user: User, project_id: int) -> Project:
     project = get_project(db, user, project_id)
     if not (user.is_owner or project.created_by_id == user.id):
         raise HTTPException(403, "Only whoever made this video, or the owner, can do that.")
+    return unheld(db, user, project)
+
+
+HELD = "This waits for the owner's OK; nothing can change until then."
+
+
+def unheld(db: Session, user: User, project: Project) -> Project:
+    """An editor's send waiting for the owner's OK (S3-07) opens for its sender, but nothing on
+    it changes or spends until the owner says yes: only Withdraw (a start card's answer, or the
+    job's cancel), which never comes through here."""
+    if project.hidden and not user.is_owner and hidden.held_sends(db, user, project_id=project.id):
+        raise HTTPException(409, HELD)
     return project
 
 
@@ -152,6 +165,9 @@ def video_writer(
 
 def get_project(db: Session, user: User, project_id: int) -> Project:
     project = db.get(Project, project_id)
+    if project is None and (held := hidden.held_sends(db, user, project_id=project_id)):
+        project = held[0]  # an editor's send waiting for the owner: theirs and the owner's to open
+        hidden.see(db)  # the rest of the request reads its hidden script too
     if not project or project.workspace_id != user.workspace_id:
         raise HTTPException(404, "No such project.")
     return project
@@ -174,6 +190,7 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         look=project.look,
         look_redo_credits=looks.redo_credits(db, project),
         freestyle_id=_freestyle_of(db, project),
+        held=project.hidden and bool(hidden.held_sends(db, user, project_id=project.id)),
         look_locked=looks.script_style(db, project) is not None,
         planned_seconds=project.planned_seconds,
         breakdown_seconds=project.breakdown_seconds,
@@ -328,7 +345,7 @@ def release_project(
     that haven't started are cancelled, so their credits come back, and credits already used
     stay used) and unlinked from the version, which anyone may then make afresh. Restore
     undoes it while nobody has. A finished video can't be released."""
-    project = get_project(db, user, project_id)
+    project = unheld(db, user, get_project(db, user, project_id))
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     if draft is None:
         raise HTTPException(409, "This video isn't made from a library version.")

@@ -22,7 +22,7 @@ const here = (j: Job, w: HeldWhere) =>
 const reasonOf = (j: Job) => (j.error && !j.error.startsWith("The owner said no") ? j.error : "");
 const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 export const what = (j: Job) =>
-  j.step === "song_take" ? (j.kind === "speech" ? "Your narration" : "Your song or music") : j.step ? (STEPS[j.step] ?? "Your request") : quick(j) ? "Your Quick clip" : "Your request";
+  j.freestyle ? (j.freestyle.change ? "Your change" : "Your new video") : j.step === "song_take" ? (j.kind === "speech" ? "Your narration" : "Your song or music") : j.step ? (STEPS[j.step] ?? "Your request") : quick(j) ? "Your Quick clip" : "Your request";
 // Where "Change this…" goes for a declined press: the video step it was pressed on (ux-audit §8.4). A change goes where its
 // still or clip is.
 const VIDEO_STEP: Record<string, string> = {
@@ -53,7 +53,8 @@ export function askedAgo(iso: string, now = Date.now()) {
 export function useMyRequests() {
   return useQuery({
     queryKey: ["jobs", "mine"],
-    queryFn: async () => (await api.GET("/jobs", { params: { query: { mine: true } } })).data ?? [],
+    // sends: a New video send waiting for the owner's OK is a request too (S2-04: "You'll see it in My requests"), its run's turns aren't
+    queryFn: async () => (await api.GET("/jobs", { params: { query: { mine: true, sends: true } } })).data ?? [],
     refetchInterval: (q) => (q.state.data?.some((j) => j.status === "needs_owner_approval") ? 15_000 : false),
   });
 }

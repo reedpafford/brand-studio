@@ -439,21 +439,22 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
           <PanelSkeleton />
         ) : (
           <ViewOnly on={!!lookOnly}>
+            {lookOnly && <p className="text-sm text-muted">{lookOnly}</p>}{/* why its presses are greyed, on the tab itself */}
             <PaneBoundary tab={tab}>
               <Pane
-              p={p}
-              head={head}
-              run={run}
-              lookOnly={lookOnly}
-              progress={facts.progress}
-              go={onTab}
-              toChat={toChat}
-              lines={lines}
-              line={line}
-              showLines={(ls) => (setLines(ls), setLine(null), onTab("script"))}
-              pickLine={(n) => (setLine(n), setLines([n]), onTab("plan"))}
-              onEditor={onEditor}
-            />
+                p={p}
+                head={head}
+                run={run}
+                lookOnly={lookOnly}
+                progress={facts.progress}
+                go={onTab}
+                toChat={toChat}
+                lines={lines}
+                line={line}
+                showLines={(ls) => (setLines(ls), setLine(null), onTab("script"))}
+                pickLine={(n) => (setLine(n), setLines([n]), onTab("plan"))}
+                onEditor={onEditor}
+              />
             </PaneBoundary>
           </ViewOnly>
         )}

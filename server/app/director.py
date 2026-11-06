@@ -220,7 +220,7 @@ def say(db: Session, user: User, project: Project, text: str, files: list[int] =
     project.director_chat = [*every, said]
     db.commit()
     if going and going.status == JobStatus.needs_owner_approval and going.input.get(START):
-        _plan_first(db, project, going)
+        _plan_first(db, project, going, user)
     elif going:
         wake(db, project)
     elif (
@@ -239,10 +239,11 @@ def _delivered(db: Session, project: Project) -> bool:
     return bool(rows) and rows[-1].input.get("result") == DELIVERED
 
 
-def _plan_first(db: Session, project: Project, held: Job) -> None:
+def _plan_first(db: Session, project: Project, held: Job, by: User) -> None:
     """A note while the start card waits: the card goes (nothing was charged) and a turn
     before Make it reads the note and changes the treatment; then the card comes back with
-    the new price."""
+    the new price. The owner's note on an editor's send is his spend, never held against
+    their planning allowance (rule 5: the owner is never held; QA on #1380)."""
     from app.db import utcnow
 
     done = db.execute(update(Job).where(Job.id == held.id,
@@ -251,10 +252,17 @@ def _plan_first(db: Session, project: Project, held: Job) -> None:
     if done.rowcount != 1:
         return
     db.refresh(held)
-    run = {**held.input[RUN], "ok": False}
+    run = {**held.input[RUN], "ok": False, **({asks.OWNER_PLAN: by.id} if by.is_owner else {})}
     held.input = {**held.input, "result": PLAN_FIRST}
     db.commit()
-    _turn(db, db.get(User, run["by"]), project, run)
+    _turn(db, _by(db, run), project, run)
+
+
+def _by(db: Session, run: dict) -> User:
+    """Whose turn it is: the run's own person, or the owner while he plans again before Make
+    it after his note (OWNER_PLAN: his spend, in reports by person; QA on #1380)."""
+    planner = run.get(asks.OWNER_PLAN) if not run.get("ok", True) else None
+    return db.get(User, planner or run["by"])
 
 
 def chat(project: Project, run_id: str) -> list[dict]:
@@ -615,7 +623,7 @@ def wake(db: Session, project: Project) -> None:
     ):
         return  # it goes on when the cast and places are approved, a question is answered, or
         # someone asks for more
-    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
+    _turn(db, _by(db, last.input[RUN]), project, dict(last.input[RUN]))
 
 
 def _parked(db: Session, project: Project, last: Job) -> bool:
@@ -729,7 +737,7 @@ def _act(db: Session, job: Job, storage) -> None:
         if watch.get("state") in ("watching", "done") and watch.get("current"):
             return _record(db, job, run, WATCHED_AGAIN)  # not a watch; it goes on
     db.commit()  # the turn's answer is kept whatever the tool does
-    user = db.get(User, run["by"])
+    user = _by(db, run)
     result = director_tools.run(db, user, project, decision, storage, run)
     if tool == "watch_cut" and not result.startswith("Refused"):
         run["watches"] = run.get("watches", 0) + 1
@@ -864,6 +872,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         return last
     before = not run.get("ok", True)  # before Make it: planning, on its allowance
     card = before and last is not None and _ready(db, project, run, last)
+    if card and run.get(asks.OWNER_PLAN):  # the start card stays its sender's send (My requests)
+        user = db.get(User, run["by"])
     run = {**run, "turn": run["turn"] + 1, **({"ok": True} if card else {})}
     prompt = turn_input(db, project, run)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
@@ -885,7 +895,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
         data = {**data, asks.BEFORE: True}
-        if asks.past_planning(db, project, turn, plan=False):
+        mine = user.is_owner or run.get(asks.OWNER_PLAN)  # the owner's planning: never held
+        if not mine and asks.past_planning(db, project, turn, plan=False):  # (rule 5)
             data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
     else:  # past its own limit, or a freestyle's price, the run pauses for an OK
         from app.credits import estimate, past_approved
@@ -952,7 +963,7 @@ def keep_plan(db: Session, project: Project, job: Job) -> None:
     the plan it has (a held planning turn was the run's last: the run goes on from it)."""
     if active(db, project) is None and job.input.get("step") == STEP:
         run = dict(job.input[RUN])
-        _turn(db, db.get(User, run["by"]), project, run)
+        _turn(db, _by(db, run), project, run)
     else:
         wake(db, project)
 
@@ -1191,7 +1202,8 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     price = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
     if before:  # a check's own fix of the plan always runs: it's the same plan, counted
         data, wait = {**data, asks.BEFORE: True}, ""
-        if not redo and asks.past_planning(db, project, price, plan=True):
+        mine = user.is_owner or (run or {}).get(asks.OWNER_PLAN)  # never held (rule 5)
+        if not redo and not mine and asks.past_planning(db, project, price, plan=True):
             data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
     else:
         wait = past_own(db, project, (run or {}).get("id"), price)

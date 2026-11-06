@@ -64,3 +64,12 @@ test("N opens New video from anywhere but a box being typed in", async () => {
   await userEvent.type(await words(), "no new page");
   expect(screen.getByLabelText("Paste a script, or describe the video")).toHaveValue("no new page");
 });
+
+test("P-07: an editor's send waiting for the owner opens on its video's page (its chat, its header), not the bare freestyle page", async () => {
+  setViewport(390);
+  const waiting = fs({ type: "dialogue", status: "waiting", created_by_name: "Ed", project_id: 50 });
+  server(editor, { "GET /freestyles/9": [200, waiting], "GET /projects/50": [200, { id: 50, brand_id: 1, name: SCRIPT, freestyle_id: 9, created_by_id: 2 }] });
+  renderApp("/b/1/freestyle/9");
+  expect(await screen.findByRole("list", { name: "Conversation with the director" })).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "Tabs" })).toBeNull(); // the phone's tab bar never covers its box
+});

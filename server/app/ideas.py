@@ -158,6 +158,7 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
     working; something waiting on a person; stopped by a person; a run that stopped on its own;
     delivered; else not started. An editor's own start card reads "Needs you · Start it" and
     a question from the director "Needs you" with the question (piece B), above working."""
+    from app import run_progress
     from app.auth import user_name
     from app.routes.production import progress
     from app.routes.project_clips import out_of_date
@@ -206,6 +207,9 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
             )
         elif p.finished_at:
             s = Status(kind="delivered", words=WORDS["delivered"])
+        elif run and run_progress.started(db, p):  # between two of its moves: nothing queued yet
+            s = Status(kind="working", words=WORDS["working"], made=made, total=total,
+                       reason=f"{made} of {total}" if total else None)  # fmt: skip
         else:
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=START)
         out[p.id] = s
