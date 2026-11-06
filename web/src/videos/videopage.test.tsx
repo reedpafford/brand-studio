@@ -397,6 +397,18 @@ test("S3-11: a clip too long for its model offers Split it into N clips · free,
   await vi.waitFor(() => expect(screen.getByRole("tabpanel", { name: "Plan" })).toBeInTheDocument());
 });
 
+test("S3-11 on a phone: Use a model that makes longer clips opens the preview on the Plan tab, where the settings are", async () => {
+  setViewport(390);
+  const long = record({ status: "needs_fix", title: "Stopped at clip 4", sub: "3 of 18 clips made", tone: "bad", scenes: scenes.slice(0, 1), failed: { title: "Clip 4 couldn’t be made", why: "Clip 4 runs 115 s, but Seedance 1 Lite makes at most 12 s a clip. Nothing was charged.", offer: "One of its sentences is too long to split. Make its shot shorter, or use a model that makes longer clips.", clip: 44, fixes: [{ kind: "model", label: "Use a model that makes longer clips…", price: null, problem: "", then: null }, { kind: "carry_on", label: "Carry on", price: "$10.74", problem: "", then: null }] } });
+  server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, long] });
+  renderApp("/b/1/videos/50");
+  const box = await screen.findByRole("region", { name: "Clip 4 couldn’t be made" });
+  await userEvent.click(within(box).getByRole("button", { name: "Use a model that makes longer clips…" }));
+  const sides = screen.getByRole("tablist", { name: "Chat or preview" });
+  expect(within(sides).getByRole("tab", { name: "Preview", selected: true })).toBeInTheDocument();
+  expect(within(screen.getByRole("tablist", { name: "Preview" })).getByRole("tab", { name: "Plan", selected: true })).toBeInTheDocument();
+});
+
 test("S3-09: delivered: the note in parts with the times it redid, the real cost; Watch the changes marks them seen and opens the cut; an earlier cut's note folds to a line", async () => {
   setViewport(1440);
   const done = record({ status: "delivered", title: "Made in 22 min", sub: "4 clips · 1 redone after watching", tone: "done" });

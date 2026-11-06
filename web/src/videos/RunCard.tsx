@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
 import { Check, ChevronDown, CircleCheckBig, CircleStop, Clock, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
@@ -237,8 +236,8 @@ export function stoppedParts({ progress: r, onCarryOn, busy, blocked, error }: {
 
 /** A run that stopped on a problem (S3-11): what went wrong, in plain words, and its one-click fixes (never none): the
  *  failed clip again, carry on, split a clip too long for its model (free: the breakdown's own fix), or the video's
- *  settings, to pick a model that makes longer clips (the Plan tab). */
-export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { progress: Progress; projectId: number; onCarryOn: () => void; busy: boolean; blocked: string | null }) {
+ *  settings, to pick a model that makes longer clips (`onSettings`: the Plan tab, the preview side on a phone). */
+export function Failed({ progress: r, projectId, onCarryOn, onSettings, busy, blocked }: { progress: Progress; projectId: number; onCarryOn: () => void; onSettings: () => void; busy: boolean; blocked: string | null }) {
   const f = r.failed!;
   const queryClient = useQueryClient();
   const again = useMutation({
@@ -248,7 +247,6 @@ export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { p
     },
     onSuccess: () => Promise.all([refreshJobs(queryClient), queryClient.invalidateQueries({ queryKey: ["run-progress", projectId] })]),
   });
-  const [, setParams] = useSearchParams();
   const split = useMutation({
     mutationFn: async (problem: string) => {
       const { data, error } = await api.POST("/projects/{project_id}/breakdown/fix", { params: { path: { project_id: projectId } }, body: { problems: [problem] } });
@@ -257,7 +255,7 @@ export function Failed({ progress: r, projectId, onCarryOn, busy, blocked }: { p
     onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["run-progress", projectId] }), queryClient.invalidateQueries({ queryKey: ["breakdown", projectId] })]),
   });
   const press = (x: (typeof f.fixes)[number]) =>
-    x.kind === "again" ? again.mutate() : x.kind === "split" ? split.mutate(x.problem) : x.kind === "model" ? setParams((q) => (q.set("tab", "plan"), q)) : onCarryOn();
+    x.kind === "again" ? again.mutate() : x.kind === "split" ? split.mutate(x.problem) : x.kind === "model" ? onSettings() : onCarryOn(); // the video's settings: the Plan tab, on a phone too
   const then = f.fixes.find((x) => x.kind === "split")?.then;
   return (
     <section aria-label={f.title} className="overflow-hidden rounded-lg border border-[#f1c6c1] bg-surface">

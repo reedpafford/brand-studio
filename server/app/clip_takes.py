@@ -178,9 +178,11 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
 
     bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
     version = plans.script(db, project)
+    lo = m.duration.min if m.duration else 1  # Omni has one fixed length, no range
     parts = breakdown_fix.split_into(bd.data, version.text if version else "", clip.clip_id,
-                                     m.duration.min, most) if bd else 1  # fmt: skip
-    then = ("Split it in the breakdown (free), then make it" if parts > 1 else
+                                     lo, most) if bd else 1  # fmt: skip
+    offered = bd is not None and clip.clip_id in breakdown_fix.too_long(bd.problems or [])
+    then = ("Split it in the breakdown (free), then make it" if parts > 1 and offered else
             "Make its shot shorter in the breakdown, or switch the video model in Settings to "
             "one that makes longer clips (free)")  # fmt: skip
     raise HTTPException(409, f"This clip is {clip.seconds} s, but {m.name} makes at most "

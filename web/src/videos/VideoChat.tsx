@@ -164,7 +164,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
   const chat = (
-    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} phone={!rail} progress={liveRun ?? null} />
+    <Chat p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
   );
   const preview = <Preview p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
@@ -287,7 +287,7 @@ function Loading({ phone }: { phone: boolean }) {
 
 /** The conversation (oldest first, newest at the bottom), and the box under it. A freestyle's thread is its first words,
  *  moves and held sends, with the notes saved on its video; a video made from a script reads its director's thread. */
-function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, phone, progress }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; phone: boolean; progress: Progress | null }) {
+function Chat({ p, fs, run, clips, owner, maker, state, running, online, archived, lookOnly, onRestore, onWatch, onSettings, phone, progress }: { p: Project | null; fs: Freestyle | null; run: Run | null; clips: components["schemas"]["ProjectClipOut"][]; owner: boolean; maker: boolean; state: string; running: boolean; online: boolean; archived: boolean; lookOnly: string | null; onRestore?: () => void; onWatch: () => void; onSettings: () => void; phone: boolean; progress: Progress | null }) {
   const queryClient = useQueryClient();
   const id = p?.id ?? fs?.project_id ?? 0;
   const actions = useFreestyleActions(fs?.id ?? null);
@@ -473,7 +473,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
                 )}
                 {progress.failed && p && (
                   <Item t={{ ...t, id: `${t.id}-failed`, status: "done" }} owner={owner} words={null}>
-                    <Failed progress={progress} projectId={p.id} onCarryOn={() => again.mutate()} busy={again.isPending} blocked={blocked} />
+                    <Failed progress={progress} projectId={p.id} onSettings={onSettings} onCarryOn={() => again.mutate()} busy={again.isPending} blocked={blocked} />
                   </Item>
                 )}
               </Fragment>
