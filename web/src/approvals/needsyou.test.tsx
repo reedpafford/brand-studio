@@ -89,6 +89,14 @@ test("answering a question here is the same answer as in the chat: Use Mark, or 
   expect(screen.getByRole("link", { name: "Open the chat: Bloated after pizza" })).toHaveAttribute("href", "/b/1/videos/11");
 });
 
+test("the one indigo press is the first money card the owner can approve", async () => {
+  setViewport(1440);
+  const theirs = { ...budget, ask: { ...budget.ask, id: 104, can: [] } }; // an editor's own: nothing to press here
+  fakeServer({ ...base, "GET /needs-you": [200, { ...inbox, money: [theirs, start] }] });
+  renderApp("/approvals");
+  expect((await screen.findByRole("button", { name: "Approve and start" })).className).toContain("bg-accent");
+});
+
 test("money presses answer the card: Approve, Decline (keeps it as it is), and Approve and start an editor's send", async () => {
   setViewport(1440);
   const calls = fakeServer({ ...base, "POST /asks/102/answer": [200, budget.ask], "POST /asks/103/answer": [200, start.ask] });
@@ -118,15 +126,34 @@ test("a stuck video's one-click fix runs the same press as its card in the chat"
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/15/clips/40/generate")).toBe(true));
 });
 
+test("a stopped run carries on, and a failed still is drawn again, each at its price", async () => {
+  setViewport(1440);
+  const carry = { ...stuck, video: video(16, "Gut glow-up"), what: "The director stopped", fix: { kind: "carry_on", label: "Carry on", price: "$10.74", clip_id: null, frame_id: null, problem: null } };
+  const redraw = { ...stuck, video: video(17, "3 signs your gut is angry"), what: "Clip 2's still couldn’t be made", fix: { kind: "redraw", label: "Draw it again", price: "$0.04", clip_id: null, frame_id: 8, problem: null } };
+  const calls = fakeServer({
+    ...base,
+    "GET /needs-you": [200, { ...inbox, questions: [], money: [], stuck: [carry, redraw] }],
+    "POST /projects/16/director": [201, {}],
+    "POST /projects/17/storyboard/frames/8/render": [201, { id: 3 }],
+  });
+  renderApp("/approvals");
+  await userEvent.click(await screen.findByRole("button", { name: "Carry on · up to $10.74" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/16/director")).toBe(true));
+  await userEvent.click(screen.getByRole("button", { name: "Draw it again · up to $0.04" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/17/storyboard/frames/8/render")).toBe(true));
+});
+
 test("a press held outside any video waits under Money, and a link to it lands on it", async () => {
   setViewport(1440);
   const send = { job_id: 50, brand: resilia, what: "Gut · song", made_by: "Kel", up_to: price(0.8), held: "Waiting for the owner's OK: songs on a script.", at: ago(5), script_id: 7 };
-  const calls = fakeServer({ ...base, "GET /needs-you": [200, { ...inbox, total: 1, questions: [], money: [], stuck: [], sends: [send] }], "POST /jobs/50/decline": [200, {}] });
+  const calls = fakeServer({ ...base, "GET /needs-you": [200, { ...inbox, total: 1, questions: [], money: [], stuck: [], sends: [send] }], "POST /jobs/50/decline": [200, {}], "POST /jobs/50/approve": [200, {}] });
   renderApp("/approvals?job=50");
   expect(await screen.findByRole("heading", { name: "Gut · song · up to $0.80" })).toBeInTheDocument();
   expect(document.getElementById("job-50")).toHaveFocus();
   expect(screen.getByRole("button", { name: "Approve · up to $0.80" }).className).toContain("bg-accent");
   expect(screen.getByRole("link", { name: "Read the script" })).toHaveAttribute("href", "/b/1/scripts/7");
+  await userEvent.click(screen.getByRole("button", { name: "Approve · up to $0.80" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /jobs/50/approve")).toBe(true));
   await userEvent.click(screen.getByRole("button", { name: "Decline" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /jobs/50/decline")?.body).toEqual({ reason: "" }));
 });
@@ -136,6 +163,7 @@ test("P-14: on a phone, every card in one list with its short presses, \"4 waiti
   fakeServer(base);
   renderApp("/approvals");
   expect(await screen.findByText("4 waiting · every brand")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Needs you", level: 1 }).closest("header")).toHaveClass("border-b"); // P-14's header bar
   expect(screen.queryByRole("radiogroup", { name: "Brand" })).toBeNull();
   expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
   expect(screen.getByRole("heading", { name: "Redo 2 clips · $1.54 past the budget" })).toBeInTheDocument();

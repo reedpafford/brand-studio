@@ -187,6 +187,8 @@ def _stuck(db: Session, user: User) -> list[StuckVideo]:
         if job.status != JobStatus.failed and not stopped:
             continue
         run = run_progress.record(db, p, user) if job.input.get(director.RUN) else None
+        if run and run["ended_at"] is None:  # its run goes on: the director deals with it
+            continue
         if run and (said := run.get("failed")):  # its run's stuck card: the same fix
             first = said["fixes"][0]
             fix = StuckFix(kind=first["kind"], label=first["label"], price=first.get("price"),

@@ -298,12 +298,14 @@ test("on a phone the line reads '0 credits' before the badge, and one credit is 
 
 test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to Needs you, and each brand's share of the spend is a bar", async () => {
   setViewport(1440);
-  const held = { id: 50, kind: "video", project_id: null, credits: 4, status: "needs_owner_approval", created_at: new Date().toISOString(), finished_at: null, prompt_summary: "", step: null, brand_id: 1, freestyle: { id: 4, title: "Bo", type: "dialogue", said: "", change: false, up_to: 204, spent: 0 } };
-  fakeServer({ ...base, "GET /jobs": [200, [held]], "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])] });
+  // Needs you's Money: a start card (its whole run, up to 204) and a held press outside any video (up to 6).
+  const start = { video: {}, brand: { id: 1, name: "fomo" }, ask: { id: 7, kind: "start", can: ["make_it"], money: { up_to: { credits: 204, usd: 12.24 } } } };
+  const send = { job_id: 50, brand: null, what: "Quick clip", made_by: "Sam", up_to: { credits: 6, usd: 0.36 }, held: "", at: new Date().toISOString(), script_id: null };
+  fakeServer({ ...base, "GET /needs-you": [200, { total: 2, brands: [], questions: [], money: [start], sends: [send], stuck: [] }], "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])] });
   open();
   const totals = await screen.findByRole("group", { name: "Totals" });
-  expect(await within(totals).findByText("up to 204 credits")).toBeInTheDocument();
-  expect(within(totals).getByRole("link", { name: "1 request in Needs you" })).toHaveAttribute("href", "/approvals");
+  expect(await within(totals).findByText("up to 210 credits")).toBeInTheDocument();
+  expect(within(totals).getByRole("link", { name: "2 in Needs you" })).toHaveAttribute("href", "/approvals");
   expect(await screen.findByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument(); // 52.30 of 84.12
 });
 

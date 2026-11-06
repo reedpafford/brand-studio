@@ -135,8 +135,7 @@ function Question({ row, phone }: { row: Row; phone: boolean }) {
   const press = usePress("Answered. The director carries on.");
   const pictures = [...a.saved].sort((x, y) => Number(y.id === a.pick) - Number(x.id === a.pick)).slice(0, 4); // the pick first
   const story = a.kind === "story" ? a.choices : [];
-  const made = a.state === "ready" ? a.options.filter((o) => o.file_id != null) : [];
-  const first = story.length ? (a.pick ?? null) : made.length ? null : (pictures.find((o) => o.id === a.pick)?.id ?? null);
+  const first = story.length ? (a.pick ?? null) : a.options.length ? null : (pictures.find((o) => o.id === a.pick)?.id ?? null); // options made: picked in the chat
   const [picked, setPicked] = useState<string | null>(first);
   const option = pictures.find((o) => o.id === picked);
   const can = (how: string) => a.can.includes(how);
@@ -163,11 +162,6 @@ function Question({ row, phone }: { row: Row; phone: boolean }) {
         {use && (
           <Button variant="secondary" busy={press.isPending} onClick={() => press.mutate(answer(a.id, use.body))}>
             <Label icon={Check}>{use.label}</Label>
-          </Button>
-        )}
-        {!use && made.length > 0 && can("option") && (
-          <Button variant="secondary" busy={press.isPending} onClick={() => press.mutate(answer(a.id, { how: "option", option: made[0].index }))}>
-            <Label icon={Check}>Use option {made[0].index + 1}</Label>
           </Button>
         )}
         <OpenChat to={chat(row.brand.id, row.video.id)} phone={phone} name={row.video.title} />
@@ -323,14 +317,15 @@ export function NeedsYouPage() {
   if (q.isError || !q.data)
     return (
       <main className={`mx-auto w-full max-w-[860px] ${pad}`}>
-        <Banner title="Couldn't load what needs you." action={<Button variant="secondary" onClick={() => void q.refetch()}>Try again</Button>}>
+        <Banner title="Couldn’t load what needs you." action={<Button variant="secondary" onClick={() => void q.refetch()}>Try again</Button>}>
           Check your connection.
         </Banner>
       </main>
     );
   const d: Out = q.data;
   const shown = d.questions.length + d.money.length + d.sends.length + d.stuck.length;
-  const main = d.money[0]?.ask.can.some((c) => c === "approve" || c === "make_it") ? `ask-${d.money[0].ask.id}` : d.sends[0] ? `job-${d.sends[0].job_id}` : null;
+  const first = d.money.find((r) => r.ask.can.some((c) => c === "approve" || c === "make_it"));
+  const main = first ? `ask-${first.ask.id}` : d.sends[0] ? `job-${d.sends[0].job_id}` : null; // the one indigo press
   const named = d.brands.find((b) => b.id === brand)?.name;
   const filter = (
     <div role="radiogroup" aria-label="Brand" className="inline-flex gap-0.5 rounded-md bg-surface-2 p-0.5">
@@ -348,13 +343,15 @@ export function NeedsYouPage() {
       {!phone && (
         <header className="flex h-[52px] shrink-0 items-center border-b border-border bg-surface px-5 text-[13px] font-semibold">Needs you</header>
       )}
+      {phone && (
+        // P-14's header: the title and its line over a hairline, above the list.
+        <header className="flex shrink-0 flex-col border-b border-border bg-surface px-3.5 pb-2.5 pt-3">
+          <h1 className="text-[15px] font-semibold leading-[22px]">Needs you</h1>
+          <p className="text-xs text-muted">{d.total} waiting · every brand</p>
+        </header>
+      )}
       <main className={`mx-auto flex w-full flex-col ${phone ? "gap-3 p-3.5" : "max-w-[908px] gap-4 px-6 py-6"}`}>
-        {phone ? (
-          <div className="flex flex-col">
-            <h1 className="text-[15px] font-semibold">Needs you</h1>
-            <p className="text-xs text-muted">{d.total} waiting · every brand</p>
-          </div>
-        ) : (
+        {phone ? null : (
           <>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-[22px] font-semibold leading-[30px] tracking-[-0.012em]">Needs you</h1>
@@ -370,7 +367,7 @@ export function NeedsYouPage() {
         )}
         {shown === 0 ? (
           <EmptyState icon={Inbox} title={named ? `Nothing needs you in ${named}.` : "Nothing needs you."}>
-            The director's questions, budget OKs and stuck videos show here, across every brand.
+            The director’s questions, budget OKs and stuck videos show here, across every brand.
           </EmptyState>
         ) : (
           <>

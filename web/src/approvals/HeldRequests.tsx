@@ -7,8 +7,10 @@ import { serverTime } from "../time";
 import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { PLURAL, STEPS } from "./steps";
-import type { Job } from "./useHeld";
+import type { components } from "../api/schema";
 import { refreshJobs } from "../jobs/refresh";
+
+export type Job = components["schemas"]["JobOut"];
 
 /** Which of my requests belong on this page: a video's, a script's, or my Quick clips (no video, no script). */
 export type HeldWhere = { projectId: number } | { scriptId: number } | { quick: true };

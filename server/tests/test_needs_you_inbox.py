@@ -86,3 +86,20 @@ def test_a_press_held_outside_any_video_waits_in_needs_you(app, db, owner, edito
     assert owner.post(f"/jobs/{job.id}/approve").status_code == 200
     assert owner.get("/needs-you").json()["sends"] == []
     assert Decimal(str(send["up_to"]["credits"])) >= job.credits  # never below the charge
+
+
+def test_a_take_that_fails_while_its_run_goes_on_is_the_directors_not_stuck(app, db, owner, editor):
+    from tests.test_director import _made, _run
+
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=2)
+    project = db.get(Project, pid)
+    run = director.turns(db, project)[-1].input[director.RUN]
+    assert run_progress.record(db, project, None)["ended_at"] is None  # still going
+    first = db.query(Job).filter_by(project_id=pid).first()
+    db.add(Job(workspace_id=first.workspace_id, created_by_id=first.created_by_id, kind="video",
+               provider="fake", project_id=pid, credits=Decimal("3"), status=JobStatus.failed,
+               input={"step": "clip_take", director.RUN: run}, error="busy"))  # fmt: skip
+    db.commit()
+    assert [s for s in owner.get("/needs-you").json()["stuck"] if s["video"]["id"] == pid] == []
