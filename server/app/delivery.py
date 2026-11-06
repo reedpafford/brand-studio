@@ -19,7 +19,7 @@ from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
-from app.run_progress import RUN, _found, _model, price_of, runs, said, spent, watched
+from app.run_progress import RUN, _found, _model, run_up_to, runs, said, spent, watched
 
 NOTHING = "Nothing. It’s ready to post."  # only when nothing is open (`open_items`)
 LOOK_FIRST = "Nothing yet, but look at what remains uncertain before you post it."
@@ -46,7 +46,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "unsure": " ".join(x for x in (said(decision.get("unsure") or ""),
                                            watch_report.doubts(db, project)) if x),
             "needs": said(decision.get("needs") or ""),
-            "spent": float(credits), "up_to": float(price_of(db, project)),
+            "spent": float(credits), "up_to": float(run_up_to(db, project)),
             "since": turns[0].created_at.isoformat(), "until": utcnow().isoformat(),
             "cut": number, "clips": len(spans),
             "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
