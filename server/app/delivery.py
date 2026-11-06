@@ -35,7 +35,7 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     number = cut.number if cut else 0  # Cut N as the switch and the editor name it
     spans = _spans(db, cut)
     credits, up_to = spent(db, project)  # the whole video's, at this cut (board S3-12)
-    rows = (_remade(db, project, spans, turns) + _fixed(db, project, spans, turns)
+    rows = (_merged(_remade(db, project, spans, turns) + _fixed(db, project, spans, turns))
             + _host_rows(db, project, turns[0].created_at))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
             "open": open_items(db, project, spans, decision.get("needs") or ""),
@@ -216,17 +216,19 @@ def _remade(db: Session, project: Project, spans: list[dict], turns: list[Job]) 
         did = ("Remade without them." if found.get("kind") == "text"
                else f"Remade on {_model(take, of_clip(project, row).name)}.")  # fmt: skip
         out.append({"at": round(s["start"] + min(at, s["seconds"]), 1), "clip": row.clip_id,
-                    "text": f"{_clip(row)}: {said(found['text']).rstrip('.')}. {did}"})  # fmt: skip
+                    "name": _clip(row), "found": said(found["text"]), "did": did})  # fmt: skip
     return out
 
 
 def _fixed(db: Session, project: Project, spans: list[dict], turns: list[Job]) -> list[dict]:
     """The run's free fixes on clips in the cut (a mute, a spliced word, another take the
-    watch picked), as their results said them, at the clip's start, with what the watch of the
-    cut found there."""
+    watch asked for), as their results said them, at the clip's start, with what the watch of
+    the cut found there."""
     from app.watch_cut import state
 
-    found = {f.get("clip_id"): f.get("says", "") for f in state(db, project).get("findings") or []}
+    findings: dict[str, list[dict]] = {}
+    for f in state(db, project).get("findings") or []:
+        findings.setdefault(f.get("clip_id"), []).append(f)
     where = {s["row"].clip_id: s for s in spans}
     out = []
     for j in turns:
@@ -234,13 +236,27 @@ def _fixed(db: Session, project: Project, spans: list[dict], turns: list[Job]) -
         result = j.input.get("result") or ""
         if tool not in FIXES or result.startswith("Refused") or clip not in where:
             continue
-        if tool == "pick_take" and clip not in found:
-            continue  # its own pick of the best take, not a fix
-        head = f"{_clip(where[clip]['row'])}: " + (
-            f"{said(found[clip]).rstrip('.')}. " if found.get(clip) else "")  # fmt: skip
+        mine, wants = findings.get(clip, []), {"mute": "mute", "pick_take": "pick"}.get(tool)
+        f = next((x for x in mine if not wants or x.get("fix") == wants), {})  # what it fixed
+        if tool == "pick_take" and not f:
+            continue  # its own pick of the best take (S5: "Picked take 1"), not a fix
         out.append({"at": round(where[clip]["start"], 1), "clip": clip,
-                    "text": head + said(result)})  # fmt: skip
+                    "name": _clip(where[clip]["row"]), "found": said(f.get("says") or ""),
+                    "did": said(result)})  # fmt: skip
     return out
+
+
+def _merged(rows: list[dict]) -> list[dict]:
+    """One row a finding (S5: a finding was listed once for each fix): what was found on the
+    clip, once, then each thing done about it, at the earliest of their times."""
+    by: dict[tuple[str, str], dict] = {}
+    for r in sorted(rows, key=lambda r: r["at"]):
+        found = r["found"].rstrip(".")
+        head = f"{r['name']}: {found}." if found else f"{r['name']}:"
+        m = by.setdefault((r["clip"], found), {"at": r["at"], "clip": r["clip"], "said": [head]})
+        if r["did"] not in m["said"]:
+            m["said"].append(r["did"])
+    return [{"at": m["at"], "clip": m["clip"], "text": " ".join(m["said"])} for m in by.values()]
 
 
 BLANK = {"made": "", "redid": [], "unsure": "", "open": [], "needs": "", "spent": 0, "up_to": 0,
