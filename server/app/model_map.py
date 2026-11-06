@@ -164,6 +164,43 @@ def needs(project) -> str | None:
     return LIKENESS if looks.base(looks.drawn(project)) in PHOTOREAL else None
 
 
+def expected(db, project, clip) -> bool:
+    """The quote prices this clip on Omni (rule 36: never below what it can charge): it has no
+    model of its own yet, the presenter acts in the story in a photoreal style and the shot
+    shows them, so the director's path for it is Omni. Its model stays the video's until the
+    director chooses (`choose`): nothing defaults to Omni."""
+    from app import host
+
+    return (not (clip.model or {}).get("id") and host.how(project) == "acts"
+            and needs(project) == LIKENESS and shows_talker(db, project, clip))  # fmt: skip
+
+
+def on_omni(db, project, data: dict) -> set[str]:
+    """The plan's clips the quote prices on Omni before their rows exist (`expected`)."""
+    from app import host
+
+    if host.how(project) != "acts" or needs(project) != LIKENESS or not host.presents(db, project):
+        return set()
+    item = host.host_look(db, project)
+    if item is None:
+        return set()
+    shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
+    return {c["id"] for c in data.get("clips", [])
+            if any(f"char:{item.id}" in (shots.get(i, {}).get("character_ids") or [])
+                   for i in c["shot_ids"])}  # fmt: skip
+
+
+def omni_take(db, project, clip_seconds: int):
+    """One Omni take, as `take_credits` would price it (its fixed length, 720p)."""
+    from decimal import Decimal
+
+    from app.credits import estimate
+
+    omni = _model(OMNI)
+    job = {"model": omni.id, "input": {"resolution": resolution(omni)}}
+    return estimate(db, project.workspace_id, "video", Decimal(seconds(omni, clip_seconds)), job)
+
+
 def choose(db, project, clip, model_id: str | None, reason: str) -> str:
     """The director's model for one clip (null: back to the video's), checked against the
     model map, with its new price said first. It never changes the video's own model. Omni only

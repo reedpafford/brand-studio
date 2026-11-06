@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from app import director_tools, guides, host, model_map, settings_move, talker
+from app import director_tools, guides, host, model_map, settings_move, take_watch, talker
 from app.breakdown import video_model
 from app.catalogue import get_model
 from app.clip_takes import take_credits, take_input
@@ -264,12 +264,17 @@ def test_nothing_defaults_a_shot_to_omni_only_a_reasoned_move_in_a_photoreal_sty
     monkeypatch.setattr(model_map, "shows_talker", lambda db, p, c: True)
     assert {model_map.of_clip(ugc, r).id for r in rows.values()} == {"seedance-2.0"}
     draft = db.get(ScriptDraft, ugc.script_draft_id)
-    assert host.run_price(db, draft, 20, ugc) == 0  # its shots are B-roll, already priced
+    plan = len(newest(db, ugc).data["clips"])
+    each = model_map.omni_take(db, ugc, 1) + take_watch.per_take(db, ugc.workspace_id)
+    assert host.run_price(db, draft, 20, ugc) == plan * each  # photoreal: quoted on Omni
+    assert all(model_map.expected(db, ugc, r) for r in rows.values())  # quoted, not made so
     clip = next(r for c, r in rows.items() if c not in talker.clips(db, ugc))
     move = {"tool": "clip_model", "clip_id": clip.clip_id, "model": model_map.OMNI}
     assert _move(app, db, ugc, **move, why="") == model_map.NO_REASON
     monkeypatch.setattr(model_map, "PHOTOREAL", ())  # a drawn style: Seedance keeps the face
     assert _move(app, db, ugc, **move, why="She walks to the door.") == model_map.NOT_NEEDED
+    assert host.run_price(db, draft, 20, ugc) == 0  # its shots are Seedance B-roll, priced
+    assert not any(model_map.expected(db, ugc, r) for r in rows.values())
     assert len(newest(db, ugc).data["clips"]) == len(rows)
 
 
@@ -356,3 +361,39 @@ def test_the_narrator_is_the_persons_then_the_directors_then_the_videos_own(app,
     ugc.voice, gone.archived_at = f"voice:{gone.id}", utcnow()  # removed since it was chosen
     db.commit()
     assert read(voice="English_Upbeat_Woman", emotion="sad") == "English_Upbeat_Woman"
+
+
+def test_a_photoreal_acting_presenters_planned_shots_are_quoted_on_omni(
+    app, db, owner, ugc, monkeypatch
+):
+    """The lead on #1346 (rule 36): with the plan approved but no clip rows yet, a photoreal
+    presenter who acts has their shots quoted on Omni, the director's path for them; a drawn
+    style's are quoted on its Seedance."""
+    import copy
+
+    from app.clip_prompts import newest
+    from app.models.clips import ProjectClip
+    from app.routes.estimate import _stages
+
+    db.query(ProjectClip).filter_by(project_id=ugc.id).delete()
+    db.flush()
+    monkeypatch.setattr("app.host.host_look", lambda db, p: type("I", (), {"id": 1})())
+    row = newest(db, ugc)
+    data = copy.deepcopy(row.data)
+    first = data["clips"][0]
+    shot = next(s for sc in data["scenes"] for s in sc["shots"] if s["id"] == first["shot_ids"][0])
+    shot["character_ids"] = [*(shot.get("character_ids") or []), "char:1"]  # the talker's
+    row.data = data
+    db.flush()
+
+    def left() -> float:
+        return next(s.credits for s in _stages(db, ugc) if s.stage == "clips")
+
+    talks = left()
+    ugc.presenter = "acts"
+    db.flush()
+    omni = float(model_map.omni_take(db, ugc, first["seconds"]))
+    seedance = float(model_map._model("seedance-2.0").credits_per_unit("480p")) * first["seconds"]
+    assert abs(left() - (talks - seedance + omni)) < 0.02  # that shot on Omni, the rest as before
+    monkeypatch.setattr(model_map, "PHOTOREAL", ())
+    assert abs(left() - talks) < 0.02  # a drawn style: Seedance, as ever

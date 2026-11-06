@@ -174,15 +174,31 @@ def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None,
               redos: int = 0) -> Decimal:  # fmt: skip
     """A director run's "up to" for the host (rule 36): the still and every second of the
     narration in one HeyGen take, rounded up a second. A presenter who acts in the story has
-    no take: their shots are B-roll on the style's Seedance, already in the takes' price.
-    With `redos`, the take made that many times again by its watch (app/host_watch), as a
-    run may (rule 11)."""
+    no take: their shots are B-roll on the style's Seedance, already in the takes' price; in a
+    photoreal style the director's path for them is Omni (its face kept from their picture),
+    so they're quoted there: every clip of the plan, else as many as the B-roll's seconds can
+    hold at the shortest clip, each billed Omni's fixed length with its watch (rule 36). With
+    `redos`, each made that many times again by its watch (app/host_watch), as a run may."""
+    from app import model_map
     from app.models.script_library import Script
     from app.storyboard import image_model, still_credits
 
     script = db.get(Script, draft.script_id)
-    if not hosted(script) or (video is not None and how(video) == "acts"):
+    if not hosted(script):
         return Decimal(0)
+    if video is not None and how(video) == "acts":
+        if model_map.needs(video) != model_map.LIKENESS:
+            return Decimal(0)
+        from app.breakdown import video_model
+        from app.clip_prompts import newest
+        from app.routes.estimate import broll_seconds
+
+        plan = newest(db, video)
+        clips = len((plan.data if plan else {}).get("clips") or []) or math.ceil(
+            broll_seconds(db, script, draft, video) / video_model(video).duration.min
+        )
+        each = model_map.omni_take(db, video, 1) + take_watch.per_take(db, script.workspace_id)
+        return clips * each * (1 + redos)
     still = still_credits(db, script.workspace_id, image_model(video))
     return still + _piece_price(db, script.workspace_id, seconds + 1) * (1 + redos)
 
