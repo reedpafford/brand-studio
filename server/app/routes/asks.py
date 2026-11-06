@@ -48,11 +48,12 @@ class StoryChoice(BaseModel):
     title: str
     why: str
     # what can change instead of a locked line (S3-14, kind "instead"): what it does ("softer"),
-    # its price as the viewer reads money ("up to"; null: free) and its press's state: "" not
-    # pressed, held (waiting for the owner's OK), making, done
+    # its price as the viewer reads money ("up to"), and how its press is going
     do: str = ""
-    price: AskPrice | None = None
-    made: str = ""
+    price: AskPrice | None = None  # null: free (or `cannot`)
+    made: str = ""  # "" not pressed, held, making, watching, done (the cut made again), kept
+    said: str = ""  # what happened to it, in plain words, once pressed
+    cannot: str = ""  # why it can't be made now ("Clip 2 isn't in this video any more.")
 
 
 CHOICE = ("key", "title", "why", "do")  # a choice's stored fields the card shows
@@ -191,10 +192,11 @@ def _instead(db: Session, user: User, ask: Ask, project: Project, card: AskOut,
     charges, in the viewer's money, and how its press is going."""
     card.subject = ask.subject
     for c, raw in zip(card.choices, ask.choices, strict=True):
-        credits = locked_line.price(db, project, raw)
+        c.made, c.said = locked_line.made(db, ask, c.key)
+        c.cannot = "" if c.made else locked_line.cannot(db, project, raw)
+        credits = None if c.cannot else locked_line.price(db, project, raw)
         c.price = _price(user, credits) if credits else None
-        c.made = locked_line.state(db, ask, c.key)
-    card.can = ["instead"] if mine and any(not c.made for c in card.choices) else []
+    card.can = ["instead"] if mine and any(not (c.made or c.cannot) for c in card.choices) else []
     return card
 
 

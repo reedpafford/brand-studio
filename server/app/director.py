@@ -115,7 +115,8 @@ def say(db: Session, user: User, project: Project, text: str, files: list[int] =
     said = {"by": user.id, "text": text, "at": now.isoformat(), "run": run_id,
             **({"files": list(files)} if files else {})}  # fmt: skip
     if not going and (instead := locked_line.offer(db, user, project, text)):
-        said["offer"] = instead.id  # answered at once (S3-14): no run reads it
+        if instead[1]:  # all it asked: answered at once (S3-14), no run reads it; a note that
+            said["offer"] = instead[0].id  # asks more stays for the director's next Make it
     project.director_chat = [*every, said]
     db.commit()
     if going and going.status == JobStatus.needs_owner_approval and going.input.get(START):

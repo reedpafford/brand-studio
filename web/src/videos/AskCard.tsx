@@ -21,7 +21,7 @@ export function useAsks(projectId: number, live: boolean) {
   return useQuery({
     queryKey: ["asks", projectId],
     enabled: projectId > 0,
-    refetchInterval: (q) => (live || (q.state.data ?? []).some((a) => ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making"].includes(c.made ?? ""))) ? 4_000 : false),
+    refetchInterval: (q) => (live || (q.state.data ?? []).some((a) => ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? ""))) ? 4_000 : false),
     queryFn: async () => (await api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } })).data ?? [],
   });
 }

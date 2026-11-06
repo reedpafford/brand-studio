@@ -11066,6 +11066,16 @@ export interface components {
              * @default
              */
             made: string;
+            /**
+             * Said
+             * @default
+             */
+            said: string;
+            /**
+             * Cannot
+             * @default
+             */
+            cannot: string;
         };
         /** StoryboardIn */
         StoryboardIn: {

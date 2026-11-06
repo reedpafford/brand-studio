@@ -801,13 +801,29 @@ test("S3-14: the reply to a locked line offers what can change instead at its pr
 
 test("S3-14: once chosen, the card says so and how it's going; the other choices stay pressable; a free one says free", async () => {
   setViewport(1440);
-  const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "held" }, { key: "B", title: "Shorter pause after it", why: "Tighten 0.4 s", do: "pause", price: null, made: "" }];
+  const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4), made: "held", said: "Waiting for the owner’s OK.", cannot: "" }, { key: "B", title: "Shorter pause after it", why: "Tighten 0.4 s", do: "pause", price: null, made: "", said: "", cannot: "" }];
   server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices })));
   renderApp("/b/1/videos/50");
   expect(await screen.findByText("You chose: Say it softer")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^Say it softer/ })).toBeDisabled();
-  expect(screen.getByRole("button", { name: /^Say it softer/ })).toHaveTextContent("Waiting for the owner’s OK");
+  expect(screen.getByRole("button", { name: /^Say it softer/ })).toHaveTextContent("Waiting for the owner’s OK.");
   const pause = screen.getByRole("button", { name: /^Shorter pause after it/ });
   expect(pause).toBeEnabled();
   expect(pause).toHaveTextContent("Tighten 0.4 s · free");
+});
+
+test("S3-14: a choice that can't be made now says why and can't be pressed; the cut's outcome is the server's words", async () => {
+  setViewport(1440);
+  const choices = [{ key: "A", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: null, made: "", said: "", cannot: "Clip 2 isn't in this video any more." }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices, can: [] })));
+  const view = renderApp("/b/1/videos/50");
+  const gone = await screen.findByRole("button", { name: /^Say it softer/ });
+  expect(gone).toBeDisabled();
+  expect(gone).toHaveTextContent("Clip 2 isn't in this video any more.");
+  expect(gone).not.toHaveTextContent("free");
+  view.unmount();
+  const done = [{ ...choices[0], price: price(4), made: "kept", said: "Made and watched, but the cut wasn’t made again: The music file stops at 0:41. Make the cut from the Cut tab once that’s done.", cannot: "" }];
+  server(editor, null, run({ status: "delivered", thread: [item("a12", "move", "Director", "…", null, later, { kind: "ask", ask_id: 12 })] }), cards(instead({ choices: done, can: [] })));
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByRole("button", { name: /^Say it softer/ })).toHaveTextContent("the cut wasn’t made again: The music file stops at 0:41.");
 });

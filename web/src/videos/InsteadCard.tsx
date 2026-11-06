@@ -2,11 +2,11 @@ import { Check, Clock, Film, LoaderCircle, Mic } from "lucide-react";
 import { said, useAskActions, type Ask } from "./AskCard";
 
 const ICON = { softer: Mic, cut_away: Film, pause: Clock } as const;
-const MADE: Record<string, string> = { held: "Waiting for the owner’s OK", making: "Being made. The cut is made again once it’s in", done: "Made. The cut is made again with it" };
 
 /** What the director can change instead of a locked line (S3-14): the script's words are set, so its reply offers each
  *  thing this video can really make instead, priced as its press charges ("up to"; free when it is). A press makes it at
- *  once: the card says what was chosen and how it's going, and the other choices stay pressable. */
+ *  once: the card says what was chosen and, in the server's words, how it's going (made, watched, the cut made again, or
+ *  why not). A choice that can't be made now says why and can't be pressed; the other choices stay pressable. */
 export function InsteadCard({ ask: a }: { ask: Ask }) {
   const act = useAskActions(a);
   const chosen = a.choices.filter((c) => c.made);
@@ -26,11 +26,12 @@ export function InsteadCard({ ask: a }: { ask: Ask }) {
           const busy = act.isPending && act.variables?.body && (act.variables.body as { choice?: string }).choice === c.key;
           const price = c.price ? `up to ${said(c.price)}` : "free";
           return (
-            <button key={c.key} type="button" disabled={!a.can.includes("instead") || !!c.made || act.isPending} onClick={() => press(c.key)} className="flex items-start gap-2 rounded-md border border-border-button px-2.5 py-[9px] text-left text-[13px] enabled:hover:bg-surface-2 disabled:cursor-default max-lg:min-h-control">
+            <button key={c.key} type="button" disabled={!a.can.includes("instead") || !!c.made || !!c.cannot || act.isPending} onClick={() => press(c.key)} className="flex items-start gap-2 rounded-md border border-border-button px-2.5 py-[9px] text-left text-[13px] enabled:hover:bg-surface-2 disabled:cursor-default max-lg:min-h-control">
               {busy ? <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 animate-spin" /> : <Icon size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />}
               <span className="min-w-0">
                 <span className="block font-semibold">{c.title}</span>
-                <span className="block text-xs leading-4 text-muted">{c.made ? MADE[c.made] : `${c.why} · ${price}`}</span>
+                <span className="block text-xs leading-4 text-muted">{c.made ? c.said : c.cannot || `${c.why} · ${price}`}</span>
+                {!c.made && c.said && <span className="block text-xs leading-4 text-muted">{c.said}</span>}
               </span>
             </button>
           );

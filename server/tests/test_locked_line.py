@@ -4,17 +4,25 @@ priced as its press charges ("up to"; an editor reads credits, the owner dollars
 it through Make a take's own price and holds, and the cut is made again once it's in. All on
 the stand-ins (no paid call)."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app import director, locked_line
 from app.models.asks import Ask
-from app.models.clips import FinalVideo, ProjectClip
+from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.providers import get_providers
+from app.worker import run_once
 from tests.conftest import PASSWORD
 from tests.test_director import _made, _run
 
 ASK = "Can we change “bought the dip” to “bought the top”? It feels a bit harsh."
+
+
+@pytest.fixture(autouse=True)
+def checks_on(monkeypatch):
+    monkeypatch.setattr("app.item_checks.on", lambda: True)  # as on the test site's stand-ins
 
 
 def _delivered(app, db, owner, editor) -> int:
@@ -63,29 +71,90 @@ def test_a_note_to_change_the_scripts_words_is_answered_at_once(app, db, owner, 
     assert needs["total"] == 0 and needs["questions"] == []  # nor in Needs you
 
 
-def test_saying_it_softer_makes_a_new_take_at_its_price_then_the_cut_again(app, db, owner, editor):
+def _press(editor, db, pid: int) -> dict:
+    card = _card(editor, pid)
+    pressed = editor.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert pressed.status_code == 200, pressed.text
+    return pressed.json()
+
+
+def test_saying_it_softer_makes_a_take_and_once_its_watch_is_clean_the_cut_again(
+    app, db, owner, editor
+):
     pid = _delivered(app, db, owner, editor)
     editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
     card = _card(editor, pid)
     cut = _cut(db, pid)
     was = (cut.id, list(cut.take_ids))
-    pressed = editor.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
-    assert pressed.status_code == 200, pressed.text
-    choice = pressed.json()["choices"][0]
-    assert choice["made"] == "making" and pressed.json()["can"] == []
+    pressed = _press(editor, db, pid)
+    choice = pressed["choices"][0]
+    assert choice["made"] == "making" and pressed["can"] == []
     job = db.query(Job).filter(Job.kind == "video").order_by(Job.id.desc()).first()
-    assert job.input[locked_line.FOR] == card["id"]
+    assert job.input[locked_line.FOR] == [card["id"], "A"]
     assert job.credits <= choice["price"]["credits"]  # never past the "up to" it showed
     assert locked_line.SOFTER_NOTE in str(job.input)  # how it's said; the words stay
     again = editor.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
     assert again.status_code == 409  # one at a time
-    _run(app, db, ticks=10, start=False)
-    db.expire_all()
-    assert _card(editor, pid)["choices"][0]["made"] == "done"
+    providers = get_providers(app.state.settings, app.state.storage)
+    seen = []
+    for _ in range(12):
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        seen.append(_card(editor, pid)["choices"][0]["made"])
+    assert seen.index("watching") < seen.index("done")  # its watch first (rule 35)
+    done = _card(editor, pid)["choices"][0]
+    assert done["said"] == "Made and watched. The cut is made again with it."
     row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
     cut = _cut(db, pid)
     assert row.picked_take_id in cut.take_ids and (cut.id, cut.take_ids) != was  # cut again
+    assert db.get(ClipTake, row.picked_take_id).watch["action"] == "keep"
     assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"  # no new run
+
+
+def test_a_take_its_watch_doesnt_pass_leaves_the_cut_and_says_why(app, db, owner, editor,
+                                                                   monkeypatch):  # fmt: skip
+    from app import take_watch
+
+    real = take_watch.save
+
+    def flagged(db_, job):
+        real(db_, job)
+        take = db_.get(ClipTake, job.input["take_id"])
+        take.watch = {**take.watch, "action": "flagged",
+                      "did": "Flagged for you: the fix would change what's said"}  # fmt: skip
+
+    pid = _delivered(app, db, owner, editor)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    was = _cut(db, pid).id
+    monkeypatch.setattr(take_watch, "save", flagged)
+    _press(editor, db, pid)
+    _run(app, db, ticks=12, start=False)
+    db.expire_all()
+    c = _card(editor, pid)["choices"][0]
+    assert c["made"] == "kept" and _cut(db, pid).id == was  # the cut stays as it was
+    assert c["said"] == ("Made. Flagged for you: the fix would change what's said. The cut stays "
+                         "as it was; look at clip 1 in Clips, then make the cut.")  # fmt: skip
+
+
+def test_a_cut_that_cant_be_made_again_says_why(app, db, owner, editor, monkeypatch):
+    from fastapi import HTTPException
+
+    from app.routes import project_clips
+
+    pid = _delivered(app, db, owner, editor)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+
+    def refused(**_):
+        raise HTTPException(409, "The music file stops at 0:41.")
+
+    monkeypatch.setattr(project_clips, "make_video", refused)
+    _press(editor, db, pid)
+    _run(app, db, ticks=12, start=False)
+    db.expire_all()
+    c = _card(editor, pid)["choices"][0]
+    assert c["made"] == "kept"
+    assert c["said"] == ("Made and watched, but the cut wasn’t made again: The music file stops "
+                         "at 0:41. Make the cut from the Cut tab once that’s done.")  # fmt: skip
 
 
 def test_an_editor_past_the_budget_is_held_for_the_owner(app, db, owner, editor, monkeypatch):
@@ -114,6 +183,7 @@ def test_who_may_press_and_when_nothing_is_offered(app, db, owner, editor):
     db.commit()
     editor.post(url, json={"text": "Can we change “something nobody says”?"})  # not in it
     assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
+    db.expire_all()
     db.get(Project, pid).director_chat = []
     db.commit()
     editor.post(url, json={"text": ASK})
@@ -146,3 +216,83 @@ def test_nothing_is_offered_where_the_clip_doesnt_carry_the_voice(app, db, owner
     out = editor.post(f"/projects/{pid}/director/messages", json={"text": ASK}).json()
     assert out["unread"] == 1  # it waits for the director, as any note does
     assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
+
+
+NOT_ASKS = [  # notes that quote the words but don't ask to change them (QA on e17e902f)
+    "When he says “bought the dip”, cut to the close-up",
+    "Use a wider shot when he says “bought the dip”",
+    "Drop the music under “bought the dip”",
+    "Instead of the close-up on “bought the dip”, show the chart",
+    "Can you say “bought the dip” louder?",
+    "Swap the B-roll on “bought the dip” for the trading screen",
+    "Remove the stray sound after “bought the dip”",
+    "Make “bought the dip” land harder and hold on the face after “the”",
+    "Change “bough” to “branch”",  # not the script's words as a whole word
+]
+ASKS = [
+    "Can we change “bought the dip” to “bought the top”?",
+    "Swap the words “bought the dip” for “bought more”, please",
+    "Reword “bought the dip”",
+    "Say “bought the top” instead of “bought the dip”",
+    "Could it be 'bought the top' instead of 'bought the dip'?",
+]
+
+
+def test_only_a_note_that_asks_to_replace_the_words_is_answered():
+    from tests.test_script_library import SCRIPT
+
+    for text in NOT_ASKS:
+        assert locked_line.asked(text, SCRIPT) is None, text
+    for text in ASKS:
+        assert locked_line.asked(text, SCRIPT) == ("bought the dip", True), text
+    both = "Change “bought the dip” to “bought the top”, and make the end brighter."
+    assert locked_line.asked(both, SCRIPT) == ("bought the dip", False)
+
+
+def test_a_note_that_asks_more_keeps_the_rest_for_the_director(app, db, owner, editor):
+    pid = _delivered(app, db, owner, editor)
+    text = "Change “bought the dip” to “bought the top”, and make the end brighter."
+    out = editor.post(f"/projects/{pid}/director/messages", json={"text": text}).json()
+    assert _card(editor, pid)["choices"]  # what can change instead of the words, at once
+    assert out["unread"] == 1  # the rest waits for the next Make it, as any note does
+    note = next(t for t in out["thread"] if t["kind"] == "message" and t["text"] == text)
+    assert note["answered"] is False
+
+
+def test_false_positives_drop_nothing(app, db, owner, editor):
+    pid = _delivered(app, db, owner, editor)
+    for text in NOT_ASKS[:3]:
+        db.expire_all()
+        db.get(Project, pid).director_chat = []
+        db.commit()
+        out = editor.post(f"/projects/{pid}/director/messages", json={"text": text}).json()
+        assert out["unread"] == 1, text
+    assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
+
+
+def test_only_where_the_words_are_set_and_only_while_it_can_be_made(app, db, owner, editor):
+    pid = _delivered(app, db, owner, editor)
+    project = db.get(Project, pid)
+    draft, project.script_draft_id = project.script_draft_id, None  # not a published script's
+    db.commit()
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    assert not db.query(Ask).filter_by(project_id=pid, kind="instead").count()
+    db.expire_all()
+    project = db.get(Project, pid)
+    project.script_draft_id, project.director_chat = draft, []
+    db.commit()
+    editor.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    card = _card(editor, pid)
+    assert editor.post(f"/projects/{pid}/director").status_code == 201  # a run starts
+    going = _card(editor, pid)
+    assert going["can"] == [] and going["choices"][0]["cannot"] == locked_line.RUNNING
+    no = editor.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert (no.status_code, no.json()["detail"]) == (409, locked_line.RUNNING)
+    editor.post(f"/projects/{pid}/director/stop")
+    row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
+    row.clip_id = "c9"  # its clip isn't in the video any more
+    db.commit()
+    gone = _card(editor, pid)["choices"][0]
+    assert gone["cannot"] == "Clip 1 isn't in this video any more." and gone["price"] is None
+    no = editor.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    assert (no.status_code, no.json()["detail"]) == (409, "Clip 1 isn't in this video any more.")
