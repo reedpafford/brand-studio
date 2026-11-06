@@ -3,14 +3,17 @@ waits for Make it, then plans the whole video again (a new plan, new shots, ever
 anew) instead of carrying on from its shots. What was made stays, as earlier plans and takes.
 All on the stand-ins (no paid call)."""
 
-from datetime import timedelta
+import json
+from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
-from app import director
+from app import asks, director
 from app.db import utcnow
+from app.models.asks import Ask
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ClipTake, ProjectClip
+from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.providers import get_providers
 from app.worker import run_once
@@ -65,17 +68,24 @@ def test_start_the_plan_again_plans_the_whole_video_again_after_make_it(app, db,
     assert editor.post(f"/projects/{pid}/director").status_code == 409  # nor Carry on beside it
     _run(app, db, ticks=4, start=False)
     assert AGAIN not in _results(db, pid)  # nothing is planned or made before Make it
-    assert director.treatment(db, project)  # its treatment, then its start card
-    _run(app, db)
+    run = director.turns(db, project)[-1].input[director.RUN]
+    mine = db.query(Job).filter(Job.input["step"].as_string() == "treatment",
+                                Job.input[director.RUN]["id"].as_string() == run["id"],
+                                Job.status == JobStatus.succeeded)  # fmt: skip
+    assert mine.count() == 1  # its own new treatment
+    card = db.query(Ask).filter_by(project_id=pid, kind="start", run=run["id"]).one()
+    assert asks.state(db, card) == "open"  # and its own start card, waiting for Make it
+    _run(app, db, ticks=150)
     db.expire_all()
     project = db.get(Project, pid)
     said = _results(db, pid)
-    assert said[-1] == "Delivered."
-    assert said.index(AGAIN) < said.index("Drawing the stills.")  # then on from the new plan
+    assert "Made the cut." in said  # (a remake past the budget then waits for the owner)
+    assert said.index(AGAIN) < said.index("Drawing the stills.") < said.index("Made the cut.")
     assert project.plan["made_at"] > plan_before  # a new plan, the old one in Earlier plans
     assert db.query(BreakdownVersion).filter_by(project_id=pid).count() > versions  # new shots
-    for row in db.query(ProjectClip).filter_by(project_id=pid):  # each clip has its take
-        assert row.picked_take_id is not None
+    pressed = datetime.fromisoformat(run[director.FRESH])
+    for row in db.query(ProjectClip).filter_by(project_id=pid):  # every clip made again
+        assert db.get(ClipTake, row.picked_take_id).created_at > pressed
     assert before <= {t for ids in _takes(db, pid).values() for t in ids}  # what was made stays
 
 
@@ -107,52 +117,64 @@ def test_a_fresh_run_reads_no_plan_shots_or_takes_of_its_own_until_it_makes_them
     pid = _stopped(app, db, owner, editor)
     project = db.get(Project, pid)
     picked = _picked(db, pid)
-    assert any(picked.values())
+    assert all(picked.values())
     run = {"id": "r", "turn": 1, "redos": {}, director.FRESH: "2999-01-01T00:00:00"}  # pressed
-    # after all of it was made
+    # after all of it was made: no plan, shots or takes of its own yet
     assert director.fresh(db, project, run) == (True, True)
     video = director.turn_input(db, project, run)["prompt"]
     assert '"plan": "none"' in video and '"shots": "none"' in video
     director.unpick_old_takes(db, project, run)  # its new shots aren't made yet: nothing goes
-    assert _picked(db, pid) == picked
+    assert _picked(db, pid) == picked and director.UNPICKED not in run
     assert director.fresh(db, project, {}) == (False, False)  # Carry on: as it was
-    old = {"id": "r", director.FRESH: "2000-01-01T00:00:00"}  # its own plan and shots made
-    assert director.fresh(db, project, old) == (False, False)
-    director.unpick_old_takes(db, project, old)  # takes made after the press stay picked
-    assert _picked(db, pid) == picked
+    assert '"set_aside": true' not in director.turn_input(db, project, {**run, director.FRESH: ""})[
+        "prompt"]  # fmt: skip
 
 
-def test_once_its_new_shots_have_prompts_each_rewritten_clip_is_made_again(app, db, owner, editor):
-    """The new plan's changed shots get new prompts (`clip_prompts`): their takes from before
-    the press stay only as earlier takes, so each gets a take from its new prompt. A clip whose
-    shots the new plan kept as they were (moved to the new shots, not rewritten) keeps its take."""
+def test_once_its_new_shots_are_made_every_take_from_before_is_set_aside(app, db, owner, editor):
+    """Once the new plan's shots are made, every clip's take from before the press stays only as
+    an earlier take: the director reads it `set_aside`, a pick of it is refused, and the clip
+    gets a take of its own."""
     pid = _stopped(app, db, owner, editor)
     project = db.get(Project, pid)
     picked = _picked(db, pid)
-    assert all(picked.values())
-    run = {"id": "r", director.FRESH: utcnow().isoformat()}  # pressed now
-    later = utcnow() + timedelta(seconds=1)  # its plan and shots made after it
+    run = {"id": "r", "turn": 1, "redos": {}, director.FRESH: utcnow().isoformat()}
+    later = utcnow() + timedelta(seconds=1)  # its plan and shots made after the press
     project.plan = {**project.plan, "made_at": later.isoformat()}
     old = db.query(BreakdownVersion).filter_by(project_id=pid).order_by(BreakdownVersion.id)
     old = old.all()[-1]
-    new = BreakdownVersion(project_id=pid, script_version=old.script_version, source="claude",
-                           data=old.data, created_at=later)  # fmt: skip
-    db.add(new)
+    db.add(BreakdownVersion(project_id=pid, script_version=old.script_version, source="claude",
+                            data=old.data, created_at=later))  # fmt: skip
     db.commit()
-    row = db.query(ProjectClip).filter_by(project_id=pid).first()
-    was, row.breakdown_id = row.breakdown_id, new.id  # its shots kept as they were: moved over
-    db.commit()
+    video = json.loads(director.turn_input(db, project, run)["prompt"].split("<video>")[1]
+                       .split("</video>")[0])  # fmt: skip
+    takes = [t for c in video["clips"] for t in c["takes"]]
+    assert takes and all(t["set_aside"] for t in takes)
+    clip, take = next(iter(picked.items()))
+    said = director._aside(db, project, run, {"tool": "pick_take", "take_id": take})
+    assert said.startswith("Refused: take 1 of") and "Make a new take" in said
     director.unpick_old_takes(db, project, run)
     db.expire_all()
-    assert _picked(db, pid) == picked  # it keeps its take
+    assert all(t is None for t in _picked(db, pid).values()) and run[director.UNPICKED]
+    assert set(picked.values()) <= {t for ids in _takes(db, pid).values() for t in ids}  # kept
+
+
+def test_a_take_from_an_earlier_prompt_is_set_aside_in_any_run(app, db, owner, editor):
+    """A clip whose prompt was written again (a re-plan, a split) never has its take from the
+    earlier prompt picked: the stand-in makes it a take from its prompt now."""
+    pid = _stopped(app, db, owner, editor)
+    project = db.get(Project, pid)
     row = db.query(ProjectClip).filter_by(project_id=pid).first()
-    row.breakdown_id = was  # its shots changed: its prompt is being written again
+    take = db.get(ClipTake, row.picked_take_id)
+    take.prompt = (take.prompt or row.prompt) + " (earlier)"
     db.commit()
-    director.unpick_old_takes(db, project, run)
-    db.expire_all()
-    assert all(t is None for t in _picked(db, pid).values())
-    there = {t for ids in _takes(db, pid).values() for t in ids}
-    assert set(picked.values()) <= there  # still there, as earlier takes
+    state = director.video_state(db, project)
+    (mine,) = [c for c in state["clips"] if c["clip_id"] == row.clip_id]
+    assert all(t["set_aside"] for t in mine["takes"] if t["id"] == take.id)
+    state = {**state, "allowed": {}, "treatment": "written", "started": True,
+             "stills_review": {"state": "done"}}  # fmt: skip
+    assert [c["clip_id"] for c in state["clips"]] == [row.clip_id]
+    made = director.choose(state)
+    assert (made["tool"], made["clip_id"]) == ("make_take", row.clip_id)
 
 
 def _picked(db, pid: int) -> dict[str, int | None]:

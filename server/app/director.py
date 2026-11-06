@@ -503,6 +503,9 @@ def _act(db: Session, job: Job, storage) -> None:
     tool = decision.get("tool")
     if not run.get("ok", True) and tool not in PRE_OK:  # nothing is spent before Make it
         return _record(db, job, run, START_FIRST if _written(db, run) else TREATMENT_FIRST)
+    unpick_old_takes(db, project, run)  # "Start the plan again": its new shots are made
+    if tool == "pick_take" and (aside := _aside(db, project, run, decision)):
+        return _record(db, job, run, aside)
     if tool == "deliver":
         watch = _watch(db, project)
         watched = watch.get("current") and watch.get("state") in ("done", "failed")
@@ -567,6 +570,17 @@ def _act(db: Session, job: Job, storage) -> None:
         sid = decision.get("shot_id") or ""
         run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}
     _record(db, job, run, result)
+
+
+def _aside(db: Session, project: Project, run: dict, decision: dict) -> str:
+    """A pick of a take that's set aside (`set_aside`): refused, saying what to do."""
+    clips = video_state(db, project)["clips"]
+    set_aside(db, project, run, clips)
+    for c in clips:
+        for t in c["takes"]:
+            if t["id"] == decision.get("take_id") and t["set_aside"]:
+                return SET_ASIDE.format(t["number"], c["clip_id"])
+    return ""
 
 
 def _stills_review(db: Session, project: Project) -> dict:
@@ -815,28 +829,53 @@ def fresh(db: Session, project: Project, run: dict | None) -> tuple[bool, bool]:
 
 
 def unpick_old_takes(db: Session, project: Project, run: dict | None) -> None:
-    """ "Start the plan again" (S3-08): as its new shots' prompts are written, each rewritten
-    clip's take from before the press stays only as an earlier take, so that clip is made again
-    from its new prompt. A clip whose shots the new plan kept as they were keeps its take, and a
-    UGC talker's clips are cut from its take at the cut, so they keep theirs."""
-    from datetime import datetime
-
+    """ "Start the plan again" (S3-08): once its new shots are made, every clip's take from
+    before the press stays only as an earlier take (`set_aside`), so each clip is made again
+    for the new plan. A UGC talker's clips are cut from its take at the cut, so they keep
+    theirs. Once a run (`UNPICKED`)."""
     from app import talker
-    from app.clip_prompts import newest
 
-    if not (at := (run or {}).get(FRESH)) or any(fresh(db, project, run)):
+    if not (at := _pressed(run)) or run.get(UNPICKED) or any(fresh(db, project, run)):
         return
-    said, bd = talker.clips(db, project), newest(db, project)
+    said = talker.clips(db, project)
     for row in db.scalars(
         select(ProjectClip).where(
             ProjectClip.project_id == project.id, ProjectClip.picked_take_id.is_not(None)
         )
     ):
-        take = db.get(ClipTake, row.picked_take_id)
-        old = take.created_at < datetime.fromisoformat(at)
-        if old and row.clip_id not in said and bd is not None and row.breakdown_id != bd.id:
+        if row.clip_id not in said and db.get(ClipTake, row.picked_take_id).created_at < at:
             row.picked_take_id = None
+    run[UNPICKED] = True
     db.commit()
+
+
+UNPICKED = "unpicked"  # in a fresh run: its takes from before the press were set aside
+
+
+def _pressed(run: dict | None):
+    from datetime import datetime
+
+    at = (run or {}).get(FRESH)
+    return datetime.fromisoformat(at) if at else None
+
+
+def set_aside(db: Session, project: Project, run: dict | None, clips: list[dict]) -> None:
+    """In a run started with "Start the plan again", each clip's takes made before the press
+    are `set_aside` too, once its new shots are made (a talker's clips keep theirs)."""
+    if not (at := _pressed(run)) or any(fresh(db, project, run)):
+        return
+    for c in clips:
+        if c.get("talker"):
+            continue
+        old = {t.id for t in db.scalars(select(ClipTake).where(
+            ClipTake.id.in_([t["id"] for t in c["takes"]] or [0]),
+            ClipTake.created_at < at))}  # fmt: skip
+        for t in c["takes"]:
+            t["set_aside"] = t["set_aside"] or t["id"] in old
+
+
+SET_ASIDE = ("Refused: take {} of {} is set aside (an earlier prompt, or before the plan was "
+             "started again). Make a new take of it.")  # fmt: skip
 
 
 def turn_input(db: Session, project: Project, run: dict, job_id: int | None = None) -> dict:
@@ -875,6 +914,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
         video["plan"] = "none"
     if shots:
         video["shots"], video["missing_looks"] = "none", []
+    set_aside(db, project, run, video["clips"])  # its takes from before the press
     from app.routes.reel_video import look_reference
 
     questions, reel = asks.for_director(db, project), look_reference(db, project)
@@ -1019,7 +1059,9 @@ def video_state(db: Session, project: Project) -> dict:
             doubt = watched["action"] == "unsure" or (mark == "flagged" and not notes)
             out.append({"id": t.id, "number": t.number,  # the owner's, never a paid redo
                         "verdict": "unsure" if doubt else mark,
-                        "notes": [] if doubt else notes, "watch": watched})  # fmt: skip
+                        "notes": [] if doubt else notes, "watch": watched,
+                        # made from an earlier prompt of the clip: never picked again by it
+                        "set_aside": t.prompt is not None and t.prompt != row.prompt})  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
                       "shots": [{"id": i, "action": shots[i].get("action", ""),
                                  "line": shots[i].get("line")}
@@ -1144,8 +1186,13 @@ def choose(state: dict) -> dict:
         return asked  # a new note: what the person asked, once; then cut and deliver again
     if not clips or any(c["stale"] for c in clips):
         return go("clip_prompts", "The clips need their prompts.")
-    if any(not c["takes"] and not c.get("talker") for c in clips):
-        return go("make_take", "Some clips have no take yet.")
+    # a take that's set aside (an earlier prompt, or before Start the plan again) is never picked
+    now = {c["clip_id"]: [t for t in c["takes"] if not t.get("set_aside")] for c in clips}
+    if bare := [c for c in clips if not now[c["clip_id"]] and not c.get("talker")]:
+        if all(c["picked_take_id"] is None for c in bare):
+            return go("make_take", "Some clips have no take yet.")
+        return go("make_take", f"{bare[0]['clip_id']} has no take from its prompt now.",
+                  clip_id=bare[0]["clip_id"])  # fmt: skip
     clips = [c for c in clips if c["takes"]]  # a talker's are cut from its take at the cut
     for c in clips:  # the brand said wrong, with a clean copy in the same voice (word_splice)
         if c.get("can_splice"):
@@ -1163,8 +1210,10 @@ def choose(state: dict) -> dict:
             return go("make_take", f"The watch flagged {c['clip_id']}.",
                       clip_id=c["clip_id"], note=note[:500])  # fmt: skip
     for c in clips:  # the newest clean take (Builder-Server-8's best-take function to come)
-        clean = next((t for t in reversed(c["takes"]) if t["verdict"] == "clean"), None)
-        best = clean or c["takes"][-1]
+        if not now[c["clip_id"]]:
+            continue  # a talker's, cut from its take at the cut
+        clean = next((t for t in reversed(now[c["clip_id"]]) if t["verdict"] == "clean"), None)
+        best = clean or now[c["clip_id"]][-1]
         by_watch = picked_by_watch.get(c["clip_id"])  # none picked yet: never the watch's pick
         if c["picked_take_id"] != best["id"] and (
             c["picked_take_id"] is None or c["picked_take_id"] != by_watch

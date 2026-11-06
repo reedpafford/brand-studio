@@ -87,9 +87,6 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         if tool == "clip_prompts":
             storyboard.approve_all(**me)  # the stills it moves on with
             project_clips.write_prompts(body=None, **me)
-            from app.director import unpick_old_takes
-
-            unpick_old_takes(db, project, run)  # "Start the plan again": every clip made anew
             return "Writing the clip prompts."
         if tool == "make_take":
             from app import talker

@@ -127,7 +127,7 @@ class RunStoppedOut(BaseModel):
     at: str
     made: int
     total: int
-    carry_on: str  # "Carry on · up to $10.74 more": the rest of the video's "up to"
+    carry_on: str  # "Carry on · up to $X more": Carry on starts a new run, so its whole "up to"
 
 
 class RunFixOut(BaseModel):

@@ -347,6 +347,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["director", id], data);
+      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
       void queryClient.invalidateQueries({ queryKey: ["idea", id] });
       return refreshJobs(queryClient);
     },
@@ -359,7 +360,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const mayStart = fs ? owner : maker; // a freestyle's run is the owner's to start again; a script video's, its maker's
   const blocked = run?.start_blocked || null;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
-  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => again.mutate(), onPlanAgain: () => planAgain.mutate(), busy: again.isPending, planBusy: planAgain.isPending, blocked, error: (again.error ?? planAgain.error)?.message ?? null }) : null;
+  const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), again.mutate()), onPlanAgain: () => (again.reset(), planAgain.mutate()), busy: again.isPending, planBusy: planAgain.isPending, blocked, error: (again.error ?? planAgain.error)?.message ?? null }) : null;
   const presses = !archived && !lookOnly && (
     <>
       {ended && mayStart && p && (
