@@ -216,9 +216,23 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
     return out
 
 
+def up_to(db: Session, p: Project, status: Status, known: Facts,
+          fs: Freestyle | None = None) -> Decimal:  # fmt: skip
+    """The video's "up to", one figure everywhere (S1-04, P-02, S3-01): once approved (its
+    freestyle's OKs or a Make it), or before a run, the header's, run card's and note's
+    (`run_progress.spent`); else the budget with the director's own limit beside it."""
+    from app import run_progress
+
+    if fs is None:
+        fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
+    if (fs is not None and fs.up_to) or asks.approved_total(db, p) or status.reason == START:
+        return run_progress.spent(db, p)[1]  # one figure with the start, run card and note
+    return _most(p, known)
+
+
 def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> Cost | None:
-    """Delivered: what it cost. Working: the most it can charge before another OK (its budget
-    and the director's own limit, never below what it has used). Held: what it has spent (the
+    """Delivered: what it cost. Working: its "up to" as its header says it (`up_to`, never
+    below what it has used). Held: what it has spent (the
     held step says its own price where it's asked). Not started: its run's price. Else what it
     has used so far; None for an idea with nothing used and no price yet. Every figure before a
     charge is "up to" and rounded up (rule 36)."""
@@ -229,8 +243,8 @@ def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> 
     kind, credits = "so_far", used
     if status.kind == "delivered":
         kind = "total"
-    elif status.kind == "working":
-        kind, credits = "up_to", _most(p, known)
+    elif status.kind == "working":  # the header's own "up to" (one figure everywhere)
+        kind, credits = "up_to", _up(max(up_to(db, p, status, known), used))
     elif status.kind == "waiting":  # S1-04, S9-01: what it has spent
         kind = "total"
     elif status.reason == START and not used:
@@ -330,7 +344,7 @@ def head(db: Session, user: User, p: Project) -> Head:
     else the budget with the director's own limit beside it, as a working card reads
     it (rule 34); before any run, its run's price. Never below what it has used, and rounded
     up (rule 36)."""
-    from app import narration, run_progress
+    from app import narration
     from app.models.folders import Folder
     from app.script_library import format_id
 
@@ -338,11 +352,7 @@ def head(db: Session, user: User, p: Project) -> Head:
     status = statuses(db, user, [p], known)[p.id]
     used = known.used.get(p.id, Decimal(0))
     fs = db.scalar(select(Freestyle).where(Freestyle.project_id == p.id))
-    top: Decimal | None
-    if (fs is not None and fs.up_to) or asks.approved_total(db, p) or status.reason == START:
-        top = run_progress.spent(db, p)[1]  # one figure with the start, run card and note
-    else:
-        top = _most(p, known)
+    top = up_to(db, p, status, known, fs)
     script = narration.video_script(db, p)
     try:
         kind = guides.format_(format_id(script))["name"] if script else ""
