@@ -414,14 +414,16 @@ def swaps(db: Session, user: User, project: Project, tl: dict, p: dict) -> list[
         Project.workspace_id == project.workspace_id,
         Project.id != project.id,
         Project.archived_at.is_(None),
+        Project.aspect_ratio == project.aspect_ratio,  # the same shape (`_swap_source`)
     )
     if not user.is_owner:
         seen = seen.where(Project.created_by_id == user.id)
     picked = ProjectClip.picked_take_id == ClipTake.id
-    others = db.scalars(select(ClipTake).join(ProjectClip, picked)
+    others = db.execute(select(ClipTake, Project.name).join(ProjectClip, picked)
+                        .join(Project, Project.id == ProjectClip.project_id)
                         .where(ProjectClip.project_id.in_(seen))
                         .order_by(ClipTake.id.desc()).limit(LIBRARY))  # fmt: skip
-    out += [one(t, "Library", "library") for t in others]
+    out += [one(t, f"{name[:40]}, take {t.number}", "library") for t, name in others]
     return [s for s in out if s["kind"] == "in_cut"
             or _swappable(db, user, project, p, s["take_id"], tl)]  # fmt: skip
 

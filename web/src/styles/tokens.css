@@ -55,6 +55,9 @@
   --ink: #1b1c1f;       /* v6 S1-07: the selection bar, near-black in both themes (white words, 16:1) */
   --danger: #eb6e5e;   --danger-soft: #331a18;    /* 5.3:1 */
 
+  /* The cut editor's music track (v6 S7) */
+  --track-music: #c3a3ea;  --track-music-soft: #241b30;
+
   /* Script Enhance marks */
   --mark: #2c2715;
   --mark-line: #f2c14e;
@@ -154,6 +157,7 @@
   --danger: #c23b2f;   --danger-soft: #fde9e7;
   --mark: #fff3c4;
   --mark-line: #c99400;
+  --track-music: #6a3f9c; --track-music-soft: #f4effa;
   --shadow-card: none;
   --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
   --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);
@@ -169,6 +173,7 @@
     --disabled-bg: #ebebef; --disabled-text: #62656e;
     --success: #1a7a4b; --success-soft: #e6f4ec; --warning: #8f5c12; --warning-soft: #fbf1df;
     --danger: #c23b2f; --danger-soft: #fde9e7; --mark: #fff3c4; --mark-line: #c99400;
+    --track-music: #6a3f9c; --track-music-soft: #f4effa;
     --shadow-card: none; --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12);
     --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);
   }

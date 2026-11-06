@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "../App";
+import { cutOut } from "../test/cut";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { renderApp } from "../test/render";
@@ -266,9 +267,20 @@ test("after a breakdown edit, Clips already made stays open (out of date), not s
   expect(screen.getByRole("list", { name: "Clip list" })).toBeInTheDocument();
 });
 
+test("the Cut tab watches the cut, and Edit opens the cut editor (screen 10)", async () => {
+  setViewport(1440);
+  fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/video": [200, { number: 2, file_id: 90, take_ids: [2], out_of_date: false }], "GET /projects/9/cut": [200, cutOut()] });
+  open("?step=downloads");
+  expect(await screen.findByRole("radio", { name: "Watch" })).toBeChecked();
+  expect(screen.getByLabelText("The cut")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("radio", { name: "Edit" }));
+  expect(await screen.findByLabelText("Cut editor")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Cut 2" })).toBeInTheDocument();
+});
+
 test("the Cut tab puts the clips together by itself the first time, for free", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "POST /projects/9/cut": [202, { number: null, making: { number: 1, percent: 0, doing: "putting the clips together", about_seconds: 10, changes: 0 } }] });
+  const calls = fakeServer({ ...toClips, "GET /projects/9/clips": [200, [done]], "GET /projects/9/cut": [200, cutOut({ number: null, file_id: null, versions: [] })], "POST /projects/9/cut": [202, cutOut({ number: null, file_id: null, making: { number: 1, percent: 0, doing: "putting the clips together", about_seconds: 10, changes: 0 } })] });
   open("?step=downloads");
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /projects/9/cut")).toHaveLength(1));
 });

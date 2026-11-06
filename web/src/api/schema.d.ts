@@ -6798,6 +6798,8 @@ export interface components {
             can_undo: boolean;
             /** Can Redo */
             can_redo: boolean;
+            /** Can Edit */
+            can_edit: boolean;
             /** Sound Credits */
             sound_credits: number;
             /** Sound Usd */
@@ -9521,6 +9523,8 @@ export interface components {
             take_id: number | null;
             /** File Id */
             file_id: number | null;
+            /** Poster File Id */
+            poster_file_id: number | null;
             /** Source */
             source: string;
             /** Start */
@@ -11683,6 +11687,8 @@ export interface components {
             take_id: number;
             /** File Id */
             file_id: number;
+            /** Poster File Id */
+            poster_file_id: number | null;
             /** Label */
             label: string;
             /**

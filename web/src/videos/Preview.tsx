@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Download } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { Download, Scissors } from "lucide-react";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
-import { Banner, Button, Skeleton, ViewOnly, buttonClass } from "../components";
+import { Banner, Button, Skeleton, ViewOnly, buttonClass, useViewOnly } from "../components";
 import { mmss } from "../freestyle/FromScript";
 import { notInShots } from "../projects/AssetCard";
 import { AssetsPane, useAssets } from "../projects/AssetsPane";
@@ -21,6 +21,7 @@ import { FinalSong, SongStrip, useSongChanged } from "../scripts/VideoSong";
 import { mp4, type Head } from "./VideoHead";
 import { Filmstrip, SceneRow, useSeen, type Progress } from "./RunCard";
 import { useRail } from "../useMedia";
+import { CutEditor } from "../cut/CutEditor";
 
 type Project = components["schemas"]["ProjectOut"];
 
@@ -61,8 +62,37 @@ function Empty({ title, children, action }: { title: string; children: string; a
 }
 const SOON = "The director writes a treatment, then the scenes fill in with stills and clips as they’re made. The cut plays here when it’s ready.";
 
-/** The cut (S3-09): the player, the downloads and what it's made of. The cut editor (screen 10) mounts its own pane here. */
-function CutPane({ p, head, progress, run }: PaneProps) {
+/** The Cut tab (S3-09, S7): Watch (the delivered cut, its downloads and what changed) or Edit (the cut editor, screen 10).
+ *  Before the first cut, and while it's made or if it failed, the editor shows where it is (S7-04, S7-06). */
+function CutPane(props: PaneProps) {
+  const { p, progress } = props;
+  const [mode, setMode] = useState<"watch" | "edit">("watch");
+  const viewOnly = useViewOnly(); // someone else's video: Watch only (its editor would offer nothing)
+  const cut = useProjectVideo(p.id);
+  const live = useCut(p.id).data;
+  if (cut.isPending) return <Skeleton className="h-[533px] w-[300px] max-w-full rounded-[10px]" />;
+  if (!cut.data && progress.clips.total === 0) return <Empty title="The cut plays here when it’s ready">{SOON}</Empty>;
+  // Every clip approved and no cut yet: the editor puts it together the first time this opens, for free.
+  const editor = <CutEditor projectId={p.id} aspect={p.aspect_ratio} projectName={props.head?.title ?? p.name} auto={!viewOnly} />;
+  if (!cut.data || live?.making?.number === 1) return editor;
+  if (viewOnly) return <CutWatch {...props} />;
+  return (
+    <div className="space-y-4">
+      <div role="radiogroup" aria-label="Cut view" className="ml-auto flex w-fit gap-0.5 rounded-md bg-surface-2 p-0.5">
+        {(["watch", "edit"] as const).map((m) => (
+          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`flex items-center gap-1 rounded-sm px-3 py-1 text-sm ${mode === m ? "bg-surface text-text shadow-raised" : "text-muted"}`}>
+            {m === "edit" && <Scissors size={14} strokeWidth={1.75} aria-hidden />}
+            {m === "watch" ? "Watch" : "Edit"}
+          </button>
+        ))}
+      </div>
+      {mode === "edit" ? editor : <CutWatch {...props} />}
+    </div>
+  );
+}
+
+/** Watch (S3-09): the cut, its downloads and what changed after watching. */
+function CutWatch({ p, head, progress, run }: PaneProps) {
   const { media, progress: now } = useProgress(p.id);
   const cut = useProjectVideo(p.id);
   const video = cut.data;
@@ -85,34 +115,8 @@ function CutPane({ p, head, progress, run }: PaneProps) {
   const settings = useVideoSettings(p.id);
   const songChanged = useSongChanged(p.id, video?.song_take_id);
   const remake = useMakeCut(p.id); // made on the server; the cut before keeps playing
-  const making = useCut(p.id).data?.making;
   const left = progress.clips.total - progress.clips.approved;
-  // Every clip approved and no cut yet (a video made by hand): it's put together the first time this opens, for free.
-  const ready = !cut.isPending && !video && progress.clips.total > 0 && left === 0;
-  const asked = useRef(false);
-  useEffect(() => {
-    if (ready && !asked.current) {
-      asked.current = true;
-      remake.mutate();
-    }
-  });
-  if (cut.isPending) return <Skeleton className="h-[533px] w-[300px] max-w-full rounded-[10px]" />;
-  if (!video && (remake.isPending || making || (ready && !remake.isError)))
-    return (
-      <div className="space-y-3" role="status">
-        <p className="text-sm text-muted">Putting your clips together…</p>
-        <Skeleton className="h-[533px] w-[300px] max-w-full rounded-[10px]" />
-      </div>
-    );
-  if (!video)
-    return left === 0 && progress.clips.total > 0 ? (
-      // Every clip approved: it's being put together, or that failed and says why with the press to try again (rule 22).
-      <Banner title="The cut couldn't be put together." action={<Button busy={remake.isPending} onClick={() => remake.mutate()}>Make the cut · free</Button>}>
-        Nothing was charged. {remake.error?.message}
-      </Banner>
-    ) : (
-      <Empty title="The cut plays here when it’s ready">{progress.clips.total > 0 ? `Approve every clip first (${left} left). The cut is put together for free.` : SOON}</Empty>
-    );
+  if (!video) return null; // CutPane shows the editor until there's a cut
   const name = mp4(head?.title ?? p.name);
   const owner = head?.spent.usd != null;
   const s = settings.data;

@@ -34,7 +34,8 @@ class PieceOut(BaseModel):
     id: str  # c7, or c7.12 for a piece split off it
     clip_id: str
     take_id: int | None
-    file_id: int | None  # the take's video: its picture on the B-roll lane
+    file_id: int | None  # the take's video
+    poster_file_id: int | None  # the still it was made from: its picture on the B-roll lane
     source: str  # where its take is from: "Clip 7", "Take 1", "Bloated after pizza, take 2"
     start: float
     end: float
@@ -156,6 +157,7 @@ class CutOut(BaseModel):
     changes: int  # edits not in the cut yet
     can_undo: bool
     can_redo: bool
+    can_edit: bool  # whoever made the video, or the owner: everyone else only watches
     sound_credits: float  # Add sound effects on a clip: one run, "up to" ("under 1 credit")
     sound_usd: float | None  # the same in dollars, for the owner only ("up to $0.01")
     going: list[GoingOut]  # what the next cut changes
@@ -188,6 +190,7 @@ class CutFixIn(BaseModel):
 class SwapOut(BaseModel):
     take_id: int
     file_id: int
+    poster_file_id: int | None
     label: str  # "In the cut", "Take 1", "Clip 4", "Library"
     kind: Literal["in_cut", "take", "clip", "library"]
 
@@ -287,6 +290,7 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
     pieces = [PieceOut(**{k: p[k] for k in ("id", "clip_id", "take_id", "source", "start",
                                             "end", "edited", "director")},
                        file_id=_file(db, p["take_id"]), in_point=p["from"],
+                       poster_file_id=cut.poster(db, p["take_id"]),
                        changed=p["id"] in changed,
                        said=" ".join(w["word"] for w in words
                                      if p["start"] <= (w["start"] + w["end"]) / 2 < p["end"]))
@@ -317,6 +321,7 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
         timeline=timeline, edits=edits, changes=len(live ^ in_cut), can_undo=bool(live),
         can_redo=cut_edits.redoable(db, project) is not None,
         going=_going(db, project, tl, changed), director=_director(db, project),
+        can_edit=user.is_owner or project.created_by_id == user.id,
         sound_credits=float(sound), sound_usd=float(sound * USD_PER_CREDIT) if user.is_owner
         else None,
     )  # fmt: skip
@@ -455,7 +460,10 @@ def swaps(project_id: int, piece: str, user: User = Depends(current_user),
         p = tl["pieces"][cut._find(tl, piece)]
     except cut.Refused as no:
         raise HTTPException(404, str(no)) from no
-    return [SwapOut(**s) for s in cut_edits.swaps(db, user, project, tl, p)]
+    return [
+        SwapOut(**s, poster_file_id=cut.poster(db, s["take_id"]))
+        for s in cut_edits.swaps(db, user, project, tl, p)
+    ]
 
 
 @router.get("/music", response_model=list[MusicChoiceOut])
