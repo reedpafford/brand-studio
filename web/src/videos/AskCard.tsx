@@ -173,7 +173,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
 
   const held = a.state === "held" || (money && a.state === "open" && !owner && !can("make_it"));
   const [cls, Icon] = HEAD[held ? "wait" : "ask"];
-  const label = held ? (owner ? "Waiting for your OK" : "Waiting for the owner’s OK") : a.kind === "start" ? "Ready to start" : money ? `${a.kind === "budget" ? "Past the budget" : a.kind === "own" ? "My own limit" : "Planning"} · needs your OK` : "The director needs you";
+  const label = held ? (owner ? "Waiting for your OK" : "Waiting for the owner’s OK") : a.kind === "start" ? "Ready to start" : money ? `${a.kind === "budget" ? (a.money?.over && a.money.over !== "the budget" ? "Past this run’s price" : "Past the budget") : a.kind === "own" ? "My own limit" : "Planning"} · needs your OK` : "The director needs you";
   const saved = a.saved ?? [];
   const made = a.options ?? [];
   const chosen = pick ?? (a.state === "ready" ? (made.find((o) => o.file_id != null)?.index ?? null) : a.pick); // ready: the first option, as drawn
