@@ -507,6 +507,33 @@ test("S4-01/S3-05: a question shows the brand's saved items first, its pick outl
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "saved", option: "item:2" }));
 });
 
+test("S3-05: once a question is answered, the pinned bar goes at once, with no reload", async () => {
+  setViewport(1440);
+  const r = run({ status: "ended", thread: [asked()], waiting: [{ id: 7, topic: "The presenter", question: "Who should be the presenter?" }] });
+  const open = ask();
+  server(owner, null, r, { ...cards(open), "POST /asks/7/answer": [200, ask({ state: "answered" })] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Who should be the presenter?" });
+  expect(screen.getByText("1 question waiting · The presenter")).toBeInTheDocument();
+  Object.assign(r, { waiting: [] }); // the server's answer: nothing waits now
+  Object.assign(open, { state: "answered" });
+  await userEvent.click(within(card).getByRole("button", { name: "Use Mark" }));
+  await vi.waitFor(() => expect(screen.queryByText(/question waiting/)).toBeNull(), { timeout: 2_000 });
+});
+
+test("S3-05: a question answered somewhere else (Needs you, the director's own pick) leaves the pinned bar once the cards are read again", async () => {
+  setViewport(1440);
+  const r = run({ status: "ended", thread: [asked()], waiting: [{ id: 7, topic: "The presenter", question: "Who should be the presenter?" }] });
+  const open = ask();
+  const calls = server(owner, null, r, cards(open));
+  renderApp("/b/1/videos/50");
+  await screen.findByRole("region", { name: "Who should be the presenter?" });
+  expect(screen.getByText("1 question waiting · The presenter")).toBeInTheDocument();
+  Object.assign(open, { state: "answered" }); // answered in Needs you; the run's own list is read again after
+  await vi.waitFor(() => expect(screen.queryByText(/question waiting/)).toBeNull(), { timeout: 6_000 });
+  expect(calls.filter((c) => c.key === "GET /projects/50/director").length).toBeGreaterThan(1); // the run, read again
+}, 10_000);
+
 test("S4-01: Reply answers in words; Generate options starts a priced round", async () => {
   setViewport(1440);
   const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(ask()), "POST /asks/7/answer": [200, ask()], "POST /asks/7/generate": [200, ask({ state: "generating" })] });
