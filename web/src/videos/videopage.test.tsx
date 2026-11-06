@@ -381,6 +381,22 @@ test("S3-11: a step that failed says why in plain words, with its one-click fixe
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
 });
 
+test("S3-11: a clip too long for its model offers Split it into N clips · free, with what its new clips then cost, and the settings to pick a longer model", async () => {
+  setViewport(1440);
+  const problem = "clip c4: 115 s is outside 4–12 s";
+  const long = record({ status: "needs_fix", title: "Stopped at clip 4", sub: "3 of 18 clips made", tone: "bad", scenes: scenes.slice(0, 1), failed: { title: "Clip 4 couldn’t be made", why: "Clip 4 runs 115 s, but Seedance 1 Lite makes at most 12 s a clip. Nothing was charged.", offer: "I can split it into 10 clips at the sentence breaks. The words don’t change, and the split itself is free.", clip: 44, fixes: [{ kind: "split", label: "Split it into 10 clips", price: "free", problem, then: "$9.80" }, { kind: "model", label: "Use a model that makes longer clips…", price: null, problem: "", then: null }] } });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, long], "POST /projects/50/breakdown/fix": [200, { fixed: ["Split clip 4 so the video model can make it."] }] });
+  renderApp("/b/1/videos/50");
+  const box = await screen.findByRole("region", { name: "Clip 4 couldn’t be made" });
+  expect(within(box).getByText("I can split it into 10 clips at the sentence breaks. The words don’t change, and the split itself is free.")).toBeInTheDocument();
+  expect(within(box).getByText("Its new clips are then made at their own price: up to $9.80.")).toBeInTheDocument();
+  await userEvent.click(within(box).getByRole("button", { name: "Split it into 10 clips · free" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/breakdown/fix")?.body).toEqual({ problems: [problem] }));
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // a split never carries on by itself
+  await userEvent.click(within(box).getByRole("button", { name: "Use a model that makes longer clips…" }));
+  await vi.waitFor(() => expect(screen.getByRole("tabpanel", { name: "Plan" })).toBeInTheDocument());
+});
+
 test("S3-09: delivered: the note in parts with the times it redid, the real cost; Watch the changes marks them seen and opens the cut; an earlier cut's note folds to a line", async () => {
   setViewport(1440);
   const done = record({ status: "delivered", title: "Made in 22 min", sub: "4 clips · 1 redone after watching", tone: "done" });
