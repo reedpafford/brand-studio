@@ -130,7 +130,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   // Where a clone goes, said before the paid press (Reed, 5 Nov; #1346's `clone_to` once it's on the API).
   const cloneTo = ((a as Ask & { clone_to?: string }).clone_to || `Saved to ${brand}’s voices`).replace(/^Saved/, "saved");
   const [failedUpload, setFailedUpload] = useState("");
-  const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setChanging(""), onDone?.()) });
+  const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setChanging(""), setFailedUpload(""), onDone?.()) });
   const error = act.isError || failedUpload ? <p role="alert" className="text-sm text-danger">{failedUpload || act.error?.message}</p> : null;
 
   // Folded: answered (by you or the owner), or no longer needed (S4-03).
