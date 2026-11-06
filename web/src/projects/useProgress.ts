@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { blocking } from "./problems";
-import { api, errorText } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { useBreakdown } from "./BreakdownPane";
 import type { Progress } from "./steps";
@@ -14,14 +14,14 @@ export function useFrames(projectId: number, poll?: (frames: Frame[] | undefined
   return useQuery({
     queryKey: ["storyboard", projectId],
     refetchInterval: (q) => (poll?.(q.state.data) ? 3000 : false),
-    queryFn: async () => (await api.GET("/projects/{project_id}/storyboard", { params: { path: { project_id: projectId } } })).data ?? [],
+    queryFn: () => polled(api.GET("/projects/{project_id}/storyboard", { params: { path: { project_id: projectId } } }), []),
   });
 }
 
 export function useProjectClips(projectId: number) {
   return useQuery({
     queryKey: ["project-clips", projectId],
-    queryFn: async () => (await api.GET("/projects/{project_id}/clips", { params: { path: { project_id: projectId } } })).data ?? [],
+    queryFn: () => polled(api.GET("/projects/{project_id}/clips", { params: { path: { project_id: projectId } } }), []),
   });
 }
 
@@ -46,7 +46,7 @@ export function useCut(projectId: number) {
   const queryClient = useQueryClient();
   const cut = useQuery({
     queryKey: ["project-cut", projectId],
-    queryFn: async () => (await api.GET("/projects/{project_id}/cut", { params: { path: { project_id: projectId } } })).data ?? null,
+    queryFn: () => polled(api.GET("/projects/{project_id}/cut", { params: { path: { project_id: projectId } } }), null),
     // while it's made, while the director edits it, or while a sound effect is made
     refetchInterval: (q) => {
       const c = q.state.data;
