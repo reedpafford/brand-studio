@@ -1,8 +1,9 @@
-"""The advisory check on a still or a take (flows.md 1b, P4): after each one finishes, one
-cheap look compares it with the cast's character sheets and, on a ★ shot, the product's
-image. It gives Advice only: it never blocks, never changes an approval and never redoes
-anything. On the test site it runs on the free stand-in until the Producer approves a real
-test (BS_ITEM_CHECKS_PAID)."""
+"""The advisory check on a still (flows.md 1b, P4): after each one is drawn, one cheap look
+compares it with the cast's character sheets and, on a ★ shot, the product's image. It gives
+Advice only: it never blocks, never changes an approval and never redoes anything. A take is
+looked at by the director instead (app/take_watch.py, rule 11); its record is an
+ItemCheck too, so the card, Looks fine and a take's verdict read both. On the test site checks
+run on the free stand-in until the Producer approves a real test (BS_ITEM_CHECKS_PAID)."""
 
 import logging
 from decimal import Decimal
@@ -11,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import looks, plans, prompts
+from app import looks, prompts
 from app.credits import estimate, fits
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -24,8 +25,6 @@ from app.settings import get_settings
 
 log = logging.getLogger(__name__)
 KIND = "check-claude"
-FRAMES = 6  # a take is looked at as a strip of frames (take check slice 2; Producer, 1 Nov)
-TAKE_LOOKS = 3  # what those frames cost, in looks at one picture: about 0.6 credits a take
 
 
 class FindingOut(BaseModel):
@@ -36,6 +35,7 @@ class FindingOut(BaseModel):
     fix: str = ""  # the video's look's fix for this kind of finding (ST2), as next step
     at: float | None = None  # a words finding: where in the take, in seconds (app/take_words)
     mute: list[float] | None = None  # the stretch "Mute this" silences (app/take_mute)
+    verified: bool = True  # a watch's doubt (not confirmed): shown, never remade on its own
 
 
 class CheckOut(BaseModel):
@@ -51,30 +51,12 @@ def on() -> bool:
 
 
 def price(db: Session, project: Project, target: str = "take") -> Decimal:
-    """One check's "up to": a take's strip of frames costs more than one still (rule 36)."""
+    """One check's "up to": a take's watch (app/take_watch.py) or a still's look (rule 36)."""
     if target == "take":
-        return estimate(db, project.workspace_id, KIND, Decimal(TAKE_LOOKS), {})
+        from app.take_watch import per_take
+
+        return per_take(db, project.workspace_id, always=True)
     return estimate(db, project.workspace_id, KIND, Decimal(1), {})
-
-
-def per_take(db: Session, workspace_id: int) -> Decimal:
-    """What the take check adds to a take while checks are on: every shown price that makes a
-    take includes it, so a price shown is never below what the press charges (QA-3 on #1170)."""
-    return estimate(db, workspace_id, KIND, Decimal(TAKE_LOOKS), {}) if on() else Decimal(0)
-
-
-def rides(db: Session, project: Project, clip) -> Decimal:
-    """The take check one more take of this clip brings with it (the scope rules `queue` uses)."""
-    if not on():
-        return Decimal(0)
-    if scope() == "key_takes":
-        data = db.get(BreakdownVersion, clip.breakdown_id).data
-        ids = next((c["shot_ids"] for c in data.get("clips", []) if c["id"] == clip.clip_id), [])
-        shots = [s for i, s in _shots(db, clip.breakdown_id).items() if i in ids]
-        refs = [r["id"] for r in clip.references or [] if r["kind"] == "image"]
-        if not key(db, project, shots, refs):
-            return Decimal(0)
-    return per_take(db, project.workspace_id)
 
 
 def scope() -> str:
@@ -94,15 +76,6 @@ def _products(db: Session, project: Project) -> set[str]:
             or "product" in (s.tags or [])}  # fmt: skip
 
 
-def key(db: Session, project: Project, shots: list[dict], refs: list[str]) -> bool:
-    """A ★-product or speaking item: the ones checked by default (key_takes). A narrated
-    video's lines are the narrator's, heard over the picture: they don't make a clip key."""
-    products = _products(db, project)
-    shown = {x for s in shots for x in s.get("screen_ids", [])} | set(refs)
-    speaking = plans.fmt(db, project) != "narrated" and any(s.get("line") for s in shots)
-    return speaking or bool(shown & products) or any(r.startswith("prop:") for r in refs)
-
-
 def _one_take(db: Session, project: Project, breakdown_id: int, shot_ids: list[str]) -> Decimal:
     """A check never takes the room for one more take of its clip (Flow-QA, Producer): it's
     skipped when, after it, the video couldn't pay for one."""
@@ -118,24 +91,14 @@ def _one_take(db: Session, project: Project, breakdown_id: int, shot_ids: list[s
 
 
 def per_video(db: Session, project: Project) -> Decimal:
-    """About what the checks cost on this video, at the scope in force: one take a clip (and
+    """About what the checks cost on this video: a watch of one take a clip (and a look at
     one still a clip with `everything`), from its newest breakdown."""
     row = db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
                     .order_by(BreakdownVersion.id.desc()).limit(1))  # fmt: skip
     if row is None or not on():
         return Decimal(0)
-    shots = _shots(db, row.id)
-    clips = [[shots[i] for i in c["shot_ids"] if i in shots] for c in row.data.get("clips", [])]
-    if scope() == "key_takes":  # with each clip's own pictures, props too (Flow-QA)
-        from app.models.clips import ProjectClip
-
-        rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id))
-        refs = {r.clip_id: [x["id"] for x in r.references or []] for r in rows}
-        ids = [c["id"] for c in row.data.get("clips", [])]
-        count = sum(key(db, project, c, refs.get(i, [])) for c, i in zip(clips, ids, strict=True))
-        return price(db, project) * count
     stills = price(db, project, "frame") if scope() == "everything" else Decimal(0)
-    return (price(db, project) + stills) * len(clips)
+    return (price(db, project) + stills) * len(row.data.get("clips", []))
 
 
 def _cast(ref: str, line: str) -> str:
@@ -175,18 +138,12 @@ def _screen_rules(db: Session, project: Project) -> list[str]:
     return [n.strip() for n in (brand.tone_notes or "").splitlines() if "screen" in n.lower()]
 
 
-def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs: list[str],
-          breakdown_id: int, shot_ids: list[str]) -> ItemCheck | None:  # fmt: skip
-    """After a still or take is saved (in the worker): its check, unless checks are off, it
-    has nobody to compare, or it would go over the video's budget ("skipped", never held)."""
+def compared(db: Session, project: Project, refs: list[str], shots: list[dict]) -> dict | None:
+    """What a look at a still or a take compares it with, or None when there's nobody: the
+    cast's sheets, the ★ product, who should be in it, the brand's screens and their rules,
+    with their images in that order and the shot's action and outfits (`said`)."""
     from app.storyboard import assets
 
-    project = db.get(Project, job.project_id) if job.project_id else None
-    if not project or not on() or (target == "frame" and scope() != "everything"):
-        return None
-    shots = [s for i, s in _shots(db, breakdown_id).items() if i in shot_ids]
-    if scope() == "key_takes" and not key(db, project, shots, refs):
-        return None
     known = assets(db, project)
     sheets = [r for r in dict.fromkeys(refs) if r.startswith(("char:", "slot:"))
               and known.get(r, ("", []))[1]]  # fmt: skip
@@ -195,10 +152,31 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
                     and known.get(r, ("", []))[1]), None)  # fmt: skip
     cast = list(dict.fromkeys(_cast(c, known.get(c, (c, []))[0]) for s in shots
                               for c in s.get("character_ids") or []))  # fmt: skip
-    screens = [i for s in shots for i in s.get("screen_ids") or []
-               if i not in products and known.get(i, ("", []))[1]]  # fmt: skip
-    screens = list(dict.fromkeys(screens))
+    screens = list(dict.fromkeys(i for s in shots for i in s.get("screen_ids") or []
+                                 if i not in products and known.get(i, ("", []))[1]))  # fmt: skip
     if not sheets and not product and not cast and not screens:
+        return None
+    pair = (f"product:{product.split(':')[1]}", known[product][0]) if product else None
+    return {"sheets": [(r, known[r][0]) for r in sheets], "product": pair, "cast": cast or None,
+            "screens": [(i, known[i][0]) for i in screens] or None,
+            "screen_rules": _screen_rules(db, project),
+            "images": [known[r][1][0] for r in [*sheets, *([product] if product else []),
+                                                *screens]],
+            "ref_ids": sheets + ([pair[0]] if pair else []) + screens,
+            "said": " ".join([*(s["action"] for s in shots),
+                              *_outfits(project, shots, known)])}  # fmt: skip
+
+
+def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs: list[str],
+          breakdown_id: int, shot_ids: list[str]) -> ItemCheck | None:  # fmt: skip
+    """After a still is saved (in the worker): its check, with `everything` in scope, unless
+    checks are off, it has nobody to compare, or it would go over the video's budget
+    ("skipped", never held). `target` is "frame"."""
+    project = db.get(Project, job.project_id) if job.project_id else None
+    if not project or not on() or scope() != "everything":
+        return None
+    shots = [s for i, s in _shots(db, breakdown_id).items() if i in shot_ids]
+    if (seen := compared(db, project, refs, shots)) is None:
         return None
     row = ItemCheck(project_id=project.id, target=target, target_id=target_id, status="checking")
     db.add(row)
@@ -209,28 +187,15 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
         row.status = "skipped"  # "Not checked: the video is at its budget."
         db.flush()
         return row
-    images = [known[r][1][0] for r in sheets]
-    pair = None
-    if product:
-        images.append(known[product][1][0])
-        pair = (f"product:{product.split(':')[1]}", known[product][0])
-    images += [known[i][1][0] for i in screens]  # numbered after the product's
-    said = " ".join([*(s["action"] for s in shots), *_outfits(project, shots, known)])
-    text = prompts.item_check_input(said,
-                                    [(r, known[r][0]) for r in sheets], pair,
-                                    frames=FRAMES if target == "take" else 1, cast=cast or None,
-                                    screens=[(i, known[i][0]) for i in screens] or None,
-                                    screen_rules=_screen_rules(db, project))  # fmt: skip
-    data = {"step": "item_check", "item_check_id": None, "project_id": project.id,
-            "system": [prompts.system("item_check")], "prompt": text, "effort": "low",
-            "max_tokens": 2000, "fit_images_to": 1024,
-            "ref_ids": sheets + ([pair[0]] if pair else []) + screens, "cast": bool(cast),
-            "files": {"reference_images": [file_id] * (target == "frame") + images}}  # fmt: skip
-    if target == "take":
-        data["take_frames"] = {"file_id": file_id, "count": FRAMES,  # the worker reads them
-                               "take_id": target_id}  # fmt: skip
+    text = prompts.item_check_input(seen["said"], seen["sheets"], seen["product"],
+                                    cast=seen["cast"], screens=seen["screens"],
+                                    screen_rules=seen["screen_rules"])  # fmt: skip
     db.flush()
-    data["item_check_id"] = row.id
+    data = {"step": "item_check", "item_check_id": row.id, "project_id": project.id,
+            "system": [prompts.system("item_check")], "prompt": text, "effort": "low",
+            "max_tokens": 2000, "fit_images_to": 1024, "ref_ids": seen["ref_ids"],
+            "cast": bool(seen["cast"]),
+            "files": {"reference_images": [file_id, *seen["images"]]}}  # fmt: skip
     check_job = Job(workspace_id=project.workspace_id, created_by_id=user.id, kind=KIND,
                     provider="claude", input=data, project_id=project.id,
                     brand_id=project.brand_id, credits=credits, status="queued",
@@ -242,7 +207,7 @@ def queue(db: Session, job: Job, target: str, target_id: int, file_id: int, refs
 
 
 def queue_safely(db: Session, *args) -> None:
-    """A check never stops a still or a take from being saved."""
+    """A check never stops a still from being saved."""
     try:
         with db.begin_nested():
             queue(db, *args)
@@ -260,11 +225,6 @@ def save(db: Session, job: Job) -> None:
     row.findings = [{"kind": f.kind, "role": f.who, "text": f.says, "change_note": f.note}
                     for f in answer.findings if cast or f.kind != "cast"]  # fmt: skip
     row.status = "done"
-    if row.target == "take":
-        from app.take_approval import after_check
-
-        db.flush()
-        after_check(db, row.target_id)  # a clean picked take approves itself (rule 21)
 
 
 def failed(db: Session, job: Job) -> None:
@@ -292,7 +252,7 @@ def shown(db: Session, row: ItemCheck | None) -> CheckOut | None:
     fixes = prompts.look_fixes(looks.drawn(db.get(Project, row.project_id)))  # the B-roll's
     findings = [FindingOut(index=i, kind=f["kind"], text=f["text"], note=f["change_note"],
                            fix=fixes.get(f["kind"], ""), at=f.get("at"),
-                           mute=f.get("span"))
+                           mute=f.get("span"), verified=f.get("verified", True))
                 for i, f in enumerate(row.findings or []) if i not in gone]  # fmt: skip
     status = {"checking": "checking", "failed": "failed", "skipped": "skipped"}.get(
         row.status, "advice" if findings else "ok"

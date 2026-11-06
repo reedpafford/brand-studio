@@ -181,7 +181,14 @@ def test_an_approved_run_with_every_redo_used_delivers_within_its_price(
     from app.credits import COUNTED
 
     monkeypatch.setattr("app.item_checks.on", lambda: True)  # as on the test site's stand-ins
-    monkeypatch.setattr("app.item_checks.verdict", lambda checks: "flagged")  # every redo used
+    from app.providers.fake_local import FakeWriter
+
+    def weak(self, prompt):  # every take's watch sees a fault in the frames: every redo used
+        return {"seen": "A hand melts at 0:01.", "verdict": "redo", "note": "hands whole",
+                "faults": [{"kind": "motion", "at": 1.0, "says": "A hand melts",
+                            "evidence": "picture"}]}  # fmt: skip
+
+    monkeypatch.setattr(FakeWriter, "_take_watch", weak)
     fs = editor.post("/freestyles", json=BODY).json()
     _run(app, db, ticks=4, start=False)  # the treatment, then its start card
     (held,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
@@ -200,7 +207,7 @@ def test_an_approved_run_with_every_redo_used_delivers_within_its_price(
     for j in sorted(takes, key=lambda j: j.id):
         firsts.setdefault(j.input["project_clip_id"], j.credits)
     assert len(takes) == len(firsts) * (1 + director.MAX_REDOS)  # every redo was made
-    check = max(of("item_check"))
+    check = max(of("take_watch"))  # the director's watch of each take
     spent = sum((j.credits for j in jobs), Decimal(0))
     redos = sum((j.credits for j in takes), Decimal(0)) - sum(firsts.values())
     redos += check * (len(takes) - len(firsts))

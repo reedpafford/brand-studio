@@ -135,7 +135,8 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                     _finding(
                         "voiced",
                         h["start"],
-                        f"“{said}” at {at} isn't in the script: the action was spoken. {mute}",
+                        f"“{said}” at {at} isn't in the script: the action may have been "
+                        f"spoken. {mute}",
                         SHOW,
                         span=[h["start"], h["end"]],
                     )
@@ -153,9 +154,8 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
     return findings + sounds
 
 
-VOICE = ("“{said}” at {at} is said in the take, but nobody speaks or sings on screen in a "
-         "{kind} video.")  # fmt: skip
-NO_VOICE = "Nobody speaks or sings on screen: picture only, the {kind} carries every word."
+VOICE = "“{said}” at {at} may be said in the take, but this clip isn't planned to speak."
+NO_VOICE = "Nobody speaks or sings in this clip: picture only, the {kind} carries every word."
 
 
 def voices(heard: list[dict], kind: str = "song or narrated") -> list[dict]:
@@ -163,7 +163,7 @@ def voices(heard: list[dict], kind: str = "song or narrated") -> list[dict]:
     offered for a mute (a narrated video keeps the take's sound under the narrator)."""
     _, spoken = _sounds(heard, "", [])
     return [_finding("voiced", h["start"], VOICE.format(said=h["text"].strip(),
-                                                         at=_clock(h["start"]), kind=kind),
+                                                         at=_clock(h["start"])),
                      NO_VOICE.format(kind="narrator" if kind == "narrated" else "song"),
                      span=[h["start"], h["end"]]) for h in spoken if h["text"].strip()]  # fmt: skip
 
@@ -187,46 +187,58 @@ def _mute_voices(db: Session, row: ItemCheck) -> None:
                 continue
 
 
-def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict],
-          prompt: str) -> ItemCheck | None:  # fmt: skip
+def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict], prompt: str,
+          watch: dict | None = None, speaks: bool = False) -> Job | None:  # fmt: skip
     """After a take is saved (in the worker): a free listen, when checks are on and its clip
-    has spoken lines. Dialogue only: a narrated video's lines are the narrator's and a song
-    video's are the song's, heard over the take, not said in it."""
+    has spoken lines, or when the director watches it (`watch`: app/take_watch, which then
+    also measures it and makes its strips). Dialogue lines only: a narrated video's lines are
+    the narrator's and a song video's are the song's, heard over the take, not said in it,
+    unless the clip is planned to speak (`speaks`: take_watch.speaks, a song's sung shot)."""
     project = db.get(Project, job.project_id) if job.project_id else None
     if not project or not item_checks.on():
         return None
-    silent = plans.fmt(db, project) != "dialogue"  # a song's or narrator's: nobody speaks
+    silent = plans.fmt(db, project) != "dialogue" and not speaks  # a song's or narrator's
     lines = [] if silent else [{"who": s.get("speaker") or "", "text": s["line"]}
                                for s in shots if s.get("line")]  # fmt: skip
-    if not lines and not silent:
+    if not lines and not silent and not watch:
         return None
+    row = None
+    if lines or silent:
+        row = ItemCheck(project_id=project.id, target=TARGET, target_id=take_id, status="checking")
+        db.add(row)
+        db.flush()
     brand = db.get(Brand, project.brand_id)
-    row = ItemCheck(project_id=project.id, target=TARGET, target_id=take_id, status="checking")
-    db.add(row)
-    db.flush()
-    data = {"step": STEP, "item_check_id": row.id, "project_id": project.id,
+    data = {"step": STEP, "item_check_id": row.id if row else None, "project_id": project.id,
             "video_key": db.get(StoredFile, file_id).key, "lines": lines, "prompt": prompt or "",
-            "actions": [s.get("action") or "" for s in shots],
+            "actions": [s.get("action") or "" for s in shots], "watch": watch,
             "brand": brand.name, "said_as": say(brand), "silent": silent}  # fmt: skip
     listen = Job(workspace_id=project.workspace_id, created_by_id=job.created_by_id, kind=KIND,
                  provider="local", input=data, project_id=project.id, brand_id=project.brand_id,
                  credits=0, status="queued")  # fmt: skip
     db.add(listen)
     db.flush()
-    row.job_id = listen.id
-    return row
-
-
-def queue_safely(db: Session, *args) -> None:
-    """A check never stops a take from being saved."""
-    try:
-        with db.begin_nested():
-            queue(db, *args)
-    except Exception:
-        log.exception("couldn't queue the words check for take %s", args[1])
+    if row:
+        row.job_id = listen.id
+    return listen
 
 
 def save(db: Session, job: Job) -> None:
+    """What the take says, against the script's lines; then the director's look, when it
+    watches the take (app/take_watch)."""
+    if job.input.get("watch"):
+        from app import take_watch
+
+        try:
+            with db.begin_nested():
+                if job.input["watch"].get("piece_id"):  # a presenter's host (app/host_watch)
+                    from app import host_watch
+
+                    host_watch.heard(db, job)
+                else:
+                    take_watch.heard(db, job)
+        except Exception:  # the words check is still saved
+            log.exception("job %s: queueing the take's look failed", job.id)
+            take_watch.failed(db, job)
     row = db.get(ItemCheck, job.input.get("item_check_id") or 0)
     if not row:
         return
