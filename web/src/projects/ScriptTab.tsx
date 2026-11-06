@@ -217,7 +217,14 @@ export function ScriptTab({ projectId, enhance, highlight, onLineClick }: { proj
  *  `around` can put other lines (Enhance direction notes) before or after a script line. */
 const DIRECTION = /^\s*\[(Camera|Movement|Reaction|Brand screen)\]\s*/;
 
-export function ScriptText({ text, around, highlight = [], rewritten = [], onLineClick }: { text: string; around?: (line: number, where: "before" | "after") => ReactNode; highlight?: number[]; /** Lines (1-based) rewritten for the brand swap: marked like Directions. */ rewritten?: number[]; onLineClick?: (line: number) => void }) {
+/** A line with each of `words` marked where it's said (S3-14: the words someone asked to change). */
+function markWords(line: string, words: string[]): ReactNode {
+  const said = words.filter(Boolean).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/['’‘]/g, "['’‘]").replace(/\s+/g, "\\s+"));
+  if (!said.length) return line;
+  return line.split(new RegExp(`(${said.join("|")})`, "i")).map((part, i) => (i % 2 ? <mark key={i} className="bg-mark px-0.5 text-inherit">{part}</mark> : part));
+}
+
+export function ScriptText({ text, around, highlight = [], rewritten = [], marks = [], onLineClick }: { text: string; around?: (line: number, where: "before" | "after") => ReactNode; highlight?: number[]; /** Lines (1-based) rewritten for the brand swap: marked like Directions. */ rewritten?: number[]; /** Words to mark where they're said. */ marks?: string[]; onLineClick?: (line: number) => void }) {
   // Bring the first highlighted line into view when the highlight changes.
   const marked = highlight.join(",");
   useEffect(() => {
@@ -252,7 +259,7 @@ export function ScriptText({ text, around, highlight = [], rewritten = [], onLin
                     <span className="font-sans text-xs">{tag[1]}</span>
                   </span>
                 ) : (
-                  <span className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${rewritten.includes(i + 1) ? "bg-mark underline decoration-mark-line decoration-2 underline-offset-2" : ""}`}>{line || "\u00a0"}</span>
+                  <span className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${rewritten.includes(i + 1) ? "bg-mark underline decoration-mark-line decoration-2 underline-offset-2" : ""}`}>{line ? markWords(line, marks) : "\u00a0"}</span>
                 )}
               </li>
               {around?.(i + 1, "after")}

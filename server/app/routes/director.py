@@ -127,7 +127,7 @@ class RunStoppedOut(BaseModel):
     at: str
     made: int
     total: int
-    carry_on: str  # "Carry on · up to $10.74 more": the rest of the video's "up to"
+    carry_on: str  # "Carry on · up to $X more": Carry on starts a new run, so its whole "up to"
 
 
 class RunFixOut(BaseModel):
@@ -269,6 +269,19 @@ def start(project_id: int, user: User = Depends(current_user), db: Session = Dep
     POST /asks/{id}/answer)."""
     project = get_project(db, user, project_id)
     director.start(db, user, project, hold=asks.start_hold(db, user, project))
+    return _out(db, user, project)
+
+
+@router.post("/plan-again", response_model=DirectorOut, status_code=201,
+             dependencies=[Depends(generation_on)])  # fmt: skip
+def plan_again(project_id: int, user: User = Depends(current_user),
+               db: Session = Depends(get_db)):  # fmt: skip
+    """ "Start the plan again" (S3-08): a new run, as Make it starts one (its treatment first,
+    then its start card), that plans the whole video again after Make it instead of carrying
+    on from its shots. What was made stays (earlier plans and takes); 409 while a run goes on."""
+    project = get_project(db, user, project_id)
+    _mine(db, user, project.id)  # as Make it: the video's maker or the owner
+    director.start(db, user, project, hold=asks.start_hold(db, user, project), fresh=True)
     return _out(db, user, project)
 
 
