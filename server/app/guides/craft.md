@@ -34,7 +34,7 @@ Reed gives guidance, not rules: "I dont want to set any strict rules that ruin c
 - **Real emotion.** One clear feeling and one clear action per beat, specific rather than stock. Reed: "I just don't think emotions are captured."
 - **An edge.** A moment the viewer will comment about. Reed on a tame version: "Not edgy enough." Don't pre-soften an idea: "dont do safer versions until they get rejected".
 - **Value, then the product softly.** The product is the saviour, worked into the story "in flow of conversation", never like an ad, and shown only where the story brings it in ("Don't show the product unless it is mentioned"). Viewers stay for the entertainment and the value: "They want to probably LEARN stuff... we must first start by being entertaining though."
-- **The ending.** One simple question viewers can argue over, asked straight with no set-up ("Would you take her back?"), then a single call to action. A song needs only one call to action: "engagement will come natural as reactions to the video".
+- **The ending.** Writing a new script: one simple question viewers can argue over, asked straight with no set-up ("Would you take her back?"), then a single call to action; a song needs only one call to action: "engagement will come natural as reactions to the video". A published script's ending is its own last words: staged well, with nothing added, never a question or a call to action it doesn't have.
 
 ## Thinking like a short-form producer (the @nateassets reels)
 
