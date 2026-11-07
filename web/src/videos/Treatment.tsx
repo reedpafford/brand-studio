@@ -1,7 +1,10 @@
+import { useState } from "react";
+
 /** The director's creative treatment, its first move on every run (Next-Lead; #1192): the hook, the story in one line,
- *  why it holds, the beats with what each is for, and the ending. It rides on its thread move as `treatment`; until the
- *  server sends that field nothing shows. */
-export type Treatment = { hook: string; logline: string; why_it_holds: string; beats: { id?: string; lines?: number[]; purpose: string; picture: string }[]; ending?: string };
+ *  why it holds, the beats with what each is for, and the ending. It rides on its thread move as `treatment`, with its
+ *  style and format named and each beat's time (S3-02); until the server sends that field nothing shows. */
+export type Beat = { id?: string; name?: string; lines?: number[]; purpose: string; picture: string; start?: number; end?: number };
+export type Treatment = { hook: string; logline: string; why_it_holds: string; beats: Beat[]; ending?: string; style?: string; format?: string };
 
 /** A move's treatment, when the server sends one (#1192's ThreadItem.treatment). */
 export function treatmentOf(item: object): Treatment | null {
@@ -9,31 +12,67 @@ export function treatmentOf(item: object): Treatment | null {
   return t && typeof t.hook === "string" && Array.isArray(t.beats) ? (t as Treatment) : null;
 }
 
-/** The treatment as a card at its place in the thread; a later one says Changed. */
+const SHOWN = 3; // beats before "+ N more beats" (board S3-02)
+
+/** The treatment as a card at its place in the thread (board S3-02): the director's line before it, then the style guide
+ *  and format it follows, the story in one line, why it holds, and the beats with their times; a later one says Changed. */
 export function TreatmentCard({ t, changed }: { t: Treatment; changed?: boolean }) {
+  const [all, setAll] = useState(false);
+  const beats = all ? t.beats : t.beats.slice(0, SHOWN);
+  const more = t.beats.length - beats.length;
+  const label = [t.style && `${t.style} style guide`, t.format && `${t.format} format`].filter(Boolean).join(" · ");
   return (
-    <section aria-label="Treatment" className="space-y-3 rounded-lg border border-border bg-surface px-4 py-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-semibold">{t.hook}</h3>
-        {changed && <span className="shrink-0 rounded-sm border border-border px-1.5 text-sm leading-5 text-muted">Changed</span>}
-      </div>
-      <p>{t.logline}</p>
-      <p className="text-muted">
-        <span className="font-medium">Why it holds:</span> {t.why_it_holds}
-      </p>
-      <ol className="space-y-1.5">
-        {t.beats.map((b, i) => (
-          <li key={b.id ?? i} className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-2">
-            <span className="text-muted tabular-nums">{i + 1}</span>
-            <span>
-              {b.picture}
-              <span className="block text-sm text-muted">{b.purpose}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      {t.ending && <p className="text-sm text-muted">{t.ending}</p>}
-    </section>
+    <div className="space-y-1.5">
+      {!changed && <p>Here’s how I’ll make it. Tell me if anything should change before I spend.</p>}
+      <section aria-label="Treatment" className="space-y-2.5 rounded-lg border border-border bg-surface px-3.5 py-3">
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-sm font-semibold">Treatment</h3>
+          {label && <span className="min-w-0 truncate text-xs text-muted">{label}</span>}
+          {changed && <span className="ml-auto shrink-0 rounded-sm border border-border px-1.5 text-sm leading-5 text-muted">Changed</span>}
+        </div>
+        <p>
+          <span className="font-semibold">In one line:</span> {t.logline}
+        </p>
+        <p>
+          <span className="font-semibold">Why it holds:</span> {t.why_it_holds}
+        </p>
+        <table className="w-full border-collapse text-sm">
+          <caption className="sr-only">Beats</caption>
+          <tbody>
+            {beats.map((b, i) => {
+              // The director's own name for the beat, its purpose as it wrote it underneath (a treatment from before
+              // beats had names: its purpose is the name). The times are a guess from the words.
+              const name = b.name || b.purpose.charAt(0).toUpperCase() + b.purpose.slice(1);
+              const why = b.name ? b.purpose : "";
+              const when = b.start != null && b.end != null ? `about ${b.start}–${b.end} s` : "";
+              return (
+                <tr key={b.id ?? i} className="border-t border-border align-top">
+                  <th scope="row" className="w-[7.5rem] py-2 pr-3 text-left font-semibold max-lg:w-[5.5rem]">
+                    {name}
+                    {when && <span className="block text-xs font-normal text-muted tabular-nums lg:hidden">{when}</span>}
+                  </th>
+                  <td className="w-[6rem] whitespace-nowrap py-2 pr-3 text-muted tabular-nums max-lg:hidden">{when}</td>
+                  <td className="py-2">
+                    {b.picture}
+                    {why && <span className="block text-xs text-muted">{why}</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {more > 0 && (
+          <button type="button" onClick={() => setAll(true)} className="text-xs text-muted hover:text-text max-lg:min-h-control">
+            + {more} more {more === 1 ? "beat" : "beats"}
+          </button>
+        )}
+        {(all || more === 0) && t.ending && (
+          <p className="text-sm text-muted">
+            <span className="font-medium">Ending:</span> {t.ending}
+          </p>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -57,7 +96,7 @@ export function TreatmentPlan({ t, seconds }: { t: Treatment; seconds?: number |
           <li key={b.id ?? i} aria-label={`Scene ${i + 1}`} className="rounded-lg border border-border bg-surface px-3.5 py-3">
             <div className="flex items-baseline justify-between gap-3">
               <h3 className="font-semibold">
-                {i + 1}. {b.purpose.charAt(0).toUpperCase() + b.purpose.slice(1)}
+                {i + 1}. {b.name || b.purpose.charAt(0).toUpperCase() + b.purpose.slice(1)}
               </h3>
               {lineSpan(b.lines) && <span className="shrink-0 text-sm text-muted tabular-nums">{lineSpan(b.lines)}</span>}
             </div>

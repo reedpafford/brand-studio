@@ -1326,7 +1326,7 @@ def treatment(made: dict, script: str) -> list[str]:
 
     flat = bare(" ".join(lines))
     texts = [made.get(k, "") for k in ("hook", "logline", "why_it_holds", "ending")]
-    texts += [b.get(k, "") for b in made.get("beats", []) for k in ("purpose", "picture")]
+    texts += [b.get(k, "") for b in made.get("beats", []) for k in ("name", "purpose", "picture")]
     for text in texts:
         for quote in QUOTED.findall(text):
             words = bare(quote)

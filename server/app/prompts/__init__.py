@@ -825,7 +825,7 @@ def stand_in_treatment(script: str) -> dict:
     lines = [n for n, line in enumerate(script.splitlines(), 1)
              if line.strip() and not heading.match(line)] or [1]  # fmt: skip
     last = len(lines)
-    beats = [{"id": f"b{i}", "lines": [n],
+    beats = [{"id": f"b{i}", "name": f"Line {n}", "lines": [n],
               "purpose": "hook" if i == 1 else "payoff" if i == last else "escalate",
               "picture": f"Line {n} played big: something happening on the line."}
              for i, n in enumerate(lines, 1)]  # fmt: skip

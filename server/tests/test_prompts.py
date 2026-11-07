@@ -1887,6 +1887,22 @@ def test_the_director_defers_to_the_styles_rhythm_and_its_sound_effects():
             "asks") in director  # fmt: skip
 
 
+def test_each_beat_has_the_directors_own_name():
+    """QA on #1403: the card named beats by their one-word purpose ("Hook / Escalate"); the
+    director names each beat itself, a required field of its own answer."""
+    from anthropic.lib._parse._transform import to_json_output_format
+
+    sent = to_json_output_format(schemas.Treatment)["schema"]
+    assert "name" in sent["$defs"]["Beat"]["required"]
+    assert "`name` (a few words naming what happens in it" in (HERE / "treatment.md").read_text()
+    canned = schemas.Treatment.model_validate(prompts.stand_in_treatment("A: Hi.\nB: Bye."))
+    assert [b.name for b in canned.beats] == ["Line 1", "Line 2"]
+    quoted = {"hook": "", "logline": "", "why_it_holds": "", "ending": "",
+              "beats": [{"id": "b1", "name": "“Not in the script”", "lines": [1], "purpose": "hook",
+                         "picture": "x"}]}  # fmt: skip
+    assert any("isn't the script's words" in p for p in check.treatment(quoted, "A: Hi."))
+
+
 def test_a_pasted_screenplay_is_named_by_its_first_line_with_words_not_its_heading():
     """MAIN's run, video 233 was named "INT. SMALL CITY APARTMENT - NIGHT": headings,
     transitions, cues and directions are skipped, and a speaker's label is dropped."""

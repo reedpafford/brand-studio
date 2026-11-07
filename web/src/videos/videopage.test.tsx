@@ -234,13 +234,34 @@ test("before the owner's OK an editor's send opens by its freestyle: the script 
   expect(screen.getByPlaceholderText("Opens once the owner approves")).toBeInTheDocument();
 });
 
-test("the director's treatment is a card in the thread; a new one says Changed", async () => {
+test("S3-02: the director's treatment is a card in the thread, as the board draws it; a new one says Changed", async () => {
   setViewport(1440);
-  const treatment = (hook: string) => ({ hook, logline: "Dr. Pickle rants.", why_it_holds: "The spine glows first.", beats: [{ id: "b1", purpose: "Hook", picture: "Glowing spine" }], ending: "Capsule hold." });
+  const beats = [
+    { id: "b1", name: "Hook", purpose: "Stops the scroll on a gross, bright picture", picture: "The glowing spine and “Your gut after the weekend…”", start: 0, end: 2 },
+    { id: "b2", name: "What beer does", purpose: "Shows the cause, one picture per line", picture: "Beer pours through the see-through body", start: 2, end: 14 },
+    { id: "b3", purpose: "escalate", picture: "The gut swells green", start: 14, end: 27 }, // from before beats had names
+    { id: "b4", purpose: "turn", picture: "The capsule", start: 27, end: 40 },
+    { id: "b5", purpose: "payoff", picture: "Capsule hold", start: 40, end: 58 },
+  ];
+  const treatment = (hook: string) => ({ hook, logline: "a doctor who’s sick of your excuses shows what the weekend does to your gut.", why_it_holds: "a gross, glowing body in the first second.", beats, ending: "Capsule hold, then the link.", style: "Dr. Pickle", format: "Presenter" });
   const told = (id: string, text: string, hook: string, when: string) => ({ ...item(id, "move", "Director", text, "done", when), treatment: treatment(hook) });
   server(owner, fs({ thread: [item("m1", "message", "Reed", SCRIPT), told("s1", "The treatment: …", "Your gut after the weekend", at), told("s2", "Changed the treatment: …", "A brewery with a pulse", later)] }), run());
   renderApp("/b/1/videos/50");
   const [first, second] = await screen.findAllByRole("region", { name: "Treatment" });
+  expect(screen.getAllByText("Here’s how I’ll make it. Tell me if anything should change before I spend.")).toHaveLength(1); // the first one only
+  expect(within(first).getByText("Dr. Pickle style guide · Presenter format")).toBeInTheDocument();
+  expect(within(first).getByText("In one line:").parentElement).toHaveTextContent("In one line: a doctor who’s sick of your excuses");
+  expect(within(first).getByText("Why it holds:")).toBeInTheDocument();
+  const rows = within(first).getAllByRole("row"); // its time beside the name on a computer, under it on a phone
+  expect(rows.map((r) => r.textContent)).toEqual([
+    "Hookabout 0–2 sabout 0–2 sThe glowing spine and “Your gut after the weekend…”Stops the scroll on a gross, bright picture",
+    "What beer doesabout 2–14 sabout 2–14 sBeer pours through the see-through bodyShows the cause, one picture per line",
+    "Escalateabout 14–27 sabout 14–27 sThe gut swells green",
+  ]);
+  expect(within(first).queryByText(/Ending:/)).toBeNull();
+  await userEvent.click(within(first).getByRole("button", { name: "+ 2 more beats" }));
+  expect(within(first).getAllByRole("row")).toHaveLength(5);
+  expect(within(first).getByText("Capsule hold, then the link.")).toBeInTheDocument();
   expect(within(first).queryByText("Changed")).toBeNull();
   expect(within(second).getByText("Changed")).toBeInTheDocument();
   expect(screen.queryByText("The treatment: …")).toBeNull();
