@@ -291,3 +291,15 @@ def test_ugc_loads_off_with_its_spec_and_keeps_its_studies_out_of_the_prompts():
     brief = prompts.system("breakdown", "ugc")
     assert "## Style: UGC\n" in brief and ugc["sections"]["must keep"] in brief
     assert notes[0].read_text()[:200] not in brief
+
+
+def test_claymation_allows_smooth_and_still_bans_polished_and_glossy():
+    """Reed, Round 2 (7 Nov): "smooth" is no longer banned in Claymation; "polished" and
+    "glossy" still turn the clay into CGI, and the hand-made texture words stay."""
+    for look in ("claymation", "claymation-goofy", "claymation-puppet"):
+        text = prompts.system("clip_prompts", look) + prompts.system("storyboard", look)
+        assert "Never call the clay smooth" not in text and 'never write "smooth,' not in text
+        assert "Never call the clay polished or glossy" in text, look
+    guide = (guides.ROOT / "styles" / "claymation" / "guide.md").read_text()
+    assert "Smooth is fine (smooth motion, smooth-matte clay)" in guide
+    assert 'never write "polished" or "glossy" for the clay' in guide
