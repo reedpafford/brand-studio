@@ -921,23 +921,29 @@ def _act(db: Session, job: Job, storage) -> None:
 
 
 def _answered_at_once(db: Session, project: Project, run: dict, job: Job, result: str) -> bool:
-    """A run that only had notes S3-14's card answers (`locked_line`) ends there, as delivered
-    with the cut it had: nothing was made, every note is answered, and no other move of its
-    made anything (QA on #1429: never a new delivery with the refusal buried)."""
+    """A run whose notes S3-14's cards answer (`locked_line`) ends there, delivered with the
+    cut it had, only when all of it holds (QA on #1429, twice): every note of the run is
+    answered by a card and asks nothing more; no other move of the run did anything; and the
+    cut is as it was delivered: made, with no edit waiting, nothing being made. Otherwise the
+    card stands and the run goes on (a pause to tighten, a free edit to cut in)."""
     from app import locked_line
 
-    if result != locked_line.POSTED:
-        return False
-    named = {int(n) for n in NOTE.findall((job.output or {}).get("why") or "")}
-    done = answered(db, run["id"], project.id) | named
-    if any(n not in done for n in range(1, len(chat(project, run["id"])) + 1)):
-        return False  # another note is still open: the run goes on for it
-    mine = turns(db, project)
-    if not mine or not delivered(_earlier(db, project, run)):
+    if result != locked_line.POSTED or not delivered(_earlier(db, project, run)):
         return False  # a video never delivered goes on to make it
-    new = select(FinalVideo.id).where(FinalVideo.project_id == project.id,
-                                      FinalVideo.created_at >= mine[0].created_at)  # fmt: skip
-    return db.scalar(new.limit(1)) is None  # this run made no cut of its own
+    notes = [m for m in project.director_chat or [] if m.get("run") == run["id"]]
+    words = {a.id: a.subject for a in db.scalars(select(Ask).where(
+        Ask.project_id == project.id, Ask.kind == locked_line.KIND))}  # fmt: skip
+    if not notes or not all(m.get("offer") in words and locked_line.only_words(
+            m["text"], words[m["offer"]]) for m in notes):  # fmt: skip
+        return False  # a note asks more than its words (or isn't answered by a card)
+    quiet = ("wait", "locked_line", "ask")
+    if any((t.output or {}).get("tool") not in quiet and t.id != job.id
+           and not (t.input.get("result") or "Refused").startswith(("Refused", "Waiting"))
+           for t in turns(db, project) if t.input[RUN]["id"] == run["id"]):  # fmt: skip
+        return False  # another move of this run did something
+    state = video_state(db, project)
+    return (state["cut"] == "made" and not (state.get("timeline") or {}).get("changes")
+            and not state["being_made"])  # fmt: skip
 
 
 def _earlier(db: Session, project: Project, run: dict) -> list[Job]:

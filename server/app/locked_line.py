@@ -120,6 +120,22 @@ def _lines(script: str, who: str | None) -> tuple[str, bool]:
     return "\n".join(mine or [said for _, said in spoken]), bool(mine)
 
 
+SCAFFOLD = re.compile(  # "Nate should say … , not": what's left of an unquoted word change
+    r"(?:\b[\w.'’-]+\s+(?:should|could|can|would|needs?\s+to|has\s+to|must)\s+)?\bsays?\s+"
+    r"[^,.;!?]*?\s*,?\s+(?:not|instead\s+of|rather\s+than)\b",
+    re.I,
+)
+
+
+def only_words(text: str, words: str) -> bool:
+    """A note that asks only to change these words, and nothing more (the director's card ends
+    a run only then): what's left once the word change is taken out is empty or a reason."""
+    if (found := asked(text, words)) is not None and found[0] == words:
+        return found[1]
+    rest = re.sub(rf"[“\"‘']?{re.escape(words)}[”\"’']?", " ", text, flags=re.I)
+    return _only(SCAFFOLD.sub(" ", rest))
+
+
 def _only(rest: str) -> bool:
     """What's left of a note once its word change is taken out says nothing more: empty, or a
     short reason about those words. Anything else stays for the director (unread)."""

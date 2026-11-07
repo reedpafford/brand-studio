@@ -826,3 +826,48 @@ def test_a_delivery_note_still_goes_to_the_director(app, db, owner, editor):
                      json={"text": "Nate should say it slower, not so fast"}).json()  # fmt: skip
     assert out["status"] == "running"  # a run reads it: how it's said is the director's
     assert not [a for a in owner.get(f"/projects/{pid}/asks").json() if a["kind"] == "instead"]
+
+
+def _safety_net(app, db, owner, editor, monkeypatch, text: str, first: list[dict]) -> int:
+    """A delivered video, a note the matcher misses, and a director that makes `first`'s moves
+    (then posts the card) before the stand-in goes on."""
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr(locked_line, "asked", lambda text, script: None)
+    moves = [*first, {"tool": "locked_line", "word": "bought the dip",
+                      "why": "Note 1: the script's words are set."}]  # fmt: skip
+    real = director.choose
+
+    def answer(state):
+        return moves.pop(0) if moves and state.get("chat") else real(state)
+
+    monkeypatch.setattr(director, "choose", answer)
+    owner.post(f"/projects/{pid}/director/messages", json={"text": text})
+    _run(app, db, ticks=40, start=False)
+    db.expire_all()
+    return pid
+
+
+def test_a_note_that_asks_more_gets_the_card_and_the_run_goes_on(app, db, owner, editor,
+                                                                 monkeypatch):  # fmt: skip
+    """QA on #1429: "…, and tighten the pause before it" ended at the card; the pause waits."""
+    pid = _safety_net(app, db, owner, editor, monkeypatch,
+                      "Nate should say bought the top, not bought the dip, and tighten the "
+                      "pause before it", [])  # fmt: skip
+    assert _card(owner, pid)["subject"] == "bought the dip"  # the card is posted
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert out["ended"] != locked_line.POSTED  # the run went on for the rest of the note
+
+
+def test_after_a_free_edit_the_card_never_ends_the_run_with_the_cut_out_of_date(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1429: after "Ending trimmed 0.3 s" the card ended the run with no new cut."""
+    trim = {"tool": "edit_cut", "why": "Note 1: a breath less at the end.", "clip_id": None,
+            "take_id": None, "note": "", "edit": {"kind": "retime", "piece": "c1"}}  # fmt: skip
+    pid = _safety_net(app, db, owner, editor, monkeypatch,
+                      "Nate should say bought the top, not bought the dip", [trim])  # fmt: skip
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert out["ended"] != locked_line.POSTED
+    edits = [t for t in out["turns"] if t["tool"] == "edit_cut"]
+    assert edits and not edits[0]["result"].startswith("Refused"), edits  # a real free edit
+    assert director.video_state(db, db.get(Project, pid))["cut"] != "out of date"
