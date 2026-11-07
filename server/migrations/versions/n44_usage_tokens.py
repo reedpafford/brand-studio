@@ -2,15 +2,15 @@
 cache write tokens and the pictures sent, so a turn's context size and its cache hits can be
 seen. Nullable: other providers' rows and the rows from before have none.
 
-Revision ID: n43t
-Revises: n42
+Revision ID: n44
+Revises: n43
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "n43t"
-down_revision = "n42"
+revision = "n44"
+down_revision = "n43"
 branch_labels = None
 depends_on = None
 
