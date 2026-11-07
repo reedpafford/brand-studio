@@ -88,7 +88,7 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
     final = db.query(FinalVideo).filter_by(project_id=video.id).order_by(FinalVideo.id).all()[-1]
     assert len(final.take_ids) == len(rows)
     director = prompts.system("director")
-    assert "never more than about 6 s without a swap" in director  # the director's B-roll swaps
+    assert "where its guide measures its own talker rhythm" in director  # the style's swaps first
 
 
 def test_the_directors_motion_note_makes_the_talker_and_a_remake_keeps_it(app, db, owner):

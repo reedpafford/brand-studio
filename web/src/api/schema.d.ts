@@ -12021,7 +12021,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "none" | "making" | "ready" | "failed";
+            state: "none" | "making" | "ready" | "failed" | "removed";
             /** How */
             how: string;
             /** Asked */
