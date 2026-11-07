@@ -52,8 +52,6 @@ OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted 
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
 REBUILD = "Refused: make the cut again first: it isn't up to date."
-NO_WATCH_LEFT = ("Refused: no watches are left this run to check an edit. Say in the delivery note "
-                 "what you would change.")  # fmt: skip
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -775,8 +773,6 @@ def _act(db: Session, job: Job, storage) -> None:
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
-    if tool == "edit_cut" and run.get("watches", 0) >= MAX_WATCHES:  # it watches what it edits
-        return _record(db, job, run, NO_WATCH_LEFT)
     if tool == "watch_cut" and (cut_edits.for_director(db, project) or {}).get("changes"):
         return _record(db, job, run, REBUILD)  # a watch is for the cut with the edits in it
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice

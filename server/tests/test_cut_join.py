@@ -101,3 +101,56 @@ def test_a_take_whose_sound_starts_late_keeps_it_in_place():
     assert got["loud"][1] > -80 and abs(got["audio_s"] - got["video_s"]) < 0.15, got
     late = _facts(_cut(_take("blue", late=0.5), _take("red", rate=None)))
     assert late["loud"][2] < -80 < late["loud"][3], late  # silent at 0.1 s, the tone at 0.6 s
+
+
+def _quiet(volumes: list[float]) -> bytes:
+    """A take one second per volume (a quiet voice, then quieter music, say), at those gains."""
+    tones = ";".join(f"sine=frequency={300 + 200 * n}:d=1,volume={v}[a{n}]"
+                     for n, v in enumerate(volumes))  # fmt: skip
+    joined = "".join(f"[a{n}]" for n in range(len(volumes)))
+    graph = f"{tones};{joined}concat=n={len(volumes)}:v=0:a=1[a]"
+    args = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
+            f"color=c=gray:s=480x854:d={len(volumes)}:r=24", "-filter_complex", graph,
+            "-map", "0:v", "-map", "[a]", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+            "t.mp4"]  # fmt: skip
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(args, cwd=tmp, capture_output=True, check=True)  # noqa: S603
+        return (Path(tmp) / "t.mp4").read_bytes()
+
+
+def _lufs(data: bytes) -> tuple[float, float]:
+    """The integrated loudness (LUFS) and true peak (dBTP) of a cut's sound."""
+    import json
+
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "c.mp4").write_bytes(data)
+        said = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", "c.mp4", "-af",  # noqa: S603, S607
+                               "loudnorm=print_format=json", "-f", "null", "-"], cwd=tmp,
+                              capture_output=True, text=True).stderr  # fmt: skip
+        m = json.JSONDecoder().raw_decode(said[said.rindex("{") :])[0]
+        return float(m["input_i"]), float(m["input_tp"])
+
+
+def _level(data: bytes, start: float) -> float:
+    """The mean level (dB) of 0.4 s of a cut's sound from `start`."""
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "c.mp4").write_bytes(data)
+        said = subprocess.run(["ffmpeg", "-v", "info", "-ss", str(start), "-t", "0.4", "-i",  # noqa: S603, S607
+                               "c.mp4", "-vn", "-af", "volumedetect", "-f", "null", "-"],
+                              cwd=tmp, capture_output=True, text=True).stderr  # fmt: skip
+        return float(said.split("mean_volume:")[1].split()[0])
+
+
+def test_a_quiet_cut_is_brought_up_to_social_loudness_keeping_its_balance():
+    """E2E 233: the delivered cut measured -25.4 LUFS, about 11 under social video. Every cut
+    is brought to about -14 LUFS, its true peak at most -1 dBTP, with one gain: a voice 12 dB
+    over the music stays 12 dB over it. The picture is untouched; silence stays silence."""
+    quiet = _quiet([0.03, 0.0075])  # about -12 dB apart
+    made = _cut(quiet)  # a dialogue video's cut of whole takes, as 233's
+    lufs, peak = _lufs(made)
+    assert -15.5 <= lufs <= -12.5 and peak <= -0.9, (lufs, peak)
+    gap = [_level(d, 0.3) - _level(d, 1.3) for d in (quiet, made)]  # each second's middle
+    assert abs(gap[0] - gap[1]) < 1.0, gap  # one gain: the voice stays as far over the music
+    assert _facts(made)["size"] == "480x854" and abs(_facts(made)["video_s"] - 2) < 0.1
+    silent = _take("red", rate=None)
+    assert cut_render.loud(silent) == silent  # no sound: as it was

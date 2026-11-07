@@ -23,6 +23,7 @@ FADE = 1.5  # seconds: a song video's end fades out (flows V6)
 # A narrated video's mix (flows V6n): the takes' own sound under the narration, the music
 # lower still, the whole about -14 LUFS
 TAKES, MUSIC, LOUD = 0.75, 0.30, "loudnorm=I=-14:TP=-1.5:LRA=11"
+AIM = "loudnorm=I=-14:TP=-1:LRA=20"  # every cut, last (E2E 233); LRA wide, so one gain
 RAMP = 0.25  # seconds the music takes to dip under the voice and rise after it
 SAME = "aformat=sample_rates=44100:channel_layouts=stereo"
 LATE = "aresample=async=1:first_pts=0,"  # a take's sound that starts late keeps its place
@@ -135,8 +136,34 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     if r["host"]:
         hosts = [storage.get(k) for k in r["host"]["keys"]]
         data = host_layer.lay_over(data, hosts, r["host"]["spans"])
+    data = loud(data)  # every kind of cut, as loud as social video plays (E2E 233: -25 LUFS)
     progress(100)
     return data
+
+
+def loud(data: bytes) -> bytes:
+    """The cut at about -14 LUFS with its true peak at most -1 dBTP: loudnorm measured, then
+    applied as one gain (`linear`), so the voice, the music and the sound keep their balance;
+    the picture is copied. A cut with no sound, or only silence, is as it was."""
+    import json  # noqa: PLC0415
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "in.mp4").write_bytes(data)
+        if not _probe(folder, "in.mp4", "a:0", "index"):
+            return data
+        measure = ["ffmpeg", "-hide_banner", "-nostats", "-i", "in.mp4", "-vn", "-af",
+                   f"{AIM}:print_format=json", "-f", "null", "-"]  # fmt: skip
+        said = subprocess.run(measure, cwd=folder, capture_output=True, text=True,  # noqa: S603
+                              timeout=600).stderr  # fmt: skip
+        m = json.JSONDecoder().raw_decode(said[said.rindex("{") :])[0]  # its report, last
+        if m["input_i"] in ("-inf", "inf") or float(m["input_i"]) < -70:
+            return data  # silence: nothing to bring up
+        keep = ":".join(f"measured_{k}={m[f'input_{k.lower()}']}" for k in ("I", "TP", "LRA"))
+        aim = f"{AIM}:{keep}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}"
+        return _run(folder, ["-i", "in.mp4", "-map", "0:v?", "-map", "0:a:0", "-c:v", "copy",
+                             "-af", f"{aim}:linear=true", "-ar", "48000", "-c:a", "aac", "-b:a",
+                             "192k", "-movflags", "+faststart"])  # fmt: skip
 
 
 def _tc(t: float) -> str:

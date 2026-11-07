@@ -11,7 +11,7 @@ import re
 from types import SimpleNamespace
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import cast_gate
@@ -243,7 +243,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
             project_clips.approve_all(**me)  # the picked takes it cuts with
             made = cut.make(request=request, **me)
-            return f"Making Cut {made.making.number if made.making else (made.number or 1)}."
+            n = made.making.number if made.making else (made.number or 1)
+            return f"Making Cut {n}{_again(db, pid, n)}."
     except HTTPException as no:
         db.rollback()
         return f"Refused: {no.detail}"
@@ -298,6 +299,20 @@ def _split(db: Session, project: Project, clip: str, me: dict) -> str:
     before = len(row.data.get("clips", []))
     made = len(breakdown.fix(body=breakdown.FixIn(problems=[said]), **me).breakdown.clips)
     return f"Split clip {n} into {made - before + 1} clips at its sentence breaks."
+
+
+def _again(db: Session, project_id: int, number: int) -> str:
+    """A cut made again under its number before it's handed over (S3-12: Cut N is the Nth
+    handed over), said so: " again (2nd try)" (E2E 233 read "Making Cut 1" four times)."""
+    from app.models.clips import FinalVideo
+
+    made = db.scalar(select(func.count()).where(FinalVideo.project_id == project_id,
+                                                FinalVideo.number == number))  # fmt: skip
+    return f" again ({_nth(made + 1)} try)" if made else ""
+
+
+def _nth(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
 
 
 def _clips(db: Session, project_id: int, clip_id: str | None) -> list[ProjectClip]:
