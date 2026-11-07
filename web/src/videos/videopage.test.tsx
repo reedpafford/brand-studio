@@ -1165,6 +1165,26 @@ test("uncapped: Carry on is just Carry on, the same run; Make it again says abou
   expect(screen.queryByText(/Carry on · up to/)).toBeNull();
 });
 
+test("Flow-QA S12: a video waiting for its OK has Archive in its ⋯ menu; nothing to release on a New video send", async () => {
+  setViewport(1440);
+  const waiting = fs({ status: "waiting", thread: [item("m1", "message", "Reed", SCRIPT), item("t1", "move", "Director", "Ready.", "held")] });
+  server(owner, waiting, run({ status: "running", make_it: 7, thread: [] }));
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Beer gut doctor rant" }));
+  const menu = screen.getByRole("menu", { name: "More for Beer gut doctor rant" });
+  expect(within(menu).getByRole("menuitem", { name: "Archive" })).toBeInTheDocument();
+  expect(within(menu).queryByRole("menuitem", { name: /Release/ })).toBeNull();
+});
+
+test("Flow-QA S12: while the director works, the ⋯ menu offers no Archive (Stop first)", async () => {
+  setViewport(1440);
+  server(owner, fs(), run({ status: "running", turns: [{ turn: 1, tool: "make_take", why: "", result: "", status: "running", created_at: at }] }));
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Beer gut doctor rant" }));
+  const menu = screen.getByRole("menu", { name: "More for Beer gut doctor rant" });
+  expect(within(menu).queryByRole("menuitem", { name: "Archive" })).toBeNull();
+});
+
 test("uncapped (QA on #1396): after delivery the estimate is the next run's", async () => {
   setViewport(1440);
   const top = head({ status: status("delivered", "Delivered"), spent: money(60, 6.4), up_to: null, budget: null, expected: money(91, 9.1), actual: true, listed_usd: 0, unreported: false });
