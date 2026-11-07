@@ -120,12 +120,15 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
         data = (not laid and stitch(videos)) or joined(videos, [(0.0, None)] * len(videos))
     elif r["mode"] == "takes":
         data = joined(videos, [(p["from"], None if p["whole"] else p["length"]) for p in pieces])
+    music = r["music"]
+    bed = storage.get(music["key"]) if music else None
+    if music and not music["loop"] and (have := seconds(bed)) < r["length"] - 0.5:
+        raise Problem(SHORT_MUSIC.format(_tc(have), _tc(r["length"])),
+                      ["loop_music", "remove_music"])  # fmt: skip
+    if r["mode"] == "takes":
+        if bed is not None:  # a dialogue cut's bed, under its takes' own sound
+            data = bedded(data, bed, {**music, "last_word": r.get("last_word") or 0})
     else:
-        music = r["music"]
-        bed = storage.get(music["key"]) if music else None
-        if music and not music["loop"] and (have := seconds(bed)) < r["length"] - 0.5:
-            raise Problem(SHORT_MUSIC.format(_tc(have), _tc(r["length"])),
-                          ["loop_music", "remove_music"])  # fmt: skip
         data = song_cut(
             videos,
             [p["length"] for p in pieces],
@@ -142,6 +145,27 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     data = loud(data)  # every kind of cut, as loud as social video plays (E2E 233: -25 LUFS)
     progress(100)
     return data
+
+
+def bedded(data: bytes, bed: bytes, mix: dict) -> bytes:
+    """A dialogue cut with a music bed under it (the House refs: a bed under every second):
+    the takes' own sound as it is, the bed at its level (`level`: `quieter_db` under the
+    lines, rising between them when it rises), looped when it's shorter, faded at the end;
+    the picture copied, as long as the cut. `loud` then brings the whole cut to its level."""
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "cut.mp4").write_bytes(data)
+        (folder / "music").write_bytes(bed)
+        total = _length(folder, "cut.mp4")  # the cut as joined: the bed runs exactly as long
+        loop = ["-stream_loop", "-1"] if mix.get("loop", True) else []
+        fade = fade_out(total, mix.get("last_word") or 0)
+        graph = (f"[0:a]{SAME},apad=whole_dur={total}[takes];"
+                 f"[1:a]{SAME},atrim=duration={total},apad=whole_dur={total},{level(mix)},"
+                 f"afade=t=out:{fade}[under];"
+                 "[takes][under]amix=inputs=2:normalize=0:duration=first[a]")  # fmt: skip
+        return _run(folder, ["-i", "cut.mp4", *loop, "-i", "music", "-filter_complex", graph,
+                             "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
+                             "-t", str(total), "-movflags", "+faststart"])  # fmt: skip
 
 
 def loud(data: bytes) -> bytes:

@@ -687,7 +687,8 @@ class CutMove(Strict):
         "trim: a piece's start or end to a time (the last piece's end shortens or holds the "
         "ending); split: a piece in two at `at`; swap: a piece's B-roll for another take "
         "(`take_id`); presenter: `side`, `size` or `hidden` over a piece or start..end; "
-        "music: `quieter_db` under the voice, `gaps`, or `removed`; undo: an edit (`edit_id`)."
+        "music: `quieter_db` under the voice, `gaps`, or `removed` (false on a dialogue cut "
+        "with no music lays the brand's bed); undo: an edit (`edit_id`)."
     )
     piece: Name = Field(
         default=None, description="The piece from <video>.timeline.pieces, e.g. 'c7' or 'c7.12'."
