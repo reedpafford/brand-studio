@@ -233,7 +233,11 @@ def _spent(db: Session, fs: Freestyle) -> Decimal:
 
 
 def _usd(db: Session, job: Job) -> float:
+    from app.credits import never_billed
+
     spent = db.scalar(select(func.sum(Usage.cost_usd)).where(Usage.job_id == job.id))
+    if spent is None and never_billed(job):  # refused by its provider: nothing charged (X1)
+        return 0.0
     return round(float(spent if spent is not None else job.credits * USD_PER_CREDIT), 4)
 
 

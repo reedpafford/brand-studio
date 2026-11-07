@@ -655,12 +655,22 @@ def _treatment_checked(db: Session, job: Job) -> bool:
 
 
 def wake(db: Session, project: Project) -> None:
-    """The next turn, once the last one was acted on and nothing on the video is waiting."""
+    """The next turn, once the last one was acted on and nothing on the video is waiting.
+    Never twice (cost analysis A5: the worker's finish and its sweep both woke the same run,
+    so a turn, and what it paid for, ran twice): `_turn` checks again under the lock."""
+    if (last := _wakeable(db, project)) is None:
+        return
+    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]),
+          after=last.id)  # fmt: skip
+
+
+def _wakeable(db: Session, project: Project) -> Job | None:
+    """The run's last turn when its next one should start now, else None."""
     last = active(db, project)
     if last is None or last.status != JobStatus.succeeded or "result" not in last.input:
-        return
+        return None
     if _waiting(db, project) or _parked(db, project, last):
-        return
+        return None
     if (
         last.input["result"] == CAST_WAIT
         and cast_gate.pending(db, project)
@@ -669,9 +679,9 @@ def wake(db: Session, project: Project) -> None:
             or asks.answered_since(db, project, (last.started_at or last.created_at).isoformat())
         )
     ):
-        return  # it goes on when the cast and places are approved, a question is answered, or
-        # someone asks for more
-    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
+        return None  # it goes on when the cast and places are approved, a question is
+        # answered, or someone asks for more
+    return last
 
 
 def _parked(db: Session, project: Project, last: Job) -> bool:
@@ -901,7 +911,8 @@ def _end(job: Job, why: str, result: str = "") -> None:
 
 
 def _turn(db: Session, user: User, project: Project, run: dict, *,
-          extra: dict | None = None, carry: tuple[str, Decimal] | None = None) -> Job:  # fmt: skip
+          extra: dict | None = None, carry: tuple[str, Decimal] | None = None,
+          after: int | None = None) -> Job:  # fmt: skip
     from app.routes.jobs import enqueue
 
     last = next(reversed(turns(db, project)), None)
@@ -952,6 +963,14 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         wait = past_own(db, project, run["id"], turn, user)
         data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
         wait = wait or past_approved(db, project, user, turn)
+    if after is not None:  # woken: under the video's lock, unless another waker got here first
+        lock(db, Project, project.id)  # a second waker waits here, then sees the first's turn
+        newer = db.scalar(select(Job).where(Job.project_id == project.id,
+                                            Job.input["step"].as_string() == STEP,
+                                            Job.input[RUN]["id"].as_string() == run["id"],
+                                            Job.id > after).limit(1))  # fmt: skip
+        if newer is not None:
+            return newer
     try:
         job = enqueue(db, user, "write-claude", data, project=project, provider="claude",
                       prepaid=not wait, wait=wait)  # fmt: skip

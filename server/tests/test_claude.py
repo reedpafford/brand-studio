@@ -132,3 +132,56 @@ def test_a_shared_prompt_is_cached_before_the_part():
     content = json.loads(seen[0].content)["messages"][0]["content"]
     assert [b["text"] for b in content] == ["<breakdown>…</breakdown>", '<write clips="c2">']
     assert [b.get("cache_control") for b in content] == [{"type": "ephemeral"}, None]
+
+
+def test_a_step_that_comes_back_after_5_minutes_caches_its_rules_for_an_hour():
+    """Cost analysis A1: the director's turns (and take watches) come back after more than 5
+    minutes while takes render, and each time the 5-minute cache had expired: its ~30k tokens
+    of rules were written again. The 1-hour cache keeps them; the same words are sent. A
+    1-hour write costs 2x input ($8 a million), a 5-minute one 1.25x ($5)."""
+    from app.claude import PRICE_PER_MTOK, counts
+    from app.providers.claude import LONG_CACHE
+
+    seen = []
+    usage = {"input_tokens": 100, "output_tokens": 10, "cache_read_input_tokens": 0,
+             "cache_creation_input_tokens": 30000,
+             "cache_creation": {"ephemeral_1h_input_tokens": 30000,
+                                "ephemeral_5m_input_tokens": 0}}  # fmt: skip
+    answer = ask(_client(_reply(usage=usage), seen), system=["Rules.", "Brand."], prompt="p",
+                 schema=EnhanceResult, shared="<run/>", cache_ttl="1h")  # fmt: skip
+    body = json.loads(seen[0].content)
+    assert [b.get("cache_control") for b in body["system"]] == [
+        None,
+        {"type": "ephemeral", "ttl": "1h"},
+    ]  # the rules, for an hour
+    assert body["messages"][0]["content"][0]["cache_control"] == {"type": "ephemeral"}  # after
+    assert answer.cost_usd == (Decimal(100) * 4 + Decimal(10) * 20 + 30000 * 8) / 1_000_000
+    assert PRICE_PER_MTOK["cache_write_1h"] == 2 * PRICE_PER_MTOK["input"]
+    assert answer.tokens == {"input": 100, "output": 10, "cache_read": 0, "cache_write": 30000,
+                             "cache_write_1h": 30000, "images": 0}  # fmt: skip
+    plain = ask(_client(_reply(), []), system=["Rules."], prompt="p", schema=EnhanceResult)
+    assert plain.tokens["cache_read"] == 2000 and counts  # 5-minute: as before
+    assert LONG_CACHE == {"director": "1h", "take_watch": "1h"}  # every other step: 5 minutes
+
+
+def test_the_provider_sends_its_steps_cache_lifetime_and_keeps_the_token_counts(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.providers import claude as provider
+
+    asked = {}
+
+    def fake_ask(client, **kw):
+        asked[kw["schema"].__name__] = kw["cache_ttl"]
+        parsed = SimpleNamespace(model_dump=lambda: {})
+        tokens = {"input": 5, "output": 2, "cache_read": 30000, "cache_write": 0,
+                  "cache_write_1h": 0, "images": 3}  # fmt: skip
+        return SimpleNamespace(parsed=parsed, cost_usd=Decimal("0.05"), tokens=tokens)
+
+    monkeypatch.setattr(provider, "ask", fake_ask)
+    claude = provider.ClaudeProvider("k", client=object())
+    for step in ("director", "plan"):
+        out = claude.run("write-claude", {"step": step, "system": ["R."], "prompt": "p"})
+        (item,) = out.usage
+        assert item.tokens["cache_read"] == 30000 and item.tokens["images"] == 3
+    assert asked == {"DirectorTurn": "1h", "ScenePlan": "5m"}

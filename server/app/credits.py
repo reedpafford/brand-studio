@@ -270,6 +270,15 @@ def uncapped(user: User | None) -> bool:
     return bool(user is not None and user.is_owner and get_settings().owner_uncapped)
 
 
+def never_billed(job: Job) -> bool:
+    """A job its provider refused (a content or copyright check, e.g. Replicate's E005): it
+    says nothing was charged, so it counts $0 in what was really spent (cost analysis X1).
+    Every other failure that was sent still counts: it may have been billed."""
+    from app.clip_takes import why_failed
+
+    return job.status == JobStatus.failed and why_failed(job) == "refused"
+
+
 @dataclass
 class Spent:
     """A video's (or a run's) spend at its providers, as the owner's uncapped site shows it."""
@@ -309,7 +318,7 @@ def actual_usd(db: Session, project_id: int, since=None, until=None) -> Spent:
         elif j.status == JobStatus.running:
             pending = True
         elif (j.provider_ref and not j.provider_ref.startswith(STAND_IN)
-              and j.provider not in FREE_LANES):  # fmt: skip
+              and j.provider not in FREE_LANES and not never_billed(j)):  # fmt: skip
             usd += j.credits * USD_PER_CREDIT
             listed += j.credits * USD_PER_CREDIT
     return Spent(usd.quantize(Decimal("0.01")), listed.quantize(Decimal("0.01")), pending)
