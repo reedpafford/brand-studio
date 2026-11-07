@@ -273,3 +273,25 @@ def test_an_error_telling_what_waits_never_stops_the_worker(db, monkeypatch):
     db.commit()
     _fail(db, job, "It failed.", "400")  # at boot (recover) too: it never raises
     assert db.get(Job, job.id).status == JobStatus.failed
+
+
+def test_failures_count_again_from_a_carry_on(app, db, owner, editor):
+    """Video 240: Carry on is a press to try again, so the failures before it don't end the
+    carried run at its first turn."""
+    from app.db import utcnow
+
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=6)
+    project = db.get(Project, pid)
+    run = director.turns(db, project)[-1].input[director.RUN]
+    for _ in range(3):
+        db.add(Job(workspace_id=1, created_by_id=1, kind="write-claude", provider="claude",
+                   input={"step": director.STEP, director.RUN: run}, project_id=pid,
+                   credits=Decimal(1), status=JobStatus.failed))  # fmt: skip
+    db.commit()
+    assert director._failed_too_often(db, project, run)  # it gave up
+    last = director.turns(db, project)[-1]
+    last.input = {**last.input, director.WAS_STOPPED: {"carried_at": utcnow().isoformat()}}
+    db.commit()
+    assert director._failed_too_often(db, project, run) == ""  # carried on: counted afresh

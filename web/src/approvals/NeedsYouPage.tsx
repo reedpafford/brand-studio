@@ -277,7 +277,7 @@ function StuckRow({ row, phone }: { row: Stuck; phone: boolean }) {
   const run: Record<string, (() => () => Promise<{ error?: unknown; response: Response }>) | undefined> = {
     again: () => () => api.POST("/projects/{project_id}/clips/{clip_id}/generate", { params: { path: { ...pid, clip_id: f.clip_id ?? 0 } } }),
     redraw: () => () => api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/render", { params: { path: { ...pid, frame_id: f.frame_id ?? 0 } } }),
-    carry_on: () => () => api.POST("/projects/{project_id}/director", { params: { path: pid } }),
+    carry_on: () => () => api.POST("/projects/{project_id}/director/carry-on", { params: { path: pid } }),
     split: () => () => api.POST("/projects/{project_id}/breakdown/fix", { params: { path: pid }, body: { problems: f.problem ? [f.problem] : [] } }),
   };
   const does = run[f.kind];

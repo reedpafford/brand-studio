@@ -133,12 +133,12 @@ test("a stopped run carries on, and a failed still is drawn again, each at its p
   const calls = fakeServer({
     ...base,
     "GET /needs-you": [200, { ...inbox, questions: [], money: [], stuck: [carry, redraw] }],
-    "POST /projects/16/director": [201, {}],
+    "POST /projects/16/director/carry-on": [201, {}],
     "POST /projects/17/storyboard/frames/8/render": [201, { id: 3 }],
   });
   renderApp("/approvals");
   await userEvent.click(await screen.findByRole("button", { name: "Carry on · up to $10.74" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/16/director")).toBe(true));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/16/director/carry-on")).toBe(true)); // the same run (video 240)
   await userEvent.click(screen.getByRole("button", { name: "Draw it again · up to $0.04" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/17/storyboard/frames/8/render")).toBe(true));
 });
