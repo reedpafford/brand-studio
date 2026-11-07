@@ -229,8 +229,8 @@ def test_make_this_version_takes_the_settings_and_a_no_lip_sync_plan_has_no_sung
 
     split = song_breakdown.split
 
-    def one_sung(bd, take_id, broll=False, shortest=4):  # the stand-in plan has no Sung shot
-        plan, part = split(bd, take_id, broll, shortest)  # one Sung
+    def one_sung(bd, take_id, broll=False, shortest=4, longest=16):  # the stand-in plan has
+        plan, part = split(bd, take_id, broll, shortest, longest)  # no Sung shot: one Sung
         first = next(iter(part["shots"]))
         return plan, {
             **part,
