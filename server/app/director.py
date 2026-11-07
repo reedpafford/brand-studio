@@ -32,7 +32,7 @@ from app import (
     take_sound,
     word_splice,
 )
-from app.credits import COUNTED, FREESTYLE, lock, uncapped
+from app.credits import COUNTED, FREE_LANES, FREESTYLE, lock, uncapped
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.asks import Ask
@@ -2077,8 +2077,8 @@ def _failed_too_often(db: Session, project: Project, run: dict) -> str:
                                             Job.created_at >= since)):  # fmt: skip
         if job.input.get(RETRIED):  # asked again on its own (`_again`): not a failure
             continue
-        if not job.credits:  # a free check that couldn't run (a take's words, the cut's sound,
-            continue  # on our server): never the run's end; the note says it wasn't checked
+        if job.provider in FREE_LANES:  # a check on our own server that couldn't run (a take's
+            continue  # words, the cut's sound): never the run's end; the note says so
         what = _item(db, job)
         counts[what] = counts.get(what, 0) + 1
         if counts[what] > MAX_REDOS:

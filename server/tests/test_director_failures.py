@@ -300,7 +300,8 @@ def test_failures_count_again_from_a_carry_on(app, db, owner, editor):
 def test_a_free_check_that_keeps_failing_never_ends_the_run(app, db, owner, editor):
     """Video 240 (7 Nov): "It stopped: The take words failed 3 times." Free checks on our own
     server (each take's words) failed under load, and the run ended with every paid take made
-    and no cut. A free check never counts; paid steps and the director's turns still do."""
+    and no cut. A check on our own server never counts; a paid call still does, even one that
+    was free to the person (QA on #1424)."""
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     _run(app, db, ticks=6)
@@ -312,9 +313,9 @@ def test_a_free_check_that_keeps_failing_never_ends_the_run(app, db, owner, edit
                    status=JobStatus.failed, error_detail="Timed out."))  # fmt: skip
     db.commit()
     assert director._failed_too_often(db, project, run) == ""  # free: it goes on
-    for _ in range(3):
+    for _ in range(3):  # a paid call that was free to them (a free fix, a free retry) counts
         db.add(Job(workspace_id=1, created_by_id=1, kind="check-claude", provider="claude",
-                   input={"step": "watch_cut"}, project_id=pid, credits=Decimal(1),
+                   input={"step": "watch_cut"}, project_id=pid, credits=Decimal(0),
                    status=JobStatus.failed))  # fmt: skip
     db.commit()
     assert director._failed_too_often(db, project, run) == "The watch of the cut failed 3 times"
