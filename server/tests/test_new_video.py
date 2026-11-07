@@ -33,7 +33,12 @@ def test_the_cards_come_from_the_guides_with_their_test_samples(owner, monkeypat
     assert "paper" not in {x["id"] for x in owner.get("/looks").json()}
 
 
-def test_song_is_off_while_its_music_provider_is_and_says_why(owner, app):
+def test_song_is_off_while_its_music_provider_is_and_says_why(owner, app, monkeypatch):
+    from tests.test_script_format import _off
+
+    formats = {f["id"]: f for f in owner.get("/formats").json()}
+    assert formats["zack-d"]["off"] is None  # on since 7 Nov (Reed: every style finished)
+    _off(monkeypatch, "zack-d")
     formats = {f["id"]: f for f in owner.get("/formats").json()}
     assert formats["song"]["off"] == "its music provider isn't switched on for this site yet"
     assert formats["dialogue"]["off"] is None and formats["dialogue"]["test_still"]
