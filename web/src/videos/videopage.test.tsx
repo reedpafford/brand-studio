@@ -949,6 +949,15 @@ test("S3-12: while Cut 2 is made, Cut 1 stays watchable; the switch plays and do
   expect(within(done).queryByText(/stays watchable/)).toBeNull();
 });
 
+test("Polish: a run waiting for Make it says so once on its card, never twice", async () => {
+  setViewport(1440);
+  const sub = "Cut 1 stays as it is until you press Make it";
+  server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, record({ status: "waiting", title: "Ready to make", sub, tone: "wait" })] });
+  renderApp("/b/1/videos/50");
+  const runCard = await screen.findByRole("region", { name: "Ready to make" });
+  expect(within(runCard).getAllByText(sub, { exact: false })).toHaveLength(1);
+});
+
 test("S3-09: one cut and nothing being made: no switch, the heading reads Final cut", async () => {
   setViewport(1440);
   server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }] })], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }] });

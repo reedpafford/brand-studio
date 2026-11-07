@@ -195,18 +195,19 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
     <Filmstrip scenes={r.scenes} at={r.status === "working" || r.status === "revising" ? r.scene_at : undefined} />
   );
   const waiting = r.tone === "wait" && r.sub;
+  const banner = waiting && r.status === "waiting"; // says the wait once: never also in the head line (polish)
   return (
     <section aria-label={r.title} className="rounded-lg border border-border bg-surface shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]">
       <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
         {ICON[r.tone]}
         <span className="shrink-0 text-[13px] font-semibold">{r.title}</span>
-        {!phone && r.sub && <span className="min-w-0 truncate text-[13px] text-muted">· {r.sub}</span>}
+        {!phone && r.sub && !banner && <span className="min-w-0 truncate text-[13px] text-muted">· {r.sub}</span>}
         {toggle}
       </div>
       <div className="px-3 pb-3">
-        {phone && r.sub && <p className="mb-2 text-xs text-muted">{[r.sub, r.redone > 0 && `${r.redone} redone after watching`].filter(Boolean).join(" · ")}</p>}
+        {phone && r.sub && !banner && <p className="mb-2 text-xs text-muted">{[r.sub, r.redone > 0 && `${r.redone} redone after watching`].filter(Boolean).join(" · ")}</p>}
         {body}
-        {waiting && r.status === "waiting" && (
+        {banner && (
           <p className="mt-2.5 flex items-center gap-2 rounded-md bg-warning-soft px-2.5 py-2 text-[13px] text-warning">
             <Clock size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
             {r.sub}

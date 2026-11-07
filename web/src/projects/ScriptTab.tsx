@@ -6,6 +6,7 @@ import { api } from "../api/client";
 export function useLatestScript(projectId: number) {
   return useQuery({
     queryKey: ["script", projectId],
+    enabled: projectId > 0,
     queryFn: async () => {
       const { data, response } = await api.GET("/projects/{project_id}/script", { params: { path: { project_id: projectId } } });
       if (response.status === 404) return null;

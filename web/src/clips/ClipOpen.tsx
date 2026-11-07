@@ -750,7 +750,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
               {kv.map(([k, v]) => (
                 <div key={k} className="contents">
                   <dt className="text-muted">{k}</dt>
-                  <dd>{v}</dd>
+                  <dd className="whitespace-pre-line">{v}</dd>
                 </div>
               ))}
             </dl>

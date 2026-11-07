@@ -17,6 +17,7 @@ import { BreakdownVersions } from "./VersionLists";
 export function useBreakdown(projectId: number, scriptVersion: number) {
   return useQuery({
     queryKey: ["breakdown", projectId, scriptVersion],
+    enabled: projectId > 0,
     queryFn: async () => {
       const { data, response } = await api.GET("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } } });
       if (response.status === 404 || response.status === 409) return null;
