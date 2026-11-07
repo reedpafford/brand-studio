@@ -68,8 +68,8 @@ ALL_HAVE = ("Every take in the cut has sound already. Name the clip to add sound
             "under its own sound.")  # fmt: skip
 NOT_ADDED = "This take has no added sound."
 REMOVED = "removed"  # in a take's made_with: a person took its sound effects off, a "no"
-SAID_NO = ("Refused: a person removed this clip's sound effects; they stay off unless a person "
-           "asks for them again.")  # fmt: skip
+SAID_NO = ("Refused: a person removed this clip's sound effects, so they stay off. A person can "
+           "add them again with the clip's Add sound effects press.")  # fmt: skip
 SONG = "A song video's only sound is its song, so sound effects can't go under its takes."
 
 
