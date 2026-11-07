@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import watch_report
+from app.db import utcnow
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
@@ -45,7 +46,23 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "needs": said(decision.get("needs") or ""),
             "spent": float(credits), "up_to": float(up_to),
             "cut": number, "clips": len(spans),
-            "seconds": round(sum(s["seconds"] for s in spans), 1)}  # fmt: skip
+            "seconds": round(sum(s["seconds"] for s in spans), 1),
+            "since": turns[0].created_at.isoformat(),  # the run, to read its real cost later
+            "until": utcnow().isoformat()}  # fmt: skip
+
+
+def run_cost(db: Session, project_id: int, note: dict):
+    """What the run a note delivers cost at its providers (`credits.actual_usd`), read when
+    the owner reads it: a note keeps only its run's times, never dollars (any teammate can
+    read a job's output)."""
+    from datetime import datetime
+
+    from app.credits import actual_usd
+
+    if not note.get("since"):
+        return None
+    times = [datetime.fromisoformat(note[k]) if note.get(k) else None for k in ("since", "until")]
+    return actual_usd(db, project_id, *times)
 
 
 def open_items(db: Session, project: Project, spans: list[dict], asked: str = "") -> list[str]:
@@ -247,7 +264,7 @@ BLANK = {"made": "", "redid": [], "unsure": "", "open": [], "needs": "", "spent"
          "cut": None, "seconds": 0, "clips": 0}  # fmt: skip
 
 
-def shown(note: dict | str | None, owner: bool) -> dict | None:
+def shown(note: dict | str | None, owner: bool, real=None) -> dict | None:
     """The note as this person reads it, with its cost line in the header's figures at this
     cut (the whole video's, board S3-12): dollars to the owner ("$9.84 spent of up to
     $16.86"), credits only to anyone else ("96 credits used of up to 164 (59% of the
@@ -266,10 +283,13 @@ def shown(note: dict | str | None, owner: bool) -> dict | None:
     else:
         pct = round(100 * used / up_to) if up_to else 0
         cost = f"{round(used)} credits used of up to {price(up_to)} ({pct}% of the budget)"
+    if owner and real is not None:  # uncapped: the run's own, at its providers, never credits
+        cost = real.words("on this run")
     still = note.get("open", [])
     return {**note, "open": still, "needs": needs(note["needs"], bool(still or note["unsure"])),
             "cost": cost, "up_to": float(up_to),
-            "spent_usd": dollars(used) if owner else None}  # fmt: skip
+            "spent_usd": (float(real.usd) if real is not None else dollars(used)) if owner
+            else None}  # fmt: skip
 
 
 READY = re.compile(

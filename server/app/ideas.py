@@ -17,7 +17,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app import asks, director, guides, looks, needs_you
-from app.credits import COUNTED
+from app.credits import COUNTED, actual_usd, uncapped
 from app.models.accounts import User
 from app.models.clips import ProjectClip
 from app.models.credits import USD_PER_CREDIT
@@ -57,6 +57,8 @@ class Cost(BaseModel):
     kind: Literal["up_to", "so_far", "total"]  # "up to $16.86" · "$0.42 so far" · "$7.20"
     credits: float
     usd: float | None = None  # the owner only: editors see credits (rule 4)
+    about_usd: float | None = None  # the owner's uncapped site: its run's expected cost
+    # beside what the providers charged so far ("$0.42 so far · about $8.01")
 
 
 class Named(BaseModel):
@@ -236,6 +238,16 @@ def _cost(db: Session, user: User, p: Project, status: Status, known: Facts) -> 
     from app.routes.estimate import run_price
 
     used = known.used.get(p.id, Decimal(0))
+    if uncapped(user):  # the header's own figures: the providers' spend, and the estimate
+        from app.routes.asks import _expected
+
+        real = actual_usd(db, p.id).usd
+        if status.kind == "delivered":
+            return Cost(kind="total", credits=float(used), usd=float(real))
+        about = (
+            math.ceil(_expected(db, p) * USD_PER_CREDIT * 100) / 100 if p.script_draft_id else None
+        )
+        return Cost(kind="so_far", credits=float(used), usd=float(real), about_usd=about)
     kind, credits = "so_far", used
     if status.kind == "delivered":
         kind = "total"
@@ -313,7 +325,12 @@ class Head(BaseModel):
     status: Status
     spent: Money  # every charge on the video so far, the director's own included
     up_to: Money | None  # the most the run the owner approved may charge; None: not known yet
-    budget: Money  # the video's budget (a step past it waits for the owner's OK)
+    budget: Money | None  # the video's budget (a step past it waits for the owner's OK); None
+    # on the owner's uncapped test site, which has none (Reed, 6 Nov)
+    expected: Money | None = None  # uncapped: what its run will probably cost (an estimate)
+    actual: bool = False  # uncapped: `spent` is the providers' own charges, in dollars
+    listed_usd: float | None = None  # uncapped: of it, at list price (no figure reported)
+    unreported: bool = False  # uncapped: a job still running, its cost not reported yet
     folder: Named | None  # None: Unsorted
     format: str  # "Presenter"; "" for a video with no script
     style: str  # "Dr. Pickle"
@@ -355,6 +372,19 @@ def head(db: Session, user: User, p: Project) -> Head:
     except ValueError:  # a format since taken out of the guides
         kind = ""
     folder = db.get(Folder, p.live_folder_id) if p.live_folder_id else None
+    if uncapped(user):  # the providers' own spend and the likely cost; no limit, no budget
+        from app.routes.asks import _expected
+
+        real = actual_usd(db, p.id)
+        return Head(
+            title=fs.title if fs is not None else p.name, status=status,
+            spent=Money(credits=float(used), usd=float(real.usd)), budget=None, up_to=None,
+            expected=_money(user, _expected(db, p), math.ceil), actual=True,
+            listed_usd=float(real.listed), unreported=real.pending,
+            folder=Named(id=folder.id, name=folder.name) if folder else None,
+            format=kind, style=_style(p.look), seconds=p.planned_seconds or p.breakdown_seconds,
+            song=narration.video_kind(db, p) == "song", usd_per_credit=float(USD_PER_CREDIT),
+        )  # fmt: skip
     return Head(
         title=fs.title if fs is not None else p.name, status=status,
         spent=_money(user, used), budget=_money(user, Decimal(p.budget_credits)),

@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     # presses are refused and queued work isn't sent. Either unset there: nothing paid runs.
     real_budget_usd: float = 0.0
     real_budget_since: datetime | None = None
+    # Reed, 6 Nov: on his owner-only test site the OWNER's own work has no monetary hold (the
+    # director's own limit, its real-cost backstop, the run's approved price, the video's
+    # budget, and the real budget when it's 0); prices before a press are expected costs, and
+    # what's spent is the providers' own. Editors' holds are unchanged; off everywhere else.
+    owner_uncapped: bool = False
     # Claude: key from STUDIO_ANTHROPIC_KEY only (never in code or logs).
     anthropic_key: SecretStr = Field(SecretStr(""), validation_alias="STUDIO_ANTHROPIC_KEY")
     # Paid generation (Replicate, Claude). Off by default: the owner turns it on at deploy.
@@ -126,5 +131,7 @@ def check_production(settings: Settings) -> None:
         problems.append("POSTGRES_PASSWORD is the example value: use `openssl rand -hex 24`.")
     if settings.fake_providers and settings.env == "production":
         problems.append("BS_FAKE_PROVIDERS is on: it's for local runs only, remove the line.")
+    if settings.owner_uncapped and settings.env == "production":
+        problems.append("BS_OWNER_UNCAPPED is on: it's for the test site only, remove the line.")
     if problems:
         raise RuntimeError("Not starting. Fix deploy/.env: " + " ".join(problems))

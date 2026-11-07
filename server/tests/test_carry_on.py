@@ -14,6 +14,7 @@ from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.providers import get_providers
+from app.settings import get_settings
 from app.worker import run_once
 from tests.conftest import first_brand
 from tests.helpers import make_it, ok_when_asked
@@ -235,7 +236,7 @@ def test_carrying_on_keeps_the_directors_own_limit_and_its_notes(app, db, owner,
     """QA on 58cc8940: the director's own limit and its real-cost guard are the run's, so a
     step the run would hold before Carry on is still held after it; and the notes from before
     the Stop keep their numbers and read marks."""
-    monkeypatch.setattr(director, "OWN_LIMITS", True)  # the limit's behaviour when it's on
+    monkeypatch.setattr(get_settings(), "owner_uncapped", False)  # the limit holds (off: as live)
     pid = _made(app, owner, editor, db)
     url = f"/projects/{pid}/director"
     editor.post(url)
