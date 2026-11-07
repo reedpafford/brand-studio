@@ -154,7 +154,8 @@ def _usage(job: Job, provider: Provider, result: Result) -> list[Usage]:
     is listed."""
     items = [
         Usage(workspace_id=job.workspace_id, job_id=job.id, provider=job.provider, kind=job.kind,
-              units=i.units, unit=i.unit, cost_usd=i.cost_usd, estimated=i.estimated)
+              units=i.units, unit=i.unit, cost_usd=i.cost_usd, estimated=i.estimated,
+              **_tokens(i.tokens))
         for i in result.usage
     ]  # fmt: skip
     if not items and provider.paid and job.credits and result.state == "succeeded":
@@ -165,6 +166,15 @@ def _usage(job: Job, provider: Provider, result: Result) -> list[Usage]:
                   estimated=True)
         )  # fmt: skip
     return items
+
+
+def _tokens(counts: dict | None) -> dict:
+    """A Claude call's counts as Usage's columns; nothing for any other provider."""
+    if not counts:
+        return {}
+    names = {"input": "input_tokens", "output": "output_tokens", "cache_read": "cache_read_tokens",
+             "cache_write": "cache_write_tokens", "images": "images"}  # fmt: skip
+    return {column: counts.get(key) for key, column in names.items()}
 
 
 def _mine(query, only: set[str] | None):

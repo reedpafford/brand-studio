@@ -164,6 +164,9 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
   const base = mp4(head?.title ?? p.name);
   const name = older ? base.replace(/\.mp4$/, `-cut-${older.number}.mp4`) : base;
   const pick = (n: number) => setPicked(n === live?.number ? null : n); // the cut that plays isn't pinned: a new one replaces it
+  // E2E 233: "Final cut 0:18" while the director was still revising, and 0:18 (the plan's) for a 16.7 s file
+  const revising = !!run && ["working", "revising", "waiting"].includes(run.status);
+  const length = Math.round(live?.seconds ?? media.seconds);
   const owner = head?.spent.usd != null;
   const s = settings.data;
   const model = s && (s.video_models.find((m) => m.id === s.video_model) ?? s.video_models.find((m) => m.default))?.name;
@@ -205,8 +208,8 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={pick} />}
           <div className="flex flex-col gap-1 max-sm:hidden">
-            {!(live && (live.versions.length > 1 || nextCut(live))) && <h2 className="text-lg font-semibold">Final cut</h2>}
-            <p className="text-sm tabular-nums text-muted">{older ? `Cut ${older.number} · made ${serverTime(older.made_at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : [media.seconds > 0 && mmss(media.seconds), p.aspect_ratio, `${progress.clips.total} clip${progress.clips.total === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
+            {!(live && (live.versions.length > 1 || nextCut(live))) && <h2 className="text-lg font-semibold">{revising ? "Current cut" : "Final cut"}</h2>}
+            <p className="text-sm tabular-nums text-muted">{older ? `Cut ${older.number} · made ${serverTime(older.made_at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}` : [length > 0 && mmss(length), p.aspect_ratio, `${progress.clips.total} clip${progress.clips.total === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
           </div>
           <div className="flex flex-col gap-2">
             <a className={`${buttonClass("primary")} justify-start`} href={fileUrl(file)} download={name}>

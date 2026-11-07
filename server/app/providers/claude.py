@@ -28,6 +28,12 @@ def clean(value):
     return value
 
 
+# Steps whose fixed instructions come back after more than 5 minutes within a run (cost
+# analysis, session 35): the director's turns wait on takes and on people, and take watches
+# land as takes finish. Their cache lives an hour; every other step keeps the 5-minute one.
+LONG_CACHE = {"director": "1h", "take_watch": "1h"}
+
+
 class ClaudeProvider:
     name = "claude"
     paid = True
@@ -60,7 +66,7 @@ class ClaudeProvider:
             with ThreadPoolExecutor(max_workers=min(PARALLEL, len(rest))) as pool:
                 answers += pool.map(one, rest)  # in part order, whichever finished first
         output: dict = {}
-        failed, cost, unasked = [], Decimal(0), []
+        failed, cost, unasked, tokens = [], Decimal(0), [], {}
         for i, answer in enumerate(answers):
             if isinstance(answer, ClaudeError):  # refused or cut off: still billed
                 failed.append({"part": i, "error": str(answer)})
@@ -70,11 +76,13 @@ class ClaudeProvider:
                 unasked.append(answer)
             else:
                 cost += answer.cost_usd
+                for key, n in (getattr(answer, "tokens", None) or {}).items():  # parts summed
+                    tokens[key] = tokens.get(key, 0) + n
                 for key, value in clean(answer.parsed.model_dump()).items():
                     output[key] = output.get(key, []) + value if isinstance(value, list) else value
         if len(unasked) == len(parts):  # nothing answered or billed: the worker's usual rules
             raise next((e for e in unasked if isinstance(e, NetworkError)), unasked[0])
-        usage = [UsageItem(Decimal(1), "call", cost)] if cost else []
+        usage = [UsageItem(Decimal(1), "call", cost, tokens=tokens or None)] if cost else []
         if len(failed) == len(parts):
             return Result("failed", error="; ".join(f["error"] for f in failed), usage=usage)
         if failed:
@@ -94,6 +102,7 @@ class ClaudeProvider:
                 effort=input.get("effort", "high"),
                 images=(input.get("input") or {}).get("reference_images", []),
                 shared=shared,
+                cache_ttl=LONG_CACHE.get(input["step"], "5m"),
                 **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
         except (

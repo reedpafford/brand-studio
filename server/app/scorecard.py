@@ -12,9 +12,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import script_library as lib
-from app.credits import credits_used, director_credits
+from app.credits import COUNTED, credits_used, director_credits
 from app.models.checks import ItemCheck
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
+from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 
@@ -67,11 +68,52 @@ def facts(db: Session, project: Project) -> Facts | None:
 
 
 def finished(db: Session, workspace_id: int, look: str | None = None) -> list[Facts]:
+    """`facts` of every finished video (of `look`), read in a fixed few queries for all of them
+    at once: the same figures as `facts` one by one, which made a video page wait on a pass
+    over the whole workspace for each money figure it showed (Reed's test site, 7 Nov)."""
     query = select(Project).where(Project.workspace_id == workspace_id,
                                   Project.finished_at.is_not(None))  # fmt: skip
     if look:
         query = query.where(Project.look == look)
-    return [f for p in db.scalars(query) if (f := facts(db, p))]
+    projects = list(db.scalars(query))
+    if not projects:
+        return []
+    ids = [p.id for p in projects]
+    draft_ids = [p.script_draft_id for p in projects if p.script_draft_id]
+    drafts = {d.id: d for d in db.scalars(select(ScriptDraft).where(ScriptDraft.id.in_(draft_ids)))}
+    scripts = {s.id: s for s in db.scalars(select(Script).where(
+        Script.id.in_({d.script_id for d in drafts.values()})))}  # fmt: skip
+    cuts: dict[int, FinalVideo] = {}
+    for cut in db.scalars(select(FinalVideo).where(FinalVideo.project_id.in_(ids))
+                          .order_by(FinalVideo.id)):  # fmt: skip
+        cuts[cut.project_id] = cut  # the newest, as `_cut` reads it
+    clips: dict[int, list[ProjectClip]] = {}
+    for clip in db.scalars(select(ProjectClip).where(ProjectClip.project_id.in_(ids))):
+        clips.setdefault(clip.project_id, []).append(clip)
+    every = [c.id for cs in clips.values() for c in cs]
+    counted = select(ClipTake.clip_id, func.count()).where(ClipTake.clip_id.in_(every))
+    takes = dict(db.execute(counted.group_by(ClipTake.clip_id)).all())
+    spent = select(Job.project_id, func.coalesce(func.sum(Job.credits), 0)).where(
+        Job.status.in_(COUNTED), Job.project_id.in_(ids)).group_by(Job.project_id)  # fmt: skip
+    used = dict(db.execute(spent).all())
+    own = dict(db.execute(spent.where(Job.input["director_run"].as_string().is_not(None))).all())
+    out = []
+    for p in projects:
+        draft = drafts.get(p.script_draft_id) if p.script_draft_id else None
+        script = scripts.get(draft.script_id) if draft else None
+        if script is None:
+            continue
+        cut = cuts.get(p.id)
+        shown = set(cut.take_ids) if cut else None
+        made = [c for c in clips.get(p.id, []) if c.picked_take_id is not None
+                and (shown is None or c.picked_take_id in shown)]  # fmt: skip
+        seconds = sum(c.seconds for c in made)
+        if not seconds:
+            continue
+        out.append(Facts((lib.format_id(script), p.look), seconds, Decimal(used.get(p.id, 0)),
+                         Decimal(own.get(p.id, 0)), len(made),
+                         sum(takes.get(c.id, 0) for c in made), p.score))  # fmt: skip
+    return out
 
 
 def table(db: Session, workspace_id: int) -> list[dict]:

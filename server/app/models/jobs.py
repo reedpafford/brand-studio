@@ -64,6 +64,13 @@ class Usage(Entity, Base):
     unit: Mapped[str] = mapped_column(String(20))  # e.g. second, image, token
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 4))
     estimated: Mapped[bool] = mapped_column(default=False)  # amount not reported by provider
+    # A Claude call's token counts (cost analysis A8), to see a turn's context and its cache
+    # hits; null for every other provider, and for rows from before they were kept
+    input_tokens: Mapped[int | None] = mapped_column(default=None)
+    output_tokens: Mapped[int | None] = mapped_column(default=None)
+    cache_read_tokens: Mapped[int | None] = mapped_column(default=None)
+    cache_write_tokens: Mapped[int | None] = mapped_column(default=None)
+    images: Mapped[int | None] = mapped_column(default=None)
 
 
 class ChargeRefund(Entity, Base):

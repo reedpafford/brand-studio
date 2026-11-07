@@ -30,6 +30,7 @@ class UsageItem:
     unit: str
     cost_usd: Decimal
     estimated: bool = False  # True when the provider didn't report the amount used
+    tokens: dict | None = None  # a Claude call's counts (claude.counts), kept with its row
 
 
 @dataclass

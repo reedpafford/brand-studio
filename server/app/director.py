@@ -56,8 +56,6 @@ OLD_TAKE = (
     "Refused: clip {c}'s picked take holds the cut out of date however often it's made "
     "again ({why}). Make another take of clip {c}, or pick one that's current."
 )
-NO_WATCH_LEFT = ("Refused: no watches are left this run to check an edit. Say in the delivery note "
-                 "what you would change.")  # fmt: skip
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -276,11 +274,14 @@ def chat(project: Project, run_id: str) -> list[dict]:
     return [{"text": m["text"]} for m in project.director_chat or [] if m.get("run") == run_id]
 
 
-def answered(db: Session, run_id: str) -> set[int]:
+def answered(db: Session, run_id: str, project_id: int | None = None) -> set[int]:
     """The run's notes (numbered from 1) a move has answered: named "Note N" in the why of a
-    move that wasn't refused, or in the delivery's note. An ask stays open until then."""
+    move that wasn't refused, or in the delivery's note. An ask stays open until then. With
+    its video (`project_id`), only that video's jobs are read, not the whole table."""
     mine = Job.input[RUN]["id"].as_string() == run_id
-    rows = db.scalars(select(Job).where(Job.input["step"].as_string() == STEP, mine)).all()
+    where = [Job.project_id == project_id] if project_id is not None else []
+    rows = db.scalars(select(Job).where(*where, Job.input["step"].as_string() == STEP,
+                                        mine)).all()  # fmt: skip
     return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
             for n in NOTE.findall(move_words(j.output or {}))}  # fmt: skip
 
@@ -319,7 +320,8 @@ def thread(db: Session, project: Project, viewer: User | None = None) -> list[di
     from app import run_progress
     from app.auth import user_name
 
-    done = {r: answered(db, r) for r in {m.get("run") for m in project.director_chat or []} if r}
+    runs_ = {m.get("run") for m in project.director_chat or []}
+    done = {r: answered(db, r, project.id) for r in runs_ if r}
     place: dict[str | None, int] = {}  # a note's number in its run ("Note N"), as `answered` reads
     out = []
     for n, m in enumerate(project.director_chat or []):
@@ -674,12 +676,22 @@ def _treatment_checked(db: Session, job: Job) -> bool:
 
 
 def wake(db: Session, project: Project) -> None:
-    """The next turn, once the last one was acted on and nothing on the video is waiting."""
+    """The next turn, once the last one was acted on and nothing on the video is waiting.
+    Never twice (cost analysis A5: the worker's finish and its sweep both woke the same run,
+    so a turn, and what it paid for, ran twice): `_turn` checks again under the lock."""
+    if (last := _wakeable(db, project)) is None:
+        return
+    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]),
+          after=last.id)  # fmt: skip
+
+
+def _wakeable(db: Session, project: Project) -> Job | None:
+    """The run's last turn when its next one should start now, else None."""
     last = active(db, project)
     if last is None or last.status != JobStatus.succeeded or "result" not in last.input:
-        return
+        return None
     if _waiting(db, project) or _parked(db, project, last):
-        return
+        return None
     if (
         last.input["result"] == CAST_WAIT
         and cast_gate.pending(db, project)
@@ -688,9 +700,9 @@ def wake(db: Session, project: Project) -> None:
             or asks.answered_since(db, project, (last.started_at or last.created_at).isoformat())
         )
     ):
-        return  # it goes on when the cast and places are approved, a question is answered, or
-        # someone asks for more
-    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
+        return None  # it goes on when the cast and places are approved, a question is
+        # answered, or someone asks for more
+    return last
 
 
 def _parked(db: Session, project: Project, last: Job) -> bool:
@@ -758,7 +770,8 @@ def _act(db: Session, job: Job, storage) -> None:
         given = max((t.input.get(READ, 0) for t in turns(db, project)
                      if t.input[RUN]["id"] == run["id"]), default=0)  # fmt: skip
         # a note no turn was given yet isn't its to answer: it waits for the next Make it
-        if left := [n for n in range(1, given + 1) if n not in answered(db, run["id"]) | named]:
+        if left := [n for n in range(1, given + 1)
+                    if n not in answered(db, run["id"], project.id) | named]:  # fmt: skip
             return _record(db, job, run, OPEN.format(left[0]))
         from app import delivery
 
@@ -797,8 +810,6 @@ def _act(db: Session, job: Job, storage) -> None:
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
-    if tool == "edit_cut" and run.get("watches", 0) >= MAX_WATCHES:  # it watches what it edits
-        return _record(db, job, run, NO_WATCH_LEFT)
     if tool == "watch_cut" and (cut_edits.for_director(db, project) or {}).get("changes"):
         return _record(db, job, run, REBUILD)  # a watch is for the cut with the edits in it
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
@@ -923,7 +934,8 @@ def _end(job: Job, why: str, result: str = "") -> None:
 
 
 def _turn(db: Session, user: User, project: Project, run: dict, *,
-          extra: dict | None = None, carry: tuple[str, Decimal] | None = None) -> Job:  # fmt: skip
+          extra: dict | None = None, carry: tuple[str, Decimal] | None = None,
+          after: int | None = None) -> Job:  # fmt: skip
     from app.routes.jobs import enqueue
 
     last = next(reversed(turns(db, project)), None)
@@ -974,6 +986,14 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         wait = past_own(db, project, run["id"], turn, user)
         data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
         wait = wait or past_approved(db, project, user, turn)
+    if after is not None:  # woken: under the video's lock, unless another waker got here first
+        lock(db, Project, project.id)  # a second waker waits here, then sees the first's turn
+        newer = db.scalar(select(Job).where(Job.project_id == project.id,
+                                            Job.input["step"].as_string() == STEP,
+                                            Job.input[RUN]["id"].as_string() == run["id"],
+                                            Job.id > after).limit(1))  # fmt: skip
+        if newer is not None:
+            return newer
     try:
         job = enqueue(db, user, "write-claude", data, project=project, provider="claude",
                       prepaid=not wait, wait=wait)  # fmt: skip
@@ -1177,11 +1197,12 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
-    closed = answered(db, run["id"])
+    closed = answered(db, run["id"], project.id)
     asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed}
              for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
     # new: no earlier turn was given it. answered: a move named it ("Note N"); else still open
-    own = db.scalar(select(Job.id).where(Job.input["step"].as_string() == "treatment",
+    own = db.scalar(select(Job.id).where(Job.project_id == project.id,
+                                         Job.input["step"].as_string() == "treatment",
                                          Job.input[RUN]["id"].as_string() == run["id"],
                                          Job.status.in_(COUNTED)).limit(1))  # fmt: skip
     video = {
