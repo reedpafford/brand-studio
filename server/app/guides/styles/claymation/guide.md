@@ -86,7 +86,7 @@ Never show set edges, workbench, or the room around the set.
 
 ## safe to vary
 - How much of the world is clay: fully sculpted rooms (4 of 5) or realistic, film-like rooms around clay people (1 of 5).
-- Music: none at all (2 of 5) or a quiet tonal bed 11–25 dB under the voice, no drums (3 of 5). Music is added in post (Reed, 7 Nov): the site makes the video's own sound, the voices, the room and the effects, never a music bed, and a cut with none is right.
+- Music: none at all (2 of 5) or a quiet tonal bed 11–25 dB under the voice, no drums (3 of 5). Music is added in post: the site makes the video's own sound, the voices, the room and the effects, never a music bed, and a cut with none is right.
 - Sound effects: none, or literal effects on clay events (a thump when something lands, a whoosh on a fly-through or whip, alarms, ticks on a countdown).
 - Aspect: 9:16 (4 of 5) or 4:5 (1 of 5). Length: 1 to 4 minutes seen.
 - The character: any age and walk of life, held the same across the video (the sheet carries the face).

@@ -98,7 +98,15 @@ def test_the_director_lays_a_bed_only_when_a_person_asks():
     house = guides.style("house")["sections"]
     sound = next(line for part in house.values() for line in part.splitlines()
                  if line.startswith("- Sound:"))  # fmt: skip
-    assert sound.startswith("- Sound: Music is added in post (Reed, 7 Nov)")
+    assert sound.startswith("- Sound: Music is added in post: the site makes the video's own")
+    breakdown = prompts.system("breakdown")
+    assert "puts a music bed" not in breakdown  # never a wordless beat held for a bed (QA)
+    assert "or a person's note asks for music, a held beat can run longer" in breakdown
+    assert "with music under it" not in prompts.system("narrated_clip_prompts")
+    assert "When the original has a call to action, the video ends on it" in prompts.system(
+        "variations")  # fmt: skip
+    for text in (director, breakdown, prompts.system("watch_cut")):
+        assert "7 Nov" not in text  # the date is for ops/DECISIONS.md, never a finding's words
     assert "never where a person removed the music, set its level or swapped it" in director
 
 

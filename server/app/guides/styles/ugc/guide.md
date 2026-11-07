@@ -72,7 +72,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - The talker's age, sex and look (a man in his fifties–sixties, a woman in her twenties in scrubs, a man in his thirties, a man in his fifties).
 - Framing: waist-up to selfie-close with the head touching the top edge.
 - Energy: calm and confiding (pitch variability 3.6 semitones) to lively and urgent (4.9–5.8, with rising peaks).
-- Music: none by default (2 of 4 have none); a quiet bed 21–24 dB under the voice (2 of 4) when the script or editor asks for one. Music is added in post (Reed, 7 Nov): the site makes the video's own sound, the voices, the room and the effects, never a music bed, and a cut with none is right.
+- Music: none by default (2 of 4 have none); a quiet bed 21–24 dB under the voice (2 of 4) when the script or editor asks for one. Music is added in post: the site makes the video's own sound, the voices, the room and the effects, never a music bed, and a cut with none is right.
 - Editor transitions: none (2 of 4), or a flash or whip on about every third cut (1 of 4).
 - Hook device: a metaphor picture behind the talker, split screens of the problem, a second person over the talker, product footage behind the talker (one each).
 - Extras: generated selfie-testimonial clips of other people near the end (2 of 4), picture-in-picture photos over the talker (1 of 4), designed offer cards in the last third (1 of 4).
