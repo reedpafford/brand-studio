@@ -190,3 +190,72 @@ def test_a_looped_bed_crossfades_at_each_repeat_with_no_click(tmp_path):
     assert top > 5 * usual  # the check hears a plain loop's click (about 11x here)
     name = cut_render.looped(tmp_path, "bed.wav", 3.0)  # the narrated mix's loop too
     assert name == "looped.wav" and cut_render._length(tmp_path, name) >= 3.0
+
+
+def test_only_an_open_note_written_after_a_persons_music_choice_unlocks_it(
+    app,
+    db,
+    owner,
+    editor,
+    approved,  # noqa: F811
+):
+    """QA on #1415: the run's Note 1 said "Make the hook punchier"; a person then removed
+    the music, and the director's "Note 1: bring the music back." went through. Only a
+    person's note written after their music edit, and not answered yet, unlocks it."""
+    from datetime import timedelta
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+
+    from app import director, director_tools
+    from app.db import utcnow
+    from app.models.accounts import User
+    from app.models.projects import Project
+
+    base, _ = approved
+    _bed(app, db, owner)
+    pid = int(base.rsplit("/", 1)[1])
+    project, ed = db.get(Project, pid), db.query(User).filter_by(email="ed@example.com").one()
+    cut_edits.add(db, ed, project, "music", {"removed": False}, director=True)
+    db.commit()
+    before = (utcnow() - timedelta(minutes=5)).isoformat()
+    _edit(editor, base, kind="music", removed=True)  # the person's "no", after Note 1
+    after = (utcnow() + timedelta(minutes=1)).isoformat()
+    project.director_chat = [
+        {"by": ed.id, "text": "Make the hook punchier.", "at": before, "run": "r1"},
+        {"by": ed.id, "text": "Bring the music back.", "at": after, "run": "r1"},
+        {"by": ed.id, "text": "Music back, please.", "at": after, "run": "r1"},
+    ]  # fmt: skip
+    db.add(
+        director.Job(
+            workspace_id=project.workspace_id,
+            kind="claude",
+            provider="fake",
+            project_id=pid,
+            status="succeeded",
+            input={"step": director.STEP, director.RUN: {"id": "r1"}, "result": "ok"},
+            output={"tool": "wait", "why": "Note 3: on it."},
+        )
+    )  # Note 3 answered
+    db.commit()
+    me = {"project_id": pid, "user": ed, "db": db}
+    request = SimpleNamespace(app=app)
+    back = {"kind": "music", "removed": False}
+
+    def move(why: str) -> str:  # as the director's own move (its route marks it)
+        from app.routes.jobs import DIRECTOR_TOOL
+
+        marked = DIRECTOR_TOOL.set(True)
+        try:
+            return director_tools._edit_cut(db, project, dict(back), request, me,
+                                            {"id": "r1"}, why)  # fmt: skip
+        except HTTPException as no:
+            return f"Refused: {no.detail}"
+        finally:
+            DIRECTOR_TOOL.reset(marked)
+            db.commit()
+
+    refused = f"Refused: {cut_edits.PERSONS_MUSIC.format('Music removed')}"
+    assert move("Note 1: bring the music back.") == refused  # older than the removal
+    assert move("Note 3: bring the music back.") == refused  # answered already
+    assert move("Note 2: bring the music back.").startswith("Music back")  # newer and open

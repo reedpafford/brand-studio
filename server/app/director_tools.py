@@ -286,16 +286,41 @@ def _edit_cut(db: Session, project: Project, move: dict, request, me: dict,
     turn keeps its id (`run["edit_id"]`) so the chat shows Undo beside it. A person's own
     music choice stays theirs unless the move answers a person's note (`cut_edits`)."""
     from app import cut_edits
-    from app.director import NOTE, chat
+    from app.models.clips import CutEdit
 
     run = run if run is not None else {}
-    given = len(chat(project, run.get("id"))) if run.get("id") else 0
-    noted = any(1 <= int(n) <= given for n in NOTE.findall(why))  # "Note 2: quieter music"
+    theirs = (
+        db.get(CutEdit, int(move["edit_id"]))
+        if move.get("kind") == "undo" and move.get("edit_id") is not None
+        else cut_edits._persons_music(db, project)
+    )
+    noted = _asked_since(db, project, run.get("id"), why, theirs)
     marked = cut_edits.PERSON_ASKED.set(noted)
     try:
         return _edit_cut_now(db, project, move, request, me, run, noted)
     finally:
         cut_edits.PERSON_ASKED.reset(marked)
+
+
+def _asked_since(db: Session, project: Project, run_id: str | None, why: str, edit) -> bool:
+    """The move answers a person's note ("Note 2: quieter music") that's still open and was
+    written after `edit`, the person's own music choice it would change (QA on #1415: the
+    run's older "Make the hook punchier" never unlocks a removal made since)."""
+    from datetime import datetime
+
+    from app.director import NOTE, answered
+
+    if not run_id:
+        return False
+    notes = [m for m in project.director_chat or [] if m.get("run") == run_id]  # Note 1, 2, …
+    done, since = answered(db, run_id), edit.created_at if edit is not None else None
+
+    def after(m: dict) -> bool:
+        at = datetime.fromisoformat(m["at"]).replace(tzinfo=None) if m.get("at") else None
+        return since is None or (at is not None and at > since)
+
+    return any(1 <= (n := int(x)) <= len(notes) and n not in done and after(notes[n - 1])
+               for x in NOTE.findall(why))  # fmt: skip
 
 
 def _edit_cut_now(db: Session, project: Project, move: dict, request, me: dict, run: dict,
