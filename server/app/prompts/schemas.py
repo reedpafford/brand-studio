@@ -741,8 +741,9 @@ class AskMove(Strict):
     topic: str = Field(default="", description="Two or three words for the bar: 'The husband'.")
     subject: str = Field(
         default="",
-        description="The role, place, product or screen as the script names it ('husband'); a "
-        "saved item of that name is used without asking.",
+        description="The role, place, product or screen as the script names it ('husband'); "
+        "always given for cast, presenter and place. A saved item of that name is used without "
+        "asking.",
     )
     question: str = Field(default="", description="The question, plainly: 'Who plays the husband?'")
     why: str = Field(default="", description="One or two plain sentences: why it matters here.")
