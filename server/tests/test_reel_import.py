@@ -157,13 +157,28 @@ def test_replaced_and_unreadable_uploads_leave_no_files(app, owner, db, clip, tm
     assert db.get(StoredFile, old["video_file_id"]) is None
     assert db.get(StoredFile, old["contact_file_id"]) is None
     _work(app, db)
-    mute = _clip(tmp_path / "mute.mp4", sound=False)
-    bad = _upload(owner, mute).json()["script_id"]
+    junk = tmp_path / "junk.mp4"  # an mp4's first bytes, then nothing a player can read
+    junk.write_bytes(b"\0\0\0\x18ftypmp42" + b"0" * 64)
+    bad = _upload(owner, junk).json()["script_id"]
     _work(app, db)
     assert owner.get(f"/scripts/{bad}/import").json()["video_file_id"] is None
     db.expire_all()
     assert db.query(StoredFile).count() == 4  # the replacement's video, sheet, watch copy, grid
     assert len([p for p in Path(app.state.settings.storage_dir).rglob("*") if p.is_file()]) == 4
+
+
+def test_a_silent_reel_is_kept_for_its_look_but_has_nothing_to_read(app, owner, db, tmp_path):
+    """S-gaps-01: a reel with no sound is prepared (cuts, sheet, watch copy), not transcribed;
+    it says why it can't be read, and keeps its files for Just its look."""
+    sid = _upload(owner, _clip(tmp_path / "mute.mp4", sound=False)).json()["script_id"]
+    _work(app, db)
+    out = owner.get(f"/scripts/{sid}/import").json()
+    said = (out["status"], out["failed_step"], out["problem_code"])
+    assert said == ("failed", "prepare", "no_sound")
+    assert out["problem"] == reel.NO_SOUND and out["transcript"] == [] and out["estimate"] is None
+    assert out["shots"] == 2 and owner.get(f"/files/{out['contact_file_id']}").status_code == 200
+    assert owner.get(f"/files/{out['video_file_id']}").status_code == 200
+    assert owner.post(f"/scripts/{sid}/import/read").status_code == 409  # nothing to read
 
 
 def test_a_worker_can_take_only_some_providers(app, owner, db, clip):

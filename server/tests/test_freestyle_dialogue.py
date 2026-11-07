@@ -226,3 +226,27 @@ def test_an_approved_run_with_every_redo_used_delivers_within_its_price(
     most = (once + director.OWN_CREDITS
             + director.MAX_REDOS * (sum(firsts.values()) + check * len(firsts)))  # fmt: skip
     assert spent <= most <= row.up_to, (spent, most, row.up_to)
+
+
+def test_new_videos_saved_scripts_leave_out_the_scripts_its_pasted_sends_made(app, owner, db):
+    """S2-06: every pasted send is a published script in Scripts; From a saved script asks
+    with sends=false and gets only the library's own, a send made from one included."""
+    from datetime import timedelta
+
+    from app.db import utcnow
+    from app.models.script_library import Script, ScriptDraft
+
+    pasted = owner.post("/freestyles", json=BODY).json()
+    kept = Script(workspace_id=1, brand_id=1, title="Beer gut doctor rant", kind="story",
+                  format="dialogue", look="house", published=True, created_by_id=1,
+                  created_at=utcnow() - timedelta(days=1))  # fmt: skip
+    db.add(kept)
+    db.flush()
+    db.add(ScriptDraft(script_id=kept.id, slot=0, text=SCRIPT, status="approved"))
+    db.commit()
+    made = owner.post("/freestyles", json={**BODY, "text": None, "script_id": kept.id, "slot": 0})
+    assert made.status_code == 201, made.text
+    titles = lambda **q: sorted(s["title"] for s in owner.get("/scripts", params=q).json())  # noqa: E731
+    assert titles() == ["Beer gut doctor rant", pasted["title"]]  # Scripts lists both
+    assert titles(sends=False) == ["Beer gut doctor rant"]
+    assert titles(sends=False, brand_id=1, limit=50, q="market") == ["Beer gut doctor rant"]
