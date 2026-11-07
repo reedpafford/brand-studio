@@ -9,6 +9,7 @@ from datetime import timedelta
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app import host_layer, narration
 from app.cut import (
@@ -66,6 +67,24 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
                   data=data, said=said, at=round(at, 2))  # fmt: skip
     db.add(row)
     db.flush()
+    row.kept = ""  # a word a trim was moved to keep (said back to whoever pressed it)
+    while True:
+        after = _replayed(db, project, row)
+        try:
+            keeps_every_word(db, after)
+            return row
+        except LosesWord as lost:  # S4 (Flow-QA): the nearest trim that keeps it, said so
+            moved = _keeping(db, tl, row, lost) if kind == "trim" else None
+            if moved is None:
+                raise
+            row.data, row.kept = moved, row.kept or lost.word  # the first word it would cut
+            row.said = f"{label(data['piece'])} trimmed, keeping “{row.kept}”"
+            flag_modified(row, "data")
+            db.flush()
+
+
+def _replayed(db: Session, project: Project, row: CutEdit) -> dict:
+    """The timeline with every edit in force, this one too (its own refusal raised)."""
     after = base(db, project)
     for e in active(db, project):
         try:
@@ -73,15 +92,42 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
         except Refused:
             if e.id == row.id:
                 raise
-    keeps_every_word(db, after)
-    return row
+    return after
+
+
+class LosesWord(Refused):
+    """An edit that would cut a spoken word: which clip, take and word (its times in the take)."""
+
+    def __init__(self, said: str, slot: str, take_id: int, word: dict):
+        super().__init__(said)
+        self.slot, self.take_id, self.word, self.times = slot, take_id, word["word"].strip(), word
+
+
+def _keeping(db: Session, tl: dict, row: CutEdit, lost: LosesWord) -> dict | None:
+    """A story trim moved out just past the word it would cut (a breath before it, or after
+    it), as far as its take runs; None when it isn't this trim's word, or moving can't keep it."""
+    d = row.data
+    if not lost.slot:  # a narrated or song cut ending before its last word: at it, a breath on
+        ends = d.get("end") is not None and d["piece"] == tl["pieces"][-1]["id"]
+        return {**d, "end": round(lost.times["end"] + TAIL, 2)} if ends else None
+    if "length" not in d or lost.slot != d["piece"].split(".")[0]:
+        return None
+    take = db.get(ClipTake, lost.take_id)
+    longest = _take_seconds(db, take, d["length"])
+    frm, end = d["from"], d["from"] + d["length"]
+    frm = round(min(frm, max(0.0, lost.times["start"] - LEAD)), 2)
+    end = round(min(max(end, lost.times["end"] + TAIL), longest), 2)
+    moved = {**d, "from": frm, "length": round(end - frm, 2)}
+    return None if moved == d or end < lost.times["end"] else moved
 
 
 def _fits(tl: dict) -> None:
     """A narrated cut runs at least to its last word; a song cut no further than its song."""
     last = tl.get("last_word") or max((w["end"] for w in tl["words"]), default=0.0)
     if tl["mode"] in ("narrated", "song") and tl["length"] < last - 0.005:
-        raise Refused(BEFORE_WORDS.format(f"{tc(last)}.{int(last * 10) % 10}"))
+        word = max(tl["words"], key=lambda w: w["end"], default={"word": "the last word"})
+        raise LosesWord(BEFORE_WORDS.format(f"{tc(last)}.{int(last * 10) % 10}"), "", 0,
+                        {**word, "start": last, "end": last})  # fmt: skip
     if tl["mode"] == "narrated" and tl["length"] > last + HOLD and last:
         raise Refused(f"The cut can hold at most {HOLD:.0f} s past the last word.")
     if tl["mode"] == "song" and tl.get("seconds") and tl["length"] > tl["seconds"] + 0.05:
@@ -174,8 +220,8 @@ def keeps_every_word(db: Session, tl: dict) -> None:
             raise Refused(UNHEARD)
         for w in _heard(db, take):
             if not any(a - 0.02 <= w["start"] and w["end"] <= b + 0.02 for a, b in plays):
-                raise Refused(f"{label(slot)} would lose the word “{w['word'].strip()}”. "
-                              "Every spoken word stays.")  # fmt: skip
+                raise LosesWord(f"{label(slot)} would lose the word “{w['word'].strip()}”. "
+                                "Every spoken word stays.", slot, take.id, w)  # fmt: skip
 
 
 def _speaks(db: Session, take: ClipTake | None) -> bool:

@@ -360,6 +360,17 @@ test("S-gaps-07 B: a change after the OK needs the combined OK again; the rest s
   expect(within(update).getByRole("button", { name: "Remake clips 2–4 with the new look · up to $2.68" })).toBeDisabled(); // after the OK
   expect(within(update).getByRole("button", { name: "Keep them" })).toBeInTheDocument();
 });
+test("Flow-QA S11: a look being drawn again reads as Drawing, never Approved, until it's checked", async () => {
+  setViewport(1440);
+  const set = gate([item("char:5", "Marcus", { approval: "approved", readiness: "drawing" })], { state: "approved", approved_at: "2026-11-04T10:00:00Z", approved_by: "Reed", not_ready: [{ ref: "char:5", name: "Marcus", why: "Marcus is still being drawn" }] });
+  server(owner, [marcus], { "GET /projects/50/cast": [200, set] }); // its old sheet still reads approved
+  open();
+  const c = await screen.findByRole("region", { name: "Marcus" });
+  expect(within(c).getByText("Drawing")).toBeInTheDocument();
+  expect(within(c).queryByText("Approved")).toBeNull();
+  expect(screen.getByText("Marcus is being drawn again")).toBeInTheDocument(); // the set, too
+  expect(screen.queryByText("Approved")).toBeNull();
+});
 test("S5-02: the presenter's voice changes for this video only, from the voices with free samples, with Undo", async () => {
   setViewport(1440);
   const pickle = role({ role: "Dr. Pickle", name: "Dr. Pickle", library_item_id: 5 });
