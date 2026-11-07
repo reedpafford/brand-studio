@@ -27,6 +27,11 @@ HOP = 0.01  # s per energy frame
 BPM = (70, 180)  # tempos we look for; ads sit near 120
 BEATS_PER_BAR = 4
 TIMEOUT = 180
+# Whisper's read of a take: never under TIMEOUT, more for a longer take (it ran past 180 s on
+# a real UGC narration while a deploy built on the same server). One try a job: the local lane
+# is one worker every cut and listen shares; a failed read is read again as its own job
+# (song_takes.time_again).
+PER_SECOND, MOST = 6, 900
 MAX_SECONDS = 900  # far longer than any ad (the stand-ins make one past the cap)
 PEAKS = 200  # waveform points for the screens
 
@@ -112,11 +117,22 @@ def beats(samples: array, seconds: float) -> tuple[float, list[float]]:
     return round(60 / step, 1), times
 
 
+def read_timeout(path: Path) -> int:
+    """How long Whisper may take on this file: TIMEOUT at least, PER_SECOND of its length
+    more, MOST at most (a file that can't be measured gets TIMEOUT)."""
+    try:
+        seconds = length(path)
+    except (ValueError, subprocess.TimeoutExpired):
+        return TIMEOUT
+    return min(MOST, max(TIMEOUT, round(PER_SECOND * seconds)))
+
+
 def words(path: Path, lyrics: str) -> list[dict]:
-    """Local Whisper, prompted with the lyrics: [{word, start, end}]."""
+    """Local Whisper, prompted with the lyrics: [{word, start, end}], in the time the take's
+    length gives it (`read_timeout`)."""
     args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics]
     try:
-        done = _run(args)
+        done = _run(args, read_timeout(path))
     except subprocess.TimeoutExpired:
         raise RuntimeError("Reading the sung words took too long.") from None
     if done.returncode != 0:

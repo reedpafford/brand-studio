@@ -100,7 +100,15 @@ main() {
   docker run --rm -v "$PWD/next/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 \
     caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null \
     || { echo "::error::deploy/next/Caddyfile doesn't validate. The test site was left as it was."; exit 1; }
-  compose up -d --build --remove-orphans
+  # Build first at the lowest CPU and disk priority, then start what it built: the test site's
+  # real jobs run on this server (local Whisper timed out twice while a deploy built). The
+  # Docker daemon does most of the building, so this lowers the client's share (its context
+  # upload and Compose itself); Whisper's own longer time and retry (app/song_timing.py) are
+  # what keeps a run going.
+  low=(nice -n 19)
+  if command -v ionice >/dev/null 2>&1; then low+=(ionice -c3); fi
+  "${low[@]}" docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml build
+  compose up -d --remove-orphans
 
   for _ in $(seq 1 60); do
     if compose exec -T caddy wget -qO- http://localhost/api/health 2>/dev/null | grep -q '"status":"ok"'; then

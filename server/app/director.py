@@ -1887,6 +1887,8 @@ def _item(db: Session, job: Job) -> str:
         row = db.get(HostPiece, piece)
         return f"The host's piece {row.number}" if row and row.number else "The host's still"
     step = str(job.input.get("step") or job.kind)
+    if step == "song_timing":  # a narration's timing reads as one (its own job kind)
+        return "The narration's timing" if job.kind == "narration_timing" else "The song's timing"
     return NAMED.get(step) or f"The {step.replace('_', ' ')}"
 
 
