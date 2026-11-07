@@ -6,6 +6,8 @@ video_model: gemini-omni-1.2
 blurb: Photoreal short TV drama: real people in real places, close shallow-focus singles, light from the scene, location sound and no score.
 card: Photoreal TV drama
 broll: Real-life inserts
+formats: dialogue
+formats_why: its people say the script's lines on camera in Omni's own voices, and a narration or a presenter would add a voice track of ours
 
 <!-- New style, 7 Nov 2026, from the Movie spec (.context/team/specs/movie/spec.md, study-movie, 3 Nov) and its three studies of the videos in Reed's "Movie" Drive folder (movie-a32869, movie-0eab01, movie-35aa3b; 378–551 s each, deep-watch kit). Reed on the folder: "For Movie style ads (the new one in the folder), these are literally short dramas, these will likely work best with Omni." Reed, 7 Nov: "Movie, up to 30 s: make it work on the site". -->
 <!-- Decisions applied (Reed's, and MAIN's defaults for the spec's open questions): one id, `movie` (a style; it runs in the Dialogue format, whose story engine carries a scripted drama, and this guide's pacing and sound win over that format's house-shorts habits); made on Gemini Omni 1.2 (#1394: "Omni is more for the realistic stuff"), every clip, with Omni's own voices from the quoted lines (Omni takes no audio); no score, music is added in post (Reed, 7 Nov, #1435); the script's words are final and its ending is its own last words, nothing added; captions, time cards and end cards are the editor's overlays (rule 32), never in a clip; the mechanism insert is kept; before and after is an after look of the same person. Starts on (MAIN, 7 Nov: "make it work on the site"). The evidence is in the spec and the studies; none of it is sent to the model. -->
@@ -120,6 +122,6 @@ Measured over the three studied films (6–9 min each; a short video keeps the s
 - How intense the content is: the script's business.
 
 ## combines with
-- Format: Dialogue (the story engine: characters say the script's lines on camera). Presenter fits a short to-the-lens tag; Narrated is weak (no narrator in any of the three films).
+- Format: Dialogue only (the story engine: characters say the script's lines on camera). On this site Narrated and Presenter add a voice track of ours (a narration, or a presenter's), which Movie never has; a character speaking to the lens is a shot inside the Dialogue video, never a presenter.
 - UGC shares the photoreal people: a phone-POV hook or a selfie testimonial sits naturally inside.
 - The mechanism inserts are the same kind of glossy 3D cutaway as UGC's and Skeleton's.

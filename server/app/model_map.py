@@ -236,12 +236,17 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
     if who := _persons(db, project):
         return PERSONS.format(who=who, model=_model(project.video_model).name)
     if found.id != OMNI and (real := looks.base(looks.drawn(project))) in PHOTOREAL:
-        return REAL if real == "ugc" else ALL_OMNI.format(style=guides.style(real)["name"])
+        from app.settings_move import ASKED
+
+        if real == "ugc":
+            return REAL
+        if not ASKED.search(reason or ""):  # a person's note may ask for one clip off Omni
+            return ALL_OMNI.format(style=guides.style(real)["name"])
     if found.id == OMNI and not reason.strip():
         return NO_REASON
     if (clip.song_slice or {}).get("sung_shots") and not found.lip_sync:
         return SUNG
-    if project.aspect_ratio not in found.aspect_ratios:
+    if project.aspect_ratio not in found.aspect_ratios and found.id != OMNI:  # Omni: cropped
         return SHAPE.format(model=found.name, shapes=" or ".join(found.aspect_ratios),
                             shape=project.aspect_ratio)  # fmt: skip
     most = found.duration.max
@@ -280,8 +285,25 @@ def fit(model, input: dict, files: dict) -> tuple[dict, dict]:
         prompt += "\n" + SPOKEN.format(room=room)
     shaped = {"prompt": prompt, "duration": max(model.duration.min, min(input["duration"],
               model.duration.max)), "resolution": resolution(model),
-              "aspect_ratio": input["aspect_ratio"]}  # fmt: skip
+              "aspect_ratio": nearest(input["aspect_ratio"], model.aspect_ratios)}  # fmt: skip
     return shaped, {"reference_images": pictures} if pictures else {}
+
+
+def nearest(shape: str, shapes: list[str]) -> str:
+    """The shape a model makes for the video's `shape`: its own when the model has it, else
+    the nearest one it does, 9:16 on a tie (Omni 1.2 makes only 9:16 and 16:9: a 1:1 Movie
+    or UGC video's takes are made 9:16 and the cut crops them to 1:1, QA on #1440)."""
+    import math
+
+    def ratio(s: str) -> float:
+        w, _, h = s.partition(":")
+        return float(w) / float(h)
+
+    given = [s for s in shapes if re.fullmatch(r"\d+:\d+", s)]
+    if shape in shapes or not given or not re.fullmatch(r"\d+:\d+", shape or ""):
+        return shape
+    return min(given, key=lambda s: (round(abs(math.log(ratio(s) / ratio(shape))), 6),
+                                     s != "9:16"))  # fmt: skip
 
 
 def unsent_people(model_id: str, images: list[str]) -> tuple[str, ...]:

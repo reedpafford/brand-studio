@@ -96,3 +96,92 @@ def test_the_director_keeps_every_movie_clip_on_omni(app, db, owner, editor):
     assert model_map.choose(db, project, row, model_map.OMNI, "an insert").startswith(
         f"Clip {row.clip_id.removeprefix('c')} is made on Gemini Omni 1.2 now"
     )
+
+
+def test_a_persons_note_can_put_one_movie_clip_on_seedance(app, db, owner, editor):
+    """QA on #1440: "make the 3D insert on Seedance" in a person's note could never be done,
+    as ALL_OMNI refused every clip. A move that answers a note ("Note 1: …", as settings uses)
+    puts that one clip on Seedance; without one, it stays on Omni."""
+    pid = _movie(app, owner, editor)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    project = db.get(Project, pid)
+    row = db.query(ProjectClip).filter_by(project_id=pid).first()
+    assert model_map.choose(db, project, row, "seedance-2.5", "b3: a 3D insert.") == (
+        model_map.ALL_OMNI.format(style="Movie"))  # fmt: skip
+    said = model_map.choose(db, project, row, "seedance-2.5", "Note 1: the 3D insert on Seedance.")
+    assert said.startswith(f"Clip {row.clip_id.removeprefix('c')} is made on Seedance 2.5 now")
+
+
+def test_movie_is_made_only_as_dialogue_with_its_reason(app, db, owner, editor):
+    """QA on #1440: Movie as Narrated made a MiniMax narration and as Presenter a HeyGen host,
+    against its "no voice track of ours". It's offered and made only as Dialogue."""
+    from app import looks
+
+    movie = next(x for x in editor.get("/looks").json() if x["id"] == "movie")
+    assert movie["formats"] == ["dialogue"] and "voice track of ours" in movie["formats_why"]
+    said = looks.format_refusal("movie", "presenter")
+    assert said.startswith("Movie is made only as Dialogue: its people say the script's lines")
+    assert looks.format_refusal("movie", "dialogue") == "" == looks.format_refusal("house", "song")
+    brand = owner.get("/brands").json()[0]["id"]
+    for kind in ("presenter", "narrated"):
+        made = owner.post("/freestyles", json={"type": kind, "look": "movie", "shape": "9:16",
+                                               "brand_id": brand, "text": "NATE: Hi."})  # fmt: skip
+        assert (made.status_code, made.json()["detail"]) == (409, said), kind
+    pid = _movie(app, owner, editor)
+    video = db.get(Project, pid)
+    video.look = "house"
+    db.commit()
+    from app import narration
+
+    script = narration.video_script(db, video)
+    script.kind = "narrated"  # a narrated video: switching it to Movie is refused
+    db.commit()
+    moved = owner.post(f"/projects/{pid}/settings", json={"look": "movie"})
+    assert moved.status_code == 409 and moved.json()["detail"].startswith("Movie is made only as")
+
+
+def test_an_omni_take_in_a_shape_omni_doesnt_make_is_made_nearest_and_cropped_in_the_cut():
+    """QA on #1440: Omni 1.2 makes only 9:16 and 16:9, so a 1:1 Movie or UGC video's takes
+    failed at the provider. Its takes are made at the nearest shape Omni has (9:16 on a tie)
+    and the cut crops each to the video's shape around its centre."""
+    import subprocess
+
+    from app import cut_render
+
+    omni = get_model(model_map.OMNI)
+    assert [model_map.nearest(s, omni.aspect_ratios) for s in ("9:16", "16:9", "1:1", "4:3")] == [
+        "9:16", "16:9", "9:16", "16:9"]  # fmt: skip
+    taken, _ = model_map.fit(omni, {"prompt": "Audio: only room tone.\nShot 1 | 0-4 s. A.",
+                                    "duration": 4, "aspect_ratio": "1:1"}, {})  # fmt: skip
+    assert taken["aspect_ratio"] == "9:16"
+    tall = subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",  # noqa: S603, S607
+                           "color=c=red:s=270x480:d=1", "-f", "lavfi", "-i",
+                           "anullsrc=r=44100:cl=mono", "-t", "1", "-c:v", "libx264",
+                           "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags",
+                           "frag_keyframe+empty_moov", "-f", "mp4", "pipe:1"],
+                          capture_output=True, check=True).stdout  # fmt: skip
+    square = cut_render.joined([tall, tall], [(0.0, None), (0.0, None)], "1:1")
+    probe = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+             "stream=width,height", "-of", "csv=p=0:s=x", "pipe:0"]  # fmt: skip
+    size = subprocess.run(probe, input=square, capture_output=True, check=True)  # noqa: S603
+    size = size.stdout.decode().strip()
+    assert size == "270x270"
+    assert not cut_render._shaped(tall, "1:1") and cut_render._shaped(tall, "9:16")
+    assert cut_render._shaped(tall, None)  # a cut that asks no shape: as before
+
+
+def test_the_cut_crops_only_when_a_take_was_made_in_another_shape(app, db, owner, editor):
+    """The crop is for a take Omni made at its nearest shape: a cut whose takes were all asked
+    in the video's own shape is joined exactly as before."""
+    from app import cut, cut_render
+
+    pid = _movie(app, owner, editor)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    project = db.get(Project, pid)
+    tl, _ = cut.timeline(db, project)
+    assert cut_render.recipe(db, project, tl)["aspect"] is None  # every take asked 9:16
+    project.aspect_ratio = "1:1"  # a square Movie: its 9:16 takes are cropped to it
+    assert cut_render.recipe(db, project, tl)["aspect"] == "1:1"
+    db.rollback()
