@@ -175,3 +175,10 @@
 | 2026-11-06 | FOMO-House-Builder | Her Dad v7 fixes: seedance-2.5 bcymn9h2…, rxc62wh2…, aaqzkw92… (15 s, 1.54) + nano-banana ×4 (0.16) | 15 s + 4 images | | 1.70 | Reed |
 | 2026-11-06 | FOMO-House-Builder | Her Dad v8: seedance-2.5 r614r9mq… (a1v8, 28 s, 2.88) + mcyzw5wq… (a3v8, 24 s, 2.47) | 52 s | | 5.35 | Reed |
 | 2026-11-06 | FOMO-House-Builder | Her Dad round 2 total; paid calls stopped at the cap | | 35.00 cap (set by the builder) | 34.37 | Reed |
+| 2026-11-06 | MAIN E2E | Video 233 Disney Pixar dialogue (fomo, Maya), New video to delivery (test site, real providers) | 3 clips, 5 Seedance 2.5 takes, 13 images, 56 Claude jobs | $15 | 9.58 (3.12 before the 23:49Z session start) | Reed (critical path step 4) |
+| 2026-11-07 | MAIN E2E | Video 233 accidental "Start again" treatment (revision test) | 1 treatment | $5 | 0.42 | Reed (session 35, $75 total) |
+| 2026-11-07 | MAIN E2E | UGC look sample (Omni 1.2, 720p, 5 s + 1 still) | 2 jobs | in 240's cap | 0.58 | Reed (session 35) |
+| 2026-11-07 | MAIN E2E | Video 240 UGC presenter (Marcus, fomo), not delivered | 17 Omni 1.2 takes, 24 stills, 4 MiniMax reads, Claude | $20 | 15.06 | Reed (session 35) |
+| 2026-11-07 | MAIN E2E | Video 245 House dialogue (Ray, Jay, fomo), delivered, plus 4 revision tests | 9 Seedance 2.5 takes, 2 sheets, 9 stills, Claude | $24 + $5 | 17.68 | Reed (session 35) |
+| 2026-11-07 | MAIN E2E | Video 251 Dr. Pickle presenter (Resilia), a cut complete, stopped at the cap | 17 + 8 Seedance 2.0 takes, 1 HeyGen host, 1 MiniMax clone read, images, Claude | $16 | 16.10 | Reed (session 35) |
+| 2026-11-07 | MAIN E2E | Session 35 total (from 2026-11-06T23:49:13Z; the site's stop was $75) | | 75.00 cap (Reed) | 56.28 | Reed |
