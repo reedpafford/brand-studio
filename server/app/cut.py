@@ -288,8 +288,8 @@ def _one(tl: dict, e: CutEdit) -> None:
         tl["presenter"]["spans"] = _spanned(tl["presenter"]["spans"], d["start"], d["end"],
                                             {**what, **mark})  # fmt: skip
         return
-    if tl["mode"] != "narrated" or (not tl["music"] and "file_id" not in d):
-        raise Refused(NO_MUSIC)  # a story's sound is its takes', a song's its song
+    if tl["mode"] == "song" or (not tl["music"] and "file_id" not in d):
+        raise Refused(NO_MUSIC)  # a song's sound is its song; a story's bed is laid first
     keys = ("quieter_db", "gaps", "loop", "removed", "file_id", "name")
     tl["music"] = {**(tl["music"] or {"quieter_db": QUIETER, "gaps": "rise", "loop": False,
                                       "removed": False}),
@@ -330,7 +330,22 @@ def _spanned(spans: list[dict], a: float, b: float, what: dict) -> list[dict]:
 def timeline(db: Session, project: Project) -> tuple[dict, set[int]]:
     tl, lost = replay(base(db, project), active(db, project))
     tl["words"] = _cut_words(db, tl)
+    if tl["mode"] == "takes":  # a bed under a dialogue cut dips under its lines
+        tl["lines"] = spoken(tl["words"])
+        tl["last_word"] = max((w["end"] for w in tl["words"]), default=0.0)
     return tl, lost
+
+
+def spoken(words: list[dict], gap: float = 0.6) -> list[list[float]]:
+    """The stretches someone speaks in a story cut: its words, run together across a gap
+    shorter than `gap` (a reply's pause keeps the bed down)."""
+    out: list[list[float]] = []
+    for w in sorted(words, key=lambda w: w["start"]):
+        if out and w["start"] - out[-1][1] < gap:
+            out[-1][1] = max(out[-1][1], w["end"])
+        else:
+            out.append([w["start"], w["end"]])
+    return out
 
 
 def _cut_words(db: Session, tl: dict) -> list[dict]:
@@ -450,7 +465,9 @@ def doing(tl: dict) -> str:
         return f"laying {name} over the B-roll{music}"
     if tl["mode"] == "narrated":
         return f"putting the B-roll under the voice{music}"
-    return "putting the clips to the song" if tl["mode"] == "song" else "putting the clips together"
+    if tl["mode"] == "song":
+        return "putting the clips to the song"
+    return "putting the clips together" + (", music under them" if music else "")
 
 
 def saved(db: Session, job: Job) -> None:
