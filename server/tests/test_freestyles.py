@@ -32,7 +32,7 @@ def test_an_editors_sends_wait_for_the_owner_and_a_decline_says_why(app, owner, 
     r = editor.post("/freestyles", json={**HOUSE, "brand_id": first_brand(owner), "text": SCRIPT})
     assert r.status_code == 201, r.text
     fs = r.json()
-    assert (fs["title"], fs["status"], fs["file_id"]) == ("MIA: The market opened at nine.",
+    assert (fs["title"], fs["status"], fs["file_id"]) == ("The market opened at nine.",
                                                           "waiting", None)  # fmt: skip
     assert _moves(fs) == [
         ("message", None, SCRIPT),

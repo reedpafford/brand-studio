@@ -96,7 +96,8 @@ export function Filmstrip({ scenes, at, big, onPick }: { scenes: Scene[]; at?: n
   );
 }
 
-/** On a phone (P-04, P-05): one frame a scene, its count under it. */
+/** On a phone (P-04, P-05): one frame a scene, its count under it; before a scene has clips, its name (never "0/0",
+ *  MAIN's run, video 233). */
 export function SceneRow({ scenes }: { scenes: Scene[] }) {
   return (
     <ol aria-label="The video, scene by scene" className="flex gap-2 overflow-x-auto">
@@ -105,9 +106,13 @@ export function SceneRow({ scenes }: { scenes: Scene[] }) {
         return (
           <li key={s.id} className="flex shrink-0 flex-col items-center gap-1">
             {shown && <Frame c={{ ...shown, changed: s.clips.some((c) => c.changed && !c.watched), watched: false }} className="h-[78px] w-11 rounded-md" />}
-            <span className="text-xs tabular-nums text-muted">
-              {s.done}/{s.total}
-            </span>
+            {s.total > 0 ? (
+              <span className="text-xs tabular-nums text-muted">
+                {s.done}/{s.total}
+              </span>
+            ) : (
+              s.name && <span className="max-w-24 truncate text-xs text-muted">{s.name}</span>
+            )}
           </li>
         );
       })}
@@ -176,9 +181,7 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
             <span className="h-1 w-[120px] overflow-hidden rounded-sm bg-surface-3" aria-hidden>
               <i className="block h-full rounded-sm bg-accent" style={{ width: `${s.total ? Math.round((100 * s.done) / s.total) : 0}%` }} />
             </span>
-            <span className="w-11 text-right tabular-nums text-muted">
-              {s.done}/{s.total}
-            </span>
+            <span className="w-11 text-right tabular-nums text-muted">{s.total > 0 && `${s.done}/${s.total}`}</span>
           </li>
         ))}
       </ol>

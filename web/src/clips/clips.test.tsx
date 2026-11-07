@@ -192,6 +192,20 @@ function progress(n: number) {
   return { status: "working", clips: n, made: n - 2, scenes, counts: { all: n, needs_you: 2, flagged: 2, redone: 1 } };
 }
 
+test("MAIN's run (video 233): a card keeps \"Clip 1\" on one line with its state under it, and the owner is told the OK is theirs", async () => {
+  setViewport(390);
+  const waits = { note: "Maya waits for the cast and places OK. Approve them in Cast to go on." };
+  const run = { status: "working", clips: 3, made: 0, scenes: [{ id: 1, name: "Hook", total: 3, done: 0, clips: [cell(1, "waiting", waits), cell(2, "making", { minutes_left: 1 }), cell(3, "waiting")] }], counts: { all: 3, needs_you: 1, flagged: 0, redone: 0 } };
+  server(owner, 3, { "GET /projects/50/director/progress": [200, run] });
+  open();
+  const name = await screen.findByText("Clip 1");
+  expect(name).toHaveClass("whitespace-nowrap");
+  expect(name.nextElementSibling).toHaveTextContent("Waiting for your cast OK");
+  expect(screen.getByText("Making · about 1 min")).toBeInTheDocument();
+  expect(screen.getByText("Waiting for your OK")).toBeInTheDocument();
+  expect(screen.queryByText("Waiting for the owner")).not.toBeInTheDocument();
+});
+
 test("S6-04 / S6-05: a long video lists by scene with filters and counts from the run, a search, and each row's state", async () => {
   setViewport(1440);
   server(owner, 40, { "GET /projects/50/director/progress": [200, progress(40)] });

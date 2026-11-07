@@ -5,6 +5,7 @@ import { editor, owner } from "../test/people";
 import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
+import { lookMedia } from "./Cards";
 
 const SCRIPT = "DR. PICKLE: Your gut after the weekend? A brewery with a pulse.";
 const at = new Date().toISOString();
@@ -270,4 +271,10 @@ test("uncapped (Reed, 6 Nov): the owner's press says about what it will cost, an
   expect(await screen.findByRole("button", { name: "Make it · about $9.10" }, { timeout: 3000 })).toBeInTheDocument();
   expect(screen.getByText(/^An estimate of what it will probably cost\. Nothing stops it at a limit here/)).toBeInTheDocument();
   expect(screen.queryByText(/up to|Most it can charge/)).toBeNull();
+});
+
+test("MAIN's run (video 233): a sample the test site's stand-ins made never hides the real test sample on a style's card", () => {
+  const made = look("disney-pixar", "Disney Pixar", { sample_clip_id: 9, sample_still_id: 8 });
+  expect(lookMedia({ ...made, sample_stand_in: true } as never)).toEqual({ clip: "/api/looks/disney-pixar/test-sample.mp4", still: "/api/looks/disney-pixar/test-sample.jpg", tag: true });
+  expect(lookMedia({ ...made, sample_stand_in: false } as never).clip).toMatch(/\/9\b/); // a real one: the owner's own
 });

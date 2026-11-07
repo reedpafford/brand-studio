@@ -48,6 +48,7 @@ class LookOut(BaseModel):
     test_clip: bool = False  # a test sample at /looks/{id}/test-sample.mp4 (and .jpg)
     test_still: bool = False
     test_tag: bool = False  # its card says "Test sample" (not the site's own frame)
+    sample_stand_in: bool = False  # its sample is a test-site stand-in: the card shows the test one
 
 
 class LookSwitchIn(BaseModel):
@@ -60,6 +61,8 @@ def _out(db: Session, ws: int, look: dict) -> LookOut:
                    on=looks.is_on(db, ws, look["id"]),
                    sample_still_id=row.sample_still_id if row else None,
                    sample_clip_id=row.sample_clip_id if row else None,
+                   sample_stand_in=bool(row and row.sample_clip_id)
+                   and look_samples.stand_in(db, ws, look["id"]),
                    video_model=look["video_model"], own_sample=look["own_sample"],
                    lanes=[LaneOut(id=x["id"], name=x["name"])
                           for x in looks.lanes(look["id"])],

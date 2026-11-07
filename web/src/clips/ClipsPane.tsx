@@ -106,10 +106,11 @@ function Grid({ rows, takes, onOpen, phone }: { rows: Row[]; takes: Map<string, 
               )}
               <span className="absolute right-1.5 bottom-1.5 rounded-[3px] bg-black/60 px-1.5 text-[11px] leading-4 font-semibold text-white">{r.seconds} s</span>
             </button>
-            <span className="flex items-center gap-2">
-              <span className="text-sm font-semibold">Clip {r.number}</span>
-              <span className="flex-1" />
-              <RowStatus r={r} phone={phone} />
+            {/* The name on one line and the state under it: a long state ("Making · about 1 min") never wraps "Clip 1" or
+                runs into the next card (MAIN's run, video 233, at 1440 and 390). */}
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="whitespace-nowrap text-sm font-semibold">Clip {r.number}</span>
+              <RowStatus r={r} phone={phone} wrap />
             </span>
             {!phone && <span className="text-xs text-muted">{r.said || r.label}</span>}
           </li>
@@ -150,7 +151,8 @@ export function ClipsPane({ p, head, progress, go }: PaneProps) {
   if (clips.isPending || breakdown.isPending || run.isPending) return <Skeleton className="h-64" />;
   if (clips.isError) return <Banner tone="warning" title="Couldn’t load the clips." action={<Button variant="secondary" onClick={() => void clips.refetch()}>Try again</Button>} />;
   if (rows.length === 0) return <Empty title="The clips fill in here">{progress.shots.made ? "The director writes each clip’s prompt, then makes its takes. They show here as they land." : SOON}</Empty>;
-  const counts = run.data?.counts ?? { all: rows.length, needs_you: rows.filter(needsYou).length, flagged: rows.filter((r) => r.state === "flagged" || r.found).length, redone: rows.filter(redone).length };
+  // The filter's own rule counts what it lists, on the phone and the desktop alike (MAIN's run: 5 against 6).
+  const counts = { all: rows.length, needs_you: rows.filter(needsYou).length, flagged: rows.filter((r) => r.state === "flagged" || r.found).length, redone: rows.filter(redone).length };
   const made = run.data?.made ?? rows.filter((r) => r.take_id).length;
   const seconds = rows.reduce((n, r) => n + r.seconds, 0);
   const long = rows.length > FOLDED;

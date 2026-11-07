@@ -476,16 +476,17 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
   );
 }
 
-/** The panel while the video loads (S3-15): the player's place and the side column. */
+/** The panel while the video loads (S3-15): the player's place and the side column, which goes under it where there's
+ *  no room beside it (a phone: it ran off the right edge, MAIN's run, video 233). */
 export function PanelSkeleton() {
   return (
-    <div className="flex gap-5" role="status" aria-label="Loading">
-      <Skeleton className="h-[533px] w-[300px] shrink-0 rounded-[10px]" />
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-[18px] w-40" />
-        <Skeleton className="h-3 w-[200px]" />
-        <Skeleton className="h-9 w-[220px]" />
-        <Skeleton className="h-9 w-[220px]" />
+    <div className="flex min-w-0 flex-wrap gap-5" role="status" aria-label="Loading">
+      <Skeleton className="h-[533px] w-[300px] max-w-full shrink-0 rounded-[10px]" />
+      <div className="flex min-w-0 flex-col gap-3">
+        <Skeleton className="h-[18px] w-40 max-w-full" />
+        <Skeleton className="h-3 w-[200px] max-w-full" />
+        <Skeleton className="h-9 w-[220px] max-w-full" />
+        <Skeleton className="h-9 w-[220px] max-w-full" />
       </div>
     </div>
   );

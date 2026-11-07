@@ -23,7 +23,7 @@ from app.models.brands import Brand
 from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.looks import LookSwitch
-from app.providers import REAL_SAMPLES
+from app.providers import REAL_SAMPLES, STAND_IN
 from app.storyboard import image_model
 
 log = logging.getLogger(__name__)
@@ -120,6 +120,19 @@ def newest(db: Session, ws: int, look_id: str) -> Job | None:
                                         Job.input["step"].as_string().in_((STILL, CLIP)))
                       .order_by(Job.id.desc()))  # fmt: skip
     return next((j for j in rows if j.input.get("look_id") == look_id), None)
+
+
+def stand_in(db: Session, ws: int, look_id: str) -> bool:
+    """The look's sample came from the free stand-ins (a plain grey picture), not a real model:
+    its clip's provider ref says so, the same test real spend uses (credits.real_spent), so it
+    holds on the test site whatever its providers are and never on live. New video's card then
+    shows the real test sample shipped with the site (MAIN's run: grey Disney Pixar, Claymation
+    and Dr. Pickle cards)."""
+    rows = db.scalars(select(Job).where(Job.workspace_id == ws, Job.status == JobStatus.succeeded,
+                                        Job.input["step"].as_string() == CLIP)
+                      .order_by(Job.id.desc()))  # fmt: skip
+    made = next((j for j in rows if j.input.get("look_id") == look_id), None)
+    return made is not None and (made.provider_ref or "").startswith(STAND_IN)
 
 
 def state(db: Session, ws: int, look_id: str) -> tuple[str, str | None]:

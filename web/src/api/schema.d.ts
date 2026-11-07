@@ -6983,6 +6983,14 @@ export interface components {
             /** Sample Url */
             sample_url: string | null;
         };
+        /**
+         * CastWait
+         * @description A video whose run waits on its cast and places OK (not a card: the Cast tab's press).
+         */
+        CastWait: {
+            video: components["schemas"]["NeedsYouVideo"];
+            brand: components["schemas"]["NamedBrand"];
+        };
         /** ChangeIn */
         ChangeIn: {
             /** Note */
@@ -9232,6 +9240,11 @@ export interface components {
              * @default false
              */
             test_tag: boolean;
+            /**
+             * Sample Stand In
+             * @default false
+             */
+            sample_stand_in: boolean;
         };
         /** LookSheetOut */
         LookSheetOut: {
@@ -9799,6 +9812,11 @@ export interface components {
             sends: components["schemas"]["HeldSend"][];
             /** Stuck */
             stuck: components["schemas"]["StuckVideo"][];
+            /**
+             * Cast
+             * @default []
+             */
+            cast: components["schemas"]["CastWait"][];
         };
         /** NeedsYouRow */
         NeedsYouRow: {

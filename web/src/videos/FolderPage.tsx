@@ -157,7 +157,7 @@ export function FolderPage() {
     ? "Loading…"
     : empty
       ? "Empty"
-      : [n(counts?.all ?? 0, rail ? "video idea" : "idea"), first?.folders_inside ? n(first.folders_inside, "folder inside", "folders inside") : counts?.needs_you ? `${counts.needs_you} need${counts.needs_you === 1 ? "s" : ""} you` : ""].filter(Boolean).join(" · ");
+      : [n(counts?.all ?? 0, rail ? "video idea" : "idea"), first?.folders_inside ? n(first.folders_inside, "folder inside", "folders inside") : counts?.needs_you ? n(counts.needs_you, "video needs you", "videos need you") : ""].filter(Boolean).join(" · ");
   const more = (
     <Menu
       title={name}
