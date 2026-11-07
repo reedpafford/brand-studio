@@ -184,9 +184,15 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             if len(rows) != 1:
                 return "Refused: name one clip."
             sid, off = decision.get("shot_id") or "", (decision.get("value") or "") == "off"
+            row, n = rows[0], rows[0].clip_id.removeprefix("c")
+            mark = f"{sid}{project_clips.BY_DIRECTOR}"
+            if sid in (row.real_images or {}) and not (row.real_images or {}).get(mark):
+                return (f"Refused: a person set shot {sid} of clip {n} themselves; it stays "
+                        "as they left it unless a person asks.")  # fmt: skip
             body = project_clips.InsertIn(use_real_image=not off)
-            project_clips.set_insert(clip_id=rows[0].id, shot_id=sid, body=body, **me)
-            n = rows[0].clip_id.removeprefix("c")
+            project_clips.set_insert(clip_id=row.id, shot_id=sid, body=body, **me)
+            row.real_images = {**(row.real_images or {}), mark: True}  # the director's
+            db.commit()
             return (f"Shot {sid} of clip {n} shows the generated screen again." if off else
                     f"Shot {sid} of clip {n} shows the brand's real screen in the cut, its "
                     "figure drawn on it. Free; it shows in the next cut.")  # fmt: skip

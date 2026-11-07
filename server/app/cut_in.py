@@ -72,7 +72,13 @@ def still_shown(old: dict, new: dict, real_images: dict) -> dict:
                 for scene in bd.get("scenes") or [] for s in scene.get("shots") or []}  # fmt: skip
 
     was, now = shots(old or {}), shots(new or {})
-    return {k: on for k, on in real_images.items() if k in now and was.get(k) == now[k]}
+    return {k: on for k, on in real_images.items()
+            if shot_of(k) in now and was.get(shot_of(k)) == now[shot_of(k)]}  # fmt: skip
+
+
+def shot_of(key: str) -> str:
+    """The shot a `real_images` key is about: its own id, or "1.2@director" (who set it)."""
+    return key.split("@", 1)[0]
 
 
 def _probe(path: Path) -> tuple[int, int, float, float]:

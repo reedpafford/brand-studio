@@ -545,7 +545,8 @@ def _complete_cast(db: Session, project: Project, locked: bool) -> list[str]:
     row.problems = problems(db, project, words.text, bd, row.data.get("song")) + notes
     off = 0
     for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == row.id)):
-        if gone := [k for k, on in (clip.real_images or {}).items() if on and k in added]:
+        if gone := [k for k, on in (clip.real_images or {}).items()
+                    if on and k.split("@", 1)[0] in added]:  # fmt: skip
             clip.real_images = {k: v for k, v in clip.real_images.items() if k not in gone}
             off += len(gone)
     out.append(f"{project.name}: " + " ".join(n.removeprefix("Advice: ") for n in notes))

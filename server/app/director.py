@@ -961,8 +961,10 @@ def to_mute(db: Session, row: ProjectClip) -> list[list[float]]:
         and f.get("mute")
     ]
     heard = shown(db, latest(db, "words", [take.id]).get(take.id))
+    said = word_splice._heard(db, take)[0]  # every word heard in the take, with its times
     spans += [f.mute for f in (heard.findings if heard else [])
-              if f.kind in ("extra", "voiced") and f.mute]  # fmt: skip
+              if f.kind in ("extra", "voiced") and f.mute
+              and not _over_others(f.text, f.mute, said)]  # fmt: skip
     done = {tuple(s) for s in take_mute.spans(take)}
     out = []
     for s in spans:
@@ -970,6 +972,21 @@ def to_mute(db: Session, row: ProjectClip) -> list[list[float]]:
         if tuple(span) not in done and span not in out:
             out.append(span)
     return out
+
+
+QUOTED = re.compile(r"“([^”]+)”")
+
+
+def _over_others(text: str, span: list[float], said: list[dict]) -> bool:
+    """A words-check span that would also silence a word it doesn't name (a script word, the
+    brand, a figure: QA on #1428): its finding quotes the words it's about, and any other
+    word heard inside it keeps the span from being muted."""
+    from app.take_words import _bare
+
+    own = set(_bare(m[1]).split()) if (m := QUOTED.search(text or "")) else set()
+    a, b = float(span[0]), float(span[1])
+    return any(w["start"] < b - 0.02 and w["end"] > a + 0.02
+               and not set(_bare(w["word"]).split()) <= own for w in said)  # fmt: skip
 
 
 def _refused_again(db: Session, job: Job, decision: dict) -> str | None:

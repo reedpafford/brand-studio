@@ -107,30 +107,37 @@ def plays(slots: list[ScriptCastSlot]) -> str:
     return "; ".join(f"plays {s.role}" for s in slots)
 
 
-NOT_AGE = (
-    r"(?!\s*(?:%|\$|k\b|feet|foot|ft\b|inch|cm\b|kg\b|lb|pounds|minutes|hours|days|"
-    r"weeks|months|times|grand))"
-)  # "Jay, 6 months later" is no age
+DECADE = r"((?:early\s+|late\s+|mid-?)?\d0s)"  # "50s", "mid-40s"
 
 
 def stated_age(name: str, texts: list[str]) -> str:
-    """The age these words give a role ("Jay is 19", "JAY (19, plain…)", "19-year-old Jay",
-    "Uncle Ray is in his 50s"), as a sheet's words say it ("aged 19", "in his 50s"), or "".
-    Video 245: the person's note said "Jay is 19", the role's words were only "Jay", and his
-    sheet read about 30."""
+    """The age these words state outright for a role, as a sheet's words say it ("aged 19",
+    "in his 50s"), or "". Only explicit ages: "Jay is 19." (nothing but punctuation after),
+    "aged 19", "19-year-old Jay", "Jay, 19 years old", a cue's own "JAY (19, …)" or "(19)",
+    and a decade said of them ("Uncle Ray is in his 50s", "MIA (mid-40s, …)"). Never a clock
+    time, a count, a score, a stretch of time, money or a decade before a noun ("Marcus, 3 AM",
+    "Jay (2 of 3)", "Jay is 5 for 5", "Jay, 30 seconds later", "90s kid": QA on #1428).
+    Video 245: the note said "Jay is 19", the role's words were only "Jay", and his sheet read
+    about 30."""
     if not name.strip():
         return ""
     who = re.escape(name.strip())
-    exact = (rf"\b{who}\b\s*(?:\(\s*|,\s*|\s+is\s+|\s+aged?\s+)(\d{{1,2}})\b{NOT_AGE}",
-             rf"\b(\d{{1,2}})-year-old\s+(?:\w+\s+)?{who}\b")  # fmt: skip
-    decade = (rf"\b{who}\b\s*(?:\(\s*|,\s*|\s+is\s+)((?:in\s+(?:his|her|their)\s+)?"
-              r"(?:early\s+|late\s+|mid-?)?\d0s)\b")  # fmt: skip
+    exact = (
+        rf"\b{who}\b\s+is\s+(\d{{1,2}})\s*(?:[.,;!?)]|$)",  # "Jay is 19." / "Jay is 19,"
+        rf"\b{who}\b[^.\n]{{0,20}}?\baged?\s+(\d{{1,2}})\b",  # "Jay, aged 19"
+        rf"\b(\d{{1,2}})-year-old\s+(?:[a-z]+\s+)?{who}\b",  # "19-year-old Jay"
+        rf"\b{who}\b,?\s+(?:a\s+)?(\d{{1,2}})(?:-year-old\b|\s+years?\s+old\b)",
+        rf"\b{who}\b\s*\(\s*(\d{{1,2}})\s*[,)]",
+    )  # a cue's own "JAY (19, …)" or "(19)"
+    decade = (rf"\b{who}\b\s+is\s+(in\s+(?:his|her|their)\s+{DECADE})\b(?!\s+[a-z])",
+              rf"\b{who}\b\s*(?:\(\s*|,\s*){DECADE}\s*[,)]")  # fmt: skip
     for text in texts:
         for pattern in exact:
-            if m := re.search(pattern, text or "", re.I):
+            if m := re.search(pattern, text or "", re.I | re.M):
                 return f"aged {m[1]}"
-        if m := re.search(decade, text or "", re.I):
-            return m[1] if m[1].lower().startswith("in ") else f"in their {m[1]}"
+        for pattern in decade:
+            if m := re.search(pattern, text or "", re.I):
+                return m[1] if m[1].lower().startswith("in ") else f"in their {m[1]}"
     return ""
 
 

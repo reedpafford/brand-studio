@@ -677,8 +677,9 @@ def repair(db: Session, project: Project) -> int:
                             "undone": False}  # fmt: skip
             now = now.model_copy(update={"prompt": words[0]})
         cuts = {i.shot_id for i in cut_in.inserts(db, project, row)}
-        if cleared := bool((row.real_images or {}).keys() - cuts):
-            row.real_images = {k: v for k, v in row.real_images.items() if k in cuts}
+        shot = cut_in.shot_of  # "1.2@director" is shot 1.2's: who switched it
+        if cleared := bool({shot(k) for k in (row.real_images or {})} - cuts):
+            row.real_images = {k: v for k, v in row.real_images.items() if shot(k) in cuts}
         problems = (
             clip_problems(db, project, bd, now)
             + [p for p in row.problems or [] if p.startswith(LEFT_OUT)]

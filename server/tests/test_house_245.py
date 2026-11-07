@@ -42,6 +42,21 @@ def test_words_said_inside_a_line_that_the_script_lacks_are_a_finding_to_mute():
         heard = [{"text": line, "start": 0, "end": 2, "words": _words(line, 0)},
                  {"text": LINES[0]["text"], "start": 3, "end": 5}]  # fmt: skip
         assert take_words.compare(LINES, heard, "fomo", "FOH-moh", []) == [], line
+    lines = [
+        {"who": "JAY", "text": t}
+        for t in (
+            "Into fomo. Yeah.",
+            "Get Resilia today.",
+            "It hit $4,200!",
+            "Gonna be rich.",
+            "Into it.",
+        )
+    ]
+    for said in ("Into foe mo. Yeah.", "Get Re silly a today.", "It hit four thousand two hundred!",
+                 "Going to be rich.", "Into it. Foe mo."):  # fmt: skip  # QA on #1428
+        heard = [{"text": said, "start": 0, "end": 3, "words": _words(said, 0)}]
+        run = take_words.compare(lines, heard, "fomo", "FOH-moh", [])
+        assert not [f for f in run if f["kind"] == "extra"], (said, run)
     untimed = [{"text": "Give me six months. Come on, man.", "start": 1, "end": 3},
                {"text": LINES[0]["text"], "start": 3, "end": 5}]  # fmt: skip
     (found,) = take_words.compare(LINES, untimed, "fomo", "FOH-moh", [])
@@ -93,12 +108,12 @@ def test_the_director_shows_the_brands_real_screen_at_the_word(app, db, editor, 
 
     said = run(clip_id=clip["clip_id"], shot_id="1.2")
     assert said.startswith("Shot 1.2 of clip 1 shows the brand's real screen in the cut")
-    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": True}
+    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": True, "1.2@director": True}
     assert editor.get(f"{base}/clips").json()[0]["inserts"][0]["use_real_image"] is True
     assert run(clip_id=clip["clip_id"], shot_id="1.2", value="off").endswith(
         "generated screen again."
     )
-    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": False}
+    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": False, "1.2@director": True}
     assert run(clip_id=clip["clip_id"], shot_id="1.1") == (
         "Refused: That shot isn't an insert in this clip.")  # fmt: skip
     assert run(clip_id="", shot_id="1.2") == "Refused: name one clip."
@@ -106,10 +121,27 @@ def test_the_director_shows_the_brands_real_screen_at_the_word(app, db, editor, 
 
 @pytest.mark.parametrize(("name", "texts", "age"), [
     ("Jay", ["Jay is 19, plain and likeable, cap and hoodie."], "aged 19"),
+    ("Jay", ["Jay is 19."], "aged 19"),
     ("Jay", ["JAY (19, plain and likeable)"], "aged 19"),
+    ("Jay", ["JAY (19)"], "aged 19"),
     ("Jay", ["A 19-year-old Jay counts his cash."], "aged 19"),
+    ("Jay", ["Jay, 19 years old, counts his cash."], "aged 19"),
+    ("Jay", ["Jay, aged 19, counts his cash."], "aged 19"),
     ("Uncle Ray", ["Uncle Ray is in his 50s, broad, square-jawed."], "in his 50s"),
     ("Mia", ["MIA, mid-40s, a teacher"], "in their mid-40s"),
+    ("Mia", ["MIA (mid-40s, a teacher)"], "in their mid-40s"),
+    # QA on #1428: never an age from a time, a count, a score, money or a decade's noun
+    ("Marcus", ["Marcus, 3 AM, trades in the dark."], ""),
+    ("Marcus", ["MARCUS (3 AM)"], ""),
+    ("Jay", ["Jay (2 of 3)"], ""),
+    ("Jay", ["Jay is 5 for 5 on his trades."], ""),
+    ("Jay", ["Jay, 30 seconds later, grins."], ""),
+    ("Jay", ["Jay, 5 years into the job, quits."], ""),
+    ("Jay", ["Jay is 20 bucks short."], ""),
+    ("Jay", ["Jay, 24/7 on the app."], ""),
+    ("Jay", ["Jay is 24/7 on it."], ""),
+    ("Jay", ["Jay, 90s kid, grins."], ""),
+    ("Jay", ["Jay is in his 90s kid phase."], ""),
     ("Jay", ["Jay, 6 months later, pulls up.", "JAY: Give me six months."], ""),
     ("Jay", ["Jay is 5 feet tall."], ""),
 ])  # fmt: skip
@@ -166,6 +198,8 @@ def test_a_cut_watch_trim_is_a_free_cut_of_a_planned_silence_never_a_script_word
     assert "a `trim` you make yourself with `edit_cut` (free" in director
     assert "never left to the owner" in director
     assert "judged against the take, not the plan" in prompts.system("watch_cut")
+    for step in ("watch_cut", "director"):  # QA on #1428: a beat a person asked for stays
+        assert "never a beat a person's note asked for" in prompts.system(step), step
 
 
 def test_a_line_comes_early_in_its_shot_unless_the_setup_is_the_point():
@@ -176,3 +210,42 @@ def test_a_line_comes_early_in_its_shot_unless_the_setup_is_the_point():
     director = prompts.system("director")
     assert "- `real_screen` (free, `clip_id`, `shot_id`)" in director
     assert "**Unscripted words** (`unscripted` on a take)" in director
+
+
+def test_a_mute_never_covers_a_word_its_finding_doesnt_name():
+    """QA on #1428: a words-check span that would also silence another heard word (a script
+    word, the brand, a figure) is never offered to the director's mute."""
+    from app.director import _over_others
+
+    said = [
+        {"word": "Get", "start": 0.0, "end": 0.3},
+        {"word": "fomo.", "start": 0.3, "end": 0.7},
+        {"word": "Come", "start": 0.9, "end": 1.1},
+        {"word": "on.", "start": 1.1, "end": 1.3},
+    ]
+    come = "“Come on.” at 0:00.9 isn't in the script, said with the line “Get fomo.”."
+    assert not _over_others(come, [0.9, 1.3], said)  # only its own words: muted
+    assert _over_others(come, [0.3, 1.3], said)  # it would take "fomo" with it: never
+    assert not _over_others(
+        "“That's fine” at 0:04.5 isn't in the script.",
+        [4.5, 5.0],
+        [{"word": "That's", "start": 4.5, "end": 4.7}, {"word": "fine", "start": 4.7, "end": 5.0}],
+    )
+
+
+def test_a_persons_real_screen_choice_stays_theirs(app, db, editor, approved):  # noqa: F811
+    from app import director_tools
+    from app.models.accounts import User
+    from app.models.projects import Project
+
+    base, clip = approved
+    project = db.get(Project, int(base.rsplit("/", 1)[1]))
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+    url = f"{base}/clips/{clip['id']}/inserts/1.2"
+    assert editor.put(url, json={"use_real_image": False}).status_code == 200  # a person's "no"
+    said = director_tools.run(db, ed, project, {"tool": "real_screen", "clip_id": clip["clip_id"],
+                                                "shot_id": "1.2"}, app.state.storage)  # fmt: skip
+    assert said.startswith("Refused: a person set shot 1.2 of clip 1 themselves")
+    editor.put(url, json={"use_real_image": True})
+    db.expire_all()
+    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": True}
