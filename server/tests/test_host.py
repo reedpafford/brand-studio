@@ -15,6 +15,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
+from app.prompts.schemas import SongBreakdown
 from app.routes.estimate import run_price
 from tests import helpers
 from tests.test_freestyle_dialogue import _run
@@ -181,18 +182,87 @@ def test_a_narrated_quotes_b_roll_allows_every_short_shot_at_the_models_shortest
     assert quoted_seconds(db, draft, video) == 20 * 4 + 6  # the plan's shots, each at least 4 s
 
 
-def test_a_short_b_roll_shot_is_its_own_clip_at_the_shortest_and_cut_in_the_edit():
-    """F7 (Reed): short B-roll pictures are separate clips spliced in the edit."""
+def test_neighbouring_b_roll_shots_share_one_clip_up_to_the_models_longest():
+    """F7, as Reed revised it (7 Nov): neighbouring short B-roll shots share one multi-shot
+    clip instead of a clip a shot at the model's shortest. A new clip starts where a talker's
+    lip-synced shot starts or ends, where the place changes, and past about 15 s or 6 shots
+    (Reed, 1 Nov: longer clips drift, and a redo remakes all of it), never past the model's
+    longest."""
     shots = {"s1": {"start": 0, "end": 1.5}, "s2": {"start": 1.5, "end": 3.0},
              "s3": {"start": 3.0, "end": 9.0}}  # fmt: skip
-    data = {"scenes": [{"shots": [{"id": s} for s in shots]}],
+    clip, places = {"id": "c1", "shot_ids": ["s1", "s2", "s3"]}, {}
+
+    def pack(timed=shots, where=places, longest=15):
+        return [(c["id"], c["shot_ids"]) for c in song_breakdown._pack(clip, timed, where,
+                                                                        longest)]  # fmt: skip
+
+    assert pack() == [("c1", ["s1", "s2", "s3"])]
+    assert pack(longest=5) == [("c1", ["s1", "s2"]), ("c1b", ["s3"])]  # past the longest
+    talks = {**shots, "s2": {**shots["s2"], "sung": True}}  # a talker's own take in the middle
+    assert [ids for _, ids in pack(talks)] == [["s1"], ["s2"], ["s3"]]
+    moved = {"s1": "place:1", "s2": "place:1", "s3": "place:2"}
+    assert [ids for _, ids in pack(where=moved)] == [["s1", "s2"], ["s3"]]
+    long = {f"s{n}": {"start": 3.0 * n, "end": 3.0 * (n + 1)} for n in range(20)}  # 60 s scene
+    clip = {"id": "c1", "shot_ids": list(long)}
+    parts = song_breakdown._pack(clip, long, {}, 30)  # Seedance 2.5 makes 30 s: never that long
+    spans = [long[p["shot_ids"][-1]]["end"] - long[p["shot_ids"][0]]["start"] for p in parts]
+    assert len(parts) == 4 and max(spans) <= 15 and all(len(p["shot_ids"]) <= 6 for p in parts)
+
+
+def test_an_edit_never_regroups_a_narrations_clips_already_made():
+    """QA on #1436: `fit` runs on every plan save (an edit, a cast fix, a new narration take).
+    A stored multi-shot clip with a place change, a talker's edge or past the longest stays
+    as it is, so its take is never set aside; only a new plan is grouped."""
+    shots = {"s1": {"start": 0, "end": 4.0, "sung": False},
+             "s2": {"start": 4.0, "end": 6.0, "sung": True},
+             "s3": {"start": 6.0, "end": 24.0, "sung": False}}  # fmt: skip
+    data = {"scenes": [{"shots": [{"id": "s1", "place_id": "place:1"}, {"id": "s2"},
+                                  {"id": "s3", "place_id": "place:2"}]}],
             "clips": [{"id": "c1", "shot_ids": ["s1", "s2", "s3"]}],
             "song": {"take_id": 1, "shots": shots}}  # fmt: skip
-    apart = song_breakdown.fit(data, broll=True)["clips"]
-    assert [(c["id"], c["shot_ids"], c["seconds"]) for c in apart] == [
-        ("c1", ["s1"], 4), ("c1b", ["s2"], 4), ("c1c", ["s3"], 6)]  # fmt: skip
-    assert song_breakdown.slice_of({**data, "clips": apart}, "c1b")["end"] == 3.0  # cut to it
+    kept = song_breakdown.fit(data, broll=True, shortest=4, longest=15)["clips"]
+    assert [(c["id"], c["shot_ids"]) for c in kept] == [("c1", ["s1", "s2", "s3"])]
     assert len(song_breakdown.fit(data)["clips"]) == 1  # a song's clips stay as planned
+
+
+SHOTS_251 = [1.48, 1.98, 2.0, 1.86, 1.54, 0.54, 2.08, 1.3, 2.32, 0.88, 0.84, 0.74, 1.14, 1.56,
+             0.64, 1.24, 0.9]  # Dr. Pickle 251: 17 shots, 23.04 s of narration  # fmt: skip
+SCENES_251 = [2, 2, 2, 2, 4, 5]  # its six scenes' shot counts, one planned clip a scene
+
+
+def _plan_251() -> SongBreakdown:
+    at, n, scenes = 0.0, 0, []
+    for k, count in enumerate(SCENES_251, 1):
+        shots = []
+        for m in range(1, count + 1):
+            end = round(at + SHOTS_251[n], 2)
+            shots.append({"id": f"{k}.{m}", "script_lines": [k], "speaker": None, "line": None,
+                          "action": "B-roll.", "reaction": None, "camera": "Close-up, static.",
+                          "seconds": SHOTS_251[n], "character_ids": [], "place_id": None,
+                          "moment": None, "screen_ids": [], "song_start": at, "song_end": end,
+                          "sung": False})  # fmt: skip
+            at, n = end, n + 1
+        scenes.append({"id": k, "heading": f"SCENE {k}", "look": "", "shots": shots})
+    clips = [{"id": f"c{k}", "shot_ids": [s["id"] for s in sc["shots"]], "seconds": 4, "seam": ""}
+             for k, sc in enumerate(scenes, 1)]  # fmt: skip
+    return SongBreakdown.model_validate({"hook": "", "scenes": scenes, "clips": clips})
+
+
+def test_dr_pickle_251s_shape_makes_six_clips_not_seventeen():
+    """Reed (7 Nov): "Good idea, make sure it works then do it." 251's 17 shots (5 under a
+    second) were 17 Seedance clips of 4 s: 68 s made for 23 s used. Shared multi-shot clips,
+    one a scene, make 6 clips and 27 s; every clip's slice still sits on the narration."""
+    plan, song = song_breakdown.split(_plan_251(), 1, broll=True, shortest=4, longest=15)
+    data = {**plan.model_dump(), "song": song}
+    assert len(plan.clips) == 6 and sum(c.seconds for c in plan.clips) == 27
+    starts = [song_breakdown.slice_of(data, c.id)["start"] for c in plan.clips]
+    ends = [song_breakdown.slice_of(data, c.id)["end"] for c in plan.clips]
+    assert starts[0] == 0 and starts[1:] == ends[:-1] and ends[-1] == 23.04  # back to back
+    one_a_shot = [{**c.model_dump(), "id": s, "shot_ids": [s]} for c in plan.clips
+                  for s in c.shot_ids]  # fmt: skip
+    joined = song_breakdown._joined({**data, "clips": one_a_shot}, song["shots"], 4, 15)
+    assert [c["shot_ids"] for c in joined] == [c.shot_ids for c in plan.clips]  # one-shot
+    # clips a plan made too short are joined within their scene, never across one
 
 
 def test_a_short_b_roll_shot_is_made_at_the_video_models_own_shortest_clip(app, db, owner):
@@ -207,8 +277,9 @@ def test_a_short_b_roll_shot_is_made_at_the_video_models_own_shortest_clip(app, 
     data = {"scenes": [{"shots": [{"id": s} for s in shots]}],
             "clips": [{"id": "c1", "shot_ids": ["s1", "s2", "s3"]}],
             "song": {"take_id": 0, "shots": shots}}  # fmt: skip
-    omni = song_breakdown.fit(data, broll=True, shortest=3)["clips"]
-    assert [(c["id"], c["seconds"]) for c in omni] == [("c1", 3), ("c1b", 3), ("c1c", 6)]
+    one = {**data, "clips": [{"id": f"c{n}", "shot_ids": [s]} for n, s in enumerate(shots, 1)]}
+    omni = song_breakdown.fit(one, broll=True, shortest=3)["clips"]  # a plan's one-shot clips
+    assert [(c["id"], c["seconds"]) for c in omni] == [("c1", 3), ("c2", 3), ("c3", 6)]
     from decimal import Decimal
 
     from app.models.songs import SongTake
@@ -222,7 +293,7 @@ def test_a_short_b_roll_shot_is_made_at_the_video_models_own_shortest_clip(app, 
                     kind="narration", job_id=job.id, lyrics="", style_line="")  # fmt: skip
     db.add(take)
     db.flush()
-    data = {**data, "song": {"take_id": take.id, "shots": shots}}  # under a narration
+    data = {**one, "song": {"take_id": take.id, "shots": shots}}  # under a narration
     for look, least in (("ugc", 3), ("house", 4)):
         video.look, video.video_model = look, None
         db.flush()
@@ -230,7 +301,8 @@ def test_a_short_b_roll_shot_is_made_at_the_video_models_own_shortest_clip(app, 
         row = BreakdownVersion(project_id=video.id, script_version=1, source="edit", data=data)
         db.add(row)
         db.flush()  # a plan saved with its song part is fitted at the model's shortest
-        assert [c["seconds"] for c in row.data["clips"]] == [least, least, 6], look
+        assert [c["seconds"] for c in row.data["clips"]] == [least, least, 6], look  # an
+        # edit never regroups the clips it carries
 
 
 def test_the_host_stands_away_from_the_action():
