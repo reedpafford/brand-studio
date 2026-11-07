@@ -118,11 +118,13 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 clip = re.sub(r"^(clip\s*|c)", "", str(clip or "").strip(), flags=re.I)
                 return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
+            from app import clip_takes
             from app.clip_takes import contradicts
             from app.director import against_notes, chat
 
             held, asked = 0, watch_cut.redo_findings(db, project, run)  # what the cut's watch found
             rewritten, asked_note = [], (decision.get("note") or "").strip()
+            fitting: list[str] = []  # prompts too long for their model, rewritten first
             notes = list(enumerate((m["text"] for m in chat(project, (run or {}).get("id"))), 1))
             first = [r for r in rows if not r.picked_take_id]
             waits: dict[str, list[str]] = {}
@@ -160,10 +162,21 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 except cast_gate.Waiting:  # its cast or places wait for the OK: the rest go on
                     db.rollback()
                     held += 1
+                except HTTPException as no:  # too long for its model: being rewritten to fit
+                    if not str(no.detail).startswith(clip_takes.TOO_LONG_START):
+                        raise
+                    db.rollback()  # its free fix is already saved (clip_takes.fits_prompt)
+                    fitting.append(row.clip_id)
                 else:
                     if found := asked.get(row.clip_id):  # the take in the cut says why (S6-03)
                         watch_cut.redone(db, project, row, found, job, note.note)
-            said = _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
+            fit = (f"The prompt of {', '.join(fitting)} is too long for its model, so it's being "
+                   "rewritten to fit (free); make its take once it's rewritten.")  # fmt: skip
+            if fitting and len(fitting) + held == len(rows):  # nothing was made: say why
+                return f"Refused: {fit}"
+            said = _held(f"Making {_n(len(rows) - held - len(fitting), 'take')}.", held, rows,
+                         "take")  # fmt: skip
+            said += f" {fit}" if fitting else ""
             said += (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
                      "is rewritten with it first." if rewritten else "")  # fmt: skip
             said += f" {_against(waits)}" if waits else ""

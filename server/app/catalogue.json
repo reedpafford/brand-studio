@@ -28,6 +28,7 @@
    "name": "Seedance 2.0",
    "kind": "video",
    "lip_sync": false,
+   "prompt_max": 4000,
    "provider_model": "bytedance/seedance-2.0",
    "provider_version": "9d81317f58059c832bd001ac5906824c1b2b09f8c30330a5072e201cc8bcf7ec",
    "default": false,

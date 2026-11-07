@@ -261,6 +261,8 @@ def job_input(
 
     if told := treatment_block(db, project):  # the story it serves (the director's treatment)
         prompt = f"{prompt}\n{told.rstrip()}"
+    if limits := prompt_limits(db, project, [c for g in groups for c in g]):
+        prompt = f"{prompt}\n{limits}"
     return {
         "step": "clip_prompts",
         "project_id": project.id,
@@ -275,6 +277,29 @@ def job_input(
             for g in groups
         ],
     }
+
+
+def prompt_limits(db: Session, project: Project, clip_ids: list[str]) -> str:
+    """The longest prompt each clip's model takes, as the writer is told it (Seedance 2.0:
+    4000 characters; 245's were written for 2.5 at 4038–4780 and refused): one line a model,
+    naming its clips, with room left for the language line and a Redo note. "" when none has a
+    limit."""
+    from app.clip_takes import ROOM
+    from app.model_map import of_clip
+
+    rows = {r.clip_id: r for r in db.scalars(select(ProjectClip).where(
+        ProjectClip.project_id == project.id, ProjectClip.clip_id.in_(clip_ids)))}  # fmt: skip
+    capped: dict[tuple[str, int], list[str]] = {}
+    for c in clip_ids:
+        m = of_clip(project, rows.get(c))
+        if m.prompt_max:
+            capped.setdefault((m.name, m.prompt_max), []).append(c)
+    return "\n".join(
+        f"<limit>{', '.join(ids)} {'is' if len(ids) == 1 else 'are'} made on {name}, which takes a "
+        f"prompt of at most {most} characters: write {'its' if len(ids) == 1 else 'each'} prompt "
+        f"in under {most - ROOM} characters.</limit>"
+        for (name, most), ids in capped.items()
+    )
 
 
 def cause(error: str, detail: str = "") -> str:
@@ -739,6 +764,10 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             c = repair_shape(with_cast(db, project, c, bd, known), bd)  # free, at once
             if job.input.get("fix"):  # the free fix never drops who isn't lip-syncing (c4)
                 c = _kept_voiceover(c, job.input.get("before") or "")
+            if (lost := fit_lost(job, c.prompt)) and (row := rows.get(c.clip_id)):
+                row.change = {"note": FIT_NOTE, "status": "failed", "job_id": job.id,
+                              "error": f"{lost} The prompt stays as it was."}  # fmt: skip
+                continue  # the old prompt stays; it counts as one of its two tries
             written_as = c.prompt
             words = reword(c.prompt, looks.drawn(project))
             c = c.model_copy(update={"prompt": words[0]})
@@ -797,6 +826,51 @@ def save_clip_prompts(db: Session, job: Job) -> None:
 
 
 LIP_SYNC = re.compile(r"lip[- ]?sync|voice-?over|mouth stays closed", re.I)
+
+
+FIT_NOTE = "Shorten the prompt to fit its model"
+SHOT_LINE = re.compile(r"^Shot \d+ \|.*$", re.M)
+SHOT_START = re.compile(r"^Shot \d+ \|(?:\s*[\d.]+\s*[–-]\s*[\d.]+\s*s\b\.?)?")  # Shot 2 | 2–5 s.
+QUOTED = re.compile(r"[“\"]([^”\"]+)[”\"]")  # a spoken or quoted span, straight or curly
+
+
+def _starts(prompt: str) -> list[str]:
+    """Each shot's start, "Shot 2 | 2–5 s.", in order, spaces evened."""
+    found = (SHOT_START.match(x.strip()) for x in SHOT_LINE.findall(prompt))
+    return [re.sub(r"\s+", " ", m.group(0).replace("-", "–")) for m in found]
+
+
+def _quotes(prompt: str) -> list[str]:
+    """Every quoted span in the shot lines, its quotes straight or curly alike: spoken
+    ("Mom: “Nate…”", "Theo says "Yes."") or a word on screen."""
+    return [re.sub(r"\s+", " ", q).strip() for line in SHOT_LINE.findall(prompt)
+            for q in QUOTED.findall(line)]  # fmt: skip
+
+
+def fit_lost(job: Job, prompt: str) -> str:
+    """What a fit to the model's prompt limit (clip_takes.FIT) got wrong, in plain words, or
+    "": each shot kept with its start ("Shot N | a–b s.") in order, every quoted span of the
+    shot lines word for word (straight or curly quotes), the Keep: line, and the whole under
+    the limit. A shot's description may be shorter: that's where a fit finds its room (on the
+    stand-ins a 4,780-character prompt came back 293 characters long, its shots gone)."""
+    from app.clip_takes import FIT
+
+    if not job.input.get(FIT):
+        return ""
+    before, most = job.input.get("before") or "", job.input.get("fit_max") or 0
+    lines = {x.strip() for x in prompt.splitlines()}
+    keep = [x.strip() for x in before.splitlines() if x.startswith("Keep: ")]
+    said = set(_quotes(prompt))
+    lost = [x for x in keep if x not in lines]
+    lost += [q for q in _quotes(before) if q not in said]  # each spoken or quoted line
+    if _starts(prompt) != _starts(before):  # every shot, its times, in order
+        lost.append("a shot")
+    if lost:
+        return (f"The shortened prompt dropped or changed {len(lost)} of its Shot, Keep or "
+                "spoken lines.")  # fmt: skip
+    if most and len(prompt) > most:
+        return f"The shortened prompt is still {len(prompt):,} characters, over {most:,}."
+    return ""
 
 
 def _kept_voiceover(clip: ClipPrompt, before: str) -> ClipPrompt:
@@ -955,16 +1029,18 @@ def queue_fix(db: Session, user, project: Project, row: ProjectClip, problems: l
     return job
 
 
-def fix_job(db: Session, user, project: Project, row: ProjectClip, problems: list[str]) -> Job:
-    """The free fix's Claude job for one clip, added but not committed."""
+def fix_job(db: Session, user, project: Project, row: ProjectClip, problems: list[str],
+            told: str = "") -> Job:  # fmt: skip
+    """The free fix's Claude job for one clip, added but not committed. `told`: its own
+    instruction instead (a fit to the model's prompt limit shortens the whole prompt)."""
     from app.job_brand import brand_for
 
     bd = newest(db, project)
     clip = row.clip_id
     data = job_input(db, project, bd, [clip])
-    fix = ("Change only the lines of this clip's prompt that these problems name, and keep "
-           "every other line word for word (the spoken lines, the audio, the action and the "
-           f"voiceover and lip-sync notes): {'; '.join(problems)}")  # fmt: skip
+    fix = told or ("Change only the lines of this clip's prompt that these problems name, and "
+                   "keep every other line word for word (the spoken lines, the audio, the action "
+                   f"and the voiceover and lip-sync notes): {'; '.join(problems)}")  # fmt: skip
     data = {**data, "prompt": f"{data['prompt']}\n<fix clip=\"{clip}\">\n{escape(fix)}\n</fix>",
             "clip_ids": [clip], "fix": True, "before": row.prompt}  # fmt: skip
     job = Job(workspace_id=project.workspace_id, created_by_id=user.id, approved_by_id=user.id,

@@ -46,6 +46,7 @@ class CatalogueModel(BaseModel):
     last_frame: bool = False
     audio: Literal["switch", "always"] | None = None
     lip_sync: bool = False  # video models: a song slice sets the mouth (Sung shots, VS1)
+    prompt_max: int = 0  # the longest prompt it takes, in characters (0: none stated)
     price: Price
     price_source: str
 

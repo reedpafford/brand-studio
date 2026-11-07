@@ -84,6 +84,9 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "generate_audio": speaks or own,
     }, {k: v for k, v in files.items() if v})  # fmt: skip
     take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
+    if check:  # never a take its model refuses for its length (a 422, video 245)
+        fits_prompt(db, project, clip, model, take.get("prompt") or "")
+        not_again(db, clip, model.id, take, sent)
     return {
         "step": "clip_take",
         "project_id": project.id,
@@ -285,6 +288,72 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
                         f"{most} s a clip. {then}. Nothing was charged.")  # fmt: skip
 
 
+SAME_INVALID = ("The service refused this take's request as invalid ({reason}), so the same "
+                "request would be refused again. Change the prompt or its pictures first. "
+                "Nothing was charged.")  # fmt: skip
+
+
+def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: dict) -> None:
+    """A take whose last try was refused as an invalid request (a 400 or 422) is never sent
+    again unchanged: the director's "try again" sent the same 422 (video 245)."""
+    last = db.scalar(select(Job).where(Job.input["project_clip_id"].as_integer() == clip.id,
+                                       Job.input["step"].as_string() == "clip_take")
+                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
+    if last is None or last.status != JobStatus.failed or why_failed(last) != "invalid":
+        return
+    same = last.input.get("input") == take and (last.input.get("files") or {}) == (sent or {})
+    if last.input.get("model") == model_id and same:  # its pictures changed: it may go
+        raise HTTPException(409, SAME_INVALID.format(reason=invalid(last.error_detail or "")))
+
+
+FIT = "fit"  # in a free fix's input: it shortens the prompt to its model's limit
+ROOM = 600  # characters left under the limit: the language line and a Redo note (500 at most)
+TOO_LONG_START = "The prompt is too long for "  # how its refusal starts (director_tools)
+FITTING = ("The prompt is too long for {model} ({n:,} of {most:,} characters), so it's being "
+           "rewritten to fit, free. Make the take once it's rewritten. "
+           "Nothing was charged.")  # fmt: skip
+WRITING = ("The prompt is too long for {model} ({n:,} of {most:,} characters); it's rewritten to "
+           "fit once the clip prompts being written now are done. Make the take then. Nothing "
+           "was charged.")  # fmt: skip
+STILL_LONG = ("The prompt is still too long for {model} ({n:,} of {most:,} characters) after "
+              "two rewrites. Shorten it with Edit (free), or put this clip on a model that takes "
+              "longer prompts. Nothing was charged.")  # fmt: skip
+
+
+def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: str) -> None:
+    """A prompt longer than its model takes (Seedance 2.0: 4000 characters) is never sent: the
+    provider refuses it the same way every time. It's rewritten to fit, free, by the clip's
+    own fix (clip_prompts.fix_job: its Keep, Shot and spoken lines kept), never cut short, and
+    the take is refused until then, saying so; after two rewrites, a person shortens it."""
+    from app.clip_prompts import fix_job, fixing
+    from app.credits import lock
+
+    most = model.prompt_max
+    if not most or len(sent) <= most:
+        return
+    said = {"model": model.name, "n": len(sent), "most": most}
+    lock(db, Project, project.id)  # two presses at once queue one fix
+    if fixing(db, clip):
+        raise HTTPException(409, FITTING.format(**said))
+    jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
+    writing = ("clip_prompts", "narrated_clip_prompts")  # a rewrite of every clip: after it
+    if any(j.input.get("step") in writing and not j.input.get("fix") for j in jobs):
+        raise HTTPException(409, WRITING.format(**said))
+    fits = db.scalars(select(Job).where(Job.project_id == project.id, Job.input[FIT].as_boolean()))
+    if sum(j.input.get("clip_ids") == [clip.clip_id] for j in fits) >= 2:
+        raise HTTPException(409, STILL_LONG.format(**said))
+    room = most - ROOM
+    told = (f"Shorten this clip's prompt to under {room} characters ({model.name} takes at most "
+            f"{most}; it's {len(sent)}): say each shot's description in fewer words. Keep every "
+            "shot, in order, with its start as written (\"Shot N | a–b s.\"), every spoken or "
+            "quoted line word for word, and the Keep: line as it is. Never drop a shot or a "
+            "line someone says.")  # fmt: skip
+    fix = fix_job(db, db.get(User, project.created_by_id), project, clip, [], told=told)
+    fix.input = {**fix.input, FIT: True, "fit_max": most}
+    db.commit()  # the fix stands whatever the refusal below rolls back
+    raise HTTPException(409, FITTING.format(**said))
+
+
 ENGLISH = ("Language: every spoken line is in American English, and any text on screen is in "
            "English.")  # fmt: skip
 SAID_AMERICAN = "every spoken line is in American English"  # the clip prompt's own (the Director)
@@ -367,12 +436,31 @@ BUSY_SAID = re.compile(r"service is (temporarily|currently) unavailable|^No answ
 RETRY_WAIT = timedelta(seconds=30)  # a busy service gets a moment before the one retry
 
 
+# The provider refused the request itself as invalid, before running it (a 400 or 422: "input.
+# prompt: String length must be less than or equal to 4000"): never billed, and the same
+# request is refused the same way every time.
+INVALID = re.compile(r"Replicate (?:400|422)\b|Input validation failed", re.I)
+
+
+def invalid(detail: str) -> str:
+    """The provider's own reason for refusing a request as invalid, plainly ("input.prompt:
+    String length must be less than or equal to 4000"), or "" when it wasn't that."""
+    if not INVALID.search(detail or ""):
+        return ""
+    found = re.search(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"', detail)
+    reason = found.group(1) if found else detail.split(":", 1)[-1]
+    return re.sub(r"\s+", " ", reason.replace("\\n", " ")).strip(" -")[:300]
+
+
 def why_failed(job: Job) -> str:
     """ "busy" (the service was busy or didn't answer), "refused" (its content check or
-    copyright refusal: never charged), or "" for anything else."""
+    copyright refusal: never charged), "invalid" (the request itself refused before it ran:
+    never charged, never sent again as it is), or "" for anything else."""
     detail = job.error_detail or ""
     if BUSY_SAID.search(detail):
         return "busy"
+    if invalid(detail):
+        return "invalid"
     return "refused" if moderated(detail) or "copyright" in detail.lower() else ""
 
 
@@ -387,8 +475,8 @@ def retry(db: Session, job: Job) -> None:
     from app.clip_prompts import fix_job, is_stale, newest
 
     why = why_failed(job)
-    if not why or job.input.get("discard") or not job.project_id:
-        return
+    if why in ("", "invalid") or job.input.get("discard") or not job.project_id:
+        return  # an invalid request is refused the same way again: never retried as it is
     if _lookalike(job):
         return _again_without(db, job)
     if job.auto:  # one automatic retry, but for a look-alike's steps
