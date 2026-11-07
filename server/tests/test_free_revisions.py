@@ -163,3 +163,19 @@ def test_a_step_held_for_make_it_shows_as_not_made_yet_and_is_made_after_it(app,
     assert director.NOT_MADE in shown and director.START_FIRST not in shown
     _run(app, db)  # Make it: the stand-in reads it as still to make, and makes it
     assert [t for t in _since(db, pid, held[-1].id, "clip_take")]
+
+
+def test_a_delivered_revisions_turn_input_reads_its_last_actions(app, db, owner, editor):
+    """next, 7 Nov: a second `_shown` in app/director.py replaced the <last_actions> one, so
+    every turn's prompt raised. A delivered video's revision builds its prompt, and its held
+    step reads "Not made yet"."""
+    pid = _delivered(app, db, owner, editor)
+    project = db.get(Project, pid)
+    run = {**director.turns(db, project)[-1].input[director.RUN], "ok": False,
+           director.REVISION: True}  # fmt: skip
+    last = director.turns(db, project)[-1]
+    last.input = {**last.input, "result": director.START_FIRST}
+    db.commit()
+    shown = director.turn_input(db, project, run)["prompt"]
+    assert "<last_actions>" in shown and '"revision": true' in shown
+    assert director.NOT_MADE in shown and director.START_FIRST not in shown
