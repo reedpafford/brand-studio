@@ -342,9 +342,17 @@ def test_a_revision_counts_its_changes(app, db, owner, editor):
     url = f"/projects/{pid}/director"
     owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})  # a revising run
     p = _progress(owner, pid)
-    assert (p["status"], p["title"], p["sub"]) == ("revising", "Revising", "0 of 0 changes")
+    assert (p["status"], p["title"], p["sub"]) == ("revising", "Revising", "")  # none yet
     _job(db, _clip(db, pid), JobStatus.running, by_director=True)
     assert _progress(owner, pid)["sub"] == "0 of 1 change"
+    last = director.turns(db, db.get(Project, pid))[-1]  # Flow-QA: a free edit to the cut
+    last.output = {**(last.output or {}), "tool": "edit_cut"}  # (a narrated video's re-time)
+    last.input = {**last.input, "result": "Clip 1 trimmed."}
+    db.commit()
+    assert _progress(owner, pid)["sub"] == "1 of 2 changes"
+    last.input = {**last.input, "result": "Refused: that would cut a word."}
+    db.commit()
+    assert _progress(owner, pid)["sub"] == "0 of 1 change"  # a refused edit isn't one
     cards = [m for m in owner.get(url).json()["thread"] if m.get("run")]
     assert [m["status"] for m in cards] == ["done", "running"]  # one card a run
 
