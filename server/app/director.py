@@ -66,6 +66,8 @@ TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 START = asks.START  # in its held first paid turn: the start card (S3-02)
 START_HELD = "Ready to start: it waits for Make it."  # the start card's hold
 START_FIRST = "Waiting for Make it: nothing more runs before it."  # a move before the OK
+NOT_MADE = "Not made yet: it waits for Make it, and is made once it's pressed."  # START_FIRST,
+# as <last_actions> shows it: the step still to make, not one done
 TREATMENT_FIRST = "Refused: the treatment comes first, before Make it."
 PLAN_FIRST = "Changing the plan first."  # a note while the start card waited
 PRE_OK = ("treatment", "ask", "wait", "stop")  # what runs before Make it: planning only
@@ -746,8 +748,7 @@ def _act(db: Session, job: Job, storage) -> None:
     project, decision = db.get(Project, job.project_id), dict(job.output or {})
     run = dict(job.input[RUN])
     tool = decision.get("tool")
-    # a revision's free change to the cut it has (none once its own story changed)
-    free = run.get(REVISION) and tool in REVISE_FREE and not _own_story(db, run)
+    free = tool in REVISE_FREE and _free_revision(db, run)
     if not run.get("ok", True) and tool not in PRE_OK and not free:  # nothing made before Make it
         written = _written(db, run, project.id)
         return _record(db, job, run, START_FIRST if written else TREATMENT_FIRST)
@@ -973,7 +974,7 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         data = {**data, START: True, asks.HOLD: carry[0], PRICE: str(carry[1]),
                 CARRIES: str(price)}  # fmt: skip
         wait = carry[0]
-    elif before and not (run.get(REVISION) and not _own_story(db, run)):  # its plan: charged
+    elif before and not _free_revision(db, run):  # its plan: charged
         # as it costs; past the allowance, the owner's OK first. A revision's free changes to
         # its cut aren't planning: its turns are the director's own, on its own limit, below
         from app.credits import estimate
@@ -1025,6 +1026,12 @@ def _own_story(db: Session, run: dict):
     return db.scalar(select(func.max(Job.created_at)).where(
         Job.input["step"].as_string() == "treatment", Job.input[RUN]["id"].as_string() == run["id"],
         Job.status == JobStatus.succeeded))  # fmt: skip
+
+
+def _free_revision(db: Session, run: dict) -> bool:
+    """A revision's free changes to the cut it has: none once its own story changed, or when
+    the run is held for the owner's OK (an editor past their budget: the start card first)."""
+    return bool(run.get(REVISION) and not run.get("hold") and not _own_story(db, run))
 
 
 def _written(db: Session, run: dict, project_id: int | None = None) -> bool:
@@ -1193,6 +1200,11 @@ SET_ASIDE = ("Refused: take {} of {} was made before the plan was started again,
              "aside. Make a new take of it.")  # fmt: skip
 
 
+def _shown(result: str | None) -> str | None:
+    """A move's result as <last_actions> shows it: one held for Make it is still to make."""
+    return NOT_MADE if result == START_FIRST else result
+
+
 def turn_input(db: Session, project: Project, run: dict, job_id: int | None = None) -> dict:
     """The director's prompt (app/prompts/director.md, the Director's) and the brand, then the
     video's state, its run's last actions and what it still may do."""
@@ -1200,7 +1212,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
 
     system, brief = project_context(db, project, STEP)
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
-             "result": RETRIED_SAID if j.input.get(RETRIED) else j.input.get("result")}
+             "result": RETRIED_SAID if j.input.get(RETRIED) else _shown(j.input.get("result"))}
             for j in turns(db, project)
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
@@ -1487,8 +1499,10 @@ def _splittable(db: Session, project: Project, bd) -> list[str]:
     ]
 
 
-STORY = re.compile(r"\b(story|plot|ending|hook|rewrite|new (?:scene|idea|angle))\b", re.I)  # a
-# revision's note that asks to change what happens: its treatment again, before Make it
+STORY = re.compile(r"\b(story|plot|rewrite|new (?:scene|idea|angle|hook|ending)|different "
+                   r"(?:hook|ending)|change (?:the )?(?:hook|ending))\b", re.I)  # fmt: skip
+# a revision's note that asks to change what happens (its treatment again, before Make it);
+# "Slow the ending down." is pacing
 
 
 def choose(state: dict) -> dict:

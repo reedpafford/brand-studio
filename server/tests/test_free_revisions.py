@@ -6,7 +6,7 @@ at once, with no start card; only what makes something new (a clip's take) waits
 and only that clip is made again. A note that asks to change the story still gets its
 treatment, then waits for Make it. Stand-ins only."""
 
-from app import director
+from app import asks, director
 from app.models.asks import Ask
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
@@ -22,8 +22,11 @@ def _delivered(app, db, owner, editor) -> int:
 
 
 def _since(db, pid, first: int, step: str) -> list[Job]:
-    return [j for j in db.query(Job).filter(Job.project_id == pid, Job.id > first)
-            if j.input.get("step") == step]  # fmt: skip
+    return [j for j in _since_jobs(db, pid, first) if j.input.get("step") == step]
+
+
+def _since_jobs(db, pid, first: int) -> list[Job]:
+    return db.query(Job).filter(Job.project_id == pid, Job.id > first).all()
 
 
 def _starts(db, pid) -> int:
@@ -115,3 +118,48 @@ def test_before_make_it_a_revision_may_edit_the_cut_but_never_make_anything(app,
     assert director._written(db, run, pid)  # its story is the video's
     assert not director._written(db, {**run, director.REVISION: False}, pid)
     assert not director._own_story(db, run)
+
+
+def test_an_editors_held_revision_waits_for_the_owners_start_card(app, db, owner, editor,
+                                                                  monkeypatch):  # fmt: skip
+    """QA (#1412): an editor's video with its budget used: "Tighten it." made a paid watch, a
+    new cut and a delivery with no owner's OK. A held revision makes nothing, its free edits
+    too, until the owner's Make it."""
+    from decimal import Decimal
+
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr("app.credits.budget", lambda db, project: Decimal(0))  # all used
+    first = db.query(Job).order_by(Job.id.desc()).first().id
+    said = editor.post(f"/projects/{pid}/director/messages", json={"text": "Tighten it."})
+    assert said.status_code in (200, 201), said.text
+    _run(app, db, ticks=8, start=False)  # the owner hasn't pressed Make it
+    turns = director.turns(db, db.get(Project, pid))
+    run = turns[-1].input[director.RUN]
+    assert run.get(director.REVISION) and run.get("hold")  # its last turn: the held card
+    made = {j.input.get("step") for j in _since_jobs(db, pid, first)
+            if j.status != JobStatus.needs_owner_approval}  # fmt: skip
+    assert not made & {"final_cut", "watch_cut", "clip_take"}, made
+    held = [j for j in db.query(Job).filter(Job.project_id == pid,
+                                            Job.status == JobStatus.needs_owner_approval)
+            if j.input.get(director.START)]  # fmt: skip
+    assert held and held[-1].input.get(asks.HOLD) == run["hold"]  # the owner's start card
+    assert editor.get(f"/projects/{pid}/director").json()["status"] != "delivered"
+    assert not director._free_revision(db, run)
+    assert director._free_revision(db, {**run, "hold": ""})
+
+
+def test_a_step_held_for_make_it_shows_as_not_made_yet_and_is_made_after_it(app, db, owner,
+                                                                           editor):  # fmt: skip
+    """QA (#1412): a paid step asked before Make it was read as done after it, and never made.
+    <last_actions> marks it "Not made yet", and the stand-in makes it once Make it is pressed."""
+    pid = _delivered(app, db, owner, editor)
+    owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 brighter."})
+    _run(app, db, ticks=4, start=False)
+    project = db.get(Project, pid)
+    turns = director.turns(db, project)
+    held = [t for t in turns if t.input.get("result") == director.START_FIRST]
+    assert held and (held[-1].output or {}).get("tool") == "make_take"
+    shown = director.turn_input(db, project, turns[-1].input[director.RUN])["prompt"]
+    assert director.NOT_MADE in shown and director.START_FIRST not in shown
+    _run(app, db)  # Make it: the stand-in reads it as still to make, and makes it
+    assert [t for t in _since(db, pid, held[-1].id, "clip_take")]
