@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import prompts
+from app.advice import unsourced
 from app.credits import estimate
 from app.db import utcnow
 from app.enhance import escape, escape_block, project_context
@@ -258,7 +259,9 @@ def save_scene(db: Session, job: Job) -> None:
     project = db.get(Project, job.input["project_id"])
     if project is None or project.archived_at is not None or not project.plan:
         return
-    after = PlanScene.model_validate(job.output).model_dump()
+    told = script(db, project)
+    after = unsourced(PlanScene.model_validate(job.output).model_dump(),
+                             told.text if told else "")  # fmt: skip
     scenes = [after if s["id"] == after["id"] else s for s in project.plan["scenes"]]
     if [x["line"] for s in scenes for x in s["lines"]] != [
         x["line"] for s in project.plan["scenes"] for x in s["lines"]
@@ -365,8 +368,8 @@ def save(db: Session, job: Job) -> None:
     project, draft = _holder(db, job)
     if project is None:
         return
-    _set(project, ScenePlan.model_validate(job.output).model_dump(), "made", job.id,
-         job.input["script"])  # fmt: skip
+    made = unsourced(ScenePlan.model_validate(job.output).model_dump(), job.input["script"])
+    _set(project, made, "made", job.id, job.input["script"])  # people read it: never who decided
     if draft is not None:
         keep_version(draft, project)
 

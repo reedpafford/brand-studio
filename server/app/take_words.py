@@ -156,14 +156,17 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
 
 VOICE = "“{said}” at {at} may be said in the take, but this clip isn't planned to speak."
 NO_VOICE = "Nobody speaks or sings in this clip: picture only, the {kind} carries every word."
+NO_LINE = "Nobody speaks in this clip: its sound is only its room and its effects."
 
 
 def voices(heard: list[dict], kind: str = "song or narrated") -> list[dict]:
-    """A song or narrated video's take (Song-Producer): every line heard in it is a fault,
-    offered for a mute (a narrated video keeps the take's sound under the narrator)."""
+    """A song or narrated video's take (Song-Producer), or a dialogue take made with its own
+    sound and no line (`clip_takes.own_sound`): every line heard in it is a fault, offered for
+    a mute (a narrated video keeps the take's sound under the narrator)."""
     _, spoken = _sounds(heard, "", [])
     return [_finding("voiced", h["start"], VOICE.format(said=h["text"].strip(),
                                                          at=_clock(h["start"])),
+                     NO_LINE if kind == "dialogue" else
                      NO_VOICE.format(kind="narrator" if kind == "narrated" else "song"),
                      span=[h["start"], h["end"]]) for h in spoken if h["text"].strip()]  # fmt: skip
 
@@ -198,6 +201,7 @@ def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict], 
     if not project or not item_checks.on():
         return None
     silent = plans.fmt(db, project) != "dialogue" and not speaks  # a song's or narrator's
+    silent = silent or bool(job.input.get("own_sound"))  # its own room and effects: no voice
     lines = [] if silent else [{"who": s.get("speaker") or "", "text": s["line"]}
                                for s in shots if s.get("line")]  # fmt: skip
     if not lines and not silent and not watch:
@@ -243,7 +247,7 @@ def save(db: Session, job: Job) -> None:
     if not row:
         return
     i, heard = job.input, (job.output or {}).get("heard", [])
-    if i.get("silent"):  # a song or narrated video's take: any voice is a fault
+    if i.get("silent"):  # a song or narrated video's take, or an own-sound one: any voice
         row.findings = voices(heard, plans.fmt(db, db.get(Project, row.project_id)))
         _mute_voices(db, row)
     else:

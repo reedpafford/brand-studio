@@ -19,6 +19,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app import (
+    advice,
     asks,
     breakdown_fix,
     cast_gate,
@@ -613,6 +614,9 @@ def after(db: Session, job: Job, storage) -> None:
         return
     run_id = (job.input.get(RUN) or {}).get("id")
     if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
+        if job.project_id:  # people read it in the chat: never who decided a choice
+            project = db.get(Project, job.project_id)
+            job.output = advice.unsourced(job.output, _script_text(db, project))
         if run_id and over(db, run_id):  # stopped meanwhile: nothing more runs for it
             return
         if _treatment_checked(db, job):  # one redo with its problems: the redo wakes the run
@@ -742,8 +746,17 @@ def sweep(db: Session) -> None:
         wake(db, db.get(Project, project_id))
 
 
+def _script_text(db: Session, project: Project) -> str:
+    from app import plans
+
+    version = plans.script(db, project)
+    return version.text if version else ""
+
+
 def _act(db: Session, job: Job, storage) -> None:
-    project, decision = db.get(Project, job.project_id), dict(job.output or {})
+    project = db.get(Project, job.project_id)
+    decision = advice.unsourced(dict(job.output or {}), _script_text(db, project))
+    job.output = decision  # people read its why and notes: never who decided it
     run = dict(job.input[RUN])
     tool = decision.get("tool")
     if not run.get("ok", True) and tool not in PRE_OK:  # nothing is spent before Make it

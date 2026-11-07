@@ -263,11 +263,12 @@ def test_an_old_take_holding_the_cut_out_of_date_is_said_and_unlocks_its_redo(
     )
 
 
-def test_someone_who_speaks_with_no_sheet_in_the_clip_is_never_made(app, db, owner, editor):
-    """Video 233: Maya's look never reached a shot (`character_ids: []`), so each clip's first
-    frame made its own Maya, three faces in 17 s. A clip where one of the video's characters
-    speaks on camera, and no sheet reaches it, is refused before any charge; a line the script
-    labels "(O.S.)" may be heard over an empty frame and goes ahead."""
+def test_someone_who_speaks_with_their_sheet_in_no_shot_is_never_made(app, db, owner, editor):
+    """Video 233: Maya was in no shot's `character_ids`, so each clip's first frame made its
+    own Maya, three faces in 17 s. A clip where one of the video's characters speaks on camera
+    while their sheet is in no shot of the breakdown is refused before any charge. QA on #1410:
+    a line over an insert (the bowl, a hand, the back of a head) whose speaker is in another
+    shot goes ahead, and so does a line the script labels "(O.S.)"."""
     import pytest
     from fastapi import HTTPException
 
@@ -278,11 +279,19 @@ def test_someone_who_speaks_with_no_sheet_in_the_clip_is_never_made(app, db, own
     project = _delivered(app, owner, editor, db)
     row = db.query(ProjectClip).filter_by(project_id=project.id).first()
     bd = db.get(BreakdownVersion, row.breakdown_id)
+    was = bd.data
     said = {"Mom": [2], "Nate": [3]}  # each line's own script line: "MOM: …", "NATE: …"
-    scenes = [{**sc, "shots": [{**s, "character_ids": [], "script_lines": said[s["speaker"]]}
-                               for s in sc["shots"]]} for sc in bd.data["scenes"]]  # fmt: skip
-    bd.data = {**bd.data, "scenes": scenes}
-    row.references = [r for r in row.references if not r["id"].startswith("char:")]
+
+    def shots(keep: bool) -> dict:  # Nate's own line over an insert: his shot lists nobody
+        return {**was, "scenes": [{**sc, "shots": [
+            {**s, "script_lines": said[s["speaker"]],
+             "character_ids": s["character_ids"] if keep and s["speaker"] == "Mom" else []}
+            for s in sc["shots"]]} for sc in was["scenes"]]}  # fmt: skip
+
+    bd.data = shots(keep=True)  # Nate is in Mom's shot: his sheet reaches the clip
+    db.commit()
+    assert take_input(db, project, row)["step"] == "clip_take"
+    bd.data = shots(keep=False)  # in no shot at all: 233
     db.commit()
     with pytest.raises(HTTPException) as no:
         take_input(db, project, row)
@@ -307,7 +316,10 @@ def test_the_plan_and_the_prompts_fit_actions_to_seconds_and_make_silence_a_choi
     assert "as long as the reaction needs and no longer" in plan
     clip = prompts.system("clip_prompts")
     assert "Each segment carries only what its seconds can show" in clip
-    assert "a segment of its own" in clip and "never a still hold" in clip
+    assert "a segment of its own" in clip
+    for text in (plan, clip):  # a held deadpan or comic button stays the style's (QA on #1410)
+        assert "never a frozen frame; a held deadpan or comic button where the style" in text
+        assert "never a still hold" not in text and "has to show something new" not in text
     assert 'write "only silence." where the style\'s guide wants the shot silent' in clip
     assert "its story dresses them for its scenes" in clip
     assert "**A person's notes (<notes>, when given)**" in prompts.system("breakdown")
@@ -321,3 +333,89 @@ def test_the_plan_and_the_prompts_fit_actions_to_seconds_and_make_silence_a_choi
         "Before a clip's first take, check its prompt against every note",
     ):
         assert said in director, said
+
+
+QA_NOTES = ("No music, please.", "No background music.", "no narration",
+            "No one else in the kitchen", "No voices over the end", "No subtitles.")  # fmt: skip
+
+
+def test_a_note_about_the_sound_or_the_fixed_words_never_reads_as_taking_from_the_picture():
+    """QA on #1410: every wordless prompt says "no one speaks (no voices, narration or
+    dialogue)… No music, background music, BGM, score… No subtitles", so notes like "No music,
+    please." matched it. Only the lines that say what's seen count."""
+    from app.clip_takes import contradicts
+
+    quiet = ("Audio: no one speaks (no voices, narration or dialogue), only wind. No music, "
+             "background music, BGM, score, instrumental, melody, synth effects, ambient pad, "
+             "drone, swelling tone or stinger. No subtitles.")  # fmt: skip
+    prompt = "\n".join([
+        quiet, "References: [Image1] is the first frame. [Image2] is Theo.",
+        "Language: every spoken line is in American English.",
+        "Summary: Theo stands alone in the kitchen.", "Setting: A dim kitchen at night.",
+        "Shot 1 | 0-2 s. Close-up, static. The phone lights up in Theo's hand. No one speaks.",
+        "Keep: Theo as in [Image2]; one of each.", quiet])  # fmt: skip
+    for note in QA_NOTES:
+        assert not contradicts(prompt, note), note
+    assert contradicts(prompt, "No phone: his hands hang empty.")  # what the picture shows
+
+
+def test_qa_notes_hold_no_first_take_and_rewrite_no_redo(app, db, owner, editor, monkeypatch):
+    """QA on #1410, both paths: a run's sound notes never hold a batch of first takes, and a
+    named take with one is made, never rewritten first (a first take, or #1405's A7 redo)."""
+    from types import SimpleNamespace
+
+    from app import director
+
+    project = _delivered(app, owner, editor, db)
+    rows = db.query(ProjectClip).filter_by(project_id=project.id).order_by(ProjectClip.id).all()
+    project.director_chat = [*(project.director_chat or []),
+                             *({"text": n, "run": "r1"} for n in QA_NOTES)]  # fmt: skip
+    going = SimpleNamespace(input={director.RUN: {"id": "r1"}})
+    monkeypatch.setattr(director, "active", lambda db, project: going)
+    db.commit()
+    assert all("against_notes" not in c for c in director.video_state(db, project)["clips"])
+    redo = _tool(app, db, project, tool="make_take", clip_id=rows[0].clip_id,
+                 note="No music, please.")  # fmt: skip
+    assert redo.startswith("Making 1 take.") and "rewritten" not in redo  # A7 stays out
+    assert not db.query(Job).filter(Job.input["step"].as_string() == "change").count()
+
+
+def test_an_own_sound_takes_free_words_check_listens_for_any_voice(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1410: a dialogue take made with its own sound and no line got no words check, so
+    a stray voice went unheard. It's listened to as a silent take is: any voice is a finding,
+    offered to the director's `mute`."""
+    from app import take_words
+
+    project = _delivered(app, owner, editor, db)
+    monkeypatch.setattr(take_words.item_checks, "on", lambda: True)  # the checks, as live
+    row = db.query(ProjectClip).filter_by(project_id=project.id).first()
+    take = db.get(ClipTake, row.picked_take_id)
+    job = db.get(Job, take.job_id)
+    job.input = {**job.input, "own_sound": True}
+    db.commit()
+    listen = take_words.queue(db, job, take.id, take.file_id, [], take.prompt or "")
+    assert listen is not None and listen.input["silent"] is True and listen.input["lines"] == []
+    heard = [{"text": "Hey, over here!", "start": 1.0, "end": 1.6, "words": []}]
+    (found,) = take_words.voices(heard, "dialogue")
+    assert found["kind"] == "voiced" and found["change_note"] == take_words.NO_LINE
+
+
+def test_what_people_read_never_cites_who_decided_it():
+    """Live UGC run (video 240): the treatment said "fits Reed's positive-only direction".
+    Every step is told to say a choice in its own words; the treatment, the plan and the
+    director's moves have a cited "(Reed, …)", "Reed's" and "Reed" taken out, unless the
+    script itself has a Reed."""
+    from app import prompts
+    from app.advice import unsourced
+
+    assert unsourced("Upbeat, which fits Reed's positive-only direction.") == (
+        "Upbeat, which fits the positive-only direction.")  # fmt: skip
+    assert unsourced({"beats": [{"picture": "A calm room (Reed, 4 Nov: no music)."}]}) == {
+        "beats": [{"picture": "A calm room."}]}  # fmt: skip
+    assert unsourced("As Reed asked, no phone.") == "As the owner asked, no phone."
+    assert unsourced("Reed waves.", "REED: Hi.\nReed waves.") == "Reed waves."  # the script's
+    assert unsourced({"take_id": 3, "why": "b1: hook."}) == {"take_id": 3, "why": "b1: hook."}
+    words = "never who decided it or where it's written"
+    assert words in prompts.system("treatment") and words in prompts.system("director")
