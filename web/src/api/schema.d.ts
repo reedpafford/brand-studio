@@ -7001,7 +7001,7 @@ export interface components {
             /** Clip Id */
             clip_id: string;
             /** Number */
-            number: number;
+            number: string;
             /** Take Id */
             take_id: number | null;
             /** Frame File Id */
@@ -10443,6 +10443,8 @@ export interface components {
              */
             stops: components["schemas"]["RunStopOut"][];
             failed: components["schemas"]["RunFailedOut"] | null;
+            /** Degraded */
+            degraded?: string | null;
         };
         /** ProjectClipIn */
         ProjectClipIn: {
