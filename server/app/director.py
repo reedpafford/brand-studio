@@ -2063,6 +2063,8 @@ def _failed_too_often(db: Session, project: Project, run: dict) -> str:
     """Plain words for the first item of the run's work that failed more than MAX_REDOS
     times since the run began (tried, then retried twice), e.g. "Clip 3's still failed 3
     times"; else "". The run then delivers what it has or stops, never spending turns on it.
+    A free check that failed (video 240: the takes' words, on an overloaded server) never
+    counts: its take reads "wasn't checked" in the delivery note (delivery.open_items).
     Counted since its last Carry on, which is a press to try again."""
     own = [j for j in turns(db, project) if j.input[RUN]["id"] == run["id"]]
     if not own:
@@ -2075,6 +2077,8 @@ def _failed_too_often(db: Session, project: Project, run: dict) -> str:
                                             Job.created_at >= since)):  # fmt: skip
         if job.input.get(RETRIED):  # asked again on its own (`_again`): not a failure
             continue
+        if not job.credits:  # a free check that couldn't run (a take's words, the cut's sound,
+            continue  # on our server): never the run's end; the note says it wasn't checked
         what = _item(db, job)
         counts[what] = counts.get(what, 0) + 1
         if counts[what] > MAX_REDOS:

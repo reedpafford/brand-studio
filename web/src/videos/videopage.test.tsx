@@ -376,6 +376,18 @@ test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its
   expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // not a new run
 });
 
+test("video 240: a run that stopped itself offers Carry on from the run itself while its card isn't there, never Make it again alone", async () => {
+  setViewport(1440);
+  const stopped = run({ status: "ended", ended: "It stopped: The take words failed 3 times.", thread: [card], carry_on: "" });
+  const calls = server(owner, null, stopped, { "GET /projects/50/director/progress": [502, { detail: "Bad gateway" }], "POST /projects/50/director/carry-on": [201, run()] });
+  renderApp("/b/1/videos/50");
+  const carry = await screen.findByRole("button", { name: "Carry on" }); // the uncapped owner's: no figure
+  expect(screen.getByRole("button", { name: /^Make it again/ })).toBeInTheDocument(); // a new run stays a choice
+  await userEvent.click(carry);
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director/carry-on")).toBe(true)); // the same run
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // not a new run
+});
+
 test("S3-08: Start the plan again starts a new run that plans the whole video again; it says why when it can't", async () => {
   setViewport(1440);
   const stopped = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "$10.74" } });

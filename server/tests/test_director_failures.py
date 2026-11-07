@@ -295,3 +295,26 @@ def test_failures_count_again_from_a_carry_on(app, db, owner, editor):
     last.input = {**last.input, director.WAS_STOPPED: {"carried_at": utcnow().isoformat()}}
     db.commit()
     assert director._failed_too_often(db, project, run) == ""  # carried on: counted afresh
+
+
+def test_a_free_check_that_keeps_failing_never_ends_the_run(app, db, owner, editor):
+    """Video 240 (7 Nov): "It stopped: The take words failed 3 times." Free checks on our own
+    server (each take's words) failed under load, and the run ended with every paid take made
+    and no cut. A free check never counts; paid steps and the director's turns still do."""
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=6)
+    project = db.get(Project, pid)
+    run = director.turns(db, project)[-1].input[director.RUN]
+    for _ in range(3):
+        db.add(Job(workspace_id=1, created_by_id=1, kind="take_listen", provider="local",
+                   input={"step": "take_words"}, project_id=pid, credits=Decimal(0),
+                   status=JobStatus.failed, error_detail="Timed out."))  # fmt: skip
+    db.commit()
+    assert director._failed_too_often(db, project, run) == ""  # free: it goes on
+    for _ in range(3):
+        db.add(Job(workspace_id=1, created_by_id=1, kind="check-claude", provider="claude",
+                   input={"step": "watch_cut"}, project_id=pid, credits=Decimal(1),
+                   status=JobStatus.failed))  # fmt: skip
+    db.commit()
+    assert director._failed_too_often(db, project, run) == "The watch of the cut failed 3 times"
