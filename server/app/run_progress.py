@@ -582,9 +582,13 @@ def dollars(credits: Decimal) -> float:
     return float(round(credits * USD_PER_CREDIT * 100) / 100)
 
 
+FREE_FIXES = ("pick_take", "mute", "splice_word", "edit_cut")  # a revision's changes made at once
+
+
 def _changes(video: _Video, turns: list[Job], since: datetime) -> str:
     """A revising run's changes (S3-12, "1 of 2 changes"): each take it makes again of a clip
-    that had one before it began, and each free fix (a pick, a mute, a splice)."""
+    that had one before it began, and each free fix (a pick, a mute, a splice, an edit to the
+    cut: a narrated video's re-time); "" before it has any, never "0 of 0 changes"."""
     total = done = 0
     for row in video.clips:
         if any(t.created_at < since for t in video.takes.get(row.id, [])):
@@ -592,10 +596,10 @@ def _changes(video: _Video, turns: list[Job], since: datetime) -> str:
                 if j.created_at >= since and j.status != JobStatus.cancelled:
                     total, done = total + 1, done + (j.status == JobStatus.succeeded)
     for j in turns:
-        if (j.output or {}).get("tool") in ("pick_take", "mute", "splice_word") and not (
+        if (j.output or {}).get("tool") in FREE_FIXES and not (
             j.input.get("result") or "Refused").startswith("Refused"):  # fmt: skip
             total, done = total + 1, done + 1
-    return f"{done} of {_n(total, 'change')}"
+    return f"{done} of {_n(total, 'change')}" if total else ""
 
 
 def _actual(db: Session, project: Project, viewer: User | None, since) -> dict:
