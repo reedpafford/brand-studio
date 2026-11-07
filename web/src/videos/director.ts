@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, backoff, polled } from "../api/client";
+import { api, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { refreshJobs } from "../jobs/refresh";
 
@@ -22,14 +22,13 @@ export function plain(line: string, clips: Clip[]): string {
   return NOT_PLAIN.test(out) ? "" : out;
 }
 
-/** The video's director run (its moves, price and notes), asked again every 5 s while it runs, less often while nothing
- *  changes (up to 30 s: `backoff`). */
+/** The video's director run (its moves, price and notes), asked again every 5 s while it runs. */
 export function useDirectorRun(projectId: number, enabled = true) {
   return useQuery({
     queryKey: ["director", projectId],
     enabled,
     queryFn: () => polled(api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } }), null),
-    refetchInterval: (q) => (q.state.data?.status === "running" ? backoff(q, 5_000) : false),
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 5_000 : false),
   });
 }
 

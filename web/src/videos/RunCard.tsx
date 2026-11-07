@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, CircleCheckBig, CircleStop, Clock, LoaderCircle, TriangleAlert, X } from "lucide-react";
-import { api, backoff, errorText, polled } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Button } from "../components";
@@ -20,13 +20,12 @@ const clock = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2
 /** A clip is being made though the run has ended (Try again on a failed clip). */
 const making = (r: Progress) => r.scenes.some((s) => s.clips.some((c) => c.state === "making"));
 
-/** The newest run's live record (v6 piece C), read again every 3 s while it works, revises or waits, or a clip is made;
- *  less often while nothing changes (up to 30 s: `backoff`). */
+/** The newest run's live record (v6 piece C), read again every 3 s while it works, revises or waits, or a clip is made. */
 export function useRunProgress(projectId: number, enabled = true) {
   return useQuery({
     queryKey: ["run-progress", projectId],
     enabled: enabled && projectId > 0,
-    refetchInterval: (q) => (q.state.data && (LIVE.includes(q.state.data.status) || making(q.state.data)) ? backoff(q, 3_000) : false),
+    refetchInterval: (q) => (q.state.data && (LIVE.includes(q.state.data.status) || making(q.state.data)) ? 3_000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/director/progress", { params: { path: { project_id: projectId } } }), null),
   });
 }

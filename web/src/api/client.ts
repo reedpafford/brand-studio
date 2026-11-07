@@ -31,16 +31,3 @@ export async function polled<T, N>(call: Promise<{ data?: T; response: Response;
   if ([401, 403, 404].includes(response.status)) return none;
   throw new Error(errorText(error));
 }
-
-const unchanged = new Map<string, { data: unknown; at: number; n: number }>();
-
-/** A poll's interval that backs off while nothing changes (video 240: /director read every 5 s while a run waited,
- *  each read slow, so the reads piled up): `base`, doubled each read that brought the same data, up to `most`; the
- *  first change (or a press's own data) brings it back to `base`. */
-export function backoff(q: { queryHash: string; state: { data: unknown; dataUpdatedAt: number } }, base: number, most = 30_000): number {
-  const { data, dataUpdatedAt: at } = q.state;
-  const was = unchanged.get(q.queryHash);
-  const now = !was || was.data !== data ? { data, at, n: 0 } : was.at !== at ? { data, at, n: was.n + 1 } : was;
-  unchanged.set(q.queryHash, now);
-  return Math.min(most, base * 2 ** now.n);
-}
