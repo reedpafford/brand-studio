@@ -307,6 +307,7 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict) -> None
 
 FIT = "fit"  # in a free fix's input: it shortens the prompt to its model's limit
 ROOM = 300  # characters left under the limit for the language line and a Redo note
+TOO_LONG_START = "The prompt is too long for "  # how its refusal starts (director_tools)
 FITTING = ("The prompt is too long for {model} ({n:,} of {most:,} characters), so it's being "
            "rewritten to fit, free. Make the take once it's rewritten. "
            "Nothing was charged.")  # fmt: skip

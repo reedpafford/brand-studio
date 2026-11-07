@@ -110,3 +110,27 @@ def test_a_request_refused_as_invalid_is_never_sent_again_unchanged_nor_counted(
     row.prompt = f"{row.prompt} Calmer."  # changed: it may go
     db.commit()
     assert editor.post(f"{base}/clips/{row.id}/generate").status_code == 201
+
+
+def test_the_directors_take_names_the_fix_and_the_rewrite_is_on_its_way(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+    clip,  # noqa: F811
+):
+    from app import director_tools
+    from app.models.accounts import User
+
+    row = _on_two(db, clip)
+    row.prompt = f"{row.prompt}\n{'Lush detail. ' * 400}"
+    db.commit()
+    video = db.get(Project, setup["project"])
+    said = director_tools.run(db, db.get(User, video.created_by_id), video,
+                              {"tool": "make_take", "clip_id": row.clip_id, "note": ""},
+                              app.state.storage)  # fmt: skip
+    assert said == (f"Refused: The prompt of {row.clip_id} is too long for its model, so "
+                    "it's being rewritten to fit (free); make its take once it's "
+                    "rewritten.")  # fmt: skip
+    assert [j for j in db.query(Job) if j.input.get(clip_takes.FIT)]  # the fix is on its way
+    assert not [j for j in db.query(Job) if j.input.get("step") == "clip_take"]
