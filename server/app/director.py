@@ -62,6 +62,7 @@ GAP, PER_RUN = timedelta(seconds=3), 30  # one note a person every 3 s; notes a 
 TOO_MANY = "Too many messages; wait a moment."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
+REDO_NEEDS = "needs a reason: a flagged take, a watch of this cut that saw it, or a person's note"
 DOUBT = "Refused: {} has only a doubt, which is the owner's to judge; say so in the delivery note."
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 START = asks.START  # in its held first paid turn: the start card (S3-02)
@@ -1349,14 +1350,17 @@ def video_state(db: Session, project: Project) -> dict:
     failed = db.scalars(select(Job).where(
         Job.project_id == project.id, Job.status == JobStatus.failed,
         Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
+    from app.breakdown import extras as breakdown_extras
     from app.cut import making as cut_making
     from app.plans import status
 
     cast = _cast_ok(db, project) if bd else {"state": "none"}
     watch = _watch(db, project)
-    for c in clips:  # A6: a redo it would be refused shows as a doubt, before a paid turn
-        if c["takes"] and not _confirmed(db, project, c, watch):
-            c["redo"] = "only a doubt: the owner's to judge (a person's note can still ask)"
+    doubts = {f.get("clip_id") for f in watch.get("findings") or [] if f.get("doubt")}
+    for c in clips:  # A6: a doubt it would be refused a redo for says so, before a paid turn
+        doubt = c["takes"] and (c["takes"][-1]["verdict"] == "unsure" or c["clip_id"] in doubts)
+        if doubt and not _confirmed(db, project, c, watch):
+            c["redo"] = REDO_NEEDS
     held = set(cast.get("paused_clips") or [])
     for c in clips:
         c["waits_for_cast"] = c["clip_id"] in held and not c["takes"]
@@ -1375,6 +1379,8 @@ def video_state(db: Session, project: Project) -> dict:
         "too_long": _splittable(db, project, bd),  # split_clip
         "missing_looks": [*(s.role for s in _missing(db, project)),
                           *(p.name for p in missing_places(db, project))] if bd else [],
+        # someone the shots show who isn't a role (an extra: "Crowd"), yours to cast or leave
+        "no_role": breakdown_extras(bd.problems) if bd else [],
         "cast_ok": cast,  # the person's OK on the cast and places, and what waits for it
         "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id),
                    "waiting": sum(1 for f in frames if not f.file_id and f.clip_id in held)},

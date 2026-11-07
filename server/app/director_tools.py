@@ -120,10 +120,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             from app.clip_takes import contradicts
 
             held, asked = 0, watch_cut.redo_findings(db, project, run)  # what the cut's watch found
-            rewritten = []
+            rewritten, asked_note = [], (decision.get("note") or "").strip()
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
-                note = project_clips.TakeIn(note=(decision.get("note") or "").strip()[:500])
+                note = project_clips.TakeIn(note=asked_note[:500])
                 try:
                     if row.picked_take_id and contradicts(row.prompt, note.note):
                         # A7: "no phone" under a prompt with the phone: appended, both stay and
@@ -141,8 +141,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                     if found := asked.get(row.clip_id):  # the take in the cut says why (S6-03)
                         watch_cut.redone(db, project, row, found, job, note.note)
             said = _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
-            return said + (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
-                           "is rewritten with it first." if rewritten else "")  # fmt: skip
+            said += (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
+                     "is rewritten with it first." if rewritten else "")  # fmt: skip
+            return said + (" The note was cut to its first 500 characters."
+                           if len(asked_note) > 500 else "")  # fmt: skip
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))
             project_clips.pick_take(clip_id=row.id, take_id=decision["take_id"], **me)

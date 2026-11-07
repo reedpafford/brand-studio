@@ -19,6 +19,7 @@ STEP, KIND = "review_stills", "check-claude"
 NO_STILLS = "Draw the stills first."
 REDRAWS = 2  # a still redrawn for the review, a run
 SHEET = re.compile(r"\bsheets?\b", re.I)  # "match her character sheet"
+OWNED = re.compile(r"\b([A-Z][\w-]+)['’]s (?:\w+ ){0,2}sheet")  # "Maya's character sheet"
 
 
 def frames(db: Session, project: Project) -> list[StoryboardFrame]:
@@ -105,26 +106,30 @@ def _sheets(db: Session, project: Project, shots: list[dict], images: list[int])
 
 
 def no_sheet(db: Session, project: Project, shot_id: str, note: str) -> str:
-    """A redraw asked to match a sheet the shot doesn't have (233: Maya was no role, so each
-    redraw rolled the dice again): refused, saying what to do first. "" otherwise."""
+    """A redraw asked to match the sheet of someone who has none yet (233: "with Maya's
+    character sheet attached", and Maya was no role, so each redraw rolled the dice again):
+    refused, saying what to do first. Only for whom the note names; a place's sheet, or
+    anyone else's, goes ahead. "" otherwise."""
+    from app.cast_roles import named
     from app.clip_prompts import newest
+    from app.storyboard import assets
 
     if not SHEET.search(note):
         return ""
     bd = newest(db, project)
     shot = next((s for sc in (bd.data if bd else {}).get("scenes", []) for s in sc["shots"]
                  if s["id"] == shot_id), {})  # fmt: skip
-    people = _people(db, project, {"character_ids": shot.get("character_ids", [])})
-    bare = [name for name, files in people if not files]
-    first = "Make the look first (ask who plays them, then make_looks), then draw it again."
-    if bare:
-        has = "has" if len(bare) == 1 else "have"
-        return (f"Refused: {', '.join(bare)} {has} no sheet in this video yet, so drawing shot "
-                f"{shot_id} again can't match one. {first}")  # fmt: skip
-    if not people:
-        return (f"Refused: shot {shot_id} has nobody from the cast in it, so there's no sheet "
-                f"to match. Add them to the cast: {first[0].lower()}{first[1:]}")  # fmt: skip
-    return ""
+    have = {name for name, files in _people(db, project, {"character_ids": list(assets(
+        db, project))}) if files}  # every look and place with a sheet  # fmt: skip
+    here = [name for name, _ in _people(db, project, shot)]
+    asked = {m[1] for m in OWNED.finditer(note)} | {n for n in here if named(n, note)}
+    bare = sorted(n for n in asked if not any(named(n, h) for h in have))
+    if not bare:
+        return ""
+    has = "has" if len(bare) == 1 else "have"
+    return (f"Refused: {', '.join(bare)} {has} no sheet in this video yet, so drawing shot "
+            f"{shot_id} again can't match one. Make the look first (ask who plays them, then "
+            "make_looks), then draw it again.")  # fmt: skip
 
 
 def state(db: Session, project: Project) -> dict:

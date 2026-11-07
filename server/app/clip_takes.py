@@ -440,7 +440,7 @@ def take_warning(db: Session, row: ProjectClip) -> str | None:
 # A note that takes away or swaps something ("no phone", "without the hat", "instead of the
 # car"): the thing it names, to look for in the prompt (226 c4, A7 in session 35's costs)
 TAKES_AWAY = re.compile(
-    r"\b(?:no|without|remove|drop|lose|not|never|instead of|rather than|replace)\s+"
+    r"\b(?:no|without|remove|replace|instead of)\s+"  # never "not": "not wide enough"
     r"(?:the |a |an |any |his |her |their |its )?([a-z][a-z-]{2,})",
     re.I,
 )
