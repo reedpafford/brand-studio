@@ -769,7 +769,9 @@ class LookMove(Strict):
     description: str = Field(
         default="",
         description="For add_place: what the place looks like, in a sentence, from the plan and "
-        "the treatment (the light, the time of day, what's in it). Else empty.",
+        "the treatment (the light, the time of day, what's in it). For outfit: what the story "
+        "dresses the character in for this video, in a few words ('navy wedding suit, white "
+        "boutonniere'). Else empty.",
     )
     shot_ids: list[str] = Field(
         default_factory=list,
@@ -789,7 +791,7 @@ class DirectorTurn(Strict):
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
         "mute", "splice_word", "add_sound", "song", "narration", "host", "edit_cut", "ask",
         "add_place", "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model",
-        "settings", "split_clip",
+        "settings", "split_clip", "outfit",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -865,7 +867,8 @@ class DirectorTurn(Strict):
         default=None,
         description="For add_place: the place, its look in words and the plan's shots there. "
         "For change_look: the character or place by name (as <video>'s cast_ok names it), "
-        "with the change in `note`. Else null.",
+        "with the change in `note`. For outfit: the character by name and the outfit in "
+        "`description`. Else null.",
     )
     word: Name = Field(
         default=None,

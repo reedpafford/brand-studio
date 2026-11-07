@@ -22,6 +22,34 @@ ID = re.compile(r"\b(char|slot|place|prop|screen|frame|voice):[\w.]+")
 CLIP = re.compile(r"^c\d+: ")
 KIND = {"char": "a character", "slot": "a character", "place": "a place", "prop": "a prop",
         "screen": "a screen", "frame": "a still", "voice": "a voice"}  # fmt: skip
+# A decision cited in brackets: "(Reed, 6 Nov: …)", "(Reed, 2026-10-27)" (live UGC run, video
+# 240: the treatment cited "Reed's positive-only direction"). Only such a citation is taken out.
+CITED = re.compile(r"\s*\(Reed,\s*(?:\d{1,2}\s+[A-Z][a-z]{2}|\d{4}-\d{2}-\d{2})[^()]*\)")
+REED = re.compile(r"\breed\b", re.I)
+SAID = {  # the words people read: never a tool's arguments (a look, a brand, a note)
+    "move": ("why", "made", "unsure", "needs"),
+    "ask": ("question", "why"),
+    "treatment": ("hook", "logline", "why_it_holds", "ending"),
+    "beat": ("purpose", "picture"),
+    "line": ("action",),
+}
+
+
+def uncited(data: dict, kind: str, named: bool) -> dict:
+    """`data` with a decision citation in brackets taken out of the fields people read
+    (`SAID[kind]`); everything else, and everything when a Reed is in the video (`named`: its
+    script, brand or a look), exactly as it was."""
+    if named:
+        return data
+    return {k: CITED.sub("", v) if k in SAID[kind] and isinstance(v, str) else v
+            for k, v in data.items()}  # fmt: skip
+
+
+def names_reed(*texts: str) -> bool:
+    """A Reed in the video's own words (its script, brand or a look), any case."""
+    return any(REED.search(t or "") for t in texts)
+
+
 # Someone a shot names that the video doesn't have, when no name is left to call them by.
 UNNAMED = {**KIND, "char": "an unnamed character", "slot": "an unnamed character"}
 

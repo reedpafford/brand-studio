@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import prompts
+from app.advice import names_reed, uncited
 from app.credits import estimate
 from app.db import utcnow
 from app.enhance import escape, escape_block, project_context
@@ -258,7 +259,9 @@ def save_scene(db: Session, job: Job) -> None:
     project = db.get(Project, job.input["project_id"])
     if project is None or project.archived_at is not None or not project.plan:
         return
-    after = PlanScene.model_validate(job.output).model_dump()
+    told = script(db, project)
+    after = _uncited(PlanScene.model_validate(job.output).model_dump(), db, project,
+                     told.text if told else "")  # fmt: skip
     scenes = [after if s["id"] == after["id"] else s for s in project.plan["scenes"]]
     if [x["line"] for s in scenes for x in s["lines"]] != [
         x["line"] for s in project.plan["scenes"] for x in s["lines"]
@@ -360,13 +363,24 @@ def _holder(db: Session, job: Job) -> tuple[Project | None, object | None]:
     return (None, None) if project is None or project.archived_at is not None else (project, None)
 
 
+def _uncited(scene: dict, db: Session, project: Project, text: str) -> dict:
+    """A plan scene with a decision citation taken out of each line's action (people read it),
+    unless the script or brand names a Reed."""
+    from app.models.brands import Brand
+
+    brand = db.get(Brand, project.brand_id)
+    named = names_reed(text, brand.name if brand else "")
+    return {**scene, "lines": [uncited(x, "line", named) for x in scene["lines"]]}
+
+
 def save(db: Session, job: Job) -> None:
     """A made plan lands, ready to check; the one before goes to Earlier plans."""
     project, draft = _holder(db, job)
     if project is None:
         return
-    _set(project, ScenePlan.model_validate(job.output).model_dump(), "made", job.id,
-         job.input["script"])  # fmt: skip
+    made = ScenePlan.model_validate(job.output).model_dump()
+    made["scenes"] = [_uncited(sc, db, project, job.input["script"]) for sc in made["scenes"]]
+    _set(project, made, "made", job.id, job.input["script"])  # people read it: never who decided
     if draft is not None:
         keep_version(draft, project)
 

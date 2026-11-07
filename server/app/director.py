@@ -19,6 +19,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app import (
+    advice,
     asks,
     breakdown_fix,
     cast_gate,
@@ -52,6 +53,11 @@ OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted 
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
 REBUILD = "Refused: make the cut again first: it isn't up to date."
+CITE_WORDS = {"why", "made", "unsure", "needs", "ask"}  # a move's words people read
+OLD_TAKE = (
+    "Refused: clip {c}'s picked take holds the cut out of date however often it's made "
+    "again ({why}). Make another take of clip {c}, or pick one that's current."
+)
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -405,7 +411,12 @@ def _confirmed(db: Session, project: Project, clip: dict, watch: dict) -> bool:
     row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
                                               ProjectClip.clip_id == clip["clip_id"]))  # fmt: skip
     newest = db.get(ClipTake, last["id"])
-    if last["verdict"] == "flagged" or clip["stale"] or (newest.prompt or row.prompt) != row.prompt:
+    if (
+        last["verdict"] == "flagged"
+        or clip["stale"]
+        or clip.get("old_take")  # its take holds the cut out of date: the server's own reason
+        or (newest.prompt or row.prompt) != row.prompt
+    ):
         return True
     return bool(watch.get("current") and any(
         f.get("clip_id") == clip["clip_id"] and f.get("fix") == "redo"
@@ -616,6 +627,11 @@ def after(db: Session, job: Job, storage) -> None:
         return
     run_id = (job.input.get(RUN) or {}).get("id")
     if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
+        if job.project_id and isinstance(job.output, dict):  # read in the chat: no citation
+            named = _names_reed(db, db.get(Project, job.project_id))
+            told = advice.uncited(job.output, "treatment", named)
+            told["beats"] = [advice.uncited(b, "beat", named) for b in told.get("beats") or []]
+            job.output = told
         if run_id and over(db, run_id):  # stopped meanwhile: nothing more runs for it
             return
         if _treatment_checked(db, job):  # one redo with its problems: the redo wakes the run
@@ -745,8 +761,26 @@ def sweep(db: Session) -> None:
         wake(db, db.get(Project, project_id))
 
 
+def _names_reed(db: Session, project: Project) -> bool:
+    """A Reed in this video's own words: its script, its brand, or a look's or role's name."""
+    from app import plans
+    from app.models.brands import Brand
+    from app.storyboard import assets
+
+    version, brand = plans.script(db, project), db.get(Brand, project.brand_id)
+    looks = [line for line, _ in assets(db, project).values()]
+    return advice.names_reed(version.text if version else "", brand.name if brand else "", *looks)
+
+
 def _act(db: Session, job: Job, storage) -> None:
-    project, decision = db.get(Project, job.project_id), dict(job.output or {})
+    project = db.get(Project, job.project_id)
+    decision = dict(job.output or {})
+    if CITE_WORDS.intersection(k for k, v in decision.items() if v):  # what people read
+        named = _names_reed(db, project)
+        decision = advice.uncited(decision, "move", named)
+        if isinstance(decision.get("ask"), dict):
+            decision["ask"] = advice.uncited(decision["ask"], "ask", named)
+    job.output = decision
     run = dict(job.input[RUN])
     tool = decision.get("tool")
     free = tool in REVISE_FREE and _free_revision(db, run)
@@ -763,6 +797,9 @@ def _act(db: Session, job: Job, storage) -> None:
         watch = _watch(db, project)
         watched = watch.get("current") and watch.get("state") in ("done", "failed")
         state = video_state(db, project)
+        if old := next((c for c in state["clips"] if c.get("old_take")), None):
+            return _record(db, job, run, OLD_TAKE.format(c=old["clip_id"].removeprefix("c"),
+                                                         why=old["old_take"]))  # fmt: skip
         if (state.get("timeline") or {}).get("changes") or state["cut"] == "out of date":
             return _record(db, job, run, REBUILD)  # rebuilt (and watched) before it's shown
         if (state["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
@@ -1293,7 +1330,7 @@ def story(db: Session, project: Project) -> str:
     parts = [f"<script>\n{prompts.number_lines(version.text)}\n</script>"]
     if beats := _plan(plans.current(db, project), version):
         parts.append(f"<plan>\n{beats}\n</plan>")
-    return "\n".join(parts) + "\n" + treatment_block(db, project)
+    return "\n".join(parts) + "\n" + treatment_block(db, project, notes=False)
 
 
 def treatment(db: Session, project: Project) -> dict | None:
@@ -1380,13 +1417,71 @@ def told(made: dict, again: bool) -> str:
             ).strip()  # fmt: skip
 
 
-def treatment_block(db: Session, project: Project) -> str:
+def treatment_block(db: Session, project: Project, notes: bool = True) -> str:
     """<treatment> for a step's user message (plan, breakdown, clip prompts, the watch, the
-    director), or "" before one is made (the Director's prompts.treatment_block)."""
+    director), or "" before one is made (the Director's prompts.treatment_block); then the
+    run's notes from people (<notes>), so the steps that write the pictures never stage what
+    a note takes away (226: "no phone", and clip 4's prompt still asked for the phone). The
+    director reads them in its own <chat> (`notes` False)."""
     from app import prompts
 
     told = prompts.treatment_block(treatment(db, project))
-    return f"{told}\n" if told else ""
+    asked = run_notes(db, project) if notes else []
+    said = "\n".join(f"Note {n}: {text}" for n, text in asked)
+    return (f"{told}\n" if told else "") + (f"<notes>\n{said}\n</notes>\n" if said else "")
+
+
+def run_notes(db: Session, project: Project) -> list[tuple[int, str]]:
+    """The going run's notes from people, numbered as the director reads them ("Note 1")."""
+    going = active(db, project)
+    return list(enumerate((m["text"] for m in chat(project, going.input[RUN]["id"])), 1)) if (
+        going) else []  # fmt: skip
+
+
+def against_notes(row: ProjectClip, notes: list[tuple[int, str]]) -> dict:
+    """The run's notes that take away something this clip's prompt still shows ("no phone"
+    and a phone in the prompt), for the director to check before its take: {} with none."""
+    from app.clip_takes import contradicts
+
+    said = [f"Note {n}" for n, text in notes if contradicts(row.prompt, text)]
+    return {"against_notes": said} if said else {}
+
+
+def old_take(row: ProjectClip) -> dict:
+    """Why the clip's picked take holds the cut out of date however often it's made again (its
+    take shows an older sheet, still or prompt: `clip_prompts.take_stale`), or {}."""
+    from app.clip_prompts import OLDER_PROMPT, OLDER_STILL, OLDER_TAKE, take_stale
+
+    if not take_stale(row):
+        return {}
+    why = next(p for p in row.problems or [] if p.startswith((OLDER_TAKE, OLDER_STILL,
+                                                              OLDER_PROMPT)))  # fmt: skip
+    return {"old_take": why.removeprefix("Advice: ")}
+
+
+def cut_findings(db: Session, project: Project) -> dict[int, list[str]]:
+    """What the watches of this video's cuts found on each take, by take id (each finding is
+    about the take its clip played in that cut): picking a take back brings these back (233:
+    clip 2's take 2 came back with the wordless frown its redo was paid to remove)."""
+    from app import watch_cut
+
+    out: dict[int, list[str]] = {}
+    rows = db.scalars(
+        select(Job)
+        .where(
+            Job.project_id == project.id,
+            Job.input["step"].as_string() == watch_cut.STEP,
+            Job.status == JobStatus.succeeded,
+        )
+        .order_by(Job.id)
+    )
+    for job in rows:  # fmt: skip
+        played = {c["clip_id"]: c.get("take_id") for c in job.input.get("cut") or []}
+        for f in (job.output or {}).get("checked") or []:
+            if (take := played.get(f.get("clip_id"))) and (says := f.get("says")):
+                out.setdefault(take, [])
+                out[take] += [] if says in out[take] else [says]
+    return out
 
 
 def _audio_key(db: Session, project: Project) -> str:
@@ -1410,6 +1505,7 @@ def video_state(db: Session, project: Project) -> dict:
     from app import model_map, talker
 
     clips, said = [], talker.clips(db, project)  # a talker's clips come from its take, at the cut
+    cut_seen, notes_now = cut_findings(db, project), run_notes(db, project)
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
                           .order_by(ProjectClip.id)):  # fmt: skip
         takes = db.scalars(select(ClipTake).where(ClipTake.clip_id == row.id)
@@ -1427,8 +1523,10 @@ def video_state(db: Session, project: Project) -> dict:
             out.append({"id": t.id, "number": t.number,  # the owner's, never a paid redo
                         "verdict": "unsure" if doubt else mark,
                         "notes": [] if doubt else notes, "watch": watched,
+                        **({"cut_watch": cut_seen[t.id]} if t.id in cut_seen else {}),
                         "set_aside": False})  # Start the plan again: `set_aside`  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
+                      **old_take(row), **against_notes(row, notes_now),
                       "shots": [{"id": i, "action": shots[i].get("action", ""),
                                  "line": shots[i].get("line")}
                                 for i in ids_of.get(row.clip_id, []) if i in shots],
@@ -1438,6 +1536,7 @@ def video_state(db: Session, project: Project) -> dict:
                                                if row.picked_take_id else None),
                       "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
                                 if k in ("state", "how")},
+                      **({"own_sound": True} if take_sound.own(db, picked) else {}),
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip

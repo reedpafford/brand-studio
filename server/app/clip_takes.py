@@ -71,14 +71,17 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     attached = [r["id"] for r in clip.references or []]
     shown = cast_gate.refs(db, project, breakdown, shots, attached, known)
     if check:  # then the cast and places OK (a price read needs none)
+        require_speakers(db, project, clip, _shots(breakdown, shots), breakdown, known)
         cast_gate.require(db, project, shown, known)
     resolution = model_map.resolution(model)
+    speaks = on_camera_speech(db, project, clip, _shots(breakdown, shots))
+    own = not speaks and own_sound(db, project, clip)
     take, sent = p_video.fit(model.id, {
         "prompt": _with_note(in_english(prompt), note),
         "duration": clip.seconds,
         "resolution": resolution,
         "aspect_ratio": project.aspect_ratio,
-        "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
+        "generate_audio": speaks or own,
     }, {k: v for k, v in files.items() if v})  # fmt: skip
     take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
     return {
@@ -86,6 +89,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "project_id": project.id,
         "project_clip_id": clip.id,
         "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
+        **({OWN_SOUND: True} if own else {}),  # its sound is its room and effects, no line
         **({"note": note} if note else {}),  # its Redo note, kept for a look-alike's retries
         "model": model.id,
         "made_with": {  # VS1: what the take is made with; OR3: its prompt's version
@@ -165,6 +169,65 @@ def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: li
         return bool((clip.song_slice or {}).get("sung_shots"))
     return any(s.get("line") and s.get("speaker") and not VOICE_OVER.search(s["speaker"])
                for s in shots)  # fmt: skip
+
+
+NO_SHEET = ("{who} speaks on camera in this clip, but their character sheet is in no shot of "
+            "this video, so every take would invent their face. Give them a look in Cast (an "
+            "approved still of them can be their picture), then plan the shots again. Nothing "
+            "was charged.")  # fmt: skip
+LABELLED_OFF = re.compile(r"^\s*[^:]{1,60}\([^)]*\)\s*:")  # "MOM (O.S.):": heard, maybe unseen
+
+
+def require_speakers(db: Session, project: Project, clip: ProjectClip, shots: list[dict],
+                     breakdown: dict, known: dict) -> None:  # fmt: skip
+    """One of this video's characters speaks on camera in the clip, but their sheet can never
+    reach a take: they're in no shot of the whole breakdown, or have no look in this video
+    (video 233: Maya was in no shot's `character_ids`, so each clip's first frame made its own
+    Maya, three faces in 17 s). Refused before any charge. A line over an insert (the bowl, a
+    hand, the back of a head) whose speaker is in another shot goes ahead, as does a line the
+    script labels with a parenthetical ("(O.S.)", "(ON PHONE)")."""
+    if not on_camera_speech(db, project, clip, shots):
+        return
+    from app.cast_roles import labels, pick, video_slots
+    from app.routes.scripts import latest
+    from app.storyboard import cast_looks
+
+    words = latest(db, project)
+    lines = words.text.splitlines() if words else []
+    seen = {r for sc in breakdown.get("scenes", []) for s in sc.get("shots", [])
+            for r in s.get("character_ids") or []}  # fmt: skip
+    cast = [(slot.role, {f"slot:{slot.id}", *(f"char:{c}" for c in (
+        slot.library_item_id, (project.slot_cast or {}).get(str(slot.id)), pick(db, project, slot))
+        if c)}) for slot in video_slots(db, project)]  # fmt: skip
+    cast += [(i.name, {f"char:{i.id}"}) for i in cast_looks(db, project)]
+    for s in shots:
+        said = [lines[n - 1] for n in s.get("script_lines") or [] if 0 < n <= len(lines)]
+        if (not s.get("line") or not s.get("speaker") or VOICE_OVER.search(s["speaker"])
+                or any(LABELLED_OFF.match(x) for x in said)):  # fmt: skip
+            continue
+        theirs = [refs for name, refs in cast if labels(s["speaker"], name)]
+        looked = [r for refs in theirs for r in refs if known.get(r) and known[r][-1]]
+        if theirs and not (set(looked) & seen):  # in no shot, or with no look at all
+            who = s["speaker"].strip().title() if s["speaker"].isupper() else s["speaker"].strip()
+            raise HTTPException(409, NO_SHEET.format(who=who))
+
+
+OWN_SOUND = "own_sound"  # in a take's job input: made with its own sound, though nobody speaks
+QUIET = re.compile(r"^Audio: no one speaks \(no voices, narration or dialogue\), only silence\b")
+
+
+def own_sound(db: Session, project: Project, clip: ProjectClip) -> bool:
+    """A story video's clip with no line is made with its own sound: the room and the effects
+    its prompt writes (226: the wind, the bouquet's thump, the car and the ding were written,
+    then made silent, so its last 14 s were digital silence). A story's cut plays its takes'
+    own sound, so a silent take is a silent stretch. The clip prompt writes that sound from the
+    style's guide, and "only silence" where the guide wants the shot silent; a narrated or song
+    video's B-roll stays silent under its voice (sound effects there are `add_sound`'s)."""
+    from app import plans
+
+    if clip.song_slice or plans.fmt(db, project) != "dialogue":
+        return False
+    return not QUIET.match((clip.prompt or "").lstrip())
 
 
 # A line spoken off camera, by its script label: "(O.S.)", "(O.C.)", "(V.O.)", "(OFF)", "(ON
@@ -480,12 +543,23 @@ TAKES_AWAY = re.compile(
 )
 
 
+NOT_SEEN = ("Audio:", "Language:", "Style:")  # a clip prompt's sound, language and style lines
+FIXED = ("No one speaks.", "No subtitles.")  # every wordless shot's own words, never a picture
+NOT_A_THING = {"one", "else", "more", "other", "others", "longer", "matter", "way", "need"}
+
+
 def contradicts(prompt: str, note: str) -> bool:
     """A redo note that takes away or swaps something the clip's prompt shows: appended under
     the prompt, both would stand ("phone lighting up in his hand", then "no phone"), so the
-    prompt is rewritten with it instead (Change it…)."""
-    words = set(re.findall(r"[a-z-]+", (prompt or "").lower()))
-    found = [m[1].lower() for m in TAKES_AWAY.finditer(note or "")]
+    prompt is rewritten with it instead (Change it…). Only what's seen counts (Summary,
+    Setting, the shots, Keep, References; never `NOT_SEEN`): the Audio lines and the fixed
+    "No one speaks." / "No subtitles." name music, voices and subtitles in every prompt (QA on
+    #1410: "No music, please." isn't in the picture), and "no one else" takes away no thing."""
+    shown = "\n".join(x for x in (prompt or "").splitlines() if not x.startswith(NOT_SEEN))
+    for said in FIXED:
+        shown = shown.replace(said, "")
+    words = set(re.findall(r"[a-z-]+", shown.lower()))
+    found = [w for m in TAKES_AWAY.finditer(note or "") if (w := m[1].lower()) not in NOT_A_THING]
     return any(w in words or w.removesuffix("s") in words or f"{w}s" in words for w in found)
 
 

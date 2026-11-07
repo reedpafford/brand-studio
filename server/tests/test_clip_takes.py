@@ -547,12 +547,20 @@ def test_a_redo_carries_the_note_as_typed(app, db, editor, setup, clip):  # noqa
     assert "Brighter, she smiles." in db.get(Job, job["id"]).input["input"]["prompt"]
 
 
-def test_a_b_roll_take_asks_for_no_sound_and_a_dialogue_take_does(app, db, editor, setup, clip):  # noqa: F811
-    """Reed, 3 Nov: B-roll won't all need sound; sound effects are added on request later."""
+def test_a_wordless_story_clip_makes_its_own_sound(app, db, editor, setup, clip):  # noqa: F811
+    """A dialogue take keeps its sound. Session 35 (video 226): a story clip nobody speaks in
+    was made silent, so the wind, the thump, the car and the ding its prompt wrote never
+    existed and the cut ended on 14 s of digital silence. It's made with its own sound now,
+    marked `own_sound` (no line: a trim never waits on its words); a prompt whose audio line
+    says "only silence" (the style wants the shot silent) stays silent. A narrated or song
+    video's B-roll stays silent under its voice (Reed, 3 Nov), as before."""
+    from app.clip_takes import own_sound
     from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+    from app.models.projects import Project
 
     url = f"/projects/{setup['project']}/clips/{clip['id']}/generate"
-    fake = FakeSeedance([_mp4("red"), _mp4("blue")])
+    fake = FakeSeedance([_mp4("red"), _mp4("blue"), _mp4("green")])
     editor.post(url)
     _work(app, db, fake)  # Mom and Nate speak on camera
     row = db.query(BreakdownVersion).filter_by(project_id=setup["project"]).one()
@@ -560,9 +568,22 @@ def test_a_b_roll_take_asks_for_no_sound_and_a_dialogue_take_does(app, db, edito
     row.data = {**row.data, "scenes": [{**row.data["scenes"][0], "shots": shots}]}
     db.commit()
     editor.post(url)
-    _work(app, db, fake)  # nobody speaks: B-roll
+    _work(app, db, fake)  # nobody speaks: its own room and effects
+    quiet = ("Audio: no one speaks (no voices, narration or dialogue), only silence. No music, "
+             "background music, BGM, score, instrumental, melody, synth effects, ambient pad, "
+             "drone, swelling tone or stinger. No subtitles.")  # fmt: skip
+    made = db.get(ProjectClip, clip["id"])
+    lines = made.prompt.splitlines()
+    made.prompt = "\n".join([quiet, *lines[1:-1], quiet])
+    db.commit()
+    assert not own_sound(db, db.get(Project, setup["project"]), made)
+    editor.post(url)
+    _work(app, db, fake)  # the style wants it silent
     asked = [json.loads(q.content)["input"] for q in fake.requests if q.method == "POST"]
-    assert [a["generate_audio"] for a in asked] == [True, False]
+    assert [a["generate_audio"] for a in asked] == [True, True, False]
+    jobs = sorted((j for j in db.query(Job).all() if j.kind.startswith("video")),
+                  key=lambda j: j.id)  # fmt: skip
+    assert [bool(j.input.get("own_sound")) for j in jobs] == [False, True, False]
 
 
 def test_a_photoreal_style_says_people_in_words(app, db, editor, setup, clip, monkeypatch):  # noqa: F811

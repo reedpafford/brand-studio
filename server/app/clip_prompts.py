@@ -154,7 +154,7 @@ def older_take(
     if not (sent := _sent(db, row, take)):
         return []
     refs = [r["id"] for r in row.references or [] if r["kind"] == "image"]
-    return drawn_from_older(known, refs, sent)
+    return drawn_from_older(known, refs, sent | _asked(db, _take(db, row, take)))
 
 
 def older_still(db: Session, known: dict, row: ProjectClip, take: ClipTake | None = None) -> bool:
@@ -164,7 +164,20 @@ def older_still(db: Session, known: dict, row: ProjectClip, take: ClipTake | Non
     if not any(r["id"] == key for r in row.references or []) or not (sent := _sent(db, row, take)):
         return False
     now = known.get(key, ("", "", []))[-1][:1]
-    return bool(now) and now[0] not in sent
+    return bool(now) and now[0] not in sent | _asked(db, _take(db, row, take))
+
+
+def _asked(db: Session, take: ClipTake | None) -> set[int]:
+    """The files the takes before an automatic retry were sent: a look-alike retry leaves the
+    still out on purpose (`clip_takes._again_without`), so its take is still the one made for
+    that still, never one "from an earlier still" (video 226's clip 2: the cut stayed out of
+    date through five remakes)."""
+    job = db.get(Job, take.job_id) if take else None
+    out: set[int] = set()
+    while job is not None and job.auto and job.retry_of_id:
+        job = db.get(Job, job.retry_of_id)
+        out |= {f for ids in ((job.input.get("files") or {}) if job else {}).values() for f in ids}
+    return out
 
 
 def refusal(problems: list[str] | None, before: str, after: str) -> list[str]:

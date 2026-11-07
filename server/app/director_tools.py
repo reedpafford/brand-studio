@@ -26,7 +26,7 @@ CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
          "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place",
-         "change_look", "ask_cast_ok", "split_clip")  # fmt: skip
+         "change_look", "ask_cast_ok", "split_clip", "outfit")  # fmt: skip
 WAITING = "{} for the cast and places OK."
 
 
@@ -118,9 +118,31 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
             from app.clip_takes import contradicts
+            from app.director import against_notes, chat
 
             held, asked = 0, watch_cut.redo_findings(db, project, run)  # what the cut's watch found
             rewritten, asked_note = [], (decision.get("note") or "").strip()
+            notes = list(enumerate((m["text"] for m in chat(project, (run or {}).get("id"))), 1))
+            first = [r for r in rows if not r.picked_take_id]
+            waits: dict[str, list[str]] = {}
+            if not decision.get("clip_id"):  # first takes: a prompt a note takes from waits
+                waits = {r.clip_id: against_notes(r, notes)["against_notes"] for r in first
+                         if against_notes(r, notes)}  # fmt: skip
+                rows = [r for r in rows if r.clip_id not in waits]
+                if not rows:
+                    return f"Refused: {_against(waits)}"
+            elif (
+                first
+                and contradicts(first[0].prompt, asked_note)
+                and not _rewritten(db, first[0], asked_note)
+            ):  # once: a rewrite that kept the thing goes ahead as the director asked
+                # 226's clip 4: a first take's note takes away what its prompt shows ("no
+                # phone"): the note rewrites the prompt first (Change it…), its take after; a
+                # redo's is A7's below
+                body = storyboard.ChangeIn(note=asked_note[:500])
+                project_clips.change_clip(clip_id=first[0].id, body=body, **me)
+                return (f"Rewriting clip {first[0].clip_id.removeprefix('c')}'s prompt with the "
+                        "note first; make its take once it's written.")  # fmt: skip
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=asked_note[:500])
@@ -143,13 +165,20 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             said = _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
             said += (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
                      "is rewritten with it first." if rewritten else "")  # fmt: skip
+            said += f" {_against(waits)}" if waits else ""
             return said + (" The note was cut to its first 500 characters."
                            if len(asked_note) > 500 else "")  # fmt: skip
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))
+            was = row.picked_take_id
             project_clips.pick_take(clip_id=row.id, take_id=decision["take_id"], **me)
             take = db.get(ClipTake, decision["take_id"])  # its number, as the page shows it
-            return f"Picked take {take.number} for {row.clip_id}."
+            from app.director import cut_findings
+
+            known = cut_findings(db, project).get(take.id) or [] if was != take.id else []
+            back = (f" It comes back with what a watch of a cut found on it: {'; '.join(known)}."
+                    if known else "")  # 233: the dead hold a paid redo had removed  # fmt: skip
+            return f"Picked take {take.number} for {row.clip_id}.{back}"
         if tool == "mute":  # free: the found stretches, through the Mute button (#1091)
             (row,) = _clips(db, pid, decision.get("clip_id"))
             spans, clip = to_mute(db, row), f"clip {row.clip_id.removeprefix('c')}"
@@ -239,6 +268,12 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
             name = ((decision.get("look") or {}).get("name") or "").strip()
             return cast.change_look(db, user, project, name, decision.get("note") or "")
+        if tool == "outfit":  # free: what the story dresses a character in, this video only
+            from app.routes import cast
+
+            look = decision.get("look") or {}
+            return cast.dress(db, project, (look.get("name") or "").strip(),
+                              look.get("description") or "")  # fmt: skip
         if tool == "ask_cast_ok":  # the card: the person approves the whole set at once
             return cast_gate.ask(db, project, (run or {}).get("id"))
         if tool == "treatment":  # the story first (the Director's step), on its own limit
@@ -390,6 +425,27 @@ def _clips(db: Session, project_id: int, clip_id: str | None) -> list[ProjectCli
     if clip_id:
         return [r for r in rows if r.clip_id == clip_id]
     return [r for r in rows if r.picked_take_id is None]
+
+
+def _rewritten(db: Session, row: ProjectClip, note: str) -> bool:
+    """This clip's prompt was already rewritten with this note (Change it…)."""
+    from app.models.jobs import Job
+
+    asked = select(Job).where(Job.project_id == row.project_id,
+                              Job.input["step"].as_string() == "change")  # fmt: skip
+    said = note.strip()[:500]
+    return any(j.input.get("target") == "clip" and j.input.get("target_id") == row.id
+               and j.input.get("note") == said for j in db.scalars(asked))  # fmt: skip
+
+
+def _against(waits: dict[str, list[str]]) -> str:
+    """The first takes kept back because a note takes away what their prompt shows."""
+    said = "; ".join(f"clip {c.removeprefix('c')} ({', '.join(n)})" for c, n in waits.items())
+    return (
+        f"Not made yet, their prompt shows what a note takes away: {said}. Where the note "
+        "covers the clip, make its take alone with a note saying what to take out (it "
+        "rewrites the prompt first); where it doesn't, make it alone as it is."
+    )
 
 
 def _held(said: str, held: int, rows, what: str) -> str:

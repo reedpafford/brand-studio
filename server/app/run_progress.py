@@ -38,7 +38,8 @@ DONE = ("done", "redone", "text", "flagged")  # a clip with a take in hand
 # needsYou): one count for the phone and the desktop
 NEEDS_YOU = ("flagged", "waiting", "failed", "too_long")
 ORDER = ("read", "plan", "cast", "voice", "stills", "prompts", "takes", "watching", "host", "cut")
-PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "song": "voice",
+PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "outfit": "cast",
+          "song": "voice",
           "narration": "voice", "storyboard": "stills", "stills": "stills",
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
           "split_clip": "plan",
