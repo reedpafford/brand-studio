@@ -195,6 +195,44 @@ def test_a_short_b_roll_shot_is_its_own_clip_at_the_shortest_and_cut_in_the_edit
     assert len(song_breakdown.fit(data)["clips"]) == 1  # a song's clips stay as planned
 
 
+def test_a_short_b_roll_shot_is_made_at_the_video_models_own_shortest_clip(app, db, owner):
+    """Video 240 (7 Nov): every Omni 1.2 clip of a UGC narration was made at 4 s, though Omni
+    makes 3 s (17 clips: 68 s made for 24 s used). Each short shot is now made at its video
+    model's shortest clip, as the quote already counts it: Omni 3 s, Seedance 4 s."""
+    from app.models.breakdowns import BreakdownVersion
+
+    shots = {"s1": {"start": 0, "end": 1.5, "sung": False},
+             "s2": {"start": 1.5, "end": 3.0, "sung": False},
+             "s3": {"start": 3.0, "end": 9.0, "sung": False}}  # fmt: skip
+    data = {"scenes": [{"shots": [{"id": s} for s in shots]}],
+            "clips": [{"id": "c1", "shot_ids": ["s1", "s2", "s3"]}],
+            "song": {"take_id": 0, "shots": shots}}  # fmt: skip
+    omni = song_breakdown.fit(data, broll=True, shortest=3)["clips"]
+    assert [(c["id"], c["seconds"]) for c in omni] == [("c1", 3), ("c1b", 3), ("c1c", 6)]
+    from decimal import Decimal
+
+    from app.models.songs import SongTake
+
+    video = _video(db, _sent(owner, "presenter", NARRATION))
+    job = Job(workspace_id=1, created_by_id=1, kind="audio", provider="fake", input={},
+              credits=Decimal(0), status=JobStatus.succeeded)  # fmt: skip
+    db.add(job)
+    db.flush()
+    take = SongTake(draft_id=video.script_draft_id, project_id=video.id, number=1,
+                    kind="narration", job_id=job.id, lyrics="", style_line="")  # fmt: skip
+    db.add(take)
+    db.flush()
+    data = {**data, "song": {"take_id": take.id, "shots": shots}}  # under a narration
+    for look, least in (("ugc", 3), ("house", 4)):
+        video.look, video.video_model = look, None
+        db.flush()
+        assert song_breakdown.least(db, video.id) == least
+        row = BreakdownVersion(project_id=video.id, script_version=1, source="edit", data=data)
+        db.add(row)
+        db.flush()  # a plan saved with its song part is fitted at the model's shortest
+        assert [c["seconds"] for c in row.data["clips"]] == [least, least, 6], look
+
+
 def test_the_host_stands_away_from_the_action():
     assert host.side("A skull-faced man waves from the right side of the frame.") == "left"
     assert host.side("Fat melts off his belly, centred.") == "right"

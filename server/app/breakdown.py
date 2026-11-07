@@ -506,8 +506,11 @@ def complete_cast(db: Session, project: Project) -> list[str]:
         counts[name] = counts.get(name, 0) + 1
     notes = merged + [f"Advice: {name} now appears in {'1 shot' if n == 1 else f'{n} shots'}."
                       for name, n in counts.items()]  # fmt: skip
-    row.data = bd.model_dump()
-    row.problems = problems(db, project, words.text, bd) + notes
+    # its song part (each shot's time on the narration, and its talker shots) and plan version
+    # stay: video 240 lost them here, so its talker shots went to Omni as B-roll and its clips
+    # weren't cut to the narration (17 clips, 68 s for 24 s)
+    row.data = {**row.data, **bd.model_dump()}
+    row.problems = problems(db, project, words.text, bd, row.data.get("song")) + notes
     off = 0
     for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == row.id)):
         if gone := [k for k, on in (clip.real_images or {}).items() if on and k in added]:
@@ -679,6 +682,7 @@ def save_breakdown(db: Session, job: Job) -> None:
             SongBreakdown.model_validate(job.output),
             job.input["song_take_id"],
             broll=job.input.get("step") == "narrated_breakdown",
+            shortest=song_breakdown.least(db, project.id),
         )
     else:
         plan, song = Breakdown.model_validate(job.output), None
