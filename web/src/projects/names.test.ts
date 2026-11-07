@@ -6,10 +6,13 @@ const roles = new Map([["slot:3", "Coach"]]);
 const nameOf = (id: string) => refName(id, pieces, roles);
 
 test("raw ids become names: a character, a role not cast yet, the first frame, and the clip label", () => {
-  expect(plainWords("c3: char:5 is in the clip but its sheet isn't attached", nameOf)).toBe("Clip c3: Bo is in the clip but its sheet isn't attached");
-  expect(plainWords("c1: slot:3 needs a look", nameOf)).toBe("Clip c1: Coach needs a look");
-  expect(plainWords("c1: frame:c1 isn't first", nameOf)).toBe("Clip c1: the first frame isn't first");
-  expect(plainWords("c2: slot:9 and char:77", nameOf)).toBe("Clip c2: A role and Character");
+  expect(plainWords("c3: char:5 is in the clip but its sheet isn't attached", nameOf)).toBe("Clip 3: Bo is in the clip but its sheet isn't attached");
+  expect(plainWords("c1: slot:3 needs a look", nameOf)).toBe("Clip 1: Coach needs a look");
+  expect(plainWords("c1: frame:c1 isn't first", nameOf)).toBe("Clip 1: the first frame isn't first");
+  expect(plainWords("c2: slot:9 and char:77", nameOf)).toBe("Clip 2: A role and Character");
+  // S9: the server's "Clip c1b" reads as the clip's card does.
+  expect(plainWords("Clip c1b is 17 s; the model allows 4–15 s.", nameOf)).toBe("Clip 1b is 17 s; the model allows 4–15 s.");
+  expect(plainWords("clip c4: 115 s is outside 4–12 s", nameOf)).toBe("clip 4: 115 s is outside 4–12 s");
   expect(plainWords("shot 1.2: the script has Nate here", nameOf)).toBe("shot 1.2: the script has Nate here");
 });
 

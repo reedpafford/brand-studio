@@ -49,6 +49,8 @@ test("clips read as a run or a list", () => {
   expect(clipsText(["c2", "c3", "c4"])).toBe("Clips 2–4");
   expect(clipsText(["c7"])).toBe("Clip 7");
   expect(clipsText(["c2", "c5", "c7"])).toBe("Clips 2, 5 and 7");
+  expect(clipsText(["c1", "c1b", "c2"])).toBe("Clips 1, 1b and 2"); // a split clip (QA on #1383): never NaN
+  expect(clipsText(["c1b"])).toBe("Clip 1b");
 });
 
 test("S5-01 / S-gaps-07: each card says where its look came from and how it stands; one with no look offers the library, Upload and Make one at its up-to price", async () => {
@@ -208,6 +210,29 @@ test("S-gaps-07 A: places sit under the characters; one with no look is picked f
   await vi.waitFor(() => expect(calls.some((x) => x.key === "POST /projects/50/cast/places/41/make-look")).toBe(true));
   expect(screen.getByRole("tab", { name: "Cast 3" })).toBeInTheDocument(); // characters and places
 });
+test("S5-02: a saved presenter is in the cast with the one OK, and before Make it his own voice shows, never a saved clone", async () => {
+  setViewport(1440);
+  const mark = role({ ref: "char:7", role: "", name: "Mark", library_item_id: 7, slot_id: null, shots: 0, clip_ids: [], only_here: null, own_look_id: null, description: "" });
+  const settings = { look: "house", video_model: null, image_model: null, aspect_ratio: "9:16", product_variants: {}, language: "en", video_models: [], image_models: [], shapes: ["9:16"], flavours: {}, presenter: null, presenter_now: "corner", voice: null };
+  const clone = { id: 3, name: "Dr. Pickle (cloned)", kind: "cloned", stock_key: null, provider: "minimax", description: "Deep, fixed", sample_url: "/voices/samples/dr-pickle.mp3", preview_file_id: null, sample_file_id: null };
+  const roger = { id: null, name: "Roger", kind: "stock", stock_key: "Roger", provider: "elevenlabs", description: "Relaxed man", sample_url: "/voices/samples/Roger.mp3", preview_file_id: null, sample_file_id: null };
+  const gate = { state: "ready", approved_by: null, approved_at: null, asked: true, waiting: ["char:7"], not_ready: [], paused_clips: [], update: { stills: [], clips: [], credits: 0 }, can_approve: true, items: [{ ref: "char:7", kind: "character", name: "Mark", library_item_id: 7, version: 1, source: "library", preview_file_id: 70, readiness: "ready", approval: "new", sig: "a", clip_ids: [] }] };
+  server(owner, [mark], {
+    "GET /projects/50/host": [200, { on: true, state: "none", pieces: [], credits: 0, presenter_id: 7, voice: "Roger" }],
+    "GET /projects/50/settings": [200, settings],
+    "GET /brands/1/voices": [200, { voices: [clone, roger], clone_credits: 29.18, clone_usd: 3 }],
+    "GET /projects/50/cast": [200, gate],
+  });
+  open();
+  const pres = await screen.findByRole("region", { name: "Presenter" });
+  expect(await within(pres).findByText(/^Roger · ElevenLabs/)).toBeInTheDocument(); // the server's: his own voice
+  expect(within(pres).queryByText(/Dr\. Pickle \(cloned\)/)).toBeNull(); // never the first saved clone
+  expect(within(pres).getByText("Mark still")).toBeInTheDocument();
+  expect(within(pres).getByText("Mark · saved in fomo")).toBeInTheDocument();
+  expect(screen.queryByText("The cast fills in here")).toBeNull();
+  expect(screen.getAllByRole("button", { name: "Approve cast & places" }).every((b) => !b.hasAttribute("disabled"))).toBe(true); // the chat card's OK, here too
+});
+
 test("S5-02 / S-gaps-05 L3: the presenter's face and voice, and how they appear in this video, picked here with Undo", async () => {
   setViewport(1440);
   const pickle = role({ role: "Dr. Pickle", name: "Dr. Pickle", library_item_id: 5, only_here: null, own_look_id: null, library_version: 2, description: "" });
@@ -389,8 +414,9 @@ test("S-gaps-07 B: who made a look and its last revision, what the previews cost
   const calls = server(owner, [marcus, mom], { "GET /projects/50/cast": [200, set], "POST /projects/50/cast/keep": [200, gate(set.items, { update: { stills: [], clips: [], credits: 0, clips_credits: 0, kept_items: [{ kind: "clip", id: "c4", by: "Reed", at: "2026-11-04T09:30:00" }] } })] });
   open();
   const m = await screen.findByRole("region", { name: "Mom" });
-  expect(within(m).getByText("Made by the director in the chat · 09:06")).toBeInTheDocument();
-  expect(within(m).getByText("Revised 09:21 after your note")).toBeInTheDocument();
+  const local = (utc: string) => new Date(utc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }); // the server's UTC, shown like the chat
+  expect(within(m).getByText(`Made by the director in the chat · ${local("2026-11-04T09:06:00Z")}`)).toBeInTheDocument();
+  expect(within(m).getByText(`Revised ${local("2026-11-04T09:21:00Z")} after your note`)).toBeInTheDocument();
   expect(within(m).getByRole("img", { name: "The look before" })).toHaveAttribute("src", "/api/files/77");
   expect(screen.getByText(/Previews so far: \$0\.48 of the approved budget\./)).toBeInTheDocument();
   const update = screen.getByRole("region", { name: "Made with an older look" });

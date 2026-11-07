@@ -135,7 +135,7 @@ def state(db: Session, project: Project) -> dict | None:
     if found == "narrated":  # the note a narration with the name wrong is read with
         out["say"] = say(brand)
         used = next((t.voice for t in made if t.id == project.song_take_id), None)
-        said = used or _voice(db, project)
+        said = used or narrator(db, project)
         if own := voices.for_director(db, project.workspace_id, project.brand_id, said):
             out["voice"] = own  # a cloned voice's state and when it may expire
         if note := voices.host_note(db, project):
@@ -219,11 +219,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     kept = next((t.voice for t in takes if t.id == project.song_take_id), None)  # a remake's
     if kept and not voices.usable(db, project.workspace_id, project.brand_id, kept):
         kept = None  # its voice was removed since: the video's own voice now
-    # a person's voice for the video: its settings, or their answer on a voice card (S4-01)
-    picked = voices.picked(db, project) if found == "narrated" else None
-    voice = (picked or decision.get("voice") or kept if found == "narrated" else None) or _voice(
-        db, project
-    )
+    named = decision.get("voice")  # the director's: a person's pick or the video's own wins
+    voice = narrator(db, project, named, kept) if found == "narrated" else _voice(db, project)
     if not voices.usable(db, project.workspace_id, project.brand_id, voice):
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
     song_takes.make(
@@ -255,6 +252,18 @@ def _speed(db: Session, project: Project, emotion: str | None) -> float | None:
         if made and want and made["speed"] and (made["emotion"] or "auto") == (emotion or "auto"):
             return narration.retimed(made["speed"], take.timing["pace"], want) or made["speed"]
     return None
+
+
+def narrator(
+    db: Session, project: Project, named: str | None = None, kept: str | None = None
+) -> str:
+    """The voice a narration is read in, and before one is made the one it will be, in one order
+    for the Cast tab (routes/host) and the narration (QA #1395): a person's pick for the video
+    (its settings or a voice card's answer, S4-01), else the video's own (its presenter's, else
+    its style's, e.g. Dr. Pickle's clone), else the director's `named` one, else the one in use
+    (`kept`), else a UGC talker's or narration's default (_voice)."""
+    return (voices.picked(db, project) or voices.default_for(db, project) or named or kept
+            or _voice(db, project))  # fmt: skip
 
 
 def _voice(db: Session, project: Project) -> str:

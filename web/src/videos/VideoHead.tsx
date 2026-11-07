@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, ChevronLeft, ChevronRight, CircleStop, Download, Ellipsis, Folder, Inbox, Lock, Pencil, SlidersHorizontal, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { api, must } from "../api/client";
+import { api, must, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Button, Dialog, Field, Menu, MenuItem, Skeleton, useToast } from "../components";
@@ -18,7 +18,7 @@ export function useHead(projectId: number, enabled = true) {
     queryKey: ["idea", projectId],
     enabled,
     refetchInterval: (q) => (q.state.data?.status.kind === "working" ? 10_000 : false),
-    queryFn: async () => (await api.GET("/projects/{project_id}/idea", { params: { path: { project_id: projectId } } })).data ?? null,
+    queryFn: () => polled(api.GET("/projects/{project_id}/idea", { params: { path: { project_id: projectId } } }), null),
   });
 }
 
@@ -35,9 +35,18 @@ export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): 
   const owner = h.spent.usd != null;
   const spent = started; // before Make it: "No generation started" (Reed, 4 Nov: the treatment is a small planning spend, in Usage)
   const top = h.up_to;
+  if (h.actual) {
+    // The owner's uncapped test site (Reed, 6 Nov): what the providers really charged, and the likely cost; no budget.
+    // The whole video's spend beside one run's estimate, each said for what it is (QA on #1396).
+    const more = [h.listed_usd ? `$${h.listed_usd.toFixed(2)} of it at list price` : "", h.unreported ? "more not reported yet" : ""].filter(Boolean).join(", ");
+    const real = `This video so far ${dollars(h.spent)}${more ? ` (${more})` : ""}`;
+    const about = h.expected ? `this run about ${dollars(h.expected)} (estimate)` : "estimating…";
+    if (short) return ["", spent ? `${dollars(h.spent)} so far` : `About ${dollars(h.expected ?? h.spent)} (estimate)`];
+    return [spent ? `${real} ·` : "No generation started ·", about];
+  }
   // Past the budget mid-run (S3-06, S3-07); a start card waiting has spent nothing (S3-02). Never a "budget" below what's
   // spent (Flow-QA S7): then it's the whole video's spent against its "up to", as any other time.
-  if (h.status.kind === "waiting" && spent && h.budget.credits >= h.spent.credits) {
+  if (h.status.kind === "waiting" && spent && h.budget && h.budget.credits >= h.spent.credits) {
     if (owner) return [`${dollars(h.spent)} spent ·`, `budget ${dollars(h.budget)}`];
     const pct = h.budget.credits > 0 ? Math.round((100 * h.spent.credits) / h.budget.credits) : 0;
     return [`${credits(h.spent)} credits ·`, `${pct}% of the budget`];

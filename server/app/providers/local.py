@@ -16,6 +16,14 @@ from app.providers import Result
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".png": "image/png"}
 
 
+def _heard(path: Path, sounds: bool = False, words: bool = False) -> list[dict]:
+    """Whisper's words for a take or a cut; nothing to hear in a file with no audio track (a
+    silent take: Seedance 1 Lite, or nobody speaking), where whisper would crash."""
+    from app import deep_watch
+
+    return reel.transcribe(path, sounds, words=words) if deep_watch.probe(path)["audio"] else []
+
+
 class LocalProvider:
     name = "local"
     paid = False
@@ -30,10 +38,8 @@ class LocalProvider:
         hear_voice: Callable[[Path, str], list[dict]] = song_timing.words,
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
-        hear_take: Callable[[Path, dict], list[dict]] = lambda path, _: reel.transcribe(path, True),
-        hear_cut: Callable[[Path, dict], list[dict]] = lambda path, _: reel.transcribe(
-            path, words=True
-        ),
+        hear_take: Callable[[Path, dict], list[dict]] = lambda path, _: _heard(path, True),
+        hear_cut: Callable[[Path, dict], list[dict]] = lambda path, _: _heard(path, words=True),
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link
         self.hear_song, self.hear_voice, self.hear_study = hear_song, hear_voice, hear_study

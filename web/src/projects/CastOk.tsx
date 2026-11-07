@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
-import { api, errorText } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Button } from "../components";
 import { refreshJobs } from "../jobs/refresh";
@@ -13,7 +13,7 @@ export function CastOk({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
   const cast = useQuery({
     queryKey: ["cast", projectId],
-    queryFn: async () => (await api.GET("/projects/{project_id}/cast", { params: { path: { project_id: projectId } } })).data ?? null,
+    queryFn: () => polled(api.GET("/projects/{project_id}/cast", { params: { path: { project_id: projectId } } }), null),
     refetchInterval: 4000,
   });
   const approve = useMutation({

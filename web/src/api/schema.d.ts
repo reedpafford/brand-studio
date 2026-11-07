@@ -7046,7 +7046,7 @@ export interface components {
             /** Clip Id */
             clip_id: string;
             /** Number */
-            number: number;
+            number: string;
             /** Scene */
             scene: number;
             /** Label */
@@ -7183,6 +7183,8 @@ export interface components {
             credits: number;
             /** Usd */
             usd?: number | null;
+            /** About Usd */
+            about_usd?: number | null;
         };
         /** Counts */
         Counts: {
@@ -7384,6 +7386,8 @@ export interface components {
              * @default 0
              */
             run_price: number;
+            /** Run Expected Usd */
+            run_expected_usd?: number | null;
             /**
              * Spent
              * @default 0
@@ -8099,7 +8103,20 @@ export interface components {
             status: components["schemas"]["Status"];
             spent: components["schemas"]["Money"];
             up_to: components["schemas"]["Money"] | null;
-            budget: components["schemas"]["Money"];
+            budget: components["schemas"]["Money"] | null;
+            expected?: components["schemas"]["Money"] | null;
+            /**
+             * Actual
+             * @default false
+             */
+            actual: boolean;
+            /** Listed Usd */
+            listed_usd?: number | null;
+            /**
+             * Unreported
+             * @default false
+             */
+            unreported: boolean;
             folder: components["schemas"]["Named"] | null;
             /** Format */
             format: string;
@@ -9538,6 +9555,11 @@ export interface components {
             past?: components["schemas"]["AskPrice"] | null;
             usual?: components["schemas"]["AskPrice"] | null;
             /**
+             * Expected
+             * @default false
+             */
+            expected: boolean;
+            /**
              * Clips
              * @default []
              */
@@ -10370,6 +10392,22 @@ export interface components {
             up_to: number;
             /** Spent Usd */
             spent_usd: number | null;
+            /** Actual Usd */
+            actual_usd?: number | null;
+            /** Listed Usd */
+            listed_usd?: number | null;
+            /**
+             * Unreported
+             * @default false
+             */
+            unreported: boolean;
+            /** Expected Usd */
+            expected_usd?: number | null;
+            /**
+             * Cost
+             * @default
+             */
+            cost: string;
             /** Changed */
             changed: components["schemas"]["ChangedClipOut"][];
             stopped: components["schemas"]["RunStoppedOut"] | null;
@@ -11068,6 +11106,11 @@ export interface components {
             total: number;
             /** Carry On */
             carry_on: string;
+            /**
+             * Free
+             * @default false
+             */
+            free: boolean;
         };
         /** SamePair */
         SamePair: {
@@ -13261,6 +13304,11 @@ export interface components {
             budget?: number | null;
             /** Usd */
             usd?: number | null;
+            /**
+             * Expected
+             * @default false
+             */
+            expected: boolean;
         };
         /** PriceOut */
         app__routes__library__PriceOut: {

@@ -28,6 +28,7 @@ from app.clip_takes import still_wanted
 from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
+from app.models.accounts import User
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import (
@@ -447,7 +448,9 @@ def _within_real_budget(db: Session, job: Job) -> bool:
     from app.settings import get_settings
 
     settings = get_settings()
-    if no := real_budget_refusal(db, settings, job.provider, job.credits):
+    maker = db.get(User, job.created_by_id) if job.created_by_id else None
+    if no := real_budget_refusal(db, settings, job.provider, job.credits,
+                                 bool(maker and maker.is_owner)):  # fmt: skip
         _fail(db, job, no, "real budget refused")
         db.commit()
         return False
@@ -462,6 +465,8 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
         db.commit()  # stopped before its call: no call is made, so nothing is charged
         return True
+    ref = "sync" if provider.paid or job.provider in FREE_LANES else f"{STAND_IN}sync"
+    sent = update(Job).where(Job.id == job.id).values(provider_ref=ref)  # a stand-in's: marked
     try:  # a Claude check that looks at a picture gets it as data, like other providers
         result = provider.run(job.kind, _files_as_data(db, storage, job))
         result = recheck(job.input, result, lambda again: provider.run(job.kind, again))
@@ -473,16 +478,16 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
             _fail(db, job, FAILED, repr(exc))
         db.commit()
         return True
-    except NetworkError:
+    except NetworkError:  # it left, then the connection dropped or timed out: maybe charged
+        db.execute(sent)  # so it counts against the real budget (the audit: it counted $0)
         _fail(db, job, UNSURE, CHECK)
         db.commit()
         return True
-    except Exception as exc:  # noqa: BLE001 - any other provider error fails the job
-        _fail(db, job, _plain(job, repr(exc)), repr(exc))
+    except Exception as exc:  # noqa: BLE001 - any other provider error fails the job; a
+        _fail(db, job, _plain(job, repr(exc)), repr(exc))  # refusal (4xx) or ours: not charged
         db.commit()
         return True
-    ref = "sync" if provider.paid or job.provider in FREE_LANES else f"{STAND_IN}sync"
-    db.execute(update(Job).where(Job.id == job.id).values(provider_ref=ref))  # a stand-in's: marked
+    db.execute(sent)
     _finish(db, job, provider, result, storage)
     return True
 

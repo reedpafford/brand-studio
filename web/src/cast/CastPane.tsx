@@ -1,3 +1,4 @@
+import { serverTime } from "../time";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Ellipsis, Pause, Play, RefreshCw, Lock, LockOpen, MapPin, Merge, MessageSquare, SlidersHorizontal, Trash2, Upload, UserRound, Users, WandSparkles } from "lucide-react";
@@ -20,19 +21,19 @@ import type { PaneProps } from "../videos/Preview";
 import { approveCast, keepOld, makePlace, pickPlace, uploadPlace, useCast, type Cast, type CastItem } from "./gate";
 import { Presenter } from "./Presenter";
 import { notInShots, useAssets } from "./useAssets";
+import { clipNo } from "../projects/names";
 
 type Asset = components["schemas"]["AssetOut"];
 const NO_LOCKS: components["schemas"]["LocksIO"] = { locks: { cast: false, look: false, length: false, song: false, screens: [], roles: [] }, outfits: {} };
 type Pair = components["schemas"]["SamePair"];
 type State = { tone: Tone; word: string; hollow?: boolean };
 
-const clipNo = (id: string) => Number(id.replace(/^c/i, ""));
-/** "Clips 2–4", "Clip 3", "Clips 2, 5 and 7". */
+/** "Clips 2–4", "Clip 3", "Clips 1, 1b and 2" (a split's clip by its own number, QA on #1383). */
 export function clipsText(ids: string[]) {
-  const n = ids.map(clipNo).filter((x) => !Number.isNaN(x)).sort((a, b) => a - b);
+  const n = [...new Set(ids.map(clipNo).filter(Boolean))].sort((a, b) => parseInt(a) - parseInt(b) || a.localeCompare(b));
   if (n.length === 0) return "";
   if (n.length === 1) return `Clip ${n[0]}`;
-  if (n.every((x, i) => i === 0 || x === n[i - 1] + 1)) return `Clips ${n[0]}–${n.at(-1)}`;
+  if (n.every((x, i) => /^\d+$/.test(x) && (i === 0 || +x === +n[i - 1] + 1))) return `Clips ${n[0]}–${n.at(-1)}`;
   return `Clips ${n.slice(0, -1).join(", ")} and ${n.at(-1)}`;
 }
 const pronoun = (a: Asset) => {
@@ -58,7 +59,8 @@ function sourceTag(ci: CastItem | undefined, brand: string, phone: boolean, save
   return ci.source === "script" ? "Made for this script" : "Made for this video";
 }
 
-const hhmm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+// A server time is UTC (written without a zone): read as such, then shown in local time like the chat.
+const hhmm = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 
 /** "Revised 09:21 after your note · was ▣" (S-gaps-07 B): a look redrawn since it was first shown, with the one before. */
 function Revised({ ci, phone }: { ci: CastItem | undefined; phone: boolean }) {

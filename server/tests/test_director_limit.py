@@ -8,8 +8,39 @@ from app import director
 from app.credits import PAST_APPROVED
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.settings import get_settings
 from tests.test_director import _made, _run
 from tests.test_freestyle_dialogue import _run as _run_fakes
+
+
+def test_uncapped_the_owners_run_never_waits_at_its_own_limit_nor_stops_at_its_cost(
+    app, db, owner, editor, monkeypatch
+):
+    """Reed, 6 Nov (BS_OWNER_UNCAPPED, his test site): the owner's own run has no own limit and
+    no real-cost backstop; <allowed> says there's none. Off, both hold (the tests below)."""
+    monkeypatch.setattr(get_settings(), "owner_uncapped", True)
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))  # a run's own is about 61
+    monkeypatch.setattr(director, "spent", lambda db, run_id: director.MAX_USD * 3)
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    assert not _held(db, pid)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    turn = director.turns(db, db.get(Project, pid))[-1]
+    assert director.own_usd(db, turn.input[director.RUN]).is_infinite()
+    assert director._limit_usd(director.own_usd(db, turn.input[director.RUN])) is None
+
+
+def test_uncapped_an_editors_run_still_waits_at_its_own_limit(app, db, owner, editor,
+                                                             monkeypatch):  # fmt: skip
+    monkeypatch.setattr(get_settings(), "owner_uncapped", True)
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    assert any("own limit" in (j.input.get("held") or "") or j.input.get("held") ==
+               PAST_APPROVED for j in _held(db, pid))  # fmt: skip
 
 
 def _held(db, pid) -> list[Job]:
@@ -92,3 +123,37 @@ def test_a_sends_director_waits_at_its_own_limit(app, owner, editor, db, monkeyp
     charged, _ = _own(db, pid)
     assert charged <= director.own_limit()
     assert not db.get(Project, pid).hidden  # shown from the OK
+
+
+def test_the_real_cost_backstop_grows_with_each_ok(app, db, owner, editor, monkeypatch):
+    """Audit 6 Nov: MAX_USD of its own time didn't grow with the owner's OKs, so a run he let go
+    on still stopped at "$5 of its own time". Each OK at its limit grants as much again."""
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    (held,) = _held(db, pid)
+    (run,) = {j.input[director.RUN]["id"] for j in db.query(Job).filter(Job.project_id == pid)
+              if j.input.get(director.RUN)}  # fmt: skip
+    by = {"id": run, "by": db.query(Job).filter(Job.project_id == pid).first().input[
+        director.RUN]["by"]}  # fmt: skip
+    assert director.own_usd(db, by) == director.MAX_USD  # no OK yet
+    assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
+    db.expire_all()
+    assert director.own_usd(db, by) == 2 * director.MAX_USD
+    monkeypatch.setattr(director, "spent", lambda db, run_id: director.MAX_USD + 1)  # past $5
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]  # under $10 with the OK: it finished
+    ended = [t for t in out["turns"] if "of its own time" in (t.get("result") or "")]
+    assert not ended
+
+
+def test_past_the_backstop_it_stops_and_says_the_figure(app, db, owner, editor, monkeypatch):
+    pid = _made(app, owner, editor, db)
+    late = lambda db, run_id: director.MAX_USD if _turns(db, pid) >= 2 else Decimal(0)  # noqa: E731
+    monkeypatch.setattr(director, "spent", late)  # $5 once it has gone a turn
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["status"] != "delivered" and "It stopped at $5 of its own time." in str(out)

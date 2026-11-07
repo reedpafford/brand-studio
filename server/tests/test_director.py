@@ -1039,3 +1039,9 @@ def test_a_turn_kept_before_its_tool_runs_reads_as_going_never_stopped(app, db, 
     (card,) = [m for m in editor.get(url).json()["thread"] if m.get("run")]
     assert card["status"] == "running" and "Stopped" not in card["text"]
     assert owner.get(f"{url}/progress").json()["status"] == "working"
+
+
+def test_a_split_clip_reads_as_people_number_it():
+    """QA on #1383: a split's "c1b" reads "1b" ("Clip 1b"), never an int() crash or a raw id."""
+    assert (director.clip_no("c12"), director.clip_no("c1b")) == ("12", "1b")
+    assert director.named("Made c1b again; c3 kept.") == "Made clip 1b again; clip 3 kept."

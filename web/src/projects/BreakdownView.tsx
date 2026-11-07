@@ -11,13 +11,14 @@ import { ChevronRight, Ellipsis, MapPin, Pencil, Smartphone, TriangleAlert, User
 import { Badge, Banner, Button, Menu, MenuItem } from "../components";
 import { errorText as errorClass } from "../ui";
 import { blocking, CAST } from "./problems";
-import { plainWords } from "./names";
+import { clipNo, plainWords } from "./names";
 import { AdviceList, useKeep } from "./Keep";
 import { useBreakdownFixes, useFixCast, useRemoveRef, type RefKind } from "./BreakdownFixes";
 import { clone, joinWithNext, patchShot, problemTarget, setHook, setScene, setSeam, splitAfter, type Breakdown } from "./breakdownEdit";
 import { EditableText, lineLabel, lines, ShotEditor, type Picks } from "./ShotEditor";
 import { SongShotTime } from "../scripts/VideoSong";
 import { videoQuery } from "./useProgress";
+
 
 export function BreakdownView(props: {
   row: components["schemas"]["BreakdownOut"];
@@ -188,7 +189,7 @@ export function BreakdownView(props: {
           variant="ghost"
           dense
           trailing={ChevronRight}
-          aria-label={`Go to: ${p}`}
+          aria-label={`Go to: ${words(p)}`}
           onClick={() => {
             after?.();
             goTo(target);
@@ -287,9 +288,9 @@ export function BreakdownView(props: {
             .map((clip) => {
               const last = clip.id === bd.clips.at(-1)?.id;
               return (
-                <div key={clip.id} id={`clip-${clip.id}`} className={`overflow-hidden rounded-xl border border-border bg-surface shadow-card ${ring(`clip-${clip.id}`)}`} aria-label={`Clip ${clip.id}`}>
+                <div key={clip.id} id={`clip-${clip.id}`} className={`overflow-hidden rounded-xl border border-border bg-surface shadow-card ${ring(`clip-${clip.id}`)}`} aria-label={`Clip ${clipNo(clip.id)}`}>
                   <div className="flex items-center gap-2 border-b border-border px-4 py-2 font-display font-bold">
-                    Clip {clip.id} · {clip.seconds} s
+                    Clip {clipNo(clip.id)} · {clip.seconds} s
                     {last && <Badge>End line</Badge>}
                   </div>
                   <ul className="divide-y divide-border">
@@ -341,7 +342,7 @@ export function BreakdownView(props: {
                                             change((b) => splitAfter(b, s.id));
                                           }}
                                         >
-                                          Split clip {clip.id} after shot {s.id}
+                                          Split clip {clipNo(clip.id)} after shot {s.id}
                                         </MenuItem>
                                       )}
                                       {lastInClip && !last && (
@@ -351,7 +352,7 @@ export function BreakdownView(props: {
                                             change((b) => joinWithNext(b, clip.id));
                                           }}
                                         >
-                                          Join clip {clip.id} with the next clip
+                                          Join clip {clipNo(clip.id)} with the next clip
                                         </MenuItem>
                                       )}
                                     </>
@@ -388,7 +389,7 @@ export function BreakdownView(props: {
                     })}
                   </ul>
                   <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-2 text-sm text-muted">
-                    <EditableText value={clip.seam} label={`clip ${clip.id} seam`} onChange={(v) => change((b) => setSeam(b, clip.id, v))}>
+                    <EditableText value={clip.seam} label={`clip ${clipNo(clip.id)} seam`} onChange={(v) => change((b) => setSeam(b, clip.id, v))}>
                       {clip.seam === "end" ? "End" : `Ends: ${clip.seam}`}
                     </EditableText>
                   </div>

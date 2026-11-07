@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleHelp, Clock, LoaderCircle, MessageSquare, Pause, Play, RefreshCw, TriangleAlert, Upload, WandSparkles, X } from "lucide-react";
-import { api, errorText } from "../api/client";
+import { api, errorText, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { Link } from "react-router-dom";
@@ -22,7 +22,7 @@ export function useAsks(projectId: number, live: boolean) {
     queryKey: ["asks", projectId],
     enabled: projectId > 0,
     refetchInterval: (q) => (live || (q.state.data ?? []).some((a) => ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? ""))) ? 4_000 : false),
-    queryFn: async () => (await api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } })).data ?? [],
+    queryFn: () => polled(api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } }), []),
   });
 }
 
@@ -230,7 +230,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
       <>
         {can("make_it") && (
           <Button busy={act.isPending} onClick={() => go({ how: "make_it" })}>
-            {`Make it · up to ${said(m.up_to)}`}
+            {m.expected ? `Make it · about ${said(m.up_to)}` : `Make it · up to ${said(m.up_to)}`}
           </Button>
         )}
         {onChangePlan && (
@@ -512,7 +512,7 @@ export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }:
     id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is; no generation starts until they say yes." : "The owner has been asked. No generation starts until they say yes.",
-    money: { up_to: price, clips: [], sent_at: sentAt, held: "", what: "", over: "the budget" },
+    money: { up_to: price, clips: [], sent_at: sentAt, held: "", what: "", over: "the budget", expected: false },
   };
   return <AskCard ask={ask} owner={owner} onWithdraw={onWithdraw} />;
 }

@@ -176,8 +176,12 @@ class _Video:
         mine = TakeSeen.user_id == (viewer.id if viewer else 0)
         seen = select(TakeSeen.take_id).where(mine, TakeSeen.take_id.in_(tids))
         self.seen = set(db.scalars(seen))
-        spans = db.execute(select(Job.started_at, Job.finished_at).where(
-            Job.workspace_id == project.workspace_id, Job.kind == "video",
+        from app.credits import FREE_LANES
+        from app.providers import STAND_IN
+
+        real = Job.provider.not_in(FREE_LANES) & ~Job.provider_ref.like(f"{STAND_IN}%")  # the
+        spans = db.execute(select(Job.started_at, Job.finished_at).where(  # stand-ins' 1 min
+            Job.workspace_id == project.workspace_id, Job.kind == "video", real,  # never counts
             Job.status == JobStatus.succeeded, Job.started_at.is_not(None))
             .order_by(Job.id.desc()).limit(20)).all()  # fmt: skip
         took = [(b - a).total_seconds() for a, b in spans if b and b > a]
@@ -212,6 +216,7 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
     `changed`: the director made its take again (its watch, or a note); `watched`: this person
     has watched that take since; `found`: its watch found something on one of its takes."""
     from app.credits import WAIT_OK
+    from app.director import clip_no
 
     takes, jobs = video.takes.get(row.id, []), video.jobs.get(row.id, [])
     held = next((j for j in jobs if j.status == HELD), None)
@@ -225,7 +230,7 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
     changed = bool(picked and picked.number > 1 and job and job.input.get("by_director"))
     shots = video.shots.get(row.clip_id) or [{}]
     scene = str(shots[0].get("id", "")).split(".")[0]
-    out = {"clip_id": row.clip_id, "number": int(row.clip_id.removeprefix("c") or 0),
+    out = {"clip_id": row.clip_id, "number": clip_no(row.clip_id),
            "scene": int(scene) if scene.isdigit() else 0, "seconds": row.seconds,
            "label": (shots[0].get("action") or "").split(". ")[0].strip().rstrip("."),
            "model": _model(picked, model_map.own_name(row) or video.model),
@@ -377,8 +382,7 @@ def _cast(db: Session, project: Project, slots: list, face) -> str:
         take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
         # the voice its narration was read in; before one, the one it will be (director_song;
         # a voice card's answer is the video's picked voice)
-        ref = ((take.voice if take is not None else "") or voices.picked(db, project)
-               or director_song._voice(db, project))  # fmt: skip
+        ref = (take.voice if take is not None else "") or director_song.narrator(db, project)
         voice = voices.named(db, project.workspace_id, ref, project.brand_id)
         if voice is not None:  # the brand's own, or its style's, listed with them (S8-04, L4)
             names.append(f"the {voice.kind} voice")  # "the cloned voice"
@@ -529,7 +533,7 @@ def spent(db: Session, project: Project) -> tuple[Decimal, Decimal]:
     return used, ideas._up(max(run_up_to(db, project), reach, used))
 
 
-def carry_left(db: Session, project: Project) -> Decimal | None:
+def carry_left(db: Session, project: Project, whole: bool = False) -> Decimal | None:
     """Board S3-08's "Carry on · up to $10.74 more": what's left of the stopped run's OWN
     approved price (rule 34, Reed 6 Nov: each run its own price; a run is one pass from its
     Make it to its delivery or Stop): that price, with its OKs at the director's own limit,
@@ -548,6 +552,8 @@ def carry_left(db: Session, project: Project) -> Decimal | None:
         return None  # stopped before its Make it (at its start card): a new run's own card
     got = asks.approved_run(db, project)
     left = got[0] - got[1] if got else Decimal(0)
+    if whole:  # the owner's uncapped site: the same run goes on, whatever it has used
+        return max(left, Decimal(0))
     return left if left > 0 else None
 
 
@@ -574,10 +580,27 @@ def _changes(video: _Video, turns: list[Job], since: datetime) -> str:
     return f"{done} of {_n(total, 'change')}"
 
 
+def _actual(db: Session, project: Project, viewer: User | None, since) -> dict:
+    """On the owner's uncapped test site: the run's own provider charges since its first turn,
+    whether some aren't reported yet, and its expected cost; nothing anywhere else."""
+    from app.credits import actual_usd, uncapped
+    from app.models.credits import USD_PER_CREDIT
+
+    if not uncapped(viewer):
+        return {}
+    from app.routes.asks import _expected
+
+    real = actual_usd(db, project.id, since)
+    most = _expected(db, project) * USD_PER_CREDIT  # rounded up, as the header rounds it
+    return {"actual_usd": float(real.usd), "listed_usd": float(real.listed),
+            "unreported": real.pending, "expected_usd": math.ceil(most * 100) / 100,
+            "cost": real.words("on this run")}  # fmt: skip
+
+
 def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     """The newest run's progress record, as `ProgressOut` reads it; None before any run."""
     from app.auth import user_name
-    from app.credits import WAIT_OK
+    from app.credits import WAIT_OK, uncapped
     from app.db import utcnow
 
     every = runs(db, project)
@@ -656,7 +679,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "minutes_left": None if how else _left(video, cells, start, now),
            "steps": steps(db, video, turns, cells, how, holds is not None, owner),
            "spent": float(charged), "up_to": float(up_to),
-           "spent_usd": dollars(charged) if owner else None,
+           "spent_usd": dollars(charged) if owner else None, **_actual(db, project, viewer, start),
            "changed": [{k: c[k] for k in ("clip_id", "number", "take_id", "frame_file_id",
                                           "watched")} for c in cells if c["changed"]],
            "stopped": None, "failed": None}  # fmt: skip
@@ -667,13 +690,15 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         left = carry_left(db, project)  # the rest of this run's own price; else a new run's
         waits = director._carry_waiting(db, project) is not None  # its Carry on is the owner's
         figure = "" if waits else money(left if left else again, owner)
+        free = uncapped(viewer) and carry_left(db, project, whole=True) is not None
         out["stopped"] = {"by": user_name(db, by[STOPPED_BY]), "at": by["stopped_at"],
-                          "made": made, "total": total, "carry_on": figure}  # fmt: skip
+                          "made": made, "total": total, "carry_on": "" if free else figure,
+                          "free": free}  # fmt: skip
     out["stops"] = [{"by": user_name(db, w["stopped_by"]), "at": w["stopped_at"],
                      "carried_at": w["carried_at"]} for j in turns
                     if (w := j.input.get("was_stopped")) and w.get("stopped_by")]  # fmt: skip
     if how == "needs_fix":
-        out["failed"] = _failed(db, video, cells, why, owner, again)
+        out["failed"] = _failed(db, video, cells, why, owner, again, uncapped(viewer))
     return out
 
 
@@ -708,11 +733,12 @@ def _blamed(cells: list[dict], why: str) -> dict | None:
 
 
 def _failed(db: Session, video: _Video, cells: list[dict], why: str, owner: bool,
-            again: Decimal) -> dict:  # fmt: skip
+            again: Decimal, free: bool = False) -> dict:  # fmt: skip
     """What stopped the run, and its one-click fixes (rule 22): the clip that failed made
     again at its own price, a clip too long for the model split (S3-11), or carry on from
     where it stopped."""
-    carry = {"kind": "carry_on", "label": "Carry on", "price": money(again, owner)}
+    carry = {"kind": "carry_on", "label": "Carry on",
+             "price": "" if free else money(again, owner)}  # uncapped: no "up to"  # fmt: skip
     bad = _blamed(cells, why)
     long = next((c for c in cells if c["state"] == "too_long"), None)
     if bad is None and long is not None and "makes at most" in why:  # it stopped on that
@@ -769,6 +795,7 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
     """The director's part of the chat: one item a run (its progress card in a line, `run`
     naming the record) and each delivery's note; its cards are app/asks'."""
     from app import delivery
+    from app.credits import uncapped
     from app.director import _edit_of
 
     out, every, owner = [], runs(db, project), bool(viewer and viewer.is_owner)
@@ -795,7 +822,9 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
                             "edit": edit})  # fmt: skip
             if j.input.get("result") == "Delivered.":
                 kept = (j.output or {}).get("note")
-                note = delivery.shown(kept, owner)
+                real = (delivery.run_cost(db, project.id, kept)
+                        if uncapped(viewer) and isinstance(kept, dict) else None)  # fmt: skip
+                note = delivery.shown(kept, owner, real)
                 words = kept if isinstance(kept, str) and kept else j.input["ended"]  # an old one
                 out.append({"id": f"t{j.id}", "kind": "move", "at": j.created_at.isoformat(),
                             "who": "Director", "status": "done", "note": note,
