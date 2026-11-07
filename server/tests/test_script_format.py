@@ -41,7 +41,8 @@ def test_a_script_with_no_format_has_its_kinds_default(owner):
     assert _new(owner, kind="narrated").json()["format"] == "narrated"
 
 
-def test_only_a_format_that_is_on_can_be_picked(owner):
+def test_only_a_format_that_is_on_can_be_picked(owner, monkeypatch):
+    _off(monkeypatch, "zack-d")
     assert _new(owner, format="zack-d").status_code == 422  # on: no
     assert _new(owner, format="nope").status_code == 422
     made = _new(owner).json()
@@ -61,7 +62,7 @@ def test_a_draft_changes_format_but_a_song_stays_a_song(owner, cooking):
     assert (no.status_code, no.json()["detail"]) == (409, SONG_STAYS)
 
 
-def test_a_freestyle_type_is_a_format_and_its_script_carries_it(owner, db, cooking):
+def test_a_freestyle_type_is_a_format_and_its_script_carries_it(owner, db, cooking, monkeypatch):
     body = {
         "type": "cooking",
         "look": "house",
@@ -77,6 +78,7 @@ def test_a_freestyle_type_is_a_format_and_its_script_carries_it(owner, db, cooki
     draft = db.get(ScriptDraft, project.script_draft_id)
     script = db.get(Script, draft.script_id, execution_options=seen)
     assert (row.type, script.format, script.kind) == ("cooking", "cooking", "story")
+    _off(monkeypatch, "zack-d")
     assert owner.post("/freestyles", json={**body, "type": "zack-d"}).status_code == 422
     assert owner.post("/freestyles", json={**body, "type": "nope"}).status_code == 422
 
@@ -85,3 +87,12 @@ def test_the_scripts_own_format_beats_the_style_that_is_also_a_format():
     assert guides.video_format("narrated", "zack-d") == "zack-d"  # no pick: the style brings it
     assert guides.video_format("narrated", "zack-d", "narrated") == "narrated"  # a pick wins
     assert guides.video_format("story", "house", "gone") == "dialogue"  # a pick since removed
+
+
+def _off(monkeypatch, format_id: str = "dialogue") -> None:
+    """A format switched off in its guide (Zack D was the one until 7 Nov)."""
+    from app import guides
+
+    real = guides.formats
+    monkeypatch.setattr(guides, "formats", lambda: [{**f, "on": f["on"] and f["id"] != format_id}
+                                                    for f in real()])  # fmt: skip
