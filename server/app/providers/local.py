@@ -196,7 +196,8 @@ class LocalProvider:
                 self.storage.delete(key)
         out = folder / "cut.mp4"
         out.write_bytes(data)
-        return Result("succeeded", output={}, files=[f"local://{out}"])
+        length = round(cut_render.seconds(data), 2)  # the file's own, never the plan's
+        return Result("succeeded", output={"seconds": length}, files=[f"local://{out}"])
 
     def _study(self, input: dict) -> Result:
         """A song ad's study and its frames; a plain reason when it can't be read. An

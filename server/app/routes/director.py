@@ -262,12 +262,13 @@ def _out(db: Session, user: User, project) -> DirectorOut:
     rows = director.turns(db, project)
     last = rows[-1] if rows else None
     ended = director.ended(db, project)
-    delivered = bool(last) and last.input.get("result") == "Delivered."
+    delivered = director.delivered(rows)  # a cancelled duplicate after it isn't its end
     status = ("none" if not last else "running" if director.active(db, project)
               else "delivered" if delivered else "ended")  # fmt: skip
     turns = [TurnOut(turn=j.input[director.RUN]["turn"], tool=(j.output or {}).get("tool"),
                      why=director.named((j.output or {}).get("why") or ""),
-                     result=director.named(j.input.get("result", "")),
+                     result=run_progress.priced(director.named(j.input.get("result", "")),
+                                                user.is_owner),
                      status=j.status, created_at=j.created_at) for j in rows]  # fmt: skip
     spent = director.spent(db, last.input[director.RUN]["id"]) if last else 0
     try:
@@ -275,9 +276,8 @@ def _out(db: Session, user: User, project) -> DirectorOut:
         blocked = director.blocked(db, project)
     except HTTPException as no:
         blocked = no.detail
-    from app import run_progress
-
     started = run_progress.started(db, project)
+    ended = run_progress.priced(ended, user.is_owner)  # rule 4: an editor reads no dollars
     return DirectorOut(status=status, ended=ended, turns=turns,
                        credits=float(director.credits(db, project)),
                        spent_usd=float(spent) if user.is_owner else None,

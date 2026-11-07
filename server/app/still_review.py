@@ -3,6 +3,7 @@ call over every drawn still of the newest shots, against the treatment, the plan
 look's skill (the Director's review_stills step). Its findings each carry a change note; the
 director redraws a still with `redraw_still` (the Change it… route), twice at most a still."""
 
+import re
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -17,6 +18,8 @@ from app.models.storyboards import StoryboardFrame
 STEP, KIND = "review_stills", "check-claude"
 NO_STILLS = "Draw the stills first."
 REDRAWS = 2  # a still redrawn for the review, a run
+SHEET = re.compile(r"\bsheets?\b", re.I)  # "match her character sheet"
+OWNED = re.compile(r"\b([A-Z][\w-]+)['’]s (?:\w+ ){0,2}sheet")  # "Maya's character sheet"
 
 
 def frames(db: Session, project: Project) -> list[StoryboardFrame]:
@@ -52,14 +55,15 @@ def start(db: Session, user: User, project: Project, run: dict | None) -> str:
     version = plans.script(db, project)
     beats = _plan(plans.current(db, project), version) if version else ""
     told = [shots.get(f.shot_id, {}) for f in drawn]
-    seen = [(n, f.shot_id, s.get("action", ""), s.get("line") or "")
-            for n, (f, s) in enumerate(zip(drawn, told, strict=True), 1)]  # fmt: skip
+    images, against = _sheets(db, project, told, [f.file_id for f in drawn])
+    seen = [(n, f.shot_id, s.get("action", ""), s.get("line") or "", a)
+            for n, (f, s, a) in enumerate(zip(drawn, told, against, strict=True), 1)]  # fmt: skip
     system, _ = project_context(db, project, STEP)  # its look's skill and craft
     text = treatment_block(db, project) + prompts.review_stills_input(beats, seen)
     data = {"step": STEP, "project_id": project.id, "director_run": run, "system": system,
-            "prompt": text, "effort": "high", "max_tokens": 4000, "fit_images_to": 1024,
+            "prompt": text, "effort": "high", "max_tokens": 16000, "fit_images_to": 1024,
             "seen": {str(f.id): f.file_id for f in drawn},
-            "files": {"reference_images": [f.file_id for f in drawn]}}  # fmt: skip
+            "files": {"reference_images": images}}  # fmt: skip
     units = len(drawn)
     look = estimate(db, project.workspace_id, KIND, Decimal(units), data)
     wait = past_own(db, project, (run or {}).get("id"), look, user)
@@ -68,6 +72,64 @@ def start(db: Session, user: User, project: Project, run: dict | None) -> str:
     enqueue(db, user, KIND, data, units=units, project=project, provider="claude",
             prepaid=not wait, wait=wait)  # fmt: skip
     return f"Looking at the {units} still{'s' if units != 1 else ''} against the treatment."
+
+
+def _people(db: Session, project: Project, shot: dict) -> list[tuple[str, list[int]]]:
+    """Who and where a shot shows, as (name, the sheet a still of it is drawn from), the
+    sheet empty for one with none yet."""
+    from app.breakdown import _called
+    from app.storyboard import assets
+
+    known = assets(db, project)
+    refs = [*shot.get("character_ids", []), *([shot["place_id"]] if shot.get("place_id") else [])]
+    return [(_called(db, r, project.workspace_id), known.get(r, ("", []))[1][:1])
+            for r in dict.fromkeys(refs)]  # fmt: skip
+
+
+def _sheets(db: Session, project: Project, shots: list[dict], images: list[int]):
+    """The stills' pictures and, after them, each sheet of the cast and places they show, so
+    the review judges a face or an outfit against its look, never against words alone (233:
+    "mustard hoodie" for a lavender look). Per still: "Maya [Image5]", or "Grant (no sheet)"."""
+    images, at, out = list(images), {}, []
+    for shot in shots:
+        said = []
+        for name, files in _people(db, project, shot):
+            if not files:
+                said.append(f"{name} (no sheet)")
+                continue
+            if files[0] not in at:
+                images.append(files[0])
+                at[files[0]] = len(images)
+            said.append(f"{name} [Image{at[files[0]]}]")
+        out.append("; ".join(said))
+    return images, out
+
+
+def no_sheet(db: Session, project: Project, shot_id: str, note: str) -> str:
+    """A redraw asked to match the sheet of someone who has none yet (233: "with Maya's
+    character sheet attached", and Maya was no role, so each redraw rolled the dice again):
+    refused, saying what to do first. Only for whom the note names; a place's sheet, or
+    anyone else's, goes ahead. "" otherwise."""
+    from app.cast_roles import named
+    from app.clip_prompts import newest
+    from app.storyboard import assets
+
+    if not SHEET.search(note):
+        return ""
+    bd = newest(db, project)
+    shot = next((s for sc in (bd.data if bd else {}).get("scenes", []) for s in sc["shots"]
+                 if s["id"] == shot_id), {})  # fmt: skip
+    have = {name for name, files in _people(db, project, {"character_ids": list(assets(
+        db, project))}) if files}  # every look and place with a sheet  # fmt: skip
+    here = [name for name, _ in _people(db, project, shot)]
+    asked = {m[1] for m in OWNED.finditer(note)} | {n for n in here if named(n, note)}
+    bare = sorted(n for n in asked if not any(named(n, h) for h in have))
+    if not bare:
+        return ""
+    has = "has" if len(bare) == 1 else "have"
+    return (f"Refused: {', '.join(bare)} {has} no sheet in this video yet, so drawing shot "
+            f"{shot_id} again can't match one. Make the look first (ask who plays them, then "
+            "make_looks), then draw it again.")  # fmt: skip
 
 
 def state(db: Session, project: Project) -> dict:

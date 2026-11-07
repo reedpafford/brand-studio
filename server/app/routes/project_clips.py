@@ -106,7 +106,7 @@ class TakeOut(BaseModel):
 class SoundOut(BaseModel):
     """Sound effects added to the picked take on request (app/take_sound.py)."""
 
-    state: Literal["none", "making", "ready", "failed"]
+    state: Literal["none", "making", "ready", "failed", "removed"]  # removed: a person's "no"
     how: str  # slight, normal or strong: how loud under the take's own sound
     asked: str  # what the person asked for, in their words
     error: SaidText = ""  # its last run failed: why, in plain words (Make again)
@@ -340,10 +340,8 @@ def _spent(db: Session, row: ProjectClip) -> dict:
 def _model_name(model_id: str | None) -> str | None:
     from app.catalogue import get_model
 
-    try:
-        return get_model(model_id).name if model_id else None
-    except (KeyError, ValueError):
-        return model_id  # a model since taken out of the catalogue: its id
+    found = get_model(model_id) if model_id else None
+    return found.name if found else model_id  # one since taken out of the catalogue: its id
 
 
 def _clip(db: Session, user: User, project_id: int, clip_id: int):
@@ -617,8 +615,9 @@ def generate(
     model = model_map.of_clip(project, row)  # its own (the director's), else the video's
     files = {k: job_input["files"].get(k, []) for k in clip_takes.KEYS.values()}
     _check_media_length(db, request.app.state.storage, model, files)
-    units = model_map.seconds(model, row.seconds)  # Omni: its fixed length, up to
-    return enqueue(db, user, "video", job_input, units=units, project=project, provider="replicate")
+    return enqueue(
+        db, user, "video", job_input, units=row.seconds, project=project, provider="replicate"
+    )
 
 
 @router.get("/clips/{clip_id}/change", response_model=PriceOut)

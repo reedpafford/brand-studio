@@ -190,7 +190,7 @@ def _stuck(db: Session, user: User) -> list[StuckVideo]:
         if run and run["ended_at"] is None:  # its run goes on: the director deals with it
             continue
         if run and (said := run.get("failed")):  # its run's stuck card: the same fix
-            first = said["fixes"][0]
+            first = (said["fixes"] or [{"kind": "chat", "label": "Open the chat"}])[0]  # none: talk
             fix = StuckFix(kind=first["kind"], label=first["label"], price=first.get("price"),
                            clip_id=said.get("clip"), problem=first.get("problem"))  # fmt: skip
             what, why = said["title"], said["why"]

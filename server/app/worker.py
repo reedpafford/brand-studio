@@ -110,6 +110,10 @@ def _plain(job: Job, detail: str) -> str:
 
 
 def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
+    """The job failed before the provider answered (a refusal, a 400, a restart): what waits on
+    it is told, as when the provider says it failed (audit 6 Nov: else a take stayed
+    "watching", a check "checking" and a run "running"), but nothing is tried again on its
+    own: it may already have been charged, or would be refused again."""
     if detail:
         log.warning("job %s failed: %s", job.id, detail)
     if _move(
@@ -121,8 +125,18 @@ def _fail(db: Session, job: Job, message: str, detail: str = "") -> None:
         error_detail=detail[:2000],
         finished_at=utcnow(),
     ):
+        db.commit()  # the failure is kept whatever the handlers below do
         db.refresh(job)
-        explain(db, job)
+        try:  # what waits on it is told; never let that stop the worker (it runs at boot too)
+            if job.input.get("step"):
+                step_failed(db, job, again=False)
+            else:
+                explain(db, job)
+            db.commit()
+        except Exception:
+            db.rollback()
+            log.exception("job %s: telling what waits on it failed", job.id)
+        _then(db, job, None)
 
 
 def _actual_credits(job: Job, result: Result) -> Decimal:
@@ -140,7 +154,8 @@ def _usage(job: Job, provider: Provider, result: Result) -> list[Usage]:
     is listed."""
     items = [
         Usage(workspace_id=job.workspace_id, job_id=job.id, provider=job.provider, kind=job.kind,
-              units=i.units, unit=i.unit, cost_usd=i.cost_usd, estimated=i.estimated)
+              units=i.units, unit=i.unit, cost_usd=i.cost_usd, estimated=i.estimated,
+              **_tokens(i.tokens))
         for i in result.usage
     ]  # fmt: skip
     if not items and provider.paid and job.credits and result.state == "succeeded":
@@ -151,6 +166,15 @@ def _usage(job: Job, provider: Provider, result: Result) -> list[Usage]:
                   estimated=True)
         )  # fmt: skip
     return items
+
+
+def _tokens(counts: dict | None) -> dict:
+    """A Claude call's counts as Usage's columns; nothing for any other provider."""
+    if not counts:
+        return {}
+    names = {"input": "input_tokens", "output": "output_tokens", "cache_read": "cache_read_tokens",
+             "cache_write": "cache_write_tokens", "images": "images"}  # fmt: skip
+    return {column: counts.get(key) for key, column in names.items()}
 
 
 def _mine(query, only: set[str] | None):
@@ -244,15 +268,23 @@ def _finish(
             db.refresh(job)
             step_failed(db, job)
     db.commit()
-    if moved and job.project_id:  # the director's turn acted on, or its next turn woken,
-        try:  # after the job's own result is kept, so nothing here can undo it
-            director.after(db, job, storage or _storage())
-            locked_line.after(db, job, storage or _storage())  # S3-14: a choice's take is in
-            db.commit()
-        except Exception:  # never let the director break the worker
-            db.rollback()
-            log.exception("job %s: the director couldn't go on", job.id)
+    if moved:
+        _then(db, job, storage)
     return True
+
+
+def _then(db: Session, job: Job, storage: Storage | None) -> None:
+    """The director's turn acted on, or its next turn woken, after the job's own result is
+    kept, so nothing here can undo it."""
+    if not job.project_id:
+        return
+    try:
+        director.after(db, job, storage or _storage())
+        locked_line.after(db, job, storage or _storage())  # S3-14: a choice's take is in
+        db.commit()
+    except Exception:  # never let the director break the worker
+        db.rollback()
+        log.exception("job %s: the director couldn't go on", job.id)
 
 
 def _storage() -> Storage:

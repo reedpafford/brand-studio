@@ -277,7 +277,7 @@ def test_a_repeated_sentence_with_a_camera_line_takes_the_next_copy():
 
 
 def test_a_clip_too_long_for_its_own_model_is_refused_plainly(app, db, owner, editor):
-    """QA on #1332: a clip on Omni (one fixed 10 s length, no range) longer than it makes is
+    """QA on #1332: a clip on Omni (3–15 s) longer than it makes is
     refused with what to do, never a crash; Split is suggested only where the breakdown
     offers it (the video's model judges the breakdown)."""
     import pytest
@@ -287,12 +287,12 @@ def test_a_clip_too_long_for_its_own_model_is_refused_plainly(app, db, owner, ed
 
     pid = _done(app, db, owner, editor)
     clip = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
-    clip.seconds, clip.model = 12, {"id": "gemini-omni-1.1", "why": "the talker acts"}
+    clip.seconds, clip.model = 16, {"id": "gemini-omni-1.2", "why": "the talker acts"}
     db.commit()
     with pytest.raises(HTTPException) as no:
         fits_model(db, db.get(Project, pid), clip)
     said = no.value.detail
-    assert no.value.status_code == 409 and "makes at most 10 s a clip" in said, said
+    assert no.value.status_code == 409 and "makes at most 15 s a clip" in said, said
     assert "Split it in the breakdown" not in said  # no Split button there for it
     assert "Nothing was charged." in said
 

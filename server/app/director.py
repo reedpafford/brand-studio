@@ -52,8 +52,6 @@ OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted 
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
 REBUILD = "Refused: make the cut again first: it isn't up to date."
-NO_WATCH_LEFT = ("Refused: no watches are left this run to check an edit. Say in the delivery note "
-                 "what you would change.")  # fmt: skip
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -62,6 +60,7 @@ GAP, PER_RUN = timedelta(seconds=3), 30  # one note a person every 3 s; notes a 
 TOO_MANY = "Too many messages; wait a moment."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
+REDO_NEEDS = "needs a reason: a flagged take, a watch of this cut that saw it, or a person's note"
 DOUBT = "Refused: {} has only a doubt, which is the owner's to judge; say so in the delivery note."
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 START = asks.START  # in its held first paid turn: the start card (S3-02)
@@ -130,7 +129,11 @@ def carry_on(db: Session, user: User, project: Project) -> Job:
     if _carry_waiting(db, project):
         db.rollback()
         raise HTTPException(409, CARRY_WAITING)
-    left = run_progress.carry_left(db, project, whole=uncapped(user))  # uncapped: whatever's left
+    rows = turns(db, project)  # the run's own starter decides, not who presses (QA on #1396)
+    starter = db.get(User, (rows[-1].input[RUN].get("by") if rows else None) or 0)
+    left = run_progress.carry_left(
+        db, project, whole=uncapped(starter)
+    )  # uncapped: whatever's left
     if left is None:
         db.rollback()
         return start(db, user, project, hold=asks.start_hold(db, user, project))
@@ -235,8 +238,13 @@ def say(db: Session, user: User, project: Project, text: str, files: list[int] =
 
 
 def _delivered(db: Session, project: Project) -> bool:
-    rows = turns(db, project)
-    return bool(rows) and rows[-1].input.get("result") == DELIVERED
+    return delivered(turns(db, project))
+
+
+def delivered(rows: list[Job]) -> bool:
+    """The run delivered: one of its turns says so. Never only its last turn (video 233: after
+    a restart a duplicate turn, cancelled, came last, so a note never started the revision)."""
+    return any(j.input.get("result") == DELIVERED for j in rows)
 
 
 def _plan_first(db: Session, project: Project, held: Job) -> None:
@@ -262,11 +270,14 @@ def chat(project: Project, run_id: str) -> list[dict]:
     return [{"text": m["text"]} for m in project.director_chat or [] if m.get("run") == run_id]
 
 
-def answered(db: Session, run_id: str) -> set[int]:
+def answered(db: Session, run_id: str, project_id: int | None = None) -> set[int]:
     """The run's notes (numbered from 1) a move has answered: named "Note N" in the why of a
-    move that wasn't refused, or in the delivery's note. An ask stays open until then."""
+    move that wasn't refused, or in the delivery's note. An ask stays open until then. With
+    its video (`project_id`), only that video's jobs are read, not the whole table."""
     mine = Job.input[RUN]["id"].as_string() == run_id
-    rows = db.scalars(select(Job).where(Job.input["step"].as_string() == STEP, mine)).all()
+    where = [Job.project_id == project_id] if project_id is not None else []
+    rows = db.scalars(select(Job).where(*where, Job.input["step"].as_string() == STEP,
+                                        mine)).all()  # fmt: skip
     return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
             for n in NOTE.findall(move_words(j.output or {}))}  # fmt: skip
 
@@ -305,7 +316,8 @@ def thread(db: Session, project: Project, viewer: User | None = None) -> list[di
     from app import run_progress
     from app.auth import user_name
 
-    done = {r: answered(db, r) for r in {m.get("run") for m in project.director_chat or []} if r}
+    runs_ = {m.get("run") for m in project.director_chat or []}
+    done = {r: answered(db, r, project.id) for r in runs_ if r}
     place: dict[str | None, int] = {}  # a note's number in its run ("Note N"), as `answered` reads
     out = []
     for n, m in enumerate(project.director_chat or []):
@@ -365,23 +377,27 @@ def _only_a_doubt(db: Session, project: Project, clip_id: str, why: str,
     4 Nov). It goes ahead on a person's note, a take its watch confirmed a fault in (flagged),
     a take made from another prompt than the clip's now, or a redo the current watch of the
     cut saw in the frames."""
-    from app.models.clips import ClipTake
-
     clip = next((c for c in video_state(db, project)["clips"] if c["clip_id"] == clip_id), None)
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run_id), default=0) if run_id else 0  # fmt: skip
     asked = any(1 <= int(n) <= given for n in NOTE.findall(why))  # a note this run was given
     if not clip or not clip["takes"] or asked:
         return False
+    return not _confirmed(db, project, clip, _watch(db, project))
+
+
+def _confirmed(db: Session, project: Project, clip: dict, watch: dict) -> bool:
+    """A redo of this clip (as the director reads it) has a confirmed reason: its last take's
+    watch flagged a fault, the clip is stale or was made from another prompt, or the current
+    watch of the cut saw it in the frames."""
     last = clip["takes"][-1]
     row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
-                                              ProjectClip.clip_id == clip_id))  # fmt: skip
+                                              ProjectClip.clip_id == clip["clip_id"]))  # fmt: skip
     newest = db.get(ClipTake, last["id"])
     if last["verdict"] == "flagged" or clip["stale"] or (newest.prompt or row.prompt) != row.prompt:
-        return False
-    watch = _watch(db, project)
-    return not (watch.get("current") and any(
-        f.get("clip_id") == clip_id and f.get("fix") == "redo"
+        return True
+    return bool(watch.get("current") and any(
+        f.get("clip_id") == clip["clip_id"] and f.get("fix") == "redo"
         for f in watch.get("findings") or []))  # fmt: skip
 
 
@@ -584,8 +600,8 @@ def after(db: Session, job: Job, storage) -> None:
             return
         if job.status == JobStatus.succeeded:
             _act(db, job, storage)
-        else:
-            _end(job, TURN_FAILED)
+        elif not _again(db, job):
+            _end(job, turn_failed(job))
         return
     run_id = (job.input.get(RUN) or {}).get("id")
     if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
@@ -595,6 +611,38 @@ def after(db: Session, job: Job, storage) -> None:
             return
     if job.project_id:
         wake(db, db.get(Project, job.project_id))
+
+
+RETRIED = "retried"  # in a failed turn's input: the same turn was asked again (`_again`)
+RETRIED_SAID = "My answer was cut off or unreadable; asked again."  # its line in <last_actions>
+
+
+def _again(db: Session, job: Job) -> bool:
+    """A turn whose answer came back cut off or unreadable is asked once more, on its own
+    (audit 6 Nov: one bad answer ended the run): the same turn, needing no new OK; only its
+    answer, if it comes, is charged. Whether it was asked again."""
+    from app.claude import RAN_OUT, UNREADABLE
+
+    if job.retry_of_id or (job.error_detail or "") not in (RAN_OUT, UNREADABLE):
+        return False
+    if not _write(db, job, {**job.input, RETRIED: True}):  # a Stop landed: no retry, kept
+        db.refresh(job)
+        return True
+    db.refresh(job)
+    db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
+               provider=job.provider, input={k: v for k, v in job.input.items() if k != RETRIED},
+               project_id=job.project_id, brand_id=job.brand_id, credits=job.credits,
+               approved_by_id=job.approved_by_id, status=JobStatus.queued,
+               retry_of_id=job.id))  # fmt: skip
+    return True
+
+
+def turn_failed(job: Job) -> str:
+    """Why a failed turn ended the run: the test site's real-AI budget in its own words (a Start
+    again would only be refused again), else TURN_FAILED."""
+    from app.run_progress import BUDGET
+
+    return job.error if BUDGET in (job.error or "") else TURN_FAILED
 
 
 def _treatment_checked(db: Session, job: Job) -> bool:
@@ -620,12 +668,22 @@ def _treatment_checked(db: Session, job: Job) -> bool:
 
 
 def wake(db: Session, project: Project) -> None:
-    """The next turn, once the last one was acted on and nothing on the video is waiting."""
+    """The next turn, once the last one was acted on and nothing on the video is waiting.
+    Never twice (cost analysis A5: the worker's finish and its sweep both woke the same run,
+    so a turn, and what it paid for, ran twice): `_turn` checks again under the lock."""
+    if (last := _wakeable(db, project)) is None:
+        return
+    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]),
+          after=last.id)  # fmt: skip
+
+
+def _wakeable(db: Session, project: Project) -> Job | None:
+    """The run's last turn when its next one should start now, else None."""
     last = active(db, project)
     if last is None or last.status != JobStatus.succeeded or "result" not in last.input:
-        return
+        return None
     if _waiting(db, project) or _parked(db, project, last):
-        return
+        return None
     if (
         last.input["result"] == CAST_WAIT
         and cast_gate.pending(db, project)
@@ -634,9 +692,9 @@ def wake(db: Session, project: Project) -> None:
             or asks.answered_since(db, project, (last.started_at or last.created_at).isoformat())
         )
     ):
-        return  # it goes on when the cast and places are approved, a question is answered, or
-        # someone asks for more
-    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
+        return None  # it goes on when the cast and places are approved, a question is
+        # answered, or someone asks for more
+    return last
 
 
 def _parked(db: Session, project: Project, last: Job) -> bool:
@@ -669,7 +727,8 @@ def sweep(db: Session) -> None:
     failed = select(Job).where(step == STEP, Job.status == JobStatus.failed,
                                Job.input["ended"].as_string().is_(None))  # fmt: skip
     for job in db.scalars(failed).all():  # failed before its finish (a bad answer): it ends
-        _end(job, TURN_FAILED)
+        if not job.input.get(RETRIED):  # unless it's being asked again (`_again`)
+            _end(job, turn_failed(job))
     db.commit()
     for project_id in asks.overdue(db):  # a story choice's time passed: its pick (rule 37)
         wake(db, db.get(Project, project_id))
@@ -700,7 +759,8 @@ def _act(db: Session, job: Job, storage) -> None:
         given = max((t.input.get(READ, 0) for t in turns(db, project)
                      if t.input[RUN]["id"] == run["id"]), default=0)  # fmt: skip
         # a note no turn was given yet isn't its to answer: it waits for the next Make it
-        if left := [n for n in range(1, given + 1) if n not in answered(db, run["id"]) | named]:
+        if left := [n for n in range(1, given + 1)
+                    if n not in answered(db, run["id"], project.id) | named]:  # fmt: skip
             return _record(db, job, run, OPEN.format(left[0]))
         from app import delivery
 
@@ -739,8 +799,6 @@ def _act(db: Session, job: Job, storage) -> None:
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
-    if tool == "edit_cut" and run.get("watches", 0) >= MAX_WATCHES:  # it watches what it edits
-        return _record(db, job, run, NO_WATCH_LEFT)
     if tool == "watch_cut" and (cut_edits.for_director(db, project) or {}).get("changes"):
         return _record(db, job, run, REBUILD)  # a watch is for the cut with the edits in it
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
@@ -865,7 +923,8 @@ def _end(job: Job, why: str, result: str = "") -> None:
 
 
 def _turn(db: Session, user: User, project: Project, run: dict, *,
-          extra: dict | None = None, carry: tuple[str, Decimal] | None = None) -> Job:  # fmt: skip
+          extra: dict | None = None, carry: tuple[str, Decimal] | None = None,
+          after: int | None = None) -> Job:  # fmt: skip
     from app.routes.jobs import enqueue
 
     last = next(reversed(turns(db, project)), None)
@@ -916,6 +975,14 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         wait = past_own(db, project, run["id"], turn, user)
         data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
         wait = wait or past_approved(db, project, user, turn)
+    if after is not None:  # woken: under the video's lock, unless another waker got here first
+        lock(db, Project, project.id)  # a second waker waits here, then sees the first's turn
+        newer = db.scalar(select(Job).where(Job.project_id == project.id,
+                                            Job.input["step"].as_string() == STEP,
+                                            Job.input[RUN]["id"].as_string() == run["id"],
+                                            Job.id > after).limit(1))  # fmt: skip
+        if newer is not None:
+            return newer
     try:
         job = enqueue(db, user, "write-claude", data, project=project, provider="claude",
                       prepaid=not wait, wait=wait)  # fmt: skip
@@ -1061,7 +1128,7 @@ def _replanning(db: Session, project: Project) -> dict:
     takes stay set aside and every clip is still made again. After that run delivered, the next
     run is a normal one (its earlier takes can be picked back as on any video)."""
     rows = turns(db, project)
-    if not rows or rows[-1].input.get("result") == DELIVERED:
+    if not rows or delivered(rows):
         return {}
     last = rows[-1].input[RUN]
     return {k: last[k] for k in (FRESH, UNPICKED) if last.get(k)}
@@ -1106,7 +1173,8 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
 
     system, brief = project_context(db, project, STEP)
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
-             "result": j.input.get("result")} for j in turns(db, project)
+             "result": RETRIED_SAID if j.input.get(RETRIED) else j.input.get("result")}
+            for j in turns(db, project)
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
@@ -1118,11 +1186,12 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
-    closed = answered(db, run["id"])
+    closed = answered(db, run["id"], project.id)
     asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed}
              for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
     # new: no earlier turn was given it. answered: a move named it ("Note N"); else still open
-    own = db.scalar(select(Job.id).where(Job.input["step"].as_string() == "treatment",
+    own = db.scalar(select(Job.id).where(Job.project_id == project.id,
+                                         Job.input["step"].as_string() == "treatment",
                                          Job.input[RUN]["id"].as_string() == run["id"],
                                          Job.status.in_(COUNTED)).limit(1))  # fmt: skip
     video = {
@@ -1341,16 +1410,25 @@ def video_state(db: Session, project: Project) -> dict:
     failed = db.scalars(select(Job).where(
         Job.project_id == project.id, Job.status == JobStatus.failed,
         Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
+    from app.breakdown import extras as breakdown_extras
+    from app.cut import making as cut_making
     from app.plans import status
 
     cast = _cast_ok(db, project) if bd else {"state": "none"}
+    watch = _watch(db, project)
+    doubts = {f.get("clip_id") for f in watch.get("findings") or [] if f.get("doubt")}
+    for c in clips:  # A6: a doubt it would be refused a redo for says so, before a paid turn
+        doubt = c["takes"] and (c["takes"][-1]["verdict"] == "unsure" or c["clip_id"] in doubts)
+        if doubt and not _confirmed(db, project, c, watch):
+            c["redo"] = REDO_NEEDS
     held = set(cast.get("paused_clips") or [])
     for c in clips:
         c["waits_for_cast"] = c["clip_id"] in held and not c["takes"]
     audio = director_song.state(db, project)  # a song or narrated video's song or narration
-    from app import host
+    from app import host, talker
 
-    hosted = {"host": host.state(db, project)} if host.on(db, project) else {}  # a presenter's
+    minimax = {"minimax": True} if talker.minimax(db, project) else {}  # its narrator's voice
+    hosted = {"host": {**host.state(db, project), **minimax}} if host.on(db, project) else {}
     return {
         **hosted,
         "plan": status(db, project),  # none, ready (waits for approval) or approved
@@ -1362,11 +1440,14 @@ def video_state(db: Session, project: Project) -> dict:
         "too_long": _splittable(db, project, bd),  # split_clip
         "missing_looks": [*(s.role for s in _missing(db, project)),
                           *(p.name for p in missing_places(db, project))] if bd else [],
+        # someone the shots show who isn't a role (an extra: "Crowd"), yours to cast or leave
+        "no_role": breakdown_extras(bd.problems) if bd else [],
         "cast_ok": cast,  # the person's OK on the cast and places, and what waits for it
         "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id),
                    "waiting": sum(1 for f in frames if not f.file_id and f.clip_id in held)},
         "clips": clips,
-        "cut": "none" if not video else
+        # a cut being made reads as such, never "out of date" (226 made it again: A6)
+        "cut": "being made" if cut_making(db, project) else "none" if not video else
                ("out of date" if project.id in out_of_date(db, [project]) else "made"),
         "being_made": len([j for j in waiting if j.status != JobStatus.needs_owner_approval]),
         "held_for_owner": [j.input.get("held", "") for j in waiting
@@ -1374,7 +1455,7 @@ def video_state(db: Session, project: Project) -> dict:
         "failed_since_last_turn": [j.error or "It didn't finish." for j in failed],
         "timeline": cut_edits.for_director(db, project),  # the cut's pieces, for edit_cut
         "cut_failed": _cut_failed(db, project),  # the newest cut couldn't be made: why, fixes
-        "watch": _watch(db, project),  # its last watch of the cut, and its findings
+        "watch": watch,  # its last watch of the cut, and its findings (doubts say so)
         "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
 
@@ -1783,6 +1864,8 @@ def _failed_too_often(db: Session, project: Project, run: dict) -> str:
     for job in db.scalars(select(Job).where(Job.project_id == project.id,
                                             Job.status == JobStatus.failed,
                                             Job.created_at >= first.created_at)):  # fmt: skip
+        if job.input.get(RETRIED):  # asked again on its own (`_again`): not a failure
+            continue
         what = _item(db, job)
         counts[what] = counts.get(what, 0) + 1
         if counts[what] > MAX_REDOS:
