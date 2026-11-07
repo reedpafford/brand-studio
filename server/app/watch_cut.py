@@ -143,7 +143,7 @@ def heard_cut(db: Session, job: Job) -> None:
     data = {"step": STEP, "project_id": project.id, "final_video_id": job.input["final_video_id"],
             "system": [prompts.system(STEP, project.look or "house",
                                       broll=project.broll_look or "")], "prompt": text,
-            "effort": "high", "max_tokens": 8000,
+            "effort": "high", "max_tokens": 16000,
             "fit_images_to": 1024, "director_run": job.input.get("director_run"),
             "cut": cut, "words": out.get("words", []), "script": version.text if version else "",
             "files": {"reference_images": out.get("file_ids", [])}}  # fmt: skip
@@ -283,14 +283,18 @@ def save(db: Session, job: Job) -> None:
     job.output = {**(job.output or {}), "checked": found}
 
 
+def _newest(db: Session, project: Project) -> Job | None:
+    return db.scalar(select(Job).where(Job.project_id == project.id,
+                                       Job.input["step"].as_string().in_((LISTEN, STEP)))
+                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
+
+
 def state(db: Session, project: Project) -> dict:
     """What the director reads as <video>.watch: the newest watch, and whether it's of the
     cut there is now."""
     from app.routes.project_clips import out_of_date
 
-    newest = db.scalar(select(Job).where(Job.project_id == project.id,
-                                         Job.input["step"].as_string().in_((LISTEN, STEP)))
-                       .order_by(Job.id.desc()).limit(1))  # fmt: skip
+    newest = _newest(db, project)
     if newest is None:
         return {"state": "none"}
     video = _cut(db, project)
@@ -309,3 +313,36 @@ def state(db: Session, project: Project) -> dict:
 
 
 watch_state = state  # the name Next-Server's first wiring used
+
+
+def redo_findings(db: Session, project: Project, run: dict | None) -> dict[str, dict]:
+    """The findings that ask for a clip to be made again, by clip, of this run's watch of the
+    cut in use: a later take (a person's note, another run, a cut made since) is never said to
+    be its fix (QA #1395)."""
+    w, job = state(db, project), _newest(db, project)
+    by = (job.input.get("director_run") or {}).get("id") if job else None
+    if w.get("state") != "done" or not w["current"] or not run or by != run.get("id"):
+        return {}
+    return {f["clip_id"]: f for f in w.get("findings") or []
+            if f.get("fix") == "redo" and f.get("clip_id")}  # fmt: skip
+
+
+def redone(db: Session, project: Project, row: ProjectClip, found: dict, job: Job,
+           note: str = "") -> None:  # fmt: skip
+    """A clip made again because the watch of the cut found something (S6-03, rule 11): the
+    take that was in the cut says what was found and what was done, as a take's own watch
+    does, so the clip shows "What I found / What I did" and the take reads as dropped."""
+    from app.db import utcnow
+    from app.model_map import of_clip
+    from app.run_progress import said as plain
+    from app.watch_report import ACTED
+
+    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+    own = (take.watch or {}) if take else {}
+    if take is None or own.get("by") == "cut" or own.get("action") in ACTED:
+        return  # what its own watch found and did stays (a "Kept it." is the cut watch's now)
+    said = f" with “{plain(note).rstrip('.')}” in the prompt" if note.strip() else ""
+    take.watch = {**(take.watch or {}), "state": "done", "action": "redo",
+                  "found": plain(found["says"]).rstrip(".") + ".",
+                  "did": f"Made it again on {of_clip(project, row).name}{said}.",
+                  "remake_job_id": job.id, "by": "cut", "at": utcnow().isoformat()}  # fmt: skip

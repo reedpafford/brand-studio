@@ -254,7 +254,9 @@ def cell(video: _Video, row: ProjectClip, now: datetime, owner: bool) -> dict:
                 "percent": min(95, round(100 * ran / video.typical))}  # fmt: skip
     if last and last.status == JobStatus.failed and (not picked or last.id > picked.job_id):
         why = (last.error or "It didn't finish").rstrip(".")
-        return {**out, "state": "failed", "note": f"{why}. Nothing was charged.",
+        free = "nothing was charged" in why.lower()  # the refusal says so itself
+        note = f"{why}." if free else f"{why}. Nothing was charged."
+        return {**out, "state": "failed", "note": priced(note, owner),
                 "credits": money(last.credits, owner)}  # fmt: skip
     if row.clip_id in too_long(video.problems):  # longer than the model makes: never sent
         m = video.engine
@@ -382,8 +384,7 @@ def _cast(db: Session, project: Project, slots: list, face) -> str:
         take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
         # the voice its narration was read in; before one, the one it will be (director_song;
         # a voice card's answer is the video's picked voice)
-        ref = ((take.voice if take is not None else "") or voices.picked(db, project)
-               or director_song._voice(db, project))  # fmt: skip
+        ref = (take.voice if take is not None else "") or director_song.narrator(db, project)
         voice = voices.named(db, project.workspace_id, ref, project.brand_id)
         if voice is not None:  # the brand's own, or its style's, listed with them (S8-04, L4)
             names.append(f"the {voice.kind} voice")  # "the cloned voice"
@@ -607,6 +608,8 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     every = runs(db, project)
     if not every:
         return None
+    # The run's own starter, not whoever reads it: an editor's run is held as theirs (QA #1396)
+    starter = db.get(User, (list(every.values())[-1][-1].input.get(RUN) or {}).get("by") or 0)
     run_id, turns = list(every.items())[-1]
     owner, (how, why) = bool(viewer and viewer.is_owner), ending(turns)
     now, start = utcnow(), turns[0].created_at
@@ -641,7 +644,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                if how == "needs_fix" else None)  # fmt: skip
         plain = how == "needs_fix" or why == "Stopped."
         head = (how, f"Stopped at clip {bad['number']}" if bad else "Stopped",
-                f"{made} of {_n(total, 'clip')} made" if plain else said(why),
+                f"{made} of {_n(total, 'clip')} made" if plain else priced(said(why), owner),
                 "bad" if how == "needs_fix" else "stop")  # fmt: skip
     elif (
         holds is not None
@@ -691,7 +694,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         left = carry_left(db, project)  # the rest of this run's own price; else a new run's
         waits = director._carry_waiting(db, project) is not None  # its Carry on is the owner's
         figure = "" if waits else money(left if left else again, owner)
-        free = uncapped(viewer) and carry_left(db, project, whole=True) is not None
+        free = uncapped(starter) and carry_left(db, project, whole=True) is not None
         out["stopped"] = {"by": user_name(db, by[STOPPED_BY]), "at": by["stopped_at"],
                           "made": made, "total": total, "carry_on": "" if free else figure,
                           "free": free}  # fmt: skip
@@ -699,7 +702,8 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                      "carried_at": w["carried_at"]} for j in turns
                     if (w := j.input.get("was_stopped")) and w.get("stopped_by")]  # fmt: skip
     if how == "needs_fix":
-        out["failed"] = _failed(db, video, cells, why, owner, again, uncapped(viewer))
+        out["failed"] = _failed(db, video, cells, priced(why, owner), owner, again,
+                                uncapped(starter), budget_now(db, project, turns))  # fmt: skip
     return out
 
 
@@ -733,13 +737,37 @@ def _blamed(cells: list[dict], why: str) -> dict | None:
                  and re.search(rf"\bclip {c['number']}\b", named)), None)  # fmt: skip
 
 
+BUDGET = "real-AI budget"  # credits.REAL_DONE and NO_START: the test site's cap
+
+
+def priced(text: str, owner: bool) -> str:
+    """Words as this person reads them (rule 4): the owner's dollars, an editor's never ("The
+    test site's real-AI budget ($20.00) is used up" reads "… budget is used up")."""
+    return text if owner else re.sub(r"\s*\(\$[\d,.]+\)", "", text)
+
+
+def budget_now(db: Session, project: Project, turns: list[Job]) -> str:
+    """What the real-AI budget would say to the run's next step now, as its starter's (the
+    owner's own when he's uncapped, never); "" when it would go."""
+    from app.credits import estimate, real_budget_refusal
+    from app.settings import get_settings
+
+    starter = db.get(User, (turns[-1].input.get(RUN) or {}).get("by") or 0) if turns else None
+    step = estimate(db, project.workspace_id, "write-claude", Decimal(1), {})
+    return real_budget_refusal(db, get_settings(), "claude", step,
+                               bool(starter and starter.is_owner))  # fmt: skip
+
+
 def _failed(db: Session, video: _Video, cells: list[dict], why: str, owner: bool,
-            again: Decimal, free: bool = False) -> dict:  # fmt: skip
+            again: Decimal, free: bool = False, blocked: str = "") -> dict:  # fmt: skip
     """What stopped the run, and its one-click fixes (rule 22): the clip that failed made
     again at its own price, a clip too long for the model split (S3-11), or carry on from
     where it stopped."""
     carry = {"kind": "carry_on", "label": "Carry on",
              "price": "" if free else money(again, owner)}  # uncapped: no "up to"  # fmt: skip
+    if blocked:  # the real-AI budget would refuse its next step now: a press would only be
+        return {"title": "The director stopped", "why": priced(blocked, owner), "clip": None,
+                "fixes": []}  # refused again (it comes back once the budget allows)  # fmt: skip
     bad = _blamed(cells, why)
     long = next((c for c in cells if c["state"] == "too_long"), None)
     if bad is None and long is not None and "makes at most" in why:  # it stopped on that
@@ -805,7 +833,7 @@ def thread_items(db: Session, project: Project, viewer: User | None) -> list[dic
         head = {} if how else record(db, project, viewer) or {}  # the newest run, as they see it
         if how:
             text = (_took(turns) if how == "delivered" else "Stopped" if why == "Stopped."
-                    else said(why))  # fmt: skip
+                    else priced(said(why), owner))  # fmt: skip
         else:  # its card in a line
             text = " · ".join(x for x in (head.get("title"), head.get("sub")) if x)
         status = "done" if how else "held" if head.get("status") == "waiting" else "running"

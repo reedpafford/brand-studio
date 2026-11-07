@@ -29,6 +29,11 @@ TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_tak
 WAITING = "{} for the cast and places OK."
 
 
+STEP_BROKE = (
+    "Refused: that step hit an error on our side and may not have finished. Try another way."  # noqa: E501
+)
+
+
 def run(db: Session, user: User, project: Project, decision: dict, storage,
         run: dict | None = None) -> str:  # fmt: skip
     """Do one tool; what happened, in plain words (a refusal's own words)."""
@@ -111,15 +116,18 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 clip = re.sub(r"^(clip\s*|c)", "", str(clip or "").strip(), flags=re.I)
                 return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
-            held = 0
+            held, asked = 0, watch_cut.redo_findings(db, project, run)  # what the cut's watch found
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=decision.get("note") or "")
                 try:
-                    project_clips.generate(clip_id=row.id, request=request, body=note, **me)
+                    job = project_clips.generate(clip_id=row.id, request=request, body=note, **me)
                 except cast_gate.Waiting:  # its cast or places wait for the OK: the rest go on
                     db.rollback()
                     held += 1
+                else:
+                    if found := asked.get(row.clip_id):  # the take in the cut says why (S6-03)
+                        watch_cut.redone(db, project, row, found, job, note.note)
             return _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))
@@ -241,6 +249,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         return f"Refused: {no.detail}"
     except ValueError:  # pick_take named no single clip
         return "Refused: name one clip."
+    except Exception:  # noqa: BLE001 - never leave the turn without a result (the run would hang)
+        db.rollback()
+        log.exception("project %s: %s failed", pid, tool)
+        return STEP_BROKE
     return f"Refused: there's no tool called {tool}."
 
 

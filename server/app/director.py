@@ -130,7 +130,11 @@ def carry_on(db: Session, user: User, project: Project) -> Job:
     if _carry_waiting(db, project):
         db.rollback()
         raise HTTPException(409, CARRY_WAITING)
-    left = run_progress.carry_left(db, project, whole=uncapped(user))  # uncapped: whatever's left
+    rows = turns(db, project)  # the run's own starter decides, not who presses (QA on #1396)
+    starter = db.get(User, (rows[-1].input[RUN].get("by") if rows else None) or 0)
+    left = run_progress.carry_left(
+        db, project, whole=uncapped(starter)
+    )  # uncapped: whatever's left
     if left is None:
         db.rollback()
         return start(db, user, project, hold=asks.start_hold(db, user, project))
@@ -392,8 +396,8 @@ def _watched(db: Session, project: Project) -> list[dict]:
     out = []
     for x in watch_report.watched(db, project):
         w = x["watch"]
-        if w.get("action") not in watch_report.ACTED:
-            continue
+        if w.get("action") not in watch_report.ACTED or (x["item"].watch or {}).get("by") == "cut":
+            continue  # a redo the watch of the cut asked for: its turn and the note say it
         what = (f"The host's piece {x['number']}" if x["clip_id"] == "host" else
                 f"Clip {x['clip_id'].removeprefix('c')}, take {x['number']}")  # fmt: skip
         out.append({"id": f"w-{x['clip_id']}-{x['item'].id}", "kind": "move", "at": w["at"],
@@ -583,8 +587,8 @@ def after(db: Session, job: Job, storage) -> None:
             return
         if job.status == JobStatus.succeeded:
             _act(db, job, storage)
-        else:
-            _end(job, TURN_FAILED)
+        elif not _again(db, job):
+            _end(job, turn_failed(job))
         return
     run_id = (job.input.get(RUN) or {}).get("id")
     if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
@@ -594,6 +598,38 @@ def after(db: Session, job: Job, storage) -> None:
             return
     if job.project_id:
         wake(db, db.get(Project, job.project_id))
+
+
+RETRIED = "retried"  # in a failed turn's input: the same turn was asked again (`_again`)
+RETRIED_SAID = "My answer was cut off or unreadable; asked again."  # its line in <last_actions>
+
+
+def _again(db: Session, job: Job) -> bool:
+    """A turn whose answer came back cut off or unreadable is asked once more, on its own
+    (audit 6 Nov: one bad answer ended the run): the same turn, needing no new OK; only its
+    answer, if it comes, is charged. Whether it was asked again."""
+    from app.claude import RAN_OUT, UNREADABLE
+
+    if job.retry_of_id or (job.error_detail or "") not in (RAN_OUT, UNREADABLE):
+        return False
+    if not _write(db, job, {**job.input, RETRIED: True}):  # a Stop landed: no retry, kept
+        db.refresh(job)
+        return True
+    db.refresh(job)
+    db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
+               provider=job.provider, input={k: v for k, v in job.input.items() if k != RETRIED},
+               project_id=job.project_id, brand_id=job.brand_id, credits=job.credits,
+               approved_by_id=job.approved_by_id, status=JobStatus.queued,
+               retry_of_id=job.id))  # fmt: skip
+    return True
+
+
+def turn_failed(job: Job) -> str:
+    """Why a failed turn ended the run: the test site's real-AI budget in its own words (a Start
+    again would only be refused again), else TURN_FAILED."""
+    from app.run_progress import BUDGET
+
+    return job.error if BUDGET in (job.error or "") else TURN_FAILED
 
 
 def _treatment_checked(db: Session, job: Job) -> bool:
@@ -668,7 +704,8 @@ def sweep(db: Session) -> None:
     failed = select(Job).where(step == STEP, Job.status == JobStatus.failed,
                                Job.input["ended"].as_string().is_(None))  # fmt: skip
     for job in db.scalars(failed).all():  # failed before its finish (a bad answer): it ends
-        _end(job, TURN_FAILED)
+        if not job.input.get(RETRIED):  # unless it's being asked again (`_again`)
+            _end(job, turn_failed(job))
     db.commit()
     for project_id in asks.overdue(db):  # a story choice's time passed: its pick (rule 37)
         wake(db, db.get(Project, project_id))
@@ -1105,7 +1142,8 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
 
     system, brief = project_context(db, project, STEP)
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
-             "result": j.input.get("result")} for j in turns(db, project)
+             "result": RETRIED_SAID if j.input.get(RETRIED) else j.input.get("result")}
+            for j in turns(db, project)
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
@@ -1750,6 +1788,8 @@ def _failed_too_often(db: Session, project: Project, run: dict) -> str:
     for job in db.scalars(select(Job).where(Job.project_id == project.id,
                                             Job.status == JobStatus.failed,
                                             Job.created_at >= first.created_at)):  # fmt: skip
+        if job.input.get(RETRIED):  # asked again on its own (`_again`): not a failure
+            continue
         what = _item(db, job)
         counts[what] = counts.get(what, 0) + 1
         if counts[what] > MAX_REDOS:

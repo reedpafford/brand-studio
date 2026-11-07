@@ -3,10 +3,11 @@ the reel at its own price and make the video at once in the open folder; once it
 written the director's run waits for the owner's OK, nothing past the read spent. Just its
 look makes your words with the reel as the director's look reference. Stand-ins only."""
 
-from app import director
+from app import director, reel
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import Script
+from app.providers.fake_local import two_scenes
 from app.routes import reel_video
 from tests.test_freestyle_dialogue import SCRIPT, _run
 from tests.test_reel_read import _drain, _ready, clip  # noqa: F401  (the module's reel)
@@ -63,6 +64,22 @@ def test_structure_writes_new_lines_and_look_keeps_your_words(app, owner, db, cl
     )
     prompt = director.turn_input(db, video, {"id": "r", "turn": 0, "redos": {}})["prompt"]
     assert "<look_reference>" in prompt
+
+
+def test_just_its_look_takes_a_silent_reel_and_the_reads_say_why_not(app, owner, db, tmp_path):
+    """S-gaps-01: Just its look doesn't need the reel's words, so a silent reel is fine for it;
+    Copy and Structure have nothing to read and say so (nothing charged)."""
+    sid = _sid(_ready(app, owner, db, two_scenes(tmp_path / "mute.mp4", sound=False)))
+    body = {"script_id": sid, "type": "dialogue", "look": "house", "shape": "9:16"}
+    for mode in ("copy", "structure"):
+        no = owner.post("/freestyles/reel", json={**body, "mode": mode})
+        assert no.status_code == 409 and no.json()["detail"] == reel.NO_SOUND
+    assert not db.query(Job).filter(Job.kind != "reel_prepare").count()
+    made = owner.post("/freestyles/reel", json={**body, "mode": "look", "text": SCRIPT})
+    assert made.status_code == 201, made.text
+    video = db.get(Project, made.json()["project_id"])
+    ref = reel_video.look_reference(db, video)
+    assert ref["shots"] == 2 and ref["contact_sheet_file_id"] and ref["video_file_id"]
 
 
 def test_a_reels_picks_are_checked_at_the_press_before_the_read_is_paid(app, owner, db, clip):  # noqa: F811

@@ -423,7 +423,8 @@ test("S3-09: delivered: the note in parts with the times it redid, the real cost
   expect(within(n).getByText("Clip 2: cartoon eyes landed on the stomach. Remade on Seedance 2.0.")).toBeInTheDocument();
   expect(within(n).getByText("The capsule holds for 1.5 s.")).toBeInTheDocument();
   expect(within(n).getByRole("heading", { name: "What remains uncertain" })).toBeInTheDocument(); // Reed's three parts (5 Nov)
-  expect(within(n).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["What I made", "What remains uncertain", "What I need from you"]);
+  expect(within(n).getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["What I made", "What I watched and redid", "What remains uncertain", "What I need from you"]); // its rows their own part (board S3-09, S5)
+  expect(within(within(n).getByRole("list", { name: "What I watched and redid" })).getByText("0:14")).toBeInTheDocument();
   expect(within(n).getByText("Nothing. It’s ready to post.")).toBeInTheDocument(); // the server's words: ready only when nothing is open
   expect(within(n).getByText("$9.84 spent of up to $16.86")).toBeInTheDocument();
   expect(screen.getByText("Delivery note · Cut 1 · 0:58 · $9.10")).toBeInTheDocument(); // S3-12: the earlier cut, folded
@@ -970,9 +971,9 @@ test("an answered money card says who approved it and when, never picked by", as
   expect(card.textContent).not.toMatch(/picked by/);
 });
 
-test("S3-09: a note with nothing uncertain and nothing open has no What remains uncertain", async () => {
+test("S3-09: a note with nothing redone, nothing uncertain and nothing open has only its two parts", async () => {
   setViewport(1440);
-  const clear = { ...note, unsure: "", open: [] };
+  const clear = { ...note, unsure: "", open: [], redid: [] };
   server(owner, null, run({ status: "delivered", thread: [item("t2", "move", "Director", "…", "done", later, { note: clear })] }), { "GET /projects/50/director/progress": [200, record({ status: "delivered", title: "Made in 22 min", sub: "4 clips", tone: "done" })], "GET /projects/50/video": [200, { file_id: 8, take_ids: [], out_of_date: false }] });
   renderApp("/b/1/videos/50");
   const n = await screen.findByRole("region", { name: "Delivery note" });
@@ -1142,4 +1143,14 @@ test("uncapped: Carry on is just Carry on, the same run; Make it again says abou
   renderApp("/b/1/videos/50");
   expect(await screen.findByRole("button", { name: "Carry on" })).toBeInTheDocument();
   expect(screen.queryByText(/Carry on · up to/)).toBeNull();
+});
+
+test("uncapped (QA on #1396): after delivery the estimate is the next run's", async () => {
+  setViewport(1440);
+  const top = head({ status: status("delivered", "Delivered"), spent: money(60, 6.4), up_to: null, budget: null, expected: money(91, 9.1), actual: true, listed_usd: 0, unreported: false });
+  server(owner, null, run({ status: "delivered", thread: [] }), { "GET /projects/50/idea": [200, top] });
+  renderApp("/b/1/videos/50");
+  const banner = await screen.findByRole("banner");
+  expect(await within(banner).findByText("next run about $9.10 (estimate)")).toBeInTheDocument();
+  expect(within(banner).queryByText(/this run about/)).toBeNull();
 });
