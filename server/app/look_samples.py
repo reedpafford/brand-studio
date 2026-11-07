@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import looks, p_video, prompts
+from app import looks, model_map, p_video, prompts
 from app.breakdown import video_model
 from app.clip_takes import KEYS, LONG_SIDE, RESOLUTION
 from app.credits import USD_PER_CREDIT, estimate
@@ -81,9 +81,11 @@ def still_input(db: Session, brand: Brand, look_id: str, character_id: int | Non
             "name": name or "the character"}  # fmt: skip
 
 
-def clip_input(look_id: str, brand_id: int, still_id: int, name: str) -> dict:
+def clip_input(look_id: str, brand_id: int, still_id: int, name: str, quote: bool = False) -> dict:
     """Silent: a sample shows the look, and made sound can be refused as a copyright
-    look-alike (Zack D's, 2026-10-29)."""
+    look-alike (Zack D's, 2026-10-29). Sent as its model reads it (Omni: its own resolution and
+    words, model_map.fit); `quote`: as the sample's price has always read it (prices frozen,
+    Reed, 6 Nov)."""
     style = prompts.style(look_id)["sections"].get("clip_style", "").strip()
     prompt = (f"{style}. [Image1] is the first frame: {name} turns to the camera and smiles, "
               "a slow push-in. No one speaks.")  # fmt: skip
@@ -92,13 +94,15 @@ def clip_input(look_id: str, brand_id: int, still_id: int, name: str) -> dict:
                                          "resolution": RESOLUTION, "aspect_ratio": ASPECT,
                                          "generate_audio": False},
                               {KEYS["image"]: [still_id]})  # fmt: skip
+    if not quote:
+        take, files = model_map.fit(model, take, files)
     return {
         "step": CLIP,
         "look_id": look_id,
         "brand_id": brand_id,
         "name": name,
         "model": model.id,
-        "fit_images_to": LONG_SIDE[RESOLUTION],
+        "fit_images_to": LONG_SIDE[take["resolution"]],
         "files": files,
         "input": take,
     }
@@ -107,7 +111,7 @@ def clip_input(look_id: str, brand_id: int, still_id: int, name: str) -> dict:
 def price(db: Session, ws: int, look_id: str = looks.DEFAULT) -> Decimal:
     """The still and the 5 s clip (made with the look's own video model), as one press."""
     still = image_job_input(image_model(), "", ASPECT)
-    clip = clip_input(look_id, 0, 0, "")
+    clip = clip_input(look_id, 0, 0, "", quote=True)
     return estimate(db, ws, "image", Decimal(1), still) + estimate(db, ws, "video", SECONDS, clip)
 
 
@@ -160,8 +164,8 @@ def _failed_clip(db: Session, ws: int, look_id: str) -> dict | None:
 
 def retry_price(db: Session, ws: int, look_id: str) -> Decimal:
     """Make a sample's price now: only the clip when its still is kept, else both."""
-    if again := _failed_clip(db, ws, look_id):
-        return estimate(db, ws, "video", SECONDS, again)
+    if _failed_clip(db, ws, look_id):
+        return estimate(db, ws, "video", SECONDS, clip_input(look_id, 0, 0, "", quote=True))
     return price(db, ws, look_id)
 
 
@@ -191,7 +195,8 @@ def _fits(db: Session, settings, credits: Decimal) -> bool:
         held = j.status in WAITING or j.status == JobStatus.succeeded
         if j.input["step"] == STILL and held and not (j.input.get("no_still")
                                                      or j.input.get("clip_refused")):  # fmt: skip
-            spent += estimate(db, 0, "video", SECONDS, clip_input(j.input["look_id"], 0, 0, ""))
+            quoted = clip_input(j.input["look_id"], 0, 0, "", quote=True)
+            spent += estimate(db, 0, "video", SECONDS, quoted)
     return (spent + credits) * USD_PER_CREDIT <= Decimal(str(settings.look_samples_budget_usd))
 
 
@@ -217,11 +222,11 @@ def make(db: Session, owner: User, look_id: str, brand: Brand, character_id: int
     if state(db, ws, look_id)[0] == "making":
         raise HTTPException(409, ALREADY)
     if again := _failed_clip(db, ws, look_id):
-        on = lane(db, settings, estimate(db, ws, "video", SECONDS, again))
+        on = lane(db, settings, retry_price(db, ws, look_id))
         enqueue(db, owner, "video", again, units=SECONDS, provider=on)
         return
     job = still_input(db, brand, look_id, character_id)
-    clip = estimate(db, ws, "video", SECONDS, clip_input(look_id, 0, 0, ""))
+    clip = estimate(db, ws, "video", SECONDS, clip_input(look_id, 0, 0, "", quote=True))
     on = lane(db, settings, estimate(db, ws, "image", Decimal(1), job) + clip)
     enqueue(db, owner, "image", job, provider=on, hold=clip)
 

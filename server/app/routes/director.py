@@ -263,7 +263,7 @@ def _out(db: Session, user: User, project) -> DirectorOut:
     rows = director.turns(db, project)
     last = rows[-1] if rows else None
     ended = director.ended(db, project)
-    delivered = bool(last) and last.input.get("result") == "Delivered."
+    delivered = director.delivered(rows)  # a cancelled duplicate after it isn't its end
     status = ("none" if not last else "running" if director.active(db, project)
               else "delivered" if delivered else "ended")  # fmt: skip
     turns = [TurnOut(turn=j.input[director.RUN]["turn"], tool=(j.output or {}).get("tool"),

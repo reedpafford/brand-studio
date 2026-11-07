@@ -732,6 +732,24 @@ def test_a_later_take_is_never_said_to_fix_an_old_watch_of_the_cut(app, db, owne
     assert two.watch == own  # what its own watch found and did stays
 
 
+def test_a_cancelled_duplicate_after_delivery_never_blocks_the_revision(app, db, owner, editor):
+    """Video 233: after a restart two turns were queued and the one left over was cancelled,
+    so it came last. The run still delivered: the API says so, and a note starts the revision
+    (never only "Saved. Press Start again with this note", a whole new paid run)."""
+    pid = _done(app, db, owner, editor)
+    project, url = db.get(Project, pid), f"/projects/{pid}/director"
+    last = director.turns(db, project)[-1]
+    db.add(Job(workspace_id=project.workspace_id, project_id=pid, kind="write-claude",
+               provider="claude", status=JobStatus.cancelled,
+               input={"step": director.STEP, director.RUN: last.input[director.RUN]}))  # fmt: skip
+    db.commit()
+    assert owner.get(url).json()["status"] == "delivered"
+    sent = owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    assert sent.status_code == 201, sent.text
+    assert (sent.json()["status"], sent.json()["unread"]) == ("running", 0)  # the revision
+    assert _progress(owner, pid)["status"] == "revising"
+
+
 def test_before_any_clip_the_card_says_the_step_the_run_is_on():
     """MAIN's run, video 233: "Planning" stood for 45 minutes through the cast and the stills."""
 

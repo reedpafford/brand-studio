@@ -55,6 +55,9 @@ class ReplicateProvider:
     def submit(self, kind: str, input: dict) -> str:
         """`input` is {"model": <catalogue id>, "input": {...Replicate input...}}."""
         model = _model(input)
+        if not model.provider_version:  # an official model runs on its model's own endpoint
+            path = f"/models/{model.provider_model}/predictions"
+            return self._call("POST", path, json={"input": input["input"]})["id"]
         body = {"version": model.provider_version, "input": input["input"]}
         return self._call("POST", "/predictions", json=body)["id"]
 
@@ -129,8 +132,11 @@ def _model(input: dict) -> CatalogueModel:
 def _model_id_from_version(prediction: dict) -> str:
     from app.catalogue import catalogue
 
-    version = prediction.get("version")
-    return next((m.id for m in catalogue().values() if m.provider_version == version), "")
+    version, name = prediction.get("version"), prediction.get("model")
+    for m in catalogue().values():  # an official model's prediction names its model, no version
+        if (m.provider_version or m.provider_model) == (version if m.provider_version else name):
+            return m.id
+    return ""
 
 
 def _is_url(value) -> bool:
@@ -156,9 +162,8 @@ def _usage(model: CatalogueModel, prediction: dict, file_count: int) -> UsageIte
         units, estimated = Decimal(len(said)) / 1000, False
     elif unit == "second":
         seconds = int(request.get("duration", 0))
-        # "-1" lets the model choose; without a reported length assume the longest, or the
-        # length a model with no duration input always makes (Omni: fixed_seconds).
-        longest = model.duration.max if model.duration else model.fixed_seconds
+        # "-1" lets the model choose; without a reported length assume the longest
+        longest = model.duration.max if model.duration else 0
         units = Decimal(seconds if seconds > 0 else longest)
     else:
         units = Decimal(1)

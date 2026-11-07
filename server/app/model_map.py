@@ -1,18 +1,24 @@
-"""Reed's model map (4 Nov): which model makes what, and what each needs sent. A presenter talker
-is HeyGen Avatar IV from a still with our MiniMax voice; every other shot, a talker acting in
-the story included, is the style's Seedance (2.0 or 2.5, or 1 Lite where enough), silent, with
-sound effects added where they help; Omni (Gemini Omni 1.1) only for a talker's shot that needs
-what Seedance can't give (`needs`), the reason shown, never B-roll, and the talker never speaks
-on it: a narrated video keeps its narration throughout (Reed, 5 Nov). The director picks a
-clip's model from the guide and says why (`choose`); the Clips tab shows each clip's model and
-why (`why`). Photoreal Seedance B-roll (rule 10's exception, Reed, 4 Nov) describes the person
-from their approved character description, in the same words in every prompt
-(clip_takes._in_words), instead of attaching their photo or an opening still with them in it;
-products and screens stay attached. Why: in th-20s (.context/tests/th-20s/REPORT.md) every
-Seedance 2.0 take sent a photoreal teenager's photo was refused ("sensitive", E005) and 1 Lite
-refused it as invalid input (E006), not charged. That test doesn't show every photoreal
-reference is refused, and words don't guarantee the person looks the same in every shot. HeyGen,
+"""Reed's model map (4 Nov, changed 6 Nov): which model makes what, and what each needs sent.
+Each style has its own video model (Reed, 6 Nov: "keep seedance for the animated and
+expression-full ones for now. Omni is more for the realistic stuff"; "1.2 replaces 1.1"): Seedance
+2.5 for House and Disney Pixar (and songs), Seedance 2.0 for Skeleton, Claymation, Zack D and Dr.
+Pickle, and Gemini Omni 1.2 for the realistic one, UGC. In UGC, how the presenter appears
+(host.how) decides the talker: one who stays in one spot the whole time (talks, or in a corner) is
+one HeyGen Avatar IV take from a still, lip-synced to our own voice track (a talker's is the
+MiniMax voice), and Omni 1.2 makes only the B-roll around them; one who moves around in the story
+(acts) has no take of their own, so their shots are made on Omni 1.2 like the B-roll. Every UGC
+clip that isn't the HeyGen talker stays on Omni 1.2 (`choose`). Omni always makes its own sound and
+takes no audio: in a shot where no one speaks its prompt says so, and a narrated video keeps its
+narration throughout (Reed, 5 Nov). The Clips tab shows each clip's model and why (`why`).
+Photoreal Seedance B-roll (rule 10's exception, Reed, 4 Nov; now only when a UGC video's model
+is switched to Seedance) describes the person from their approved character description, in the
+same words in every prompt (clip_takes._in_words), instead of attaching their photo or an opening
+still with them in it; products and screens stay attached. Why: in th-20s
+(.context/tests/th-20s/REPORT.md) every Seedance 2.0 take sent a photoreal teenager's photo was
+refused ("sensitive", E005) and 1 Lite refused it as invalid input (E006), not charged. HeyGen,
 Omni and stylised characters keep their references."""
+
+import re
 
 from app import looks
 
@@ -30,36 +36,41 @@ def unsent(look: str | None, model_id: str, shots: list[dict]) -> tuple[str, ...
 
 # --- The model each clip is made with, and why (v6 F: the Clips tab's "Model" and "Why") -------
 
-OMNI = "gemini-omni-1.1"
-TALKER_RESOLUTION = "720p"  # Omni's talker shots: as real as HeyGen's 720p talker (batch-b)
-ONLY_TALKER = ("Refused: Omni makes only a shot of the talker that needs it; never B-roll "
-               "(Reed's model map).")  # fmt: skip
-# What Omni can do that the style's Seedance can't, in a silent shot (Reed, 5 Nov: "Reserve Omni
-# for shots that specifically need its capabilities, with the reason shown"): keep a photoreal
-# person's face from their picture, which Seedance refuses (th-20s: E005/E006)
-LIKENESS = "likeness"
-NOT_NEEDED = ("Refused: the style's Seedance makes this shot (Seedance 1 Lite where it's "
-              "enough). Omni is only for a shot that needs what Seedance can't give: in a "
-              "photoreal style, the talker's face kept from their picture. Appearing or moving "
-              "in a shot isn't a reason by itself.")  # fmt: skip
-NO_REASON = ("Refused: say in `why` what this shot needs from Omni that Seedance can't give; "
-             "it's shown on the clip.")  # fmt: skip
-NO_TALKER = "Refused: this video has no talker, so Omni has nothing to make here."
-SAYS_IT = ("Refused: this clip is the talker saying the narration to the lens, cut from their "
-           "HeyGen take in our own voice. Omni makes the talker's shots where they act in the "
-           "story without speaking: the narration runs throughout.")  # fmt: skip
+OMNI = "gemini-omni-1.2"
 NOT_VIDEO = "Refused: there's no video model called {}."
-UNAPPROVED = ("Refused: Omni makes only shots of the approved plan that need it; approve "
-              "the plan first.")  # fmt: skip
 WHOLE_TAKE = "Refused: HeyGen makes the talker's one take, not a clip. Use make_take for B-roll."
+SAYS_IT = (
+    "Refused: this clip is the talker saying the narration to the lens in one spot, cut "
+    "from their one HeyGen take in our own voice (Reed, 6 Nov): it stays on HeyGen."
+)
+REAL = ("Refused: in UGC every clip that isn't the HeyGen talker is made on Omni 1.2, the B-roll "
+        "and a talker who moves around in the story (Reed, 6 Nov: \"Omni is more for the "
+        "realistic stuff\").")  # fmt: skip
+NO_REASON = ("Refused: say in `why` what this shot needs from Omni 1.2; it's shown on the clip "
+             "(Reed, 6 Nov: \"with its reason shown\").")  # fmt: skip
+WHOLE = ("Refused: {style}'s videos are made on {model} (Reed, 6 Nov: \"keep seedance for the "
+         "animated and expression-full ones for now. Omni is more for the realistic stuff\"). "
+         "Switch the whole video only when a person asks in the chat (name their "
+         "note).")  # fmt: skip
 PERSONS = "Refused: {who} chose {model} for this video's clips themselves; their choice stays."
 SUNG = "Refused: this clip's shots are sung, so it needs a model that lip-syncs to the song."
 SHAPE = "Refused: {model} makes {shapes} videos only; this one is {shape}."
 LONG = "Refused: this clip is {seconds} s and {model} makes about {most} s at most."
-SILENT = (
-    "Sound: the talker doesn't speak in this shot; no one talks, only the sounds of the place. "
-    "No music."
-)  # a narrated video keeps its narration throughout (Reed, 5 Nov); its ambient sound stays
+# Omni's prompt words (docs/prompting/omni-1.2.md): no sound switch, so one short sound line
+# in place of Seedance's (§5); references named by order (§2, §6), the opening still a guide,
+# never "the first frame" (row 3); one shot asked for in words, as it cuts by default (§3)
+SILENT = ("Sound: no one speaks in this shot (no voices, narration or dialogue), only {room}. "
+          "No music.")  # fmt: skip
+SPOKEN = "Sound: only the spoken lines, each from the person who says it, and {room}. No music."
+PLACE = "the sounds of the place"
+ONE_SHOT = "One continuous shot, no scene cuts."
+AUDIO = re.compile(r"^Audio:.*(?:\n|$)", re.M)  # Seedance's audio line, first and last
+ROOM = re.compile(r"\bonly (?:the spoken lines and )?(.+?)\. No music", re.I)
+FIRST = re.compile(r"\[Image(\d+)\] is the first frame\b")
+IMAGE = re.compile(r"\[Image(\d+)\]")
+SHOT = re.compile(r"^Shot \d+ \|", re.M)
+ORDINAL = ("first", "second", "third", "fourth", "fifth", "sixth")
+PEOPLE = 2  # Omni: 2 people a clip, 3 pictures each (§6); each sends one sheet
 
 
 def _model(model_id: str):
@@ -70,7 +81,7 @@ def _model(model_id: str):
 
 def of_clip(project, clip):
     """The clip's model: its own (the director's choice, with its reason) when it has one,
-    else the video's (its style's Seedance). Nothing defaults to Omni (Reed, 5 Nov)."""
+    else the video's (its style's: Omni 1.2 in UGC, Seedance in the animated styles)."""
     from app.breakdown import video_model
 
     own = _model((clip.model or {}).get("id", "")) if clip is not None else None
@@ -83,31 +94,8 @@ def own_name(clip) -> str | None:
     return own.name if own else None
 
 
-def seconds(model, clip_seconds: int) -> int:
-    """What a take is billed for: a model with no duration input makes its fixed length."""
-    return max(model.fixed_seconds, clip_seconds) if model.fixed_seconds else clip_seconds
-
-
 def resolution(model) -> str:
-    return TALKER_RESOLUTION if model.talker_only else model.take_resolution
-
-
-def _shots(db, clip) -> list[dict]:
-    from app.models.breakdowns import BreakdownVersion
-
-    data = (bd.data if (bd := db.get(BreakdownVersion, clip.breakdown_id or 0)) else {}) or {}
-    ids = next((c["shot_ids"] for c in data.get("clips", []) if c["id"] == clip.clip_id), [])
-    by_id = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
-    return [by_id[i] for i in ids if i in by_id]
-
-
-def shows_talker(db, project, clip) -> bool:
-    """The clip's shots show the video's talker (its host's cast look)."""
-    from app import host
-
-    item = host.host_look(db, project) if host.presents(db, project) else None
-    return bool(item) and any(f"char:{item.id}" in (s.get("character_ids") or [])
-                              for s in _shots(db, clip))  # fmt: skip
+    return model.take_resolution
 
 
 def why(db, project, clip) -> dict:
@@ -121,8 +109,8 @@ def why(db, project, clip) -> dict:
         return {"id": found.id, "name": found.name, "by": "map",
                 "why": "The talker saying the narration: cut from their one HeyGen take, "
                        "lip-synced to the video's own voice."}  # fmt: skip
-    if own := clip.model:
-        found = _model(own["id"])
+    own = clip.model or {}
+    if found := _model(own.get("id", "")):  # one since taken out of the catalogue: the video's
         return {"id": found.id, "name": found.name, "why": own.get("why", ""), "by": own["by"]}
     found = video_model(project)
     picked = project.video_model == found.id
@@ -138,15 +126,15 @@ def why(db, project, clip) -> dict:
     else:
         said = f"{style}'s default for its clips."
     if not found.lip_sync and video_kind(db, project) == "narrated":
-        said += " Silent: B-roll gets sound effects only where they help."
+        said += (" No one speaks on it: the place's own sound under the narration."
+                 if found.audio == "always" else
+                 " Silent: B-roll gets sound effects only where they help.")  # fmt: skip
     return {"id": found.id, "name": found.name, "why": said, "by": by if picked else "map"}
 
 
 def state(db, project, clip) -> dict:
-    """What the director reads of a clip's model: its name, and whether the talker is in it
-    (the only clips Omni may make)."""
-    out = {"model": why(db, project, clip)["name"]}
-    return {**out, "shows_talker": True} if shows_talker(db, project, clip) else out
+    """What the director reads of a clip's model: its name."""
+    return {"model": why(db, project, clip)["name"]}
 
 
 def _persons(db, project) -> str:
@@ -158,57 +146,24 @@ def _persons(db, project) -> str:
     return (user_name(db, found.get("by_id")) or "A person") if found else ""
 
 
-def needs(project) -> str | None:
-    """What Omni would give this video's talker shots that its Seedance can't, or None: in a
-    photoreal style, the talker's face kept from their picture (Seedance refuses it)."""
-    return LIKENESS if looks.base(looks.drawn(project)) in PHOTOREAL else None
+def off_map(project, model_id: str | None) -> str:
+    """The refusal when the director would switch a whole video against Reed's map (UGC off
+    Omni 1.2, or an animated style onto it) without a person asking; "" when it fits. Auto
+    (None) is the style's own model."""
+    from app import guides
 
-
-def expected(db, project, clip) -> bool:
-    """The quote prices this clip on Omni (rule 36: never below what it can charge): it has no
-    model of its own yet, the presenter acts in the story in a photoreal style and the shot
-    shows them, so the director's path for it is Omni. Its model stays the video's until the
-    director chooses (`choose`): nothing defaults to Omni."""
-    from app import host
-
-    return (not (clip.model or {}).get("id") and host.how(project) == "acts"
-            and clip.seconds <= _model(OMNI).fixed_seconds  # longer: Omni can't make it
-            and needs(project) == LIKENESS and shows_talker(db, project, clip))  # fmt: skip
-
-
-def on_omni(db, project, data: dict) -> set[str]:
-    """The plan's clips the quote prices on Omni before their rows exist (`expected`)."""
-    from app import host
-
-    if host.how(project) != "acts" or needs(project) != LIKENESS or not host.presents(db, project):
-        return set()
-    item = host.host_look(db, project)
-    if item is None:
-        return set()
-    shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
-    most = _model(OMNI).fixed_seconds  # a longer clip can't be made on Omni
-    return {c["id"] for c in data.get("clips", []) if c.get("seconds", 0) <= most
-            and any(f"char:{item.id}" in (shots.get(i, {}).get("character_ids") or [])
-                    for i in c["shot_ids"])}  # fmt: skip
-
-
-def omni_take(db, project, clip_seconds: int):
-    """One Omni take, as `take_credits` would price it (its fixed length, 720p)."""
-    from decimal import Decimal
-
-    from app.credits import estimate
-
-    omni = _model(OMNI)
-    job = {"model": omni.id, "input": {"resolution": resolution(omni)}}
-    return estimate(db, project.workspace_id, "video", Decimal(seconds(omni, clip_seconds)), job)
+    real = looks.base(looks.drawn(project)) in PHOTOREAL
+    if model_id is None or (model_id == OMNI) == real:
+        return ""
+    style = guides.style(looks.drawn(project))["name"]
+    return WHOLE.format(style=style, model="Omni 1.2" if real else "Seedance")
 
 
 def choose(db, project, clip, model_id: str | None, reason: str) -> str:
     """The director's model for one clip (null: back to the video's), checked against the
-    model map, with its new price said first. It never changes the video's own model. Omni only
-    for a talker's shot that needs what Seedance can't give (`needs`), the reason given and
-    shown; on it the talker acts without speaking: a narrated video keeps its narration
-    throughout (Reed, 5 Nov)."""
+    model map, with its new price said first and its reason shown. It never changes the video's
+    own model. A talker in one spot stays on HeyGen and the rest of UGC on Omni 1.2 (Reed,
+    6 Nov); in an animated style Omni may make a realistic shot."""
     from app import talker
     from app.clip_takes import take_credits
 
@@ -222,29 +177,20 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
         return NOT_VIDEO.format(model_id)
     if found.id == talker.MODEL:
         return WHOLE_TAKE
-    if found.talker_only:
-        from app import host, plans
-
-        if not host.presents(db, project):
-            return NO_TALKER
-        if plans.status(db, project) != "approved":  # Reed: approved acting shots only
-            return UNAPPROVED
-        if talker.says(db, project, clip):
-            return SAYS_IT
-        if not shows_talker(db, project, clip):
-            return ONLY_TALKER
-        if needs(project) != LIKENESS:
-            return NOT_NEEDED
-        if not reason.strip():
-            return NO_REASON
-    elif who := _persons(db, project):
+    if talker.says(db, project, clip):
+        return SAYS_IT
+    if who := _persons(db, project):
         return PERSONS.format(who=who, model=_model(project.video_model).name)
+    if found.id != OMNI and looks.base(looks.drawn(project)) in PHOTOREAL:
+        return REAL
+    if found.id == OMNI and not reason.strip():
+        return NO_REASON
     if (clip.song_slice or {}).get("sung_shots") and not found.lip_sync:
         return SUNG
     if project.aspect_ratio not in found.aspect_ratios:
         return SHAPE.format(model=found.name, shapes=" or ".join(found.aspect_ratios),
                             shape=project.aspect_ratio)  # fmt: skip
-    most = found.fixed_seconds or found.duration.max
+    most = found.duration.max
     if clip.seconds > most:
         return LONG.format(seconds=clip.seconds, model=found.name, most=most)
     then = take_credits(db, project, clip)  # a take's whole price, its check included
@@ -257,13 +203,48 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
 
 
 def fit(model, input: dict, files: dict) -> tuple[dict, dict]:
-    """A take's input as a talker-only model reads it (Omni: prompt, resolution, shape and its
-    reference pictures; no duration, no sound switch, its own sound always). A narrated video
-    keeps its narration throughout, so on Omni the talker acts without speaking and its own
-    sound (the place, the action) stays under the voice (Reed, 5 Nov)."""
-    if not model.talker_only:
+    """A take's input as Omni reads it (docs/prompting/omni-1.2.md): prompt, duration (3–15 s),
+    resolution, shape and up to 6 reference pictures. Seedance's audio lines become one short
+    sound line (no one speaking says so, as there's no sound switch: a narrated video keeps its
+    narration throughout, Reed, 5 Nov); references are named in words by their order, the
+    opening still as a guide, never a literal first frame; a one-shot clip asks for one
+    continuous shot. Extra people are said in words before this (`unsent`)."""
+    if model.id != OMNI:
         return input, files
-    shaped = {"prompt": f"{input['prompt']}\n{SILENT}", "resolution": resolution(model),
-              "aspect_ratio": input["aspect_ratio"]}  # fmt: skip
     pictures = files.get("reference_images", [])[: model.max_reference_images]
+    asked = input["prompt"]
+    audio = AUDIO.search(asked)
+    room = (m.group(1) if audio and (m := ROOM.search(audio.group(0))) else PLACE).strip()
+    body = AUDIO.sub("", asked).strip()
+    prompt = FIRST.sub(lambda m: _guide(m, body, len(pictures)), body)
+    prompt = IMAGE.sub(lambda m: _picture(int(m.group(1)), len(pictures)), prompt)
+    if len(SHOT.findall(prompt)) <= 1:
+        prompt += f"\n{ONE_SHOT}"
+    if not input.get("generate_audio"):
+        prompt += "\n" + SILENT.format(room=room)
+    elif audio:
+        prompt += "\n" + SPOKEN.format(room=room)
+    shaped = {"prompt": prompt, "duration": max(model.duration.min, min(input["duration"],
+              model.duration.max)), "resolution": resolution(model),
+              "aspect_ratio": input["aspect_ratio"]}  # fmt: skip
     return shaped, {"reference_images": pictures} if pictures else {}
+
+
+def unsent_people(model_id: str, images: list[str]) -> tuple[str, ...]:
+    """On Omni, the characters past its first two people (each has one sheet, within its 3 a
+    person): left out of the pictures and described in words instead (clip_takes._in_words)."""
+    people = [i for i in images if i.startswith("char:")]
+    return tuple(people[PEOPLE:]) if model_id == OMNI else ()
+
+
+def _guide(m: re.Match, prompt: str, sent: int) -> str:
+    """`[Image1] is the first frame` → "The first reference picture guides the opening"."""
+    picture = _picture(int(m.group(1)), sent)
+    said = f"{picture} guides the opening picture (not an exact first frame)"
+    before = prompt[: m.start()].rstrip(" ")
+    return said[0].upper() + said[1:] if not before or before.endswith((".", "\n")) else said
+
+
+def _picture(n: int, sent: int) -> str:
+    """[Image2] → "the second reference picture" (one past the six sent: "a picture")."""
+    return f"the {ORDINAL[n - 1]} reference picture" if 0 < n <= min(sent, 6) else "a picture"

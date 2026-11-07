@@ -11626,7 +11626,7 @@ export interface components {
             seconds: number;
             /**
              * Character Ids
-             * @description Cast ids on screen in this shot.
+             * @description Cast ids on screen in this shot. Someone the script names on screen who has no id (they never speak, say): 'person:<Name>', as the script names them, never another's id.
              */
             character_ids: string[];
             /**

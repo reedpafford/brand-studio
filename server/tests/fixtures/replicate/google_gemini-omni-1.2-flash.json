@@ -1,0 +1,26 @@
+{
+  "model": "google/gemini-omni-1.2-flash",
+  "version": "",
+  "fetched": "2026-11-06",
+  "source": "Written from the model page's README (replicate.com/google/gemini-omni-1.2-flash, 6 Nov): its API schema shows only when signed in. Replace with GET api.replicate.com/v1/models/google/gemini-omni-1.2-flash. An official model: run on /v1/models/google/gemini-omni-1.2-flash/predictions, no version.",
+  "enums": {
+    "resolution": {"enum": ["360p", "720p", "1080p", "4k"], "type": "string", "title": "resolution"},
+    "aspect_ratio": {"enum": ["16:9", "9:16"], "type": "string", "title": "aspect_ratio"}
+  },
+  "pricing": "$0.11 a second at 720p (the model page, read by Reed 6 Nov).",
+  "Input": {
+    "type": "object",
+    "title": "Input",
+    "required": ["prompt"],
+    "properties": {
+      "prompt": {"type": "string", "description": "Text prompt. The duration input wins over any length written in the prompt."},
+      "duration": {"type": "integer", "minimum": 3, "maximum": 15, "description": "Clip length in seconds, 3 to 15, to the second."},
+      "resolution": {"allOf": [{"$ref": "#/components/schemas/resolution"}], "default": "720p", "description": "360p for fast drafts; 1080p and 4k are upscaled."},
+      "aspect_ratio": {"allOf": [{"$ref": "#/components/schemas/aspect_ratio"}], "description": "16:9 or 9:16, 24 fps."},
+      "image": {"type": "string", "format": "uri", "description": "Starting image to animate; the first frame with last_frame."},
+      "last_frame": {"type": "string", "format": "uri", "description": "With image, the model fills in the motion between them (up to 10 s)."},
+      "reference_images": {"type": "array", "items": {"type": "string", "format": "uri"}, "description": "Pass up to 6 reference images of a character, product or style; they keep the subject consistent, not literal frames. Can't be combined with image or last_frame."},
+      "video": {"type": "string", "format": "uri", "description": "Edit an existing video of up to 15 seconds. Can't be combined with any image input."}
+    }
+  }
+}
