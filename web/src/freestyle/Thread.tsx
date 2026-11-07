@@ -7,7 +7,7 @@ import type { Tone } from "../components";
 import { plain } from "../videos/director";
 import { serverTime } from "../time";
 import { STATUS, type Freestyle } from "./useFreestyle";
-import { TreatmentCard, treatmentOf } from "../videos/Treatment";
+import { TreatmentCard, treatmentOf, type Treatment } from "../videos/Treatment";
 
 const DOT: Record<Tone, string> = { warning: "bg-warning", accent: "bg-accent", success: "bg-success", danger: "bg-danger", neutral: "bg-faint", media: "bg-faint" };
 
@@ -60,12 +60,25 @@ function Excerpt({ text }: { text: string }) {
   );
 }
 
+/** A treatment a later one replaced (a person's note changed it, H20): folded to its line, so the current one leads; it
+ *  opens in place. */
+function EarlierTreatment({ t, changed }: { t: Treatment; changed: boolean }) {
+  const [open, setOpen] = useState(false);
+  return open ? (
+    <TreatmentCard t={t} changed={changed} />
+  ) : (
+    <button type="button" aria-expanded={false} onClick={() => setOpen(true)} className="text-left text-sm text-muted hover:text-text max-lg:min-h-control">
+      Earlier treatment · <span className="underline-offset-2 hover:underline">Show</span>
+    </button>
+  );
+}
+
 /** One line of a conversation with the director (S3): an avatar, who and when, then the words; a person's in a bubble. A
  *  person's note says whether a move has answered it; a move gives its reason under it in muted words, one under way
  *  shows the typing dots, and a held move links the owner to Needs you (an editor reads that it waits) unless `children`
  *  (a price card) under it say so. `first`: what the first message carries in place of its words (a saved script);
  *  `excerpt`: it's the first message, so a pasted script shows as its first lines. */
-export function Item({ t, words, why, owner, children, first, excerpt, ref }: { t: Said; words: ReactNode; why?: string; owner?: boolean; children?: ReactNode; first?: ReactNode; excerpt?: boolean; ref?: Ref<HTMLLIElement> }) {
+export function Item({ t, words, why, owner, children, first, excerpt, earlier, ref }: { t: Said; words: ReactNode; why?: string; owner?: boolean; children?: ReactNode; first?: ReactNode; excerpt?: boolean; earlier?: boolean; ref?: Ref<HTMLLIElement> }) {
   const director = t.kind === "move" || t.kind === "ask"; // a card is the director asking
   const story = director ? treatmentOf(t) : null; // the treatment: a card in place of its plain lines (#1192)
   const going = director && (t.status === "running" || t.status === "queued");
@@ -90,7 +103,9 @@ export function Item({ t, words, why, owner, children, first, excerpt, ref }: { 
         </p>
         {director ? (
           <div className="min-w-0 space-y-1 empty:hidden">
-            {story ? (
+            {story && earlier ? (
+              <EarlierTreatment t={story} changed={t.text.startsWith("Changed the treatment")} />
+            ) : story ? (
               <TreatmentCard t={story} changed={t.text.startsWith("Changed the treatment")} />
             ) : going && words != null ? (
               <p className="flex items-center gap-2 text-sm text-muted">

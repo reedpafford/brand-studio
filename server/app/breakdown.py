@@ -461,13 +461,31 @@ def _hero_in_montage(db: Session, project: Project, bd: Breakdown, added: dict) 
             added.setdefault(shot.id, []).append(_name(known, lead))
 
 
+class _Changes(Exception):
+    """complete_cast's first, unlocked look found something to change."""
+
+
 def complete_cast(db: Session, project: Project) -> list[str]:
     """Every speaker in the video's script is a role, and every role is in its shots
     (`show_roles`), so Assets makes and asks for their looks and frames and clips get their
     sheets; a role that is a locked or cast one by another name is merged into it on this video
     (with Undo). A screen shot that gains a person has "Use the real image" turned off (it was
     only offered as a shot with nobody in it). Free and idempotent: when Assets, Storyboard or
-    Clips opens. One plain line per change."""
+    Clips opens. One plain line per change. It looks first without the video's lock, in a
+    savepoint it takes back (video 245: every Cast, Clips and Storyboard read waited on the
+    lock while a turn held it, 16 s and more); only a change is made under the lock, looked at
+    again there."""
+    try:
+        with db.begin_nested():
+            if not _complete_cast(db, project, locked=False):
+                return []  # the usual read: nothing to change, no lock taken
+            raise _Changes  # its writes are taken back with the savepoint
+    except _Changes:
+        pass
+    return _complete_cast(db, project, locked=True)
+
+
+def _complete_cast(db: Session, project: Project, locked: bool) -> list[str]:
     from app import merge_roles
     from app.cast_roles import merge_shots, short
     from app.credits import lock
@@ -479,8 +497,9 @@ def complete_cast(db: Session, project: Project) -> list[str]:
     script = db.get(Script, draft.script_id) if draft else None
     if script is None:
         return []
-    lock(db, Project, project.id)  # one at a time per video (QA-2: Assets' parallel requests
-    db.refresh(project)  # each merged Girl again); the next one sees what this one did
+    if locked:  # one at a time per video (QA-2: Assets' parallel requests each merged Girl
+        lock(db, Project, project.id)  # again); the next one sees what this one did
+    db.refresh(project)
     out, kept = [], set()
     records = select(CastMerge).where(CastMerge.project_id == project.id).order_by(CastMerge.id)
     for record in db.scalars(records):  # duplicates from before the lock: one note, one Undo

@@ -9,6 +9,7 @@ import { useMe } from "../auth/useMe";
 import { Banner, Button, Dialog, Skeleton } from "../components";
 import { mmss } from "../freestyle/FromScript";
 import { Item, type Said } from "../freestyle/Thread";
+import { treatmentOf } from "./Treatment";
 import { ReelBlock } from "../scripts/ReelImport";
 import { useFreestyle, useFreestyleActions, type Freestyle } from "../freestyle/useFreestyle";
 import { refreshJobs } from "../jobs/refresh";
@@ -334,6 +335,8 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
     items.splice(next < 0 ? items.length : next, 0, card);
   }
   const seen = useSeen(id);
+  // A treatment a note replaced folds to its line, so the current one leads (H20).
+  const story = [...items].reverse().find((t) => treatmentOf(t))?.id;
   // The newest note opens in full; once a later run starts (a revision), it folds to its line too (S3-12).
   const lastIndex = items.map((t) => !!t.note).lastIndexOf(true);
   const lastNote = lastIndex >= 0 && !items.slice(lastIndex + 1).some((t) => t.run) ? items[lastIndex].id : undefined;
@@ -608,7 +611,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
                 {t.id === lastNote ? <DeliveryNote note={t.note} changes={unwatched.length} onWatch={p ? watch : undefined} /> : <PastNote note={t.note} />}
               </Item>
             ) : (
-              <Item key={t.id} t={t} owner={owner} words={plain(t.text, clips) || "Deciding what to do next."} why={plain(t.why ?? "", clips)}>
+              <Item key={t.id} t={t} owner={owner} words={plain(t.text, clips) || "Deciding what to do next."} why={plain(t.why ?? "", clips)} earlier={!!treatmentOf(t) && t.id !== story}>
                 {heldSend(t)}
               </Item>
             ),
