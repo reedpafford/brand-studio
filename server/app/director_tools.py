@@ -284,7 +284,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             return _split(db, project, decision.get("clip_id") or "", me)
         if tool == "edit_cut":  # free: the cut editor's own edit, marked as the director's
             try:
-                return _edit_cut(db, project, decision.get("edit") or {}, request, me, run)
+                return _edit_cut(db, project, decision.get("edit") or {}, request, me, run,
+                                 decision.get("why") or "")  # fmt: skip
             except HTTPException:
                 raise
             except Exception:  # never leave the turn without a result (the run would hang)
@@ -315,18 +316,63 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
 
 def _edit_cut(db: Session, project: Project, move: dict, request, me: dict,
-              run: dict | None) -> str:  # fmt: skip
+              run: dict | None, why: str = "") -> str:  # fmt: skip
     """One edit through the cut editor's route (its dot and its own Undo on the page); the
-    turn keeps its id (`run["edit_id"]`) so the chat shows Undo beside it."""
-    from pydantic import ValidationError
-
-    from app.routes import cut
+    turn keeps its id (`run["edit_id"]`) so the chat shows Undo beside it. A person's own
+    music choice stays theirs unless the move answers a person's note (`cut_edits`)."""
+    from app import cut_edits
+    from app.models.clips import CutEdit
 
     run = run if run is not None else {}
+    theirs = (
+        db.get(CutEdit, int(move["edit_id"]))
+        if move.get("kind") == "undo" and move.get("edit_id") is not None
+        else cut_edits._persons_music(db, project)
+    )
+    noted = _asked_since(db, project, run.get("id"), why, theirs)
+    marked = cut_edits.PERSON_ASKED.set(noted)
+    try:
+        return _edit_cut_now(db, project, move, request, me, run, noted)
+    finally:
+        cut_edits.PERSON_ASKED.reset(marked)
+
+
+def _asked_since(db: Session, project: Project, run_id: str | None, why: str, edit) -> bool:
+    """The move answers a person's note ("Note 2: quieter music") that's still open and was
+    written after `edit`, the person's own music choice it would change (QA on #1415: the
+    run's older "Make the hook punchier" never unlocks a removal made since)."""
+    from datetime import datetime
+
+    from app.director import NOTE, answered
+
+    if not run_id:
+        return False
+    notes = [m for m in project.director_chat or [] if m.get("run") == run_id]  # Note 1, 2, …
+    done, since = answered(db, run_id, project.id), edit.created_at if edit is not None else None
+
+    def after(m: dict) -> bool:
+        at = datetime.fromisoformat(m["at"]).replace(tzinfo=None) if m.get("at") else None
+        return since is None or (at is not None and at > since)
+
+    return any(1 <= (n := int(x)) <= len(notes) and n not in done and after(notes[n - 1])
+               for x in NOTE.findall(why))  # fmt: skip
+
+
+def _edit_cut_now(db: Session, project: Project, move: dict, request, me: dict, run: dict,
+                  noted: bool) -> str:  # fmt: skip
+    from pydantic import ValidationError
+
+    from app.cut_edits import PERSONS_MUSIC
+    from app.models.clips import CutEdit
+    from app.routes import cut
+
     run.pop("edit_id", None)
     if move.get("kind") == "undo":
         if move.get("edit_id") is None:
             return "Refused: name the edit to undo (its id in timeline.edits)."
+        theirs = db.get(CutEdit, int(move["edit_id"]))
+        if theirs and theirs.kind == "music" and not theirs.director and not noted:
+            return f"Refused: {PERSONS_MUSIC.format(theirs.said)}"  # undoing it is a change
         out = cut.undo_one(edit_id=int(move["edit_id"]), request=request, **me)
         said = next((e.said for e in out.edits if e.id == move["edit_id"]), "the edit")
         return f"Undid: {said}."

@@ -1238,7 +1238,7 @@ SET_ASIDE = ("Refused: take {} of {} was made before the plan was started again,
              "aside. Make a new take of it.")  # fmt: skip
 
 
-def _shown(result: str | None) -> str | None:
+def _listed(result: str | None) -> str | None:
     """A move's result as <last_actions> shows it: one held for Make it is still to make."""
     return NOT_MADE if result == START_FIRST else result
 
@@ -1250,7 +1250,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
 
     system, brief = project_context(db, project, STEP)
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
-             "result": RETRIED_SAID if j.input.get(RETRIED) else _shown(j.input.get("result"))}
+             "result": RETRIED_SAID if j.input.get(RETRIED) else _listed(j.input.get("result"))}
             for j in turns(db, project)
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
