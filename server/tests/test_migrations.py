@@ -397,3 +397,28 @@ def test_n42_numbers_each_videos_cuts_in_the_order_they_were_made(tmp_path):
         cols = {c[1] for c in conn.execute(text("PRAGMA table_info(final_videos)")).all()}
         tables = set(sa_inspect(conn).get_table_names())
     assert not {"number", "edit_ids", "timeline"} & cols and "cut_edits" not in tables
+
+
+def test_n43_moves_omni_1_1_clips_takes_and_videos_to_1_2(tmp_path):
+    """Omni 1.2 replaces 1.1 (Reed, 6 Nov): stored 1.1 ids become 1.2; others stay."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n42")
+    engine = create_engine(url)
+    old, lite = {"id": "gemini-omni-1.1", "why": "x", "by": "director"}, {"id": "seedance-1-lite"}
+    with engine.begin() as conn:
+        _row(conn, "projects", id=1, video_model="gemini-omni-1.1")
+        _row(conn, "projects", id=2, video_model="seedance-2.0")
+        _row(conn, "project_clips", id=1, project_id=1, model=old)
+        _row(conn, "project_clips", id=2, project_id=2, model=lite)
+        _row(conn, "clip_takes", id=1, clip_id=1, made_with={"model": "gemini-omni-1.1", "k": 1})
+    command.upgrade(cfg, "n43")
+    with engine.connect() as conn:
+        videos = conn.execute(text("SELECT video_model FROM projects ORDER BY id")).scalars().all()
+        clips = conn.execute(text("SELECT model FROM project_clips ORDER BY id")).scalars().all()
+        made = conn.execute(text("SELECT made_with FROM clip_takes")).scalar()
+    assert videos == ["gemini-omni-1.2", "seedance-2.0"]
+    assert [json.loads(c)["id"] for c in clips] == ["gemini-omni-1.2", "seedance-1-lite"]
+    assert json.loads(clips[0])["why"] == "x"
+    assert json.loads(made) == {"model": "gemini-omni-1.2", "k": 1}

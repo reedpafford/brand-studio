@@ -11,6 +11,7 @@ import re
 from types import SimpleNamespace
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -120,8 +121,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             from app.director import against_notes, chat
 
             held, asked = 0, watch_cut.redo_findings(db, project, run)  # what the cut's watch found
+            rewritten, asked_note = [], (decision.get("note") or "").strip()
             notes = list(enumerate((m["text"] for m in chat(project, (run or {}).get("id"))), 1))
             first = [r for r in rows if not r.picked_take_id]
+            waits: dict[str, list[str]] = {}
             if not decision.get("clip_id"):  # first takes: a prompt a note takes from waits
                 waits = {r.clip_id: against_notes(r, notes)["against_notes"] for r in first
                          if against_notes(r, notes)}  # fmt: skip
@@ -130,22 +133,29 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                     return f"Refused: {_against(waits)}"
             elif (
                 first
-                and contradicts(first[0].prompt, decision.get("note") or "")
-                and not (_rewritten(db, first[0], decision.get("note") or ""))
+                and contradicts(first[0].prompt, asked_note)
+                and not _rewritten(db, first[0], asked_note)
             ):  # once: a rewrite that kept the thing goes ahead as the director asked
                 # 226's clip 4: a first take's note takes away what its prompt shows ("no
-                # phone"): the note rewrites the prompt first (Change it…), its take after
-                body = storyboard.ChangeIn(note=(decision.get("note") or "")[:500])
+                # phone"): the note rewrites the prompt first (Change it…), its take after; a
+                # redo's is A7's below
+                body = storyboard.ChangeIn(note=asked_note[:500])
                 project_clips.change_clip(clip_id=first[0].id, body=body, **me)
                 return (f"Rewriting clip {first[0].clip_id.removeprefix('c')}'s prompt with the "
                         "note first; make its take once it's written.")  # fmt: skip
-            else:
-                waits = {}
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
-                note = project_clips.TakeIn(note=decision.get("note") or "")
+                note = project_clips.TakeIn(note=asked_note[:500])
                 try:
-                    job = project_clips.generate(clip_id=row.id, request=request, body=note, **me)
+                    if row.picked_take_id and contradicts(row.prompt, note.note):
+                        # A7: "no phone" under a prompt with the phone: appended, both stay and
+                        # the take can't win; Change it… rewrites the prompt, then the take
+                        body = storyboard.ChangeIn(note=note.note)
+                        job = project_clips.change_clip(clip_id=row.id, body=body, **me)
+                        rewritten.append(row.clip_id)
+                    else:
+                        job = project_clips.generate(clip_id=row.id, request=request, body=note,
+                                                     **me)  # fmt: skip
                 except cast_gate.Waiting:  # its cast or places wait for the OK: the rest go on
                     db.rollback()
                     held += 1
@@ -153,7 +163,11 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                     if found := asked.get(row.clip_id):  # the take in the cut says why (S6-03)
                         watch_cut.redone(db, project, row, found, job, note.note)
             said = _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
-            return f"{said} {_against(waits)}" if waits else said
+            said += (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
+                     "is rewritten with it first." if rewritten else "")  # fmt: skip
+            said += f" {_against(waits)}" if waits else ""
+            return said + (" The note was cut to its first 500 characters."
+                           if len(asked_note) > 500 else "")  # fmt: skip
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))
             was = row.picked_take_id
@@ -182,7 +196,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             said = word_splice.splice(db, project, row, decision.get("word") or "")
             db.commit()
             return said
-        if tool == "add_sound":  # only when asked: MMAudio's sound under the picked takes
+        if tool == "add_sound":  # asked for, or the style's guide calls for it: MMAudio's sound
             from app import take_sound
 
             return take_sound.to_cut(db, user, project, storage, decision.get("clip_id"),
@@ -227,6 +241,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             if frame is None:
                 return f"Refused: there's no drawn still for shot {sid}."
             note = (decision.get("note") or "").strip()[:500]
+            if no := still_review.no_sheet(db, project, sid, note):
+                return no
             storyboard.change_frame(frame_id=frame.id, body=storyboard.ChangeIn(note=note), **me)
             return f"Drawing shot {sid} again: {note}"
         if tool == "ask":  # a question for a person: it waits on that point only (asks.py)
@@ -284,6 +300,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
     except HTTPException as no:
         db.rollback()
         return f"Refused: {no.detail}"
+    except ValidationError as no:  # A4: a value past a field's limit, said as it is
+        db.rollback()
+        e = no.errors()[0]
+        return f"Refused: {'.'.join(map(str, e['loc'])) or 'a value'}: {e['msg']}."
     except ValueError:  # pick_take named no single clip
         return "Refused: name one clip."
     except Exception:  # noqa: BLE001 - never leave the turn without a result (the run would hang)

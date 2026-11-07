@@ -156,3 +156,33 @@ def test_mmaudios_real_cost_is_its_gpu_time():
     model = get_model("mmaudio")
     item = _usage(model, {"metrics": {"predict_time": 8.0}, "input": {}}, 1)
     assert item.cost_usd == Decimal("8.0") * Decimal("0.000975") and not item.estimated
+
+
+def test_a_persons_removed_sound_is_never_added_back_by_the_director(app, db, owner):
+    """QA on #1404: the director may add the sound effects a style's guide asks for, but a
+    person's Remove is their "no": the take shows "removed", the director's sweep skips it and
+    a named clip is refused, nothing charged; a person adding them again is theirs to do."""
+    from app.models.accounts import User
+
+    _, video = _made(app, db, owner)
+    rows = db.query(ProjectClip).filter(ProjectClip.project_id == video.id).all()
+    row = rows[0]
+    path = f"/projects/{video.id}/clips/{row.id}/sound"
+    assert owner.post(path, json={"asked": "rain"}).status_code == 201
+    _run(app, db, ticks=10)
+    assert owner.delete(path).json()["sound"]["state"] == "removed"  # a person's "no", kept
+    clips = {c["id"]: c for c in owner.get(f"/projects/{video.id}/clips").json()}
+    assert clips[row.id]["sound"]["state"] == "removed"
+    user, before = db.get(User, video.created_by_id), len(_jobs(db, video, take_sound.STEP))
+    said = take_sound.to_cut(db, user, video, app.state.storage, row.clip_id, "House: a whoosh")
+    assert said == take_sound.SAID_NO
+    take_sound.to_cut(db, user, video, app.state.storage, None, "House: a whoosh")  # the sweep
+    sent = _jobs(db, video, take_sound.STEP)[before:]
+    assert row.picked_take_id not in {j.input["take_id"] for j in sent}  # never the removed one
+    assert len(sent) == len(rows) - 1
+    db.query(Job).filter(Job.status == JobStatus.queued).delete()
+    db.commit()
+    assert owner.post(path, json={"asked": "rain again"}).status_code == 201  # a person may
+    _run(app, db, ticks=10)
+    take = db.get(ClipTake, row.picked_take_id)
+    assert take.made_with["sound"] and not take_sound.said_no(take)  # asked again: theirs

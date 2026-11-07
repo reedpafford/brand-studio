@@ -56,6 +56,7 @@ What each spec item adds or changes in the database, and how migrations are numb
 | n40 | A narrated video keeps its narration throughout (Reed, 5 Nov): drops `projects.omni_voice` and `projects.narration_only` (no talker speaks on Omni in it). Downgrade adds them back, empty | v6-models | — |
 | n41 | Approve cast & places (Reed, 4 Nov, S-gaps-07): `projects.cast_ok`, nullable JSON, what the person making the video approved, each character and place as its stills and takes are made with (`{"items": {ref: {sig, item, version, file}}, "by", "at", "asked"}`, app/cast_gate.py); a still or take that shows something new or changed waits for it. Data step: every drawn look made for one video is marked usable (its video's OK covers it, no per-card approval); downgrade drops the column and leaves those | v6-castgate | — |
 | n42 | The cut editor (v6 S7): `final_videos.number` (Cut 1, Cut 2, … within a video; existing cuts numbered in the order made), `final_videos.edit_ids` (JSON list, default `[]`: the edits it was made with) and `final_videos.timeline` (JSON, nullable: where each piece sat); new `cut_edits` {project_id, by_id, director, kind (trim, retime, split, swap, presenter, music), data JSON, said, at, undone_at}, replayed in order over the picked takes (app/cut.py). Downgrade drops them | v6-cut | — |
+| n43 | Omni 1.2 replaces 1.1 (Reed, 6 Nov): data only, stored `gemini-omni-1.1` ids become `gemini-omni-1.2` in `project_clips.model.id`, `clip_takes.made_with.model` and `projects.video_model`, so older videos' clips and takes still name a catalogue model. Downgrade leaves them on 1.2 | v6-models | — |
 
 ## Merge order (the chain on `next`)
 
@@ -103,7 +104,8 @@ Numbers are names, not an order. A PR waiting its turn points its `down_revision
 | 37 | n39 | #1308 | n38 | On `next` |
 | 38 | n40 | #1346 | n39 | On `next` |
 | 39 | n41 | #1331 | n40 | On `next` |
-| 40 | n42 | #1299 | n41 | On its PR |
+| 40 | n42 | #1299 | n41 | On `next` |
+| 41 | n43 | #1394 | n42 | On its PR |
 
 ## 1. Song ads
 

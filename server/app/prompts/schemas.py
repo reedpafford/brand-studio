@@ -183,7 +183,11 @@ class Shot(BaseModel):
         description="Estimated length. Dialogue: words / 4.8 plus any held reaction. Silent "
         "reactions and inserts: 0.5–1.5."
     )
-    character_ids: list[str] = Field(description="Cast ids on screen in this shot.")
+    character_ids: list[str] = Field(
+        description="Cast ids on screen in this shot. Someone the script names on screen who "
+        "has no id (they never speak, say): 'person:<Name>', as the script names them, never "
+        "another's id."
+    )
     place_id: str | None = Field(description="Place id from the user message, or null.")
     moment: str | None = Field(
         description="The brand moment this shot is, from the brand block's moments (e.g. "
@@ -815,7 +819,7 @@ class DirectorTurn(Strict):
         description="For narration being made: the narrator's voice. A person's pick or the "
         "video's own voice (its presenter's, else its style's, e.g. Dr. Pickle's) is kept "
         "whatever this says. Empty keeps the voice in use on a remake, else gives Sarah (a UGC "
-        "talker: English_FriendlyPerson). Else empty.",
+        "presenter in one spot, talks or corner: English_FriendlyPerson). Else empty.",
     )  # fmt: skip
     emotion: _pick(
         "auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent",
@@ -838,9 +842,10 @@ class DirectorTurn(Strict):
     model: Name = Field(
         default=None,
         description="For clip_model: the catalogue id of the model that makes this clip "
-        "('seedance-1-lite' where it's enough for a B-roll shot; 'gemini-omni-1.1' only for a "
-        "talker's shot that needs what Seedance can't give, named in `why`, never because they "
-        "appear or move, never B-roll); empty "
+        '(Reed, 6 Nov: "Omni is more for the realistic stuff"), the reason in `why`. UGC\'s '
+        "clips stay on 'gemini-omni-1.2' (its B-roll, and a talker who acts in the story); a "
+        "talker in one spot is HeyGen in our own voice and never moves. An animated style's "
+        "clips are on its Seedance, and 'gemini-omni-1.2' may make a realistic shot there. Empty "
         "puts the clip back on the video's model. For settings with setting video_model or "
         "image_model: the model's id, empty for Auto. Else empty.",
     )

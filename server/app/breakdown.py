@@ -31,10 +31,10 @@ def video_model(project: Project | None = None, look: str | None = None,
     """The video model for a video, the one answer for its takes, quotes and "up to" prices:
     its own pick (VS1) always wins; else the catalogue default (Seedance 2.5) for a song
     (lip-sync); else its look's `video_model:` (Reed, 3 Nov: Seedance 2.5 for Pixar and House,
-    Seedance 2.0 for the rest). With no video yet (a script's preview, a sample), pass its
-    `look` and script `kind`. Never a talker-only model (Omni: Reed's model map, 4 Nov,
-    "never for b-roll"): a talker's shot gets it only as its own clip's model (app/model_map)."""
-    models = {k: m for k, m in catalogue().items() if not m.talker_only}
+    Seedance 2.0 for the other animated styles; 6 Nov: Omni 1.2 for UGC, "Omni is more for the
+    realistic stuff"). With no video yet (a script's preview, a sample), pass its `look` and
+    script `kind`."""
+    models = catalogue()
     if project is not None and project.video_model in models:
         return models[project.video_model]
     default = next(m for m in models.values() if m.kind == "video" and m.default)
@@ -291,6 +291,16 @@ def _called(db: Session, ref: str, workspace_id: int) -> str:
     return called(db, {ref}, workspace_id).get(ref) or UNNAMED.get(ref.partition(":")[0], "a name")
 
 
+PERSON = "person:"  # a shot's "person:Grant": someone on screen the cast doesn't have yet
+NO_ROLE = "Advice: {} is on screen with no role."  # an extra: the director's state says so
+
+
+def extras(problems: list[str] | None) -> list[str]:
+    """Who the shots show with no role (NO_ROLE notes), by name."""
+    head, tail = NO_ROLE.split("{}")
+    return [p.removeprefix(head).removesuffix(tail) for p in problems or [] if p.endswith(tail)]
+
+
 def land(
     db: Session, project: Project, bd: Breakdown, also: set[str] = frozenset()
 ) -> tuple[Breakdown, list[str]]:
@@ -312,7 +322,15 @@ def land(
     notes = []
     for shot in (s for scene in bd.scenes for s in scene.shots):
         for ref in [r for r in shot.character_ids if r not in known]:
-            slot = looks.get(ref) or _role(db, project, slots, shot.speaker)
+            if ref.startswith(PERSON):  # someone who never speaks (226's Grant): their role
+                name = ref.removeprefix(PERSON).strip()
+                slot = _person(db, project, slots, name)
+                if slot is None:  # an extra ("Crowd", "Woman"): the director decides, unpaid
+                    shot.character_ids = [r for r in shot.character_ids if r != ref]
+                    notes.append(NO_ROLE.format(name or "Someone"))
+                    continue
+            else:
+                slot = looks.get(ref) or _role(db, project, slots, shot.speaker)
             if slot is None:
                 continue
             new = f"slot:{slot.id}"
@@ -561,6 +579,40 @@ def _role(db: Session, project: Project, slots: list, speaker: str | None):
     ):
         slots[:] = video_slots(db, project)
     return next((s for s in slots if labels(speaker, s.role)), None)
+
+
+def _person(db: Session, project: Project, slots: list, name: str):
+    """The role of someone the breakdown shows who never speaks ("person:Grant", 226: Grant
+    was never a role, so his shots borrowed another's look and no sheet was drawn): the role
+    of that very name, else one added as the cast read adds one, only for a proper name the
+    script writes capitalised mid-sentence or as a speaker's label (QA on #1405: "A crowd
+    cheers", "a woman walks past" are extras, never paid roles; nor is "Woman" ever "Mara, a
+    young woman"). None otherwise."""
+    from app.cast_roles import all_slots, same
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if found := next((s for s in slots if name and same(name, s.role)), None):
+        return found
+    every = all_slots(db, project)
+    if not (draft and name and _proper(name, draft.text)) or any(same(name, s.role) for s in every):
+        return None
+    slot = ScriptCastSlot(script_id=draft.script_id, role=name, kind="Helper",
+                          appears_in=[draft.slot], position=len(every) + 1)  # fmt: skip
+    db.add(slot)
+    db.flush()
+    slots.append(slot)
+    return slot
+
+
+def _proper(name: str, text: str) -> bool:
+    """A person's own name in the script: capitalised after a lowercase word ("hands Grant
+    the ring"), or a speaker's label ("GRANT:")."""
+    if not name[:1].isupper():
+        return False
+    word = re.escape(name.strip())
+    mid = re.search(rf"\b[a-z][\w']*[,;]? +{word}\b", text)
+    return bool(mid or re.search(rf"^\s*{word.upper()}\s*(?:\([^)]*\))?:", text, re.M))
 
 
 def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:

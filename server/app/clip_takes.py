@@ -45,14 +45,15 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     require_looks(would_show(db, project, breakdown, shots), known)
     model = model_map.of_clip(project, clip)  # its own (the director's), else the video's
     unsent = model_map.unsent(looks.drawn(project), model.id, _shots(breakdown, shots))
+    images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
+    unsent += model_map.unsent_people(model.id, images)  # Omni: 2 people, the rest in words
     drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
-    images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
     prompt = _in_words(db, clip.prompt, images, drop, known) if drop else clip.prompt
-    images = [i for i in images if not i.startswith(drop)] if drop else images
+    images = [i for i in images if not _out(i, drop)]
     for ref in clip.references:
-        if drop and ref["id"].startswith(drop):
+        if _out(ref["id"], drop):
             continue
         if ref["id"] not in known:
             raise HTTPException(
@@ -114,6 +115,11 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
 LOOKALIKE = ("frame:", "char:")  # left out in turn when a take is refused as a look-alike
 
 
+def _out(ref: str, drop: tuple[str, ...]) -> bool:
+    """The reference is left out: a kind ("char:") or that one reference ("char:12")."""
+    return any(ref == d or (d.endswith(":") and ref.startswith(d)) for d in drop)
+
+
 def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...],
               known: dict) -> str:  # fmt: skip
     """A clip prompt with its dropped pictures said in words: a character's [ImageN] becomes
@@ -121,7 +127,7 @@ def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...]
     keeps are numbered again in order."""
     from app.clip_prompts import TAGS_N
 
-    kept = [i for i in images if not i.startswith(drop)]
+    kept = [i for i in images if not _out(i, drop)]
     said = names(known)
 
     def word(m: re.Match) -> str:
@@ -215,6 +221,32 @@ def own_sound(db: Session, project: Project, clip: ProjectClip) -> bool:
     return not QUIET.match((clip.prompt or "").lstrip())
 
 
+# A line spoken off camera, by its script label: "(O.S.)", "(O.C.)", "(V.O.)", "(OFF)", "(ON
+# PHONE)", "(PRE-LAP)", "(FILTERED)". Its take still keeps its sound; only its lips don't move.
+OFF_CAMERA = re.compile(r"\((?:[^)]*?\b)?(?:v\.?\s?o|o\.?\s?[sc]|off|on (?:the )?(?:phone|radio|"
+                        r"tv|speaker)|pre-?lap|filtered)\b", re.I)  # fmt: skip
+
+
+def lips_on_camera(db: Session, project: Project, clip: ProjectClip, shots: list[dict]) -> bool:
+    """Whether someone's lips move on camera in this clip (`on_camera_speech`, less a line
+    whose script label marks it off camera: the breakdown keeps only the speaker's name)."""
+    if not on_camera_speech(db, project, clip, shots):
+        return False
+    from app.prompts.check import SPEAKER
+    from app.routes.scripts import latest
+
+    words = latest(db, project)
+    lines = words.text.splitlines() if words else []
+
+    def off(shot: dict) -> bool:  # its script line's own label: "MOM (O.S.):"
+        said = [SPEAKER.match(lines[n - 1]) for n in shot.get("script_lines") or []
+                if 0 < n <= len(lines)]  # fmt: skip
+        return any(m and OFF_CAMERA.search(m[0]) for m in said)
+
+    return any(s.get("line") and s.get("speaker") and not VOICE_OVER.search(s["speaker"])
+               and not off(s) for s in shots)  # fmt: skip
+
+
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     """A clip longer than the video model makes is refused before any charge (QA #1013),
     never sent cut short: the breakdown's Split fix makes it into clips it can, between its
@@ -226,14 +258,14 @@ def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     if talker.says(db, project, clip):
         raise HTTPException(409, talker.SAID)
     m = model_map.of_clip(project, clip)
-    most = m.fixed_seconds or m.duration.max
+    most = m.duration.max
     if clip.seconds <= most:
         return
     from app import breakdown_fix, plans
 
     bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
     version = plans.script(db, project)
-    lo = m.duration.min if m.duration else 1  # Omni has one fixed length, no range
+    lo = m.duration.min if m.duration else 1
     parts = breakdown_fix.split_into(bd.data, version.text if version else "", clip.clip_id,
                                      lo, most) if bd else 1  # fmt: skip
     offered = bd is not None and clip.clip_id in breakdown_fix.too_long(bd.problems or [])
@@ -526,8 +558,7 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
 
     m = model_map.of_clip(project, clip)
     job = {"model": m.id, "input": {"resolution": model_map.resolution(m)}}
-    units = Decimal(model_map.seconds(m, clip.seconds))  # Omni: its fixed length
-    take = estimate(db, project.workspace_id, "video", units, job)
+    take = estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
     return take + take_watch.rides(db, project, clip)
 
 
