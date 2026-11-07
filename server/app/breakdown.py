@@ -31,10 +31,10 @@ def video_model(project: Project | None = None, look: str | None = None,
     """The video model for a video, the one answer for its takes, quotes and "up to" prices:
     its own pick (VS1) always wins; else the catalogue default (Seedance 2.5) for a song
     (lip-sync); else its look's `video_model:` (Reed, 3 Nov: Seedance 2.5 for Pixar and House,
-    Seedance 2.0 for the rest). With no video yet (a script's preview, a sample), pass its
-    `look` and script `kind`. Never a talker-only model (Omni: Reed's model map, 4 Nov,
-    "never for b-roll"): a talker's shot gets it only as its own clip's model (app/model_map)."""
-    models = {k: m for k, m in catalogue().items() if not m.talker_only}
+    Seedance 2.0 for the other animated styles; 6 Nov: Omni 1.2 for UGC, "Omni is more for the
+    realistic stuff"). With no video yet (a script's preview, a sample), pass its `look` and
+    script `kind`."""
+    models = catalogue()
     if project is not None and project.video_model in models:
         return models[project.video_model]
     default = next(m for m in models.values() if m.kind == "video" and m.default)
