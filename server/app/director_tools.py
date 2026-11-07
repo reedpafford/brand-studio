@@ -222,7 +222,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
             return settings_move.switch(db, user, project, decision.get("setting"),
                                         decision.get("model") or decision.get("value"),
-                                        decision.get("why") or "")  # fmt: skip
+                                        decision.get("why") or "",
+                                        (run or {}).get("id"))  # fmt: skip
         if tool == "host":  # a presenter's host, as Make the host
             from app import host
 

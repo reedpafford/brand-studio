@@ -39,9 +39,23 @@ def _rows(db, video) -> dict[str, ProjectClip]:
     return {r.clip_id: r for r in db.query(ProjectClip).filter_by(project_id=video.id)}
 
 
-def _move(app, db, video, **decision) -> str:
+def _move(app, db, video, run=None, **decision) -> str:
     user = db.get(User, video.created_by_id)
-    return director_tools.run(db, user, video, decision, app.state.storage)
+    return director_tools.run(db, user, video, decision, app.state.storage, run)
+
+
+def _noted(db, video, text: str) -> dict:
+    """A person's note on the video's newest run (its Note N), and that run."""
+    from app import director
+    from app.db import utcnow
+
+    run = director.turns(db, video)[-1].input[director.RUN]
+    video.director_chat = [
+        *(video.director_chat or []),
+        {"text": text, "by": video.created_by_id, "at": utcnow().isoformat(), "run": run["id"]},
+    ]
+    db.commit()
+    return run
 
 
 def test_omni_1_2_replaces_1_1_and_makes_the_realistic_style(owner):
@@ -300,7 +314,11 @@ def test_how_the_presenter_appears_is_chosen_per_video(app, db, owner, ugc):
     assert host.how(ugc) == "talks" and talker.on(db, ugc)  # the UGC style's start
     shown = owner.get(f"/projects/{ugc.id}/settings").json()
     assert (shown["presenter"], shown["presenter_now"]) == (None, "talks")
-    said = _move(app, db, ugc, tool="settings", setting="presenter", value="corner", why="")
+    no = _move(app, db, ugc, tool="settings", setting="presenter", value="corner", why="")
+    assert no == settings_move.PRESENTER  # nobody asked (video 240)
+    run = _noted(db, ugc, "Put her in a corner over the B-roll.")
+    said = _move(app, db, ugc, run, tool="settings", setting="presenter", value="corner",
+                 why="Note 1: put her in a corner.")  # fmt: skip
     assert said.startswith(
         "The presenter now appears in a corner over the B-roll. The switch is "
         "free; the presenter's take is made again for it, up to"
@@ -384,7 +402,8 @@ def test_a_persons_presenter_stays_unless_they_ask(app, db, owner, ugc):
     db.refresh(ugc)
     no = _move(app, db, ugc, tool="settings", setting="presenter", value="acts", why="")
     assert no.startswith("Refused:") and "their choice stays" in no
-    asked = _move(app, db, ugc, tool="settings", setting="presenter", value="acts",
+    run = _noted(db, ugc, "Have her act in the story.")
+    asked = _move(app, db, ugc, run, tool="settings", setting="presenter", value="acts",
                   why="Note 1: they asked for her acting in the story.")  # fmt: skip
     assert asked.startswith("The presenter now appears acting in the story")
     undo = owner.post(url, json={"presenter": "corner", "undo": True}).json()["settings"]
@@ -597,3 +616,20 @@ def test_a_clip_made_on_another_model_is_asked_charged_and_recorded_at_what_that
     made = owner.post(f"/projects/{ugc.id}/clips/{clip.id}/generate")
     assert made.status_code == 201, made.text
     assert db.get(Job, made.json()["id"]).credits == four  # charged, and so recorded, at 4 s
+
+
+def test_the_director_never_switches_how_the_presenter_appears_unasked(app, db, owner, ugc):
+    """Video 240 (7 Nov, T32): the director switched its talker to acting in the story ("The
+    switch is free") to get past a plan that had lost its talker shots. How the presenter
+    appears changes only for a person's open note in this run: never with none, a note that
+    isn't there, or one already answered."""
+    assert host.how(ugc) == "talks"
+    made_up = _move(app, db, ugc, tool="settings", setting="presenter", value="acts",
+                    why="Note 3: acting suits the story.")  # fmt: skip
+    assert made_up == settings_move.PRESENTER  # no such note
+    run = _noted(db, ugc, "Make the music quieter.")
+    other = _move(app, db, ugc, run, tool="settings", setting="presenter", value="acts",
+                  why="Note 2: acting suits the story.")  # fmt: skip
+    assert other == settings_move.PRESENTER  # note 2 isn't there: only note 1 is
+    db.refresh(ugc)
+    assert host.how(ugc) == "talks"  # nothing switched
