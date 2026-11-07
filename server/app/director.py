@@ -53,6 +53,7 @@ OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted 
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
 REBUILD = "Refused: make the cut again first: it isn't up to date."
+CITE_WORDS = {"why", "made", "unsure", "needs", "ask"}  # a move's words people read
 OLD_TAKE = (
     "Refused: clip {c}'s picked take holds the cut out of date however often it's made "
     "again ({why}). Make another take of clip {c}, or pick one that's current."
@@ -614,9 +615,11 @@ def after(db: Session, job: Job, storage) -> None:
         return
     run_id = (job.input.get(RUN) or {}).get("id")
     if job.input.get("step") == "treatment" and job.status == JobStatus.succeeded:
-        if job.project_id:  # people read it in the chat: never who decided a choice
-            project = db.get(Project, job.project_id)
-            job.output = advice.unsourced(job.output, _script_text(db, project))
+        if job.project_id and isinstance(job.output, dict):  # read in the chat: no citation
+            named = _names_reed(db, db.get(Project, job.project_id))
+            told = advice.uncited(job.output, "treatment", named)
+            told["beats"] = [advice.uncited(b, "beat", named) for b in told.get("beats") or []]
+            job.output = told
         if run_id and over(db, run_id):  # stopped meanwhile: nothing more runs for it
             return
         if _treatment_checked(db, job):  # one redo with its problems: the redo wakes the run
@@ -746,17 +749,26 @@ def sweep(db: Session) -> None:
         wake(db, db.get(Project, project_id))
 
 
-def _script_text(db: Session, project: Project) -> str:
+def _names_reed(db: Session, project: Project) -> bool:
+    """A Reed in this video's own words: its script, its brand, or a look's or role's name."""
     from app import plans
+    from app.models.brands import Brand
+    from app.storyboard import assets
 
-    version = plans.script(db, project)
-    return version.text if version else ""
+    version, brand = plans.script(db, project), db.get(Brand, project.brand_id)
+    looks = [line for line, _ in assets(db, project).values()]
+    return advice.names_reed(version.text if version else "", brand.name if brand else "", *looks)
 
 
 def _act(db: Session, job: Job, storage) -> None:
     project = db.get(Project, job.project_id)
-    decision = advice.unsourced(dict(job.output or {}), _script_text(db, project))
-    job.output = decision  # people read its why and notes: never who decided it
+    decision = dict(job.output or {})
+    if CITE_WORDS.intersection(k for k, v in decision.items() if v):  # what people read
+        named = _names_reed(db, project)
+        decision = advice.uncited(decision, "move", named)
+        if isinstance(decision.get("ask"), dict):
+            decision["ask"] = advice.uncited(decision["ask"], "ask", named)
+    job.output = decision
     run = dict(job.input[RUN])
     tool = decision.get("tool")
     if not run.get("ok", True) and tool not in PRE_OK:  # nothing is spent before Make it

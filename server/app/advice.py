@@ -20,24 +20,32 @@ ID = re.compile(r"\b(char|slot|place|prop|screen|frame|voice):[\w.]+")
 CLIP = re.compile(r"^c\d+: ")
 KIND = {"char": "a character", "slot": "a character", "place": "a place", "prop": "a prop",
         "screen": "a screen", "frame": "a still", "voice": "a voice"}  # fmt: skip
-REED = re.compile(r"\bReed\b")
+# A decision cited in brackets: "(Reed, 6 Nov: …)", "(Reed, 2026-10-27)" (live UGC run, video
+# 240: the treatment cited "Reed's positive-only direction"). Only such a citation is taken out.
+CITED = re.compile(r"\s*\(Reed,\s*(?:\d{1,2}\s+[A-Z][a-z]{2}|\d{4}-\d{2}-\d{2})[^()]*\)")
+REED = re.compile(r"\breed\b", re.I)
+SAID = {  # the words people read: never a tool's arguments (a look, a brand, a note)
+    "move": ("why", "made", "unsure", "needs"),
+    "ask": ("question", "why"),
+    "treatment": ("hook", "logline", "why_it_holds", "ending"),
+    "beat": ("purpose", "picture"),
+    "line": ("action",),
+}
 
 
-def unsourced(value, script: str = ""):
-    """What people read (the treatment, the plan, the director's moves and notes) states each
-    choice in its own words, never who decided it (live UGC run, video 240: "fits Reed's
-    positive-only direction"): a cited "(Reed, 4 Nov: …)" goes, "Reed's" reads "the", and
-    "Reed" "the owner". Strings in dicts and lists too. Left alone when the script itself
-    names a Reed (a character's name is the script's)."""
-    if isinstance(value, dict):
-        return {k: unsourced(v, script) for k, v in value.items()}
-    if isinstance(value, list):
-        return [unsourced(v, script) for v in value]
-    if not isinstance(value, str) or not REED.search(value) or REED.search(script):
-        return value
-    text = re.sub(r"\s*\([^()]*\bReed\b[^()]*\)", "", value)
-    text = re.sub(r"\bReed's\s+", "the ", text)
-    return REED.sub("the owner", text)
+def uncited(data: dict, kind: str, named: bool) -> dict:
+    """`data` with a decision citation in brackets taken out of the fields people read
+    (`SAID[kind]`); everything else, and everything when a Reed is in the video (`named`: its
+    script, brand or a look), exactly as it was."""
+    if named:
+        return data
+    return {k: CITED.sub("", v) if k in SAID[kind] and isinstance(v, str) else v
+            for k, v in data.items()}  # fmt: skip
+
+
+def names_reed(*texts: str) -> bool:
+    """A Reed in the video's own words (its script, brand or a look), any case."""
+    return any(REED.search(t or "") for t in texts)
 
 
 # Someone a shot names that the video doesn't have, when no name is left to call them by.

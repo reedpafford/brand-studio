@@ -404,18 +404,28 @@ def test_an_own_sound_takes_free_words_check_listens_for_any_voice(
 
 def test_what_people_read_never_cites_who_decided_it():
     """Live UGC run (video 240): the treatment said "fits Reed's positive-only direction".
-    Every step is told to say a choice in its own words; the treatment, the plan and the
-    director's moves have a cited "(Reed, …)", "Reed's" and "Reed" taken out, unless the
-    script itself has a Reed."""
+    Every step is told to say a choice in its own words. In code, only a decision citation in
+    brackets ("(Reed, 6 Nov: …)") comes out, and only of what people read: never a tool's
+    arguments, and never when the video's script, brand or a look names a Reed (QA on #1410:
+    "Keep the Reed logo sharp", "Reed Diffuser", "Reed beds", a look named Reed, "REED: Hi."
+    all come through unchanged)."""
     from app import prompts
-    from app.advice import unsourced
+    from app.advice import names_reed, uncited
 
-    assert unsourced("Upbeat, which fits Reed's positive-only direction.") == (
-        "Upbeat, which fits the positive-only direction.")  # fmt: skip
-    assert unsourced({"beats": [{"picture": "A calm room (Reed, 4 Nov: no music)."}]}) == {
-        "beats": [{"picture": "A calm room."}]}  # fmt: skip
-    assert unsourced("As Reed asked, no phone.") == "As the owner asked, no phone."
-    assert unsourced("Reed waves.", "REED: Hi.\nReed waves.") == "Reed waves."  # the script's
-    assert unsourced({"take_id": 3, "why": "b1: hook."}) == {"take_id": 3, "why": "b1: hook."}
+    move = {"tool": "outfit", "look": {"name": "Reed", "description": "Reed Diffuser apron"},
+            "note": "Keep the Reed logo sharp.",
+            "why": "b2: calm, no music under the reeds (Reed, 6 Nov: positive only).",
+            "made": "Reed beds sway behind her."}  # fmt: skip
+    said = uncited(move, "move", named=False)
+    assert said["why"] == "b2: calm, no music under the reeds."
+    assert {k: v for k, v in said.items() if k != "why"} == {
+        k: v for k, v in move.items() if k != "why"}  # its arguments, as written  # fmt: skip
+    assert uncited(move, "move", named=True) == move  # a Reed in the video: nothing changes
+    for text in ("Keep the Reed logo sharp", "Reed Diffuser", "Reed beds", "Reed's turn"):
+        assert uncited({"why": text}, "move", named=False) == {"why": text}  # no citation
+    beat = {"id": "b1", "purpose": "hook", "picture": "Her face lights up (Reed, 2026-10-27)."}
+    assert uncited(beat, "beat", named=False)["picture"] == "Her face lights up."
+    assert names_reed("REED: Hi.") and names_reed("", "Reed Diffuser") and names_reed("Reed")
+    assert not names_reed("Nate: Hi.", "fomo", "char:3 | character | Mia")
     words = "never who decided it or where it's written"
     assert words in prompts.system("treatment") and words in prompts.system("director")
