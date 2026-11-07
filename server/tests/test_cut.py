@@ -210,6 +210,33 @@ def _music_that_stops_early_fails_with_one_click_fixes(app, db, owner, presenter
     assert (done["number"], done["failed"]) == (n + 1, None)
 
 
+def test_a_trim_into_two_words_moves_both_edges_and_names_both(app, db, editor, approved,  # noqa: F811
+                                                                monkeypatch):  # fmt: skip
+    """QA (S4): a trim moved for several words names each one, in its edit and its notice."""
+    from types import SimpleNamespace
+
+    from app import cut_edits
+
+    base, _ = approved
+    make_cut(app, db, editor, base)
+    (piece,) = editor.get(f"{base}/cut").json()["timeline"]["pieces"]
+    monkeypatch.setattr(cut_edits, "_speaks", lambda db, take: True)
+    monkeypatch.setattr(
+        "app.item_checks.latest",
+        lambda db, target, ids: {i: SimpleNamespace(status="done", job_id=None) for i in ids},
+    )
+    words = [{"word": "Get", "start": 0.3, "end": 0.5}, {"word": "up", "start": 0.9, "end": 1.0}]
+    monkeypatch.setattr(cut_edits, "_heard", lambda db, take: words)
+    kept = _edit(editor, base, kind="trim", piece=piece["id"], start=0.4, end=0.95)
+    assert kept.status_code == 201, kept.text
+    assert kept.json()["notice"] == ("That would have cut “Get” and “up”, so the edges moved to "
+                                     "just past them. Every spoken word stays.")  # fmt: skip
+    assert kept.json()["edits"][-1]["said"] == "Clip 1 trimmed, keeping “Get” and “up”"
+    (moved,) = kept.json()["timeline"]["pieces"]
+    assert moved["in_point"] == 0.15 and moved["in_point"] + moved["end"] - moved["start"] >= 1.0
+    assert cut_edits.quoted(["a", "b", "c"]) == "“a”, “b” and “c”"
+
+
 def test_a_story_cut_trims_and_ripples_and_never_cuts_a_word(
     app,
     db,
