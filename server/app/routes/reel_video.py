@@ -112,8 +112,9 @@ def make_from_reel(body: ReelVideoIn, request: Request, user: User = Depends(cur
                    db: Session = Depends(fs_routes._db)):  # fmt: skip
     script = _reel(db, user, body.script_id)
     status, failed = read.state(db, script)
-    if status == "preparing" or failed == "prepare":
-        raise HTTPException(409, NOT_READY)
+    silent = script.reel.get("problem_code") == "no_sound"  # prepared, with nothing to read
+    if status == "preparing" or (failed == "prepare" and not (silent and body.mode == "look")):
+        raise HTTPException(409, script.reel["problem"] if silent else NOT_READY)
     send = _Send(**body.model_dump(exclude={"script_id", "mode"}), brand_id=script.brand_id,
                  reel_script_id=script.id)  # fmt: skip
     if body.mode == "look":  # your words, the reel's look (kept on the video before it starts)

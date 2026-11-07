@@ -88,3 +88,20 @@ test("at 390, Breakdown's Version picker is a 44 × 44 px press even before any 
   expect(pick.height).toBeGreaterThanOrEqual(44);
   expect(pick.width).toBeGreaterThanOrEqual(44);
 });
+
+// Board comparison S10 / P-03: New video at 390 was 392 px wide (the card rows' edge) and its tabs, chips and
+// "Settings → Looks" were under 44 px.
+test("at 390: New video fits the screen, and its tabs, chips and Settings → Looks are 44 px presses", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await signIn(page, "reed@example.com");
+  await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
+  const brandId = await emptyBrand(page, "Phone New Co");
+  await page.goto(`/b/${brandId}/videos/new`);
+  await expect(page.getByRole("radiogroup", { name: "Style" }).getByRole("radio").first()).toBeVisible();
+  const presses = [...["Paste", "Saved script", "Use a reel"].map((name) => page.getByRole("tab", { name })), page.getByRole("button", { name: /^Cast: / }), page.getByRole("button", { name: /^Shape: / }), page.getByRole("button", { name: /^Folder: / })];
+  const looks = page.getByRole("link", { name: "Settings → Looks" }); // only when a style is off on this site
+  if (await looks.count()) presses.push(looks);
+  for (const press of presses) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
+  expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
+});

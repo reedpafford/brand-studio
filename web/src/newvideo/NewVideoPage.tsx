@@ -132,7 +132,7 @@ export function NewVideoPage() {
   const seg = (
     <div role="tablist" aria-label="Start from" className="inline-flex gap-0.5 rounded-md bg-surface-2 p-0.5">
       {TABS.map((t) => (
-        <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} onClick={() => setTab(t.id)} className={`h-7 whitespace-nowrap rounded-[5px] px-3 text-sm font-medium ${t.id === tab ? "bg-surface text-text shadow-[0_1px_2px_rgb(28_27_25/0.06)]" : "text-muted hover:text-text"}`}>
+        <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} onClick={() => setTab(t.id)} className={`h-11 lg:h-7 whitespace-nowrap rounded-[5px] px-3 text-sm font-medium ${t.id === tab ? "bg-surface text-text shadow-[0_1px_2px_rgb(28_27_25/0.06)]" : "text-muted hover:text-text"}`}>
           {rail ? t.name : t.phone}
         </button>
       ))}
@@ -160,7 +160,7 @@ export function NewVideoPage() {
     </>
   );
   const body =
-    tab === "script" ? <SavedScripts brandId={brandId} brandName={brand?.name} owner={owner} folder={folder} broll={broll} seg={seg} rail={rail} onScript={setLocked} /> : tab === "reel" ? <Reel brandId={brandId} owner={owner} folder={folder} seg={seg} rail={rail} format={settings.type} formatName={format?.name} look={look} broll={broll} /> : paste;
+    tab === "script" ? <SavedScripts brandId={brandId} owner={owner} folder={folder} broll={broll} seg={seg} rail={rail} onScript={setLocked} /> : tab === "reel" ? <Reel brandId={brandId} owner={owner} folder={folder} seg={seg} rail={rail} format={settings.type} formatName={format?.name} look={look} broll={broll} /> : paste;
   const picker = (
     <>
       <section aria-label="Format" className={`flex flex-col gap-2 ${rail ? "" : "pt-1"}`}>
@@ -286,22 +286,24 @@ function Words({ text, setText, go, rail }: { text: string; setText: (t: string)
   );
 }
 
-/** Why a format or style is off here (S2-03): Song's music provider, a style the owner hasn't switched on. */
+/** Why a format or style is off here (S2-03): Song's music provider, a style the owner hasn't switched on. Each says
+ *  whether it is the format or the style, as Zack D is both. */
 function OffNote({ formats, looks, owner }: { formats: { name: string; off?: string | null }[]; looks: Look[]; owner: boolean }) {
   const parts: ReactNode[] = [];
   for (const f of formats.filter((x) => x.off))
-    parts.push(f.off === "off" ? <span key={f.name}><b className="font-semibold">{f.name}</b> is off on this site. </span> : <span key={f.name}><b className="font-semibold">{f.name}</b> is coming next: {f.off}. </span>);
+    parts.push(<span key={f.name}>The <b className="font-semibold">{f.name}</b> format {f.off === "off" ? "is off on this site" : `is coming next: ${f.off}`}. </span>);
   const off = looks.filter((l) => !l.on);
   if (off.length)
     parts.push(
       <span key="looks">
+        The{" "}
         {off.map((l, i) => (
           <span key={l.id}>
             {i > 0 && (i === off.length - 1 ? " and " : ", ")}
             <b className="font-semibold">{l.name}</b>
           </span>
         ))}{" "}
-        {off.length === 1 ? "is" : "are"} off on this site; the owner turns {off.length === 1 ? "it" : "them"} on in Settings → Looks.
+        {off.length === 1 ? "style is" : "styles are"} off on this site; the owner turns {off.length === 1 ? "it" : "them"} on in Settings → Looks.
       </span>,
     );
   if (!parts.length) return null;
@@ -310,7 +312,7 @@ function OffNote({ formats, looks, owner }: { formats: { name: string; off?: str
       <CircleHelp size={14} aria-hidden className="mt-0.5 shrink-0 text-muted" />
       <span className="min-w-0 flex-1">{parts}</span>
       {owner && (
-        <Link to="/settings?tab=looks" className="shrink-0 font-medium text-accent-text hover:underline">
+        <Link to="/settings?tab=looks" className="-my-2.5 inline-flex min-h-11 shrink-0 items-center font-medium text-accent-text hover:underline lg:my-0 lg:min-h-0">
           Settings → Looks
         </Link>
       )}
