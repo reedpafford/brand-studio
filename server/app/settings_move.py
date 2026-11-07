@@ -32,6 +32,8 @@ LANGUAGE = ("Refused: a video's language is its script's; it changes on the scri
 NOT_YET = ("Refused: a setting changes only for a person's request (name their note) or as the "
            "approved plan has it; this plan isn't approved yet.")  # fmt: skip
 ASKED = re.compile(r"\bnote \d+\b", re.I)  # the director's why names the note it answers
+PRESENTER = ("Refused: how the presenter appears changes only when a person asks for it in the "
+             "chat (name their open note); it stays as it is: go on with it.")  # fmt: skip
 
 
 def named(field: str, value) -> str:
@@ -78,9 +80,13 @@ def persons(project: Project, field: str) -> dict | None:
 
 
 def switch(db: Session, user: User, project: Project, field: str | None, value: str | None,
-           why: str) -> str:  # fmt: skip
-    """The director's switch of one setting, its price said first; a refusal in plain words."""
+           why: str, run_id: str | None = None) -> str:  # fmt: skip
+    """The director's switch of one setting, its price said first; a refusal in plain words.
+    How the presenter appears changes only for an open note of a person's in this run (video
+    240: the director switched its talker to acting in the story to get past a plan that had
+    lost its talker shots; no plan field says how the presenter appears)."""
     from app.auth import user_name
+    from app.director_tools import _asked_since
 
     if field == "language":
         return LANGUAGE
@@ -92,6 +98,8 @@ def switch(db: Session, user: User, project: Project, field: str | None, value: 
         return NOT_YET
     if (found := persons(project, field)) and not asked:
         return THEIRS.format(who=user_name(db, found["by_id"]) or "A person", what=FIELDS[field])
+    if field == "presenter" and not _asked_since(db, project, run_id, why or "", None):
+        return PRESENTER
     if field == "video_model" and not asked and (off := model_map.off_map(project, value)):
         return off  # UGC stays on Omni 1.2, an animated style on Seedance (Reed, 6 Nov)
     try:

@@ -1015,6 +1015,8 @@ def to_rewrite(db: Session, project: Project, clip_id: str | None = None) -> lis
         return [clip_id] if clip_id in ids else []
     have = {r.clip_id for r in rows}
     stale = {r.clip_id for r in rows if is_stale(db, r, bd)}
+    if bd.data.get("song"):  # a timed video's clip with no piece of the song: its rewrite times
+        stale |= {r.clip_id for r in rows if not r.song_slice}  # it (cut.NOT_TIMED's press)
     return [i for i in ids if i in stale or i not in have] if rows else []
 
 

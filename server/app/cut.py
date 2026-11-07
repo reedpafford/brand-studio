@@ -55,6 +55,9 @@ SYNCED = "This piece lip-syncs the voice: its start can only move later, with it
 SYNCED_LONG = "This piece lip-syncs the voice: it can't run longer than its picture."
 OLD_TALKER = "That take wasn't cut from the talker take in use: its lips say another voice."
 NOT_TIMED = "A clip isn't timed to the song yet. Rewrite the clip prompts, then make the video."
+UNTIMED_PLAN = ("The shots aren't timed to the narration or song, so the cut can't follow it. "
+                "Make the shots again from the plan (they're timed to it as they're made), then "
+                "the clip prompts and the video.")  # fmt: skip
 SONG_CHANGED = (
     "{} of the clips were made for the video's earlier song. Press Rewrite clip prompts on "
     "Clips and remake them, then make the video."
@@ -444,9 +447,11 @@ def ready(db: Session, project: Project, storage) -> None:
         said = "1 clip was" if other == 1 else f"{other} clips were"
         raise HTTPException(409, video_settings.OTHER.format(said))
     voice = song(db, project)
-    if voice and not all(c.song_slice for c in clips):
-        raise HTTPException(409, NOT_TIMED)
     newest = _newest_breakdown(db, project)
+    if voice and not all(c.song_slice for c in clips):
+        if not (newest.data if newest else {}).get("song"):  # video 240: the plan lost its
+            raise HTTPException(409, UNTIMED_PLAN)  # times; a rewrite can't bring them back
+        raise HTTPException(409, NOT_TIMED)  # its prompts' rewrite times them (to_rewrite)
     if voice and (old := sum(_stale(db, c, newest) for c in clips)):  # made for the earlier song
         raise HTTPException(409, SONG_CHANGED.format(old))
     narrated = bool(voice and voice.kind == narration.KIND)

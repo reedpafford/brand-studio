@@ -331,3 +331,58 @@ def test_whispers_read_has_time_for_a_long_take(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match=r"^Reading the sung words took too long\.$"):
         song_timing.words(tmp_path / "v.mp3", "Hi.")
     assert asked == [600, 900]  # never twice in one job
+
+
+def test_a_plan_that_lost_its_narration_times_names_the_press_that_times_it(
+    app, db, owner, editor, narrated
+):
+    """Video 240 (7 Nov): its plan had lost its narration times, so Make the video said
+    "Rewrite the clip prompts" while the rewrite said no clip needed new prompts: the director
+    stopped, "nothing I can press gets past them" (rule 22). The cut now says to make the
+    shots again (timed as they're made), and a clip with no piece of the narration on a timed
+    plan is one the rewrite is for."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app import clip_prompts, cut
+    from app.models.breakdowns import BreakdownVersion
+    from app.models.clips import ProjectClip
+    from tests.test_song_final_cut import _clips_made
+
+    owner.post(f"{narrated}/songs", json={})
+    _work(app, db, ticks=8)
+    owner.post(f"{narrated}/approve")
+    owner.post(f"{narrated.rsplit('/drafts', 1)[0]}/publish")
+    video = f"/projects/{editor.post(f'{narrated}/produce').json()['project_id']}"
+    _work(app, db)
+    _approve_plan(app, db, editor, video)
+    _clips_made(app, db, editor, video)
+    pid = int(video.rsplit("/", 1)[1])
+    project = db.get(Project, pid)
+    rows = db.query(ProjectClip).filter_by(project_id=pid).all()
+
+    one = rows[0]  # a clip that lost its piece while the plan kept its times
+    one.song_slice = None
+    db.flush()  # (its row re-slices it on save: cleared after, as a damaged row left it)
+    db.execute(ProjectClip.__table__.update().where(ProjectClip.id == one.id)
+               .values(song_slice=None))  # fmt: skip
+    db.commit()
+    db.expire_all()
+    assert make_cut(app, db, editor, video).json()["detail"] == cut.NOT_TIMED
+    assert one.clip_id in clip_prompts.to_rewrite(db, project)  # the press it names works
+
+    row = db.query(BreakdownVersion).filter_by(project_id=pid).order_by(
+        BreakdownVersion.id.desc()).first()  # fmt: skip
+    row.data = {k: v for k, v in row.data.items() if k != "song"}  # as complete_cast left it
+    flag_modified(row, "data")
+    db.commit()
+    db.execute(ProjectClip.__table__.update().where(ProjectClip.project_id == pid)
+               .values(song_slice=None))  # fmt: skip
+    db.commit()
+    db.expire_all()
+    assert make_cut(app, db, editor, video).json()["detail"] == cut.UNTIMED_PLAN
+    assert editor.post(f"{video}/breakdown").status_code == 201  # Make the shots again
+    _work(app, db)
+    db.expire_all()
+    newest = db.query(BreakdownVersion).filter_by(project_id=pid).order_by(
+        BreakdownVersion.id.desc()).first()  # fmt: skip
+    assert newest.id != row.id and newest.data.get("song")  # timed to the narration again
