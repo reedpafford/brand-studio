@@ -251,11 +251,11 @@ test("S3-02: the director's treatment is a card in the thread, as the board draw
   expect(within(first).getByText("Dr. Pickle style guide · Presenter format")).toBeInTheDocument();
   expect(within(first).getByText("In one line:").parentElement).toHaveTextContent("In one line: a doctor who’s sick of your excuses");
   expect(within(first).getByText("Why it holds:")).toBeInTheDocument();
-  const rows = within(first).getAllByRole("row");
+  const rows = within(first).getAllByRole("row"); // its time beside the name on a computer, under it on a phone
   expect(rows.map((r) => r.textContent)).toEqual([
-    "Hook0–2 sThe glowing spine and “Your gut after the weekend…”stops the scroll on a gross, bright picture",
-    "What beer does2–14 sBeer pours through the see-through body",
-    "Escalate14–27 sThe gut swells green",
+    "Hook0–2 s0–2 sThe glowing spine and “Your gut after the weekend…”stops the scroll on a gross, bright picture",
+    "What beer does2–14 s2–14 sBeer pours through the see-through body",
+    "Escalate14–27 s14–27 sThe gut swells green",
   ]);
   expect(within(first).queryByText(/Ending:/)).toBeNull();
   await userEvent.click(within(first).getByRole("button", { name: "+ 2 more beats" }));

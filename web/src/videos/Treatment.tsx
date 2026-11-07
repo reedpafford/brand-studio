@@ -48,12 +48,14 @@ export function TreatmentCard({ t, changed }: { t: Treatment; changed?: boolean 
           <tbody>
             {beats.map((b, i) => {
               const [name, why] = named(b.purpose);
+              const when = b.start != null && b.end != null ? `${b.start}–${b.end} s` : "";
               return (
                 <tr key={b.id ?? i} className="border-t border-border align-top">
                   <th scope="row" className="w-[7.5rem] py-2 pr-3 text-left font-semibold max-lg:w-[5.5rem]">
                     {name}
+                    {when && <span className="block text-xs font-normal text-muted tabular-nums lg:hidden">{when}</span>}
                   </th>
-                  <td className="w-[4.5rem] whitespace-nowrap py-2 pr-3 text-muted tabular-nums">{b.start != null && b.end != null ? `${b.start}–${b.end} s` : ""}</td>
+                  <td className="w-[4.5rem] whitespace-nowrap py-2 pr-3 text-muted tabular-nums max-lg:hidden">{when}</td>
                   <td className="py-2">
                     {b.picture}
                     {why && <span className="block text-xs text-muted">{why}</span>}
