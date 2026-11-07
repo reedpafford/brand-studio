@@ -604,6 +604,15 @@ test("S4-03: a failed round says nothing was charged, with Try again and Upload 
   expect(within(screen.getByRole("region", { name: "Which kitchen?" })).getByText(/You locked the cast to Mark/)).toBeInTheDocument();
 });
 
+test("Video 233: a picked look that couldn't be used says so on its card, never silently", async () => {
+  setViewport(1440);
+  const unused = "This wasn’t used: the question doesn’t say whose look it is. Tell the director which role it’s for.";
+  server(owner, null, run({ thread: [asked(8)] }), cards(ask({ id: 8, state: "answered", topic: "", question: "Who plays them?", answer: { how: "option", name: "Option 1", file_id: 31, unused }, answered_by: "Reed", answered_at: later })));
+  renderApp("/b/1/videos/50");
+  const done = await screen.findByRole("region", { name: "Who plays them?" });
+  expect(within(done).getByText(unused)).toBeInTheDocument();
+});
+
 test("S4-02: a story choice shows its pick and why, Go with A or B, and when it goes with its pick", async () => {
   setViewport(1440);
   const story = ask({ kind: "story", topic: "How it ends", question: "How should it end?", saved: [], saved_in: "", generate: null, pick: "A", decide_at: "2026-11-04T11:00:00Z", choices: [{ key: "A", title: "He bins the pint", why: "Clear before and after." }, { key: "B", title: "He toasts the camera", why: "Funnier." }], can: ["reply", "choice"] });

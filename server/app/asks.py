@@ -37,6 +37,8 @@ OPEN = ("open", "uploading")
 NOT_NEEDED = "This question is no longer needed."
 LOCKED = "{} is locked in this video: unlock it in Cast to change who plays them."
 NOT_WAITING = "This isn't waiting for an OK any more."
+NAMED = ("cast", "presenter", "place")  # a card about one role or place, by the script's name
+UNUSED = "This wasn't used: {why} Tell the director which role it's for."
 KEPT = "Kept as it is. Nothing was charged for it."
 
 
@@ -64,6 +66,8 @@ def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
     if kind not in QUESTIONS or not question:
         return "Refused: an ask needs its kind and its question."
     subject = (move.get("subject") or "").strip()[:120]
+    if kind in NAMED and not subject:  # video 233: "Who plays Maya?" came with topic "Maya" only
+        subject = (move.get("topic") or "").strip()[:120]
     role = _slot(db, project, subject) if kind in ("cast", "presenter") else None
     if role is not None and locked(project, role):
         return f"Refused: {role.role} is locked in this video; use that look."
@@ -156,7 +160,7 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
         return _money(db, user, ask, project, how)
     if ask.state == "not_needed":
         raise HTTPException(409, NOT_NEEDED)
-    role = _slot(db, project, ask.subject) if ask.kind in ("cast", "presenter") else None
+    role = _slot(db, project, _about(ask)) if ask.kind in ("cast", "presenter") else None
     if role is not None and locked(project, role):
         raise HTTPException(409, LOCKED.format(role.role))
     if how == "saved":
@@ -284,11 +288,19 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
         from app.routes import cast
 
         return cast.answer_place(db, user or db.get(User, project.created_by_id), project,
-                                 ask.subject, data)  # fmt: skip
+                                 _about(ask), data)  # fmt: skip
     if ask.kind not in ("cast", "presenter"):
         return
-    slot = _slot(db, project, ask.subject)
-    if slot is None or locked(project, slot):  # no such role, or its look is fixed
+    looks = data.get("how") in ("saved", "upload", "option")  # a reply steers the director
+    slot = _slot(db, project, _about(ask)) or (
+        _new_role(db, project, _about(ask)) if looks else None
+    )
+    if slot is None and looks:  # never silently: the card says it wasn't used, and why
+        why = (f"{_about(ask)} isn't in this video's script." if _about(ask)
+               else "the question doesn't say whose look it is.")  # fmt: skip
+        ask.answer = {**data, "unused": UNUSED.format(why=why)}
+        return
+    if slot is None or locked(project, slot):  # a reply, or its look is fixed
         return
     who = user or db.get(User, project.created_by_id)
     if data.get("how") == "saved" and str(data.get("option", "")).startswith("item:"):
@@ -308,6 +320,39 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
     else:
         return
     project_assets._cast(db, who, project, slot, item)
+
+
+def _about(ask: Ask) -> str:
+    """Whom or where a card is about: its subject, else its topic (an older card's subject
+    could be empty: video 233's "Maya")."""
+    return ask.subject or (ask.topic if ask.kind in NAMED else "")
+
+
+def _new_role(db: Session, project: Project, name: str):
+    """A role a card names that the script has none for yet (a screenplay's MAYA the cast read
+    never knew): added as the cast read adds a speaker it missed, and put in the shots that
+    show it (`breakdown.complete_cast`), so the picked look is used in each. Only a name the
+    script's words or its shots name (QA on #1401: "The landlord" in neither, or "the
+    husband" for Dad, is never added); None otherwise, with no script, or a role of that name
+    merged into another."""
+    from app import breakdown, cast_roles
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+    from app.routes.project_assets import _newest
+
+    draft = db.get(ScriptDraft, project.script_draft_id or 0)
+    slots = cast_roles.all_slots(db, project)
+    if draft is None or not name.strip() or any(cast_roles.same(s.role, name) for s in slots):
+        return None
+    bd = _newest(db, project)
+    shots = [s for scene in (bd.data if bd else {}).get("scenes", []) for s in scene["shots"]]
+    if not cast_roles.named(name, " ".join([draft.text, *(s.get("action", "") for s in shots)])):
+        return None
+    slot = ScriptCastSlot(script_id=draft.script_id, role=name.strip(), kind="Helper",
+                          appears_in=[draft.slot], position=len(slots) + 1)  # fmt: skip
+    db.add(slot)
+    db.flush()
+    breakdown.complete_cast(db, project)
+    return slot
 
 
 def _slot(db: Session, project: Project, subject: str):
@@ -739,6 +784,7 @@ def for_director(db: Session, project: Project) -> list[dict]:
         said = ("" if not data else f"no answer by the time on the card: your pick {data['name']}"
                 if data.get("how") == "default" else
                 data.get("text") or data.get("name") or "")  # fmt: skip
+        said = f"{said} ({data['unused']})" if data.get("unused") else said  # it says why
         out.append({"ask_id": ask.id, "kind": ask.kind, "topic": ask.topic,
                     "question": ask.question, "state": state(db, ask), "answer": said,
                     "how": data.get("how"), "picture": bool(data.get("file_id")),
