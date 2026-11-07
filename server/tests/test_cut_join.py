@@ -154,3 +154,25 @@ def test_a_quiet_cut_is_brought_up_to_social_loudness_keeping_its_balance():
     assert _facts(made)["size"] == "480x854" and abs(_facts(made)["video_s"] - 2) < 0.1
     silent = _take("red", rate=None)
     assert cut_render.loud(silent) == silent  # no sound: as it was
+
+
+def test_a_transient_over_a_quiet_voice_stays_under_the_ceiling_after_the_encode(monkeypatch):
+    """QA on #1407: a quiet voice (about -25 LUFS) over a bed with one -4.5 dBTP transient came
+    out at -0.7 dBTP: loudnorm's dynamic mode, then the AAC encode's overshoot. Measured
+    again after the encode, it's brought under -1 dBTP. A cut ffmpeg gives no loudness report
+    for is left as it was, never failed."""
+    graph = ("sine=frequency=220:d=4,volume=0.02[v];anoisesrc=d=4:c=pink:a=0.01:seed=7[b];"
+             "aevalsrc='if(between(t,2,2.004),0.6*sin(2*PI*3000*t),0)':d=4:s=48000[t];"
+             "[v][b][t]amix=inputs=3:normalize=0[a]")  # fmt: skip
+    args = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=480x854:d=4:r=24",
+            "-filter_complex", graph, "-map", "0:v", "-map", "[a]", "-c:v", "libx264",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "t.mp4"]  # fmt: skip
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(args, cwd=tmp, capture_output=True, check=True)  # noqa: S603
+        quiet = (Path(tmp) / "t.mp4").read_bytes()
+    before, peak = _lufs(quiet)
+    assert before < -23 and peak > -6, (before, peak)  # a quiet voice, a loud transient
+    lufs, peak = _lufs(cut_render.loud(quiet))
+    assert peak <= cut_render.CEILING and lufs > before + 3, (lufs, peak)  # louder, under it
+    monkeypatch.setattr(cut_render, "_loudness", lambda folder, name: None)
+    assert cut_render.loud(quiet) == quiet  # no report: the cut as it was
