@@ -164,3 +164,8 @@ def test_the_watch_is_told_whether_the_cut_has_a_music_bed(db):
     assert watch_cut._bed(db, none.id) == watch_cut._bed(db, removed.id) == watch_cut.NO_BED
     assert watch_cut._bed(db, bed.id) == watch_cut.BED
     assert watch_cut._bed(db, None) == ""  # an older watch: nothing said
+    song = FinalVideo(project_id=1, file_id=1, take_ids=[],
+                      timeline={"mode": "song", "music": None})  # fmt: skip
+    db.add(song)
+    db.flush()
+    assert watch_cut._bed(db, song.id) == ""  # a song's cut: the song is its sound (QA on #1429)

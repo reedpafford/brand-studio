@@ -172,8 +172,8 @@ def _bed(db: Session, final_video_id: int | None) -> str:
     from app.models.clips import FinalVideo
 
     made = db.get(FinalVideo, final_video_id) if final_video_id else None
-    if made is None or not made.timeline:
-        return ""
+    if made is None or not made.timeline or made.timeline.get("mode") == "song":
+        return ""  # a song's cut: the song is its sound throughout (QA on #1429)
     music = made.timeline.get("music")
     return BED if music and not music.get("removed") else NO_BED
 

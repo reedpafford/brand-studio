@@ -47,11 +47,17 @@ ASKS = (
     r"\binstead\s+of\s+Q\s*,?\s*(?:say|use|write|put)\s+R",
 )
 UNSAID = re.compile(  # with no quotes (video 245: "Ray should say a coin flip, not a slot machine")
-    r"(?:\b[\w.'’-]+\s+(?:should|could|can|would|needs?\s+to|has\s+to|must)\s+)?\bsays?\s+"
+    r"(?:\b(?P<who>[\w.'’-]+)\s+(?:should|could|can|would|needs?\s+to|has\s+to|must)\s+)?"
+    r"\bsays?\s+"
     r"(?P<r>[^,.;!?“”\"]+?)\s*,?\s+(?:not|instead\s+of|rather\s+than)\s+(?P<q>[^,.;!?“”\"]+)",
     re.I,
 )
 ARTICLE = re.compile(r"^(?:a|an|the)\s+", re.I)
+HOW = re.compile(  # what follows "say" is how it's said, not other words (QA on #1429)
+    r"^(?:it|that|this|them|him|her|these|those|like|with|more|less|so|too|much|way|"
+    r"a\s+(?:bit|little|lot)|\w+ly|\w+er)\b",
+    re.I,
+)
 POLITE = re.compile(
     r"^(?:(?:can|could|would|will)\s+(?:we|you|i|it\s+be)\b|please\b|maybe\b)\s*", re.I
 )
@@ -90,14 +96,26 @@ def asked(text: str, script: str) -> tuple[str, bool] | None:
             found = re.search(pattern.replace("Q", re.escape(raw)).replace("R", repl), text, re.I)
             if found:
                 return words, _only(text[: found.start()] + " " + text[found.end() :])
-    for found in UNSAID.finditer(text):  # "say R, not Q": Q the script's words, R new ones
+    for found in UNSAID.finditer(text):  # "say R, not Q": Q the speaker's words, R new ones
         new = found["r"].strip()
+        if HOW.match(new):  # "say it slower, not fast": a delivery note, the director's
+            continue
         old = re.sub(r"\s+(?:please|instead|thanks)$", "", found["q"].strip(), flags=re.I)
-        words = next((w for w in (old, ARTICLE.sub("", old)) if len(w) > 2 and _in(w, script)),
-                     None)  # fmt: skip
+        said = _lines(script, found["who"])
+        words = next((w for w in (old, ARTICLE.sub("", old))
+                      if len(w.split()) > 1 and _in(w, said)), None)  # fmt: skip
         if words and not _in(new, script):
             return words, _only(text[: found.start()] + " " + text[found.end() :])
     return None
+
+
+def _lines(script: str, who: str | None) -> str:
+    """The words the script gives `who` to say ("Ray": UNCLE RAY's lines), or every spoken
+    line when no one is named or no speaker has that name."""
+    spoken = [ln.split(":", 1) for ln in script.splitlines() if ":" in ln]
+    mine = [said for name, said in spoken if who and re.search(rf"(?<!\w){re.escape(who)}(?!\w)",
+                                                               name, re.I)]  # fmt: skip
+    return "\n".join(mine or [said for _, said in spoken])
 
 
 def _only(rest: str) -> bool:

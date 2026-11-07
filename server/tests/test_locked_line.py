@@ -731,6 +731,18 @@ def test_a_note_with_no_quotes_that_asks_for_other_words_is_answered_too():
         "Mom should say bought the dip, not sold it",
     ):  # her new words are the script's
         assert locked_line.asked(text, SCRIPT) is None, text
+    lines = ("SCENE 1\nUNCLE RAY: That's a slot machine. Too fast, kid.\nMIA: Not so loud.\n"
+             "JAY: Yeah.")  # fmt: skip
+    for text in (  # QA on #1429: how it's said goes to the director, never the locked card
+        "Ray should say it slower, not fast",
+        "Mia should say it softer, not loud",
+        "say it with a smile rather than fast",
+        "Ray should say it a bit slower, not so fast",
+        "Jay should say a coin flip, not a slot machine",  # not Jay's line: the director's
+    ):
+        assert locked_line.asked(text, lines) is None, text
+    assert locked_line.asked("Ray should say a coin flip, not a slot machine", lines) == (
+        "a slot machine", True)  # fmt: skip
 
 
 def test_the_owners_unquoted_note_gets_the_reply_at_once_never_a_new_delivery(
