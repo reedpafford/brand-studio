@@ -86,7 +86,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
     if check:  # never a take its model refuses for its length (a 422, video 245)
         fits_prompt(db, project, clip, model, take.get("prompt") or "")
-        not_again(db, clip, model.id, take)
+        not_again(db, clip, model.id, take, sent)
     return {
         "step": "clip_take",
         "project_id": project.id,
@@ -293,7 +293,7 @@ SAME_INVALID = ("The service refused this take's request as invalid ({reason}), 
                 "Nothing was charged.")  # fmt: skip
 
 
-def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict) -> None:
+def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: dict) -> None:
     """A take whose last try was refused as an invalid request (a 400 or 422) is never sent
     again unchanged: the director's "try again" sent the same 422 (video 245)."""
     last = db.scalar(select(Job).where(Job.input["project_clip_id"].as_integer() == clip.id,
@@ -301,16 +301,20 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict) -> None
                      .order_by(Job.id.desc()).limit(1))  # fmt: skip
     if last is None or last.status != JobStatus.failed or why_failed(last) != "invalid":
         return
-    if last.input.get("model") == model_id and last.input.get("input") == take:
+    same = last.input.get("input") == take and (last.input.get("files") or {}) == (sent or {})
+    if last.input.get("model") == model_id and same:  # its pictures changed: it may go
         raise HTTPException(409, SAME_INVALID.format(reason=invalid(last.error_detail or "")))
 
 
 FIT = "fit"  # in a free fix's input: it shortens the prompt to its model's limit
-ROOM = 300  # characters left under the limit for the language line and a Redo note
+ROOM = 600  # characters left under the limit: the language line and a Redo note (500 at most)
 TOO_LONG_START = "The prompt is too long for "  # how its refusal starts (director_tools)
 FITTING = ("The prompt is too long for {model} ({n:,} of {most:,} characters), so it's being "
            "rewritten to fit, free. Make the take once it's rewritten. "
            "Nothing was charged.")  # fmt: skip
+WRITING = ("The prompt is too long for {model} ({n:,} of {most:,} characters); it's rewritten to "
+           "fit once the clip prompts being written now are done. Make the take then. Nothing "
+           "was charged.")  # fmt: skip
 STILL_LONG = ("The prompt is still too long for {model} ({n:,} of {most:,} characters) after "
               "two rewrites. Shorten it with Edit (free), or put this clip on a model that takes "
               "longer prompts. Nothing was charged.")  # fmt: skip
@@ -322,23 +326,29 @@ def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: s
     own fix (clip_prompts.fix_job: its Keep, Shot and spoken lines kept), never cut short, and
     the take is refused until then, saying so; after two rewrites, a person shortens it."""
     from app.clip_prompts import fix_job, fixing
+    from app.credits import lock
 
     most = model.prompt_max
     if not most or len(sent) <= most:
         return
     said = {"model": model.name, "n": len(sent), "most": most}
+    lock(db, Project, project.id)  # two presses at once queue one fix
     if fixing(db, clip):
         raise HTTPException(409, FITTING.format(**said))
+    jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
+    writing = ("clip_prompts", "narrated_clip_prompts")  # a rewrite of every clip: after it
+    if any(j.input.get("step") in writing and not j.input.get("fix") for j in jobs):
+        raise HTTPException(409, WRITING.format(**said))
     fits = db.scalars(select(Job).where(Job.project_id == project.id, Job.input[FIT].as_boolean()))
     if sum(j.input.get("clip_ids") == [clip.clip_id] for j in fits) >= 2:
         raise HTTPException(409, STILL_LONG.format(**said))
     room = most - ROOM
-    problem = (f"The prompt is {len(sent)} characters and {model.name} takes at most {most}: "
-               f"write it again in under {room} characters, saying the same shots in fewer "
-               "words; keep every Keep line, every Shot line and the spoken lines word for "
-               "word")  # fmt: skip
-    fix = fix_job(db, db.get(User, project.created_by_id), project, clip, [problem])
-    fix.input = {**fix.input, FIT: True}
+    told = (f"Shorten this clip's prompt to under {room} characters ({model.name} takes at most "
+            f"{most}; it's {len(sent)}): say everything else in fewer words, and keep these "
+            "word for word: every line that starts \"Shot N |\", the Keep: line, and every "
+            "spoken line in quotes. Never drop a shot or a spoken line.")  # fmt: skip
+    fix = fix_job(db, db.get(User, project.created_by_id), project, clip, [], told=told)
+    fix.input = {**fix.input, FIT: True, "fit_max": most}
     db.commit()  # the fix stands whatever the refusal below rolls back
     raise HTTPException(409, FITTING.format(**said))
 

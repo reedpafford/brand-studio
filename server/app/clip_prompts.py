@@ -763,6 +763,10 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             c = repair_shape(with_cast(db, project, c, bd, known), bd)  # free, at once
             if job.input.get("fix"):  # the free fix never drops who isn't lip-syncing (c4)
                 c = _kept_voiceover(c, job.input.get("before") or "")
+            if (lost := fit_lost(job, c.prompt)) and (row := rows.get(c.clip_id)):
+                row.change = {"note": FIT_NOTE, "status": "failed", "job_id": job.id,
+                              "error": f"{lost} The prompt stays as it was."}  # fmt: skip
+                continue  # the old prompt stays; it counts as one of its two tries
             written_as = c.prompt
             words = reword(c.prompt, looks.drawn(project))
             c = c.model_copy(update={"prompt": words[0]})
@@ -821,6 +825,33 @@ def save_clip_prompts(db: Session, job: Job) -> None:
 
 
 LIP_SYNC = re.compile(r"lip[- ]?sync|voice-?over|mouth stays closed", re.I)
+
+
+FIT_NOTE = "Shorten the prompt to fit its model"
+SHOT_LINE = re.compile(r"^Shot \d+ \|.*$", re.M)
+QUOTED = re.compile(r"[\w'.-]+(?: \([^)]*\))?: (“[^”]+”|\"[^\"]+\")")  # Mom (sharp): "Nate…"
+
+
+def fit_lost(job: Job, prompt: str) -> str:
+    """What a fit to the model's prompt limit (clip_takes.FIT) got wrong, in plain words, or
+    "": every "Shot N |" line, the Keep: line and every quoted spoken line of the old prompt
+    kept word for word, and the new one under the limit (on the stand-ins a 4,780-character
+    prompt came back 293 characters long, its shots and lines gone)."""
+    from app.clip_takes import FIT
+
+    if not job.input.get(FIT):
+        return ""
+    before, most = job.input.get("before") or "", job.input.get("fit_max") or 0
+    lines = {x.strip() for x in prompt.splitlines()}
+    keep = [x.strip() for x in before.splitlines() if x.startswith("Keep: ")]
+    lost = [x.strip() for x in SHOT_LINE.findall(before) + keep if x.strip() not in lines]
+    lost += [q for q in QUOTED.findall(before) if q not in prompt]  # each spoken line said
+    if lost:
+        return (f"The shortened prompt dropped or changed {len(lost)} of its Shot, Keep or "
+                "spoken lines.")  # fmt: skip
+    if most and len(prompt) > most:
+        return f"The shortened prompt is still {len(prompt):,} characters, over {most:,}."
+    return ""
 
 
 def _kept_voiceover(clip: ClipPrompt, before: str) -> ClipPrompt:
@@ -979,16 +1010,18 @@ def queue_fix(db: Session, user, project: Project, row: ProjectClip, problems: l
     return job
 
 
-def fix_job(db: Session, user, project: Project, row: ProjectClip, problems: list[str]) -> Job:
-    """The free fix's Claude job for one clip, added but not committed."""
+def fix_job(db: Session, user, project: Project, row: ProjectClip, problems: list[str],
+            told: str = "") -> Job:  # fmt: skip
+    """The free fix's Claude job for one clip, added but not committed. `told`: its own
+    instruction instead (a fit to the model's prompt limit shortens the whole prompt)."""
     from app.job_brand import brand_for
 
     bd = newest(db, project)
     clip = row.clip_id
     data = job_input(db, project, bd, [clip])
-    fix = ("Change only the lines of this clip's prompt that these problems name, and keep "
-           "every other line word for word (the spoken lines, the audio, the action and the "
-           f"voiceover and lip-sync notes): {'; '.join(problems)}")  # fmt: skip
+    fix = told or ("Change only the lines of this clip's prompt that these problems name, and "
+                   "keep every other line word for word (the spoken lines, the audio, the action "
+                   f"and the voiceover and lip-sync notes): {'; '.join(problems)}")  # fmt: skip
     data = {**data, "prompt": f"{data['prompt']}\n<fix clip=\"{clip}\">\n{escape(fix)}\n</fix>",
             "clip_ids": [clip], "fix": True, "before": row.prompt}  # fmt: skip
     job = Job(workspace_id=project.workspace_id, created_by_id=user.id, approved_by_id=user.id,
