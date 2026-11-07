@@ -464,6 +464,6 @@ def saved(db: Session, job: Job) -> None:
     db.add(FinalVideo(project_id=project.id, file_id=stored.id, number=i["number"],
                       take_ids=i["take_ids"], cut_ins=i["cut_ins"], edit_ids=i["edit_ids"],
                       song_take_id=i["song_take_id"], timeline=i["timeline"],
-                      seconds=i["timeline"]["length"],  # Media shows it
+                      seconds=out.get("seconds") or i["timeline"]["length"],  # the file's
                       created_by_id=job.created_by_id))  # fmt: skip
     project.finished_at = project.finished_at or utcnow()

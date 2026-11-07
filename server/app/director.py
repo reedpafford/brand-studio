@@ -52,8 +52,6 @@ OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted 
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
 REBUILD = "Refused: make the cut again first: it isn't up to date."
-NO_WATCH_LEFT = ("Refused: no watches are left this run to check an edit. Say in the delivery note "
-                 "what you would change.")  # fmt: skip
 RUNNING = "The director is already building this video."
 NOTE = re.compile(r"\bnote (\d+)\b", re.I)  # how a move's why names the note it answers
 OPEN = "Refused: note {0} is still open. Make it, or say why it can't; write Note {0} in that move."
@@ -678,12 +676,22 @@ def _treatment_checked(db: Session, job: Job) -> bool:
 
 
 def wake(db: Session, project: Project) -> None:
-    """The next turn, once the last one was acted on and nothing on the video is waiting."""
+    """The next turn, once the last one was acted on and nothing on the video is waiting.
+    Never twice (cost analysis A5: the worker's finish and its sweep both woke the same run,
+    so a turn, and what it paid for, ran twice): `_turn` checks again under the lock."""
+    if (last := _wakeable(db, project)) is None:
+        return
+    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]),
+          after=last.id)  # fmt: skip
+
+
+def _wakeable(db: Session, project: Project) -> Job | None:
+    """The run's last turn when its next one should start now, else None."""
     last = active(db, project)
     if last is None or last.status != JobStatus.succeeded or "result" not in last.input:
-        return
+        return None
     if _waiting(db, project) or _parked(db, project, last):
-        return
+        return None
     if (
         last.input["result"] == CAST_WAIT
         and cast_gate.pending(db, project)
@@ -692,9 +700,9 @@ def wake(db: Session, project: Project) -> None:
             or asks.answered_since(db, project, (last.started_at or last.created_at).isoformat())
         )
     ):
-        return  # it goes on when the cast and places are approved, a question is answered, or
-        # someone asks for more
-    _turn(db, db.get(User, last.input[RUN]["by"]), project, dict(last.input[RUN]))
+        return None  # it goes on when the cast and places are approved, a question is
+        # answered, or someone asks for more
+    return last
 
 
 def _parked(db: Session, project: Project, last: Job) -> bool:
@@ -802,8 +810,6 @@ def _act(db: Session, job: Job, storage) -> None:
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
-    if tool == "edit_cut" and run.get("watches", 0) >= MAX_WATCHES:  # it watches what it edits
-        return _record(db, job, run, NO_WATCH_LEFT)
     if tool == "watch_cut" and (cut_edits.for_director(db, project) or {}).get("changes"):
         return _record(db, job, run, REBUILD)  # a watch is for the cut with the edits in it
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
@@ -928,7 +934,8 @@ def _end(job: Job, why: str, result: str = "") -> None:
 
 
 def _turn(db: Session, user: User, project: Project, run: dict, *,
-          extra: dict | None = None, carry: tuple[str, Decimal] | None = None) -> Job:  # fmt: skip
+          extra: dict | None = None, carry: tuple[str, Decimal] | None = None,
+          after: int | None = None) -> Job:  # fmt: skip
     from app.routes.jobs import enqueue
 
     last = next(reversed(turns(db, project)), None)
@@ -982,6 +989,14 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         wait = past_own(db, project, run["id"], turn, user)
         data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
         wait = wait or past_approved(db, project, user, turn)
+    if after is not None:  # woken: under the video's lock, unless another waker got here first
+        lock(db, Project, project.id)  # a second waker waits here, then sees the first's turn
+        newer = db.scalar(select(Job).where(Job.project_id == project.id,
+                                            Job.input["step"].as_string() == STEP,
+                                            Job.input[RUN]["id"].as_string() == run["id"],
+                                            Job.id > after).limit(1))  # fmt: skip
+        if newer is not None:
+            return newer
     try:
         job = enqueue(db, user, "write-claude", data, project=project, provider="claude",
                       prepaid=not wait, wait=wait)  # fmt: skip

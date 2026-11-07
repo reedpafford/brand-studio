@@ -7,6 +7,7 @@ its piece, never sped up), the music under the voice by the amount set, rising w
 speaks or staying down, and the presenter over the B-roll per span. A known problem (music
 that stops before the cut ends) comes back as plain words with its one-click fixes."""
 
+import logging
 import math
 import subprocess
 import tempfile
@@ -19,10 +20,13 @@ from app.models.clips import ClipTake, ProjectClip
 from app.models.files import StoredFile
 from app.models.projects import Project
 
+log = logging.getLogger(__name__)
 FADE = 1.5  # seconds: a song video's end fades out (flows V6)
 # A narrated video's mix (flows V6n): the takes' own sound under the narration, the music
 # lower still, the whole about -14 LUFS
 TAKES, MUSIC, LOUD = 0.75, 0.30, "loudnorm=I=-14:TP=-1.5:LRA=11"
+AIM = "loudnorm=I=-14:TP=-1.5:LRA=20"  # every cut, last (E2E 233); TP as LOUD: AAC overshoots
+CEILING = -1.0  # dBTP a delivered cut's sound never passes, measured after the encode
 RAMP = 0.25  # seconds the music takes to dip under the voice and rise after it
 SAME = "aformat=sample_rates=44100:channel_layouts=stereo"
 LATE = "aresample=async=1:first_pts=0,"  # a take's sound that starts late keeps its place
@@ -135,8 +139,56 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     if r["host"]:
         hosts = [storage.get(k) for k in r["host"]["keys"]]
         data = host_layer.lay_over(data, hosts, r["host"]["spans"])
+    data = loud(data)  # every kind of cut, as loud as social video plays (E2E 233: -25 LUFS)
     progress(100)
     return data
+
+
+def loud(data: bytes) -> bytes:
+    """The cut at about -14 LUFS with its true peak at most -1 dBTP: loudnorm measured, then
+    applied; as one gain (`linear`) when the cut allows, so the voice, the music and the sound
+    keep their balance, else loudnorm's own gentle dynamic mode (a quiet voice needing about
+    12 dB, say). The AAC encode can overshoot a transient past the ceiling: measured again,
+    such a cut is brought down under it. The picture is copied. A cut with no sound, or only
+    silence, or one ffmpeg can't measure (logged), is as it was."""
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "in.mp4").write_bytes(data)
+        if not _probe(folder, "in.mp4", "a:0", "index"):
+            return data
+        m = _loudness(folder, "in.mp4")
+        if m is None or m["input_i"] in ("-inf", "inf") or float(m["input_i"]) < -70:
+            return data  # silence, or no report: nothing to bring up
+        keep = ":".join(f"measured_{k}={m[f'input_{k.lower()}']}" for k in ("I", "TP", "LRA"))
+        aim = f"{AIM}:{keep}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}"
+        (folder / "loud.mp4").write_bytes(_aac(folder, "in.mp4", f"{aim}:linear=true"))
+        after = _loudness(folder, "loud.mp4")
+        over = float(after["input_tp"]) - CEILING if after else 0.0
+        if over <= 0:
+            return (folder / "loud.mp4").read_bytes()
+        return _aac(folder, "loud.mp4", f"volume={-(over + 0.5):.2f}dB")  # under it, a margin
+
+
+def _loudness(folder: Path, name: str) -> dict | None:
+    """loudnorm's measure of a file's sound (input_i, input_tp, …), or None, logged."""
+    import json  # noqa: PLC0415
+
+    measure = ["ffmpeg", "-hide_banner", "-nostats", "-i", name, "-vn", "-af",
+               f"{AIM}:print_format=json", "-f", "null", "-"]  # fmt: skip
+    said = subprocess.run(measure, cwd=folder, capture_output=True, text=True,  # noqa: S603
+                          timeout=600).stderr  # fmt: skip
+    try:
+        return json.JSONDecoder().raw_decode(said[said.rindex("{") :])[0]  # its report, last
+    except ValueError:
+        log.warning("cut loudness: no loudnorm report for %s: %s", name, said[-500:])
+        return None
+
+
+def _aac(folder: Path, name: str, audio: str) -> bytes:
+    """`name` with its sound through `audio`, as AAC; the picture copied."""
+    return _run(folder, ["-i", name, "-map", "0:v?", "-map", "0:a:0", "-c:v", "copy", "-af",
+                         audio, "-ar", "48000", "-c:a", "aac", "-b:a", "192k",
+                         "-movflags", "+faststart"])  # fmt: skip
 
 
 def _tc(t: float) -> str:
