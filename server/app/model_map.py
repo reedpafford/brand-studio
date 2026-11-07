@@ -2,7 +2,9 @@
 Each style has its own video model (Reed, 6 Nov: "keep seedance for the animated and
 expression-full ones for now. Omni is more for the realistic stuff"; "1.2 replaces 1.1"): Seedance
 2.5 for House and Disney Pixar (and songs), Seedance 2.0 for Skeleton, Claymation, Zack D and Dr.
-Pickle, and Gemini Omni 1.2 for the realistic one, UGC. In UGC, how the presenter appears
+Pickle, and Gemini Omni 1.2 for the realistic ones, UGC and Movie (#1394: every Movie clip,
+talking, wordless or an insert, in Omni's own voices; Reed, 7 Nov: "make it work on the site").
+In UGC, how the presenter appears
 (host.how) decides the talker: one who stays in one spot the whole time (talks, or in a corner) is
 one HeyGen Avatar IV take from a still, lip-synced to our own voice track (a talker's is the
 MiniMax voice), and Omni 1.2 makes only the B-roll around them; one who moves around in the story
@@ -22,7 +24,7 @@ import re
 
 from app import looks
 
-PHOTOREAL = ("ugc",)  # styles whose people are photoreal (a real person filmed on a phone)
+PHOTOREAL = ("ugc", "movie")  # styles whose people are photoreal, made on Omni 1.2
 
 
 def unsent(look: str | None, model_id: str, shots: list[dict]) -> tuple[str, ...]:
@@ -46,6 +48,9 @@ SAYS_IT = (
 REAL = ("Refused: in UGC every clip that isn't the HeyGen talker is made on Omni 1.2, the B-roll "
         "and a talker who moves around in the story (Reed, 6 Nov: \"Omni is more for the "
         "realistic stuff\").")  # fmt: skip
+ALL_OMNI = ("Refused: in {style} every clip is made on Omni 1.2, the talking, the wordless "
+            "and the inserts, in Omni's own voices (Reed: \"Omni is more for the realistic "
+            "stuff\").")  # fmt: skip
 NO_REASON = ("Refused: say in `why` what this shot needs from Omni 1.2; it's shown on the clip "
              "(Reed, 6 Nov: \"with its reason shown\").")  # fmt: skip
 WHOLE = ("Refused: {style}'s videos are made on {model} (Reed, 6 Nov: \"keep seedance for the "
@@ -213,7 +218,7 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
     model map, with its new price said first and its reason shown. It never changes the video's
     own model. A talker in one spot stays on HeyGen and the rest of UGC on Omni 1.2 (Reed,
     6 Nov); in an animated style Omni may make a realistic shot."""
-    from app import talker
+    from app import guides, talker
     from app.clip_takes import take_credits
 
     was = of_clip(project, clip)
@@ -230,8 +235,8 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
         return SAYS_IT
     if who := _persons(db, project):
         return PERSONS.format(who=who, model=_model(project.video_model).name)
-    if found.id != OMNI and looks.base(looks.drawn(project)) in PHOTOREAL:
-        return REAL
+    if found.id != OMNI and (real := looks.base(looks.drawn(project))) in PHOTOREAL:
+        return REAL if real == "ugc" else ALL_OMNI.format(style=guides.style(real)["name"])
     if found.id == OMNI and not reason.strip():
         return NO_REASON
     if (clip.song_slice or {}).get("sung_shots") and not found.lip_sync:
