@@ -19,7 +19,7 @@ What you're given is fixed, and you don't hear the cut. The filmstrips are sampl
 - **Screens:** the brand's real screen, its UI, logo and layout readable and as given; its coin, numbers and chart may change to follow the story.
 - **The ending lands:** the last beat pays off what the start set up, and the call to action, if the script has one, is clear.
 
-Never a finding: the look's own style, a camera choice that works, small things a viewer won't see at phone size, story choices (the ending, who's in it, the order of events: those are the owner's).
+Never a finding: the look's own style, a camera choice that works, small things a viewer won't see at phone size, story choices (the ending, who's in it, the order of events: those are the owner's), and no music bed: music is added in post, so a cut with none is right; never ask for one.
 
 **Each finding** names one problem a viewer would notice, worst first, 6 at most:
 - `clip_id` and `start`–`end`: where it is, in cut seconds, from <cut> and <transcript>.

@@ -106,7 +106,7 @@ Measured on the six references; this is the "visuals zooming in and showing what
 - The skeleton's identity accessory or outfit (a cap, headphones, a headband, a beanie, hair): one, never changing (4 of 6).
 - The place: a warm, lived-in real room (2 of 6: brightness about 47, warmth +12 to +21) or a clean cool or neutral set (4 of 6: a white room, a flat blue gradient about #4A657E, a lab; warmth −3 to +9).
 - Light on the body as meaning: red for pain, orange for bloat, gold for healing or the product working.
-- Music: none (2 of 6) or a low bed 11–33 dB under the voice (4 of 6), a soft pulse in the middle third, rising or dropping out for the close. Sound effects are nearly absent: no whoosh on the dives (6 of 6); one whoosh and one riser in all 12 minutes.
+- Music: none (2 of 6) or a low bed 11–33 dB under the voice (4 of 6), a soft pulse in the middle third, rising or dropping out for the close. Music is added in post: the site makes the video's own sound, the voices, the room and the effects, never a music bed, and a cut with none is right. Sound effects are nearly absent: no whoosh on the dives (6 of 6); one whoosh and one riser in all 12 minutes.
 
 ## combines with
 - Narrated scripts: all six are one narrator over the pictures.
