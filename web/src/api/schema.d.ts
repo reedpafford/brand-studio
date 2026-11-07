@@ -7218,6 +7218,8 @@ export interface components {
             number: number | null;
             /** File Id */
             file_id: number | null;
+            /** Seconds */
+            seconds?: number | null;
             /** Out Of Date */
             out_of_date: boolean;
             /** Versions */
@@ -7253,6 +7255,8 @@ export interface components {
             file_id: number;
             /** Made At */
             made_at: string;
+            /** Seconds */
+            seconds?: number | null;
         };
         /** CutVoiceOut */
         CutVoiceOut: {
