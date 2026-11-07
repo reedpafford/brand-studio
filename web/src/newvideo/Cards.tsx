@@ -73,7 +73,7 @@ function useShown(value: string, small?: boolean) {
 export function FormatCards({ formats, value, onPick, small, locked }: { formats: Format[]; value: string; onPick: (id: string) => void; small?: boolean; locked?: boolean }) {
   const shown = useShown(value + formats.length, small);
   return (
-    <div ref={shown} role="radiogroup" aria-label="Format" className={`flex gap-3 ${small ? "-mx-4 overflow-x-auto px-4 pb-1" : "flex-wrap"}`}>
+    <div ref={shown} role="radiogroup" aria-label="Format" className={`flex gap-3 ${small ? "-mx-3.5 overflow-x-auto px-3.5 pb-1" : "flex-wrap"}`}>
       {formats.map((f) => {
         const off = f.off ? (f.off === "off" ? OFF : SOON) : null;
         const sel = f.id === value;
@@ -104,7 +104,7 @@ export function StyleCards({ looks, value, onPick, small, locked }: { looks: Loo
   const [playing, setPlaying] = useState<string | null>(null);
   const shown = useShown(value + looks.length, small);
   return (
-    <div ref={shown} role="radiogroup" aria-label="Style" className={`flex items-start gap-2 ${small ? "-mx-4 overflow-x-auto px-4 pb-1" : "overflow-x-auto pb-1"}`}>
+    <div ref={shown} role="radiogroup" aria-label="Style" className={`flex items-start gap-2 ${small ? "-mx-3.5 overflow-x-auto px-3.5 pb-1" : "overflow-x-auto pb-1"}`}>
       {looks.map((l) => {
         const m = lookMedia(l);
         const sel = l.id === value;

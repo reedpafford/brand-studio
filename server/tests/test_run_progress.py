@@ -120,6 +120,7 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
             "remaking it."  # fmt: skip
     assert muted in texts and all(r["at"] == 0 for r in note["redid"])
     assert any(t.startswith("Clip 1: ") and t.endswith(f"Remade on {c['model']}.") for t in texts)
+    assert len(texts) == 2 and not any("Picked take" in t for t in texts), texts  # S5: each once
     assert f"0:00 {texts[0]}" in mine["text"].splitlines()  # the plain lines
     theirs = next(m for m in editor.get(f"/projects/{pid}/director").json()["thread"]
                   if m.get("note"))["note"]  # fmt: skip
@@ -148,6 +149,39 @@ def test_the_director_writes_the_notes_words_and_the_server_the_rest(app, db, ow
     assert "Clip 1: garbled words burned in. Remade without them." in texts  # no "c1: " left
     seen = delivery.shown(note, owner=False)
     assert seen["needs"].startswith("Your OK on clip 1. Look at") and seen["spent_usd"] is None
+
+
+def test_a_finding_is_listed_once_and_the_directors_own_pick_isnt_a_fix(app, db, owner, editor,
+                                                                         monkeypatch):  # fmt: skip
+    """S5 (Flow-QA): "Clip 1: a stray sound…" was listed once for "Picked take 1" and again for
+    the mute. One row a finding, with each thing done; a pick is a fix only when the watch asked
+    for another take."""
+    from types import SimpleNamespace
+
+    from app import watch_cut
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    cut = db.query(FinalVideo).filter_by(project_id=pid).order_by(FinalVideo.id.desc()).first()
+    spans = delivery._spans(db, cut)
+    sound = {"clip_id": "c1", "says": "a stray sound nobody asked for.", "fix": "mute"}
+    face = {"clip_id": "c1", "says": "the take shows a sixth finger", "fix": "pick"}
+    monkeypatch.setattr(watch_cut, "state", lambda db, p: {"findings": [sound, face]})
+
+    def turn(tool, result):
+        return SimpleNamespace(output={"tool": tool, "clip_id": "c1"}, input={"result": result})
+
+    muted = "Muted a stretch of clip 1 instead of remaking it."
+    fixes = [turn("mute", muted), turn("mute", muted), turn("splice_word", "Spliced “Resilia”.")]
+    rows = delivery._merged(delivery._fixed(db, project, spans, fixes))
+    assert [r["text"] for r in rows] == [
+        f"Clip 1: a stray sound nobody asked for. {muted} Spliced “Resilia”."
+    ]
+    picked = delivery._fixed(db, project, spans, [turn("pick_take", "Picked take 2 for clip 1.")])
+    assert [r["did"] for r in picked] == ["Picked take 2 for clip 1."]  # the watch asked for it
+    assert picked[0]["found"] == face["says"]
+    monkeypatch.setattr(watch_cut, "state", lambda db, p: {"findings": [sound]})
+    assert delivery._fixed(db, project, spans, [turn("pick_take", "Picked take 1 for c1.")]) == []
 
 
 def test_each_clip_says_what_happened_to_it(app, db, owner, editor, monkeypatch):
@@ -626,6 +660,22 @@ def test_one_clip_is_said_as_one_clip_while_it_is_cut(app, db, owner, editor):
     assert (p["title"], p["sub"]) == ("Cutting it together", "1 clip made")
 
 
+def test_a_clip_redone_after_the_cuts_watch_says_what_it_found_and_did(app, db, owner, editor):
+    """QA (S6-03, S6-06, P-11): a clip the director made again because the watch of the cut
+    found something says so on the clip (rule 11): the take that was in the cut reads as
+    dropped, with what was found and what was done, as a take's own watch does."""
+    pid = _done(app, db, owner, editor)
+    (clip,) = owner.get(f"/projects/{pid}/clips").json()
+    first, second = sorted(clip["takes"], key=lambda t: t["number"])[:2]
+    w = first["watch"]
+    assert (w["action"], w["state"]) == ("redo", "done")
+    assert w["found"] == "the opening face changes between shots."  # the cut's watch's words
+    thread = owner.get(f"/projects/{pid}/director").json()["thread"]
+    assert not [m for m in thread if m["id"].startswith("w-")]  # its turn and the note say it
+    assert w["did"].startswith("Made it again on ") and w["did"].endswith(".")
+    assert clip["picked_take_id"] == second["id"]  # the new take is in the cut
+
+
 def test_a_takes_typical_time_never_counts_the_stand_ins(app, db, owner, editor):
     """The real-run audit: every take said "about 1 min" on the first real run, the median of
     the last 20 takes being all stand-ins'. Only real takes count; with none, the default."""
@@ -646,3 +696,30 @@ def test_a_takes_typical_time_never_counts_the_stand_ins(app, db, owner, editor)
     assert run_progress._Video(db, project, None, []).typical == run_progress.TYPICAL_TAKE
     took(240, "replicate", "p-real")
     assert run_progress._Video(db, project, None, []).typical == 240
+
+
+def test_a_later_take_is_never_said_to_fix_an_old_watch_of_the_cut(app, db, owner, editor):
+    """QA (#1395): after delivery, a person's "Warmer light in the kitchen" take of clip 1 has
+    nothing to do with the cut's old watch: the take it replaces keeps its own watch, so its
+    own chat line shows (rule 11). Nor is a take's own watch that acted ever overwritten."""
+    from app import director_tools, watch_cut
+    from app.models.accounts import User
+
+    pid = _done(app, db, owner, editor)
+    project, row = db.get(Project, pid), _clip(db, pid)
+    two = db.get(ClipTake, row.picked_take_id)
+    assert watch_cut.state(db, project)["findings"][0]["fix"] == "redo"  # the cut's newest watch
+    user = db.get(User, project.created_by_id)
+
+    note = {"tool": "make_take", "clip_id": "c1", "note": "Warmer light in the kitchen"}
+    said = director_tools.run(db, user, project, note, app.state.storage, {"id": "a-later-run"})
+    assert said == "Making 1 take.", said  # a person's note starts its own run
+    db.commit()  # as the director does after a tool
+    assert not (two.watch or {}).get("found")  # never "the opening face changes between shots"
+    its_run = watch_cut._newest(db, project).input["director_run"]
+    (found,) = watch_cut.redo_findings(db, project, its_run).values()  # only the watch's own run
+    own = {"state": "done", "action": "redo", "found": "Her hand blurs.", "at": "2026-11-06",
+           "did": "Made it again on Seedance 2.5."}  # fmt: skip
+    two.watch = own  # its own watch acted on it
+    watch_cut.redone(db, project, row, found, db.get(Job, two.job_id))
+    assert two.watch == own  # what its own watch found and did stays

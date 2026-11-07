@@ -3,7 +3,7 @@ import { Folder, Users } from "lucide-react";
 import { Menu, MenuItem } from "../components";
 
 type Icon = ComponentType<{ size?: number; "aria-hidden"?: boolean; className?: string }>;
-const chip = "inline-flex h-[26px] items-center gap-1.5 whitespace-nowrap rounded-sm border border-border-button bg-surface px-2.5 text-xs font-medium hover:bg-surface-2";
+const chip = "inline-flex h-11 lg:h-[26px] items-center gap-1.5 whitespace-nowrap rounded-sm border border-border-button bg-surface px-2.5 text-xs font-medium hover:bg-surface-2";
 
 /** A setting as a chip, "Format Presenter" (S2): its choices in a menu; `many` toggles several (the cast). */
 export function Chip<T extends string | number>({ label, value, options, onPick, icon: I, many, empty = "None" }: { label: string; value: T | T[]; options: { id: T; name: string; off?: string }[]; onPick: (v: T) => void; icon?: Icon; many?: boolean; empty?: string }) {

@@ -140,8 +140,11 @@ export function Presenter({ p, head, rows, brand, phone, approval }: { p: Projec
   // The video's own voice (#1327: "stock:<key>" or "voice:<id>", a person's choice), else the narration's.
   const list = voices.data?.voices ?? [];
   const chosen = s?.voice ? list.find((v) => voiceRef(v) === s.voice) : undefined;
+  // The voice it's read in (or will be, before the narration: the presenter's own saved voice, else the style's), by its
+  // real key only: an app voice's key or a saved voice's "voice:<id>" (a saved voice has no app key to match by).
   const said = h.voice;
-  const voice = chosen ?? list.find((v) => v.stock_key === said || v.name === said) ?? (said ? { id: null, name: said, stock_key: said, provider: "", description: "", sample_url: null, preview_file_id: null, sample_file_id: null } : null);
+  const byKey = said ? list.find((v) => voiceRef(v) === said || (v.stock_key != null && v.stock_key === said)) : undefined;
+  const voice = chosen ?? byKey ?? (said ? { id: null, name: said, stock_key: said, provider: "", description: "", sample_url: null, preview_file_id: null, sample_file_id: null } : null);
   const canVoice = !!s && "voice" in s && !lookOnly && list.length > 0;
   const way = WAYS.find((w) => w.id === now)!;
   const from = who ? (who.only_here ? "look made for this video" : `saved in ${brand}`) : "";
