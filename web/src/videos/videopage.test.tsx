@@ -236,9 +236,9 @@ test("before the owner's OK an editor's send opens by its freestyle: the script 
 test("S3-02: the director's treatment is a card in the thread, as the board draws it; a new one says Changed", async () => {
   setViewport(1440);
   const beats = [
-    { id: "b1", purpose: "hook: stops the scroll on a gross, bright picture", picture: "The glowing spine and “Your gut after the weekend…”", start: 0, end: 2 },
-    { id: "b2", purpose: "What beer does", picture: "Beer pours through the see-through body", start: 2, end: 14 },
-    { id: "b3", purpose: "escalate", picture: "The gut swells green", start: 14, end: 27 },
+    { id: "b1", name: "Hook", purpose: "Stops the scroll on a gross, bright picture", picture: "The glowing spine and “Your gut after the weekend…”", start: 0, end: 2 },
+    { id: "b2", name: "What beer does", purpose: "Shows the cause, one picture per line", picture: "Beer pours through the see-through body", start: 2, end: 14 },
+    { id: "b3", purpose: "escalate", picture: "The gut swells green", start: 14, end: 27 }, // from before beats had names
     { id: "b4", purpose: "turn", picture: "The capsule", start: 27, end: 40 },
     { id: "b5", purpose: "payoff", picture: "Capsule hold", start: 40, end: 58 },
   ];
@@ -253,9 +253,9 @@ test("S3-02: the director's treatment is a card in the thread, as the board draw
   expect(within(first).getByText("Why it holds:")).toBeInTheDocument();
   const rows = within(first).getAllByRole("row"); // its time beside the name on a computer, under it on a phone
   expect(rows.map((r) => r.textContent)).toEqual([
-    "Hook0–2 s0–2 sThe glowing spine and “Your gut after the weekend…”stops the scroll on a gross, bright picture",
-    "What beer does2–14 s2–14 sBeer pours through the see-through body",
-    "Escalate14–27 s14–27 sThe gut swells green",
+    "Hookabout 0–2 sabout 0–2 sThe glowing spine and “Your gut after the weekend…”Stops the scroll on a gross, bright picture",
+    "What beer doesabout 2–14 sabout 2–14 sBeer pours through the see-through bodyShows the cause, one picture per line",
+    "Escalateabout 14–27 sabout 14–27 sThe gut swells green",
   ]);
   expect(within(first).queryByText(/Ending:/)).toBeNull();
   await userEvent.click(within(first).getByRole("button", { name: "+ 2 more beats" }));

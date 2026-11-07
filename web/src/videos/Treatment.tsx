@@ -3,7 +3,7 @@ import { useState } from "react";
 /** The director's creative treatment, its first move on every run (Next-Lead; #1192): the hook, the story in one line,
  *  why it holds, the beats with what each is for, and the ending. It rides on its thread move as `treatment`, with its
  *  style and format named and each beat's time (S3-02); until the server sends that field nothing shows. */
-export type Beat = { id?: string; lines?: number[]; purpose: string; picture: string; start?: number; end?: number };
+export type Beat = { id?: string; name?: string; lines?: number[]; purpose: string; picture: string; start?: number; end?: number };
 export type Treatment = { hook: string; logline: string; why_it_holds: string; beats: Beat[]; ending?: string; style?: string; format?: string };
 
 /** A move's treatment, when the server sends one (#1192's ThreadItem.treatment). */
@@ -13,13 +13,6 @@ export function treatmentOf(item: object): Treatment | null {
 }
 
 const SHOWN = 3; // beats before "+ N more beats" (board S3-02)
-
-/** A beat's purpose as its row reads it: the name ("Hook"), then what it's for when the director says more. */
-function named(purpose: string): [string, string] {
-  const [name, ...rest] = purpose.split(/:\s|\s[—–-]\s|,\s/);
-  const head = name.trim();
-  return [head.charAt(0).toUpperCase() + head.slice(1), rest.join(", ").trim()];
-}
 
 /** The treatment as a card at its place in the thread (board S3-02): the director's line before it, then the style guide
  *  and format it follows, the story in one line, why it holds, and the beats with their times; a later one says Changed. */
@@ -47,15 +40,18 @@ export function TreatmentCard({ t, changed }: { t: Treatment; changed?: boolean 
           <caption className="sr-only">Beats</caption>
           <tbody>
             {beats.map((b, i) => {
-              const [name, why] = named(b.purpose);
-              const when = b.start != null && b.end != null ? `${b.start}–${b.end} s` : "";
+              // The director's own name for the beat, its purpose as it wrote it underneath (a treatment from before
+              // beats had names: its purpose is the name). The times are a guess from the words.
+              const name = b.name || b.purpose.charAt(0).toUpperCase() + b.purpose.slice(1);
+              const why = b.name ? b.purpose : "";
+              const when = b.start != null && b.end != null ? `about ${b.start}–${b.end} s` : "";
               return (
                 <tr key={b.id ?? i} className="border-t border-border align-top">
                   <th scope="row" className="w-[7.5rem] py-2 pr-3 text-left font-semibold max-lg:w-[5.5rem]">
                     {name}
                     {when && <span className="block text-xs font-normal text-muted tabular-nums lg:hidden">{when}</span>}
                   </th>
-                  <td className="w-[4.5rem] whitespace-nowrap py-2 pr-3 text-muted tabular-nums max-lg:hidden">{when}</td>
+                  <td className="w-[6rem] whitespace-nowrap py-2 pr-3 text-muted tabular-nums max-lg:hidden">{when}</td>
                   <td className="py-2">
                     {b.picture}
                     {why && <span className="block text-xs text-muted">{why}</span>}
@@ -100,7 +96,7 @@ export function TreatmentPlan({ t, seconds }: { t: Treatment; seconds?: number |
           <li key={b.id ?? i} aria-label={`Scene ${i + 1}`} className="rounded-lg border border-border bg-surface px-3.5 py-3">
             <div className="flex items-baseline justify-between gap-3">
               <h3 className="font-semibold">
-                {i + 1}. {b.purpose.charAt(0).toUpperCase() + b.purpose.slice(1)}
+                {i + 1}. {b.name || b.purpose.charAt(0).toUpperCase() + b.purpose.slice(1)}
               </h3>
               {lineSpan(b.lines) && <span className="shrink-0 text-sm text-muted tabular-nums">{lineSpan(b.lines)}</span>}
             </div>
