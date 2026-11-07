@@ -272,11 +272,14 @@ def chat(project: Project, run_id: str) -> list[dict]:
     return [{"text": m["text"]} for m in project.director_chat or [] if m.get("run") == run_id]
 
 
-def answered(db: Session, run_id: str) -> set[int]:
+def answered(db: Session, run_id: str, project_id: int | None = None) -> set[int]:
     """The run's notes (numbered from 1) a move has answered: named "Note N" in the why of a
-    move that wasn't refused, or in the delivery's note. An ask stays open until then."""
+    move that wasn't refused, or in the delivery's note. An ask stays open until then. With
+    its video (`project_id`), only that video's jobs are read, not the whole table."""
     mine = Job.input[RUN]["id"].as_string() == run_id
-    rows = db.scalars(select(Job).where(Job.input["step"].as_string() == STEP, mine)).all()
+    where = [Job.project_id == project_id] if project_id is not None else []
+    rows = db.scalars(select(Job).where(*where, Job.input["step"].as_string() == STEP,
+                                        mine)).all()  # fmt: skip
     return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
             for n in NOTE.findall(move_words(j.output or {}))}  # fmt: skip
 
@@ -315,7 +318,8 @@ def thread(db: Session, project: Project, viewer: User | None = None) -> list[di
     from app import run_progress
     from app.auth import user_name
 
-    done = {r: answered(db, r) for r in {m.get("run") for m in project.director_chat or []} if r}
+    runs_ = {m.get("run") for m in project.director_chat or []}
+    done = {r: answered(db, r, project.id) for r in runs_ if r}
     place: dict[str | None, int] = {}  # a note's number in its run ("Note N"), as `answered` reads
     out = []
     for n, m in enumerate(project.director_chat or []):
@@ -746,7 +750,8 @@ def _act(db: Session, job: Job, storage) -> None:
         given = max((t.input.get(READ, 0) for t in turns(db, project)
                      if t.input[RUN]["id"] == run["id"]), default=0)  # fmt: skip
         # a note no turn was given yet isn't its to answer: it waits for the next Make it
-        if left := [n for n in range(1, given + 1) if n not in answered(db, run["id"]) | named]:
+        if left := [n for n in range(1, given + 1)
+                    if n not in answered(db, run["id"], project.id) | named]:  # fmt: skip
             return _record(db, job, run, OPEN.format(left[0]))
         from app import delivery
 
@@ -1165,11 +1170,12 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
-    closed = answered(db, run["id"])
+    closed = answered(db, run["id"], project.id)
     asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed}
              for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
     # new: no earlier turn was given it. answered: a move named it ("Note N"); else still open
-    own = db.scalar(select(Job.id).where(Job.input["step"].as_string() == "treatment",
+    own = db.scalar(select(Job.id).where(Job.project_id == project.id,
+                                         Job.input["step"].as_string() == "treatment",
                                          Job.input[RUN]["id"].as_string() == run["id"],
                                          Job.status.in_(COUNTED)).limit(1))  # fmt: skip
     video = {
