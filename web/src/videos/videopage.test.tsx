@@ -1153,3 +1153,13 @@ test("uncapped: Carry on is just Carry on, the same run; Make it again says abou
   expect(await screen.findByRole("button", { name: "Carry on" })).toBeInTheDocument();
   expect(screen.queryByText(/Carry on · up to/)).toBeNull();
 });
+
+test("uncapped (QA on #1396): after delivery the estimate is the next run's", async () => {
+  setViewport(1440);
+  const top = head({ status: status("delivered", "Delivered"), spent: money(60, 6.4), up_to: null, budget: null, expected: money(91, 9.1), actual: true, listed_usd: 0, unreported: false });
+  server(owner, null, run({ status: "delivered", thread: [] }), { "GET /projects/50/idea": [200, top] });
+  renderApp("/b/1/videos/50");
+  const banner = await screen.findByRole("banner");
+  expect(await within(banner).findByText("next run about $9.10 (estimate)")).toBeInTheDocument();
+  expect(within(banner).queryByText(/this run about/)).toBeNull();
+});
