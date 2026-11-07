@@ -480,3 +480,83 @@ def test_the_narrator_is_the_persons_then_the_directors_then_the_videos_own(app,
     ugc.voice, gone.archived_at = f"voice:{gone.id}", utcnow()  # removed since it was chosen
     db.commit()
     assert read(voice="English_Upbeat_Woman", emotion="sad") == "English_Upbeat_Woman"
+
+
+def _dialogue(db, editor, look: str, mark: str = "") -> tuple[Project, ProjectClip, ProjectClip]:
+    """A dialogue video in `look`: clip c1 with MOM speaking (on camera, or as `mark` says in
+    her script label: " (O.S.)"), c2 with nobody."""
+    from app.models.breakdowns import BreakdownVersion
+
+    brand = editor.get("/brands").json()[0]["id"]
+    made = {"brand_id": brand, "name": "Dip", "planned_seconds": 10}
+    pid = editor.post("/projects", json=made).json()["id"]
+    text = f"MOM{mark}: Where is your money?\nShe sighs."
+    editor.put(f"/projects/{pid}/script", json={"text": text})
+    video = db.get(Project, pid)
+    video.look = look
+    shot = {"camera": "Close", "seconds": 4, "character_ids": [], "place_id": None, "moment": None,
+            "screen_ids": [], "script_lines": [], "reaction": None}  # fmt: skip
+    data = {"hook": "", "scenes": [{"id": 1, "heading": "KITCHEN", "look": "", "shots": [
+        {**shot, "id": "1.1", "speaker": "MOM", "line": "Where is your money?",
+         "action": "Mom asks.", "script_lines": [1]},
+        {**shot, "id": "1.2", "speaker": None, "line": None, "action": "She sighs."}]}],
+        "clips": [{"id": "c1", "shot_ids": ["1.1"], "seconds": 4, "seam": ""},
+                  {"id": "c2", "shot_ids": ["1.2"], "seconds": 4, "seam": ""}]}  # fmt: skip
+    bd = BreakdownVersion(project_id=pid, script_version=1, source="claude", data=data)
+    db.add(bd)
+    db.flush()
+    rows = [ProjectClip(project_id=pid, breakdown_id=bd.id, clip_id=c, seconds=4, prompt="p")
+            for c in ("c1", "c2")]  # fmt: skip
+    db.add_all(rows)
+    db.commit()
+    return video, *rows
+
+
+def test_a_spoken_shot_on_a_style_that_cant_lip_sync_is_made_on_its_seedance_that_can(db, editor):
+    """The critic's report (5.7): Claymation, Skeleton and Zack D offer on-camera dialogue on
+    Seedance 2.0, which can't lip-sync. A clip where someone speaks on camera is made on
+    Seedance 2.5, with the reason shown; a clip with nobody speaking stays on the style's 2.0."""
+    video, spoken, quiet = _dialogue(db, editor, "claymation")
+    assert video_model(video).id == "seedance-2.0" and not video_model(video).lip_sync
+    assert model_map.of_clip(video, spoken).id == "seedance-2.5"
+    said = model_map.why(db, video, spoken)
+    assert (said["id"], said["by"]) == ("seedance-2.5", "map")
+    assert said["why"] == model_map.LIP_SYNCED.format(was="Seedance 2.0", now="Seedance 2.5")
+    assert said["why"].startswith("Someone speaks on camera here and Seedance 2.0 can't lip-sync")
+    assert take_input(db, video, spoken)["model"] == "seedance-2.5"  # the take itself
+    assert model_map.of_clip(video, quiet).id == "seedance-2.0"  # nobody speaks: unchanged
+    assert model_map.why(db, video, quiet)["id"] == "seedance-2.0"
+
+
+def test_a_lip_syncing_style_a_persons_model_and_a_clips_own_model_stay_as_they_are(db, editor):
+    video, spoken, _ = _dialogue(db, editor, "disney-pixar")
+    assert model_map.of_clip(video, spoken).id == "seedance-2.5"  # its own default lip-syncs
+    assert model_map.lip_synced(video, spoken) is None
+    clay, said, _ = _dialogue(db, editor, "claymation")
+    said.model = {"id": "seedance-1-lite", "why": "A hand.", "by": "director"}
+    assert model_map.of_clip(clay, said).id == "seedance-1-lite"  # the clip's own model
+    said.model = None
+    clay.video_model = "seedance-2.0"
+    settings_move.log(clay, db.get(User, clay.created_by_id), "video_model", None, "seedance-2.0",
+                      "person")  # fmt: skip
+    assert model_map.of_clip(clay, said).id == "seedance-2.0"  # a person's own choice stays
+
+
+@pytest.mark.parametrize("mark", [" (O.S.)", " (O.C.)", " (V.O.)", " (ON PHONE)", " (PRE-LAP)"])
+def test_a_line_said_off_camera_never_moves_to_a_lip_sync_model(db, editor, mark):
+    """QA on #1404: "(O.S.)", "(ON PHONE)" and the like are heard, not seen: no lips to sync,
+    so the clip stays on the style's own Seedance (its take keeps its sound as before)."""
+    video, spoken, _ = _dialogue(db, editor, "claymation", mark)
+    assert model_map.of_clip(video, spoken).id == "seedance-2.0", mark
+
+
+def test_a_style_whose_guide_says_no_lip_sync_keeps_its_own_seedance(db, editor, monkeypatch):
+    """A guide opts out with `lip_sync: no` (Paper's puppets illustrate a narration, flap
+    mouths): its speakers stay on its own Seedance. Every guide without the key keeps it on."""
+    from app import guides
+
+    assert guides.style("paper")["lip_sync"] and guides.style("claymation")["lip_sync"]
+    video, spoken, _ = _dialogue(db, editor, "claymation")
+    real = guides.style
+    monkeypatch.setattr(guides, "style", lambda i: {**real(i), "lip_sync": False})
+    assert model_map.of_clip(video, spoken).id == "seedance-2.0"
