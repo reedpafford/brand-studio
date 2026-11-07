@@ -705,7 +705,9 @@ export interface paths {
         };
         /**
          * List Screens
-         * @description Filter by `tag`, or by `moment` to get the screens attached to it by default.
+         * @description Filter by `tag`, or by `moment` to get the screens attached to it by default. An
+         *     archived product's pictures are left out, as the director leaves them out
+         *     (enhance.screens_of): they stay with its old videos only.
          */
         get: operations["list_screens_brands__brand_id__screens_get"];
         put?: never;
