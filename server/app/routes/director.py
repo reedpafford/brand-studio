@@ -279,7 +279,7 @@ def _out(db: Session, user: User, project) -> DirectorOut:
                      result=run_progress.priced(director.named(j.input.get("result", "")),
                                                 user.is_owner),
                      status=j.status, created_at=j.created_at) for j in rows]  # fmt: skip
-    spent = director.spent(db, last.input[director.RUN]["id"]) if last else 0
+    spent = director.spent(db, last.input[director.RUN]["id"], project.id) if last else 0
     try:
         _mine(db, user, project.id)  # as the start's own check: the maker or the owner
         blocked = director.blocked(db, project)
@@ -310,7 +310,8 @@ def _make_it(db: Session, user: User, project) -> int | None:
 @router.get("", response_model=DirectorOut)
 def read(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """The newest run: going or not, and each turn (the log on the video)."""
-    return _out(db, user, get_project(db, user, project_id))
+    with director.reading(db):
+        return _out(db, user, get_project(db, user, project_id))
 
 
 @router.post("", response_model=DirectorOut, status_code=201, dependencies=[Depends(generation_on)])
@@ -381,7 +382,8 @@ def stop(project_id: int, user: User = Depends(current_user), db: Session = Depe
 def progress(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """The newest run's live record: its scenes and clips, its steps, its cost; null before
     any run. Free to read, in the same few queries however long the video."""
-    return run_progress.record(db, get_project(db, user, project_id), user)
+    with director.reading(db):
+        return run_progress.record(db, get_project(db, user, project_id), user)
 
 
 # Its own router: a per-person mark, not a change to the video, so any teammate who can open

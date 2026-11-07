@@ -21,3 +21,16 @@ test("a gone session (401) or a forbidden read (403) stops polling: empty, and a
   expect(heard).toHaveBeenCalledTimes(1); // still signed in: nothing to read here, and no polling on
   window.removeEventListener(SIGNED_OUT, heard);
 });
+
+test("a poll backs off while nothing changes, to 30 s at most, and comes back at once on a change", async () => {
+  const { backoff } = await import("./client");
+  const same = { status: "running" };
+  const q = (data: unknown, at: number) => ({ queryHash: "backoff-test", state: { data, dataUpdatedAt: at } });
+  expect(backoff(q(same, 1), 5_000)).toBe(5_000);
+  expect(backoff(q(same, 1), 5_000)).toBe(5_000); // no new read: the same
+  expect(backoff(q(same, 2), 5_000)).toBe(10_000);
+  expect(backoff(q(same, 3), 5_000)).toBe(20_000);
+  expect(backoff(q(same, 4), 5_000)).toBe(30_000);
+  expect(backoff(q(same, 5), 5_000)).toBe(30_000);
+  expect(backoff(q({ status: "running", moves: 1 }, 6), 5_000)).toBe(5_000); // it changed
+});

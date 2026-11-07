@@ -82,10 +82,10 @@ def said(text: str) -> str:
 
 def runs(db: Session, project: Project) -> dict[str, list[Job]]:
     """Every director run on the video, oldest first: its turns in order."""
-    rows = db.scalars(select(Job).where(Job.project_id == project.id,
-                                        Job.input["step"].as_string() == "director")
-                      .order_by(Job.id)).all()  # fmt: skip
+    from app.director import all_turns
+
     out: dict[str, list[Job]] = {}
+    rows = all_turns(db, project.id)
     for j in rows:
         out.setdefault(j.input[RUN]["id"], []).append(j)
     return out

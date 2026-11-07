@@ -250,7 +250,7 @@ def test_carrying_on_keeps_the_directors_own_limit_and_its_notes(app, db, owner,
     db.expire_all()
     said = owner.post(f"{url}/messages", json={"text": "And end on the capsule."})  # after it
     assert said.status_code == 201, said.text
-    charged, _ = director.own_charged(db, run["id"])
+    charged, _ = director.own_charged(db, run["id"], pid)
     monkeypatch.setattr(director, "OWN_CREDITS", charged + Decimal("0.01"))  # none left
     assert editor.post(f"{url}/carry-on").status_code == 201
     turn = director.turns(db, project)[-1]
