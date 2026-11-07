@@ -44,7 +44,7 @@ a stylised 3D look (the doctor is a matte clay-toy cartoon in a white lab coat, 
 - Useful devices from the references: a split before/after panel, a 2x2 grid of the figure, a turntable shot of the figure on the blue backdrop with its problem zones glowing.
 
 ## Clips
-- One background picture per line, silent: the doctor's voice carries the video. Neighbouring pictures share one generated clip, a shot each, up to the video model's longest clip (Reed, 7 Nov).
+- One background picture per line, silent: the doctor's voice carries the video. Neighbouring pictures share one generated clip, a shot each, never past the video model's longest clip; past about 13 s, a natural beat is a good place to start the next (Reed, 7 Nov).
 - The change happens inside the shot, while the line is said: the body transforms on screen, not between shots.
 
 ## camera

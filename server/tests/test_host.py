@@ -184,32 +184,44 @@ def test_a_narrated_quotes_b_roll_allows_every_short_shot_at_the_models_shortest
 
 def test_neighbouring_b_roll_shots_share_one_clip_up_to_the_models_longest():
     """F7, as Reed revised it (7 Nov): neighbouring short B-roll shots share one multi-shot
-    clip, up to the video model's longest, instead of a clip a shot at its shortest. It splits
-    past the longest, where a talker's lip-synced shot starts or ends, and where the place
-    changes; a song's clips stay as planned."""
+    clip instead of a clip a shot at the model's shortest. A new clip starts where a talker's
+    lip-synced shot starts or ends, where the place changes, and past about 15 s or 6 shots
+    (Reed, 1 Nov: longer clips drift, and a redo remakes all of it), never past the model's
+    longest."""
     shots = {"s1": {"start": 0, "end": 1.5}, "s2": {"start": 1.5, "end": 3.0},
              "s3": {"start": 3.0, "end": 9.0}}  # fmt: skip
-    data = {"scenes": [{"shots": [{"id": s} for s in shots]}],
+    clip, places = {"id": "c1", "shot_ids": ["s1", "s2", "s3"]}, {}
+
+    def pack(timed=shots, where=places, longest=15):
+        return [(c["id"], c["shot_ids"]) for c in song_breakdown._pack(clip, timed, where,
+                                                                        longest)]  # fmt: skip
+
+    assert pack() == [("c1", ["s1", "s2", "s3"])]
+    assert pack(longest=5) == [("c1", ["s1", "s2"]), ("c1b", ["s3"])]  # past the longest
+    talks = {**shots, "s2": {**shots["s2"], "sung": True}}  # a talker's own take in the middle
+    assert [ids for _, ids in pack(talks)] == [["s1"], ["s2"], ["s3"]]
+    moved = {"s1": "place:1", "s2": "place:1", "s3": "place:2"}
+    assert [ids for _, ids in pack(where=moved)] == [["s1", "s2"], ["s3"]]
+    long = {f"s{n}": {"start": 3.0 * n, "end": 3.0 * (n + 1)} for n in range(20)}  # 60 s scene
+    clip = {"id": "c1", "shot_ids": list(long)}
+    parts = song_breakdown._pack(clip, long, {}, 30)  # Seedance 2.5 makes 30 s: never that long
+    spans = [long[p["shot_ids"][-1]]["end"] - long[p["shot_ids"][0]]["start"] for p in parts]
+    assert len(parts) == 4 and max(spans) <= 15 and all(len(p["shot_ids"]) <= 6 for p in parts)
+
+
+def test_an_edit_never_regroups_a_narrations_clips_already_made():
+    """QA on #1436: `fit` runs on every plan save (an edit, a cast fix, a new narration take).
+    A stored multi-shot clip with a place change, a talker's edge or past the longest stays
+    as it is, so its take is never set aside; only a new plan is grouped."""
+    shots = {"s1": {"start": 0, "end": 4.0, "sung": False},
+             "s2": {"start": 4.0, "end": 6.0, "sung": True},
+             "s3": {"start": 6.0, "end": 24.0, "sung": False}}  # fmt: skip
+    data = {"scenes": [{"shots": [{"id": "s1", "place_id": "place:1"}, {"id": "s2"},
+                                  {"id": "s3", "place_id": "place:2"}]}],
             "clips": [{"id": "c1", "shot_ids": ["s1", "s2", "s3"]}],
             "song": {"take_id": 1, "shots": shots}}  # fmt: skip
-    one = song_breakdown.fit(data, broll=True, longest=15)["clips"]
-    assert [(c["id"], c["shot_ids"], c["seconds"]) for c in one] == [("c1", ["s1", "s2", "s3"], 9)]
-    assert song_breakdown.slice_of({**data, "clips": one}, "c1") == {
-        "start": 0,
-        "end": 9.0,
-        "sung_shots": [],
-    }  # cut to the narration's own times
-    longer = song_breakdown.fit(data, broll=True, longest=5)["clips"]  # past the longest
-    assert [(c["id"], c["shot_ids"]) for c in longer] == [("c1", ["s1", "s2"]), ("c1b", ["s3"])]
-    talks = {**shots, "s2": {**shots["s2"], "sung": True}}  # a talker's own take in the middle
-    apart = song_breakdown.fit({**data, "song": {"take_id": 1, "shots": talks}}, broll=True,
-                               longest=15)["clips"]  # fmt: skip
-    assert [c["shot_ids"] for c in apart] == [["s1"], ["s2"], ["s3"]]
-    places = {**data, "scenes": [{"shots": [{"id": "s1", "place_id": "place:1"},
-                                            {"id": "s2", "place_id": "place:1"},
-                                            {"id": "s3", "place_id": "place:2"}]}]}  # fmt: skip
-    moved = song_breakdown.fit(places, broll=True, longest=15)["clips"]
-    assert [c["shot_ids"] for c in moved] == [["s1", "s2"], ["s3"]]
+    kept = song_breakdown.fit(data, broll=True, shortest=4, longest=15)["clips"]
+    assert [(c["id"], c["shot_ids"]) for c in kept] == [("c1", ["s1", "s2", "s3"])]
     assert len(song_breakdown.fit(data)["clips"]) == 1  # a song's clips stay as planned
 
 

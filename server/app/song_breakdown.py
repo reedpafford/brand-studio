@@ -23,6 +23,8 @@ from app.prompts.schemas import Breakdown, SongBreakdown
 MIN_CLIP = 4  # seconds: a shorter span is made this long and cut to it (Song-Producer), when
 # the video model's own minimum isn't known (`least`: Omni 1.2 makes 3 s, Seedance 4 s)
 PEOPLE_MAX = 16  # seconds: a clip with people in it is split past this
+SOFT_SECONDS, SOFT_SHOTS = 15, 6  # a shared B-roll clip's usual most (Reed, 1 Nov: longer
+# drifts, and a redo remakes all of it); the model's longest is the hard limit
 
 
 def take_for(db: Session, project: Project) -> SongTake | None:
@@ -58,8 +60,11 @@ def split(bd: SongBreakdown, take_id: int, broll: bool = False, shortest: int = 
              for scene in bd.scenes for s in scene.shots}  # fmt: skip
     song = {"take_id": take_id, "shots": shots}
     plan = {**bd.model_dump(), "song": song}
-    if broll:  # a new plan's B-roll: a clip too short to make on its own joins its neighbour
-        plan = {**plan, "clips": _joined(plan, shots, shortest, longest)}
+    if broll:  # a new plan's B-roll only (QA on #1436: never an edit's, which would regroup
+        # clips already made): shots share clips, and one too short joins its neighbour
+        places = {sh["id"]: sh.get("place_id") for sc in plan["scenes"] for sh in sc["shots"]}
+        packed = [p for c in plan["clips"] for p in _pack(c, shots, places, longest)]
+        plan = {**plan, "clips": _joined({**plan, "clips": packed}, shots, shortest, longest)}
     plan = fit(plan, broll, shortest, longest)
     return Breakdown.model_validate(plan), song
 
@@ -70,10 +75,9 @@ def fit(data: dict, broll: bool = False, shortest: int = MIN_CLIP,
     shots' span, rounded up to whole seconds, whatever the plan said (the stand-in counted
     spoken words: a 0:24 song read "1 clip · 14 s"). A clip over the video model's limit
     keeps it: the breakdown check names it, never cut to fit. `data` is a plan with its
-    song part; shots the song part doesn't know keep their own. `broll`: under a narration,
-    neighbouring shots share one multi-shot clip up to the model's longest (`_pack`, F7 as
-    Reed revised it on 7 Nov). `shortest`: the video model's shortest clip, made and cut
-    to a shorter span."""
+    song part; shots the song part doesn't know keep their own. Its clips stay as they are
+    (a new plan's B-roll was grouped in `split`), but for a clip with people past PEOPLE_MAX.
+    `shortest`: the video model's shortest clip, made and cut to a shorter span."""
     timed = (data.get("song") or {}).get("shots") or {}
     if not timed:
         return data
@@ -83,12 +87,9 @@ def fit(data: dict, broll: bool = False, shortest: int = MIN_CLIP,
               for sc in data.get("scenes", [])]  # fmt: skip
     peopled = {sh["id"] for sc in data.get("scenes", []) for sh in sc.get("shots", [])
                if sh.get("character_ids")}  # fmt: skip
-    places = {sh["id"]: sh.get("place_id") for sc in data.get("scenes", [])
-              for sh in sc.get("shots", [])}  # fmt: skip
     clips = []
     for clip in data.get("clips", []):
-        whole = _pack(clip, timed, places, longest) if broll else [clip]
-        for part in (p for c in whole for p in _split(c, timed, peopled)):
+        for part in _split(clip, timed, peopled):
             known = [timed[s] for s in part.get("shot_ids", []) if s in timed]
             if known:
                 span = max(t["end"] for t in known) - min(t["start"] for t in known)
@@ -102,8 +103,10 @@ def _pack(clip: dict, timed: dict, places: dict, longest: int = PEOPLE_MAX) -> l
     clip's neighbouring shots share one multi-shot clip ("Shot N | a–b s."), up to the video
     model's longest clip, rather than one clip a shot made at the model's shortest (Dr. Pickle
     251: 17 clips of 4 s for 23 s used, 5 of 8 redos on shots under a second). It splits only
-    where it must: past `longest`, where a talker's lip-synced shot starts or ends (made from
-    its own take), and where the place changes (its own picture); "c3", "c3b"."""
+    where it must: where a talker's lip-synced shot starts or ends (made from its own take),
+    where the place changes (its own picture), and past about SOFT_SECONDS or SOFT_SHOTS
+    (longer clips drift, and a redo remakes all of it), never past the model's `longest`;
+    "c3", "c3b". Only a new plan's (`split`)."""
     ids = [s for s in clip.get("shot_ids", []) if s in timed]
     if len(ids) < 2:
         return [clip]
@@ -113,7 +116,9 @@ def _pack(clip: dict, timed: dict, places: dict, longest: int = PEOPLE_MAX) -> l
             first, last = groups[-1][0], groups[-1][-1]
             talker = bool(timed[s].get("sung")) != bool(timed[last].get("sung"))
             moved = places.get(s) and places.get(last) and places[s] != places[last]
-            if talker or moved or timed[s]["end"] - timed[first]["start"] > longest:
+            span = timed[s]["end"] - timed[first]["start"]
+            full = span > min(longest, SOFT_SECONDS) or len(groups[-1]) >= SOFT_SHOTS
+            if talker or moved or full:
                 groups.append([])
         groups[-1].append(s)
     rest = [s for s in clip.get("shot_ids", []) if s not in timed]  # an edit's: with the last
@@ -139,7 +144,8 @@ def _joined(plan: dict, timed: dict, shortest: int, longest: int) -> list[dict]:
         return (all(s in timed for s in ends) and scene.get(ends[0]) == scene.get(ends[1])
                 and place.get(ends[0]) == place.get(ends[1])
                 and not any(timed[s].get("sung") for s in [*a, *b] if s in timed)
-                and span([*a, *b]) <= longest)  # fmt: skip
+                and span([*a, *b]) <= min(longest, SOFT_SECONDS)
+                and len(a) + len(b) <= SOFT_SHOTS)  # fmt: skip
 
     out = [dict(c) for c in plan.get("clips", [])]
     n = 0
