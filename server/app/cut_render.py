@@ -147,6 +147,32 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     return data
 
 
+XFADE = 0.04  # seconds each repeat of a looped bed crossfades into the next (no click)
+
+
+def looped(folder: Path, name: str, total: float) -> str:
+    """The music file `name` in `folder` repeated to at least `total` seconds, each repeat
+    crossfading into the next over XFADE (QA on #1415: a plain `-stream_loop` jumped about 9x
+    the normal sample step at the seam, an audible click), as a new WAV in `folder`; `name`
+    itself when it's already long enough or can't be read."""
+    have = _length(folder, name)
+    if have <= 2 * XFADE or have >= total:
+        return name
+    n = max(2, math.ceil((total - XFADE) / (have - XFADE)) + 1)
+    parts = [f"[0:a]{SAME},asplit={n}" + "".join(f"[s{i}]" for i in range(n))]
+    last = "s0"
+    for i in range(1, n):
+        parts.append(f"[{last}][s{i}]acrossfade=d={XFADE}:c1=tri:c2=tri[x{i}]")
+        last = f"x{i}"
+    done = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", name, "-filter_complex",  # noqa: S603, S607
+                           ";".join(parts), "-map", f"[{last}]", "-t", f"{total + 0.1:.3f}",
+                           "-c:a", "pcm_s16le", "looped.wav"],
+                          cwd=folder, capture_output=True, timeout=600)  # fmt: skip
+    if done.returncode:
+        raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
+    return "looped.wav"
+
+
 def bedded(data: bytes, bed: bytes, mix: dict) -> bytes:
     """A dialogue cut with a music bed under it (the House refs: a bed under every second):
     the takes' own sound as it is, the bed at its level (`level`: `quieter_db` under the
@@ -157,13 +183,13 @@ def bedded(data: bytes, bed: bytes, mix: dict) -> bytes:
         (folder / "cut.mp4").write_bytes(data)
         (folder / "music").write_bytes(bed)
         total = _length(folder, "cut.mp4")  # the cut as joined: the bed runs exactly as long
-        loop = ["-stream_loop", "-1"] if mix.get("loop", True) else []
+        bed_file = looped(folder, "music", total) if mix.get("loop", True) else "music"
         fade = fade_out(total, mix.get("last_word") or 0)
         graph = (f"[0:a]{SAME},apad=whole_dur={total}[takes];"
                  f"[1:a]{SAME},atrim=duration={total},apad=whole_dur={total},{level(mix)},"
                  f"afade=t=out:{fade}[under];"
                  "[takes][under]amix=inputs=2:normalize=0:duration=first[a]")  # fmt: skip
-        return _run(folder, ["-i", "cut.mp4", *loop, "-i", "music", "-filter_complex", graph,
+        return _run(folder, ["-i", "cut.mp4", "-i", bed_file, "-filter_complex", graph,
                              "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
                              "-t", str(total), "-movflags", "+faststart"])  # fmt: skip
 
@@ -366,8 +392,8 @@ def song_cut(
         inputs += ["-i", "song"]
         if narrated and music is not None:
             (folder / "music").write_bytes(music)
-            loop = ["-stream_loop", "-1"] if (mix or {}).get("loop", True) else []
-            inputs += [*loop, "-i", "music"]
+            looping = (mix or {}).get("loop", True)
+            inputs += ["-i", looped(folder, "music", total) if looping else "music"]
         return _run(folder, [*inputs, "-filter_complex", graph, "-map", "[v]", "-map", "[a]",
                              "-c:v", "libx264", "-c:a", "aac", "-t", str(total),
                              "-movflags", "+faststart"])  # fmt: skip

@@ -249,7 +249,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             return _split(db, project, decision.get("clip_id") or "", me)
         if tool == "edit_cut":  # free: the cut editor's own edit, marked as the director's
             try:
-                return _edit_cut(db, project, decision.get("edit") or {}, request, me, run)
+                return _edit_cut(db, project, decision.get("edit") or {}, request, me, run,
+                                 decision.get("why") or "")  # fmt: skip
             except HTTPException:
                 raise
             except Exception:  # never leave the turn without a result (the run would hang)
@@ -280,18 +281,38 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
 
 def _edit_cut(db: Session, project: Project, move: dict, request, me: dict,
-              run: dict | None) -> str:  # fmt: skip
+              run: dict | None, why: str = "") -> str:  # fmt: skip
     """One edit through the cut editor's route (its dot and its own Undo on the page); the
-    turn keeps its id (`run["edit_id"]`) so the chat shows Undo beside it."""
-    from pydantic import ValidationError
-
-    from app.routes import cut
+    turn keeps its id (`run["edit_id"]`) so the chat shows Undo beside it. A person's own
+    music choice stays theirs unless the move answers a person's note (`cut_edits`)."""
+    from app import cut_edits
+    from app.director import NOTE, chat
 
     run = run if run is not None else {}
+    given = len(chat(project, run.get("id"))) if run.get("id") else 0
+    noted = any(1 <= int(n) <= given for n in NOTE.findall(why))  # "Note 2: quieter music"
+    marked = cut_edits.PERSON_ASKED.set(noted)
+    try:
+        return _edit_cut_now(db, project, move, request, me, run, noted)
+    finally:
+        cut_edits.PERSON_ASKED.reset(marked)
+
+
+def _edit_cut_now(db: Session, project: Project, move: dict, request, me: dict, run: dict,
+                  noted: bool) -> str:  # fmt: skip
+    from pydantic import ValidationError
+
+    from app.cut_edits import PERSONS_MUSIC
+    from app.models.clips import CutEdit
+    from app.routes import cut
+
     run.pop("edit_id", None)
     if move.get("kind") == "undo":
         if move.get("edit_id") is None:
             return "Refused: name the edit to undo (its id in timeline.edits)."
+        theirs = db.get(CutEdit, int(move["edit_id"]))
+        if theirs and theirs.kind == "music" and not theirs.director and not noted:
+            return f"Refused: {PERSONS_MUSIC.format(theirs.said)}"  # undoing it is a change
         out = cut.undo_one(edit_id=int(move["edit_id"]), request=request, **me)
         said = next((e.said for e in out.edits if e.id == move["edit_id"]), "the edit")
         return f"Undid: {said}."

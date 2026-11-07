@@ -4,6 +4,7 @@ in the list ("Clip 9 re-timed to the words") and where it is in the cut. Free. U
 one undone, Redo brings back the last undone while nothing newer was edited, Undo all goes
 back to the cut that plays."""
 
+from contextvars import ContextVar
 from datetime import timedelta
 
 from fastapi import HTTPException
@@ -56,6 +57,13 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
     if kind not in KINDS:
         raise Refused(f"There's no edit called {kind}.")
     tl, _ = timeline(db, project)
+    if (
+        director
+        and kind == "music"
+        and not PERSON_ASKED.get()
+        and (mine := _persons_music(db, project))
+    ):
+        raise Refused(PERSONS_MUSIC.format(mine.said))
     try:
         data, said, at = _shape(db, user, project, tl, kind, asked)
     except (KeyError, TypeError, ValueError) as no:
@@ -75,6 +83,18 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
                 raise
     keeps_every_word(db, after)
     return row
+
+
+PERSON_ASKED: ContextVar[bool] = ContextVar("person_asked", default=False)  # a note asks for it
+PERSONS_MUSIC = ("A person set the music themselves ({}), so it stays as they left it unless a "
+                 "person asks for a change in a note.")  # fmt: skip
+
+
+def _persons_music(db: Session, project: Project) -> CutEdit | None:
+    """The newest music edit in force, when a person made it (removed it, set its level or
+    swapped it): their choice, which the director never changes on its own (QA on #1415)."""
+    mine = [e for e in active(db, project) if e.kind == "music"]
+    return mine[-1] if mine and not mine[-1].director else None
 
 
 def _fits(tl: dict) -> None:
@@ -326,9 +346,12 @@ def _music(
     if d.get("file_id"):
         name = _music_name(db, project, int(d["file_id"]))
         laid = tl["mode"] == "takes" and not tl["music"]  # a dialogue cut's first bed loops
+        called = "" if name == "Music" else f" “{name}”"  # its prompt gave it no name
         return (
             {"file_id": int(d["file_id"]), "name": name, "removed": False, "loop": laid},
-            f"Music “{name}” under the cut" if laid else f"Music swapped for “{name}”",
+            f"A music bed{called} under the cut"
+            if laid
+            else f"Music swapped for{called or ' another bed'}",
             0.0,
         )
     raise Refused("Say how the music changes.")
@@ -340,8 +363,10 @@ def music_choices(db: Session, project: Project) -> list[dict]:
     nothing sung over its lines). A song video's music is its song."""
     from app.models.script_library import Script, ScriptDraft
 
-    voice = song(db, project)
-    if voice is not None and voice.kind != narration.KIND:
+    voice, kind = song(db, project), narration.video_kind(db, project)
+    if kind == "song" or (voice is not None and voice.kind != narration.KIND):
+        return []
+    if kind == "narrated" and voice is None:  # its music comes with its narration
         return []
     beds_only = voice is None
     takes = db.scalars(select(SongTake).join(ScriptDraft, SongTake.draft_id == ScriptDraft.id)
