@@ -486,6 +486,8 @@ def test_a_line_said_off_camera_never_moves_to_a_lip_sync_model(db, editor, mark
 def test_a_style_whose_guide_says_no_lip_sync_keeps_its_own_seedance(db, editor, monkeypatch):
     """A guide opts out with `lip_sync: no` (Paper's puppets illustrate a narration, flap
     mouths): its speakers stay on its own Seedance. Every guide without the key keeps it on."""
+    from app import guides
+
     assert guides.style("paper")["lip_sync"] and guides.style("claymation")["lip_sync"]
     video, spoken, _ = _dialogue(db, editor, "claymation")
     real = guides.style
