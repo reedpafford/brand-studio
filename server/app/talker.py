@@ -60,6 +60,17 @@ def on(db: Session, project: Project) -> bool:
     return host.on(db, project) and host.how(project) == "talks"
 
 
+def minimax(db: Session, project: Project) -> bool:
+    """The narration's default voice is MiniMax's (`VOICE`): a talker, or a UGC presenter in one
+    spot the whole time, talking to camera or in a corner over the B-roll (Reed, 6 Nov: a talker
+    in one spot is HeyGen with the MiniMax voice). A person's pick or the presenter's own saved
+    voice comes first (director_song._voice)."""
+    from app import host, looks
+
+    ugc = looks.base(project.look or looks.DEFAULT) in LOOKS
+    return on(db, project) or (ugc and host.on(db, project))
+
+
 def _spoken(data: dict, clip_id: str) -> bool:
     """Every shot of the clip is a talker shot (`sung` on the narration's clock)."""
     timed = (data.get("song") or {}).get("shots") or {}

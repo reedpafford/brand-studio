@@ -1869,3 +1869,19 @@ def test_an_edits_null_fields_leave_each_setting_as_it_is():
                                             "size": "small"}).model_dump()  # fmt: skip
     assert "hidden" not in cut_edits._presenter(tl, shown)[0]  # null: hidden stays as it was
     assert "what the edit doesn't change is null" in (HERE / "director.md").read_text()
+
+
+def test_the_director_defers_to_the_styles_rhythm_and_its_sound_effects():
+    """The critic's report (5.4, 5.6): the talker's 6 s cap and "sound effects never on your
+    own" were blanket rules against the UGC, House and Zack D guides. The style's own talker
+    rhythm wins where its guide gives one; sound effects are added where the style's guide
+    calls for them, named, and otherwise only when a person asks."""
+    director = prompts.system("director")
+    assert "never more than about 6 s without a swap" not in director
+    assert ("where its guide measures its own talker rhythm (its holds, its stretches of "
+            "B-roll), follow it") in director  # fmt: skip
+    assert "about 40–45% of the time and a swap about every 6 s" in director  # with no guide's own
+    assert "never on your own" not in director
+    assert "where the video's style guide calls for them on its silent shots" in director
+    assert ("A style whose guide doesn't ask for sound effects gets them only when a person "
+            "asks") in director  # fmt: skip

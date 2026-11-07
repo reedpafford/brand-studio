@@ -17,7 +17,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import asks, director, folders, guides, hidden, looks, prompts, scorecard
+from app import asks, director, folders, guides, hidden, looks, model_map, prompts, scorecard
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -176,18 +176,19 @@ def _job_input(fs: Freestyle, texts: list[str]) -> dict:
     changes = "".join(f"\nChange: {t}" for t in texts[1:])
     model = _model(fs)
     resolution = model.take_resolution
+    take, _ = model_map.fit(model, {  # Omni (UGC): its own inputs, no sound switch
+        "prompt": in_english(f"{style}\n{texts[0]}{changes}".strip()),  # American English
+        "duration": _seconds(texts[0], fs),
+        "resolution": resolution,
+        "aspect_ratio": fs.shape,
+        "generate_audio": True,
+    }, {})  # fmt: skip
     return {
         FREESTYLE: fs.id,
         "model": model.id,
         "brand_id": fs.brand_id,
         "fit_images_to": LONG_SIDE[resolution],
-        "input": {
-            "prompt": in_english(f"{style}\n{texts[0]}{changes}".strip()),  # American English
-            "duration": _seconds(texts[0], fs),
-            "resolution": resolution,
-            "aspect_ratio": fs.shape,
-            "generate_audio": True,
-        },
+        "input": take,
     }
 
 
@@ -216,6 +217,7 @@ def _video(db: Session, user: User, fs: Freestyle, text: str) -> tuple[Project, 
                     published=True, hidden=hide, created_by_id=user.id)  # fmt: skip
     db.add(script)
     db.flush()
+    text = lib.house(script, text)  # a pasted screenplay's speakers (video 233)
     draft = ScriptDraft(script_id=script.id, slot=0, text=text, status="approved",
                         approved_at=utcnow(), approved_by_id=user.id)  # fmt: skip
     db.add(draft)
@@ -533,7 +535,7 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list,
         # maker's own start card (the owner's Make it again, or Start the plan again): theirs
     else:
         rows = director.turns(db, project)
-        status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"
+        status = "delivered" if director.delivered(rows) else "stopped"
     moves = [FreestyleItem(**{**m, "text": words.get(m["id"], m["text"])})
              for m in director.thread(db, project, viewer) if m["kind"] == "move"]  # fmt: skip
     # a turn, take or watch held past the price mid-run: its run's card is held and says why

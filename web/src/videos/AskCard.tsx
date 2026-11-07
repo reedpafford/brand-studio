@@ -139,7 +139,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   if ((a.state === "answered" || a.state === "not_needed") && changing !== "answer") {
     const gone = a.state === "not_needed";
     const [cls, Icon] = HEAD[gone ? "gone" : "done"];
-    const ans = a.answer as { name?: string; text?: string; file_id?: number | null; how?: string; reused?: boolean; uses?: string } | null;
+    const ans = a.answer as { name?: string; text?: string; file_id?: number | null; how?: string; reused?: boolean; uses?: string; unused?: string } | null;
     const what = money ? (ans?.how === "withdraw" ? "Withdrawn" : ans?.how === "keep" || ans?.how === "decline" ? "Kept as it is. Nothing was charged for it." : "Approved") : ans?.name ?? ans?.text ?? "";
     const described = ans?.how === "describe" ? `Described: “${ans.text}” · ${ans.uses}’s voice · saved to ${brand}’s voices. Nothing was charged.` : "";
     const who = described ? [described, a.answered_by && a.answered_at && `picked by ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ") : ans?.how === "clone" && ans.reused ? `Using ${ans.name ?? "that voice"}, already in ${brand}’s voices. Nothing was charged.` : a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `${money ? "by" : "picked by"} ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
@@ -165,6 +165,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
               <>
                 <span className="block font-medium">{money ? `${a.question} ${what}` : `${a.topic ? `${a.topic}: ` : ""}${what}`}</span>
                 {who && <span className="block text-xs text-muted">{who}</span>}
+                {ans?.unused && <span className="block text-xs text-warning">{ans.unused}</span>}
               </>
             )}
           </p>
