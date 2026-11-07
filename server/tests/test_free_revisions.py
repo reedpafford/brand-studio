@@ -117,7 +117,7 @@ def test_before_make_it_a_revision_may_edit_the_cut_but_never_make_anything(app,
                                     "watch_cut", "deliver")  # fmt: skip
     assert director._written(db, run, pid)  # its story is the video's
     assert not director._written(db, {**run, director.REVISION: False}, pid)
-    assert not director._own_story(db, run)
+    assert not director._own_story(db, run, pid)
 
 
 def test_an_editors_held_revision_waits_for_the_owners_start_card(app, db, owner, editor,
@@ -144,8 +144,8 @@ def test_an_editors_held_revision_waits_for_the_owners_start_card(app, db, owner
             if j.input.get(director.START)]  # fmt: skip
     assert held and held[-1].input.get(asks.HOLD) == run["hold"]  # the owner's start card
     assert editor.get(f"/projects/{pid}/director").json()["status"] != "delivered"
-    assert not director._free_revision(db, run)
-    assert director._free_revision(db, {**run, "hold": ""})
+    assert not director._free_revision(db, run, pid)
+    assert director._free_revision(db, {**run, "hold": ""}, pid)
 
 
 def test_a_step_held_for_make_it_shows_as_not_made_yet_and_is_made_after_it(app, db, owner,

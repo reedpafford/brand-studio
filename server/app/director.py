@@ -11,11 +11,12 @@ import json
 import logging
 import re
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import event, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app import (
@@ -291,10 +292,11 @@ def answered(db: Session, run_id: str, project_id: int | None = None) -> set[int
     """The run's notes (numbered from 1) a move has answered: named "Note N" in the why of a
     move that wasn't refused, or in the delivery's note. An ask stays open until then. With
     its video (`project_id`), only that video's jobs are read, not the whole table."""
-    mine = Job.input[RUN]["id"].as_string() == run_id
-    where = [Job.project_id == project_id] if project_id is not None else []
-    rows = db.scalars(select(Job).where(*where, Job.input["step"].as_string() == STEP,
-                                        mine)).all()  # fmt: skip
+    if project_id is not None:
+        rows = [j for j in all_turns(db, project_id) if j.input[RUN]["id"] == run_id]
+    else:
+        mine = (Job.input["step"].as_string() == STEP, Job.input[RUN]["id"].as_string() == run_id)
+        rows = db.scalars(select(Job).where(*mine)).all()
     return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
             and j.input.get("result") != START_FIRST  # asked for, but it waits for Make it
             for n in NOTE.findall(move_words(j.output or {}))}  # fmt: skip
@@ -308,8 +310,7 @@ def move_words(decision: dict) -> str:
 def leftover(db: Session, project: Project) -> list[int]:
     """The notes (by place in the chat) that no run read and none will: sent with no run
     going, or while a run's last turn delivered or it stopped. The next Make it reads them."""
-    rows = db.scalars(select(Job).where(Job.project_id == project.id,
-                                        Job.input["step"].as_string() == STEP)).all()  # fmt: skip
+    rows = all_turns(db, project.id)
     read: dict[str, int] = {}
     for j in rows:
         run = j.input[RUN]["id"]
@@ -498,11 +499,51 @@ def charged(db: Session, project: Project) -> Decimal:
         Job.status.in_(COUNTED))))  # fmt: skip
 
 
+READING = "director_reading"  # in a session's info while a page reads (`reading`)
+
+
+@contextmanager
+def reading(db: Session):
+    """A page's read (GET /director, /progress): the video's turns are read once, not once a
+    helper (video 240: each turn holds its whole prompt, and /director read them all some 30
+    times, 11-30 s). Any write in the session reads them fresh again."""
+    db.info[READING] = {}
+    try:
+        yield
+    finally:
+        db.info.pop(READING, None)
+
+
+@event.listens_for(Session, "after_flush")
+@event.listens_for(Session, "after_commit")
+@event.listens_for(Session, "after_rollback")
+def _written_since(session, *_) -> None:
+    if READING in session.info:
+        session.info[READING] = {}
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _bulk_write(state) -> None:
+    if not state.is_select and READING in state.session.info:
+        state.session.info[READING] = {}
+
+
+def all_turns(db: Session, project_id: int) -> list[Job]:
+    """Every director turn on the video, every run, in order; once a page read (`reading`)."""
+    seen = db.info.get(READING)
+    if seen is not None and project_id in seen:
+        return seen[project_id]
+    rows = list(db.scalars(select(Job).where(Job.project_id == project_id,
+                                             Job.input["step"].as_string() == STEP)
+                           .order_by(Job.id)).all())  # fmt: skip
+    if seen is not None:
+        seen[project_id] = rows
+    return rows
+
+
 def turns(db: Session, project: Project) -> list[Job]:
     """Every turn of the video's newest run, in order (its log)."""
-    rows = db.scalars(select(Job).where(Job.project_id == project.id,
-                                        Job.input["step"].as_string() == STEP)
-                      .order_by(Job.id)).all()  # fmt: skip
+    rows = all_turns(db, project.id)
     run = rows[-1].input[RUN]["id"] if rows else None
     return [j for j in rows if j.input[RUN]["id"] == run]
 
@@ -510,16 +551,20 @@ def turns(db: Session, project: Project) -> list[Job]:
 def active(db: Session, project: Project) -> Job | None:
     """The newest run's last turn while the run goes on (not delivered, stopped or ended)."""
     last = next(reversed(turns(db, project)), None)
-    if last is None or last.status == JobStatus.cancelled or over(db, last.input[RUN]["id"]):
+    if last is None or last.status == JobStatus.cancelled:
+        return None
+    if over(db, last.input[RUN]["id"], project.id):
         return None
     return last
 
 
-def over(db: Session, run_id: str) -> bool:
+def over(db: Session, run_id: str, project_id: int | None) -> bool:
     """Whether a run has ended (delivered, stopped, failed): ANY of its turns says so, read
-    fresh. A turn made while Stop landed (QA-7, round 3) never brings the run back."""
+    fresh. A turn made while Stop landed (QA-7, round 3) never brings the run back. Read from
+    its video's jobs only (video 240: the whole table, every call, made /director 11-30 s)."""
     return bool(db.scalar(select(func.count()).where(
-        Job.input["step"].as_string() == STEP, Job.input[RUN]["id"].as_string() == run_id,
+        Job.project_id == project_id, Job.input["step"].as_string() == STEP,
+        Job.input[RUN]["id"].as_string() == run_id,
         Job.input["ended"].as_string().is_not(None))))  # fmt: skip
 
 
@@ -554,9 +599,10 @@ def stop(db: Session, project: Project, by: int) -> None:
         db.commit()
 
 
-def spent(db: Session, run_id: str) -> Decimal:
+def spent(db: Session, run_id: str, project_id: int | None) -> Decimal:
     """What the run's own Claude turns really cost (Usage), for the limit and to measure."""
-    ids = select(Job.id).where(Job.input[RUN]["id"].as_string() == run_id)
+    ids = select(Job.id).where(Job.project_id == project_id,
+                               Job.input[RUN]["id"].as_string() == run_id)  # fmt: skip
     return Decimal(db.scalar(select(func.coalesce(func.sum(Usage.cost_usd), 0))
                              .where(Usage.job_id.in_(ids))))  # fmt: skip
 
@@ -571,11 +617,12 @@ def own_limit() -> Decimal:
     return OWN_CREDITS
 
 
-def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:
+def own_charged(db: Session, run_id: str, project_id: int | None) -> tuple[Decimal, int]:
     """What the run's own jobs (its turns and its watches of the cut) were charged, at the
     flat price each was charged (not their real cost, `spent`), and how many OKs the owner
     gave at its limit."""
     mine = (
+        Job.project_id == project_id,
         Job.input[RUN]["id"].as_string() == run_id,
         Job.status.in_(COUNTED),
         Job.input[asks.BEFORE].as_boolean().is_not(True),
@@ -585,13 +632,13 @@ def own_charged(db: Session, run_id: str) -> tuple[Decimal, int]:
     return Decimal(charged), oks
 
 
-def own_usd(db: Session, run: dict) -> Decimal:
+def own_usd(db: Session, run: dict, project_id: int | None) -> Decimal:
     """The real-cost backstop for this run: MAX_USD, and as much again for each OK the owner
     gave at its own limit, as that limit grows (audit 6 Nov: else it stops after the OK). None
     on the owner's own run with `owner_uncapped` (Reed, 6 Nov)."""
     if uncapped(db.get(User, run.get("by") or 0)):
         return Decimal("Infinity")
-    return MAX_USD * (1 + own_charged(db, run["id"])[1])
+    return MAX_USD * (1 + own_charged(db, run["id"], project_id)[1])
 
 
 def _limit_usd(most: Decimal) -> float | None:
@@ -609,7 +656,7 @@ def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal
 
     if not run_id or uncapped(user):
         return ""
-    charged, oks = own_charged(db, run_id)
+    charged, oks = own_charged(db, run_id, project.id)
     if charged + credits <= own_limit() * (1 + oks):
         return ""
     return PAST_APPROVED if project.hidden else OWN_LIMIT.format(n=price(own_limit()))
@@ -619,7 +666,7 @@ def after(db: Session, job: Job, storage) -> None:
     """The worker finished `job`: a turn's answer is acted on; any other work on a video with
     a run going may wake the next turn."""
     if job.input.get("step") == STEP:
-        if _stopped(db, job) or over(db, job.input[RUN]["id"]):  # Stop landed while it ran
+        if _stopped(db, job) or over(db, job.input[RUN]["id"], job.project_id):  # Stop landed
             return
         if job.status == JobStatus.succeeded:
             _act(db, job, storage)
@@ -633,7 +680,7 @@ def after(db: Session, job: Job, storage) -> None:
             told = advice.uncited(job.output, "treatment", named)
             told["beats"] = [advice.uncited(b, "beat", named) for b in told.get("beats") or []]
             job.output = told
-        if run_id and over(db, run_id):  # stopped meanwhile: nothing more runs for it
+        if run_id and over(db, run_id, job.project_id):  # stopped meanwhile: nothing more
             return
         if _treatment_checked(db, job):  # one redo with its problems: the redo wakes the run
             return
@@ -784,7 +831,7 @@ def _act(db: Session, job: Job, storage) -> None:
     job.output = decision
     run = dict(job.input[RUN])
     tool = decision.get("tool")
-    free = tool in REVISE_FREE and _free_revision(db, run)
+    free = tool in REVISE_FREE and _free_revision(db, run, project.id)
     if not run.get("ok", True) and tool not in PRE_OK and not free:  # nothing made before Make it
         written = _written(db, run, project.id)
         return _record(db, job, run, START_FIRST if written else TREATMENT_FIRST)
@@ -949,7 +996,7 @@ def _record(db: Session, job: Job, run: dict, result: str) -> None:
         db.refresh(job)
         job.input = {**job.input, "result": result}
     db.commit()
-    if kept and not over(db, run["id"]):
+    if kept and not over(db, run["id"], job.project_id):
         wake(db, db.get(Project, job.project_id))
 
 
@@ -986,8 +1033,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
              result=DELIVERED if made else "")  # fmt: skip
         db.commit()
         return last
-    most = own_usd(db, run)
-    if run["turn"] >= MAX_TURNS or spent(db, run["id"]) >= most:
+    most = own_usd(db, run, project.id)
+    if run["turn"] >= MAX_TURNS or spent(db, run["id"], project.id) >= most:
         why = (f"It stopped after {MAX_TURNS} turns." if run["turn"] >= MAX_TURNS
                else f"It stopped at ${most} of its own time.")  # fmt: skip
         if last is not None:
@@ -1013,7 +1060,7 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         data = {**data, START: True, asks.HOLD: carry[0], PRICE: str(carry[1]),
                 CARRIES: str(price)}  # fmt: skip
         wait = carry[0]
-    elif before and not _free_revision(db, run):  # its plan: charged
+    elif before and not _free_revision(db, run, project.id):  # its plan: charged
         # as it costs; past the allowance, the owner's OK first. A revision's free changes to
         # its cut aren't planning: its turns are the director's own, on its own limit, below
         from app.credits import estimate
@@ -1060,28 +1107,30 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
     return job
 
 
-def _own_story(db: Session, run: dict):
+def _own_story(db: Session, run: dict, project_id: int | None):
     """When this run itself last wrote a treatment, or None."""
     return db.scalar(select(func.max(Job.created_at)).where(
-        Job.input["step"].as_string() == "treatment", Job.input[RUN]["id"].as_string() == run["id"],
+        Job.project_id == project_id, Job.input["step"].as_string() == "treatment",
+        Job.input[RUN]["id"].as_string() == run["id"],
         Job.status == JobStatus.succeeded))  # fmt: skip
 
 
-def _free_revision(db: Session, run: dict) -> bool:
+def _free_revision(db: Session, run: dict, project_id: int | None) -> bool:
     """A revision's free changes to the cut it has: none once its own story changed, or when
     the run is held for the owner's OK (an editor past their budget: the start card first)."""
-    return bool(run.get(REVISION) and not run.get("hold") and not _own_story(db, run))
+    return bool(run.get(REVISION) and not run.get("hold")
+                and not _own_story(db, run, project_id))  # fmt: skip
 
 
-def _written(db: Session, run: dict, project_id: int | None = None) -> bool:
+def _written(db: Session, run: dict, project_id: int | None) -> bool:
     """Whether the run's treatment is written (the start card waits for it)."""
     return bool(_treatment_at(db, run, project_id))
 
 
-def _treatment_at(db: Session, run: dict, project_id: int | None = None):
+def _treatment_at(db: Session, run: dict, project_id: int | None):
     """When the run's newest written treatment was asked (what it read was as of then); a
     revision's (`REVISION`) is the video's own when the run wrote none: its story stands."""
-    own = _own_story(db, run)
+    own = _own_story(db, run, project_id)
     if own or not run.get(REVISION) or project_id is None:
         return own
     return db.scalar(select(func.max(Job.created_at)).where(
@@ -1101,7 +1150,8 @@ def _ready(db: Session, project: Project, run: dict, last: Job) -> bool:
     if last.input.get("result") == START_FIRST:
         return True
     kept = db.scalar(select(func.max(Job.finished_at)).where(
-        Job.input[RUN]["id"].as_string() == run["id"], Job.input[asks.PLAN_OK].as_boolean(),
+        Job.project_id == project.id, Job.input[RUN]["id"].as_string() == run["id"],
+        Job.input[asks.PLAN_OK].as_boolean(),
         Job.input[DECLINE].as_boolean()))  # fmt: skip
     seen = max(at, kept) if kept else at
     notes = [m["at"] for m in project.director_chat or [] if m.get("run") == run["id"]]
@@ -1141,14 +1191,14 @@ def refresh(db: Session, job: Job) -> bool:
         resume(db, project, job.input[RUN]["id"])
         db.commit()
         db.refresh(job)
-    if job.input.get("ended") or over(db, job.input[RUN]["id"]):
+    if job.input.get("ended") or over(db, job.input[RUN]["id"], job.project_id):
         return False
     asked = turn_input(db, project, job.input[RUN], job.id)  # given to this turn as it starts
     db.refresh(job)  # Stop may land while the prompt is built: checked as it's written
     kept = _write(db, job, {**job.input, **asked})
     db.commit()
     db.refresh(job)
-    return kept and not over(db, job.input[RUN]["id"])  # the last check, right before the call
+    return kept and not over(db, job.input[RUN]["id"], job.project_id)  # the last check
 
 
 FRESH = "fresh"  # in a run: when "Start the plan again" was pressed (S3-08)
@@ -1256,8 +1306,9 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
                "watches_left": MAX_WATCHES - run.get("watches", 0),
-               "redos_used": _redos(db, project, run), "own_time_usd": float(spent(db, run["id"])),
-               "own_time_limit_usd": _limit_usd(own_usd(db, run)),
+               "redos_used": _redos(db, project, run),
+               "own_time_usd": float(spent(db, run["id"], project.id)),
+               "own_time_limit_usd": _limit_usd(own_usd(db, run, project.id)),
                "replans_left": MAX_REPLANS - run.get("replans", 0),
                "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
                "narrations_left": director_song.REMAKES - run.get(director_song.REMADE, 0),

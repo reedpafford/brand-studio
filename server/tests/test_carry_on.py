@@ -250,7 +250,7 @@ def test_carrying_on_keeps_the_directors_own_limit_and_its_notes(app, db, owner,
     db.expire_all()
     said = owner.post(f"{url}/messages", json={"text": "And end on the capsule."})  # after it
     assert said.status_code == 201, said.text
-    charged, _ = director.own_charged(db, run["id"])
+    charged, _ = director.own_charged(db, run["id"], pid)
     monkeypatch.setattr(director, "OWN_CREDITS", charged + Decimal("0.01"))  # none left
     assert editor.post(f"{url}/carry-on").status_code == 201
     turn = director.turns(db, project)[-1]
@@ -450,6 +450,6 @@ def test_a_run_at_its_own_cost_backstop_carries_on_as_a_new_run(app, db, owner, 
     pid = _stopped_itself(app, db, owner, editor)
     old = director.turns(db, db.get(Project, pid))[-1].input[director.RUN]["id"]
     real = director.spent
-    monkeypatch.setattr(director, "spent", lambda db, run_id: director.MAX_USD + 1
-                        if run_id == old else real(db, run_id))  # past it  # fmt: skip
+    monkeypatch.setattr(director, "spent", lambda db, run_id, p: director.MAX_USD + 1
+                        if run_id == old else real(db, run_id, p))  # past it  # fmt: skip
     _carries_on_as_a_new_run(app, db, owner, pid)

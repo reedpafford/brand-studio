@@ -20,7 +20,7 @@ def test_uncapped_the_owners_run_never_waits_at_its_own_limit_nor_stops_at_its_c
     no real-cost backstop; <allowed> says there's none. Off, both hold (the tests below)."""
     monkeypatch.setattr(get_settings(), "owner_uncapped", True)
     monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))  # a run's own is about 61
-    monkeypatch.setattr(director, "spent", lambda db, run_id: director.MAX_USD * 3)
+    monkeypatch.setattr(director, "spent", lambda db, run_id, pid: director.MAX_USD * 3)
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     _run(app, db)
@@ -28,8 +28,8 @@ def test_uncapped_the_owners_run_never_waits_at_its_own_limit_nor_stops_at_its_c
     out = editor.get(f"/projects/{pid}/director").json()
     assert out["status"] == "delivered", out["ended"]
     turn = director.turns(db, db.get(Project, pid))[-1]
-    assert director.own_usd(db, turn.input[director.RUN]).is_infinite()
-    assert director._limit_usd(director.own_usd(db, turn.input[director.RUN])) is None
+    assert director.own_usd(db, turn.input[director.RUN], pid).is_infinite()
+    assert director._limit_usd(director.own_usd(db, turn.input[director.RUN], pid)) is None
 
 
 def test_uncapped_an_editors_run_still_waits_at_its_own_limit(app, db, owner, editor,
@@ -51,7 +51,7 @@ def _held(db, pid) -> list[Job]:
 def _own(db, pid) -> tuple[Decimal, int]:
     (run,) = {j.input[director.RUN]["id"] for j in db.query(Job).filter(Job.project_id == pid)
               if j.input.get(director.RUN)}  # fmt: skip
-    return director.own_charged(db, run)
+    return director.own_charged(db, run, pid)
 
 
 def _turns(db, pid) -> int:
@@ -137,11 +137,11 @@ def test_the_real_cost_backstop_grows_with_each_ok(app, db, owner, editor, monke
               if j.input.get(director.RUN)}  # fmt: skip
     by = {"id": run, "by": db.query(Job).filter(Job.project_id == pid).first().input[
         director.RUN]["by"]}  # fmt: skip
-    assert director.own_usd(db, by) == director.MAX_USD  # no OK yet
+    assert director.own_usd(db, by, pid) == director.MAX_USD  # no OK yet
     assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
     db.expire_all()
-    assert director.own_usd(db, by) == 2 * director.MAX_USD
-    monkeypatch.setattr(director, "spent", lambda db, run_id: director.MAX_USD + 1)  # past $5
+    assert director.own_usd(db, by, pid) == 2 * director.MAX_USD
+    monkeypatch.setattr(director, "spent", lambda db, run_id, p: director.MAX_USD + 1)  # past $5
     _run(app, db)
     out = editor.get(f"/projects/{pid}/director").json()
     assert out["status"] == "delivered", out["ended"]  # under $10 with the OK: it finished
@@ -151,7 +151,7 @@ def test_the_real_cost_backstop_grows_with_each_ok(app, db, owner, editor, monke
 
 def test_past_the_backstop_it_stops_and_says_the_figure(app, db, owner, editor, monkeypatch):
     pid = _made(app, owner, editor, db)
-    late = lambda db, run_id: director.MAX_USD if _turns(db, pid) >= 2 else Decimal(0)  # noqa: E731
+    late = lambda db, run_id, p: director.MAX_USD if _turns(db, pid) >= 2 else Decimal(0)  # noqa: E731
     monkeypatch.setattr(director, "spent", late)  # $5 once it has gone a turn
     owner.post(f"/projects/{pid}/director")
     _run(app, db)

@@ -305,7 +305,10 @@ def actual_usd(db: Session, project_id: int, since=None, until=None) -> Spent:
     window = [Job.project_id == project_id]
     window += [Job.created_at >= since] if since is not None else []
     window += [Job.created_at <= until] if until is not None else []
-    jobs = db.scalars(select(Job).where(*window)).all()
+    from sqlalchemy.orm import defer
+
+    # its rows without their inputs and outputs (a turn's holds its whole prompt: video 240)
+    jobs = db.scalars(select(Job).where(*window).options(defer(Job.input), defer(Job.output))).all()
     rows: dict[int, list] = {}
     for u in db.scalars(select(Usage).where(Usage.job_id.in_([j.id for j in jobs] or [0]))):
         rows.setdefault(u.job_id, []).append(u)
