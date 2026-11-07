@@ -291,6 +291,9 @@ def _called(db: Session, ref: str, workspace_id: int) -> str:
     return called(db, {ref}, workspace_id).get(ref) or UNNAMED.get(ref.partition(":")[0], "a name")
 
 
+PERSON = "person:"  # a shot's "person:Grant": someone on screen the cast doesn't have yet
+
+
 def land(
     db: Session, project: Project, bd: Breakdown, also: set[str] = frozenset()
 ) -> tuple[Breakdown, list[str]]:
@@ -312,7 +315,10 @@ def land(
     notes = []
     for shot in (s for scene in bd.scenes for s in scene.shots):
         for ref in [r for r in shot.character_ids if r not in known]:
-            slot = looks.get(ref) or _role(db, project, slots, shot.speaker)
+            if ref.startswith(PERSON):  # someone who never speaks (226's Grant): their role
+                slot = _person(db, project, slots, ref.removeprefix(PERSON))
+            else:
+                slot = looks.get(ref) or _role(db, project, slots, shot.speaker)
             if slot is None:
                 continue
             new = f"slot:{slot.id}"
@@ -561,6 +567,30 @@ def _role(db: Session, project: Project, slots: list, speaker: str | None):
     ):
         slots[:] = video_slots(db, project)
     return next((s for s in slots if labels(speaker, s.role)), None)
+
+
+def _person(db: Session, project: Project, slots: list, name: str):
+    """The role of someone the breakdown shows who never speaks ("person:Grant", 226: Grant
+    was never a role, so his shots borrowed another's look and no sheet was drawn): the
+    script's role of that name, added as the cast read adds one when the script names them,
+    so Assets makes their look (the director's missing_looks). None for a name the script
+    never says."""
+    from app.cast_roles import all_slots, labels, named
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    name = name.strip()
+    if found := next((s for s in slots if name and labels(name, s.role)), None):
+        return found
+    every = all_slots(db, project)
+    if not (draft and name and named(name, draft.text)) or any(labels(name, s.role) for s in every):
+        return None
+    slot = ScriptCastSlot(script_id=draft.script_id, role=name, kind="Helper",
+                          appears_in=[draft.slot], position=len(every) + 1)  # fmt: skip
+    db.add(slot)
+    db.flush()
+    slots.append(slot)
+    return slot
 
 
 def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:

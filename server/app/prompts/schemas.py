@@ -183,7 +183,11 @@ class Shot(BaseModel):
         description="Estimated length. Dialogue: words / 4.8 plus any held reaction. Silent "
         "reactions and inserts: 0.5–1.5."
     )
-    character_ids: list[str] = Field(description="Cast ids on screen in this shot.")
+    character_ids: list[str] = Field(
+        description="Cast ids on screen in this shot. Someone the script names on screen who "
+        "has no id (they never speak, say): 'person:<Name>', as the script names them, never "
+        "another's id."
+    )
     place_id: str | None = Field(description="Place id from the user message, or null.")
     moment: str | None = Field(
         description="The brand moment this shot is, from the brand block's moments (e.g. "

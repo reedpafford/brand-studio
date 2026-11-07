@@ -234,6 +234,7 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
             f = {
                 **f,
                 "fix": "keep",
+                "doubt": True,  # the director reads it as one: never a paid redo (A6)
                 "says": f"{f['says'].rstrip('.')} (not confirmed)",
                 "note": "Not remade: the transcript, a measurement or the sound's picture suggests "
                 "it, but the frames don't show it.",

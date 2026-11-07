@@ -364,23 +364,27 @@ def _only_a_doubt(db: Session, project: Project, clip_id: str, why: str,
     4 Nov). It goes ahead on a person's note, a take its watch confirmed a fault in (flagged),
     a take made from another prompt than the clip's now, or a redo the current watch of the
     cut saw in the frames."""
-    from app.models.clips import ClipTake
-
     clip = next((c for c in video_state(db, project)["clips"] if c["clip_id"] == clip_id), None)
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run_id), default=0) if run_id else 0  # fmt: skip
     asked = any(1 <= int(n) <= given for n in NOTE.findall(why))  # a note this run was given
     if not clip or not clip["takes"] or asked:
         return False
+    return not _confirmed(db, project, clip, _watch(db, project))
+
+
+def _confirmed(db: Session, project: Project, clip: dict, watch: dict) -> bool:
+    """A redo of this clip (as the director reads it) has a confirmed reason: its last take's
+    watch flagged a fault, the clip is stale or was made from another prompt, or the current
+    watch of the cut saw it in the frames."""
     last = clip["takes"][-1]
     row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
-                                              ProjectClip.clip_id == clip_id))  # fmt: skip
+                                              ProjectClip.clip_id == clip["clip_id"]))  # fmt: skip
     newest = db.get(ClipTake, last["id"])
     if last["verdict"] == "flagged" or clip["stale"] or (newest.prompt or row.prompt) != row.prompt:
-        return False
-    watch = _watch(db, project)
-    return not (watch.get("current") and any(
-        f.get("clip_id") == clip_id and f.get("fix") == "redo"
+        return True
+    return bool(watch.get("current") and any(
+        f.get("clip_id") == clip["clip_id"] and f.get("fix") == "redo"
         for f in watch.get("findings") or []))  # fmt: skip
 
 
@@ -1307,9 +1311,14 @@ def video_state(db: Session, project: Project) -> dict:
     failed = db.scalars(select(Job).where(
         Job.project_id == project.id, Job.status == JobStatus.failed,
         Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
+    from app.cut import making as cut_making
     from app.plans import status
 
     cast = _cast_ok(db, project) if bd else {"state": "none"}
+    watch = _watch(db, project)
+    for c in clips:  # A6: a redo it would be refused shows as a doubt, before a paid turn
+        if c["takes"] and not _confirmed(db, project, c, watch):
+            c["redo"] = "only a doubt: the owner's to judge (a person's note can still ask)"
     held = set(cast.get("paused_clips") or [])
     for c in clips:
         c["waits_for_cast"] = c["clip_id"] in held and not c["takes"]
@@ -1332,7 +1341,8 @@ def video_state(db: Session, project: Project) -> dict:
         "stills": {"frames": len(frames), "drawn": sum(1 for f in frames if f.file_id),
                    "waiting": sum(1 for f in frames if not f.file_id and f.clip_id in held)},
         "clips": clips,
-        "cut": "none" if not video else
+        # a cut being made reads as such, never "out of date" (226 made it again: A6)
+        "cut": "being made" if cut_making(db, project) else "none" if not video else
                ("out of date" if project.id in out_of_date(db, [project]) else "made"),
         "being_made": len([j for j in waiting if j.status != JobStatus.needs_owner_approval]),
         "held_for_owner": [j.input.get("held", "") for j in waiting
@@ -1340,7 +1350,7 @@ def video_state(db: Session, project: Project) -> dict:
         "failed_since_last_turn": [j.error or "It didn't finish." for j in failed],
         "timeline": cut_edits.for_director(db, project),  # the cut's pieces, for edit_cut
         "cut_failed": _cut_failed(db, project),  # the newest cut couldn't be made: why, fixes
-        "watch": _watch(db, project),  # its last watch of the cut, and its findings
+        "watch": watch,  # its last watch of the cut, and its findings (doubts say so)
         "stills_review": _stills_review(db, project),  # its last look at the stills
     }  # fmt: skip
 
