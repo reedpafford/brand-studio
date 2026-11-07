@@ -154,6 +154,9 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   };
   const finished = !!p?.finished_at || facts.made || state === "delivered";
   const target = p && { id, name: title, creditsUsed: p.credits_used, released: p.released };
+  // A script's version is released while it's made; a video with no version to release (a New video send) can always be
+  // archived when nothing is running, e.g. while it waits for its OK (Flow-QA S12).
+  const releasable = !!target && maker && !archived && !finished && !!p.script_draft_id && !fs;
   const menu = (
     <VideoMenu
       title={title}
@@ -161,8 +164,8 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       onStop={!rail && running && maker ? () => setStopping(true) : undefined}
       onMove={p && maker && !archived ? () => setMoving(true) : undefined}
       onRename={p && maker && !archived ? () => setRenaming(true) : undefined}
-      onRelease={target && maker && !archived && !finished && p.script_draft_id && !fs ? () => video.release(target) : undefined}
-      onArchive={target && maker && !archived && finished ? () => video.archive(target) : undefined}
+      onRelease={releasable ? () => video.release(target) : undefined}
+      onArchive={target && maker && !archived && (finished || (!releasable && !running)) ? () => video.archive(target) : undefined}
     />
   );
   const header = head.data ? (
