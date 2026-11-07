@@ -28,7 +28,8 @@ def test_m1_the_owners_own_start_card_never_holds_him_for_his_own_ok(app, db, ow
             owner.post(f"/projects/{pid}/director/stop")
             assert owner.post(f"/projects/{pid}/director{press}").status_code == 201
         else:
-            said = owner.post(f"/projects/{pid}/director/messages", json={"text": "Slower."})
+            said = owner.post(f"/projects/{pid}/director/messages",
+                              json={"text": "Make clip 1 slower."})  # its card  # fmt: skip
             assert said.json()["status"] == "running"  # a revision starts by talking
         _fs_run(app, db, ticks=6, start=False)  # its plan, then its start card: his own press
         out = owner.get(f"/freestyles/{fs['id']}").json()
