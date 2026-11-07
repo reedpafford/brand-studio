@@ -44,7 +44,8 @@ PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "outfit": "
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
           "split_clip": "plan",
           "make_take": "takes", "pick_take": "takes", "splice_word": "takes", "mute": "takes",
-          "add_sound": "takes", "host": "host", "final_cut": "cut", "edit_cut": "cut",
+          "add_sound": "takes", "real_screen": "cut", "host": "host", "final_cut": "cut",
+          "edit_cut": "cut",
           "watch_cut": "cut", "deliver": "cut"}  # fmt: skip  # each tool's step
 # The run's headline before there are clips to count, by the step it's on (MAIN's run, video
 # 233: "Planning" stood through the cast and the stills)

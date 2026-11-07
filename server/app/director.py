@@ -1511,6 +1511,18 @@ def old_take(row: ProjectClip) -> dict:
     return {"old_take": why.removeprefix("Advice: ")}
 
 
+def _inserts(db: Session, project: Project, row: ProjectClip) -> dict:
+    """The clip's shots that show a brand screen, each with its figure and whether the cut
+    shows the brand's real screen there (`real`), for `real_screen`; {} with none."""
+    from app import cut_in
+
+    out = [{"shot_id": i.shot_id, "screen": i.name, "real": i.on,
+            **({"figure": " ".join(x for x in (i.figure.get("balance"), i.figure.get("change"))
+                                   if x)} if i.figure else {})}
+           for i in cut_in.inserts(db, project, row)]  # fmt: skip
+    return {"inserts": out} if out else {}
+
+
 def cut_findings(db: Session, project: Project) -> dict[int, list[str]]:
     """What the watches of this video's cuts found on each take, by take id (each finding is
     about the take its clip played in that cut): picking a take back brings these back (233:
@@ -1567,8 +1579,10 @@ def video_state(db: Session, project: Project) -> dict:
         out = []
         for t in takes:
             look = shown(db, seen.get(t.id))
-            checks = [look, shown(db, heard.get(t.id))]
+            checks = [look, words := shown(db, heard.get(t.id))]
             notes = [f.note for f in look.findings if f.verified] if look else []
+            extra = [f.text for f in words.findings if f.kind in ("extra", "voiced")] if (
+                words) else []  # fmt: skip  # 245's "Come on.": mute it or pick another take
             watched = {k: (t.watch or {}).get(k) for k in ("found", "did", "action")}
             mark = verdict(checks)  # a transcript's finding alone is a doubt, as an unsure watch:
             doubt = watched["action"] == "unsure" or (mark == "flagged" and not notes)
@@ -1576,6 +1590,7 @@ def video_state(db: Session, project: Project) -> dict:
                         "verdict": "unsure" if doubt else mark,
                         "notes": [] if doubt else notes, "watch": watched,
                         **({"cut_watch": cut_seen[t.id]} if t.id in cut_seen else {}),
+                        **({"unscripted": extra} if extra else {}),
                         "set_aside": False})  # Start the plan again: `set_aside`  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
                       **old_take(row), **against_notes(row, notes_now),
@@ -1589,6 +1604,7 @@ def video_state(db: Session, project: Project) -> dict:
                       "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
                                 if k in ("state", "how")},
                       **({"own_sound": True} if take_sound.own(db, picked) else {}),
+                      **_inserts(db, project, row),  # real_screen
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip

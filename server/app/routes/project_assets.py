@@ -23,6 +23,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.script_library import CastMerge, Script, ScriptCastSlot, ScriptDraft
+from app.prompts import check
 from app.prompts.schemas import Breakdown
 from app.routes.clips import generation_on
 from app.routes.library import LookFitOut, _waiting_sheets, pick_item, sheet_status
@@ -475,8 +476,13 @@ def _make_look(
     db: Session, user: User, project: Project, slot: ScriptCastSlot, auto: bool = False,
     change: str = "",
 ) -> None:  # fmt: skip
-    """`change`: what the person or the director asked for, added to the role's words."""
+    """`change`: what the person or the director asked for, added to the role's words. A role
+    whose words give no age takes the one the script or a person's note states for it
+    ("Jay is 19"), so its sheet and its fit check both know it (video 245)."""
     words = slot.description or slot.role
+    if not check.AGE.search(words) and (age := cast_roles.stated_age(
+            cast_roles.short(slot.role), _told(db, project))):  # fmt: skip
+        words = f"{words.rstrip('. ')}, {age}"
     look = LibraryItem(
         workspace_id=project.workspace_id,
         kind=Kind.character,
@@ -493,6 +499,15 @@ def _make_look(
     queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+def _told(db: Session, project: Project) -> list[str]:
+    """What the video's own words say about its people: its script and people's notes."""
+    from app.routes.scripts import latest
+
+    version = latest(db, project)
+    notes = [m.get("text") or "" for m in project.director_chat or []]
+    return [version.text if version else "", *notes]
 
 
 class PhotoIn(BaseModel):

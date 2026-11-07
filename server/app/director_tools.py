@@ -26,7 +26,7 @@ CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
          "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place",
-         "change_look", "ask_cast_ok", "split_clip", "outfit")  # fmt: skip
+         "change_look", "ask_cast_ok", "split_clip", "outfit", "real_screen")  # fmt: skip
 WAITING = "{} for the cast and places OK."
 
 
@@ -179,6 +179,17 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             back = (f" It comes back with what a watch of a cut found on it: {'; '.join(known)}."
                     if known else "")  # 233: the dead hold a paid redo had removed  # fmt: skip
             return f"Picked take {take.number} for {row.clip_id}.{back}"
+        if tool == "real_screen":  # free: Use the real image on one insert, as Clips' switch
+            rows = _clips(db, pid, decision.get("clip_id")) if decision.get("clip_id") else []
+            if len(rows) != 1:
+                return "Refused: name one clip."
+            sid, off = decision.get("shot_id") or "", (decision.get("value") or "") == "off"
+            body = project_clips.InsertIn(use_real_image=not off)
+            project_clips.set_insert(clip_id=rows[0].id, shot_id=sid, body=body, **me)
+            n = rows[0].clip_id.removeprefix("c")
+            return (f"Shot {sid} of clip {n} shows the generated screen again." if off else
+                    f"Shot {sid} of clip {n} shows the brand's real screen in the cut, its "
+                    "figure drawn on it. Free; it shows in the next cut.")  # fmt: skip
         if tool == "mute":  # free: the found stretches, through the Mute button (#1091)
             (row,) = _clips(db, pid, decision.get("clip_id"))
             spans, clip = to_mute(db, row), f"clip {row.clip_id.removeprefix('c')}"

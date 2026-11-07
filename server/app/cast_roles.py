@@ -107,6 +107,33 @@ def plays(slots: list[ScriptCastSlot]) -> str:
     return "; ".join(f"plays {s.role}" for s in slots)
 
 
+NOT_AGE = (
+    r"(?!\s*(?:%|\$|k\b|feet|foot|ft\b|inch|cm\b|kg\b|lb|pounds|minutes|hours|days|"
+    r"weeks|months|times|grand))"
+)  # "Jay, 6 months later" is no age
+
+
+def stated_age(name: str, texts: list[str]) -> str:
+    """The age these words give a role ("Jay is 19", "JAY (19, plain…)", "19-year-old Jay",
+    "Uncle Ray is in his 50s"), as a sheet's words say it ("aged 19", "in his 50s"), or "".
+    Video 245: the person's note said "Jay is 19", the role's words were only "Jay", and his
+    sheet read about 30."""
+    if not name.strip():
+        return ""
+    who = re.escape(name.strip())
+    exact = (rf"\b{who}\b\s*(?:\(\s*|,\s*|\s+is\s+|\s+aged?\s+)(\d{{1,2}})\b{NOT_AGE}",
+             rf"\b(\d{{1,2}})-year-old\s+(?:\w+\s+)?{who}\b")  # fmt: skip
+    decade = (rf"\b{who}\b\s*(?:\(\s*|,\s*|\s+is\s+)((?:in\s+(?:his|her|their)\s+)?"
+              r"(?:early\s+|late\s+|mid-?)?\d0s)\b")  # fmt: skip
+    for text in texts:
+        for pattern in exact:
+            if m := re.search(pattern, text or "", re.I):
+                return f"aged {m[1]}"
+        if m := re.search(decade, text or "", re.I):
+            return m[1] if m[1].lower().startswith("in ") else f"in their {m[1]}"
+    return ""
+
+
 def short(role: str) -> str:
     """A role's name as a script labels it: "Nate, the teen groom" -> "Nate", "The bride" ->
     "bride"."""

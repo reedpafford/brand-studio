@@ -126,6 +126,8 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                                  f"for word: “{line['text']}”", who))  # fmt: skip
     voiced = any(VOICED.search(a) for a in actions)
     scripted = {w for line in lines for w in _bare(line["text"]).split()}
+    for i in sorted(used):  # a line heard as said, with words of its own around it
+        findings += _added(heard[i], [line["text"] for line in lines], scripted)
     for i, h in enumerate(heard):
         said, at = h["text"].strip(), _clock(h["start"])
         mute = f"It can be muted in the cut ({at}–{_clock(h['end'])})."
@@ -152,6 +154,43 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                                          "be said wrong. Listen first: the transcript can "
                                          f"mishear.", f"Say {brand} as {said_as}."))  # fmt: skip
     return findings + sounds
+
+
+FILLERS = {"uh", "um", "ah", "oh", "hmm", "mm", "er"}  # a speech model's hesitations
+
+
+def _added(h: dict, lines: list[str], scripted: set[str]) -> list[dict]:
+    """Words heard inside a line that was said, which no script line has (video 245: "Come
+    on." after "Then you're mowing my lawn.", heard as one line with it, so never flagged):
+    each run of them is an "extra" finding, with its own times when the transcript has them,
+    to mute or to pick another take."""
+    best = max(lines, key=lambda line: _close(line, h["text"]), default="")
+    said, want = _bare(h["text"]).split(), _bare(best).split()
+    words = [w for w in h.get("words") or [] if _bare(w["word"])]
+    timed = len(words) == len(said)
+    out = []
+    ops = SequenceMatcher(None, want, said, autojunk=False).get_opcodes()
+    for op, a1, a2, b1, b2 in ops:
+        run = said[b1:b2]
+        if op not in ("insert", "replace") or (op == "replace" and b2 - b1 <= a2 - a1):
+            continue  # a word misheard as another: the line's own words, not new ones
+        if all(w in scripted or w in FILLERS for w in run):
+            continue  # another of the clip's lines heard run together with it, or an "uh"
+        start, end = ((words[b1]["start"], words[b2 - 1]["end"]) if timed
+                      else (h["start"], h["end"]))  # fmt: skip
+        text = " ".join(w["word"].strip() for w in words[b1:b2]) if timed else " ".join(run)
+        at = _clock(start)
+        mute = f" It can be muted in the cut ({at}–{_clock(end)})." if timed else ""
+        out.append(
+            _finding(
+                "extra",
+                start,
+                f"“{text}” at {at} isn't in the script, said with the line “{best}”.{mute}",
+                f"Say only the script's lines, word for word: no “{text}”.",
+                span=[start, end] if timed else None,
+            )
+        )
+    return out
 
 
 VOICE = "“{said}” at {at} may be said in the take, but this clip isn't planned to speak."

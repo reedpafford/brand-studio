@@ -583,10 +583,12 @@ class CutFinding(BaseModel):
         "<transcript> suggests it), 'measured' (clipped samples in <measured>), 'sound' (only "
         "the spectrogram, the loudness or a silence suggests it)."
     )
-    fix: Literal["redo", "pick", "mute", "keep"] = Field(
+    fix: Literal["redo", "pick", "mute", "trim", "keep"] = Field(
         description="The smallest fix that works: 'mute' an unscripted sound with nothing wrong "
-        "in the picture; 'pick' another take of the clip; 'redo' the clip with a change note; "
-        "'keep' a weakness no fix here would help."
+        "in the picture; 'trim' a stretch with nothing happening and no script word in it (a "
+        "planned silence the take doesn't perform), cut out in the edit, free; 'pick' another "
+        "take of the clip; 'redo' the clip with a change note; 'keep' a weakness no fix here "
+        "would help."
     )
     take_id: int | None = Field(
         default=None, description="For pick: the id of one of that clip's other_takes; else null."
@@ -594,7 +596,8 @@ class CutFinding(BaseModel):
     note: str = Field(
         default="",
         description="For redo, the change note, ready to send; for mute, what's heard there; "
-        "for keep, why, for the owner.",
+        "for trim, what the plan meant to happen there and what the take shows; for keep, why, "
+        "for the owner.",
     )
 
 
@@ -791,7 +794,7 @@ class DirectorTurn(Strict):
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
         "mute", "splice_word", "add_sound", "song", "narration", "host", "edit_cut", "ask",
         "add_place", "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model",
-        "settings", "split_clip", "outfit",
+        "settings", "split_clip", "outfit", "real_screen",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -810,7 +813,9 @@ class DirectorTurn(Strict):
         "with no note: the take to use. Else 0.",
     )
     shot_id: Name = Field(
-        default=None, description="For redraw_still: the still's shot, e.g. '3.1'; else empty."
+        default=None,
+        description="For redraw_still: the still's shot, e.g. '3.1'; for real_screen: the "
+        "insert's shot, from that clip's `inserts`; else empty.",
     )
     voice: _pick(
         "Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger", "English_FriendlyPerson",
@@ -861,7 +866,8 @@ class DirectorTurn(Strict):
     value: Name = Field(
         default=None,
         description="For settings with setting look, aspect_ratio or presenter: the new value "
-        "(a style id, '9:16', or talks / corner / acts); empty for the style's own. Else empty.",
+        "(a style id, '9:16', or talks / corner / acts); empty for the style's own. For "
+        "real_screen: 'off' puts the generated screen back. Else empty.",
     )
     look: LookMove | None = Field(
         default=None,

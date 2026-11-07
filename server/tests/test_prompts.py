@@ -1591,7 +1591,7 @@ def test_watch_cut_judges_the_cut_as_a_viewer_with_a_fix_each():
                  "Breaths, gasps, laughs, room sound and sound effects are fine"):  # fmt: skip
         assert part.lower() in watch.lower(), part
     fixes = schemas.CutFinding.model_fields["fix"].annotation.__args__
-    assert set(fixes) == {"redo", "pick", "mute", "keep"}
+    assert set(fixes) == {"redo", "pick", "mute", "trim", "keep"}  # trim: video 245
     one = schemas.CutFinding(clip_id="c1", start=0, end=1, says="x", fix="keep", kind="story",
                              evidence="picture")  # fmt: skip
     with pytest.raises(ValueError):
