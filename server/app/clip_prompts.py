@@ -261,6 +261,8 @@ def job_input(
 
     if told := treatment_block(db, project):  # the story it serves (the director's treatment)
         prompt = f"{prompt}\n{told.rstrip()}"
+    if limits := prompt_limits(db, project, [c for g in groups for c in g]):
+        prompt = f"{prompt}\n{limits}"
     return {
         "step": "clip_prompts",
         "project_id": project.id,
@@ -275,6 +277,29 @@ def job_input(
             for g in groups
         ],
     }
+
+
+def prompt_limits(db: Session, project: Project, clip_ids: list[str]) -> str:
+    """The longest prompt each clip's model takes, as the writer is told it (Seedance 2.0:
+    4000 characters; 245's were written for 2.5 at 4038–4780 and refused): one line a model,
+    naming its clips, with room left for the language line and a Redo note. "" when none has a
+    limit."""
+    from app.clip_takes import ROOM
+    from app.model_map import of_clip
+
+    rows = {r.clip_id: r for r in db.scalars(select(ProjectClip).where(
+        ProjectClip.project_id == project.id, ProjectClip.clip_id.in_(clip_ids)))}  # fmt: skip
+    capped: dict[tuple[str, int], list[str]] = {}
+    for c in clip_ids:
+        m = of_clip(project, rows.get(c))
+        if m.prompt_max:
+            capped.setdefault((m.name, m.prompt_max), []).append(c)
+    return "\n".join(
+        f"<limit>{', '.join(ids)} {'is' if len(ids) == 1 else 'are'} made on {name}, which takes a "
+        f"prompt of at most {most} characters: write {'its' if len(ids) == 1 else 'each'} prompt "
+        f"in under {most - ROOM} characters.</limit>"
+        for (name, most), ids in capped.items()
+    )
 
 
 def cause(error: str, detail: str = "") -> str:

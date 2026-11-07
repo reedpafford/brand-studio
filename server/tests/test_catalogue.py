@@ -56,6 +56,8 @@ def test_limits_match_replicate_schema(model):
     assert model.first_frame == opening
     assert model.last_frame == ("last_frame_image" in props)
     assert (model.audio == "switch") == ("generate_audio" in props)
+    # the longest prompt it takes (Seedance 2.0: 4000; a longer one is a 422, video 245)
+    assert model.prompt_max == (props.get("prompt") or {}).get("maxLength", 0)
 
 
 def test_credit_rates_follow_real_price():
