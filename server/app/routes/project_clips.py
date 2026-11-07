@@ -106,7 +106,7 @@ class TakeOut(BaseModel):
 class SoundOut(BaseModel):
     """Sound effects added to the picked take on request (app/take_sound.py)."""
 
-    state: Literal["none", "making", "ready", "failed"]
+    state: Literal["none", "making", "ready", "failed", "removed"]  # removed: a person's "no"
     how: str  # slight, normal or strong: how loud under the take's own sound
     asked: str  # what the person asked for, in their words
     error: SaidText = ""  # its last run failed: why, in plain words (Make again)

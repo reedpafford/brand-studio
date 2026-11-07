@@ -79,36 +79,40 @@ def of_clip(project, clip):
     return own or lip_synced(project, clip) or video_model(project)
 
 
-SPOKEN = ("Someone speaks on camera here and {was} can't lip-sync, so this clip is made on "
-          "{now}, which can.")  # fmt: skip
+LIP_SYNCED = ("Someone speaks on camera here and {was} can't lip-sync, so this clip is made "
+              "on {now}, which can.")  # fmt: skip
 
 
 def lip_synced(project, clip):
     """The Seedance that lip-syncs (Seedance 2.5) for a clip where someone speaks on camera,
     when the video's own Seedance can't (Seedance 2.0: Claymation, Skeleton, Zack D offer
-    dialogue), or None. Only within Seedance (Reed: the animated styles stay on Seedance). A
-    clip with its own model, no one speaking on camera, a video model a person chose, or one
-    that lip-syncs or isn't Seedance, stays as it is."""
+    dialogue), or None. Only within Seedance (Reed: the animated styles stay on Seedance), and
+    only a line said on camera (`lips_on_camera`: never "(O.S.)", "(ON PHONE)"…). A clip with its
+    own model, a video model a person chose, one that lip-syncs or isn't Seedance, or a style
+    whose guide says `lip_sync: no`, stays as it is."""
     from sqlalchemy.orm import object_session
 
+    from app import guides
     from app.breakdown import video_model
     from app.catalogue import catalogue
     from app.clip_takes import _shots as shots_of
-    from app.clip_takes import on_camera_speech
+    from app.clip_takes import lips_on_camera
     from app.models.breakdowns import BreakdownVersion
     from app.settings_move import persons
 
     m, db = video_model(project), object_session(project)
     if clip is None or clip.model or m.lip_sync or not m.id.startswith("seedance") or db is None:
         return None
+    if not guides.style(looks.base(project.look or looks.DEFAULT))["lip_sync"]:
+        return None  # the style's guide says its speakers don't lip-sync (`lip_sync: no`)
     bd = db.get(BreakdownVersion, clip.breakdown_id or 0)
     ids = next((c["shot_ids"] for c in (bd.data if bd else {}).get("clips", [])
                 if c["id"] == clip.clip_id), [])  # fmt: skip
     shots = shots_of(bd.data, ids) if bd else []
-    if persons(project, "video_model") or not on_camera_speech(db, project, clip, shots):
+    if persons(project, "video_model") or not lips_on_camera(db, project, clip, shots):
         return None
     return next((x for x in catalogue().values() if x.kind == "video" and x.lip_sync
-                 and x.id.startswith("seedance") and not x.talker_only), None)  # fmt: skip
+                 and x.id.startswith("seedance")), None)  # fmt: skip
 
 
 def own_name(clip) -> str | None:
@@ -159,7 +163,7 @@ def why(db, project, clip) -> dict:
         found = _model(own["id"])
         return {"id": found.id, "name": found.name, "why": own.get("why", ""), "by": own["by"]}
     if spoken := lip_synced(project, clip):
-        said = SPOKEN.format(was=video_model(project).name, now=spoken.name)
+        said = LIP_SYNCED.format(was=video_model(project).name, now=spoken.name)
         return {"id": spoken.id, "name": spoken.name, "why": said, "by": "map"}
     found = video_model(project)
     picked = project.video_model == found.id

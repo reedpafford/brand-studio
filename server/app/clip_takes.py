@@ -161,6 +161,32 @@ def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: li
                for s in shots)  # fmt: skip
 
 
+# A line spoken off camera, by its script label: "(O.S.)", "(O.C.)", "(V.O.)", "(OFF)", "(ON
+# PHONE)", "(PRE-LAP)", "(FILTERED)". Its take still keeps its sound; only its lips don't move.
+OFF_CAMERA = re.compile(r"\((?:[^)]*?\b)?(?:v\.?\s?o|o\.?\s?[sc]|off|on (?:the )?(?:phone|radio|"
+                        r"tv|speaker)|pre-?lap|filtered)\b", re.I)  # fmt: skip
+
+
+def lips_on_camera(db: Session, project: Project, clip: ProjectClip, shots: list[dict]) -> bool:
+    """Whether someone's lips move on camera in this clip (`on_camera_speech`, less a line
+    whose script label marks it off camera: the breakdown keeps only the speaker's name)."""
+    if not on_camera_speech(db, project, clip, shots):
+        return False
+    from app.prompts.check import SPEAKER
+    from app.routes.scripts import latest
+
+    words = latest(db, project)
+    lines = words.text.splitlines() if words else []
+
+    def off(shot: dict) -> bool:  # its script line's own label: "MOM (O.S.):"
+        said = [SPEAKER.match(lines[n - 1]) for n in shot.get("script_lines") or []
+                if 0 < n <= len(lines)]  # fmt: skip
+        return any(m and OFF_CAMERA.search(m[0]) for m in said)
+
+    return any(s.get("line") and s.get("speaker") and not VOICE_OVER.search(s["speaker"])
+               and not off(s) for s in shots)  # fmt: skip
+
+
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
     """A clip longer than the video model makes is refused before any charge (QA #1013),
     never sent cut short: the breakdown's Split fix makes it into clips it can, between its

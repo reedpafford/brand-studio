@@ -67,6 +67,9 @@ MAKING = "Sound is being added to this take already."
 ALL_HAVE = ("Every take in the cut has sound already. Name the clip to add sound effects "
             "under its own sound.")  # fmt: skip
 NOT_ADDED = "This take has no added sound."
+REMOVED = "removed"  # in a take's made_with: a person took its sound effects off, a "no"
+SAID_NO = ("Refused: a person removed this clip's sound effects; they stay off unless a person "
+           "asks for them again.")  # fmt: skip
 SONG = "A song video's only sound is its song, so sound effects can't go under its takes."
 
 
@@ -130,8 +133,9 @@ def added(take: ClipTake | None) -> dict | None:
 
 
 def state(db: Session, take: ClipTake | None) -> dict | None:
-    """{state none | making | ready | failed, how, asked, error, credits} for a take, as its
-    clip card and the director read it; None with no take, or in a song video."""
+    """{state none | making | ready | failed | removed, how, asked, error, credits} for a take,
+    as its clip card and the director read it; None with no take, or in a song video. `removed`:
+    a person took its sound effects off, so the director never adds them again."""
     project = db.get(Project, db.get(ProjectClip, take.clip_id).project_id) if take else None
     if take is None or sung(db, project):
         return None
@@ -139,7 +143,7 @@ def state(db: Session, take: ClipTake | None) -> dict | None:
     lost = job and job.status in (JobStatus.failed, JobStatus.cancelled) and (
         not made or made["job"] < job.id)  # fmt: skip
     now = ("making" if job and job.status in WAITING else "failed" if lost
-           else "ready" if made else "none")  # fmt: skip
+           else "ready" if made else REMOVED if said_no(take) else "none")  # fmt: skip
     told = made if now == "ready" else (job.input if job else {})
     return {"state": now, "how": told.get("how", ""), "asked": told.get("asked", ""),
             "error": (job.error or "") if lost else "",
@@ -197,9 +201,11 @@ def to_cut(db: Session, user: User, project: Project, storage, clip_id: str | No
         rows = [r for r in rows if r.clip_id == clip_id]
         if not rows:
             return f"Refused: there's no clip {clip_id}."
-    else:
+        if said_no(db.get(ClipTake, rows[0].picked_take_id or 0)):
+            return SAID_NO
+    else:  # a take a person took the sound effects off stays without them
         picked = [(r, db.get(ClipTake, r.picked_take_id)) for r in rows if r.picked_take_id]
-        rows = [r for r, t in picked if not added(t) and silent(db, storage, t)]
+        rows = [r for r, t in picked if not added(t) and not said_no(t) and silent(db, storage, t)]
         if not rows:
             return f"Refused: {ALL_HAVE}"
     return add(db, user, project, rows, asked)
@@ -213,14 +219,22 @@ def saved(db: Session, job: Job) -> None:
         return
     sound = {"file_id": file_ids[0], "how": job.input["how"], "asked": job.input["asked"],
              "db": job.input.get("db", LEVELS[job.input["how"]]), "job": job.id}  # fmt: skip
-    take.made_with = {**(take.made_with or {}), "sound": sound}
+    kept = {k: v for k, v in (take.made_with or {}).items() if k != REMOVED}  # asked again
+    take.made_with = {**kept, "sound": sound}
 
 
 def remove(take: ClipTake) -> None:
-    """Undo: the take's added sound is taken off; it plays as it was made."""
+    """A person's Remove: the take's added sound is taken off; it plays as it was made, and the
+    director never adds it back (REMOVED) unless a person asks again."""
     if not added(take):
         raise HTTPException(404, NOT_ADDED)
-    take.made_with = {k: v for k, v in (take.made_with or {}).items() if k != "sound"}
+    take.made_with = {**{k: v for k, v in (take.made_with or {}).items() if k != "sound"},
+                      REMOVED: True}  # fmt: skip
+
+
+def said_no(take: ClipTake | None) -> bool:
+    """A person took this take's sound effects off (`remove`)."""
+    return bool(take and (take.made_with or {}).get(REMOVED))
 
 
 def labels(clip: ProjectClip, take: ClipTake | None) -> list[str]:

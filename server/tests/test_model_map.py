@@ -415,21 +415,23 @@ def test_a_photoreal_acting_presenters_planned_shots_are_quoted_on_omni(
     assert abs(left() - talks) < 0.02  # a drawn style: Seedance, as ever
 
 
-def _dialogue(db, editor, look: str) -> tuple[Project, ProjectClip, ProjectClip]:
-    """A dialogue video in `look`: clip c1 with MOM speaking on camera, c2 with nobody."""
+def _dialogue(db, editor, look: str, mark: str = "") -> tuple[Project, ProjectClip, ProjectClip]:
+    """A dialogue video in `look`: clip c1 with MOM speaking (on camera, or as `mark` says in
+    her script label: " (O.S.)"), c2 with nobody."""
     from app.models.breakdowns import BreakdownVersion
 
     brand = editor.get("/brands").json()[0]["id"]
     made = {"brand_id": brand, "name": "Dip", "planned_seconds": 10}
     pid = editor.post("/projects", json=made).json()["id"]
-    editor.put(f"/projects/{pid}/script", json={"text": "MOM: Where is your money?\nShe sighs."})
+    text = f"MOM{mark}: Where is your money?\nShe sighs."
+    editor.put(f"/projects/{pid}/script", json={"text": text})
     video = db.get(Project, pid)
     video.look = look
     shot = {"camera": "Close", "seconds": 4, "character_ids": [], "place_id": None, "moment": None,
             "screen_ids": [], "script_lines": [], "reaction": None}  # fmt: skip
     data = {"hook": "", "scenes": [{"id": 1, "heading": "KITCHEN", "look": "", "shots": [
         {**shot, "id": "1.1", "speaker": "MOM", "line": "Where is your money?",
-         "action": "Mom asks."},
+         "action": "Mom asks.", "script_lines": [1]},
         {**shot, "id": "1.2", "speaker": None, "line": None, "action": "She sighs."}]}],
         "clips": [{"id": "c1", "shot_ids": ["1.1"], "seconds": 4, "seam": ""},
                   {"id": "c2", "shot_ids": ["1.2"], "seconds": 4, "seam": ""}]}  # fmt: skip
@@ -452,8 +454,8 @@ def test_a_spoken_shot_on_a_style_that_cant_lip_sync_is_made_on_its_seedance_tha
     assert model_map.of_clip(video, spoken).id == "seedance-2.5"
     said = model_map.why(db, video, spoken)
     assert (said["id"], said["by"]) == ("seedance-2.5", "map")
-    assert said["why"] == ("Someone speaks on camera here and Seedance 2.0 can't lip-sync, so this "
-                           "clip is made on Seedance 2.5, which can.")  # fmt: skip
+    assert said["why"] == model_map.LIP_SYNCED.format(was="Seedance 2.0", now="Seedance 2.5")
+    assert said["why"].startswith("Someone speaks on camera here and Seedance 2.0 can't lip-sync")
     assert take_input(db, video, spoken)["model"] == "seedance-2.5"  # the take itself
     assert model_map.of_clip(video, quiet).id == "seedance-2.0"  # nobody speaks: unchanged
     assert model_map.why(db, video, quiet)["id"] == "seedance-2.0"
@@ -471,3 +473,21 @@ def test_a_lip_syncing_style_a_persons_model_and_a_clips_own_model_stay_as_they_
     settings_move.log(clay, db.get(User, clay.created_by_id), "video_model", None, "seedance-2.0",
                       "person")  # fmt: skip
     assert model_map.of_clip(clay, said).id == "seedance-2.0"  # a person's own choice stays
+
+
+@pytest.mark.parametrize("mark", [" (O.S.)", " (O.C.)", " (V.O.)", " (ON PHONE)", " (PRE-LAP)"])
+def test_a_line_said_off_camera_never_moves_to_a_lip_sync_model(db, editor, mark):
+    """QA on #1404: "(O.S.)", "(ON PHONE)" and the like are heard, not seen: no lips to sync,
+    so the clip stays on the style's own Seedance (its take keeps its sound as before)."""
+    video, spoken, _ = _dialogue(db, editor, "claymation", mark)
+    assert model_map.of_clip(video, spoken).id == "seedance-2.0", mark
+
+
+def test_a_style_whose_guide_says_no_lip_sync_keeps_its_own_seedance(db, editor, monkeypatch):
+    """A guide opts out with `lip_sync: no` (Paper's puppets illustrate a narration, flap
+    mouths): its speakers stay on its own Seedance. Every guide without the key keeps it on."""
+    assert guides.style("paper")["lip_sync"] and guides.style("claymation")["lip_sync"]
+    video, spoken, _ = _dialogue(db, editor, "claymation")
+    real = guides.style
+    monkeypatch.setattr(guides, "style", lambda i: {**real(i), "lip_sync": False})
+    assert model_map.of_clip(video, spoken).id == "seedance-2.0"
