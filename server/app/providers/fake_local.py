@@ -449,11 +449,12 @@ class FakeWriter:
 
     def _director(self, prompt):
         """The stand-in director: the agents' order, from the video's state (app/director)."""
-        from app.director import choose
+        from app.director import NOT_MADE, choose
 
         allowed = json.loads(_tag(prompt, "allowed") or "{}")
         asked = json.loads(_tag(prompt, "chat") or "[]")
-        done = [a["tool"] for a in json.loads(_tag(prompt, "last_actions") or "[]")]
+        done = [a["tool"] for a in json.loads(_tag(prompt, "last_actions") or "[]")
+                if a.get("result") != NOT_MADE]  # held for Make it: still to make  # fmt: skip
         questions = json.loads(_tag(prompt, "asks") or "[]")
         return choose({**json.loads(_tag(prompt, "video")), "allowed": allowed, "chat": asked,
                        "done": done, "asks": questions})  # fmt: skip

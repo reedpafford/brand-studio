@@ -838,7 +838,8 @@ def test_a_note_sent_during_the_last_turn_waits_for_the_next_make_it(
     _run(app, db)
     out = editor.get(url).json()
     assert (out["status"], out["unread"]) == ("delivered", 0), out["ended"]
-    assert [t["why"] for t in out["turns"]].count("Note 1: you asked: Make clip 1 brighter.") == 1
+    made = [t["why"] for t in out["turns"] if t["result"] != director.START_FIRST]  # a revision
+    assert made.count("Note 1: you asked: Make clip 1 brighter.") == 1  # asks, then makes it
     assert not any(
         "c1" in m["text"] + m["why"] for m in out["thread"]
     )  # "clip 1", as people see it
@@ -930,7 +931,7 @@ def test_every_open_note_is_answered_and_delivery_waits_for_them(
     assert any(r == "Refused: note 2 is still open." for r in results), results  # people's words
     turns = db.query(Job).filter(Job.input["step"].as_string() == director.STEP).all()
     assert any(j.input.get("result") == director.OPEN.format(2) for j in turns)  # the director's
-    whys = [t["why"] for t in out["turns"]]
+    whys = [t["why"] for t in out["turns"] if t["result"] != director.START_FIRST]  # its card
     note = next(m["note"] for m in reversed(out["thread"]) if m.get("note"))
     whys[-1] = " ".join((note["made"], note["unsure"], note["needs"]))  # the delivery's note
     assert whys.count("Note 1: you asked: Make clip 1 warmer.") == 1  # the older note is made

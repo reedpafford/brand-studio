@@ -100,8 +100,9 @@ test("at 390, the owner's change after a delivery starts the next run by talking
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click({ timeout: 60_000 }); // its start card
   await expect(page.getByRole("banner").getByText(/^Delivered/)).toBeVisible({ timeout: 240_000 });
-  await page.getByLabel("Tell the director what to change").fill("Make it slower.");
+  await page.getByLabel("Tell the director what to change").fill("Make clip 1 slower.");
   await page.getByLabel("Tell the director what to change").press("Enter"); // S3-12: the note starts the next run
+  // a new take of clip 1 waits for its start card (a revision's free edits to the cut wouldn't: video 233)
   const again = page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }); // its start card, the owner's press
   await expect(again).toBeVisible({ timeout: 60_000 });
   expect((await again.boundingBox())!.height).toBeGreaterThanOrEqual(44);

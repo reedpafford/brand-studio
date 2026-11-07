@@ -66,9 +66,17 @@ TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 START = asks.START  # in its held first paid turn: the start card (S3-02)
 START_HELD = "Ready to start: it waits for Make it."  # the start card's hold
 START_FIRST = "Waiting for Make it: nothing more runs before it."  # a move before the OK
+NOT_MADE = "Not made yet: it waits for Make it, and is made once it's pressed."  # START_FIRST,
+# as <last_actions> shows it: the step still to make, not one done
 TREATMENT_FIRST = "Refused: the treatment comes first, before Make it."
 PLAN_FIRST = "Changing the plan first."  # a note while the start card waited
 PRE_OK = ("treatment", "ask", "wait", "stop")  # what runs before Make it: planning only
+# A revision (a run on a video that has delivered): its free changes to the cut it has, and the
+# watch and delivery they lead to, need no Make it (Reed: a revision charges only the affected
+# work). Anything that makes something new still waits on its start card.
+REVISION = "revision"  # in a run: started after a delivery, it reuses the video's story
+REVISE_FREE = ("edit_cut", "final_cut", "mute", "pick_take", "splice_word", "watch_cut",
+               "deliver")  # fmt: skip
 ON_YOU = "Waiting on your answer; everything else is made."  # parked on open questions
 CAST_WAIT = "Waiting for the cast and places OK."  # its run waits on that point only
 
@@ -89,11 +97,13 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
         raise HTTPException(409, why)
     _close_carry(db, project)  # a Carry on still waiting for the owner isn't needed now
     again = {FRESH: utcnow().isoformat()} if fresh else _replanning(db, project)
-    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id, "ok": False,
-           "hold": hold, **again}  # fmt: skip
     lock(db, Project, project.id)  # the notes it takes can't change under it
     db.refresh(project)
     left = set(leftover(db, project))  # every note no run has read: this run reads them
+    if left and not fresh and delivered(turns(db, project)):  # notes after a delivery: a
+        again = {**again, REVISION: True}  # revision, whose story stands
+    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id, "ok": False,
+           "hold": hold, **again}  # fmt: skip
     if left:
         project.director_chat = [{**m, "run": run["id"]} if n in left else m
                                  for n, m in enumerate(project.director_chat)]  # fmt: skip
@@ -279,6 +289,7 @@ def answered(db: Session, run_id: str, project_id: int | None = None) -> set[int
     rows = db.scalars(select(Job).where(*where, Job.input["step"].as_string() == STEP,
                                         mine)).all()  # fmt: skip
     return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
+            and j.input.get("result") != START_FIRST  # asked for, but it waits for Make it
             for n in NOTE.findall(move_words(j.output or {}))}  # fmt: skip
 
 
@@ -738,8 +749,10 @@ def _act(db: Session, job: Job, storage) -> None:
     project, decision = db.get(Project, job.project_id), dict(job.output or {})
     run = dict(job.input[RUN])
     tool = decision.get("tool")
-    if not run.get("ok", True) and tool not in PRE_OK:  # nothing is spent before Make it
-        return _record(db, job, run, START_FIRST if _written(db, run) else TREATMENT_FIRST)
+    free = tool in REVISE_FREE and _free_revision(db, run)
+    if not run.get("ok", True) and tool not in PRE_OK and not free:  # nothing made before Make it
+        written = _written(db, run, project.id)
+        return _record(db, job, run, START_FIRST if written else TREATMENT_FIRST)
     unpick_old_takes(db, project, run)  # "Start the plan again": its new shots are made
     if tool == "pick_take" and (aside := _aside(db, project, run, decision)):
         return _record(db, job, run, aside)
@@ -944,7 +957,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
             db.commit()
         return last
     before = not run.get("ok", True)  # before Make it: planning, on its allowance
-    card = before and last is not None and _ready(db, project, run, last)
+    card = (before and last is not None and last.input[RUN]["id"] == run["id"]
+            and _ready(db, project, run, last))  # its own turn moved it there  # fmt: skip
     run = {**run, "turn": run["turn"] + 1, **({"ok": True} if card else {})}
     prompt = turn_input(db, project, run)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
@@ -961,7 +975,9 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         data = {**data, START: True, asks.HOLD: carry[0], PRICE: str(carry[1]),
                 CARRIES: str(price)}  # fmt: skip
         wait = carry[0]
-    elif before:  # its plan: charged as it costs; past the allowance, the owner's OK first
+    elif before and not _free_revision(db, run):  # its plan: charged
+        # as it costs; past the allowance, the owner's OK first. A revision's free changes to
+        # its cut aren't planning: its turns are the director's own, on its own limit, below
         from app.credits import estimate
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
@@ -998,6 +1014,7 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         from app.models.freestyles import Freestyle
 
         fs = db.get(Freestyle, data[FREESTYLE])
+        db.refresh(fs)  # its chat as it is now: a change may have landed since it was read
         mine = {t.id for t in turns(db, project) if t.input[RUN]["id"] == run["id"]}
         fs.chat = [{**m, "job": job.id} if m.get("job") in mine - {job.id} else m
                    for m in fs.chat]  # fmt: skip
@@ -1005,15 +1022,32 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
     return job
 
 
-def _written(db: Session, run: dict) -> bool:
-    """Whether the run's treatment is written (the start card waits for it)."""
-    return bool(_treatment_at(db, run))
-
-
-def _treatment_at(db: Session, run: dict):
-    """When the run's newest written treatment was asked (what it read was as of then)."""
+def _own_story(db: Session, run: dict):
+    """When this run itself last wrote a treatment, or None."""
     return db.scalar(select(func.max(Job.created_at)).where(
         Job.input["step"].as_string() == "treatment", Job.input[RUN]["id"].as_string() == run["id"],
+        Job.status == JobStatus.succeeded))  # fmt: skip
+
+
+def _free_revision(db: Session, run: dict) -> bool:
+    """A revision's free changes to the cut it has: none once its own story changed, or when
+    the run is held for the owner's OK (an editor past their budget: the start card first)."""
+    return bool(run.get(REVISION) and not run.get("hold") and not _own_story(db, run))
+
+
+def _written(db: Session, run: dict, project_id: int | None = None) -> bool:
+    """Whether the run's treatment is written (the start card waits for it)."""
+    return bool(_treatment_at(db, run, project_id))
+
+
+def _treatment_at(db: Session, run: dict, project_id: int | None = None):
+    """When the run's newest written treatment was asked (what it read was as of then); a
+    revision's (`REVISION`) is the video's own when the run wrote none: its story stands."""
+    own = _own_story(db, run)
+    if own or not run.get(REVISION) or project_id is None:
+        return own
+    return db.scalar(select(func.max(Job.created_at)).where(
+        Job.project_id == project_id, Job.input["step"].as_string() == "treatment",
         Job.status == JobStatus.succeeded))  # fmt: skip
 
 
@@ -1023,7 +1057,7 @@ def _ready(db: Session, project: Project, run: dict, last: Job) -> bool:
     the plan as it is on a planning card past its allowance."""
     from app.routes.jobs import DECLINE
 
-    at = _treatment_at(db, run)
+    at = _treatment_at(db, run, project.id)
     if at is None:
         return False
     if last.input.get("result") == START_FIRST:
@@ -1062,6 +1096,7 @@ def refresh(db: Session, job: Job) -> bool:
     step saved since, or the turn waited for the owner). False when its run was stopped
     before the call: the worker then makes no call (nothing is charged)."""
     project = db.get(Project, job.project_id)
+    db.refresh(project)  # its notes as they are now (a note may have landed since it was read)
     db.refresh(job)
     if job.input.get(CARRIES) and not job.input.get("ended"):  # a Carry on the owner OK'd:
         lock(db, Project, project.id)  # the stopped run goes on from here
@@ -1166,6 +1201,11 @@ SET_ASIDE = ("Refused: take {} of {} was made before the plan was started again,
              "aside. Make a new take of it.")  # fmt: skip
 
 
+def _listed(result: str | None) -> str | None:
+    """A move's result as <last_actions> shows it: one held for Make it is still to make."""
+    return NOT_MADE if result == START_FIRST else result
+
+
 def turn_input(db: Session, project: Project, run: dict, job_id: int | None = None) -> dict:
     """The director's prompt (app/prompts/director.md, the Director's) and the brand, then the
     video's state, its run's last actions and what it still may do."""
@@ -1173,7 +1213,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
 
     system, brief = project_context(db, project, STEP)
     done = [{"tool": (j.output or {}).get("tool"), "why": (j.output or {}).get("why"),
-             "result": RETRIED_SAID if j.input.get(RETRIED) else j.input.get("result")}
+             "result": RETRIED_SAID if j.input.get(RETRIED) else _listed(j.input.get("result"))}
             for j in turns(db, project)
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
     allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
@@ -1194,11 +1234,14 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
                                          Job.input["step"].as_string() == "treatment",
                                          Job.input[RUN]["id"].as_string() == run["id"],
                                          Job.status.in_(COUNTED)).limit(1))  # fmt: skip
+    if not own and run.get(REVISION):  # a revision reuses the video's story (its treatment)
+        own = _treatment_at(db, run, project.id)
     video = {
         **video_state(db, project),
         "treatment": "written" if own else "none",
         "started": run.get("ok", True),
-    }  # this run's; started: Make it was pressed
+        "revision": bool(run.get(REVISION)),
+    }  # this run's; started: Make it was pressed; revision: after a delivery
     plan, shots = fresh(db, project, run)  # "Start the plan again": no plan or shots of its own yet
     if plan:
         video["plan"] = "none"
@@ -1490,6 +1533,12 @@ def _splittable(db: Session, project: Project, bd) -> list[str]:
     ]
 
 
+STORY = re.compile(r"\b(story|plot|rewrite|new (?:scene|idea|angle|hook|ending)|different "
+                   r"(?:hook|ending)|change (?:the )?(?:hook|ending))\b", re.I)  # fmt: skip
+# a revision's note that asks to change what happens (its treatment again, before Make it);
+# "Slow the ending down." is pacing
+
+
 def choose(state: dict) -> dict:
     """The stand-in director (no paid call): the agents' order, step by step. A flagged take
     is made again with the take check's notes (the server counts the redos). Once cut, it
@@ -1514,7 +1563,13 @@ def choose(state: dict) -> dict:
         return go("wait", "Something is still being made or waits for the owner.")
     if state.get("treatment") == "none":  # the story first, on every run (the Director)
         return go("treatment", "The story first: what holds a viewer, beat by beat.")
-    if state.get("started") is False:  # before Make it: a note changes the treatment only
+    if state.get("started") is False and state.get("revision"):  # after a delivery: the story
+        m = next((m for m in notes if not m.get("answered") and STORY.search(m["text"])), None)
+        if m is not None:  # stands unless a note asks to change it; else what it asks, below
+            return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"][:500])
+        if "treatment" in state.get("done", []):  # its story changed: all of it, after Make it
+            return go("wait", "The new treatment is ready: it waits for Make it.")
+    elif state.get("started") is False:  # before Make it: a note changes the treatment only
         m = next((m for m in notes if not m.get("answered")), None)
         if m is None:
             return go("wait", "The treatment is ready: it waits for Make it.")
