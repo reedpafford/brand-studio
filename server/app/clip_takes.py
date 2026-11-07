@@ -443,6 +443,24 @@ def take_warning(db: Session, row: ProjectClip) -> str | None:
     return None
 
 
+# A note that takes away or swaps something ("no phone", "without the hat", "instead of the
+# car"): the thing it names, to look for in the prompt (226 c4, A7 in session 35's costs)
+TAKES_AWAY = re.compile(
+    r"\b(?:no|without|remove|replace|instead of)\s+"  # never "not": "not wide enough"
+    r"(?:the |a |an |any |his |her |their |its )?([a-z][a-z-]{2,})",
+    re.I,
+)
+
+
+def contradicts(prompt: str, note: str) -> bool:
+    """A redo note that takes away or swaps something the clip's prompt shows: appended under
+    the prompt, both would stand ("phone lighting up in his hand", then "no phone"), so the
+    prompt is rewritten with it instead (Change it…)."""
+    words = set(re.findall(r"[a-z-]+", (prompt or "").lower()))
+    found = [m[1].lower() for m in TAKES_AWAY.finditer(note or "")]
+    return any(w in words or w.removesuffix("s") in words or f"{w}s" in words for w in found)
+
+
 def _with_note(prompt: str, note: str) -> str:
     """A Redo note ("what's wrong") goes into this take only, before the closing audio line
     so the prompt still opens and closes on the same line."""

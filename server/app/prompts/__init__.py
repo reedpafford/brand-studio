@@ -835,13 +835,19 @@ def stand_in_treatment(script: str) -> dict:
             "beats": beats, "ending": "The payoff, then the script's ending."}  # fmt: skip
 
 
-def review_stills_input(plan: str, frames: list[tuple[int, str, str, str]]) -> str:
+def review_stills_input(plan: str, frames: list[tuple]) -> str:
     """The user message for review_stills, after <treatment>: the plan, and what each still
-    ([ImageN], in order) is for: (n, shot id, its action, its line)."""
+    ([ImageN], in order) is for: (n, shot id, its action, its line, and the sheets after the
+    stills it's drawn from, "Maya [Image5]; Grant (no sheet)")."""
     seen = "\n".join(f"[Image{n}] shot {sid}: {escape(act.strip())}"
                       + (f' (line: "{escape(line.strip())}")' if line and line.strip() else "")
-                      for n, sid, act, line in frames)  # fmt: skip
-    return f"<plan>{escape(plan.strip())}</plan>\n<frames>\n{seen}\n</frames>"
+                      + (f" (drawn from: {escape(rest[0])})" if rest and rest[0] else "")
+                      for n, sid, act, line, *rest in frames)  # fmt: skip
+    named = any(len(f) > 4 and f[4] for f in frames)
+    sheets = ("\nAfter the stills come the sheets each still names: judge a face, an outfit "
+              "or a place against its sheet, not words alone. One with no sheet can't be matched "
+              "by drawing it again.") if named else ""  # fmt: skip
+    return f"<plan>{escape(plan.strip())}</plan>\n<frames>\n{seen}{sheets}\n</frames>"
 
 
 def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:

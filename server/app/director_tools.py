@@ -11,6 +11,7 @@ import re
 from types import SimpleNamespace
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -116,19 +117,34 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 clip = re.sub(r"^(clip\s*|c)", "", str(clip or "").strip(), flags=re.I)
                 return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
+            from app.clip_takes import contradicts
+
             held, asked = 0, watch_cut.redo_findings(db, project, run)  # what the cut's watch found
+            rewritten, asked_note = [], (decision.get("note") or "").strip()
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
-                note = project_clips.TakeIn(note=decision.get("note") or "")
+                note = project_clips.TakeIn(note=asked_note[:500])
                 try:
-                    job = project_clips.generate(clip_id=row.id, request=request, body=note, **me)
+                    if row.picked_take_id and contradicts(row.prompt, note.note):
+                        # A7: "no phone" under a prompt with the phone: appended, both stay and
+                        # the take can't win; Change it… rewrites the prompt, then the take
+                        body = storyboard.ChangeIn(note=note.note)
+                        job = project_clips.change_clip(clip_id=row.id, body=body, **me)
+                        rewritten.append(row.clip_id)
+                    else:
+                        job = project_clips.generate(clip_id=row.id, request=request, body=note,
+                                                     **me)  # fmt: skip
                 except cast_gate.Waiting:  # its cast or places wait for the OK: the rest go on
                     db.rollback()
                     held += 1
                 else:
                     if found := asked.get(row.clip_id):  # the take in the cut says why (S6-03)
                         watch_cut.redone(db, project, row, found, job, note.note)
-            return _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
+            said = _held(f"Making {_n(len(rows) - held, 'take')}.", held, rows, "take")
+            said += (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
+                     "is rewritten with it first." if rewritten else "")  # fmt: skip
+            return said + (" The note was cut to its first 500 characters."
+                           if len(asked_note) > 500 else "")  # fmt: skip
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))
             project_clips.pick_take(clip_id=row.id, take_id=decision["take_id"], **me)
@@ -196,6 +212,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             if frame is None:
                 return f"Refused: there's no drawn still for shot {sid}."
             note = (decision.get("note") or "").strip()[:500]
+            if no := still_review.no_sheet(db, project, sid, note):
+                return no
             storyboard.change_frame(frame_id=frame.id, body=storyboard.ChangeIn(note=note), **me)
             return f"Drawing shot {sid} again: {note}"
         if tool == "ask":  # a question for a person: it waits on that point only (asks.py)
@@ -247,6 +265,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
     except HTTPException as no:
         db.rollback()
         return f"Refused: {no.detail}"
+    except ValidationError as no:  # A4: a value past a field's limit, said as it is
+        db.rollback()
+        e = no.errors()[0]
+        return f"Refused: {'.'.join(map(str, e['loc'])) or 'a value'}: {e['msg']}."
     except ValueError:  # pick_take named no single clip
         return "Refused: name one clip."
     except Exception:  # noqa: BLE001 - never leave the turn without a result (the run would hang)

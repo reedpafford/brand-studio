@@ -142,7 +142,9 @@ def make_video(db: Session, user: User, request: Request, script, draft, setting
                 script_version=1,
                 source="library",
                 data={**bd.model_dump(), **({"plan_version": 1} if project.plan else {})},
-                problems=breakdown.problems(db, project, draft.text, bd) + removed,
+                problems=breakdown.problems(db, project, draft.text, bd)
+                + removed
+                + [breakdown.NO_ROLE.format(n) for n in breakdown.extras(draft.breakdown_problems)],
                 created_by_id=user.id,
             )
         )

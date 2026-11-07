@@ -234,6 +234,7 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
             f = {
                 **f,
                 "fix": "keep",
+                "doubt": True,  # the director reads it as one: never a paid redo (A6)
                 "says": f"{f['says'].rstrip('.')} (not confirmed)",
                 "note": "Not remade: the transcript, a measurement or the sound's picture suggests "
                 "it, but the frames don't show it.",
@@ -346,3 +347,13 @@ def redone(db: Session, project: Project, row: ProjectClip, found: dict, job: Jo
                   "found": plain(found["says"]).rstrip(".") + ".",
                   "did": f"Made it again on {of_clip(project, row).name}{said}.",
                   "remake_job_id": job.id, "by": "cut", "at": utcnow().isoformat()}  # fmt: skip
+
+
+def relink(db: Session, row: ProjectClip, was: int, now: int) -> None:
+    """A redo the cut's watch asked for, made through Change it…: the take it replaced points
+    at the take's own job once the rewrite queues it (watch_report reads its number there),
+    never at the rewrite."""
+    take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+    w = (take.watch or {}) if take else {}
+    if w.get("by") == "cut" and w.get("remake_job_id") == was:
+        take.watch = {**w, "remake_job_id": now}
