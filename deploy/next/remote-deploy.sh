@@ -97,6 +97,19 @@ main() {
   flock -w 1200 9 || { echo "::error::Another deploy held the server for 20 minutes. The test site was left as it was; run deploy-next again."; exit 1; }
   docker network inspect brand-studio-edge >/dev/null 2>&1 || docker network create brand-studio-edge >/dev/null
   compose() { docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml "$@"; }
+
+  # The server's state before the build, in the deploy log (builds failed with "context
+  # deadline exceeded" on a loaded disk), then room made: only dangling images and build cache
+  # over a day old. Never a volume, a container, or an image in use (live runs here too).
+  echo "::group::The server before the build"
+  uptime || true
+  df -h / "$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)" || true
+  free -m || true
+  docker system df || true
+  echo "::endgroup::"
+  docker image prune -f || true
+  docker builder prune -f --filter until=24h || true
+  df -h / || true
   docker run --rm -v "$PWD/next/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 \
     caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null \
     || { echo "::error::deploy/next/Caddyfile doesn't validate. The test site was left as it was."; exit 1; }
