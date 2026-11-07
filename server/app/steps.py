@@ -54,6 +54,13 @@ def step_failed(db: Session, job: Job, again: bool = True) -> None:
             once_more(db, job)
         except Exception:  # never let a retry break the worker
             log.exception("job %s: trying it again failed", job.id)
+    if job.input.get("step") == "song_timing":  # a take's timing: read once more, free and local
+        from app.song_takes import time_again
+
+        try:
+            time_again(db, job)
+        except Exception:  # never let a retry break the worker
+            log.exception("job %s: reading the timing again failed", job.id)
     if job.input.get("saved_voice"):  # a narration in a clone MiniMax no longer has
         from app.voices import failed as voice_failed
 

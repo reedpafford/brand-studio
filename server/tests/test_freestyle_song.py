@@ -91,10 +91,11 @@ def test_the_narrations_timing_counts_as_being_made_for_its_video(app, db, owner
         run_once(db, providers, app.state.storage, only={"replicate", "claude"})  # not timed yet
         db.expire_all()
         make_it(db)  # its start card, after the treatment
-    assert timing is not None and timing.project_id is None
+    assert timing is not None
     video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
                    execution_options={"see_hidden": True})  # fmt: skip
-    assert director.video_state(db, video)["being_made"] == 1
+    assert timing.project_id == video.id  # it shows with its video's jobs (the real-run audit)
+    assert director.video_state(db, video)["being_made"] == 1  # once, not twice
 
 
 def test_the_brands_name_heard_wrong_in_a_narration_is_found_once_timed():
@@ -343,3 +344,94 @@ def test_with_no_take_named_the_preferred_take_then_fewest_missing_then_shortest
     assert picked(one=(0, 40), two=(1, 30)) == one.id  # a missing line outweighs length
     two.preferred = True
     assert picked(one=(0, 40), two=(1, 30)) == two.id  # the preferred take first
+
+
+def test_a_narration_whose_timing_fails_is_read_again_then_remade_never_stuck(app, db, owner):
+    """Live, UGC video 240: two narration takes' timing failed, the director read "still being
+    made" forever and the run stopped. Now a failed timing is read again on its own (free), the
+    director's view says so, then the director reads it once more itself (free, as Carry on
+    gets), and only then is it failed: a remake. Never "still being made" with nothing
+    running."""
+    from app import song_takes
+    from app.models.accounts import User
+    from app.providers import get_providers
+    from app.worker import run_once
+
+    app.state.settings.fake_providers = True
+    fs = _sent(owner, "narrated", NARRATION)
+    providers = get_providers(app.state.settings, app.state.storage)
+
+    def deaf(path, text):
+        raise RuntimeError("Reading the sung words took too long.")
+
+    providers["local"].hear_voice = deaf  # Whisper times out, every time
+    for _ in range(60):
+        if db.query(Job).filter(Job.kind == "narration_timing").count():
+            break
+        run_once(db, providers, app.state.storage, only={"replicate", "claude"})
+        db.expire_all()
+        make_it(db)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    run_once(db, providers, app.state.storage, only={"local"})  # the read fails...
+    db.expire_all()
+    timing = db.query(Job).filter(Job.kind == "narration_timing").order_by(Job.id).all()
+    assert [j.status for j in timing] == ["failed", "queued"] and timing[1].auto  # ...read again
+    assert timing[1].project_id == video.id
+    seen = director_song.state(db, video)["takes"][0]  # the director's view says so, plainly
+    assert seen["state"] == "timing"
+    assert seen["note"] == "Its timing failed; reading it again (free)."
+    user = db.get(User, video.created_by_id)
+    decision = {"tool": "narration", "note": ""}
+    assert director_song.run(db, user, video, decision, {}).endswith("is still being made.")
+    run_once(db, providers, app.state.storage, only={"local"})  # the retry fails too
+    db.expire_all()
+    take = song_takes.for_video(db, video)[0]
+    assert song_takes.state(db, take)[0] == "timing_failed"
+    said = director_song.run(db, user, video, decision, {})
+    assert said == f"Reading take {take.number}'s timing again: free."  # never "still being made"
+    run_once(db, providers, app.state.storage, only={"local"})  # that read fails as well
+    db.expire_all()
+    assert not [j for j in db.query(Job).filter(Job.kind == "narration_timing")
+                if j.status == "queued"]  # no more retries on its own  # fmt: skip
+    said = director_song.run(db, user, video, decision, {})
+    assert said.startswith("Making the narration again: its timing couldn't be read"), said
+
+
+def test_a_narrations_failed_timing_is_read_again_by_the_worker_and_lands(app, db, owner):
+    """QA on #1414: the worker ran the free re-read (it was cancelled as an unwanted retry), so
+    a timing that failed once, then reads, makes its take ready with no remake; the failed read
+    isn't one of the run's failures, and a narration's is named as one."""
+    from app import director, song_takes
+    from app.providers import get_providers
+    from app.worker import run_once
+
+    app.state.settings.fake_providers = True
+    fs = _sent(owner, "narrated", NARRATION)
+    providers = get_providers(app.state.settings, app.state.storage)
+    hear, misses = providers["local"].hear_voice, []
+
+    def once_deaf(path, text):
+        if not misses:
+            misses.append(path)
+            raise RuntimeError("Reading the sung words took too long.")
+        return hear(path, text)
+
+    providers["local"].hear_voice = once_deaf
+    for _ in range(60):
+        if db.query(Job).filter(Job.kind == "narration_timing").count():
+            break
+        run_once(db, providers, app.state.storage, only={"replicate", "claude"})
+        db.expire_all()
+        make_it(db)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    for _ in range(3):  # the read fails, then the worker reads it again
+        run_once(db, providers, app.state.storage, only={"local"})
+        db.expire_all()
+    first, again = db.query(Job).filter(Job.kind == "narration_timing").order_by(Job.id).all()
+    assert (first.status, again.status, again.auto) == ("failed", "succeeded", True)
+    take = song_takes.for_video(db, video)[0]
+    assert song_takes.state(db, take)[0] == "ready" and take.timing  # no remake
+    assert first.input.get(director.RETRIED)  # not one of the run's failures
+    assert director._item(db, first) == "The narration's timing"

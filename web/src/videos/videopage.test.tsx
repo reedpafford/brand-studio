@@ -1,4 +1,4 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { editor, owner } from "../test/people";
@@ -7,6 +7,7 @@ import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { NOT_PLAIN } from "./director";
+import { SceneRow } from "./RunCard";
 
 // The video page (v6 S3): the director's chat with the preview panel beside it. Boards S3-01, S3-09, S3-15, S3-16, P-04,
 // P-05, and S-gaps-03 (the Locks menu, the ⋯ menu, the phone's tab row).
@@ -233,13 +234,34 @@ test("before the owner's OK an editor's send opens by its freestyle: the script 
   expect(screen.getByPlaceholderText("Opens once the owner approves")).toBeInTheDocument();
 });
 
-test("the director's treatment is a card in the thread; a new one says Changed", async () => {
+test("S3-02: the director's treatment is a card in the thread, as the board draws it; a new one says Changed", async () => {
   setViewport(1440);
-  const treatment = (hook: string) => ({ hook, logline: "Dr. Pickle rants.", why_it_holds: "The spine glows first.", beats: [{ id: "b1", purpose: "Hook", picture: "Glowing spine" }], ending: "Capsule hold." });
+  const beats = [
+    { id: "b1", name: "Hook", purpose: "Stops the scroll on a gross, bright picture", picture: "The glowing spine and “Your gut after the weekend…”", start: 0, end: 2 },
+    { id: "b2", name: "What beer does", purpose: "Shows the cause, one picture per line", picture: "Beer pours through the see-through body", start: 2, end: 14 },
+    { id: "b3", purpose: "escalate", picture: "The gut swells green", start: 14, end: 27 }, // from before beats had names
+    { id: "b4", purpose: "turn", picture: "The capsule", start: 27, end: 40 },
+    { id: "b5", purpose: "payoff", picture: "Capsule hold", start: 40, end: 58 },
+  ];
+  const treatment = (hook: string) => ({ hook, logline: "a doctor who’s sick of your excuses shows what the weekend does to your gut.", why_it_holds: "a gross, glowing body in the first second.", beats, ending: "Capsule hold, then the link.", style: "Dr. Pickle", format: "Presenter" });
   const told = (id: string, text: string, hook: string, when: string) => ({ ...item(id, "move", "Director", text, "done", when), treatment: treatment(hook) });
   server(owner, fs({ thread: [item("m1", "message", "Reed", SCRIPT), told("s1", "The treatment: …", "Your gut after the weekend", at), told("s2", "Changed the treatment: …", "A brewery with a pulse", later)] }), run());
   renderApp("/b/1/videos/50");
   const [first, second] = await screen.findAllByRole("region", { name: "Treatment" });
+  expect(screen.getAllByText("Here’s how I’ll make it. Tell me if anything should change before I spend.")).toHaveLength(1); // the first one only
+  expect(within(first).getByText("Dr. Pickle style guide · Presenter format")).toBeInTheDocument();
+  expect(within(first).getByText("In one line:").parentElement).toHaveTextContent("In one line: a doctor who’s sick of your excuses");
+  expect(within(first).getByText("Why it holds:")).toBeInTheDocument();
+  const rows = within(first).getAllByRole("row"); // its time beside the name on a computer, under it on a phone
+  expect(rows.map((r) => r.textContent)).toEqual([
+    "Hookabout 0–2 sabout 0–2 sThe glowing spine and “Your gut after the weekend…”Stops the scroll on a gross, bright picture",
+    "What beer doesabout 2–14 sabout 2–14 sBeer pours through the see-through bodyShows the cause, one picture per line",
+    "Escalateabout 14–27 sabout 14–27 sThe gut swells green",
+  ]);
+  expect(within(first).queryByText(/Ending:/)).toBeNull();
+  await userEvent.click(within(first).getByRole("button", { name: "+ 2 more beats" }));
+  expect(within(first).getAllByRole("row")).toHaveLength(5);
+  expect(within(first).getByText("Capsule hold, then the link.")).toBeInTheDocument();
   expect(within(first).queryByText("Changed")).toBeNull();
   expect(within(second).getByText("Changed")).toBeInTheDocument();
   expect(screen.queryByText("The treatment: …")).toBeNull();
@@ -517,6 +539,18 @@ test("S4-01/S3-05: a question shows the brand's saved items first, its pick outl
   await userEvent.click(within(card).getByRole("button", { name: /^Dana/ }));
   await userEvent.click(within(card).getByRole("button", { name: "Use Dana" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "saved", option: "item:2" }));
+});
+
+test("MAIN's run (video 233): a start card the chat names before its card is read says it's loading, then shows Make it", async () => {
+  setViewport(1440);
+  const start = ask({ id: 9, kind: "start", topic: "", question: "Make it? About $8.13 (estimate).", why: "", saved: [], pick: null, can: ["make_it"], money: { ...held$({ expected: true, up_to: price(79, 8.13) }), what: "", over: "the budget" } });
+  const thread = [item("a9", "move", "Director", "", null, later, { kind: "ask", ask_id: 9 })];
+  const read: object[] = []; // the first read is slow to have it (a busy site): the card isn't in it yet
+  server(owner, null, run({ status: "delivered", thread }), { "GET /projects/50/asks": [200, read] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("Loading this card…")).toBeInTheDocument(); // never an empty bubble
+  read.push(start);
+  expect(await screen.findByRole("button", { name: "Make it · about $8.13" }, { timeout: 8_000 })).toBeInTheDocument(); // read again on its own
 });
 
 test("S3-05: once a question is answered, the pinned bar goes at once, with no reload", async () => {
@@ -1165,6 +1199,26 @@ test("uncapped: Carry on is just Carry on, the same run; Make it again says abou
   expect(screen.queryByText(/Carry on · up to/)).toBeNull();
 });
 
+test("Flow-QA S12: a video waiting for its OK has Archive in its ⋯ menu; nothing to release on a New video send", async () => {
+  setViewport(1440);
+  const waiting = fs({ status: "waiting", thread: [item("m1", "message", "Reed", SCRIPT), item("t1", "move", "Director", "Ready.", "held")] });
+  server(owner, waiting, run({ status: "running", make_it: 7, thread: [] }));
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Beer gut doctor rant" }));
+  const menu = screen.getByRole("menu", { name: "More for Beer gut doctor rant" });
+  expect(within(menu).getByRole("menuitem", { name: "Archive" })).toBeInTheDocument();
+  expect(within(menu).queryByRole("menuitem", { name: /Release/ })).toBeNull();
+});
+
+test("Flow-QA S12: while the director works, the ⋯ menu offers no Archive (Stop first)", async () => {
+  setViewport(1440);
+  server(owner, fs(), run({ status: "running", turns: [{ turn: 1, tool: "make_take", why: "", result: "", status: "running", created_at: at }] }));
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Beer gut doctor rant" }));
+  const menu = screen.getByRole("menu", { name: "More for Beer gut doctor rant" });
+  expect(within(menu).queryByRole("menuitem", { name: "Archive" })).toBeNull();
+});
+
 test("uncapped (QA on #1396): after delivery the estimate is the next run's", async () => {
   setViewport(1440);
   const top = head({ status: status("delivered", "Delivered"), spent: money(60, 6.4), up_to: null, budget: null, expected: money(91, 9.1), actual: true, listed_usd: 0, unreported: false });
@@ -1173,4 +1227,11 @@ test("uncapped (QA on #1396): after delivery the estimate is the next run's", as
   const banner = await screen.findByRole("banner");
   expect(await within(banner).findByText("next run about $9.10 (estimate)")).toBeInTheDocument();
   expect(within(banner).queryByText(/this run about/)).toBeNull();
+});
+
+test("MAIN's run (video 233): before a scene has clips the phone's run card names it, never \"0/0\"", () => {
+  const scene = (id: number, name: string, total: number) => ({ id, name, total, done: 0, clips: [] });
+  render(<SceneRow scenes={[scene(1, "The way out", 0), scene(2, "Payoff", 0)] as never} />);
+  expect(screen.getByText("The way out")).toBeInTheDocument();
+  expect(screen.queryByText("0/0")).not.toBeInTheDocument();
 });

@@ -34,6 +34,9 @@ STOPPED_BY = "stopped_by"  # on the turn a person's Stop ended: who (and "stoppe
 RUN = "director_run"  # a turn's run (director.RUN)
 WATCHED = "The watch found: "  # a remake's why when the watch of the cut asked for it
 DONE = ("done", "redone", "text", "flagged")  # a clip with a take in hand
+# A clip a person must act on, as the Clips tab's "Needs you" filter lists it (clips/data.ts
+# needsYou): one count for the phone and the desktop
+NEEDS_YOU = ("flagged", "waiting", "failed", "too_long")
 ORDER = ("read", "plan", "cast", "voice", "stills", "prompts", "takes", "watching", "host", "cut")
 PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "outfit": "cast",
           "song": "voice",
@@ -43,6 +46,19 @@ PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "outfit": "
           "make_take": "takes", "pick_take": "takes", "splice_word": "takes", "mute": "takes",
           "add_sound": "takes", "host": "host", "final_cut": "cut", "edit_cut": "cut",
           "watch_cut": "cut", "deliver": "cut"}  # fmt: skip  # each tool's step
+# The run's headline before there are clips to count, by the step it's on (MAIN's run, video
+# 233: "Planning" stood through the cast and the stills)
+BEFORE_CLIPS = {"read": "Planning", "plan": "Planning", "cast": "Casting",
+                "voice": "Making the voice track", "stills": "Drawing the stills",
+                "prompts": "Writing the clip prompts", "takes": "Making the clips",
+                "watching": "Making the clips", "host": "Making the presenter",
+                "cut": "Cutting it together"}  # fmt: skip
+
+
+def phase(turns: list[Job]) -> str:
+    """The step the run's newest tool works on (ORDER's names), "read" before any."""
+    tools = [(j.output or {}).get("tool") for j in turns if "result" in j.input]
+    return next((PHASES[t] for t in reversed(tools) if t in PHASES), "read")
 
 
 def money(credits: Decimal | float, owner: bool) -> str:
@@ -283,8 +299,7 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
     from app.cast_roles import video_slots
 
     project = video.project
-    tools = [(j.output or {}).get("tool") for j in turns if "result" in j.input]
-    at = next((ORDER.index(PHASES[t]) for t in reversed(tools) if t in PHASES), 0)  # newest
+    at = ORDER.index(phase(turns))  # the newest tool's step
     try:
         style = guides.style(project.look)["name"]
     except ValueError:
@@ -667,9 +682,13 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     elif made < total:
         head = ("working", "Making the clips", f"{made} of {total} · scene {at} of {len(scenes)}",
                 "now")  # fmt: skip
-    else:
-        head = ("working", "Cutting it together" if total else "Planning",
-                f"{_n(total, 'clip')} made" if total else "", "now")  # fmt: skip
+    elif total:
+        head = ("working", "Cutting it together", f"{_n(total, 'clip')} made", "now")
+    else:  # no clips yet: the step it's on, the stills counted while they're drawn
+        now_at = phase(turns)
+        drawing = now_at == "stills" and video.stills
+        drawn = f"{video.drawn} of {video.stills} drawn" if drawing else ""
+        head = ("working", BEFORE_CLIPS[now_at], drawn, "now")
     again = price_of(db, project)  # carrying on is a new run: its whole "up to" (rule 36)
     for c in cells:  # a press's price as it charges: the take with the check that rides along
         if c["state"] in ("waiting", "failed"):
@@ -679,8 +698,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
            "made": made, "redone": redone, "scene_at": at, "scenes": scenes,
            "counts": {"all": total, "redone": redone,
                       "flagged": sum(c["state"] == "flagged" for c in cells),
-                      "needs_you": sum(c["state"] in ("flagged", "waiting", "failed")
-                                       for c in cells)},
+                      "needs_you": sum(c["state"] in NEEDS_YOU for c in cells)},
            "minutes_left": None if how else _left(video, cells, start, now),
            "steps": steps(db, video, turns, cells, how, holds is not None, owner),
            "spent": float(charged), "up_to": float(up_to),

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CutEditor } from "./CutEditor";
+import { ToastProvider } from "../components";
 import { cutOut } from "../test/cut";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
@@ -68,6 +69,22 @@ test("S7-01/02: an edit is free and posts at once; the changes wait for Make the
   await userEvent.click(screen.getByRole("button", { name: /Make the cut/ }));
   expect(await screen.findByText("Making Cut 3 with your 2 changes · free · about 40 s. Cut 2 keeps playing until then.")).toBeInTheDocument();
   expect(screen.getByText("Cut 3 in about 40 s")).toBeInTheDocument();
+});
+
+test("Flow-QA S4: an edit that would cut a spoken word is moved to keep it, and says so: never a refusal with no way on", async () => {
+  setViewport(1440);
+  const notice = "That would have cut “the”, so the edge moved to just past it. Every spoken word stays.";
+  fakeServer({ "GET /projects/9/cut": [200, cutOut()], "GET /projects/9/cut/swaps/c2": [200, swaps], "GET /projects/9/clips": [200, [{ id: 42, clip_id: "c2" }]], "POST /projects/9/cut/edits": [201, cutOut({ changes: 1, notice })] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ToastProvider>
+        <CutEditor projectId={9} aspect="9:16" projectName="Beer gut doctor rant" />
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+  await userEvent.click(await screen.findByRole("button", { name: "B-roll clip 2, 0:04 to 0:08" }));
+  await userEvent.click(screen.getByRole("button", { name: "Re-time to the words" }));
+  expect(await screen.findByText(notice)).toBeInTheDocument();
 });
 
 test("S3-12: the director making its own cut again before it delivers keeps that cut's number", async () => {

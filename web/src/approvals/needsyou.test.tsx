@@ -207,3 +207,13 @@ test("rule 34 on a phone: a later run's budget card is titled shorter, past this
   renderApp("/approvals");
   expect(await screen.findByRole("heading", { name: "Redo 2 clips · $0.60 past this run’s price" })).toBeInTheDocument();
 });
+
+test("QA on #1409: a run waiting on the cast and places OK is in Needs you too, counted with the rest, with Open Cast", async () => {
+  setViewport(1440);
+  const cast = { video: video(15, "Maya's rent"), brand: resilia };
+  fakeServer({ ...base, "GET /needs-you": [200, { ...inbox, total: 5, questions: [], money: [], stuck: [], cast: [cast] }] });
+  renderApp("/approvals");
+  const row = (await screen.findByText("Approve the cast and places")).closest("li")!;
+  expect(within(row).getByRole("link", { name: "Open Cast" })).toHaveAttribute("href", "/b/1/videos/15?tab=cast");
+  expect(screen.getByRole("heading", { name: "Cast & places" })).toBeInTheDocument();
+});

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorText } from "../api/client";
+import { useToast } from "../components";
 import type { components } from "../api/schema";
 
 export type Cut = components["schemas"]["CutOut"];
@@ -16,6 +17,7 @@ const path = (projectId: number) => ({
 /** The cut's edits (free): each answers the whole cut again, so the page shows the server's own timeline. */
 export function useCutEdits(projectId: number) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const keep = (data: Cut) => {
     queryClient.setQueryData(["project-cut", projectId], data);
     void queryClient.invalidateQueries({ queryKey: ["cut-swaps", projectId] }); // "In the cut" moved
@@ -35,7 +37,10 @@ export function useCutEdits(projectId: number) {
         }),
       ),
     onMutate,
-    onSuccess: keep,
+    onSuccess: (data: Cut) => {
+      keep(data);
+      if (data.notice) toast(data.notice); // moved to keep a spoken word (Flow-QA S4): said, never a refusal
+    },
   });
   const undoOne = useMutation({
     mutationFn: async (editId: number) =>

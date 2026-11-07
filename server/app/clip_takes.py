@@ -502,6 +502,8 @@ def still_wanted(db: Session, job: Job) -> bool:
     project = db.get(Project, job.project_id) if job.project_id else None
     if row is None and job.input.get("step") in ("host_still", "host_piece", "take_sound"):
         return bool(project and project.archived_at is None)  # not a take: only its video
+    if job.input.get("step") == "song_timing":  # a take's timing read again (song_takes):
+        return project is None or project.archived_at is None  # a script's take, or its video's
     return bool(row and project and project.archived_at is None
                 and row.prompt == job.input.get("clip_prompt"))  # fmt: skip
 

@@ -613,6 +613,7 @@ class CutWatch(BaseModel):
 
 class Beat(BaseModel):
     id: str = Field(description="'b1', 'b2', … in order.")
+    name: str = Field(description="The beat's own short name, in a few words: 'What beer does'.")
     lines: list[int] = Field(description="The script line numbers this beat covers, in order.")
     purpose: str = Field(description="What it does for the story: hook, escalate, turn, payoff…")
     picture: str = Field(description="What we see: something happening, readable with no sound.")

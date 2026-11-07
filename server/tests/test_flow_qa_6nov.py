@@ -28,7 +28,8 @@ def test_m1_the_owners_own_start_card_never_holds_him_for_his_own_ok(app, db, ow
             owner.post(f"/projects/{pid}/director/stop")
             assert owner.post(f"/projects/{pid}/director{press}").status_code == 201
         else:
-            said = owner.post(f"/projects/{pid}/director/messages", json={"text": "Slower."})
+            said = owner.post(f"/projects/{pid}/director/messages",
+                              json={"text": "Make clip 1 slower."})  # its card  # fmt: skip
             assert said.json()["status"] == "running"  # a revision starts by talking
         _fs_run(app, db, ticks=6, start=False)  # its plan, then its start card: his own press
         out = owner.get(f"/freestyles/{fs['id']}").json()
@@ -111,3 +112,7 @@ def test_s7_a_run_waiting_on_the_cast_ok_says_so(app, db, owner, editor):
         {Job.status: JobStatus.succeeded}, synchronize_session=False)  # fmt: skip
     db.commit()
     assert _status(owner, db, pid) == ("needs_you", ideas.CAST_OK)  # never "Working"
+    # QA on #1409: Needs you (the rail's and the phone tab's count) lists it too, by one rule
+    inbox = owner.get("/needs-you").json()
+    assert [c["video"]["id"] for c in inbox["cast"]] == [pid] and inbox["total"] >= 1
+    assert editor.get("/needs-you").json()["cast"][0]["video"]["id"] == pid  # their own video
