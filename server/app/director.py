@@ -240,8 +240,13 @@ def say(db: Session, user: User, project: Project, text: str, files: list[int] =
 
 
 def _delivered(db: Session, project: Project) -> bool:
-    rows = turns(db, project)
-    return bool(rows) and rows[-1].input.get("result") == DELIVERED
+    return delivered(turns(db, project))
+
+
+def delivered(rows: list[Job]) -> bool:
+    """The run delivered: one of its turns says so. Never only its last turn (video 233: after
+    a restart a duplicate turn, cancelled, came last, so a note never started the revision)."""
+    return any(j.input.get("result") == DELIVERED for j in rows)
 
 
 def _plan_first(db: Session, project: Project, held: Job) -> None:
@@ -1102,7 +1107,7 @@ def _replanning(db: Session, project: Project) -> dict:
     takes stay set aside and every clip is still made again. After that run delivered, the next
     run is a normal one (its earlier takes can be picked back as on any video)."""
     rows = turns(db, project)
-    if not rows or rows[-1].input.get("result") == DELIVERED:
+    if not rows or delivered(rows):
         return {}
     last = rows[-1].input[RUN]
     return {k: last[k] for k in (FRESH, UNPICKED) if last.get(k)}

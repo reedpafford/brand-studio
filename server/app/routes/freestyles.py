@@ -535,7 +535,7 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list,
         # maker's own start card (the owner's Make it again, or Start the plan again): theirs
     else:
         rows = director.turns(db, project)
-        status = "delivered" if rows and rows[-1].input.get("result") == "Delivered." else "stopped"
+        status = "delivered" if director.delivered(rows) else "stopped"
     moves = [FreestyleItem(**{**m, "text": words.get(m["id"], m["text"])})
              for m in director.thread(db, project, viewer) if m["kind"] == "move"]  # fmt: skip
     # a turn, take or watch held past the price mid-run: its run's card is held and says why
