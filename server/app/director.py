@@ -320,11 +320,12 @@ def thread(db: Session, project: Project, viewer: User | None = None) -> list[di
                                            Job.status == JobStatus.succeeded)
                          .order_by(Job.id)).all()  # fmt: skip
     written = [j for j in written if not j.input.get("redone")]  # its check's one redo replaced it
+    shown = _shown(db, project) if written else None
     for n, j in enumerate(written):  # the treatment, posted in the chat as plain lines
         out.append({"id": f"s{j.id}", "kind": "move", "at": (j.finished_at or j.created_at
                     ).isoformat(), "who": "Director", "text": named(told(j.output or {}, n > 0)),
                     "status": "done", "why": "", "answered": None,
-                    "treatment": j.output})  # fmt: skip
+                    "treatment": shown(j.output or {})})  # fmt: skip
     out += run_progress.thread_items(db, project, viewer)
     for a in db.scalars(select(Ask).where(Ask.project_id == project.id)):
         if a.kind != "start" or asks.state(db, a) != "not_needed":  # a card in the chat
@@ -1200,6 +1201,39 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     enqueue(db, user, "write-claude", data, project=project, provider="claude",
             prepaid=not wait, wait=wait)  # fmt: skip
     return "Changing the treatment." if again else "Writing the treatment."
+
+
+def _shown(db: Session, project: Project):
+    """A treatment as its card draws it (board S3-02): its style and format named, and each
+    beat's time in the video, from the words of the lines it covers (spoken at 4.8 words a
+    second, as a script's length is guessed before any plan)."""
+    from app import guides, ideas, narration, plans
+    from app.script_library import WORDS_PER_SECOND, format_id
+
+    version, script = plans.script(db, project), narration.video_script(db, project)
+    lines = (version.text if version else "").splitlines()
+    try:
+        kind = guides.format_(format_id(script))["name"] if script else ""
+    except ValueError:  # a format since taken out of the guides
+        kind = ""
+    heading = re.compile(r"^\s*(SCENE\b|INT\.|EXT\.)", re.I)
+
+    def words(n: int) -> int:
+        line = lines[n - 1] if 0 < n <= len(lines) else ""
+        if heading.match(line):
+            return 0
+        said = re.match(r"^[A-Z][A-Z .'()-]*:(.*)$", line.strip())
+        return len((said.group(1) if said else line).split())
+
+    def shown(made: dict) -> dict:
+        beats, at = [], 0
+        for b in made.get("beats") or []:
+            end = at + max(1, round(sum(words(n) for n in b.get("lines") or []) / WORDS_PER_SECOND))
+            beats.append({**b, "start": at, "end": end})
+            at = end
+        return {**made, "beats": beats, "style": ideas._style(project.look), "format": kind}
+
+    return shown
 
 
 def told(made: dict, again: bool) -> str:

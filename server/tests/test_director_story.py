@@ -84,7 +84,8 @@ def test_planning_again_takes_the_watchs_note_once_a_run(app, db, owner, editor)
     assert job.input["step"] == plans.STEP and "give the payoff its own shot" in job.input["prompt"]
 
 
-def test_the_treatment_is_the_first_move_and_is_posted_in_the_chat(app, db, owner, editor):
+def test_the_treatment_is_the_first_move_and_is_posted_in_the_chat(app, db, owner, editor,
+                                                                    monkeypatch):  # fmt: skip
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
     _run(app, db, ticks=120)
@@ -93,6 +94,21 @@ def test_the_treatment_is_the_first_move_and_is_posted_in_the_chat(app, db, owne
     assert out["turns"][0]["tool"] == "treatment"  # the story first
     (told,) = [m for m in out["thread"] if m.get("treatment")]
     assert told["text"].startswith("The treatment:") and told["treatment"]["beats"]
+    card = told["treatment"]  # as the card draws it (board S3-02): named, each beat at its time
+    assert (card["style"], card["format"]) == ("House", "Dialogue")
+    times = [(b["start"], b["end"]) for b in card["beats"]]
+    assert times[0][0] == 0 and all(a < b for a, b in times)  # each beat at least 1 s, in order
+    assert all(times[i][1] == times[i + 1][0] for i in range(len(times) - 1))
+    db.expire_all()
+    project = db.get(Project, pid)
+    beats = [{"id": "b1", "lines": [1, 2], "purpose": "hook", "picture": "x"},
+             {"id": "b2", "lines": [3], "purpose": "payoff", "picture": "y"}]  # fmt: skip
+    script = "INT. KITCHEN — DAY\nNATE: " + " ".join(["word"] * 24) + "\nA long silent look."
+    from app import plans
+
+    monkeypatch.setattr(plans, "script", lambda db, p: type("V", (), {"text": script})())
+    shown = director._shown(db, project)({"beats": beats})
+    assert [(b["start"], b["end"]) for b in shown["beats"]] == [(0, 5), (5, 6)]  # 24 words: 5 s
     steps = [j.input for j in db.query(Job).filter(Job.project_id == pid)]
     written = [i for i in steps if i.get("step") in ("clip_prompts", "watch_cut")]
     assert written and all("<treatment>" in i["prompt"] for i in written)  # each read it
