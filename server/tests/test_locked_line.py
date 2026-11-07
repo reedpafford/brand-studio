@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import director, locked_line
+from app.models.accounts import User
 from app.models.asks import Ask
 from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
@@ -762,3 +763,66 @@ def test_the_owners_unquoted_note_gets_the_reply_at_once_never_a_new_delivery(
     assert card["question"].startswith("The script’s words are set for this script, so I can’t "
                                        "change “bought the dip”.")  # fmt: skip
     assert [c["do"] for c in card["choices"]][:1] == ["softer"]  # S3-14's offer, priced
+
+
+def test_one_word_is_a_word_change_only_in_the_named_speakers_own_line():
+    """QA on #1429: "Ray should say sure, not okay" started a run that re-delivered."""
+    lines = "SCENE 1\nUNCLE RAY: Okay, kid. Too fast.\nJAY: Yeah."
+    assert locked_line.asked("Ray should say sure, not okay", lines) == ("okay", True)
+    for text in ("Say sure, not okay",  # no one named: one word isn't enough
+                 "Jay should say sure, not okay",  # not Jay's word
+                 "Ray should say it slower, not fast"):  # how it's said  # fmt: skip
+        assert locked_line.asked(text, lines) is None, text
+
+
+def test_the_directors_locked_line_answers_a_note_no_card_caught_and_ends_the_run(
+    app, db, owner, editor, monkeypatch
+):
+    """The safety net: a word change the matcher misses goes to the director, which posts
+    S3-14's card at once (`locked_line`, free). With nothing else asked, the run ends there,
+    delivered with the cut it had: no new cut and no new delivery note. Words that aren't the
+    script's are refused."""
+    pid = _delivered(app, db, owner, editor)
+    project = db.get(Project, pid)
+    cuts = db.query(FinalVideo).filter_by(project_id=pid).count()
+    monkeypatch.setattr(locked_line, "asked", lambda text, script: None)  # missed as it came
+    real = director.choose
+
+    def answer(state):
+        if state.get("chat") and not state["chat"][-1]["answered"]:
+            return {"tool": "locked_line", "word": "bought the dip",
+                    "why": "Note 1: the script's words are set."}  # fmt: skip
+        return real(state)
+
+    monkeypatch.setattr(director, "choose", answer)
+    owner.post(f"/projects/{pid}/director/messages",
+               json={"text": "Nate should say bought the top, not bought the dip"})  # fmt: skip
+    _run(app, db, ticks=10, start=False)
+    db.expire_all()
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    assert out["ended"] == locked_line.POSTED  # its card is the answer
+    assert db.query(FinalVideo).filter_by(project_id=pid).count() == cuts  # no new cut
+    card = _card(owner, pid)
+    assert card["question"].startswith("The script’s words are set for this script, so I can’t "
+                                       "change “bought the dip”.")  # fmt: skip
+    note = db.get(Project, pid).director_chat[-1]
+    assert note["offer"] == card["id"]  # the note reads as answered by the card
+    turns = director.turns(db, project)
+    assert [
+        t.output.get("note")
+        for t in turns
+        if t.input.get("result") == director.DELIVERED
+        and isinstance((t.output or {}).get("note"), dict)
+    ] == []  # no new delivery note
+    user = db.get(User, project.created_by_id)
+    no = locked_line.for_director(db, user, project, "sold the top", "Note 1", None)
+    assert no == locked_line.NOT_SCRIPT.format("sold the top")
+
+
+def test_a_delivery_note_still_goes_to_the_director(app, db, owner, editor):
+    pid = _delivered(app, db, owner, editor)
+    out = owner.post(f"/projects/{pid}/director/messages",
+                     json={"text": "Nate should say it slower, not so fast"}).json()  # fmt: skip
+    assert out["status"] == "running"  # a run reads it: how it's said is the director's
+    assert not [a for a in owner.get(f"/projects/{pid}/asks").json() if a["kind"] == "instead"]

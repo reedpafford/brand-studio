@@ -101,21 +101,23 @@ def asked(text: str, script: str) -> tuple[str, bool] | None:
         if HOW.match(new):  # "say it slower, not fast": a delivery note, the director's
             continue
         old = re.sub(r"\s+(?:please|instead|thanks)$", "", found["q"].strip(), flags=re.I)
-        said = _lines(script, found["who"])
+        said, named = _lines(script, found["who"])
+        least = 1 if named else 2  # one word only in a named speaker's own line (QA on #1429)
         words = next((w for w in (old, ARTICLE.sub("", old))
-                      if len(w.split()) > 1 and _in(w, said)), None)  # fmt: skip
+                      if len(w.split()) >= least and len(w) > 2 and _in(w, said)),
+                     None)  # fmt: skip
         if words and not _in(new, script):
             return words, _only(text[: found.start()] + " " + text[found.end() :])
     return None
 
 
-def _lines(script: str, who: str | None) -> str:
-    """The words the script gives `who` to say ("Ray": UNCLE RAY's lines), or every spoken
-    line when no one is named or no speaker has that name."""
+def _lines(script: str, who: str | None) -> tuple[str, bool]:
+    """The words the script gives `who` to say ("Ray": UNCLE RAY's lines), and True; or every
+    spoken line, and False, when no one is named or no speaker has that name."""
     spoken = [ln.split(":", 1) for ln in script.splitlines() if ":" in ln]
     mine = [said for name, said in spoken if who and re.search(rf"(?<!\w){re.escape(who)}(?!\w)",
                                                                name, re.I)]  # fmt: skip
-    return "\n".join(mine or [said for _, said in spoken])
+    return "\n".join(mine or [said for _, said in spoken]), bool(mine)
 
 
 def _only(rest: str) -> bool:
@@ -140,18 +142,58 @@ def offer(db: Session, user: User, project: Project, text: str) -> tuple[Ask, bo
     if found is None:
         return None
     words, only = found
-    shot = _said_in(db, project, words)
-    choices = [c for c in (_softer(db, project, shot), _safely(_cut_away, db, user, project, words),
-                           _safely(_pause, db, user, project, words)) if c]  # fmt: skip
+    choices = _choices(db, user, project, words)
     if not choices and not only:
         return None  # nothing to offer, and it asks more: the director reads all of it
+    return card(db, project, words, choices), only
+
+
+def _choices(db: Session, user: User, project: Project, words: str) -> list[dict]:
+    shot = _said_in(db, project, words)
+    return [c for c in (_softer(db, project, shot), _safely(_cut_away, db, user, project, words),
+                        _safely(_pause, db, user, project, words)) if c]  # fmt: skip
+
+
+POSTED = ("Answered at once: the script's words are set, so I offered what can change "
+          "instead.")  # fmt: skip
+NOT_SCRIPT = ("Refused: “{}” isn't in the published script. Give the script's words exactly as "
+              "it has them.")  # fmt: skip
+
+
+def for_director(db: Session, user: User, project: Project, words: str | None, why: str,
+                 run_id: str | None) -> str:  # fmt: skip
+    """The director's `locked_line` (free): S3-14's card for a person's note that asks to change
+    the published script's words and that no card answered as it came (QA on #1429: "Ray should
+    say sure, not okay" started a run that re-delivered with the refusal buried). The notes its
+    `why` names are answered by the card."""
+    from app import plans
+    from app.director import NOTE
+
+    version = plans.script(db, project)
+    words = (words or "").strip().strip("“”\"'‘’ ")
+    if not project.script_draft_id or version is None or not words or not _in(
+            words, version.text):  # fmt: skip
+        return NOT_SCRIPT.format(words)
+    ask = card(db, project, words, _choices(db, user, project, words))
+    mine = [n for n, m in enumerate(project.director_chat or []) if m.get("run") == run_id]
+    chat = list(project.director_chat or [])
+    for n in {int(x) for x in NOTE.findall(why)}:
+        if 1 <= n <= len(mine):
+            chat[mine[n - 1]] = {**chat[mine[n - 1]], "offer": ask.id}  # answered by the card
+    project.director_chat = chat
+    db.flush()
+    return POSTED
+
+
+def card(db: Session, project: Project, words: str, choices: list[dict]) -> Ask:
+    """S3-14's card: the words are set, and what can change instead (or nothing to offer)."""
     ask = Ask(workspace_id=project.workspace_id, project_id=project.id, kind=KIND,
               subject=words[:120], question=(SET if choices else SET_ONLY).format(words),
               state=OFFERED,
               choices=[{"key": chr(65 + n), **c} for n, c in enumerate(choices)])  # fmt: skip
     db.add(ask)
     db.flush()
-    return ask, only
+    return ask
 
 
 def _said_in(db: Session, project: Project, words: str) -> dict | None:

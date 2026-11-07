@@ -77,7 +77,7 @@ NOT_MADE = "Not made yet: it waits for Make it, and is made once it's pressed." 
 # as <last_actions> shows it: the step still to make, not one done
 TREATMENT_FIRST = "Refused: the treatment comes first, before Make it."
 PLAN_FIRST = "Changing the plan first."  # a note while the start card waited
-PRE_OK = ("treatment", "ask", "wait", "stop")  # what runs before Make it: planning only
+PRE_OK = ("treatment", "ask", "wait", "stop", "locked_line")  # before Make it: nothing made
 # A revision (a run on a video that has delivered): its free changes to the cut it has, and the
 # watch and delivery they lead to, need no Make it (Reed: a revision charges only the affected
 # work). Anything that makes something new still waits on its start card.
@@ -908,6 +908,8 @@ def _act(db: Session, job: Job, storage) -> None:
     db.commit()  # the turn's answer is kept whatever the tool does
     user = db.get(User, run["by"])
     result = director_tools.run(db, user, project, decision, storage, run)
+    if tool == "locked_line" and _answered_at_once(db, project, run, job, result):
+        return _end(job, result, result=DELIVERED)  # its card is the answer: no re-delivery
     if tool == "watch_cut" and not result.startswith("Refused"):
         run["watches"] = run.get("watches", 0) + 1
     if replan and not result.startswith("Refused"):
@@ -916,6 +918,31 @@ def _act(db: Session, job: Job, storage) -> None:
         sid = decision.get("shot_id") or ""
         run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}
     _record(db, job, run, result)
+
+
+def _answered_at_once(db: Session, project: Project, run: dict, job: Job, result: str) -> bool:
+    """A run that only had notes S3-14's card answers (`locked_line`) ends there, as delivered
+    with the cut it had: nothing was made, every note is answered, and no other move of its
+    made anything (QA on #1429: never a new delivery with the refusal buried)."""
+    from app import locked_line
+
+    if result != locked_line.POSTED:
+        return False
+    named = {int(n) for n in NOTE.findall((job.output or {}).get("why") or "")}
+    done = answered(db, run["id"], project.id) | named
+    if any(n not in done for n in range(1, len(chat(project, run["id"])) + 1)):
+        return False  # another note is still open: the run goes on for it
+    mine = turns(db, project)
+    if not mine or not delivered(_earlier(db, project, run)):
+        return False  # a video never delivered goes on to make it
+    new = select(FinalVideo.id).where(FinalVideo.project_id == project.id,
+                                      FinalVideo.created_at >= mine[0].created_at)  # fmt: skip
+    return db.scalar(new.limit(1)) is None  # this run made no cut of its own
+
+
+def _earlier(db: Session, project: Project, run: dict) -> list[Job]:
+    """The turns of the runs before this one (has the video delivered before?)."""
+    return [j for j in all_turns(db, project.id) if j.input[RUN]["id"] != run["id"]]
 
 
 def _aside(db: Session, project: Project, run: dict, decision: dict) -> str:
