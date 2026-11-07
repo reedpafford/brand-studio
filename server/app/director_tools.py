@@ -313,7 +313,7 @@ def _asked_since(db: Session, project: Project, run_id: str | None, why: str, ed
     if not run_id:
         return False
     notes = [m for m in project.director_chat or [] if m.get("run") == run_id]  # Note 1, 2, …
-    done, since = answered(db, run_id), edit.created_at if edit is not None else None
+    done, since = answered(db, run_id, project.id), edit.created_at if edit is not None else None
 
     def after(m: dict) -> bool:
         at = datetime.fromisoformat(m["at"]).replace(tzinfo=None) if m.get("at") else None
