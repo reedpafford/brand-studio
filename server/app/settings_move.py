@@ -11,7 +11,7 @@ import re
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app import host, looks, plans
+from app import host, looks, model_map, plans
 from app import video_settings as vs
 from app.catalogue import get_model
 from app.db import utcnow
@@ -92,6 +92,8 @@ def switch(db: Session, user: User, project: Project, field: str | None, value: 
         return NOT_YET
     if (found := persons(project, field)) and not asked:
         return THEIRS.format(who=user_name(db, found["by_id"]) or "A person", what=FIELDS[field])
+    if field == "video_model" and not asked and (off := model_map.off_map(project, value)):
+        return off  # UGC stays on Omni 1.2, an animated style on Seedance (Reed, 6 Nov)
     try:
         price = vs.preview(db, user, project, {field: value})
         if price["reason"]:

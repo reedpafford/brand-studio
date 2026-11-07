@@ -217,5 +217,9 @@ def save_changed(db: Session, job: Job) -> None:
         made = enqueue(db, user, kind, data, units=units, project=project,
                        provider="replicate", prepaid=True)  # fmt: skip
         row.change = {**row.change, "made_job_id": made.id}
+        if not isinstance(row, StoryboardFrame):  # a cut watch's redo names this take
+            from app import watch_cut
+
+            watch_cut.relink(db, row, job.id, made.id)
     except HTTPException as e:  # e.g. a sheet unapproved meanwhile: the new prompt stays
         row.change = {**row.change, "status": "failed", "error": e.detail}

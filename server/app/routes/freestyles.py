@@ -17,7 +17,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import asks, director, folders, guides, hidden, looks, prompts, scorecard
+from app import asks, director, folders, guides, hidden, looks, model_map, prompts, scorecard
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -176,18 +176,19 @@ def _job_input(fs: Freestyle, texts: list[str]) -> dict:
     changes = "".join(f"\nChange: {t}" for t in texts[1:])
     model = _model(fs)
     resolution = model.take_resolution
+    take, _ = model_map.fit(model, {  # Omni (UGC): its own inputs, no sound switch
+        "prompt": in_english(f"{style}\n{texts[0]}{changes}".strip()),  # American English
+        "duration": _seconds(texts[0], fs),
+        "resolution": resolution,
+        "aspect_ratio": fs.shape,
+        "generate_audio": True,
+    }, {})  # fmt: skip
     return {
         FREESTYLE: fs.id,
         "model": model.id,
         "brand_id": fs.brand_id,
         "fit_images_to": LONG_SIDE[resolution],
-        "input": {
-            "prompt": in_english(f"{style}\n{texts[0]}{changes}".strip()),  # American English
-            "duration": _seconds(texts[0], fs),
-            "resolution": resolution,
-            "aspect_ratio": fs.shape,
-            "generate_audio": True,
-        },
+        "input": take,
     }
 
 
