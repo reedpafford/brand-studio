@@ -85,25 +85,45 @@ def choice(db: Session, user: User, project: Project, words: str, new: str | Non
 
 
 def price(db: Session, project: Project, found: dict) -> Decimal | None:
-    """As its press can charge (rule 36: "up to"): each clip's prompt written again and its
-    take, and a narrated video's narration read once more."""
-    from app import narration
+    """As much as its press can charge (rule 36: "up to", never below; QA on #1437: 7 shown,
+    19.8 charged). Its run has no start card, so this is its whole price. Dialogue: each of
+    the line's clips made again with its watch, and as many times again as a watch may remake
+    it, each with its prompt written again; its stills drawn again as often as a run may; and
+    the director's own limit for its turns and its cut watch (`director.PRICED`: past it the
+    run waits for an OK, on the uncapped site too). Narrated: the narration read again moves
+    every clip's times, so any clip may need making again: the video's whole run price."""
+    from app import director
     from app.clip_prompts import rewrite_price
     from app.clip_takes import take_credits
-    from app.credits import estimate
+    from app.routes.estimate import _still, run_price
 
     rows = [_row(db, project, c) for c in found.get("clips") or []]
     if not rows or any(r is None for r in rows):
         return None
-    total = rewrite_price(db, project, found["clips"])
-    total += sum((take_credits(db, project, r) for r in rows), Decimal(0))
-    if _narrated(db, project):
-        from app import plans, song_takes
+    if _narrated(db, project):  # plus its new reading, and as many again as a run may remake
+        from app import director_song, narration, plans, song_takes
+        from app.credits import estimate
 
-        text = _new_text(plans.script(db, project).text, found)
-        job = narration.job(text)
-        total += estimate(db, project.workspace_id, "speech", song_takes._units(job), job)
-    return total
+        job = narration.job(_new_text(plans.script(db, project).text, found))
+        read = estimate(db, project.workspace_id, "speech", song_takes._units(job), job)
+        whole = run_price(db, db.get(ScriptDraft, project.script_draft_id), project)
+        return whole + (1 + director_song.REMAKES) * read
+    each = [take_credits(db, project, r) + rewrite_price(db, project, [r.clip_id]) for r in rows]
+    shots = sum(len(_shots(db, project, r.clip_id)) for r in rows)
+    still = _still(db, project.workspace_id, project)
+    return ((1 + director.MAX_REDOS) * sum(each, Decimal(0))
+            + REDRAWS * shots * still + director.own_limit())  # fmt: skip
+
+
+REDRAWS = 2  # a still drawn again at most this often in a run (<allowed>'s redraws_per_still)
+
+
+def _shots(db: Session, project: Project, clip_id: str) -> list[str]:
+    from app.clip_prompts import newest
+
+    bd = newest(db, project)
+    return next((c["shot_ids"] for c in (bd.data.get("clips", []) if bd else [])
+                 if c["id"] == clip_id), [])  # fmt: skip
 
 
 def cannot(db: Session, project: Project, found: dict, words: str, user: User | None) -> str:

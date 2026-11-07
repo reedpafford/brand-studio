@@ -112,7 +112,8 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     if left and not fresh and delivered(turns(db, project)):  # notes after a delivery: a
         again = {**again, REVISION: True}  # revision, whose story stands
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id,
-           "ok": approved and user.is_owner, "hold": hold, **again}  # fmt: skip
+           "ok": approved and user.is_owner, "hold": hold, **again,
+           **({PRICED: True} if approved else {})}  # fmt: skip
     if left:
         project.director_chat = [{**m, "run": run["id"]} if n in left else m
                                  for n, m in enumerate(project.director_chat)]  # fmt: skip
@@ -656,12 +657,22 @@ def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal
     not one step. "" if it fits, and always on the owner's own run with `owner_uncapped`."""
     from app.credits import PAST_APPROVED, price
 
-    if not run_id or uncapped(user):
+    if not run_id or uncapped(user) and not _priced(db, project, run_id):
         return ""
     charged, oks = own_charged(db, run_id, project.id)
     if charged + credits <= own_limit() * (1 + oks):
         return ""
     return PAST_APPROVED if project.hidden else OWN_LIMIT.format(n=price(own_limit()))
+
+
+PRICED = "priced"  # in a run its press priced (line_change): its own limit holds, uncapped too
+
+
+def _priced(db: Session, project: Project, run_id: str) -> bool:
+    """A run the owner's priced press started (no start card): its "up to" counted the
+    director's own limit, so past it the run waits for an OK even on the uncapped site."""
+    return any(j.input[RUN].get(PRICED) for j in all_turns(db, project.id)
+               if j.input[RUN]["id"] == run_id)  # fmt: skip
 
 
 def after(db: Session, job: Job, storage) -> None:

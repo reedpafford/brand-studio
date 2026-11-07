@@ -888,7 +888,8 @@ def publish(
     versions = lib.drafts(db, script)
     picks = body.flavours if body else {}
     if unknown := set(picks) - {d.slot for d in versions}:
-        raise HTTPException(422, f"There's no version {'ABC'[min(unknown)]} to pick a flavour for.")
+        name = lib.letter(min(unknown))
+        raise HTTPException(422, f"There's no version {name} to pick a flavour for.")
     if not versions or any(d.status != "approved" for d in versions):
         raise HTTPException(409, "Approve or remove every version first.")
     if lib.writing(db, script.id):
@@ -897,7 +898,7 @@ def publish(
         from app import song_takes
 
         if songless := [d for d in versions if song_takes.preferred(db, d) is None]:
-            name = "ABC"[songless[0].slot]
+            name = lib.letter(songless[0].slot)
             if script.kind == "narrated":
                 said = f"Make the narration first: version {name} has no narration yet."
                 raise HTTPException(409, f"{said} Press Make the narration.")

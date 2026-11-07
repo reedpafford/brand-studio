@@ -423,8 +423,16 @@ def _current_clips(db: Session, project: Project, row: BreakdownVersion,
             clip.breakdown_id = row.id
         elif (changed and shots and not sung and clip.breakdown_id == before
               and then.get(clip.clip_id) == shots
-              and not any(changed & lines.get(s, set()) for s in shots)):  # fmt: skip
+              and not any(changed & lines.get(s, set()) for s in shots)
+              and _fits(row.data, clip)):  # fmt: skip
             clip.breakdown_id = row.id  # not the changed line's: kept on its new times
+
+
+def _fits(data: dict, clip) -> bool:
+    """The clip's take still covers its piece on the new times (QA on #1437: never padded with
+    a held frame); a piece that grew past it is made again."""
+    piece = slice_of(data, clip.clip_id)
+    return piece is not None and piece["end"] - piece["start"] <= (clip.seconds or 0) + 0.01
 
 
 def guessed(bd: Breakdown, text: str, timing: dict) -> set[str]:
