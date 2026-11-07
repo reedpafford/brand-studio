@@ -567,7 +567,8 @@ def test_a_clip_made_on_another_model_is_asked_charged_and_recorded_at_what_that
 ):
     """Reed (accurate spend): a 3 s clip fitted to Omni 1.2, moved to a Seedance whose shortest
     clip is 4 s, was quoted, charged and recorded at 3 s while it was asked for (and billed)
-    at 4. It's quoted, charged and recorded at the seconds it's asked for on its own model."""
+    at 4. It's quoted, charged and recorded at the seconds it's asked for on its own model:
+    Another take, the director's remake and Change this clip alike."""
     from decimal import Decimal
 
     from app.clip_takes import take_credits
@@ -589,6 +590,10 @@ def test_a_clip_made_on_another_model_is_asked_charged_and_recorded_at_what_that
     job = {"model": lite.id, "input": {"resolution": model_map.resolution(lite)}}
     four = estimate(db, ugc.workspace_id, "video", Decimal(4), job)
     assert take_credits(db, ugc, clip) >= four  # (with its watch, when watches are on)
+    from app import change
+
+    assert change._draw(db, ugc, clip, check=False)[2] == 4  # "Change this clip": its new take
+    assert change._then(db, ugc, clip, check=False) >= four  # quoted at 4 s too (QA on #1425)
     made = owner.post(f"/projects/{ugc.id}/clips/{clip.id}/generate")
     assert made.status_code == 201, made.text
     assert db.get(Job, made.json()["id"]).credits == four  # charged, and so recorded, at 4 s
