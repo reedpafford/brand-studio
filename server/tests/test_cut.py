@@ -121,8 +121,9 @@ def test_each_edit_has_its_undo_and_puts_the_cut_out_of_date(owner, presenter):
     owner.post(f"{presenter}/cut/undo")  # the newest
     redone = owner.post(f"{presenter}/cut/redo").json()
     assert redone["timeline"]["music"]["quieter_db"] == 6
-    early = _edit(owner, presenter, kind="trim", piece=last["id"], end=0.5)
-    assert early.status_code == 422 and "before the last word" in early.json()["detail"]
+    early = _edit(owner, presenter, kind="trim", piece=last["id"], end=0.5)  # before its word
+    assert early.status_code == 201 and "so the edge moved" in early.json()["notice"]  # S4
+    owner.post(f"{presenter}/cut/undo")  # the kept ending, as it was
     nowhere = _edit(owner, presenter, kind="retime", piece="c99")
     assert (nowhere.status_code, nowhere.json()["detail"]) == (
         422,
@@ -131,7 +132,7 @@ def test_each_edit_has_its_undo_and_puts_the_cut_out_of_date(owner, presenter):
     gone = owner.post(f"{presenter}/cut/undo-all").json()
     assert gone["changes"] == 0 and not gone["out_of_date"] and gone["can_redo"]
     back = owner.post(f"{presenter}/cut/redo").json()  # what Undo all took (the first was
-    assert [e["undone"] for e in back["edits"]] == [True, False]  # undone by hand before it)
+    assert [e["undone"] for e in back["edits"]] == [True, False, True]  # undone by hand)
 
 
 def test_split_retime_swap_and_trim_move_the_pieces(owner, presenter):
@@ -234,9 +235,15 @@ def test_a_story_cut_trims_and_ripples_and_never_cuts_a_word(
     )
     monkeypatch.setattr(cut_edits, "_heard", lambda db, take: [
         {"word": "Get", "start": 0.3, "end": 0.5}])  # fmt: skip
-    cuts = _edit(editor, base, kind="trim", piece=piece["id"], start=0.4)
-    assert (cuts.status_code, cuts.json()["detail"]) == (
-        422, "Clip 1 would lose the word “Get”. Every spoken word stays.")  # fmt: skip
+    # S4 (Flow-QA): a trim into "Get" is moved to just before it, and says so; never refused
+    kept = _edit(editor, base, kind="trim", piece=piece["id"], start=0.4)
+    assert kept.status_code == 201, kept.text
+    assert kept.json()["notice"] == ("That would have cut “Get”, so the edge moved to just past "
+                                     "it. Every spoken word stays.")  # fmt: skip
+    assert kept.json()["timeline"]["pieces"][0]["in_point"] == 0.15  # a breath before "Get"
+    assert kept.json()["edits"][-1]["said"] == "Clip 1 trimmed, keeping “Get”"
+    assert editor.get(f"{base}/cut").json()["notice"] is None  # said once, by the edit
+    assert editor.post(f"{base}/cut/undo").status_code == 200  # back to the cut as it was
     trimmed = _edit(editor, base, kind="trim", piece=piece["id"], start=0.2, end=0.8).json()
     (piece,) = trimmed["timeline"]["pieces"]
     assert (piece["start"], piece["end"], piece["in_point"]) == (0, 0.6, 0.2)
@@ -260,6 +267,35 @@ def test_a_story_cut_trims_and_ripples_and_never_cuts_a_word(
     undo = editor.post(f"{base}/cut/undo")  # back to the trim, which loses it too: refused
     assert undo.status_code == 422 and "would lose the word “now”" in undo.json()["detail"]
     assert editor.post(f"{base}/cut/undo-all").status_code == 422  # the cut's own trim loses it
+
+
+def test_a_trim_ending_mid_word_ends_just_after_it(
+    app,
+    db,
+    editor,
+    approved,  # noqa: F811
+    monkeypatch,
+):
+    """S4 (Flow-QA): an end dropped inside a word is moved just past it (a breath on), with
+    what happened said; one no move can save (a word past the take's end) is still refused."""
+    from types import SimpleNamespace
+
+    from app import cut_edits
+
+    base, _ = approved
+    make_cut(app, db, editor, base)
+    (piece,) = editor.get(f"{base}/cut").json()["timeline"]["pieces"]
+    monkeypatch.setattr(cut_edits, "_speaks", lambda db, take: True)
+    monkeypatch.setattr(
+        "app.item_checks.latest",
+        lambda db, target, ids: {i: SimpleNamespace(status="done", job_id=None) for i in ids},
+    )
+    said = [{"word": "Get", "start": 0.1, "end": 0.3}, {"word": "now", "start": 0.55, "end": 0.7}]
+    monkeypatch.setattr(cut_edits, "_heard", lambda db, take: said)
+    out = _edit(editor, base, kind="trim", piece=piece["id"], end=0.6)
+    assert out.status_code == 201, out.text
+    assert out.json()["timeline"]["pieces"][0]["end"] == 1.0  # past "now", a breath, as it runs
+    assert "“now”" in out.json()["notice"]
 
 
 def test_only_its_maker_or_the_owner_edits_it(app, db, editor, outsider, approved):  # noqa: F811

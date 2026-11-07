@@ -42,9 +42,12 @@ const pronoun = (a: Asset) => {
 };
 
 /** Where an item stands against the combined OK (S-gaps-07 B as redrawn): ready to check, changed since the OK, or
- *  approved; null while it isn't ready (its card says why). */
+ *  approved; while it isn't ready, why (Flow-QA S11: a redraw being drawn read "Approved"); null with no checkpoint. */
 function gateState(ci: CastItem | undefined): State | null {
-  if (!ci || ci.readiness !== "ready") return null;
+  if (!ci) return null;
+  if (ci.readiness === "needs_look") return { tone: "warning", word: "Needs a look" };
+  if (ci.readiness === "drawing") return { tone: "accent", word: "Drawing" };
+  if (ci.readiness === "waiting_for_owner") return { tone: "warning", word: "Waiting for the owner", hollow: true };
   if (ci.approval === "approved") return { tone: "success", word: "Approved" };
   if (ci.approval === "changed") return { tone: "warning", word: "Changed · needs your OK" };
   return { tone: "warning", word: "Ready to check", hollow: true };
@@ -612,7 +615,7 @@ function PlaceCard({ a, c }: { a: Asset; c: Ctx }) {
   const { price: sheet } = useSheetPrice();
   const needs = ci ? ci.readiness === "needs_look" : a.sheet_status === "none" || a.sheet_status === "missing";
   const readiness = ci?.readiness ?? (needs ? "needs_look" : a.sheet_status === "drawing" ? "drawing" : a.sheet_status === "waiting_for_owner" ? "waiting_for_owner" : "ready");
-  const s: State = gateState(ci) ?? (readiness === "needs_look" ? { tone: "warning", word: "Needs a look" } : readiness === "drawing" ? { tone: "accent", word: "Drawing" } : readiness === "waiting_for_owner" ? { tone: "warning", word: "Waiting for the owner", hollow: true } : { tone: "success", word: "Approved" });
+  const s = gateState(ci ?? ({ readiness, approval: "approved" } as CastItem))!; // never null: an item, or as one
   const busy = readiness === "drawing" || readiness === "waiting_for_owner";
   const places = useQuery({ queryKey: ["library", "place", c.brandId, false], enabled: needs, queryFn: async () => (await api.GET("/library/{kind}", { params: { path: { kind: "place" }, query: { brand_id: c.brandId } } })).data ?? [] });
   const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSettled: () => Promise.all([refreshJobs(queryClient), c.refresh()]), onError: (e: Error) => toast(e.message, undefined, "error") });
@@ -865,7 +868,9 @@ export function CastPane({ p, head, progress }: PaneProps) {
     </div>
   );
   const waiting = !!gate && (gate.state === "ready" || gate.state === "not_ready" || gate.waiting.length > 0);
-  const said = !gate ? null : changed.length && gate.approved_at ? `Needs you · ${changed.length} change${changed.length === 1 ? "" : "s"}` : gate.state === "approved" ? "Approved" : gate.state === "none" ? null : "Needs you · approve to continue";
+  // Flow-QA S11: an approved set with a look being drawn again isn't "Approved" until that look is checked
+  const redrawing = gate?.state === "approved" ? gate.not_ready : [];
+  const said = !gate ? null : changed.length && gate.approved_at ? `Needs you · ${changed.length} change${changed.length === 1 ? "" : "s"}` : redrawing.length ? `${redrawing.length === 1 ? `${redrawing[0].name} is` : `${redrawing.length} looks are`} being drawn again` : gate.state === "approved" ? "Approved" : gate.state === "none" ? null : "Needs you · approve to continue";
   const counts = `${roles.length} character${roles.length === 1 ? "" : "s"} · ${places.length} place${places.length === 1 ? "" : "s"}`;
   const card = (a: Asset) => {
     if (a.slot_id != null && paired.has(a.slot_id)) {

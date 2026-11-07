@@ -145,6 +145,9 @@ class CutDirectorOut(BaseModel):
     doing: str
 
 
+KEPT = "That would have cut “{}”, so the edge moved to just past it. Every spoken word stays."
+
+
 class CutOut(BaseModel):
     number: int | None  # the cut that plays (Cut 2); None before the first
     file_id: int | None
@@ -158,6 +161,7 @@ class CutOut(BaseModel):
     can_undo: bool
     can_redo: bool
     can_edit: bool  # whoever made the video, or the owner: everyone else only watches
+    notice: str | None = None  # an edit moved to keep a spoken word: what happened (S4)
     sound_credits: float  # Add sound effects on a clip: one run, "up to" ("under 1 credit")
     sound_usd: float | None  # the same in dollars, for the owner only ("up to $0.01")
     going: list[GoingOut]  # what the next cut changes
@@ -391,9 +395,13 @@ def edit(project_id: int, body: EditIn, request: Request, user: User = Depends(c
     asked = body.model_dump(exclude_none=True, exclude={"kind"})
     if "in_point" in asked:
         asked["from"] = asked.pop("in_point")
-    return _edited(db, project, request.app.state.storage, user,
-                   lambda: cut_edits.add(db, user, project, body.kind, asked,
-                                         director=DIRECTOR_TOOL.get()))  # fmt: skip
+    made = []
+    out = _edited(db, project, request.app.state.storage, user,
+                  lambda: made.append(cut_edits.add(db, user, project, body.kind, asked,
+                                                    director=DIRECTOR_TOOL.get())))  # fmt: skip
+    if made and made[0].kept:  # moved to keep a word (S4): said, never a refusal with no way on
+        out.notice = KEPT.format(made[0].kept)
+    return out
 
 
 @router.post("/edits/{edit_id}/undo", response_model=CutOut)

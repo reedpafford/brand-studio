@@ -7235,6 +7235,8 @@ export interface components {
             can_redo: boolean;
             /** Can Edit */
             can_edit: boolean;
+            /** Notice */
+            notice?: string | null;
             /** Sound Credits */
             sound_credits: number;
             /** Sound Usd */
