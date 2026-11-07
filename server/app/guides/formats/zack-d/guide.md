@@ -1,6 +1,6 @@
 name: Zack D
 order: 3
-on: no
+on: yes
 engine: narrated
 blurb: One surprising thing explained as a cause-and-effect chain from the first frame: one narrator, brisk and continuous, ending on a small gag.
 
