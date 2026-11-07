@@ -616,8 +616,9 @@ def generate(
     files = {k: job_input["files"].get(k, []) for k in clip_takes.KEYS.values()}
     _check_media_length(db, request.app.state.storage, model, files)
     return enqueue(
-        db, user, "video", job_input, units=row.seconds, project=project, provider="replicate"
-    )
+        db, user, "video", job_input, units=model_map.billed(model, row.seconds), project=project,
+        provider="replicate",
+    )  # fmt: skip
 
 
 @router.get("/clips/{clip_id}/change", response_model=PriceOut)

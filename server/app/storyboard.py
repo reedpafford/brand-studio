@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import cast_gate, looks, screen_figures, video_settings
+from app import cast_gate, looks, model_map, screen_figures, video_settings
 from app.advice import names, plain
 from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
@@ -748,7 +748,8 @@ def take_from_still(db: Session, job: Job, frame: StoryboardFrame) -> None:
     db.commit()
     try:
         data = clip_takes.take_input(db, project, clip, "")
-        enqueue(db, db.get(User, job.created_by_id), "video", data, units=clip.seconds,
+        seconds = model_map.billed(model_map.of_clip(project, clip), clip.seconds)
+        enqueue(db, db.get(User, job.created_by_id), "video", data, units=seconds,
                 project=project, provider="replicate", prepaid=True)  # fmt: skip
     except HTTPException as e:  # its Another take says the price again
         clip.change = {"note": "", "status": "failed", "job_id": job.id, "error": e.detail}

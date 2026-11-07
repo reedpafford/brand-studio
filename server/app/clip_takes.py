@@ -78,7 +78,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     own = not speaks and own_sound(db, project, clip)
     take, sent = p_video.fit(model.id, {
         "prompt": _with_note(in_english(prompt), note),
-        "duration": clip.seconds,
+        "duration": model_map.billed(model, clip.seconds),  # as charged and recorded
         "resolution": resolution,
         "aspect_ratio": project.aspect_ratio,
         "generate_audio": speaks or own,
@@ -580,7 +580,8 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
 
     m = model_map.of_clip(project, clip)
     job = {"model": m.id, "input": {"resolution": model_map.resolution(m)}}
-    take = estimate(db, project.workspace_id, "video", Decimal(clip.seconds), job)
+    seconds = model_map.billed(m, clip.seconds)  # as it's asked for on its own model
+    take = estimate(db, project.workspace_id, "video", Decimal(seconds), job)
     return take + take_watch.rides(db, project, clip)
 
 

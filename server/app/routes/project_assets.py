@@ -440,7 +440,7 @@ def _resave(db: Session, user: User, project: Project, bd, data: dict, same_look
         project_id=project.id,
         script_version=bd.script_version,
         source="edit",
-        data=new.model_dump(),
+        data={**new.model_dump(), **breakdown.carried_keys(bd)},
         problems=breakdown.problems(db, project, script.text if script else "", new) + removed,
         created_by_id=user.id,
     )

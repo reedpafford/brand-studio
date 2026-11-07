@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import advice, clip_prompts, clip_takes, prompts, storyboard
+from app import advice, clip_prompts, clip_takes, model_map, prompts, storyboard
 from app.credits import estimate
 from app.enhance import escape
 from app.models.accounts import User
@@ -40,7 +40,8 @@ def _draw(db: Session, project: Project, row: Row, before: str = "",
     if isinstance(row, StoryboardFrame):
         data = storyboard.render_input(db, project, row, check=check)
         return "image", {**data, "was_prompt": before or row.prompt}, 1
-    return "video", clip_takes.take_input(db, project, row, check=check), row.seconds
+    seconds = model_map.billed(model_map.of_clip(project, row), row.seconds)  # as it's asked
+    return "video", clip_takes.take_input(db, project, row, check=check), seconds
 
 
 def clip_of(db: Session, frame: StoryboardFrame) -> ProjectClip | None:

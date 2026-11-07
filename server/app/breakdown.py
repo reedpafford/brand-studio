@@ -385,6 +385,17 @@ def product_shots(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdo
 OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
 
 
+KEPT_KEYS = ("plan_version",)  # a plan's own keys that a new version saved from it keeps
+
+
+def carried_keys(row: BreakdownVersion | None) -> dict:
+    """What a new version saved from `row` keeps of it besides its shots and clips: the plan
+    version it was made from (plans.older: "Made for an older plan"). Its song part is carried
+    on insert (song_breakdown._carry)."""
+    data = row.data if row is not None else {}
+    return {k: data[k] for k in KEPT_KEYS if k in data}
+
+
 def carry_kept(kept: list[str], problems: list[str]) -> list[str]:
     """What the editor kept anyway still kept on a new version saved for them (a look made at
     Assets, a recast): the same line, or a cast line on a shot whose cast line was kept,

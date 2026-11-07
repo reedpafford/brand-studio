@@ -317,7 +317,7 @@ def act(db: Session, take: ClipTake, note: str,
     the note goes into this take only, as a Redo note does."""
     from fastapi import HTTPException
 
-    from app import advice, change, clip_takes
+    from app import advice, change, clip_takes, model_map
     from app.models.jobs import WAITING
     from app.prompts import check
     from app.prompts.schemas import Breakdown
@@ -354,7 +354,8 @@ def act(db: Session, take: ClipTake, note: str,
         data = clip_takes.take_input(db, project, clip, "" if rewritten else note)
         data = {**data, REDO: take.id,
                 "made_with": {**data["made_with"], "remade_from": take.number}}  # fmt: skip
-        made = enqueue(db, user, "video", data, units=clip.seconds, project=project,
+        seconds = model_map.billed(model_map.of_clip(project, clip), clip.seconds)
+        made = enqueue(db, user, "video", data, units=seconds, project=project,
                        provider="replicate", prepaid=not wait, wait=wait)  # fmt: skip
     except HTTPException as no:  # its reason can name dollars: the owner sees it on the clip
         for field, value in before.items():  # no take: the prompt in hand stays as it was
@@ -365,8 +366,6 @@ def act(db: Session, take: ClipTake, note: str,
     finally:
         DIRECTOR_TOOL.reset(marked)
     how = f"with “{note}” in the prompt" if rewritten else f"with the note “{note}”"
-    from app import model_map
-
     model = model_map.of_clip(project, clip).name
     if wait:
         return (f"Asked the owner: remaking it on {model} {how} goes past the video's budget.",

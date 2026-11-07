@@ -560,3 +560,40 @@ def test_a_style_whose_guide_says_no_lip_sync_keeps_its_own_seedance(db, editor,
     real = guides.style
     monkeypatch.setattr(guides, "style", lambda i: {**real(i), "lip_sync": False})
     assert model_map.of_clip(video, spoken).id == "seedance-2.0"
+
+
+def test_a_clip_made_on_another_model_is_asked_charged_and_recorded_at_what_that_model_makes(
+    app, db, owner, ugc
+):
+    """Reed (accurate spend): a 3 s clip fitted to Omni 1.2, moved to a Seedance whose shortest
+    clip is 4 s, was quoted, charged and recorded at 3 s while it was asked for (and billed)
+    at 4. It's quoted, charged and recorded at the seconds it's asked for on its own model:
+    Another take, the director's remake and Change this clip alike."""
+    from decimal import Decimal
+
+    from app.clip_takes import take_credits
+    from app.credits import estimate
+    from app.models.jobs import Job
+
+    lite = get_model("seedance-1-lite")
+    assert (model_map.billed(lite, 3), model_map.billed(lite, 20)) == (4, 12)
+    assert model_map.billed(get_model(model_map.OMNI), 3) == 3
+    clip = next(r for c, r in _rows(db, ugc).items() if c not in talker.clips(db, ugc))
+    ugc.look = "house"  # an animated style, where the director may move a clip
+    db.flush()
+    assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=lite.id,
+                 why="A hand and the keys: Lite is enough.").startswith("Clip")  # fmt: skip
+    clip.seconds = 3
+    db.commit()
+    asked = take_input(db, ugc, clip)
+    assert (asked["model"], asked["input"]["duration"]) == (lite.id, 4)
+    job = {"model": lite.id, "input": {"resolution": model_map.resolution(lite)}}
+    four = estimate(db, ugc.workspace_id, "video", Decimal(4), job)
+    assert take_credits(db, ugc, clip) >= four  # (with its watch, when watches are on)
+    from app import change
+
+    assert change._draw(db, ugc, clip, check=False)[2] == 4  # "Change this clip": its new take
+    assert change._then(db, ugc, clip, check=False) >= four  # quoted at 4 s too (QA on #1425)
+    made = owner.post(f"/projects/{ugc.id}/clips/{clip.id}/generate")
+    assert made.status_code == 201, made.text
+    assert db.get(Job, made.json()["id"]).credits == four  # charged, and so recorded, at 4 s
