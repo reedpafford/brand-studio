@@ -35,7 +35,7 @@ a stop-motion clay puppet look with thread-wrapped hair and fabric details
 ## Stills
 - Moody but never dark: deep teal shadows against warm amber practicals keep the clay reading; a face always has warm light on it.
 - Name the craft materials on each character and prop (the thread hair, the wire-rimmed glasses, the button eyes on a toy). Name the clay on every sculpted object; glass and metal are "sculpted as a professional clay imitation of …"; liquids are glossy and wet against matte clay. The product is its real packaging, set on a clay plinth or held in clay hands, its label exactly as in its image.
-- Never call the clay smooth, polished or glossy. Keep the camera inside the puppet world at a named angle; never show the set's edges or the workbench. Name the feeling, then the brows, lids and mouth.
+- Never call the clay polished or glossy. Keep the camera inside the puppet world at a named angle; never show the set's edges or the workbench. Name the feeling, then the brows, lids and mouth.
 
 ## Clips
 - One gesture and one camera move per shot: stacked actions drift. Repeat the craft and clay words in the action, so the material survives the motion.
