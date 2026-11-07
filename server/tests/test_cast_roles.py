@@ -397,3 +397,36 @@ def test_a_shot_about_a_person_is_still_checked_even_when_it_names_nobody(owner,
                                        action="Close on a frown, eyes narrowing.")  # fmt: skip
     problems = owner.put(f"{base}/drafts/0/breakdown", json=bd).json()["problems"]
     assert any(p.startswith("Check the cast: shot 1.2") for p in problems), problems
+
+
+def test_an_edit_a_cast_fix_and_a_recast_keep_the_plan_version(owner, editor, db):
+    """QA on #1423: an edit's save, Put the right cast in each shot and a recast at Assets
+    saved the new version without the plan version it was made from, so "Made for an older
+    plan" (plans.older) never showed after them."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    def newest():
+        db.expire_all()
+        return db.query(BreakdownVersion).filter_by(project_id=pid).order_by(
+            BreakdownVersion.id.desc()).first()  # fmt: skip
+
+    def made_for(version: int) -> None:
+        row = newest()
+        row.data = {**row.data, "plan_version": version}
+        flag_modified(row, "data")
+        db.commit()
+
+    pid, mia, kid = _video(owner, editor, db)
+    url = f"/projects/{pid}/breakdown"
+    made_for(3)
+    wrong = copy.deepcopy(BREAKDOWN)
+    wrong["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mia}", f"char:{kid}"]
+    wrong["scenes"][0]["shots"][1]["character_ids"] = [f"char:{mia}"]  # Nate's line, Mom's look
+    assert editor.put(url, json=wrong).status_code == 200
+    assert newest().data["plan_version"] == 3  # the edit's save
+    made_for(4)
+    assert editor.post(f"{url}/fix-cast").status_code == 200
+    assert newest().data["plan_version"] == 4  # Put the right cast in each shot
+    made_for(5)
+    _recast(owner, editor, db, pid, "Leo")
+    assert newest().data["plan_version"] == 5  # a recast at Assets

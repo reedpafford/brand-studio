@@ -79,6 +79,14 @@ def _model(model_id: str):
     return get_model(model_id)
 
 
+def billed(model, seconds: int) -> int:
+    """The seconds a take of a clip is asked for on `model`, and so charged and recorded at:
+    the clip's own length within what the model makes (a 3 s clip fitted to Omni 1.2, made on
+    Seedance, is asked for, billed and recorded at Seedance's 4 s: Reed, accurate spend)."""
+    d = model.duration
+    return max(d.min, min(seconds, d.max)) if d is not None else seconds
+
+
 def of_clip(project, clip):
     """The clip's model: its own (the director's choice, with its reason) when it has one,
     else, when someone speaks on camera and the video's Seedance can't lip-sync, its Seedance

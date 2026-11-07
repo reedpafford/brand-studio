@@ -327,7 +327,7 @@ def save(
         project_id=project.id,
         script_version=version.version,
         source="edit",
-        data=body.model_dump(),
+        data={**body.model_dump(), **breakdown.carried_keys(was)},
         problems=breakdown.problems(db, project, version.text, body) + landed,
         created_by_id=user.id,
     )
@@ -356,7 +356,7 @@ def fix_cast(project_id: int, user: User = Depends(current_user), db: Session = 
         project_id=project.id,
         script_version=row.script_version,
         source="edit",
-        data=fixed.model_dump(),
+        data={**fixed.model_dump(), **breakdown.carried_keys(row)},
         problems=breakdown.problems(db, project, version.text, fixed) + landed,
         created_by_id=user.id,
     )
@@ -390,7 +390,7 @@ def new_version(db: Session, user: User, project, row: BreakdownVersion, text: s
         project_id=project.id,
         script_version=row.script_version,
         source="edit",
-        data={**bd.model_dump(), **{k: row.data[k] for k in ("plan_version",) if k in row.data}},
+        data={**bd.model_dump(), **breakdown.carried_keys(row)},
         problems=breakdown.problems(db, project, text, bd) + landed,
         created_by_id=user.id,
     )
