@@ -716,6 +716,7 @@ def save_breakdown(db: Session, job: Job) -> None:
             job.input["song_take_id"],
             broll=job.input.get("step") == "narrated_breakdown",
             shortest=song_breakdown.least(db, project.id),
+            longest=song_breakdown.most(db, project.id),
         )
     else:
         plan, song = Breakdown.model_validate(job.output), None
