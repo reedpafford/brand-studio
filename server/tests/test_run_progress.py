@@ -120,6 +120,7 @@ def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db
             "remaking it."  # fmt: skip
     assert muted in texts and all(r["at"] == 0 for r in note["redid"])
     assert any(t.startswith("Clip 1: ") and t.endswith(f"Remade on {c['model']}.") for t in texts)
+    assert len(texts) == 2 and not any("Picked take" in t for t in texts), texts  # S5: each once
     assert f"0:00 {texts[0]}" in mine["text"].splitlines()  # the plain lines
     theirs = next(m for m in editor.get(f"/projects/{pid}/director").json()["thread"]
                   if m.get("note"))["note"]  # fmt: skip
@@ -148,6 +149,39 @@ def test_the_director_writes_the_notes_words_and_the_server_the_rest(app, db, ow
     assert "Clip 1: garbled words burned in. Remade without them." in texts  # no "c1: " left
     seen = delivery.shown(note, owner=False)
     assert seen["needs"].startswith("Your OK on clip 1. Look at") and seen["spent_usd"] is None
+
+
+def test_a_finding_is_listed_once_and_the_directors_own_pick_isnt_a_fix(app, db, owner, editor,
+                                                                         monkeypatch):  # fmt: skip
+    """S5 (Flow-QA): "Clip 1: a stray sound…" was listed once for "Picked take 1" and again for
+    the mute. One row a finding, with each thing done; a pick is a fix only when the watch asked
+    for another take."""
+    from types import SimpleNamespace
+
+    from app import watch_cut
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    cut = db.query(FinalVideo).filter_by(project_id=pid).order_by(FinalVideo.id.desc()).first()
+    spans = delivery._spans(db, cut)
+    sound = {"clip_id": "c1", "says": "a stray sound nobody asked for.", "fix": "mute"}
+    face = {"clip_id": "c1", "says": "the take shows a sixth finger", "fix": "pick"}
+    monkeypatch.setattr(watch_cut, "state", lambda db, p: {"findings": [sound, face]})
+
+    def turn(tool, result):
+        return SimpleNamespace(output={"tool": tool, "clip_id": "c1"}, input={"result": result})
+
+    muted = "Muted a stretch of clip 1 instead of remaking it."
+    fixes = [turn("mute", muted), turn("mute", muted), turn("splice_word", "Spliced “Resilia”.")]
+    rows = delivery._merged(delivery._fixed(db, project, spans, fixes))
+    assert [r["text"] for r in rows] == [
+        f"Clip 1: a stray sound nobody asked for. {muted} Spliced “Resilia”."
+    ]
+    picked = delivery._fixed(db, project, spans, [turn("pick_take", "Picked take 2 for clip 1.")])
+    assert [r["did"] for r in picked] == ["Picked take 2 for clip 1."]  # the watch asked for it
+    assert picked[0]["found"] == face["says"]
+    monkeypatch.setattr(watch_cut, "state", lambda db, p: {"findings": [sound]})
+    assert delivery._fixed(db, project, spans, [turn("pick_take", "Picked take 1 for c1.")]) == []
 
 
 def test_each_clip_says_what_happened_to_it(app, db, owner, editor, monkeypatch):
