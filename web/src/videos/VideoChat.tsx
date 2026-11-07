@@ -154,6 +154,9 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   };
   const finished = !!p?.finished_at || facts.made || state === "delivered";
   const target = p && { id, name: title, creditsUsed: p.credits_used, released: p.released };
+  // A script's version is released while it's made; a video with no version to release (a New video send) can always be
+  // archived when nothing is running, e.g. while it waits for its OK (Flow-QA S12).
+  const releasable = !!target && maker && !archived && !finished && !!p.script_draft_id && !fs;
   const menu = (
     <VideoMenu
       title={title}
@@ -161,8 +164,8 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       onStop={!rail && running && maker ? () => setStopping(true) : undefined}
       onMove={p && maker && !archived ? () => setMoving(true) : undefined}
       onRename={p && maker && !archived ? () => setRenaming(true) : undefined}
-      onRelease={target && maker && !archived && !finished && p.script_draft_id && !fs ? () => video.release(target) : undefined}
-      onArchive={target && maker && !archived && finished ? () => video.archive(target) : undefined}
+      onRelease={releasable ? () => video.release(target) : undefined}
+      onArchive={target && maker && !archived && (finished || (!releasable && !running)) ? () => video.archive(target) : undefined}
     />
   );
   const header = head.data ? (
@@ -338,7 +341,31 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const watch = () => (seen.mutate(unwatched), onWatch());
   const heldMove = [...items].reverse().find((t) => t.kind === "move" && t.status === "held")?.id;
   const refreshAsks = useAskRefresh(id);
-  const cards = useAsks(id, running || (run?.waiting?.length ?? 0) > 0).data ?? [];
+  const named = items.flatMap((t) => (t.kind === "ask" && t.ask_id != null ? [t.ask_id] : []));
+  const asksRead = useAsks(id, running || (run?.waiting?.length ?? 0) > 0, named);
+  const cards = asksRead.data ?? [];
+  // A card the chat names that the cards don't have yet (made after they were read: a start card after a note, video 233)
+  // is read at once, not on the next poll.
+  const unreadIds = named.filter((n) => !cards.some((a) => a.id === n)).join(",");
+  useEffect(() => {
+    if (unreadIds && !asksRead.isFetching) void asksRead.refetch();
+  }, [unreadIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A card the chat names but hasn't read yet is never an empty bubble: its words, else a loading line, else Try again.
+  const unread = (t: Said) =>
+    t.text || (
+      <span role="status" className="text-sm text-muted">
+        {asksRead.isError ? (
+          <>
+            This card didn’t load.{" "}
+            <button type="button" onClick={() => void asksRead.refetch()} className="font-medium text-accent-text underline-offset-2 hover:underline max-lg:min-h-control">
+              Try again
+            </button>
+          </>
+        ) : (
+          "Loading this card…"
+        )}
+      </span>
+    );
   // The pinned bar reads the run's waiting questions: a card answered or closed anywhere (here, in Needs you, by the
   // director's own pick) leaves it at once, and the run is read again so a new question joins it.
   const asked = (run?.waiting ?? []).filter((w) => { const c = cards.find((a) => a.id === w.id); return !c || isOpen(c); });
@@ -516,7 +543,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
         <ol aria-label="Conversation with the director" className="mt-auto flex flex-col gap-4">
           {items.map((t) =>
             t.kind === "ask" ? (
-              <Item key={t.id} t={t} owner={owner} words={cards.some((a) => a.id === t.ask_id) ? null : t.text}>
+              <Item key={t.id} t={t} owner={owner} words={cards.some((a) => a.id === t.ask_id) ? null : unread(t)}>
                 {(() => {
                   const a = cards.find((x) => x.id === t.ask_id);
                   if (a?.kind === "instead") return <InsteadCard ask={a} />; // S3-14: what can change instead of a locked line

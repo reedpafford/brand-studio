@@ -111,3 +111,7 @@ def test_s7_a_run_waiting_on_the_cast_ok_says_so(app, db, owner, editor):
         {Job.status: JobStatus.succeeded}, synchronize_session=False)  # fmt: skip
     db.commit()
     assert _status(owner, db, pid) == ("needs_you", ideas.CAST_OK)  # never "Working"
+    # QA on #1409: Needs you (the rail's and the phone tab's count) lists it too, by one rule
+    inbox = owner.get("/needs-you").json()
+    assert [c["video"]["id"] for c in inbox["cast"]] == [pid] and inbox["total"] >= 1
+    assert editor.get("/needs-you").json()["cast"][0]["video"]["id"] == pid  # their own video

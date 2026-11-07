@@ -142,6 +142,17 @@ def _runs(db: Session, ids: list[int]) -> dict[int, dict]:
     return out
 
 
+def waits_on_cast(runs: dict[int, dict]) -> set[int]:
+    """The videos whose newest run waits only on the cast and places OK: the header's "Needs
+    you · Approve the cast and places", and a row in Needs you (one rule for both)."""
+    return {pid for pid, r in runs.items() if r.get("last") == director.CAST_WAIT
+            and not r.get("ended")}  # fmt: skip
+
+
+def cast_waits(db: Session, ids: list[int]) -> set[int]:
+    return waits_on_cast(_runs(db, ids))
+
+
 def _where(db: Session, job: Job | None, step: str, made: int, total: int) -> str:
     """Where a run stopped on its own, as "clip 4" or "the plan"."""
     if job is not None and job.input.get("step") == "clip_take":
@@ -168,6 +179,7 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
     failed = needs_you.failures(db, ids)
     waits = needs_you.waiting_on(db, projects, out_of_date(db, projects))
     runs = _runs(db, ids)
+    on_cast = waits_on_cast(runs)
     _, steps = progress(db, ids)
     asked, starts = asks.needing(db, ids), asks.starting(db, ids)
     out = {}
@@ -190,8 +202,8 @@ def statuses(db: Session, user: User, projects: list[Project], known: Facts) -> 
                 words=WORDS["needs_fix"],
                 reason=AT.format(_where(db, failed[p.id], steps[p.id], made, total)),
             )
-        elif run.get("last") == director.CAST_WAIT and not run.get("ended"):  # its run waits
-            s = Status(kind="needs_you", words=WORDS["needs_you"], reason=CAST_OK)  # on the OK
+        elif p.id in on_cast:  # its run waits on the OK
+            s = Status(kind="needs_you", words=WORDS["needs_you"], reason=CAST_OK)
         elif p.id in asked:  # the director's question waits (S-gaps-01 option 4)
             s = Status(kind="needs_you", words=WORDS["needs_you"], reason=asked[p.id])
         elif p.id in known.busy:

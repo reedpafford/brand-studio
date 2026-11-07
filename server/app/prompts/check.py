@@ -566,6 +566,25 @@ NOT_CUES = set(  # headings, transitions, camera and song words: never a speaker
 )
 
 
+def title_line(text: str) -> str:
+    """A video's name from its words (MAIN's run, video 233, was "INT. SMALL CITY APARTMENT -
+    NIGHT"): the first line with words in it, never a heading, a transition or a speaker's
+    cue (a line in capitals), a direction "(quietly)" or a ★ screen line, without its speaker
+    label ("MAYA: " or "Maya: "); else the first line at all."""
+    lines = [x.strip() for x in text.splitlines() if x.strip()]
+    for line in lines:
+        if (
+            line.startswith(SCREEN_LINE)
+            or DIRECTION.fullmatch(line)
+            or not re.search("[a-z]", line)
+        ):
+            continue
+        said = SPEAKER.sub("", line, count=1) if SPEAKER.match(line) else LABEL.sub("", line, 1)
+        if said := " ".join(DIRECTION.sub(" ", said).split()).strip(" \"'“”"):
+            return said
+    return lines[0] if lines else ""
+
+
 def _cue(line: str, brand: str = "") -> str | None:
     """The house label a screenplay's speaker line gives ("MAYA (V.O.)" is "MAYA (V.O.)"), or
     None: a heading, a transition ("CUT TO:", "FADE OUT."), a camera direction, more than three

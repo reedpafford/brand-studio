@@ -1901,3 +1901,15 @@ def test_each_beat_has_the_directors_own_name():
               "beats": [{"id": "b1", "name": "“Not in the script”", "lines": [1], "purpose": "hook",
                          "picture": "x"}]}  # fmt: skip
     assert any("isn't the script's words" in p for p in check.treatment(quoted, "A: Hi."))
+
+
+def test_a_pasted_screenplay_is_named_by_its_first_line_with_words_not_its_heading():
+    """MAIN's run, video 233 was named "INT. SMALL CITY APARTMENT - NIGHT": headings,
+    transitions, cues and directions are skipped, and a speaker's label is dropped."""
+    play = ("INT. SMALL CITY APARTMENT - NIGHT\n\nFADE IN:\n\nMAYA\n(whispering)\n"
+            "I just copied one trader on FOMO.\n")  # fmt: skip
+    assert check.title_line(play) == "I just copied one trader on FOMO."
+    assert check.title_line("SCENE 1\nMAYA: Rent's paid.") == "Rent's paid."
+    assert check.title_line("MAYA (20s, a hoodie) sits down.") == "MAYA sits down."
+    assert check.title_line("Every morning starts the same.") == "Every morning starts the same."
+    assert check.title_line("INT. KITCHEN - DAY") == "INT. KITCHEN - DAY"  # nothing else: as is

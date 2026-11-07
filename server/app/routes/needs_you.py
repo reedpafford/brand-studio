@@ -81,6 +81,13 @@ class HeldSend(BaseModel):
     script_id: int | None = None  # Read the script
 
 
+class CastWait(BaseModel):
+    """A video whose run waits on its cast and places OK (not a card: the Cast tab's press)."""
+
+    video: NeedsYouVideo
+    brand: NamedBrand
+
+
 class BrandCount(NamedBrand):
     count: int
 
@@ -92,6 +99,7 @@ class NeedsYouOut(BaseModel):
     money: list[NeedsYouRow]
     sends: list[HeldSend]  # money held outside any video, after `money`
     stuck: list[StuckVideo]
+    cast: list[CastWait] = []  # runs waiting on the cast and places OK (ideas.waits_on_cast)
 
 
 @router.get("/needs-you", response_model=NeedsYouOut)
@@ -109,8 +117,11 @@ def needs_you(brand_id: int | None = None, user: User = Depends(current_user),
     cards = [(a, p) for a, p in cards if asks.sync(db, a) not in ("answered", "not_needed")]
     stuck = _stuck(db, user)
     sends = _sends(db, user)
+    cast = _cast(db, user)
     counts: dict[int, int] = {}
-    every = [p.brand_id for _, p in cards] + [s.brand.id for s in stuck]
+    every = (
+        [p.brand_id for _, p in cards] + [s.brand.id for s in stuck] + [c.brand.id for c in cast]
+    )
     for b in every + [s.brand.id for s in sends if s.brand]:
         counts[b] = counts.get(b, 0) + 1
     brands = db.scalars(select(Brand).where(Brand.workspace_id == user.workspace_id,
@@ -122,11 +133,12 @@ def needs_you(brand_id: int | None = None, user: User = Depends(current_user),
             for a, p in keep]  # fmt: skip
     db.commit()
     return NeedsYouOut(
-        total=len(cards) + len(stuck) + len(sends), brands=shown,
+        total=len(cards) + len(stuck) + len(sends) + len(cast), brands=shown,
         questions=[r for r in made if r.ask.kind in asks.QUESTIONS],
         money=[r for r in made if r.ask.kind in asks.MONEY],
         sends=[s for s in sends if brand_id is None or s.brand and s.brand.id == brand_id],
-        stuck=[s for s in stuck if brand_id in (None, s.brand.id)])  # fmt: skip
+        stuck=[s for s in stuck if brand_id in (None, s.brand.id)],
+        cast=[c for c in cast if brand_id in (None, c.brand.id)])  # fmt: skip
 
 
 def _videos(db: Session, user: User, ids: set[int]) -> dict[int, Project]:
@@ -163,6 +175,18 @@ def _about(db: Session, p: Project, fs: Freestyle | None) -> str:
         style = ""
     seconds = p.planned_seconds or p.breakdown_seconds
     return ", ".join(x for x in (source, style, f"{seconds} s" if seconds else "") if x)
+
+
+def _cast(db: Session, user: User) -> list[CastWait]:
+    """The videos this person may see whose run waits on the cast and places OK."""
+    from app.ideas import cast_waits
+
+    query = select(Project.id).where(Project.workspace_id == user.workspace_id,
+                                     Project.archived_at.is_(None))  # fmt: skip
+    if not user.is_owner:
+        query = query.where(Project.created_by_id == user.id)
+    videos = _videos(db, user, cast_waits(db, list(db.scalars(query))))
+    return [CastWait(video=_video(db, p), brand=_brand(db, p)) for p in videos.values()]
 
 
 def _stuck(db: Session, user: User) -> list[StuckVideo]:
