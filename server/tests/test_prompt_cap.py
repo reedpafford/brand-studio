@@ -4,6 +4,7 @@ for 2.5, ran 4038–4780. A prompt over its model's limit is never sent: it's re
 free, and the writer is told the limit first; a request refused as invalid is never sent again
 unchanged and never counted as spent. Mocked Replicate and Claude: no paid calls."""
 
+import re
 from decimal import Decimal
 
 from app import clip_prompts, clip_takes
@@ -53,7 +54,8 @@ def test_a_prompt_too_long_for_its_model_is_rewritten_to_fit_never_sent(
     (fix,) = [j for j in jobs if j.input.get(clip_takes.FIT)]
     assert fix.input["clip_ids"] == [row.clip_id] and fix.credits == 0  # free
     told = fix.input["prompt"]  # its own instruction: shorten all else, keep these lines
-    assert "under 3400 characters" in told and 'every line that starts "Shot N |"' in told
+    assert "under 3400 characters" in told and "each shot's description in fewer words" in told
+    assert '"Shot N | a–b s."' in told and "every spoken or quoted line word for word" in told
     assert "the Keep: line" in told and "Change only the lines" not in told
     again = editor.post(f"{base}/clips/{row.id}/generate")  # while it's being rewritten
     assert again.status_code == 409
@@ -147,29 +149,37 @@ def _land(db, fix, clip_id, prompt, references):
     db.commit()
 
 
-def test_a_fit_that_drops_a_shot_keep_or_spoken_line_is_never_saved(
+PAD = "Warm window light, steam off the mug, the fridge hums, her keys lie on the counter. "
+
+
+def _curly(line: str) -> str:
+    return re.sub(r'"([^"]*)"', r"“\1”", line)
+
+
+def test_a_fit_that_shortens_the_shot_descriptions_is_saved_one_that_drops_a_shot_is_not(
     app,
     db,
     editor,
     setup,  # noqa: F811
     clip,  # noqa: F811
 ):
-    """QA on #1430: on the stand-ins a 4,780-character prompt came back at 293, its shots and
-    lines gone, and was saved and sent. A fit keeps every "Shot N |" line, the Keep: line and
-    every quoted line word for word, under the limit; else the old prompt stays, the clip says
-    so, and it counts as one of its two tries."""
+    """QA on #1430: 245's prompts ran 4,780 characters, mostly long shot descriptions, so a fit
+    must be free to say those shorter. It keeps each shot's start ("Shot N | a–b s.") in order,
+    every quoted line word for word (straight or curly quotes alike) and the Keep: line; one
+    that drops a shot (on the stand-ins a 4,780-character prompt came back at 293) is never
+    saved, the clip says so, and it counts as one of its two tries."""
     base = f"/projects/{setup['project']}"
     row = _on_two(db, clip)
-    long = f"{row.prompt}\n{'Lush detail. ' * 400}"
+    short = row.prompt.splitlines()
+    long = "\n".join(f"{x[:16]}{PAD * 23}{x[16:]}" if x.startswith("Shot ") else x for x in short)
+    assert 4700 < len(long) < 4800, len(long)  # as 245's
     row.prompt = long
     db.commit()
     editor.post(f"{base}/clips/{row.id}/generate")
     (fix,) = [j for j in db.query(Job) if j.input.get(clip_takes.FIT)]
-    shots = [x for x in long.splitlines() if x.startswith("Shot ")]
-    keep = [x for x in long.splitlines() if x.startswith("Keep: ")]
-    assert shots and keep  # the lines a fit must keep
     refs = row.references
-    _land(db, fix, row.clip_id, "A short prompt with nothing in it.", refs)
+    one_shot = "\n".join(x for x in short if not x.startswith("Shot 2 "))
+    _land(db, fix, row.clip_id, one_shot, refs)
     db.refresh(row)
     assert row.prompt == long  # never saved
     assert (row.change["note"], row.change["status"]) == (clip_prompts.FIT_NOTE, "failed")
@@ -177,27 +187,39 @@ def test_a_fit_that_drops_a_shot_keep_or_spoken_line_is_never_saved(
     editor.post(f"{base}/clips/{row.id}/generate")  # one try used: a second fit is asked
     fix2 = [j for j in db.query(Job) if j.input.get(clip_takes.FIT)][-1]
     assert fix2.id != fix.id
-    kept = "\n".join([*shots, *keep])  # every line kept, the rest said shorter
-    _land(db, fix2, row.clip_id, kept, refs)
+    fit = [f"{x[:16]}{PAD * 2}{x[16:]}" if x.startswith("Shot ") else x for x in short]
+    fit = [_curly(x) if x.startswith("Shot ") else x for x in fit]  # curly quotes, same words
+    _land(db, fix2, row.clip_id, "\n".join(fit), refs)
     db.refresh(row)
-    saved = row.prompt.splitlines()
-    assert all(x in saved for x in [*shots, *keep]) and len(row.prompt) < 4000  # it fits
-    assert row.prompt != long and (row.change or {}).get("status") != "failed"
+    assert len(row.prompt) < 3400 and row.prompt != long  # it fits
+    assert (row.change or {}).get("status") != "failed"
+    assert "“Nate, where is all your money?”" in row.prompt
 
 
-def test_a_fit_still_over_the_limit_is_never_saved():
-    job = Job(input={clip_takes.FIT: True, "before": "Shot 1 | a\nKeep: b", "fit_max": 10})
-    assert clip_prompts.fit_lost(job, "Shot 1 | a\nKeep: b").startswith(
+def test_a_fit_keeps_every_shot_and_quoted_line_and_stays_under_the_limit():
+    before = ("Shot 1 | 0–2 s. A long, slow push in on the kitchen. Theo says \"Yes.\"\n"
+              "Shot 2 | 2-5 s. Wide. Mom: “Go to your room.” The \"SALE\" sign blinks.\n"
+              "Keep: Mom as in [Image1].")  # fmt: skip
+    job = Job(input={clip_takes.FIT: True, "before": before, "fit_max": 200})
+    fits = clip_prompts.fit_lost
+    shorter = (
+        "Shot 1 | 0–2 s. Push in. Theo says “Yes.”\n"
+        'Shot 2 | 2–5 s. Mom: "Go to your room." "SALE" blinks.\nKeep: Mom as in [Image1].'
+    )
+    assert fits(job, shorter) == ""  # descriptions shorter, straight and curly quotes alike
+    lost = "The shortened prompt dropped"
+    assert fits(job, shorter.replace(" Theo says “Yes.”", " Theo nods.")).startswith(lost)
+    assert fits(job, shorter.replace('"SALE" blinks.', "")).startswith(lost)  # a quote
+    assert fits(job, shorter.replace("Go to your room.", "Go.")).startswith(lost)  # changed
+    assert fits(job, shorter.split("\nShot 2")[0] + "\nKeep: Mom as in [Image1].").startswith(
+        lost
+    )  # a shot dropped
+    assert fits(job, shorter.replace("2–5 s.", "2–6 s.")).startswith(lost)  # its times
+    assert fits(job, shorter.replace("\nKeep: Mom as in [Image1].", "")).startswith(lost)
+    assert fits(Job(input={**job.input, "fit_max": 20}), shorter).startswith(
         "The shortened prompt is still"
     )
-    assert clip_prompts.fit_lost(job, "Shot 1 | changed\nKeep: b").startswith(
-        "The shortened prompt dropped"
-    )
-    said = Job(
-        input={clip_takes.FIT: True, "before": 'Shot 1 | MOM: "Where is it?"', "fit_max": 99}
-    )
-    assert clip_prompts.fit_lost(said, 'Shot 1 | MOM: "Where is it?"\nKeep: b') == ""
-    assert clip_prompts.fit_lost(Job(input={}), "") == ""  # not a fit: nothing to check
+    assert fits(Job(input={}), "") == ""  # not a fit: nothing to check
 
 
 def test_two_presses_at_once_queue_one_fit_and_a_full_rewrite_comes_first(

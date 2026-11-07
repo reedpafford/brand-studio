@@ -344,9 +344,10 @@ def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: s
         raise HTTPException(409, STILL_LONG.format(**said))
     room = most - ROOM
     told = (f"Shorten this clip's prompt to under {room} characters ({model.name} takes at most "
-            f"{most}; it's {len(sent)}): say everything else in fewer words, and keep these "
-            "word for word: every line that starts \"Shot N |\", the Keep: line, and every "
-            "spoken line in quotes. Never drop a shot or a spoken line.")  # fmt: skip
+            f"{most}; it's {len(sent)}): say each shot's description in fewer words. Keep every "
+            "shot, in order, with its start as written (\"Shot N | a–b s.\"), every spoken or "
+            "quoted line word for word, and the Keep: line as it is. Never drop a shot or a "
+            "line someone says.")  # fmt: skip
     fix = fix_job(db, db.get(User, project.created_by_id), project, clip, [], told=told)
     fix.input = {**fix.input, FIT: True, "fit_max": most}
     db.commit()  # the fix stands whatever the refusal below rolls back

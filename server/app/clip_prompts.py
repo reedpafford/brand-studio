@@ -829,14 +829,29 @@ LIP_SYNC = re.compile(r"lip[- ]?sync|voice-?over|mouth stays closed", re.I)
 
 FIT_NOTE = "Shorten the prompt to fit its model"
 SHOT_LINE = re.compile(r"^Shot \d+ \|.*$", re.M)
-QUOTED = re.compile(r"[\w'.-]+(?: \([^)]*\))?: (“[^”]+”|\"[^\"]+\")")  # Mom (sharp): "Nate…"
+SHOT_START = re.compile(r"^Shot \d+ \|(?:\s*[\d.]+\s*[–-]\s*[\d.]+\s*s\b\.?)?")  # Shot 2 | 2–5 s.
+QUOTED = re.compile(r"[“\"]([^”\"]+)[”\"]")  # a spoken or quoted span, straight or curly
+
+
+def _starts(prompt: str) -> list[str]:
+    """Each shot's start, "Shot 2 | 2–5 s.", in order, spaces evened."""
+    found = (SHOT_START.match(x.strip()) for x in SHOT_LINE.findall(prompt))
+    return [re.sub(r"\s+", " ", m.group(0).replace("-", "–")) for m in found]
+
+
+def _quotes(prompt: str) -> list[str]:
+    """Every quoted span in the shot lines, its quotes straight or curly alike: spoken
+    ("Mom: “Nate…”", "Theo says "Yes."") or a word on screen."""
+    return [re.sub(r"\s+", " ", q).strip() for line in SHOT_LINE.findall(prompt)
+            for q in QUOTED.findall(line)]  # fmt: skip
 
 
 def fit_lost(job: Job, prompt: str) -> str:
     """What a fit to the model's prompt limit (clip_takes.FIT) got wrong, in plain words, or
-    "": every "Shot N |" line, the Keep: line and every quoted spoken line of the old prompt
-    kept word for word, and the new one under the limit (on the stand-ins a 4,780-character
-    prompt came back 293 characters long, its shots and lines gone)."""
+    "": each shot kept with its start ("Shot N | a–b s.") in order, every quoted span of the
+    shot lines word for word (straight or curly quotes), the Keep: line, and the whole under
+    the limit. A shot's description may be shorter: that's where a fit finds its room (on the
+    stand-ins a 4,780-character prompt came back 293 characters long, its shots gone)."""
     from app.clip_takes import FIT
 
     if not job.input.get(FIT):
@@ -844,8 +859,11 @@ def fit_lost(job: Job, prompt: str) -> str:
     before, most = job.input.get("before") or "", job.input.get("fit_max") or 0
     lines = {x.strip() for x in prompt.splitlines()}
     keep = [x.strip() for x in before.splitlines() if x.startswith("Keep: ")]
-    lost = [x.strip() for x in SHOT_LINE.findall(before) + keep if x.strip() not in lines]
-    lost += [q for q in QUOTED.findall(before) if q not in prompt]  # each spoken line said
+    said = set(_quotes(prompt))
+    lost = [x for x in keep if x not in lines]
+    lost += [q for q in _quotes(before) if q not in said]  # each spoken or quoted line
+    if _starts(prompt) != _starts(before):  # every shot, its times, in order
+        lost.append("a shot")
     if lost:
         return (f"The shortened prompt dropped or changed {len(lost)} of its Shot, Keep or "
                 "spoken lines.")  # fmt: skip
