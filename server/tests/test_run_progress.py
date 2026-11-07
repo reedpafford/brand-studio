@@ -626,6 +626,22 @@ def test_one_clip_is_said_as_one_clip_while_it_is_cut(app, db, owner, editor):
     assert (p["title"], p["sub"]) == ("Cutting it together", "1 clip made")
 
 
+def test_a_clip_redone_after_the_cuts_watch_says_what_it_found_and_did(app, db, owner, editor):
+    """QA (S6-03, S6-06, P-11): a clip the director made again because the watch of the cut
+    found something says so on the clip (rule 11): the take that was in the cut reads as
+    dropped, with what was found and what was done, as a take's own watch does."""
+    pid = _done(app, db, owner, editor)
+    (clip,) = owner.get(f"/projects/{pid}/clips").json()
+    first, second = sorted(clip["takes"], key=lambda t: t["number"])[:2]
+    w = first["watch"]
+    assert (w["action"], w["state"]) == ("redo", "done")
+    assert w["found"] == "the opening face changes between shots."  # the cut's watch's words
+    thread = owner.get(f"/projects/{pid}/director").json()["thread"]
+    assert not [m for m in thread if m["id"].startswith("w-")]  # its turn and the note say it
+    assert w["did"].startswith("Made it again on ") and w["did"].endswith(".")
+    assert clip["picked_take_id"] == second["id"]  # the new take is in the cut
+
+
 def test_a_takes_typical_time_never_counts_the_stand_ins(app, db, owner, editor):
     """The real-run audit: every take said "about 1 min" on the first real run, the median of
     the last 20 takes being all stand-ins'. Only real takes count; with none, the default."""
@@ -646,3 +662,30 @@ def test_a_takes_typical_time_never_counts_the_stand_ins(app, db, owner, editor)
     assert run_progress._Video(db, project, None, []).typical == run_progress.TYPICAL_TAKE
     took(240, "replicate", "p-real")
     assert run_progress._Video(db, project, None, []).typical == 240
+
+
+def test_a_later_take_is_never_said_to_fix_an_old_watch_of_the_cut(app, db, owner, editor):
+    """QA (#1395): after delivery, a person's "Warmer light in the kitchen" take of clip 1 has
+    nothing to do with the cut's old watch: the take it replaces keeps its own watch, so its
+    own chat line shows (rule 11). Nor is a take's own watch that acted ever overwritten."""
+    from app import director_tools, watch_cut
+    from app.models.accounts import User
+
+    pid = _done(app, db, owner, editor)
+    project, row = db.get(Project, pid), _clip(db, pid)
+    two = db.get(ClipTake, row.picked_take_id)
+    assert watch_cut.state(db, project)["findings"][0]["fix"] == "redo"  # the cut's newest watch
+    user = db.get(User, project.created_by_id)
+
+    note = {"tool": "make_take", "clip_id": "c1", "note": "Warmer light in the kitchen"}
+    said = director_tools.run(db, user, project, note, app.state.storage, {"id": "a-later-run"})
+    assert said == "Making 1 take.", said  # a person's note starts its own run
+    db.commit()  # as the director does after a tool
+    assert not (two.watch or {}).get("found")  # never "the opening face changes between shots"
+    its_run = watch_cut._newest(db, project).input["director_run"]
+    (found,) = watch_cut.redo_findings(db, project, its_run).values()  # only the watch's own run
+    own = {"state": "done", "action": "redo", "found": "Her hand blurs.", "at": "2026-11-06",
+           "did": "Made it again on Seedance 2.5."}  # fmt: skip
+    two.watch = own  # its own watch acted on it
+    watch_cut.redone(db, project, row, found, db.get(Job, two.job_id))
+    assert two.watch == own  # what its own watch found and did stays

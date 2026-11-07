@@ -1,3 +1,4 @@
+import { serverTime } from "../time";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Ellipsis, Pause, Play, RefreshCw, Lock, LockOpen, MapPin, Merge, MessageSquare, SlidersHorizontal, Trash2, Upload, UserRound, Users, WandSparkles } from "lucide-react";
@@ -58,7 +59,8 @@ function sourceTag(ci: CastItem | undefined, brand: string, phone: boolean, save
   return ci.source === "script" ? "Made for this script" : "Made for this video";
 }
 
-const hhmm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+// A server time is UTC (written without a zone): read as such, then shown in local time like the chat.
+const hhmm = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 
 /** "Revised 09:21 after your note · was ▣" (S-gaps-07 B): a look redrawn since it was first shown, with the one before. */
 function Revised({ ci, phone }: { ci: CastItem | undefined; phone: boolean }) {

@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from app import guides, host, p_video, song_breakdown, talker
+from app import director_song, guides, host, p_video, song_breakdown, song_takes, talker
 from app.catalogue import get_model
 from app.models.accounts import User
 from app.models.clips import FinalVideo
@@ -208,3 +208,60 @@ def test_seedance_1_lite_is_offered_for_b_roll_and_never_sent_a_sound_switch():
     sent, _ = p_video.fit("seedance-1-lite", {"prompt": "x", "generate_audio": True}, {})
     assert "generate_audio" not in sent
     assert p_video.fit("seedance-2.5", {"generate_audio": True}, {})[0]["generate_audio"]
+
+
+def test_a_saved_presenter_is_in_the_cast_with_its_own_voice_before_make_it(app, db, owner):
+    """QA (S5-02): a presenter video whose presenter is saved in the brand (Mark, his own voice
+    Roger). Before Make it, the Cast tab's Presenter reads the voice it will be read in (his,
+    never another saved voice), and Mark is in the cast list with the OK the chat card asks."""
+    from tests.conftest import first_brand, upload
+    from tests.helpers import with_sheet
+
+    brand = first_brand(owner)
+    mark = owner.post("/library/character", json={
+        "name": "Mark", "voice_stock_key": "Roger", "brand_ids": [brand],
+        "image_file_ids": [upload(owner)]}).json()  # fmt: skip
+    with_sheet(db, mark["id"])
+    body = {"type": "presenter", "look": "house", "shape": "9:16", "text": NARRATION,
+            "brand_id": brand, "cast_ids": [mark["id"]]}  # fmt: skip
+    sent = owner.post("/freestyles", json=body)
+    assert sent.status_code == 201, sent.text
+    _run(app, db, ticks=6, start=False)  # its plan, then its start card: nothing made yet
+    pid = owner.get(f"/freestyles/{sent.json()['id']}").json()["project_id"]
+    said = owner.get(f"/projects/{pid}/host").json()
+    assert (said["presenter_id"], said["voice"]) == (mark["id"], "Roger")  # his, not a clone
+    rows = owner.get(f"/projects/{pid}/assets").json()
+    (row,) = [r for r in rows if r["library_item_id"] == mark["id"]]
+    assert row["kind"] == "character" and row["name"] == "Mark"
+    cast = owner.get(f"/projects/{pid}/cast").json()
+    assert [i["library_item_id"] for i in cast["items"] if i["kind"] == "character"] == [mark["id"]]
+    # QA (#1395): the director names Sarah (director.md's first narration); his own voice is
+    # kept, so the narration is read in the voice the Cast tab showed
+    video = db.get(Project, pid, execution_options={"see_hidden": True})
+    me = db.get(User, video.created_by_id)
+    made = director_song.run(db, me, video, {"tool": "narration", "voice": "Sarah"}, {})
+    assert made == "Making the narration.", made
+    (take,) = song_takes.for_video(db, video)
+    assert take.voice == "Roger" == owner.get(f"/projects/{pid}/host").json()["voice"]
+
+
+def test_a_dr_pickle_presenter_keeps_its_clone_when_the_director_names_another(app, db, owner):
+    """QA (#1395): a presenter with no voice of his own in a style with one (Dr. Pickle's
+    clone). The director names Sarah; the clone is kept, as the Cast tab showed. (A House video
+    with neither takes the director's pick: test_freestyle_song.)"""
+    from app.models.voices import Voice
+    from tests.conftest import first_brand
+
+    body = {"type": "presenter", "look": "dr-pickle", "shape": "9:16", "text": NARRATION,
+            "brand_id": first_brand(owner)}  # fmt: skip
+    sent = owner.post("/freestyles", json=body)
+    assert sent.status_code == 201, sent.text
+    _run(app, db, ticks=6, start=False)  # its plan, then its start card: nothing made yet
+    video = _video(db, sent.json())
+    clone = f"voice:{db.query(Voice).filter_by(look='dr-pickle').one().id}"
+    assert owner.get(f"/projects/{video.id}/host").json()["voice"] == clone
+    me = db.get(User, video.created_by_id)
+    made = director_song.run(db, me, video, {"tool": "narration", "voice": "Sarah"}, {})
+    assert made == "Making the narration.", made
+    (take,) = song_takes.for_video(db, video)
+    assert take.voice == clone == owner.get(f"/projects/{video.id}/host").json()["voice"]
