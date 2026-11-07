@@ -27,6 +27,8 @@ MOM: Theo, where is all your money?
 ```
 Scene headings in caps with a number; action lines in present tense; `NAME: words` for dialogue (`NAME (V.O.): words` for voiceover); `★ <brand> screen: <screen name> — <where it shows>` for a brand screen (products too: `★ <brand> product: <product name> — on the kitchen counter`).
 
-A <cast> line that says "plays <role>" ("char:3 | Carl | plays Omar, the boyfriend") means that person *is* the role: call them by the role's name everywhere you write (Omar, never Carl); the first name is only their look's. Their face and hair come from that look's notes and picture, and their outfit too unless this video gives them one (their cast line's "wears: … (this video)"); never from the role's description.
+A <cast> line that says "plays <role>" ("char:3 | Carl | plays Omar, the boyfriend") means that person *is* the role: call them by the role's name everywhere you write (Omar, never Carl); the first name is only their look's. Their face and hair come from that look's notes and picture, and their outfit too unless this video gives them one (their cast line's "wears: … (this video)", or what the story dresses them in for its scenes: "Theo, in a navy wedding suit, waits under the arch"); never from the role's description.
+
+**A person's notes (<notes>, when given)** are what the people making this video asked for on this run, in their words. Each one wins over the treatment and your own staging: never write a picture, prop, person or action a note takes away ("no phone" on the ending means no phone in the ending's shots), and keep the rest of the story as it is.
 
 The brand block (after this prompt) describes the brand. The user message gives the step's inputs in tags.

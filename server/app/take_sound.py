@@ -187,6 +187,18 @@ def silent(db: Session, storage, take: ClipTake) -> bool:
         return not _probe(Path(tmp), "take.mp4", "a:0", "index")
 
 
+OWN = ("Refused: clip {}'s take was made with its own sound, the effects and room its prompt "
+       "wrote, so added sound effects would double them. A person can still add them on the "
+       "clip.")  # fmt: skip
+
+
+def own(db: Session, take: ClipTake | None) -> bool:
+    """The take was made with its own sound though nobody speaks (`clip_takes.own_sound`): the
+    director's add_sound leaves it alone, so one clip never gets both."""
+    made = db.get(Job, take.job_id) if take else None
+    return bool(made and (made.input or {}).get("own_sound"))
+
+
 def to_cut(db: Session, user: User, project: Project, storage, clip_id: str | None,
            asked: str) -> str:  # fmt: skip
     """The director's add_sound: one clip, or with none named every picked take in the cut
@@ -197,6 +209,8 @@ def to_cut(db: Session, user: User, project: Project, storage, clip_id: str | No
         rows = [r for r in rows if r.clip_id == clip_id]
         if not rows:
             return f"Refused: there's no clip {clip_id}."
+        if own(db, db.get(ClipTake, rows[0].picked_take_id or 0)):
+            return OWN.format(clip_id.removeprefix("c"))
     else:
         picked = [(r, db.get(ClipTake, r.picked_take_id)) for r in rows if r.picked_take_id]
         rows = [r for r, t in picked if not added(t) and silent(db, storage, t)]

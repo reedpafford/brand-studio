@@ -35,7 +35,8 @@ RUN = "director_run"  # a turn's run (director.RUN)
 WATCHED = "The watch found: "  # a remake's why when the watch of the cut asked for it
 DONE = ("done", "redone", "text", "flagged")  # a clip with a take in hand
 ORDER = ("read", "plan", "cast", "voice", "stills", "prompts", "takes", "watching", "host", "cut")
-PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "song": "voice",
+PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "outfit": "cast",
+          "song": "voice",
           "narration": "voice", "storyboard": "stills", "stills": "stills",
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
           "split_clip": "plan",

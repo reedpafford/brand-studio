@@ -409,6 +409,45 @@ def answer_place(db: Session, user: User, project: Project, subject: str, data: 
         repoint(db, user, project, dict.fromkeys(at, f"place:{own.id}"))
 
 
+def dress(db: Session, project: Project, name: str, worn: str) -> str:
+    """The director's outfit: what the story dresses a character in for this video (226: the
+    script's "Nate, in a navy wedding suit", against his sheet's green jacket), as the Cast
+    tab's outfit sets it. The sheet still sets the face, hair and build; the stills, the cast
+    line ("wears: … (this video)") and every clip's Keep line wear this. Free. An outfit already
+    set (a person's) stays theirs; a change after the cast and places OK asks for it again."""
+    from app import cast_roles, locks
+
+    if no := locks.refusal(project, "cast"):
+        return no
+    worn = " ".join(worn.split())[:200]
+    plays = {f"char:{c}": [s.role for s in slots]  # Kid plays Nate: either name finds him
+             for c, slots in cast_roles.cast_roles(db, project).items()}  # fmt: skip
+    found = next(
+        (
+            i
+            for i in cast_gate.current(db, project)
+            if i["kind"] == "character"
+            and any(cast_roles.same(n, name) for n in [i["name"], *plays.get(i["ref"], [])])
+        ),
+        None,
+    )
+    if found is None or not found["ref"].startswith("char:"):
+        return (
+            f"Refused: there's no {name} with a look in this video yet."
+            if found is None or found["kind"] == "character"
+            else f"Refused: {name} isn't a character."
+        )
+    if not worn:
+        return "Refused: say what they wear."
+    had = (project.outfits or {}).get(found["ref"]) or ""
+    if had and had != worn:
+        return (f"Refused: {name} already wears {had} in this video; a person changes "
+                "it in Cast.")  # fmt: skip
+    project.outfits = {**(project.outfits or {}), found["ref"]: worn}
+    db.commit()
+    return f"{name} wears {worn} in this video; their sheet still sets the face."
+
+
 def change_look(db: Session, user: User, project: Project, name: str, note: str) -> str:
     """The director's change_look, as Change this… on the card: a look made for this video is
     drawn again with the change; a role played by a saved character, or a brand place, gets
@@ -418,7 +457,7 @@ def change_look(db: Session, user: User, project: Project, name: str, note: str)
     from app.routes.project_assets import _make_look, _open_slot
 
     if no := locks.refusal(project, "cast"):
-        return f"Refused: {no}"
+        return no
     note = note.strip()[:500]
     found = next((i for i in cast_gate.current(db, project)
                   if cast_roles.same(i["name"], name)), None)  # fmt: skip

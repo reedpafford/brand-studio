@@ -70,14 +70,17 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     attached = [r["id"] for r in clip.references or []]
     shown = cast_gate.refs(db, project, breakdown, shots, attached, known)
     if check:  # then the cast and places OK (a price read needs none)
+        require_speakers(db, project, clip, _shots(breakdown, shots))
         cast_gate.require(db, project, shown, known)
     resolution = model_map.resolution(model)
+    speaks = on_camera_speech(db, project, clip, _shots(breakdown, shots))
+    own = not speaks and own_sound(db, project, clip)
     take, sent = p_video.fit(model.id, {
         "prompt": _with_note(in_english(prompt), note),
         "duration": clip.seconds,
         "resolution": resolution,
         "aspect_ratio": project.aspect_ratio,
-        "generate_audio": on_camera_speech(db, project, clip, _shots(breakdown, shots)),
+        "generate_audio": speaks or own,
     }, {k: v for k, v in files.items() if v})  # fmt: skip
     take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
     return {
@@ -85,6 +88,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "project_id": project.id,
         "project_clip_id": clip.id,
         "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
+        **({OWN_SOUND: True} if own else {}),  # its sound is its room and effects, no line
         **({"note": note} if note else {}),  # its Redo note, kept for a look-alike's retries
         "model": model.id,
         "made_with": {  # VS1: what the take is made with; OR3: its prompt's version
@@ -159,6 +163,56 @@ def on_camera_speech(db: Session, project: Project, clip: ProjectClip, shots: li
         return bool((clip.song_slice or {}).get("sung_shots"))
     return any(s.get("line") and s.get("speaker") and not VOICE_OVER.search(s["speaker"])
                for s in shots)  # fmt: skip
+
+
+NO_SHEET = ("{who} speaks on camera in this clip, but no one in its shots has a character "
+            "sheet, so every take would invent their face. Give them a look first in Cast (an "
+            "approved still of them can be their picture), then add them to these shots. "
+            "Nothing was charged.")  # fmt: skip
+LABELLED_OFF = re.compile(r"^\s*[^:]{1,60}\([^)]*\)\s*:")  # "MOM (O.S.):": heard, maybe unseen
+
+
+def require_speakers(db: Session, project: Project, clip: ProjectClip, shots: list[dict]) -> None:
+    """Someone speaks on camera in the clip, so a character sheet reaches it: a clip whose
+    shots list nobody and that attaches no sheet has nothing to hold the speaker's face (video
+    233: Maya's look never reached a shot, and each clip's first frame made its own Maya,
+    three faces in 17 s). Refused before any charge. A line the script labels with a
+    parenthetical ("(O.S.)", "(ON PHONE)") may be heard over an empty frame: left alone."""
+    if (any(s.get("character_ids") for s in shots) or not on_camera_speech(db, project, clip, shots)
+            or any(r["id"].startswith("char:") for r in clip.references or [])):  # fmt: skip
+        return
+    from app.cast_roles import labels, video_slots
+    from app.routes.scripts import latest
+    from app.storyboard import cast_looks
+
+    words = latest(db, project)
+    lines = words.text.splitlines() if words else []
+    cast = [s.role for s in video_slots(db, project)] + [i.name for i in cast_looks(db, project)]
+    for s in shots:
+        said = [lines[n - 1] for n in s.get("script_lines") or [] if 0 < n <= len(lines)]
+        if (s.get("line") and s.get("speaker") and not VOICE_OVER.search(s["speaker"])
+                and any(labels(s["speaker"], c) for c in cast)  # one of this video's characters
+                and not any(LABELLED_OFF.match(x) for x in said)):  # fmt: skip
+            who = s["speaker"].strip().title() if s["speaker"].isupper() else s["speaker"].strip()
+            raise HTTPException(409, NO_SHEET.format(who=who))
+
+
+OWN_SOUND = "own_sound"  # in a take's job input: made with its own sound, though nobody speaks
+QUIET = re.compile(r"^Audio: no one speaks \(no voices, narration or dialogue\), only silence\b")
+
+
+def own_sound(db: Session, project: Project, clip: ProjectClip) -> bool:
+    """A story video's clip with no line is made with its own sound: the room and the effects
+    its prompt writes (226: the wind, the bouquet's thump, the car and the ding were written,
+    then made silent, so its last 14 s were digital silence). A story's cut plays its takes'
+    own sound, so a silent take is a silent stretch. The clip prompt writes that sound from the
+    style's guide, and "only silence" where the guide wants the shot silent; a narrated or song
+    video's B-roll stays silent under its voice (sound effects there are `add_sound`'s)."""
+    from app import plans
+
+    if clip.song_slice or plans.fmt(db, project) != "dialogue":
+        return False
+    return not QUIET.match((clip.prompt or "").lstrip())
 
 
 def fits_model(db: Session, project: Project, clip: ProjectClip) -> None:
@@ -435,6 +489,24 @@ def take_warning(db: Session, row: ProjectClip) -> str | None:
                 "looked too much like someone else's character or video. Change the look or "
                 "the opening shot first, or this take may be refused too.")  # fmt: skip
     return None
+
+
+# A note that takes away or swaps something ("no phone", "without the hat", "instead of the
+# car"): the thing it names, to look for in the prompt (226 c4, A7 in session 35's costs)
+TAKES_AWAY = re.compile(
+    r"\b(?:no|without|remove|replace|instead of)\s+"  # never "not": "not wide enough"
+    r"(?:the |a |an |any |his |her |their |its )?([a-z][a-z-]{2,})",
+    re.I,
+)
+
+
+def contradicts(prompt: str, note: str) -> bool:
+    """A redo note that takes away or swaps something the clip's prompt shows: appended under
+    the prompt, both would stand ("phone lighting up in his hand", then "no phone"), so the
+    prompt is rewritten with it instead (Change it…)."""
+    words = set(re.findall(r"[a-z-]+", (prompt or "").lower()))
+    found = [m[1].lower() for m in TAKES_AWAY.finditer(note or "")]
+    return any(w in words or w.removesuffix("s") in words or f"{w}s" in words for w in found)
 
 
 def _with_note(prompt: str, note: str) -> str:

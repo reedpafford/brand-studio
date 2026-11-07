@@ -179,10 +179,12 @@ def keeps_every_word(db: Session, tl: dict) -> None:
 
 
 def _speaks(db: Session, take: ClipTake | None) -> bool:
-    """The take was made with sound, so it may say a line (silent B-roll says nothing)."""
+    """The take was made with sound for its lines, so it may say one (silent B-roll says
+    nothing, nor does a take with only its own room and effects: `clip_takes.own_sound`)."""
     job = db.get(Job, take.job_id) if take else None
     given = (job.input or {}) if job else {}
-    return bool((given.get("input") or {}).get("generate_audio")  # made with its sound
+    return bool(((given.get("input") or {}).get("generate_audio")  # made with its sound
+                 and not given.get("own_sound"))
                 or (given.get("files") or {}).get("audio"))  # lip-synced to a voice  # fmt: skip
 
 
