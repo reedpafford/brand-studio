@@ -585,6 +585,35 @@ def carry_left(db: Session, project: Project, whole: bool = False) -> Decimal | 
     return left if left > 0 else None
 
 
+def carry_offer(db: Session, project: Project, viewer: User | None) -> str | None:
+    """The newest run's Carry on as GET /director offers it, the same press and price its
+    record's card shows (`record`: a person's Stop, or a fault it stopped at): "" with no
+    figure (the uncapped owner's), the price, or None when there's none to press (a delivered,
+    declined or withdrawn run, a Carry on held for the owner, or the real-AI budget would
+    refuse it). Video 240: the card waited on /progress, so "Make it again" showed alone."""
+    from app import director
+    from app.credits import uncapped
+
+    turns = director.turns(db, project)
+    if not turns or director.active(db, project):
+        return None
+    how, _ = ending(turns)
+    owner = bool(viewer and viewer.is_owner)
+    starter = db.get(User, (turns[-1].input.get(RUN) or {}).get("by") or 0)
+    if how == "needs_fix":
+        if budget_now(db, project, turns):
+            return None
+        return "" if uncapped(starter) else money(price_of(db, project), owner)
+    if how != "stopped" or not any(j.input.get(STOPPED_BY) for j in turns):
+        return None
+    if uncapped(starter) and carry_left(db, project, whole=True) is not None:
+        return ""
+    if director._carry_waiting(db, project) is not None:
+        return None
+    left = carry_left(db, project)
+    return money(left if left else price_of(db, project), owner)
+
+
 def dollars(credits: Decimal) -> float:
     """Credits as the owner reads them, in dollars at the header's rate (`ideas._money`)."""
     from app.models.credits import USD_PER_CREDIT

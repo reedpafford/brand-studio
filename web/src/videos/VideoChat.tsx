@@ -436,11 +436,19 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const blocked = run?.start_blocked || null;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
   const stopped = progress?.stopped ? stoppedParts({ progress, onCarryOn: () => (planAgain.reset(), carry.mutate()), onPlanAgain: () => (carry.reset(), planAgain.mutate()), busy: carry.isPending, planBusy: planAgain.isPending, blocked, error: (carry.error ?? planAgain.error)?.message ?? null }) : null;
+  // An ended run's Carry on from /director itself, while its card (from /progress) isn't there to offer it: never "Make it
+  // again" (a new run, its treatment and start card again) as the only way on (video 240).
+  const carryOn = ended && !progress && run?.carry_on != null ? run.carry_on : null;
   const presses = !archived && !lookOnly && (
     <>
+      {carryOn !== null && mayStart && p && (
+        <Button dense busy={carry.isPending} disabled={!!blocked} reason={blocked} onClick={() => carry.mutate()}>
+          {carryOn ? `Carry on · up to ${carryOn}` : "Carry on"}
+        </Button>
+      )}
       {ended && mayStart && p && (
         // The owner's price in dollars, an editor's in credits (rule 4), as every press says it.
-        <Button variant={noted || state === "none" ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={owner ? undefined : run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
+        <Button variant={(noted || state === "none") && carryOn === null ? "primary" : "secondary"} dense busy={again.isPending} disabled={!!blocked} reason={blocked} price={owner ? undefined : run?.run_price || undefined} charge="estimate" onClick={() => again.mutate()}>
           {run?.run_expected_usd != null ? `${startLabel} · about $${run.run_expected_usd.toFixed(2)}` : owner && run?.run_price ? `${startLabel} · ${upTo(head, run.run_price)}` : startLabel}
         </Button>
       )}

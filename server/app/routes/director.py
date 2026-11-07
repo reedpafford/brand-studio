@@ -265,6 +265,8 @@ class DirectorOut(BaseModel):
     waiting: list[WaitingQuestion] = []  # open questions, oldest first: the pinned bar (S4-03)
     make_it: int | None = None  # its start card, when this person may press Make it (S3-02):
     # POST /asks/{id}/answer {"how": "make_it"}; null otherwise (an editor's held send waits)
+    carry_on: str | None = None  # an ended run's Carry on (POST …/carry-on): its price, ""
+    # with none to show (the uncapped owner's); null when there's none (run_progress.carry_offer)
 
 
 def _out(db: Session, user: User, project) -> DirectorOut:
@@ -299,7 +301,9 @@ def _out(db: Session, user: User, project) -> DirectorOut:
                        spent=float(director.charged(db, project)), started=started,
                        waiting=[WaitingQuestion(id=a.id, topic=a.topic, question=a.question)
                                 for a in asks.waiting(db, project)],
-                       make_it=_make_it(db, user, project))  # fmt: skip
+                       make_it=_make_it(db, user, project),
+                       carry_on=run_progress.carry_offer(db, project, user)
+                       if status == "ended" else None)  # fmt: skip
 
 
 def _make_it(db: Session, user: User, project) -> int | None:

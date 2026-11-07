@@ -7419,6 +7419,8 @@ export interface components {
             waiting: components["schemas"]["WaitingQuestion"][];
             /** Make It */
             make_it?: number | null;
+            /** Carry On */
+            carry_on?: string | null;
         };
         /** Dot */
         Dot: {

@@ -453,3 +453,20 @@ def test_a_run_at_its_own_cost_backstop_carries_on_as_a_new_run(app, db, owner, 
     monkeypatch.setattr(director, "spent", lambda db, run_id, p: director.MAX_USD + 1
                         if run_id == old else real(db, run_id, p))  # past it  # fmt: skip
     _carries_on_as_a_new_run(app, db, owner, pid)
+
+
+def test_director_offers_the_same_carry_on_as_the_runs_card(app, db, owner, editor):
+    """Video 240: the Carry on press came only with /progress's card, so while it wasn't there
+    the chat showed "Make it again" alone (a new run). GET /director offers the same press at
+    the same price: a run that stopped itself, a person's Stop; none once it's going."""
+    pid = _stopped_itself(app, db, owner, editor)
+    for who in (owner, editor):
+        card = who.get(f"/projects/{pid}/director/progress").json()["failed"]["fixes"]
+        (fix,) = [f for f in card if f["kind"] == "carry_on"]
+        assert who.get(f"/projects/{pid}/director").json()["carry_on"] == fix["price"] != ""
+    pid = _stopped(app, db, owner, editor)
+    for who in (owner, editor):
+        card = who.get(f"/projects/{pid}/director/progress").json()["stopped"]["carry_on"]
+        assert who.get(f"/projects/{pid}/director").json()["carry_on"] == card != ""
+    assert editor.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    assert editor.get(f"/projects/{pid}/director").json()["carry_on"] is None  # it goes on
