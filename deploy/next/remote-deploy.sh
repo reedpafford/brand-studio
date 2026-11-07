@@ -10,6 +10,30 @@
 # NARRATION_MUSIC_BUDGET and SITE_READ_REAL; ITEM_CHECK_SCOPE and OWNER_UNCAPPED either way.
 set -euo pipefail
 
+# Swap, made once (Reed approved, 7 Nov): the build and local Whisper share this server's memory.
+# 4 GB at /swapfile (2 GB when the disk has under 20 GB free). Nothing when swap is already on.
+# Each step only warns: swap never fails a deploy.
+as_root() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo -n "$@"; fi; }
+add_swap() {
+  if [ -n "$(swapon --show=NAME --noheadings 2>/dev/null)" ]; then echo "Swap is already on."; return 0; fi
+  local size=4096 free_gb
+  free_gb=$(df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc 0-9)
+  [ "${free_gb:-0}" -ge 20 ] || size=2048
+  echo "Adding ${size} MB of swap at /swapfile (${free_gb:-?} GB free)."
+  as_root fallocate -l "${size}M" /swapfile \
+    || as_root dd if=/dev/zero of=/swapfile bs=1M count="$size" status=none \
+    || { echo "::warning::Couldn't make /swapfile; the deploy goes on without swap."; return 0; }
+  as_root chmod 600 /swapfile || echo "::warning::Couldn't chmod 600 /swapfile."
+  as_root mkswap /swapfile >/dev/null || { echo "::warning::mkswap /swapfile failed; no swap."; return 0; }
+  as_root swapon /swapfile || { echo "::warning::swapon /swapfile failed; no swap."; return 0; }
+  grep -qs '^/swapfile ' /etc/fstab \
+    || echo '/swapfile none swap sw 0 0' | as_root tee -a /etc/fstab >/dev/null \
+    || echo "::warning::Couldn't add /swapfile to /etc/fstab; it's off after a restart."
+  as_root sysctl -q vm.swappiness=10 || echo "::warning::Couldn't set vm.swappiness=10."
+  echo 'vm.swappiness=10' | as_root tee /etc/sysctl.d/99-brand-studio-swap.conf >/dev/null \
+    || echo "::warning::Couldn't keep vm.swappiness=10 after a restart."
+}
+
 main() {
   REPO=https://github.com/reedpafford/brand-studio.git
   APP="$HOME/brand-studio-next"
@@ -106,6 +130,8 @@ main() {
   df -h / "$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)" || true
   free -m || true
   docker system df || true
+  add_swap || echo "::warning::Adding swap failed; the deploy goes on without it."
+  free -m || true
   echo "::endgroup::"
   docker image prune -f || true
   docker builder prune -f --filter until=24h || true
