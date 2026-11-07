@@ -297,3 +297,37 @@ def test_with_nothing_to_read_the_press_says_so_instead_of_a_price(owner, narrat
     assert (shown["songs_note"], shown["estimate_credits"]) == (narration.NO_WORDS, 0)
     _words(owner, narrated, WORDS)
     assert owner.get(f"{narrated}/songs").json()["songs_note"] is None
+
+
+def test_whispers_read_has_time_for_a_long_take_and_one_more_try(tmp_path, monkeypatch):
+    """The real-run audit: during a deploy's build, local Whisper ran past its fixed 180 s on
+    a real UGC narration twice, and the run ended. Its time now grows with the take (never
+    under 180 s, at most 900 s) and it's tried once more on its own, free, before it fails,
+    in plain words."""
+    import subprocess
+
+    from app import song_timing
+
+    asked = []
+
+    def run(args, timeout=song_timing.TIMEOUT):
+        asked.append(timeout)
+        if len(asked) == 1:
+            raise subprocess.TimeoutExpired(args, timeout)
+        return subprocess.CompletedProcess(args, 0, stdout=b'[{"word": "hi", "start": 0.1}]')
+
+    monkeypatch.setattr(song_timing, "_run", run)
+    monkeypatch.setattr(song_timing, "length", lambda path: 100.0)
+    assert song_timing.words(tmp_path / "v.mp3", "Hi.") == [{"word": "hi", "start": 0.1}]
+    assert asked == [600, 600]  # 6 s a second of a 100 s take, then once more
+    monkeypatch.setattr(song_timing, "length", lambda path: 8.0)
+    assert song_timing.read_timeout(tmp_path / "v.mp3") == song_timing.TIMEOUT  # the floor
+    monkeypatch.setattr(song_timing, "length", lambda path: 400.0)
+    assert song_timing.read_timeout(tmp_path / "v.mp3") == song_timing.MOST  # the cap
+
+    def slow(args, timeout=song_timing.TIMEOUT):
+        raise subprocess.TimeoutExpired(args, timeout)
+
+    monkeypatch.setattr(song_timing, "_run", slow)
+    with pytest.raises(RuntimeError, match=r"^Reading the sung words took too long\.$"):
+        song_timing.words(tmp_path / "v.mp3", "Hi.")  # twice: then it says so plainly

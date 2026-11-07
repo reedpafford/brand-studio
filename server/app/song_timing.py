@@ -27,6 +27,10 @@ HOP = 0.01  # s per energy frame
 BPM = (70, 180)  # tempos we look for; ads sit near 120
 BEATS_PER_BAR = 4
 TIMEOUT = 180
+# Whisper's read of a take: never under TIMEOUT, more for a longer take (it ran past 180 s on
+# a real UGC narration while a deploy built on the same server), and tried once more on its
+# own (free, local) before it's said to have failed.
+PER_SECOND, MOST = 6, 900
 MAX_SECONDS = 900  # far longer than any ad (the stand-ins make one past the cap)
 PEAKS = 200  # waveform points for the screens
 
@@ -112,16 +116,31 @@ def beats(samples: array, seconds: float) -> tuple[float, list[float]]:
     return round(60 / step, 1), times
 
 
-def words(path: Path, lyrics: str) -> list[dict]:
-    """Local Whisper, prompted with the lyrics: [{word, start, end}]."""
-    args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics]
+def read_timeout(path: Path) -> int:
+    """How long Whisper may take on this file: TIMEOUT at least, PER_SECOND of its length
+    more, MOST at most (a file that can't be measured gets TIMEOUT)."""
     try:
-        done = _run(args)
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("Reading the sung words took too long.") from None
-    if done.returncode != 0:
-        raise RuntimeError(f"Reading the sung words failed ({done.returncode}).")
-    return json.loads(done.stdout)
+        seconds = length(path)
+    except (ValueError, subprocess.TimeoutExpired):
+        return TIMEOUT
+    return min(MOST, max(TIMEOUT, round(PER_SECOND * seconds)))
+
+
+def words(path: Path, lyrics: str) -> list[dict]:
+    """Local Whisper, prompted with the lyrics: [{word, start, end}]. Tried once more on its
+    own (free, on our server) when it runs out of time or fails, before it's said to fail."""
+    args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics]
+    timeout, why = read_timeout(path), ""
+    for _ in range(2):
+        try:
+            done = _run(args, timeout)
+        except subprocess.TimeoutExpired:
+            why = "Reading the sung words took too long."
+            continue
+        if done.returncode == 0:
+            return json.loads(done.stdout)
+        why = f"Reading the sung words failed ({done.returncode})."
+    raise RuntimeError(why)
 
 
 def _norm(word: str) -> str:

@@ -188,8 +188,40 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
                   {"song_key": song.key, "lyrics": lyrics, "step": "song_timing",
                    "spread": spread, **read},
                   units=0, provider="local", prepaid=True)  # fmt: skip
+    job.project_id = take.project_id  # it shows with its video's jobs (free: no video checks)
     take.timing_job_id = job.id
     db.commit()
+
+
+UNREADABLE = (music.TIMING_UNREADABLE, music.TIMING_TOO_LONG, narration.TIMING_UNREADABLE)
+REREAD = "reread"  # in a timing job: the director read it again after its own retry failed
+
+
+def time_again(db: Session, job: Job) -> None:
+    """A take's timing read failed: read it once more on its own (free, on our server), unless
+    it was already a retry or the file itself can't be read (trying again won't help)."""
+    if job.auto or job.retry_of_id or job.input.get(REREAD) or job.error in UNREADABLE:
+        return
+    for take in _by_job(db, SongTake.timing_job_id, job):
+        _time(db, take, db.get(User, job.created_by_id), spread=bool(job.input.get("spread")))
+        again = db.get(Job, take.timing_job_id)
+        again.auto, again.retry_of_id = True, job.id
+        db.commit()
+
+
+def reread(db: Session, take: SongTake, user: User) -> None:
+    """The director reads a take's failed timing again (free): once, after its own retry."""
+    _time(db, take, user)
+    job = db.get(Job, take.timing_job_id)
+    job.input = {**job.input, REREAD: True}
+    db.commit()
+
+
+def reread_once(db: Session, take: SongTake) -> bool:
+    """Whether the director may still read this take's failed timing again: its timing can be
+    read (`state`'s retry says so) and it isn't a reread already."""
+    timing = db.get(Job, take.timing_job_id) if take.timing_job_id else None
+    return bool(timing) and state(db, take)[2] and not timing.input.get(REREAD)
 
 
 def save_timing(db: Session, job: Job) -> None:

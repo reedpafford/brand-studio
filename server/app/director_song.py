@@ -94,7 +94,11 @@ def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dic
     lines = timing.get("lines") or []
     sung = [x for x in lines if (x.get("heard") or 0) >= HOOK]
     gaps = [b["start"] - a["end"] for a, b in zip(sung, sung[1:], strict=False)]
+    timing_job = db.get(Job, take.timing_job_id) if take.timing_job_id else None
+    again = status == "timing" and timing_job is not None and bool(
+        timing_job.retry_of_id or timing_job.input.get(song_takes.REREAD))  # fmt: skip
     return {"id": take.id, "number": take.number, "state": status, "used": take.id == used,
+            **({"note": "Its timing failed; reading it again (free)."} if again else {}),
             "preferred": bool(take.preferred), "timed": take.timing is not None,
             "seconds": timing.get("seconds"),
             "sections": [s.get("name") for s in timing.get("sections") or []],
@@ -198,9 +202,16 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         song_takes.use_in_video(db, project, best)
         return f"Using take {best.number} for the {what}."
     if takes and not asked:
-        failed = [t for t in takes if song_takes.state(db, t)[0] == "failed"]
-        if len(failed) != len(takes):
-            return f"Refused: the {what} is still being made."
+        if any(song_takes.state(db, t)[0] in ("making", "timing") for t in takes):
+            return f"Refused: the {what} is still being made."  # a job of it is running
+        # Nothing runs and nothing is ready: a take whose timing failed is read again first
+        # (free, once after its own retry; Carry on after a stop gets here too), then it's
+        # failed, as one the service didn't make: a remake, or another take.
+        if again := next((t for t in takes if song_takes.state(db, t)[0] == "timing_failed"
+                          and song_takes.reread_once(db, t)), None):  # fmt: skip
+            song_takes.reread(db, again, user)
+            return f"Reading take {again.number}'s timing again: free."
+        failed = takes
         reason = song_takes.state(db, failed[0])[1] or ""
         if reason in REFUSED or run.get("song_retries", 0) >= 1:  # the same would fail again
             return f"Refused: the {what} didn't come out ({reason}) Make it again with a note."
@@ -209,6 +220,9 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice,
                         delivery=run.get("song_delivery"))  # fmt: skip
         run["song_retries"] = run.get("song_retries", 0) + 1  # charged only if it's made
+        if any(song_takes.state(db, t)[0] == "timing_failed" for t in takes):
+            return (f"Making the {what} again: its timing couldn't be read, so nothing used "
+                    "it. It's charged only once it's made.")  # fmt: skip
         return f"Trying the {what} again: the service failed, nothing was charged."
     if takes and run.get(REMADE, 0) >= REMAKES:
         return AGAIN.format(what=what)
