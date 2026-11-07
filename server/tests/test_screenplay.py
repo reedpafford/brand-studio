@@ -31,8 +31,8 @@ HOUSE = """INT. KITCHEN - NIGHT
 
 Maya stares at her phone.
 
-(quietly)
 MAYA: I never wanted this. Not like this.
+(quietly)
 
 TOM (O.S.): Then why are you here?
 
@@ -55,7 +55,8 @@ def test_a_screenplay_is_read_as_the_house_script_with_the_same_cast_and_words(o
     edited = _make(owner, text="")  # written into the script's own box
     r = owner.put(f"/scripts/{edited['id']}/drafts/0", json={"text": SCREENPLAY})
     assert r.json()["versions"][0]["text"] == HOUSE
-    assert lib.house(Script(kind="song"), SCREENPLAY) == SCREENPLAY  # a song's CHORUS is no one
+    for kind in ("song", "narrated"):  # a song's CHORUS is no one; a narration has one voice
+        assert lib.house(Script(kind=kind), SCREENPLAY) == SCREENPLAY
     body = {"type": "dialogue", "look": "house", "shape": "9:16", "text": SCREENPLAY,
             "brand_id": first_brand(owner)}  # fmt: skip
     sent = owner.post("/freestyles", json=body)  # New video, as video 233 was pasted
@@ -74,4 +75,30 @@ def test_headings_transitions_and_directions_are_never_speakers():
     assert check._cue("DR. PICKLE (V.O.)") == "DR. PICKLE (V.O.)"
     house = "MAYA: Hi.\nBOOM\nThe door blows."  # labelled already: as it is
     assert check.screenplay(house) == house
-    assert check.screenplay("SUPER: fomo\nMAYA\nHi.") == "SUPER: fomo\nMAYA: Hi."
+    said = "SUPER: fomo\n\nMAYA\nHi.\n\nMAYA\nBye."  # a direction's colon is no speaker's label
+    assert check.screenplay(said) == "SUPER: fomo\n\nMAYA: Hi.\n\nMAYA: Bye."
+
+
+# QA on #1401: one line in capitals in an ordinary script is never a speaker
+ORDINARY = [
+    "Nate opens the app.\nFOMO\nThe chart climbs.",
+    "WHERE DID THE FOOD GO",
+    "NO WAY",
+    "THE DIP\nYour gut is a mess.",
+    "NBA\nThe game is on.",
+    "OPEN",
+    "DOWNLOAD FOMO\nLink in bio.",
+    "She waits.\n\nNO WAY\nShe laughs.\n\nOPEN\nThe door swings.\n\nNBA\nThe game is on.",
+    "He reads it.\n\nFOMO\nThe app opens.\n\nFOMO\nThe chart climbs.",  # the brand, twice
+]
+
+
+def test_an_ordinary_script_with_a_line_in_capitals_is_left_as_it_is(owner):
+    for text in ORDINARY:
+        assert check.screenplay(text, "fomo") == text, text
+    made = _make(owner, text="")  # the editor's autosave never rewrites under the cursor
+    for text in ORDINARY:
+        r = owner.put(f"/scripts/{made['id']}/drafts/0", json={"text": text})
+        assert r.json()["versions"][0]["text"] == text, text
+    two = "INT. CAR - DAY\nMAYA\nHi.\nTOM\nHey.\nMAYA\nBye."  # one name twice: a screenplay
+    assert check.screenplay(two) == "INT. CAR - DAY\nMAYA: Hi.\nTOM: Hey.\nMAYA: Bye."

@@ -204,10 +204,15 @@ HISTORY = 20  # earlier texts kept per version (Producer, 2026-10-25)
 def house(script: Script, text: str) -> str:
     """A person's words as the script keeps them: a screenplay's speakers in the house's
     "MAYA: …" form (check.screenplay), so its cast, its speakers and its spoken words are read
-    as any script's. A song's lyrics as they are ("CHORUS" is no one)."""
+    as any script's. A song's lyrics or a narration as they are ("CHORUS" is no one)."""
+    from app.models.brands import Brand
+    from app.narration import TIMED
     from app.prompts import check
 
-    return text if script.kind == "song" else check.screenplay(text)
+    if script.kind in TIMED:
+        return text
+    brand = object_session(script).get(Brand, script.brand_id) if script.brand_id else None
+    return check.screenplay(text, brand.name if brand else "")
 
 
 def keep_text(db: Session, draft: ScriptDraft, new_text: str, source: str, user_id=None) -> None:

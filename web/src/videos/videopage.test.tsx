@@ -605,7 +605,7 @@ test("S4-03: a failed round says nothing was charged, with Try again and Upload 
 
 test("Video 233: a picked look that couldn't be used says so on its card, never silently", async () => {
   setViewport(1440);
-  const unused = "This wasn’t used: the question doesn’t say whose look it is. Tell the director who it’s for.";
+  const unused = "This wasn’t used: the question doesn’t say whose look it is. Tell the director which role it’s for.";
   server(owner, null, run({ thread: [asked(8)] }), cards(ask({ id: 8, state: "answered", topic: "", question: "Who plays them?", answer: { how: "option", name: "Option 1", file_id: 31, unused }, answered_by: "Reed", answered_at: later })));
   renderApp("/b/1/videos/50");
   const done = await screen.findByRole("region", { name: "Who plays them?" });

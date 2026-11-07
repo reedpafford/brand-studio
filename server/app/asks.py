@@ -38,7 +38,7 @@ NOT_NEEDED = "This question is no longer needed."
 LOCKED = "{} is locked in this video: unlock it in Cast to change who plays them."
 NOT_WAITING = "This isn't waiting for an OK any more."
 NAMED = ("cast", "presenter", "place")  # a card about one role or place, by the script's name
-UNUSED = "This wasn't used: {why} Tell the director who it's for."
+UNUSED = "This wasn't used: {why} Tell the director which role it's for."
 KEPT = "Kept as it is. Nothing was charged for it."
 
 
@@ -296,7 +296,7 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
         _new_role(db, project, _about(ask)) if looks else None
     )
     if slot is None and looks:  # never silently: the card says it wasn't used, and why
-        why = (f"{_about(ask)} isn't a role this video can add." if _about(ask)
+        why = (f"{_about(ask)} isn't in this video's script." if _about(ask)
                else "the question doesn't say whose look it is.")  # fmt: skip
         ask.answer = {**data, "unused": UNUSED.format(why=why)}
         return
@@ -331,14 +331,21 @@ def _about(ask: Ask) -> str:
 def _new_role(db: Session, project: Project, name: str):
     """A role a card names that the script has none for yet (a screenplay's MAYA the cast read
     never knew): added as the cast read adds a speaker it missed, and put in the shots that
-    show it (`breakdown.complete_cast`), so the picked look is used in each. None when the
-    video has no script, or a role of that name was merged into another."""
+    show it (`breakdown.complete_cast`), so the picked look is used in each. Only a name the
+    script's words or its shots name (QA on #1401: "The landlord" in neither, or "the
+    husband" for Dad, is never added); None otherwise, with no script, or a role of that name
+    merged into another."""
     from app import breakdown, cast_roles
     from app.models.script_library import ScriptCastSlot, ScriptDraft
+    from app.routes.project_assets import _newest
 
     draft = db.get(ScriptDraft, project.script_draft_id or 0)
     slots = cast_roles.all_slots(db, project)
     if draft is None or not name.strip() or any(cast_roles.same(s.role, name) for s in slots):
+        return None
+    bd = _newest(db, project)
+    shots = [s for scene in (bd.data if bd else {}).get("scenes", []) for s in scene["shots"]]
+    if not cast_roles.named(name, " ".join([draft.text, *(s.get("action", "") for s in shots)])):
         return None
     slot = ScriptCastSlot(script_id=draft.script_id, role=name.strip(), kind="Helper",
                           appears_in=[draft.slot], position=len(slots) + 1)  # fmt: skip

@@ -1430,8 +1430,21 @@ def test_a_role_card_that_cant_be_used_says_so(app, db, owner, editor):
     db.commit()
     ask = db.query(Ask).order_by(Ask.id.desc()).first()
     r = owner.post(f"/asks/{ask.id}/answer", json={"how": "saved", "option": f"item:{kid}"})
-    unused = "This wasn't used: the question doesn't say whose look it is. Tell the director who "
-    assert r.json()["answer"]["unused"] == unused + "it's for."
+    unused = "This wasn't used: the question doesn't say whose look it is. Tell the director "
+    assert r.json()["answer"]["unused"] == unused + "which role it's for."
     db.expire_all()
     (read,) = [a for a in asks.for_director(db, project) if a["ask_id"] == ask.id]
-    assert read["answer"] == f"Kid ({unused}it's for.)"
+    assert read["answer"] == f"Kid ({unused}which role it's for.)"
+    for name in ("The landlord", "the husband"):  # in no words or shots; "the husband" for Nate
+        db.add(Ask(workspace_id=project.workspace_id, project_id=pid, kind="cast", topic=name,
+                   subject=name, question=f"Who plays {name}?"))  # fmt: skip
+        db.commit()
+        ask = db.query(Ask).order_by(Ask.id.desc()).first()
+        r = owner.post(f"/asks/{ask.id}/answer", json={"how": "saved", "option": f"item:{kid}"})
+        assert r.json()["answer"]["unused"] == (
+            f"This wasn't used: {name} isn't in this video's script. Tell the director which "
+            "role it's for."
+        )
+    db.expire_all()
+    roles = [s.role for s in db.query(ScriptCastSlot).all()]
+    assert "The landlord" not in roles and "the husband" not in roles  # no junk role

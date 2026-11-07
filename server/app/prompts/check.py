@@ -557,6 +557,7 @@ CUE = re.compile(
     r"([A-Z][A-Z .'-]{0,29}?)\s*(\((?:V\.?\s?O|O\.?\s?[SC])\.?\))?\s*(?:\(CONT['’]?D\))?"
 )
 DIRECTION = re.compile(r"\([^)]*\)")  # "(quietly)": how it's said, never words
+HEADING = re.compile(r"(?:INT|EXT|I/E)\b|SCENE\b")  # "INT. KITCHEN - NIGHT", "SCENE 2"
 NOT_CUES = set(  # headings, transitions, camera and song words: never a speaker's name
     "INT EXT I/E CUT FADE DISSOLVE SMASH MATCH CLOSE WIDE ANGLE INSERT POV ON TO IN OUT BACK "
     "MONTAGE SERIES LATER CONTINUOUS INTERCUT TITLE SUPER END BLACK SCENE FLASHBACK SHOT SHOTS "
@@ -565,11 +566,14 @@ NOT_CUES = set(  # headings, transitions, camera and song words: never a speaker
 )
 
 
-def _cue(line: str) -> str | None:
+def _cue(line: str, brand: str = "") -> str | None:
     """The house label a screenplay's speaker line gives ("MAYA (V.O.)" is "MAYA (V.O.)"), or
-    None: a heading, a transition ("CUT TO:", "FADE OUT.") or a camera direction never is."""
+    None: a heading, a transition ("CUT TO:", "FADE OUT."), a camera direction, more than three
+    words, or the brand's own name ("DOWNLOAD FOMO") never is."""
     m = CUE.fullmatch(line.strip())
     if not m or m[1].endswith(".") or set(re.split(r"[\s.]+", m[1])) & NOT_CUES:
+        return None
+    if len(m[1].split()) > 3 or _words(brand) and f" {_words(brand)} " in f" {_words(m[1])} ":
         return None
     return m[1] + (f" {m[2]}" if m[2] else "")
 
@@ -581,36 +585,48 @@ def _labelled(line: str) -> bool:
     return bool(name and re.search(r"[A-Za-z]", line[m.end() :]) and _cue(name))
 
 
-def screenplay(text: str) -> str:
+def screenplay(text: str, brand: str = "") -> str:
     """A script pasted as a screenplay, in the house's form (video 233: "MAYA" alone on a line
     had no cast, and every line was heard): each speaker's words are one "MAYA: …" line, and a
-    line in brackets ("(quietly)") stays on its own line, as direction. Headings and action
-    are as they were. A script with speakers' labels already, or none, is returned as it is."""
+    line in brackets ("(quietly)") stays direction, on its own line after hers. Headings and
+    action are as they were. Only a clear screenplay is read (QA on #1401: one line in capitals
+    in an ordinary script, "FOMO" or "NO WAY", is never a speaker): a speaker's line after a
+    blank line or a heading, with her words under it: one name twice, or two speakers with a
+    screenplay's marks ("(V.O.)", "(CONT'D)", "(quietly)"). Anything else, or a script with
+    speakers' labels already, is returned as it is."""
     lines = text.splitlines()
     if any(_labelled(x) for x in lines):
         return text
-    out, i, changed = [], 0, False
+    out, names, i, ended, marked = [], [], 0, -1, False
     while i < len(lines):
-        label, j = _cue(lines[i]), i + 1
-        while label and j < len(lines) and lines[j].strip() and not _cue(lines[j]):
+        before = lines[i - 1].strip() if i else "x"
+        after = not before or HEADING.match(before) or i == ended  # or right after a speaker's
+        label = _cue(lines[i], brand) if after else None
+        j = i + 1
+        while label and j < len(lines) and lines[j].strip() and not _cue(lines[j], brand):
             j += 1  # her lines, to the blank line or the next speaker
         block = [x.strip() for x in lines[i + 1 : j]]
         if not label or all(DIRECTION.fullmatch(x) for x in block):
             out.append(lines[i])
             i += 1
             continue
-        words: list[str] = []
-        for x in [*block, ""]:
-            if x and not DIRECTION.fullmatch(x):
-                words.append(x)
-                continue
-            if words:
-                out.append(f"{label}: {' '.join(words)}")
-                words = []
-            if x:
-                out.append(x)
-        i, changed = j, True
-    return "\n".join(out) if changed else text
+        names.append(DIRECTION.sub("", label).strip())
+        marked = marked or "(" in lines[i] or any(DIRECTION.fullmatch(x) for x in block)
+        said: list[str] = []
+        held: list[str] = []  # a direction before her words: after her line, never above it
+        for x in [*block, None]:
+            if x is not None and not DIRECTION.fullmatch(x):
+                said.append(x)
+            elif x is not None and not said:
+                held.append(x)
+            else:
+                if said:
+                    out += [f"{label}: {' '.join(said)}", *held]
+                    said, held = [], []
+                out += [x] if x is not None else []
+        i = ended = j
+    clear = len(set(names)) < len(names) or len(names) > 1 and marked  # (V.O.), (quietly)
+    return "\n".join(out) if clear else text
 
 
 def _spoken(line: str) -> str:
