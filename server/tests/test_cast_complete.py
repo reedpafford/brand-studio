@@ -251,3 +251,21 @@ def test_a_speaker_added_twice_at_once_is_added_once_without_an_error(
     db.commit()
     roles = [s.role for s in db.scalars(select(ScriptCastSlot).filter_by(script_id=script.id))]
     assert roles.count("Nate") == 1
+
+
+def test_completing_the_cast_keeps_the_plans_song_part(owner, editor, db):
+    """Video 240 (7 Nov): adding a role to its shots rewrote the plan without its song part, so
+    its talker shots (`sung`) went to Omni as B-roll and its clips weren't cut to the
+    narration. The song part and the plan's version stay."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    _, pid, _ = _video(owner, editor)
+    row = db.query(BreakdownVersion).filter_by(project_id=pid).one()
+    song = {"take_id": 0, "shots": {"1.1": {"start": 0.0, "end": 2.0, "sung": True},
+                                    "1.2": {"start": 2.0, "end": 5.0, "sung": False}}}  # fmt: skip
+    row.data = {**row.data, "song": song, "plan_version": 2}
+    flag_modified(row, "data")
+    db.commit()
+    assert any("now appears in" in x for x in _fill(db))  # it changed the plan
+    db.refresh(row)
+    assert row.data["song"] == song and row.data["plan_version"] == 2

@@ -20,7 +20,8 @@ from app.models.projects import Project
 from app.models.songs import SongTake
 from app.prompts.schemas import Breakdown, SongBreakdown
 
-MIN_CLIP = 4  # seconds: a shorter span is made 4 s long and cut to it (Song-Producer)
+MIN_CLIP = 4  # seconds: a shorter span is made this long and cut to it (Song-Producer), when
+# the video model's own minimum isn't known (`least`: Omni 1.2 makes 3 s, Seedance 4 s)
 PEOPLE_MAX = 16  # seconds: a clip with people in it is split past this
 
 
@@ -28,22 +29,35 @@ def take_for(db: Session, project: Project) -> SongTake | None:
     return db.get(SongTake, project.song_take_id) if project.song_take_id else None
 
 
-def split(bd: SongBreakdown, take_id: int, broll: bool = False) -> tuple[Breakdown, dict]:
+def least(db: Session, project_id: int) -> int:
+    """The shortest clip the video's model makes (its catalogue minimum): a shot shorter than
+    that is made this long and cut to it. Video 240: every Omni 1.2 clip was made at 4 s, its
+    minimum is 3 (17 clips: 68 s made for 24 s used)."""
+    from app.breakdown import video_model
+
+    project = db.get(Project, project_id)
+    return video_model(project).duration.min if project is not None else MIN_CLIP
+
+
+def split(bd: SongBreakdown, take_id: int, broll: bool = False,
+          shortest: int = MIN_CLIP) -> tuple[Breakdown, dict]:  # fmt: skip
     """The AI's song breakdown as the plan every step reads, plus its song part, the shots'
-    and clips' lengths taken from the song (`fit`; `broll`: a narration's)."""
+    and clips' lengths taken from the song (`fit`; `broll`: a narration's; `shortest`: the
+    video model's shortest clip)."""
     shots = {s.id: {"start": s.song_start, "end": s.song_end, "sung": s.sung}
              for scene in bd.scenes for s in scene.shots}  # fmt: skip
     song = {"take_id": take_id, "shots": shots}
-    return Breakdown.model_validate(fit({**bd.model_dump(), "song": song}, broll)), song
+    return Breakdown.model_validate(fit({**bd.model_dump(), "song": song}, broll, shortest)), song
 
 
-def fit(data: dict, broll: bool = False) -> dict:
+def fit(data: dict, broll: bool = False, shortest: int = MIN_CLIP) -> dict:
     """The song is the clock (V2, V6): each shot lasts its time in the song and each clip its
     shots' span, rounded up to whole seconds, whatever the plan said (the stand-in counted
     spoken words: a 0:24 song read "1 clip · 14 s"). A clip over the video model's limit
     keeps it: the breakdown check names it, never cut to fit. `data` is a plan with its
     song part; shots the song part doesn't know keep their own. `broll`: under a narration,
-    a shot too short to be a clip is a clip of its own (`_apart`)."""
+    a shot too short to be a clip is a clip of its own (`_apart`). `shortest`: the video
+    model's shortest clip, made and cut to a shorter span."""
     timed = (data.get("song") or {}).get("shots") or {}
     if not timed:
         return data
@@ -55,22 +69,22 @@ def fit(data: dict, broll: bool = False) -> dict:
                if sh.get("character_ids")}  # fmt: skip
     clips = []
     for clip in data.get("clips", []):
-        whole = _apart(clip, timed) if broll else [clip]
+        whole = _apart(clip, timed, shortest) if broll else [clip]
         for part in (p for c in whole for p in _split(c, timed, peopled)):
             known = [timed[s] for s in part.get("shot_ids", []) if s in timed]
             if known:
                 span = max(t["end"] for t in known) - min(t["start"] for t in known)
-                part = {**part, "seconds": max(MIN_CLIP, math.ceil(span - 0.01))}  # its span
+                part = {**part, "seconds": max(shortest, math.ceil(span - 0.01))}  # its span
             clips.append(part)
     return {**data, "scenes": scenes, "clips": clips}
 
 
-def _apart(clip: dict, timed: dict) -> list[dict]:
+def _apart(clip: dict, timed: dict, shortest: int = MIN_CLIP) -> list[dict]:
     """F7 (Reed, 3 Nov: "generating several clips and splicing them together"): a B-roll clip
-    with a shot shorter than a clip can be (MIN_CLIP) is made as one clip a shot, each at least
-    MIN_CLIP long and cut to its shot's time in the edit (cut_render.song_cut); "c3", "c3b"."""
+    with a shot shorter than a clip can be (`shortest`) is made as one clip a shot, each at
+    least that long and cut to its shot's time in the edit (cut_render.song_cut); "c3", "c3b"."""
     ids = clip.get("shot_ids", [])
-    short = [s for s in ids if s in timed and timed[s]["end"] - timed[s]["start"] < MIN_CLIP]
+    short = [s for s in ids if s in timed and timed[s]["end"] - timed[s]["start"] < shortest]
     if len(ids) < 2 or not short:
         return [clip]
     return [{**clip, "id": clip["id"] + ("" if n == 0 else chr(ord("a") + n)), "shot_ids": [s]}
@@ -126,8 +140,9 @@ def _carry(mapper, connection, row: BreakdownVersion) -> None:
                 row.data = {**row.data, "song": song}
         take = db.get(SongTake, (row.data.get("song") or {}).get("take_id") or 0)
         broll = bool(take and take.kind == "narration")  # every shot under a narration
+        shortest = least(db, row.project_id)  # the video model's shortest clip
     if row.data.get("song"):  # whichever way it came (a plan, an edit, a new take): the song's
-        row.data = fit(row.data, broll)
+        row.data = fit(row.data, broll, shortest)
 
 
 LEAD = 0.1  # seconds: a shot that shows what a word names lands just before it's sung
