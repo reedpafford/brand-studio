@@ -89,6 +89,7 @@ def test_editor_sees_models_with_credits_but_no_dollars(editor):
         "seedance-2.0",
         "p-video",
         "seedance-1-lite",
+        "gemini-omni-1.2",
     ]
     assert editor.get("/models/seedance-2.5").json()["credits_per_unit"]["480p"] == 1
     assert [m["id"] for m in editor.get("/models", params={"kind": "image"}).json()] == [

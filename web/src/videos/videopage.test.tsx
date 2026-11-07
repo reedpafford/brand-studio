@@ -604,6 +604,15 @@ test("S4-03: a failed round says nothing was charged, with Try again and Upload 
   expect(within(screen.getByRole("region", { name: "Which kitchen?" })).getByText(/You locked the cast to Mark/)).toBeInTheDocument();
 });
 
+test("Video 233: a picked look that couldn't be used says so on its card, never silently", async () => {
+  setViewport(1440);
+  const unused = "This wasn’t used: the question doesn’t say whose look it is. Tell the director which role it’s for.";
+  server(owner, null, run({ thread: [asked(8)] }), cards(ask({ id: 8, state: "answered", topic: "", question: "Who plays them?", answer: { how: "option", name: "Option 1", file_id: 31, unused }, answered_by: "Reed", answered_at: later })));
+  renderApp("/b/1/videos/50");
+  const done = await screen.findByRole("region", { name: "Who plays them?" });
+  expect(within(done).getByText(unused)).toBeInTheDocument();
+});
+
 test("S4-02: a story choice shows its pick and why, Go with A or B, and when it goes with its pick", async () => {
   setViewport(1440);
   const story = ask({ kind: "story", topic: "How it ends", question: "How should it end?", saved: [], saved_in: "", generate: null, pick: "A", decide_at: "2026-11-04T11:00:00Z", choices: [{ key: "A", title: "He bins the pint", why: "Clear before and after." }, { key: "B", title: "He toasts the camera", why: "Funnier." }], can: ["reply", "choice"] });
@@ -897,6 +906,17 @@ test("S3-09: one cut and nothing being made: no switch, the heading reads Final 
   expect(within(panel).queryByRole("radiogroup", { name: "Which cut" })).toBeNull();
 });
 
+test("E2E 233: while the director is still revising, the one cut reads as the current cut, with its file's own length", async () => {
+  setViewport(1440);
+  const one = cutOut({ number: 1, file_id: 80, seconds: 16.7, versions: [{ number: 1, file_id: 80, made_at: at, seconds: 16.7 }] });
+  server(owner, null, run({ status: "running" }), { "GET /projects/50/cut": [200, one], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }], "GET /projects/50/director/progress": [200, record({ status: "revising" })] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByRole("heading", { name: "Current cut" })).toBeInTheDocument();
+  expect(within(panel).queryByRole("heading", { name: "Final cut" })).toBeNull();
+  expect(within(panel).getByText(/^0:17 · 9:16/)).toBeInTheDocument(); // the file's 16.7 s, never the plan's
+});
+
 test("S3-12: a new cut finishing while an older one is picked keeps that pick; the cut that plays isn't pinned, so the new one replaces it", async () => {
   setViewport(1440);
   const v = (n: number) => ({ number: n, file_id: 70 + 10 * n, made_at: at });
@@ -1163,4 +1183,14 @@ test("Flow-QA S12: while the director works, the ⋯ menu offers no Archive (Sto
   await userEvent.click(await screen.findByRole("button", { name: "More for Beer gut doctor rant" }));
   const menu = screen.getByRole("menu", { name: "More for Beer gut doctor rant" });
   expect(within(menu).queryByRole("menuitem", { name: "Archive" })).toBeNull();
+});
+
+test("uncapped (QA on #1396): after delivery the estimate is the next run's", async () => {
+  setViewport(1440);
+  const top = head({ status: status("delivered", "Delivered"), spent: money(60, 6.4), up_to: null, budget: null, expected: money(91, 9.1), actual: true, listed_usd: 0, unreported: false });
+  server(owner, null, run({ status: "delivered", thread: [] }), { "GET /projects/50/idea": [200, top] });
+  renderApp("/b/1/videos/50");
+  const banner = await screen.findByRole("banner");
+  expect(await within(banner).findByText("next run about $9.10 (estimate)")).toBeInTheDocument();
+  expect(within(banner).queryByText(/this run about/)).toBeNull();
 });

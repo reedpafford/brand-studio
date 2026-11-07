@@ -59,6 +59,9 @@ def _style(path: Path, parent: dict | None = None) -> dict:
         "hidden": meta.get("hidden") == "yes",  # a lane kept but off the picker (Reed, 3 Nov)
         "image_model": meta.get("image_model", "auto"),
         "video_model": meta.get("video_model", ""),  # its default video model (a catalogue id)
+        # its characters' lips follow their spoken lines (model_map.lip_synced); a guide opts out
+        # with `lip_sync: no` (a style whose speakers don't lip-sync, e.g. flap mouths)
+        "lip_sync": meta.get("lip_sync", "yes") != "no",
         "blurb": meta["blurb"],
         "card": meta.get("card", ""),  # New video's card: a short line, then its B-roll look
         "broll": meta.get("broll", ""),

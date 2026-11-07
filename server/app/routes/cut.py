@@ -118,6 +118,7 @@ class CutVersionOut(BaseModel):
     number: int
     file_id: int
     made_at: str
+    seconds: float | None = None  # its file's length (E2E 233: "0:18" for a 16.7 s file)
 
 
 class MakingOut(BaseModel):
@@ -148,6 +149,7 @@ class CutDirectorOut(BaseModel):
 class CutOut(BaseModel):
     number: int | None  # the cut that plays (Cut 2); None before the first
     file_id: int | None
+    seconds: float | None = None  # its file's length
     out_of_date: bool
     versions: list[CutVersionOut]
     making: MakingOut | None
@@ -311,8 +313,9 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
     return CutOut(
         number=playing.number if playing else None,
         file_id=playing.file_id if playing else None,
+        seconds=playing.seconds if playing else None,
         out_of_date=bool(playing) and project.id in out_of_date(db, [project]),
-        versions=[CutVersionOut(number=v.number, file_id=v.file_id,
+        versions=[CutVersionOut(number=v.number, file_id=v.file_id, seconds=v.seconds,
                                 made_at=v.created_at.isoformat())
                   for v in {v.number: v for v in versions}.values()],  # made again: the newest
         making=_making(db, storage, project), failed=_failed(db, project, playing),

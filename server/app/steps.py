@@ -25,8 +25,9 @@ def explain(db: Session, job: Job) -> None:
             log.exception("job %s: explaining the failure failed", job.id)
 
 
-def step_failed(db: Session, job: Job) -> None:
-    """A step's job failed at the provider: the reel watch retries, then falls back; a
+def step_failed(db: Session, job: Job, again: bool = True) -> None:
+    """A step's job failed: what waits on it is told (a check, a take's watch, a voice); and
+    when the provider said so (`again`), the reel watch retries, then falls back, and a
     refused or busy take, a presenter's host and a take's added sound are tried again once on
     their own (P3)."""
     from app.clip_takes import retry
@@ -41,12 +42,12 @@ def step_failed(db: Session, job: Job) -> None:
         from app.take_watch import failed as unwatched
 
         unwatched(db, job)
-    if job.input.get("step") == "clip_take":
+    if job.input.get("step") == "clip_take" and again:
         try:
             retry(db, job)
         except Exception:  # never let a retry break the worker
             log.exception("job %s: retrying the take failed", job.id)
-    if job.input.get("step") in ("host_still", "host_piece", "take_sound"):  # once (rule 22)
+    if job.input.get("step") in ("host_still", "host_piece", "take_sound") and again:  # once
         from app.clip_takes import once_more
 
         try:
@@ -57,7 +58,7 @@ def step_failed(db: Session, job: Job) -> None:
         from app.voices import failed as voice_failed
 
         voice_failed(db, job)
-    if job.input.get("step") == "reel_watch":
+    if job.input.get("step") == "reel_watch" and again:
         try:
             watch_failed(db, job)
         except Exception:  # never let a retry break the worker

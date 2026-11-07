@@ -209,3 +209,27 @@ def test_live_refuses_to_start_uncapped():
         check_production(live)
     check_production(Settings(env="next", owner_uncapped=True, setup_token="",
                               database_url="sqlite://"))  # the test site may  # fmt: skip
+
+
+def test_an_editors_run_is_held_as_theirs_whoever_stops_or_carries_it_on(app, db, owner, editor,
+                                                                         on):  # fmt: skip
+    """QA on #1396: uncapped was read from the presser or the viewer, so the owner saw a plain
+    "Carry on" on an editor's run whose price was used up, and its next step was then held. It's
+    the run's starter's: an editor's run carries on only inside its price, else a new run."""
+    from tests.test_carry_on import _stop, _until
+
+    pid, _ = _video(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _until(app, db, pid)
+    _stop(owner, db, app, pid)
+    card = db.query(Job).filter(Job.project_id == pid, Job.input[asks.START].as_boolean()
+                                ).order_by(Job.id.desc()).first()  # fmt: skip
+    card.input = {**card.input, "price": "0"}  # its approved price is used up
+    db.commit()
+    stopped = owner.get(f"/projects/{pid}/director/progress").json()["stopped"]
+    assert stopped["free"] is False and stopped["carry_on"]  # a new run's price, not "Carry on"
+    project = db.get(Project, pid)
+    before = director.turns(db, project)[-1].input[director.RUN]["id"]
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    db.expire_all()
+    assert director.turns(db, project)[-1].input[director.RUN]["id"] != before  # a new run

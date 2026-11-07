@@ -18,12 +18,14 @@ from pydantic import BaseModel, ValidationError
 MODEL = "claude-opus-5-5"
 API_URL = "https://api.anthropic.com"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
-# Claude Opus 5.5, USD per million tokens. Cache writes (5 min) cost 1.25x input.
+# Claude Opus 5.5, USD per million tokens. Cache writes cost 1.25x input for the 5-minute
+# lifetime and 2x for the 1-hour one; reads 0.05x.
 PRICE_PER_MTOK = {
     "input": Decimal(4),
     "output": Decimal(20),
     "cache_read": Decimal("0.20"),
     "cache_write": Decimal(5),
+    "cache_write_1h": Decimal(8),
 }
 
 
@@ -45,6 +47,7 @@ class Answer[T: BaseModel]:
     parsed: T
     model: str  # the model that answered (a fallback may have served it)
     cost_usd: Decimal  # owner-only, like all dollar amounts
+    tokens: dict | None = None  # input, output, cache_read, cache_write, images (`counts`)
 
 
 def make_client(key: str, http_client=None) -> Anthropic:
@@ -67,17 +70,23 @@ def ask[T: BaseModel](
     max_tokens: int = 16000,
     images: Sequence[str] = (),
     shared: str = "",
+    cache_ttl: Literal["5m", "1h"] = "5m",
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
     the cache mark on the last part caches them all together. `images` (data URLs) go
     before the prompt, for a check that looks at a picture. `shared` (a run's breakdown and
-    assets) goes first and is cached too, so a run's later parts read it."""
+    assets) goes first and is cached too, so a run's later parts read it. `cache_ttl` "1h":
+    the fixed parts stay cached an hour, for a step that comes back after more than 5 minutes
+    (the director's turns while takes render): the same words, a dearer first write (2x
+    against 1.25x), and no re-write on each later call."""
     blocks = [{"type": "text", "text": text} for text in system]
     content = [_image(url) for url in images] + [{"type": "text", "text": prompt}]
     if shared:
         cached = {"type": "text", "text": shared, "cache_control": {"type": "ephemeral"}}
         content = [cached, *content]
-    blocks[-1]["cache_control"] = {"type": "ephemeral"}
+    blocks[-1]["cache_control"] = (
+        {"type": "ephemeral", "ttl": "1h"} if cache_ttl == "1h" else {"type": "ephemeral"}
+    )  # an hour-long entry before the 5-minute `shared` one, as the API requires
     # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
     with client.beta.messages.stream(
         model=MODEL,
@@ -95,7 +104,7 @@ def ask[T: BaseModel](
         except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
             cut = any("EOF" in e["msg"] for e in exc.errors())  # the JSON stops mid-way
             raise ClaudeError(RAN_OUT if cut else UNREADABLE, _cost_so_far(stream)) from exc
-    cost = _cost(response.usage)
+    cost, tokens = _cost(response.usage), counts(response.usage, len(images))
     if response.stop_reason == "refusal":
         category = response.stop_details.category if response.stop_details else None
         raise ClaudeError(f"Claude declined this request ({category or 'no category'}).", cost)
@@ -103,7 +112,7 @@ def ask[T: BaseModel](
         raise ClaudeError(RAN_OUT, cost)
     if response.parsed_output is None:
         raise ClaudeError(UNREADABLE, cost)
-    return Answer(response.parsed_output, response.model, cost)
+    return Answer(response.parsed_output, response.model, cost, tokens)
 
 
 def _image(url: str) -> dict:
@@ -120,11 +129,29 @@ def _cost_so_far(stream) -> Decimal | None:
         return None
 
 
+def _writes(usage) -> tuple[int, int]:
+    """(5-minute, 1-hour) cache-write tokens; all 5-minute when the breakdown is missing."""
+    split = getattr(usage, "cache_creation", None)
+    long = (getattr(split, "ephemeral_1h_input_tokens", 0) or 0) if split else 0
+    return (usage.cache_creation_input_tokens or 0) - long, long
+
+
 def _cost(usage) -> Decimal:
+    short, long = _writes(usage)
     tokens = {
         "input": usage.input_tokens,
         "output": usage.output_tokens,
         "cache_read": usage.cache_read_input_tokens or 0,
-        "cache_write": usage.cache_creation_input_tokens or 0,
+        "cache_write": short,
+        "cache_write_1h": long,
     }
     return sum((Decimal(n) * PRICE_PER_MTOK[k] / 1_000_000 for k, n in tokens.items()), Decimal(0))
+
+
+def counts(usage, images: int = 0) -> dict:
+    """A call's token counts as Usage keeps them (A8): what it read, wrote, read from and wrote
+    to the cache, and the pictures it was sent."""
+    short, long = _writes(usage)
+    return {"input": usage.input_tokens or 0, "output": usage.output_tokens or 0,
+            "cache_read": usage.cache_read_input_tokens or 0, "cache_write": short + long,
+            "cache_write_1h": long, "images": images}  # fmt: skip

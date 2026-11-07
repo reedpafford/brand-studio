@@ -7218,6 +7218,8 @@ export interface components {
             number: number | null;
             /** File Id */
             file_id: number | null;
+            /** Seconds */
+            seconds?: number | null;
             /** Out Of Date */
             out_of_date: boolean;
             /** Versions */
@@ -7251,6 +7253,8 @@ export interface components {
             file_id: number;
             /** Made At */
             made_at: string;
+            /** Seconds */
+            seconds?: number | null;
         };
         /** CutVoiceOut */
         CutVoiceOut: {
@@ -11621,7 +11625,7 @@ export interface components {
             seconds: number;
             /**
              * Character Ids
-             * @description Cast ids on screen in this shot.
+             * @description Cast ids on screen in this shot. Someone the script names on screen who has no id (they never speak, say): 'person:<Name>', as the script names them, never another's id.
              */
             character_ids: string[];
             /**
@@ -12003,7 +12007,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "none" | "making" | "ready" | "failed";
+            state: "none" | "making" | "ready" | "failed" | "removed";
             /** How */
             how: string;
             /** Asked */

@@ -601,12 +601,13 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       )}
       {!clip.stale && <Priced wide={phone} icon={Pencil} label="Change this…" price={changePrice.isError ? undefined : changePrice.data == null ? null : upTo(head, changePrice.data)} disabled={changePrice.isError} reason={changePrice.isError ? changePrice.error.message : null} onClick={() => setBox({ kind: "change", text: "" })} />}
       <Priced wide={phone} icon={RefreshCw} label={clip.takes.length ? "Another take" : "Make the take"} price={takePrice} busy={run.isPending} disabled={!!takeBlock} reason={takeBlock} onClick={() => take()} />
-      {picked && clip.sound?.state === "none" && <Priced wide={phone} icon={Volume2} label="Add sound effects" price={upTo(head, clip.sound.credits)} onClick={() => setBox({ kind: "sound", text: "" })} />}
+      {picked && (clip.sound?.state === "none" || clip.sound?.state === "removed") && <Priced wide={phone} icon={Volume2} label="Add sound effects" price={upTo(head, clip.sound.credits)} onClick={() => setBox({ kind: "sound", text: "" })} />}
       {piece && !viewOnly && (
         <Button variant="secondary" icon={ArrowLeftRight} aria-expanded={swapping} className={phone ? "w-full justify-start" : ""} onClick={() => setSwapping(!swapping)}>
           Swap B-roll <span className="font-normal text-muted">· free</span>
         </Button>
       )}
+      {picked && clip.sound?.state === "ready" && clip.sound.asked && <p className="text-xs text-muted">Sound effects: {clip.sound.asked}</p>}{/* why they're there: a person's words, or the style guide's the director named */}
       {picked && clip.sound?.state === "ready" && (
         <Button variant="secondary" icon={Volume2} className={phone ? "w-full justify-start" : ""} onClick={() => go(() => must(api.DELETE("/projects/{project_id}/clips/{clip_id}/sound", { params: { path } })))}>
           Remove the sound effects

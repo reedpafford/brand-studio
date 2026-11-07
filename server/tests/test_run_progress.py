@@ -230,6 +230,13 @@ def test_each_clip_says_what_happened_to_it(app, db, owner, editor, monkeypatch)
     db.commit()
     assert (cell()["state"], cell()["note"]) == (
         "failed", "The service was busy. Nothing was charged.")  # fmt: skip
+    from app.credits import REAL_DONE
+
+    held.error = REAL_DONE.format(20)  # it says so itself: not twice (audit 6 Nov)
+    db.commit()
+    assert cell()["note"] == REAL_DONE.format(20)
+    held.error = "The service was busy."
+    db.commit()
     again = take_credits(db, db.get(Project, pid), row)  # as Make a take quotes it
     assert cell()["credits"] == run_progress.money(again, True)
 
@@ -723,3 +730,21 @@ def test_a_later_take_is_never_said_to_fix_an_old_watch_of_the_cut(app, db, owne
     two.watch = own  # its own watch acted on it
     watch_cut.redone(db, project, row, found, db.get(Job, two.job_id))
     assert two.watch == own  # what its own watch found and did stays
+
+
+def test_a_cancelled_duplicate_after_delivery_never_blocks_the_revision(app, db, owner, editor):
+    """Video 233: after a restart two turns were queued and the one left over was cancelled,
+    so it came last. The run still delivered: the API says so, and a note starts the revision
+    (never only "Saved. Press Start again with this note", a whole new paid run)."""
+    pid = _done(app, db, owner, editor)
+    project, url = db.get(Project, pid), f"/projects/{pid}/director"
+    last = director.turns(db, project)[-1]
+    db.add(Job(workspace_id=project.workspace_id, project_id=pid, kind="write-claude",
+               provider="claude", status=JobStatus.cancelled,
+               input={"step": director.STEP, director.RUN: last.input[director.RUN]}))  # fmt: skip
+    db.commit()
+    assert owner.get(url).json()["status"] == "delivered"
+    sent = owner.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})
+    assert sent.status_code == 201, sent.text
+    assert (sent.json()["status"], sent.json()["unread"]) == ("running", 0)  # the revision
+    assert _progress(owner, pid)["status"] == "revising"
