@@ -83,14 +83,22 @@ def test_the_bed_dips_under_a_dialogue_cuts_lines():
     assert cut.doing(tl) == "putting the clips together, music under them"
 
 
-def test_the_director_lays_the_bed_where_the_style_puts_music_under_every_second():
-    from app import prompts
+def test_the_director_lays_a_bed_only_when_a_person_asks():
+    """Reed, 7 Nov: "Music gets added in post." The tool stays for a person's note; the
+    director never lays a bed for a style's guide, and the guides say music is in post."""
+    from app import guides, prompts
 
     director = prompts.system("director")
     assert (
         "in a dialogue cut with no music yet, `removed` false lays the brand's newest" in director
     )
-    assert "never in a style whose guide wants none" in director
+    assert "only when a person's note asks for music, whatever the style's guide says" in director
+    assert "as House's does" not in director
+    assert "never call a missing bed a fault or ask for one" in director
+    house = guides.style("house")["sections"]
+    sound = next(line for part in house.values() for line in part.splitlines()
+                 if line.startswith("- Sound:"))  # fmt: skip
+    assert sound.startswith("- Sound: Music is added in post (Reed, 7 Nov)")
     assert "never where a person removed the music, set its level or swapped it" in director
 
 
@@ -259,3 +267,14 @@ def test_only_an_open_note_written_after_a_persons_music_choice_unlocks_it(
     assert move("Note 1: bring the music back.") == refused  # older than the removal
     assert move("Note 3: bring the music back.") == refused  # answered already
     assert move("Note 2: bring the music back.").startswith("Music back")  # newer and open
+
+
+def test_a_published_scripts_ending_is_its_own_words():
+    """Reed, 7 Nov: "The words in the script are the end-all be-all." Craft's question and
+    call to action guide writing a new script only; a published script ends on its own words."""
+    from app import prompts
+
+    director = prompts.system("director")
+    assert "Writing a new script: one simple question viewers can argue over" in director
+    assert "A published script's ending is its own last words" in director
+    assert "never a question or a call to action it doesn't have" in director

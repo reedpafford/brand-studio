@@ -162,7 +162,8 @@ def heard_cut(db: Session, job: Job) -> None:
             prepaid=not wait, wait=wait)  # fmt: skip  # a freestyle past its price: an OK first
 
 
-NO_BED = "Music bed: none in this cut; any music heard is a clip's own sound."
+NO_BED = ("Music bed: none in this cut, which is right: music is added in post (Reed, 7 Nov). "
+          "Any music heard is a clip's own sound.")  # fmt: skip
 BED = "Music bed: under the voice throughout (quieter under the lines)."
 
 

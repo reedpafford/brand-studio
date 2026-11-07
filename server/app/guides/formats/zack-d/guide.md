@@ -67,7 +67,7 @@ Measured in Reed's three Zack D. Films originals (the style's examples water-ala
 - Pace: 2.95–3.17 words a second while speaking (3 of 3); 7–10 pauses over a quarter second per 30 s, median pause 0.35–0.40 s, longest 0.42–0.50 s; phrases between pauses about 2.6–2.9 s (median); no silence anywhere.
 - Pitch: median 140–157 Hz, moving about 6–6.7 semitones (3 of 3).
 - One narrator; no one speaks on camera (3 of 3).
-- Music: a quiet plucked melodic bed of short separate notes, no drums and almost no bass, 17–25 dB under the voice, the same level in the pauses (3 of 3).
+- Music: a quiet plucked melodic bed of short separate notes, no drums and almost no bass, 17–25 dB under the voice, the same level in the pauses (3 of 3). It's laid in post (Step 8, Reed 7 Nov): the site's cut has none.
 - Sound effects are few and sit on the action: a water rush, a sustained whistle while the spout is on screen, an impact as a tail hits a door frame (3 of 3).
 - Loudness: −10.4 to −10.7 LUFS integrated, loudness range 1.5–2.2 LU: loud and even (3 of 3).
 - The picture runs 0.69–0.77 s past the last word (3 of 3).
