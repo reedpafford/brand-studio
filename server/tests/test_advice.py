@@ -56,23 +56,27 @@ def test_a_clips_problem_can_be_kept_anyway_once_its_free_fix_was_tried(db, edit
     assert editor.post(f"{url}/generate").status_code == 409  # Undo: it blocks again
 
 
-def test_any_kind_n_id_is_said_in_words_and_a_treatment_shows_none():
-    """MAIN's run, video 233: "(screen:3, the real UI)" in the treatment and the Plan tab. Any
-    kind:N id is named, or said for what it is; times and web addresses are left alone."""
+def test_our_ids_are_said_in_words_and_peoples_own_words_never_change():
+    """MAIN's run, video 233: "(screen:3, the real UI)" in the treatment and the Plan tab. Our
+    own kinds are named, or said for what they are; QA on #1409: people's words stay as typed
+    (scores, times, a pasted address), and a person's message is never rewritten."""
     from app.advice import said, said_all
-
-    assert said("A close-up (screen:3, the real UI).") == "A close-up (a screen, the real UI)."
-    assert said("look:12 and take:4") == "an item and an item"
-    assert said("At 17:05 on localhost:8443.") == "At 17:05 on localhost:8443."
-    beats = {"hook": "char:5 opens on screen:3", "beats": [{"id": 1, "picture": "frame:c2"}]}
-    assert said_all(beats) == {"hook": "a character opens on a screen",
-                               "beats": [{"id": 1, "picture": "a still"}]}  # fmt: skip
     from app.db import utcnow
     from app.routes.director import ThreadItem
     from app.routes.plan import LineOut
 
+    assert said("A close-up (screen:3, the real UI).") == "A close-up (a screen, the real UI)."
+    for words in ("home:2 away:1", "time:10s", "look:12", "https://example.com:8443/a",
+                  "localhost:8443", "At 17:05."):  # fmt: skip
+        assert said(words) == words, words
+    beats = {"hook": "char:5 opens on screen:3", "beats": [{"id": 1, "picture": "frame:c2"}]}
+    assert said_all(beats) == {"hook": "a character opens on a screen",
+                               "beats": [{"id": 1, "picture": "a still"}]}  # fmt: skip
     told = {"beats": [{"picture": "(screen:3, the real UI)"}]}
     move = ThreadItem(id="s1", kind="move", at=utcnow(), who="Director", text="On screen:3.",
                       status="done", treatment=told)  # fmt: skip
+    mine = ThreadItem(id="m1", kind="message", at=utcnow(), who="Reed",
+                      text="Use screen:3 like at localhost:8443", status=None)  # fmt: skip
     line = LineOut(n=1, text="Rent's paid.", action="She holds up screen:3.", star=True)
     assert "screen:3" not in move.model_dump_json() + line.model_dump_json()
+    assert mine.text == "Use screen:3 like at localhost:8443"  # a person's own words

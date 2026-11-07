@@ -5,11 +5,11 @@ it; every action it takes is checked as that person's own press (app/director_to
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 from sqlalchemy.orm import Session
 
 from app import asks, director, run_progress
-from app.advice import SaidJSON, SaidText
+from app.advice import SaidJSON, SaidText, said
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -70,8 +70,8 @@ class ThreadItem(BaseModel):
     kind: Literal["message", "move", "ask"]  # a person's words, the director's, a card (ask_id)
     at: UtcTime
     who: str  # the person's name, or "Director"
-    text: SaidText  # plain words, no ids: a run's card in a line ("Making the clips · 14 of 24 ·
-    # scene 4 of 6"), a delivery's note as plain lines
+    text: str  # plain words: a run's card in a line ("Making the clips · 14 of 24 · scene 4 of
+    # 6"), a delivery's note as plain lines; the director's with no ids (`_no_ids`)
     status: Literal["queued", "running", "held", "done", "refused"] | None  # moves only
     why: str = ""  # "" (kept for the shape: the run's card and note say it all)
     answered: bool | None = None  # a note: a move answered it ("Note N"), else still open
@@ -82,6 +82,14 @@ class ThreadItem(BaseModel):
     run: str | None = None  # a run's progress card: GET …/director/progress is its record
     note: DeliveryNoteOut | None = None  # a delivery: its note
     edit: EditRef | None = None  # an edit_cut move's edit: Undo beside it (POST …/cut/edits/…)
+
+    @model_validator(mode="after")
+    def _no_ids(self):
+        """The director's words with no ids ("screen:3" is the screen's name); a person's own
+        message is never rewritten (QA on #1409: "home:2 away:1", a pasted address)."""
+        if self.kind != "message":
+            self.text = said(self.text)
+        return self
 
 
 class ClipCellOut(BaseModel):

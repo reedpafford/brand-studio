@@ -231,15 +231,22 @@ def test_the_samples_person_is_the_first_presenter_else_the_first_character(owne
 
 def test_a_stand_in_sample_never_hides_the_real_test_sample_on_new_videos_card(app, db, owner):
     """MAIN's run: on the test site, Disney Pixar's card was the stand-ins' grey picture. A
-    sample the stand-ins made is said to be one, so the card shows the shipped test sample."""
+    sample whose clip a stand-in made (its ref says so, as real spend reads it) is said to be
+    one, whatever the site's providers are, so the card shows the shipped test sample; a real
+    model's never is."""
     app.state.settings.fake_providers = True
     brand = _brand(owner)
     _mia(owner, db, brand)
     assert owner.post("/looks/disney-pixar/sample", json={"brand_id": brand}).status_code == 201
     _work(app, db, ticks=4)
-    shown = {x["id"]: x for x in owner.get("/looks").json()}
-    pixar = shown["disney-pixar"]
-    assert pixar["sample_clip_id"] and pixar["sample_stand_in"] and pixar["test_still"]
-    assert not shown["claymation"]["sample_stand_in"]  # no sample of its own
-    app.state.settings.fake_providers = False  # the live site: its samples are real
-    assert not {x["id"]: x for x in owner.get("/looks").json()}["disney-pixar"]["sample_stand_in"]
+    app.state.settings.fake_providers = False  # real providers on (the test site, live)
+
+    def pixar() -> dict:
+        return {x["id"]: x for x in owner.get("/looks").json()}["disney-pixar"]
+
+    assert pixar()["sample_clip_id"] and pixar()["sample_stand_in"] and pixar()["test_still"]
+    assert not {x["id"]: x for x in owner.get("/looks").json()}["claymation"]["sample_stand_in"]
+    clip = db.query(Job).filter(Job.input["step"].as_string() == look_samples.CLIP).one()
+    clip.provider_ref = "r8-real-prediction"  # a real model made it
+    db.commit()
+    assert not pixar()["sample_stand_in"]

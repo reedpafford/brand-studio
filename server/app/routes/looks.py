@@ -55,14 +55,13 @@ class LookSwitchIn(BaseModel):
     on: bool
 
 
-def _out(db: Session, ws: int, look: dict, fake: bool = False) -> LookOut:
-    """`fake`: the site runs on the stand-ins, so a sample they made is said to be one."""
+def _out(db: Session, ws: int, look: dict) -> LookOut:
     row = looks.switch(db, ws, look["id"])
     return LookOut(id=look["id"], name=look["name"], blurb=look["blurb"],
                    on=looks.is_on(db, ws, look["id"]),
                    sample_still_id=row.sample_still_id if row else None,
                    sample_clip_id=row.sample_clip_id if row else None,
-                   sample_stand_in=fake and bool(row and row.sample_clip_id)
+                   sample_stand_in=bool(row and row.sample_clip_id)
                    and look_samples.stand_in(db, ws, look["id"]),
                    video_model=look["video_model"], own_sample=look["own_sample"],
                    lanes=[LaneOut(id=x["id"], name=x["name"])
@@ -87,11 +86,9 @@ def _test_sample(kind: str, item_id: str, ext: str) -> FileResponse:
 
 
 @router.get("", response_model=list[LookOut])
-def list_looks(request: Request, user: User = Depends(current_user),
-               db: Session = Depends(get_db)):  # fmt: skip
+def list_looks(user: User = Depends(current_user), db: Session = Depends(get_db)):
     """House first, then Reed's order. Editors see the Off ones too, greyed (ST1)."""
-    fake = request.app.state.settings.fake_providers
-    return [_out(db, user.workspace_id, x, fake) for x in looks.looks()]
+    return [_out(db, user.workspace_id, x) for x in looks.looks()]
 
 
 @router.get("/{look_id}/test-sample.{ext}", response_class=FileResponse)

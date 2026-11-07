@@ -16,8 +16,9 @@ CAST = "Check the cast: "
 
 
 # Ids people never read (Reed's live test: "c3: char:3 in the shot without a sheet"; MAIN's
-# run, video 233: "(screen:3, the real UI)" in the treatment): any kind:N, never a web address
-ID = re.compile(r"\b(?!https?:|localhost:)([a-z]+):(?=c?\d)[\w.]*\w")
+# run, video 233: "(screen:3, the real UI)" in the treatment): only our own kinds, so people's
+# words ("home:2 away:1", "time:10s", a web address with ":8443") are never touched
+ID = re.compile(r"\b(char|slot|place|prop|screen|frame|voice):[\w.]+")
 CLIP = re.compile(r"^c\d+: ")
 KIND = {"char": "a character", "slot": "a character", "place": "a place", "prop": "a prop",
         "screen": "a screen", "frame": "a still", "voice": "a voice"}  # fmt: skip

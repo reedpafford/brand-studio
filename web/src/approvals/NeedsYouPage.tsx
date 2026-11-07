@@ -15,6 +15,7 @@ type Out = components["schemas"]["NeedsYouOut"];
 type Row = components["schemas"]["NeedsYouRow"];
 type Send = components["schemas"]["HeldSend"];
 type Stuck = components["schemas"]["StuckVideo"];
+type CastWait = components["schemas"]["CastWait"];
 type Price = components["schemas"]["AskPrice"];
 
 /** GET /needs-you: the owner's one inbox across brands (questions, money, stuck), with every brand's count. `brand`
@@ -256,6 +257,19 @@ function HeldSend({ send: s, phone, main, mark }: { send: Send; phone: boolean; 
 
 /** A stuck video (rule 22): what went wrong and why, and its one-click fix, the same press and price as its own stuck
  *  card in the chat (S3-11). */
+/** A run waiting on the cast and places OK (QA on #1409): counted with the rest, its press the Cast tab's own. */
+function CastRow({ row, phone }: { row: CastWait; phone: boolean }) {
+  return (
+    <Card still={row.video.still_file_id} idea={idea(row.video, phone)} brand={row.brand.name} when="" title="Approve the cast and places" line="The run waits until you approve who and where the video shows." phone={phone}>
+      <Presses>
+        <Link to={chat(row.brand.id, row.video.id, "cast")} className={buttonClass("secondary")}>
+          Open Cast
+        </Link>
+      </Presses>
+    </Card>
+  );
+}
+
 function StuckRow({ row, phone }: { row: Stuck; phone: boolean }) {
   const f = row.fix;
   const press = usePress(f.kind === "split" ? "Split. The words don’t change." : "Started again.");
@@ -324,7 +338,8 @@ export function NeedsYouPage() {
       </main>
     );
   const d: Out = q.data;
-  const shown = d.questions.length + d.money.length + d.sends.length + d.stuck.length;
+  const cast = d.cast ?? []; // a server before the cast rows: none
+  const shown = d.questions.length + d.money.length + d.sends.length + d.stuck.length + cast.length;
   const first = d.money.find((r) => r.ask.can.some((c) => c === "approve" || c === "make_it"));
   const main = first ? `ask-${first.ask.id}` : d.sends[0] ? `job-${d.sends[0].job_id}` : null; // the one indigo press
   const named = d.brands.find((b) => b.id === brand)?.name;
@@ -380,6 +395,7 @@ export function NeedsYouPage() {
               </Section>
             )}
             {d.stuck.length > 0 && <Section title="Stuck" phone={phone}>{d.stuck.map((s) => <StuckRow key={s.video.id} row={s} phone={phone} />)}</Section>}
+            {cast.length > 0 && <Section title="Cast & places" phone={phone}>{cast.map((c) => <CastRow key={c.video.id} row={c} phone={phone} />)}</Section>}
           </>
         )}
       </main>
