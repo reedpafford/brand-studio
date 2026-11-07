@@ -40,7 +40,8 @@ export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): 
     // The whole video's spend beside one run's estimate, each said for what it is (QA on #1396).
     const more = [h.listed_usd ? `$${h.listed_usd.toFixed(2)} of it at list price` : "", h.unreported ? "more not reported yet" : ""].filter(Boolean).join(", ");
     const real = `This video so far ${dollars(h.spent)}${more ? ` (${more})` : ""}`;
-    const about = h.expected ? `this run about ${dollars(h.expected)} (estimate)` : "estimating…";
+    const going = ["working", "waiting", "needs_you"].includes(h.status.kind); // else the estimate is for the next run
+    const about = h.expected ? `${going ? "this run" : "next run"} about ${dollars(h.expected)} (estimate)` : "estimating…";
     if (short) return ["", spent ? `${dollars(h.spent)} so far` : `About ${dollars(h.expected ?? h.spent)} (estimate)`];
     return [spent ? `${real} ·` : "No generation started ·", about];
   }

@@ -30,6 +30,11 @@ TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_tak
 WAITING = "{} for the cast and places OK."
 
 
+STEP_BROKE = (
+    "Refused: that step hit an error on our side and may not have finished. Try another way."  # noqa: E501
+)
+
+
 def run(db: Session, user: User, project: Project, decision: dict, storage,
         run: dict | None = None) -> str:  # fmt: skip
     """Do one tool; what happened, in plain words (a refusal's own words)."""
@@ -264,6 +269,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         return f"Refused: {'.'.join(map(str, e['loc'])) or 'a value'}: {e['msg']}."
     except ValueError:  # pick_take named no single clip
         return "Refused: name one clip."
+    except Exception:  # noqa: BLE001 - never leave the turn without a result (the run would hang)
+        db.rollback()
+        log.exception("project %s: %s failed", pid, tool)
+        return STEP_BROKE
     return f"Refused: there's no tool called {tool}."
 
 
