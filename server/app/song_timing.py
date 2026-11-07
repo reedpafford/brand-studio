@@ -11,6 +11,7 @@ up with what was heard, so every line keeps its exact text. Cuts fall only on ba
 beats), never inside a sung word."""
 
 import json
+import logging
 import math
 import re
 import subprocess
@@ -21,6 +22,8 @@ from pathlib import Path
 
 from app.prompts import SECTION, section_name
 from app.prompts.check import LIP_SYNC
+
+log = logging.getLogger(__name__)
 
 RATE = 8000  # Hz: enough to hear where the beats land
 HOP = 0.01  # s per energy frame
@@ -130,11 +133,16 @@ def read_timeout(path: Path) -> int:
 def words(path: Path, lyrics: str) -> list[dict]:
     """Local Whisper, prompted with the lyrics: [{word, start, end}], in the time the take's
     length gives it (`read_timeout`)."""
+    from app.whisper import timings
+
     args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics]
+    allowed = read_timeout(path)
     try:
-        done = _run(args, read_timeout(path))
-    except subprocess.TimeoutExpired:
+        done = _run(args, allowed)
+    except subprocess.TimeoutExpired as late:  # where the time went: the load, or the read
+        log.warning("whisper timing read ran out of %s s: %s", allowed, timings(late.stderr))
         raise RuntimeError("Reading the sung words took too long.") from None
+    log.info("whisper timing read: %s (allowed %s s)", timings(done.stderr), allowed)
     if done.returncode != 0:
         raise RuntimeError(f"Reading the sung words failed ({done.returncode}).")
     return json.loads(done.stdout)
