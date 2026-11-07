@@ -782,6 +782,9 @@ def undo_approve_all(
     return list_clips(project_id, user, db)
 
 
+BY_DIRECTOR = "@director"  # in real_images: the director switched this shot (`real_screen`)
+
+
 @router.put("/clips/{clip_id}/inserts/{shot_id}", response_model=ProjectClipOut)
 def set_insert(
     project_id: int,
@@ -796,7 +799,9 @@ def set_insert(
     project, row = _clip(db, user, project_id, clip_id)
     if shot_id not in {i.shot_id for i in cut_in.inserts(db, project, row)}:
         raise HTTPException(404, "That shot isn't an insert in this clip.")
-    row.real_images = {**(row.real_images or {}), shot_id: body.use_real_image}
+    mark = f"{shot_id}{BY_DIRECTOR}"  # who set it: a person's own switch clears the mark
+    kept = {k: v for k, v in (row.real_images or {}).items() if k != mark}
+    row.real_images = {**kept, shot_id: body.use_real_image}
     db.commit()
     return _out(db, row, _newest_breakdown(db, project))
 

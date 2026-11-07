@@ -32,7 +32,7 @@ DENSE = 4  # windows sampled at 10 a second, on its jumps and cuts
 LISTEN, STEP, KIND = "cut_listen", "watch_cut", "check-claude"
 NO_CUT = "Make the cut first."
 SEEN = ("story", "picture", "cast", "text", "screen")  # kinds the frames can show
-FIXES = ("redo", "pick", "mute", "keep")
+FIXES = ("redo", "pick", "mute", "trim", "keep")
 
 
 def clip_at(spans: list[dict], t: float) -> str:
@@ -261,13 +261,13 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
         why = ""
         if span is None or f["fix"] not in FIXES:
             why = "names no clip of the cut" if span is None else f"fix {f['fix']!r}"
-        elif f["fix"] == "mute":
+        elif f["fix"] in ("mute", "trim"):
             start, end = float(f["start"]), float(f["end"])
             if not (span["start"] - 0.05 <= start < end <= span["end"] + 0.05):
-                why = "a mute across clips"
+                why = f"a {f['fix']} across clips"
             elif any(w["end"] > start and w["start"] < end for line in spoken for w in line):
-                why = "a mute over a line with script words"  # rule 19, misheard ones too
-            else:
+                why = f"a {f['fix']} over a line with script words"  # rule 19, misheard too
+            elif f["fix"] == "mute":
                 f["mute"] = _in_take(span, start, end)
         elif f["fix"] == "pick" and f.get("take_id") not in {
             t["take_id"] for t in span.get("other_takes", [])

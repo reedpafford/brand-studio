@@ -107,6 +107,13 @@ def _sounds(heard: list[dict], asked: str, lines: list[str]) -> tuple[list[dict]
     return found, spoken
 
 
+def _near(a: str, b: str) -> float:
+    """How close two lines are, a figure said in words ("four thousand two hundred") or in
+    digits ("$4,200") counting the same (QA on #1428): it's the line, said."""
+    plain = [" ".join(w for w in _bare(x).split() if not NUMBERS.match(w)) for x in (a, b)]
+    return max(_close(a, b), _close(*plain) if all(plain) else 0.0)
+
+
 def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
             actions: list[str]) -> list[dict]:  # fmt: skip
     """Findings: script lines not heard, heard lines not in the script (spoken actions when
@@ -116,8 +123,8 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
     findings, heard = _sounds(heard, asked, [line["text"] for line in lines])
     sounds, findings, used = findings, [], set()
     for line in lines:
-        near = sorted(range(len(heard)), key=lambda i: -_close(line["text"], heard[i]["text"]))
-        if near and _close(line["text"], heard[near[0]]["text"]) >= SAID:
+        near = sorted(range(len(heard)), key=lambda i: -_near(line["text"], heard[i]["text"]))
+        if near and _near(line["text"], heard[near[0]]["text"]) >= SAID:
             used.add(near[0])
             continue
         who = line.get("who") or ""
@@ -126,10 +133,12 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                                  f"for word: “{line['text']}”", who))  # fmt: skip
     voiced = any(VOICED.search(a) for a in actions)
     scripted = {w for line in lines for w in _bare(line["text"]).split()}
+    for i in sorted(used):  # a line heard as said, with words of its own around it
+        findings += _added(heard[i], [line["text"] for line in lines], scripted, brand)
     for i, h in enumerate(heard):
         said, at = h["text"].strip(), _clock(h["start"])
         mute = f"It can be muted in the cut ({at}–{_clock(h['end'])})."
-        if i not in used and not any(_close(line["text"], said) >= SAID for line in lines):
+        if i not in used and not any(_near(line["text"], said) >= SAID for line in lines):
             if voiced:
                 findings.append(
                     _finding(
@@ -152,6 +161,55 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                                          "be said wrong. Listen first: the transcript can "
                                          f"mishear.", f"Say {brand} as {said_as}."))  # fmt: skip
     return findings + sounds
+
+
+FILLERS = {"uh", "um", "ah", "oh", "hmm", "mm", "er"}  # a speech model's hesitations
+
+
+NUMBERS = re.compile(r"^(?:\d[\d,.]*|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+                     r"eleven|twelve|\w+teen|twenty|thirty|forty|fifty|sixty|seventy|eighty|"
+                     r"ninety|hundred|thousand|million|billion|k|grand|dollars?|bucks|percent|"
+                     r"point|and)$")  # fmt: skip  # a figure said in words
+
+
+def _added(h: dict, lines: list[str], scripted: set[str], brand: str = "") -> list[dict]:
+    """Words heard before or after a line that was said, which no script line has (video
+    245: "Come on." after "Then you're mowing my lawn.", heard as one line with it, so never
+    flagged): an "extra" finding, with its own times when the transcript has them, to mute or
+    to pick another take. Never words inside the line, which may stand in for its own ("foe
+    mo" for fomo, "Going to" for "Gonna"), a figure said in words, a brand name heard in
+    pieces, another of the clip's lines run together with it, or an "uh" (QA on #1428)."""
+    best = max(lines, key=lambda line: _close(line, h["text"]), default="")
+    said, want = _bare(h["text"]).split(), _bare(best).split()
+    words = [w for w in h.get("words") or [] if _bare(w["word"])]
+    timed = len(words) == len(said)
+    name = _bare(brand).replace(" ", "")
+    out = []
+    ops = SequenceMatcher(None, want, said, autojunk=False).get_opcodes()
+    for op, _, _, b1, b2 in ops:
+        run = said[b1:b2]
+        if op != "insert" or (b1 > 0 and b2 < len(said)):
+            continue  # only words added at the line's start or end, never inside it
+        if all(w in scripted or w in FILLERS or NUMBERS.match(w) for w in run):
+            continue  # another of the clip's lines heard run together, an "uh", a figure
+        joined = "".join(run)
+        if name and (name in joined or _off_by_one(joined, name)):
+            continue  # the brand's name heard in pieces ("foe mo")
+        start, end = ((words[b1]["start"], words[b2 - 1]["end"]) if timed
+                      else (h["start"], h["end"]))  # fmt: skip
+        text = " ".join(w["word"].strip() for w in words[b1:b2]) if timed else " ".join(run)
+        at = _clock(start)
+        mute = f" It can be muted in the cut ({at}–{_clock(end)})." if timed else ""
+        out.append(
+            _finding(
+                "extra",
+                start,
+                f"“{text}” at {at} isn't in the script, said with the line “{best}”.{mute}",
+                f"Say only the script's lines, word for word: no “{text}”.",
+                span=[start, end] if timed else None,
+            )
+        )
+    return out
 
 
 VOICE = "“{said}” at {at} may be said in the take, but this clip isn't planned to speak."
