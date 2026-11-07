@@ -730,3 +730,17 @@ def test_a_later_take_is_never_said_to_fix_an_old_watch_of_the_cut(app, db, owne
     two.watch = own  # its own watch acted on it
     watch_cut.redone(db, project, row, found, db.get(Job, two.job_id))
     assert two.watch == own  # what its own watch found and did stays
+
+
+def test_before_any_clip_the_card_says_the_step_the_run_is_on():
+    """MAIN's run, video 233: "Planning" stood for 45 minutes through the cast and the stills."""
+
+    def turns(*tools):
+        return [Job(input={"result": "ok"}, output={"tool": t}) for t in tools]
+
+    assert run_progress.phase([]) == "read"
+    said = {t: run_progress.BEFORE_CLIPS[run_progress.phase(turns("treatment", t))]
+            for t in ("plan", "make_looks", "storyboard", "clip_prompts")}  # fmt: skip
+    assert said == {"plan": "Planning", "make_looks": "Casting",
+                    "storyboard": "Drawing the stills",
+                    "clip_prompts": "Writing the clip prompts"}  # fmt: skip

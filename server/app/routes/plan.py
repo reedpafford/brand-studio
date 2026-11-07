@@ -2,13 +2,14 @@
 plan; approving it also makes the shots (the breakdown), at the breakdown's price (#848)."""
 
 import re
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app import breakdown, credits, plans, prompts
-from app.advice import names
+from app.advice import SaidText, names, said
 from app.auth import current_user, user_name
 from app.db import get_db
 from app.models.accounts import User
@@ -30,7 +31,7 @@ class LineOut(BaseModel):
     n: int  # the script line's number
     text: str  # its words, read only (the plan keeps numbers only, rule 19)
     section: str = ""  # a song's: the tag above it ("Chorus")
-    action: str
+    action: SaidText  # no ids: "the FOMO home screen", never "screen:3"
     star: bool  # ★: a key product moment
     product: str | None = None  # what the ★ shows (screen:N)
 
@@ -47,7 +48,7 @@ class SceneOut(BaseModel):
 class AdviceOut(BaseModel):
     scene_id: str | None  # None: about the whole plan
     kind: str  # two_places, no_product, not_in_cast, too_long
-    text: str
+    text: SaidText
 
 
 class JobState(BaseModel):
@@ -82,7 +83,7 @@ class PlanOut(BaseModel):
     structure: dict | None = None  # {label, from: reel | study | pattern}
     cast: list[Cast] = []
     scenes: list[SceneOut] = []
-    summary: str | None = None
+    summary: Annotated[str | None, AfterValidator(said)] = None
     advice: list[AdviceOut] = []
     job: JobState | None = None
     estimate_credits: int  # Make the plan / Make a new plan

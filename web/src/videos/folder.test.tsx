@@ -45,7 +45,7 @@ test("an open folder (S1-04): the crumb and its counts, tabs, and each idea's st
   setViewport(1440);
   const calls = fakeServer(base(owner));
   open();
-  expect(await screen.findByText("2 video ideas · 1 needs you")).toBeInTheDocument();
+  expect(await screen.findByText("2 video ideas · 1 video needs you")).toBeInTheDocument();
   expect(within(screen.getByRole("main")).getByText("Week of 3 Nov")).toBeInTheDocument();
   const card = screen.getByRole("link", { name: /Beer gut doctor rant/ });
   expect(card).toHaveAttribute("href", "/b/1/videos/9");
@@ -167,7 +167,7 @@ test("on a phone (P-02): the folder's name over its counts, all four tabs, two c
   fakeServer(base(owner));
   open();
   expect(await screen.findByRole("heading", { name: "Week of 3 Nov" })).toBeInTheDocument();
-  expect(screen.getByText("Resilia · 2 ideas · 1 needs you")).toBeInTheDocument();
+  expect(screen.getByText("Resilia · 2 ideas · 1 video needs you")).toBeInTheDocument();
   expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["All", "Needs you 1", "Working 1", "Delivered 0"]);
   expect(screen.getByText("Dr. Pickle · up to $16.86")).toBeInTheDocument();
   const sizes = { scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth };

@@ -44,6 +44,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.models.scripts import ScriptVersion
+from app.prompts import check
 from app.references import LONG_SIDE
 from app.routes.brands import get_brand
 from app.routes.clips import generation_on
@@ -641,8 +642,7 @@ def create_freestyle(
             # (the first done or gone) is a new freestyle
             db.rollback()
             return _out(db, fs, user)  # the same send twice: one freestyle, one held take
-    title = (script.title if script else
-             next(line.strip() for line in text.splitlines() if line.strip()))[:60]  # fmt: skip
+    title = (script.title if script else check.title_line(text))[:60]
     fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title=title,
                    type=type, look=look, shape=body.shape, brand_id=brand_id,
                    chat=[])  # fmt: skip

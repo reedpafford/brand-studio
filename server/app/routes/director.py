@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.orm import Session
 
 from app import asks, director, run_progress
-from app.advice import SaidText
+from app.advice import SaidJSON, SaidText
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
@@ -70,12 +70,13 @@ class ThreadItem(BaseModel):
     kind: Literal["message", "move", "ask"]  # a person's words, the director's, a card (ask_id)
     at: UtcTime
     who: str  # the person's name, or "Director"
-    text: str  # plain words: a run's card in a line ("Making the clips · 14 of 24 · scene 4
-    # of 6"), a delivery's note as plain lines
+    text: SaidText  # plain words, no ids: a run's card in a line ("Making the clips · 14 of 24 ·
+    # scene 4 of 6"), a delivery's note as plain lines
     status: Literal["queued", "running", "held", "done", "refused"] | None  # moves only
     why: str = ""  # "" (kept for the shape: the run's card and note say it all)
     answered: bool | None = None  # a note: a move answered it ("Note N"), else still open
-    treatment: dict | None = None  # the treatment move: hook, logline, why it holds, beats, ending
+    treatment: SaidJSON = None  # the treatment move: hook, logline, why it holds, beats, ending
+    # (no ids in it: "the FOMO home screen", never "screen:3")
     ask_id: int | None = None  # a card: GET /projects/{id}/asks has it whole
     files: list[int] | None = None  # a message's pictures or clips, this video's only (rule 12)
     run: str | None = None  # a run's progress card: GET …/director/progress is its record

@@ -11,9 +11,10 @@ const SOON = "coming next";
 const OFF = "Off on this site";
 
 /** A look's card pictures: the owner's approved sample (Settings → Looks) once there is one, else the 3 Nov test sample
- *  shipped with the site; `tag` says "Test sample" on the paid tests, never on the site's own frame (House). */
+ *  shipped with the site; `tag` says "Test sample" on the paid tests, never on the site's own frame (House). A sample the
+ *  test site's stand-ins made (a plain grey picture) never hides the real test sample. */
 export function lookMedia(l: Look) {
-  if (l.sample_clip_id) return { clip: fileUrl(l.sample_clip_id), still: l.sample_still_id ? fileUrl(l.sample_still_id) : undefined, tag: false };
+  if (l.sample_clip_id && !l.sample_stand_in) return { clip: fileUrl(l.sample_clip_id), still: l.sample_still_id ? fileUrl(l.sample_still_id) : undefined, tag: false };
   return { clip: l.test_clip ? `/api/looks/${l.id}/test-sample.mp4` : undefined, still: l.test_still ? `/api/looks/${l.id}/test-sample.jpg` : undefined, tag: !!l.test_tag };
 }
 /** "B-roll: near-real inserts" from its guide's `broll:` line ("Near-real inserts"). */

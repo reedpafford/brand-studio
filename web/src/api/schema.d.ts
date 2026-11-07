@@ -9228,6 +9228,11 @@ export interface components {
              * @default false
              */
             test_tag: boolean;
+            /**
+             * Sample Stand In
+             * @default false
+             */
+            sample_stand_in: boolean;
         };
         /** LookSheetOut */
         LookSheetOut: {

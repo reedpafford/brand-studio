@@ -54,3 +54,25 @@ def test_a_clips_problem_can_be_kept_anyway_once_its_free_fix_was_tried(db, edit
     db.get(ProjectClip, clip["id"]).problems = [problem]
     db.commit()
     assert editor.post(f"{url}/generate").status_code == 409  # Undo: it blocks again
+
+
+def test_any_kind_n_id_is_said_in_words_and_a_treatment_shows_none():
+    """MAIN's run, video 233: "(screen:3, the real UI)" in the treatment and the Plan tab. Any
+    kind:N id is named, or said for what it is; times and web addresses are left alone."""
+    from app.advice import said, said_all
+
+    assert said("A close-up (screen:3, the real UI).") == "A close-up (a screen, the real UI)."
+    assert said("look:12 and take:4") == "an item and an item"
+    assert said("At 17:05 on localhost:8443.") == "At 17:05 on localhost:8443."
+    beats = {"hook": "char:5 opens on screen:3", "beats": [{"id": 1, "picture": "frame:c2"}]}
+    assert said_all(beats) == {"hook": "a character opens on a screen",
+                               "beats": [{"id": 1, "picture": "a still"}]}  # fmt: skip
+    from app.db import utcnow
+    from app.routes.director import ThreadItem
+    from app.routes.plan import LineOut
+
+    told = {"beats": [{"picture": "(screen:3, the real UI)"}]}
+    move = ThreadItem(id="s1", kind="move", at=utcnow(), who="Director", text="On screen:3.",
+                      status="done", treatment=told)  # fmt: skip
+    line = LineOut(n=1, text="Rent's paid.", action="She holds up screen:3.", star=True)
+    assert "screen:3" not in move.model_dump_json() + line.model_dump_json()

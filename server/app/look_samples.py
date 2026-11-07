@@ -118,6 +118,17 @@ def newest(db: Session, ws: int, look_id: str) -> Job | None:
     return next((j for j in rows if j.input.get("look_id") == look_id), None)
 
 
+def stand_in(db: Session, ws: int, look_id: str) -> bool:
+    """On a site running on the free stand-ins: the look's sample came from them (a plain grey
+    picture), not a real model, so New video's card shows the real test sample shipped with the
+    site instead (MAIN's run: grey Disney Pixar, Claymation and Dr. Pickle cards)."""
+    rows = db.scalars(select(Job).where(Job.workspace_id == ws, Job.status == JobStatus.succeeded,
+                                        Job.input["step"].as_string() == CLIP)
+                      .order_by(Job.id.desc()))  # fmt: skip
+    made = next((j for j in rows if j.input.get("look_id") == look_id), None)
+    return made is not None and made.provider != REAL_SAMPLES
+
+
 def state(db: Session, ws: int, look_id: str) -> tuple[str, str | None]:
     """(none | making | ready | failed, a plain reason)."""
     job = newest(db, ws, look_id)

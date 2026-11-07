@@ -48,18 +48,22 @@ class LookOut(BaseModel):
     test_clip: bool = False  # a test sample at /looks/{id}/test-sample.mp4 (and .jpg)
     test_still: bool = False
     test_tag: bool = False  # its card says "Test sample" (not the site's own frame)
+    sample_stand_in: bool = False  # its sample is a test-site stand-in: the card shows the test one
 
 
 class LookSwitchIn(BaseModel):
     on: bool
 
 
-def _out(db: Session, ws: int, look: dict) -> LookOut:
+def _out(db: Session, ws: int, look: dict, fake: bool = False) -> LookOut:
+    """`fake`: the site runs on the stand-ins, so a sample they made is said to be one."""
     row = looks.switch(db, ws, look["id"])
     return LookOut(id=look["id"], name=look["name"], blurb=look["blurb"],
                    on=looks.is_on(db, ws, look["id"]),
                    sample_still_id=row.sample_still_id if row else None,
                    sample_clip_id=row.sample_clip_id if row else None,
+                   sample_stand_in=fake and bool(row and row.sample_clip_id)
+                   and look_samples.stand_in(db, ws, look["id"]),
                    video_model=look["video_model"], own_sample=look["own_sample"],
                    lanes=[LaneOut(id=x["id"], name=x["name"])
                           for x in looks.lanes(look["id"])],
@@ -83,9 +87,11 @@ def _test_sample(kind: str, item_id: str, ext: str) -> FileResponse:
 
 
 @router.get("", response_model=list[LookOut])
-def list_looks(user: User = Depends(current_user), db: Session = Depends(get_db)):
+def list_looks(request: Request, user: User = Depends(current_user),
+               db: Session = Depends(get_db)):  # fmt: skip
     """House first, then Reed's order. Editors see the Off ones too, greyed (ST1)."""
-    return [_out(db, user.workspace_id, x) for x in looks.looks()]
+    fake = request.app.state.settings.fake_providers
+    return [_out(db, user.workspace_id, x, fake) for x in looks.looks()]
 
 
 @router.get("/{look_id}/test-sample.{ext}", response_class=FileResponse)

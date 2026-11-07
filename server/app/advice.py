@@ -15,8 +15,9 @@ PREFIX = "Advice: "
 CAST = "Check the cast: "
 
 
-# Ids people never read (Reed's live test: "c3: char:3 in the shot without a sheet").
-ID = re.compile(r"\b(char|slot|place|prop|screen|frame|voice):[\w.]+")
+# Ids people never read (Reed's live test: "c3: char:3 in the shot without a sheet"; MAIN's
+# run, video 233: "(screen:3, the real UI)" in the treatment): any kind:N, never a web address
+ID = re.compile(r"\b(?!https?:|localhost:)([a-z]+):(?=c?\d)[\w.]*\w")
 CLIP = re.compile(r"^c\d+: ")
 KIND = {"char": "a character", "slot": "a character", "place": "a place", "prop": "a prop",
         "screen": "a screen", "frame": "a still", "voice": "a voice"}  # fmt: skip
@@ -44,7 +45,7 @@ def plain(problems: list[str], called: dict[str, str]) -> list[str]:
     every id named ("Mia"), or said for what it is when it isn't in the video any more."""
 
     def what(m: re.Match) -> str:
-        return called.get(m[0], KIND[m[1]])
+        return called.get(m[0], KIND.get(m[1], "an item"))
 
     out = []
     for p in problems:
@@ -52,7 +53,9 @@ def plain(problems: list[str], called: dict[str, str]) -> list[str]:
         body, clipped = CLIP.subn("", p[len(lead) :])
         body = re.sub(
             rf"unknown (?:reference )?({ID.pattern})",
-            lambda m: f"{called.get(m[1], UNNAMED[m[2]])} that isn't part of this video",
+            lambda m: (
+                f"{called.get(m[1], UNNAMED.get(m[2], 'an item'))} that isn't part of this video"
+            ),
             body,
         )
         body = ID.sub(what, body)
@@ -119,6 +122,20 @@ def said(text: str) -> str:
 # goes through `said` on the way out, whatever made it.
 Said = Annotated[list[str], AfterValidator(lambda ps: [said(p) for p in ps])]
 SaidText = Annotated[str, AfterValidator(said)]
+
+
+def said_all(value):
+    """Every string in a JSON value `said` (the treatment: its hook, beats and pictures)."""
+    if isinstance(value, str):
+        return said(value)
+    if isinstance(value, list):
+        return [said_all(v) for v in value]
+    if isinstance(value, dict):
+        return {k: said_all(v) for k, v in value.items()}
+    return value
+
+
+SaidJSON = Annotated[dict | None, AfterValidator(said_all)]
 
 
 class KeepIn(BaseModel):
