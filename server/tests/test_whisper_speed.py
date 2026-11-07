@@ -81,3 +81,18 @@ def test_a_timing_read_logs_where_its_time_went_even_when_it_runs_out(monkeypatc
     monkeypatch.setattr(song_timing, "_run", done)
     assert song_timing.words("v.mp3", "Hi.") == []
     assert "'transcribe_s': 9.5" in caplog.text
+    assert not [r for r in caplog.records if r.levelname == "WARNING" and "took" in r.message]
+
+
+def test_a_read_that_uses_over_three_quarters_of_its_time_warns(monkeypatch, caplog):
+    """A 23 s read took 175 s of its 180 s on the test site: a read near its limit logs a
+    warning, so the trend shows before one runs out."""
+    caplog.set_level("INFO", logger="app.song_timing")
+    monkeypatch.setattr(song_timing, "read_timeout", lambda path: 300)
+    clock = iter([1000.0, 1000.0 + 226])  # 226 s of 300: over 75%
+    monkeypatch.setattr(song_timing.time, "monotonic", lambda: next(clock))
+    ran = lambda args, timeout: subprocess.CompletedProcess(args, 0, stdout=b"[]", stderr=b"")  # noqa: E731
+    monkeypatch.setattr(song_timing, "_run", ran)
+    assert song_timing.words("v.mp3", "Hi.") == []
+    (warned,) = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert "took 226 of 300 s" in warned.getMessage()

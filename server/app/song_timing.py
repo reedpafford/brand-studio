@@ -16,6 +16,7 @@ import math
 import re
 import subprocess
 import sys
+import time
 from array import array
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -30,11 +31,12 @@ HOP = 0.01  # s per energy frame
 BPM = (70, 180)  # tempos we look for; ads sit near 120
 BEATS_PER_BAR = 4
 TIMEOUT = 180
-# Whisper's read of a take: never under TIMEOUT, more for a longer take (it ran past 180 s on
-# a real UGC narration while a deploy built on the same server). One try a job: the local lane
-# is one worker every cut and listen shares; a failed read is read again as its own job
-# (song_takes.time_again).
-PER_SECOND, MOST = 6, 900
+# Whisper's read of a take: never under FLOOR, more for a longer take (it ran past 180 s on
+# a real UGC narration while a deploy built on the same server, and a 23 s read took 175 s on
+# the test site). One try a job: the local lane is one worker every cut and listen shares; a
+# failed read is read again as its own job (song_takes.time_again). A read that uses over
+# NEAR of its time logs a warning, so the trend shows before one runs out.
+FLOOR, PER_SECOND, MOST, NEAR = 300, 6, 900, 0.75
 MAX_SECONDS = 900  # far longer than any ad (the stand-ins make one past the cap)
 PEAKS = 200  # waveform points for the screens
 
@@ -121,13 +123,13 @@ def beats(samples: array, seconds: float) -> tuple[float, list[float]]:
 
 
 def read_timeout(path: Path) -> int:
-    """How long Whisper may take on this file: TIMEOUT at least, PER_SECOND of its length
-    more, MOST at most (a file that can't be measured gets TIMEOUT)."""
+    """How long Whisper may take on this file: FLOOR at least, PER_SECOND of its length
+    more, MOST at most (a file that can't be measured gets FLOOR)."""
     try:
         seconds = length(path)
     except (ValueError, subprocess.TimeoutExpired):
-        return TIMEOUT
-    return min(MOST, max(TIMEOUT, round(PER_SECOND * seconds)))
+        return FLOOR
+    return min(MOST, max(FLOOR, round(PER_SECOND * seconds)))
 
 
 def words(path: Path, lyrics: str) -> list[dict]:
@@ -136,13 +138,15 @@ def words(path: Path, lyrics: str) -> list[dict]:
     from app.whisper import timings
 
     args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics]
-    allowed = read_timeout(path)
+    allowed, began = read_timeout(path), time.monotonic()
     try:
         done = _run(args, allowed)
     except subprocess.TimeoutExpired as late:  # where the time went: the load, or the read
         log.warning("whisper timing read ran out of %s s: %s", allowed, timings(late.stderr))
         raise RuntimeError("Reading the sung words took too long.") from None
-    log.info("whisper timing read: %s (allowed %s s)", timings(done.stderr), allowed)
+    took = time.monotonic() - began
+    near = log.warning if took > NEAR * allowed else log.info  # close to running out
+    near("whisper timing read: %s (took %.0f of %s s)", timings(done.stderr), took, allowed)
     if done.returncode != 0:
         raise RuntimeError(f"Reading the sung words failed ({done.returncode}).")
     return json.loads(done.stdout)
