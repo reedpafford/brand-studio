@@ -607,6 +607,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
           Swap B-roll <span className="font-normal text-muted">· free</span>
         </Button>
       )}
+      {picked && clip.sound?.state === "ready" && clip.sound.asked && <p className="text-xs text-muted">Sound effects: {clip.sound.asked}</p>}{/* why they're there: a person's words, or the style guide's the director named */}
       {picked && clip.sound?.state === "ready" && (
         <Button variant="secondary" icon={Volume2} className={phone ? "w-full justify-start" : ""} onClick={() => go(() => must(api.DELETE("/projects/{project_id}/clips/{clip_id}/sound", { params: { path } })))}>
           Remove the sound effects

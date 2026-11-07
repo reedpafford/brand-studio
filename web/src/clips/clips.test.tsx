@@ -497,3 +497,13 @@ test("a still's check with no price to read: its Change the still… is greyed w
   await vi.waitFor(() => expect(within(check).getByRole("button", { name: /^Change the still…/ })).toBeDisabled());
   expect(within(check).getByRole("button", { name: /^Change the still…/ })).toHaveAccessibleDescription("Its look isn't approved yet.");
 });
+
+test("sound effects on a clip say why they're there: a person's words or the style guide's the director named", async () => {
+  setViewport(1440);
+  const v = video(6);
+  const clips = v.clips.map((c) => (c.clip_id === "c3" ? { ...c, sound: { state: "ready", how: "normal", asked: "House: a whoosh on each whip", credits: 0.1 } } : c));
+  server(owner, 6, { "GET /projects/50/clips": [200, clips] });
+  open("&clip=c3");
+  const c = await screen.findByRole("region", { name: "Clip 3" });
+  expect(within(c).getByText("Sound effects: House: a whoosh on each whip")).toBeInTheDocument();
+});

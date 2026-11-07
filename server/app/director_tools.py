@@ -146,7 +146,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             said = word_splice.splice(db, project, row, decision.get("word") or "")
             db.commit()
             return said
-        if tool == "add_sound":  # only when asked: MMAudio's sound under the picked takes
+        if tool == "add_sound":  # asked for, or the style's guide calls for it: MMAudio's sound
             from app import take_sound
 
             return take_sound.to_cut(db, user, project, storage, decision.get("clip_id"),
