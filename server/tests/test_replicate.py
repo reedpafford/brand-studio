@@ -261,15 +261,39 @@ def test_token_from_env_goes_to_the_api_only(app, owner, db, fake, monkeypatch):
     assert downloads and all("authorization" not in r.headers for r in downloads)
 
 
-def test_a_model_with_no_duration_input_is_charged_for_its_fixed_length_not_failed():
-    """The real-run audit: Omni has no duration (its clips are fixed_seconds long); a take
-    Replicate made and charged, with no reported length, was marked failed by an
-    AttributeError, with no retry. It's charged as its fixed length, estimated."""
-    omni = get_model("gemini-omni-1.1")
-    assert omni.duration is None and omni.fixed_seconds == 10
+def test_an_official_model_runs_on_its_own_endpoint_and_is_known_by_name():
+    """Omni 1.2 has no version (an official model, Reed 6 Nov): it's sent to its model's own
+    predictions endpoint, and its finished prediction is matched to it by name for the cost."""
+    from app.providers.replicate import _model_id_from_version
+
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, str(request.url), json.loads(request.content)))
+        return httpx.Response(201, json={"id": "o1", "status": "starting"})
+
+    provider = ReplicateProvider(BASE, httpx.Client(transport=httpx.MockTransport(handler)),
+                                 token="test-token")  # fmt: skip
+    ref = provider.submit("video", {"model": "gemini-omni-1.2", "input": {"prompt": "a cat"}})
+    assert ref == "o1"
+    assert seen == [("POST", f"{BASE}/models/google/gemini-omni-1.2-flash/predictions",
+                     {"input": {"prompt": "a cat"}})]  # fmt: skip
+    found = {"version": None, "model": "google/gemini-omni-1.2-flash"}
+    assert _model_id_from_version(found) == "gemini-omni-1.2"
+    assert _model_id_from_version({"version": SEEDANCE.provider_version}) == "seedance-2.5"
+
+
+@pytest.mark.parametrize(("sent", "seconds"), [({}, 15), ({"duration": 6}, 6)])
+def test_a_take_with_no_length_reported_is_charged_its_length_not_failed(sent, seconds):
+    """The real-run audit: a take Replicate made and charged, with no reported length, was
+    marked failed by an AttributeError, with no retry. It's charged the length it was sent,
+    else its model's longest clip (Omni 1.2: 15 s), estimated, and matched to the model by
+    name (no version)."""
     out = "https://replicate.delivery/out.mp4"
-    done = {"id": "o1", "status": "succeeded", "version": omni.provider_version,
-            "input": {"prompt": "a cat trades"}, "output": out}  # fmt: skip
+    done = {"id": "o1", "status": "succeeded", "version": None,
+            "model": "google/gemini-omni-1.2-flash",
+            "input": {"prompt": "a cat trades", "resolution": "720p", **sent},
+            "output": out}  # fmt: skip
 
     def handler(request):
         if str(request.url).endswith("/out.mp4"):
@@ -282,4 +306,4 @@ def test_a_model_with_no_duration_input_is_charged_for_its_fixed_length_not_fail
     result = provider.poll("o1")
     assert result.state == "succeeded", result.error
     (usage,) = result.usage
-    assert (usage.units, usage.unit, usage.estimated) == (Decimal(10), "second", True)
+    assert (usage.units, usage.unit, usage.estimated) == (Decimal(seconds), "second", True)

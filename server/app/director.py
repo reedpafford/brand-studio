@@ -1352,9 +1352,10 @@ def video_state(db: Session, project: Project) -> dict:
     for c in clips:
         c["waits_for_cast"] = c["clip_id"] in held and not c["takes"]
     audio = director_song.state(db, project)  # a song or narrated video's song or narration
-    from app import host
+    from app import host, talker
 
-    hosted = {"host": host.state(db, project)} if host.on(db, project) else {}  # a presenter's
+    minimax = {"minimax": True} if talker.minimax(db, project) else {}  # its narrator's voice
+    hosted = {"host": {**host.state(db, project), **minimax}} if host.on(db, project) else {}
     return {
         **hosted,
         "plan": status(db, project),  # none, ready (waits for approval) or approved
