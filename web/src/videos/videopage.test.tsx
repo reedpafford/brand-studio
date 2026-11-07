@@ -906,6 +906,17 @@ test("S3-09: one cut and nothing being made: no switch, the heading reads Final 
   expect(within(panel).queryByRole("radiogroup", { name: "Which cut" })).toBeNull();
 });
 
+test("E2E 233: while the director is still revising, the one cut reads as the current cut, with its file's own length", async () => {
+  setViewport(1440);
+  const one = cutOut({ number: 1, file_id: 80, seconds: 16.7, versions: [{ number: 1, file_id: 80, made_at: at, seconds: 16.7 }] });
+  server(owner, null, run({ status: "running" }), { "GET /projects/50/cut": [200, one], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }], "GET /projects/50/director/progress": [200, record({ status: "revising" })] });
+  renderApp("/b/1/videos/50?tab=cut");
+  const panel = await screen.findByRole("tabpanel", { name: "Cut" });
+  expect(await within(panel).findByRole("heading", { name: "Current cut" })).toBeInTheDocument();
+  expect(within(panel).queryByRole("heading", { name: "Final cut" })).toBeNull();
+  expect(within(panel).getByText(/^0:17 · 9:16/)).toBeInTheDocument(); // the file's 16.7 s, never the plan's
+});
+
 test("S3-12: a new cut finishing while an older one is picked keeps that pick; the cut that plays isn't pinned, so the new one replaces it", async () => {
   setViewport(1440);
   const v = (n: number) => ({ number: n, file_id: 70 + 10 * n, made_at: at });
