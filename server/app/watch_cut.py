@@ -126,6 +126,8 @@ def heard_cut(db: Session, job: Job) -> None:
     plan = plans.current(db, project)
     labels = [(n, f"{_clips(spans, f['start'], f['end'])}, {f['start']:.1f}–{f['end']:.1f} s: "
                   f"{f['what']}") for n, f in enumerate(strips, 1)]  # fmt: skip
+    bed = _bed(db, job.input.get("final_video_id"))  # the cut's own sound, said as it is
+    measured = "\n".join(x for x in (bed, out.get("measured_text", "")) if x)
     text = prompts.watch_cut_input(
         version.text if version else "",
         _plan(plan, version),
@@ -135,7 +137,7 @@ def heard_cut(db: Session, job: Job) -> None:
         project.look
         if not project.broll_look  # a hosted video's B-roll in another look
         else f"{project.look} (the host and cast); B-roll in {project.broll_look}",
-        out.get("measured_text", ""),
+        measured,
     )
     from app.director import treatment_block
 
@@ -158,6 +160,22 @@ def heard_cut(db: Session, job: Job) -> None:
     wait = wait or past_approved(db, project, user, look)
     enqueue(db, user, KIND, data, units=units, project=project, provider="claude",
             prepaid=not wait, wait=wait)  # fmt: skip  # a freestyle past its price: an OK first
+
+
+NO_BED = "Music bed: none in this cut; any music heard is a clip's own sound."
+BED = "Music bed: under the voice throughout (quieter under the lines)."
+
+
+def _bed(db: Session, final_video_id: int | None) -> str:
+    """Whether the cut has a music bed, as <measured> says it: so a quiet stretch with no bed
+    is the clips' own sound, never "the music bed falls out" (video 245's note said both)."""
+    from app.models.clips import FinalVideo
+
+    made = db.get(FinalVideo, final_video_id) if final_video_id else None
+    if made is None or not made.timeline:
+        return ""
+    music = made.timeline.get("music")
+    return BED if music and not music.get("removed") else NO_BED
 
 
 def _clips(spans: list[dict], start: float, end: float) -> str:

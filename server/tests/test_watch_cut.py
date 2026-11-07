@@ -111,6 +111,7 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     assert "[Image1] c1, 0.0–" in said and "sampled frames over the whole" in said
     assert "[Image2] c1, 0.0–1.1 s: the sound as a spectrogram" in said
     assert "<cut>" in said and "<measured>" in said and "Loudness" in said
+    assert "Music bed: none in this cut" in said  # a dialogue cut: its quiet is the clips
     assert look.credits > 0  # priced "up to", on the director's own limit
     run_writer(app, db)
     db.expire_all()
@@ -146,3 +147,20 @@ def test_a_cut_redo_on_the_transcript_alone_is_kept_unconfirmed():
             "fix": "redo", "evidence": "words", "note": "Say fomo right."}  # fmt: skip
     (kept,) = watch_cut.checked({"findings": [fogo]}, CUT, WORDS, "MIA: Get fomo.")
     assert kept["fix"] == "keep" and kept["says"].endswith("(not confirmed)")
+
+
+def test_the_watch_is_told_whether_the_cut_has_a_music_bed(db):
+    """Video 245 (7 Nov): one note said there's no music under the video, the next that "the
+    music bed seems to fall out". The watch reads whether the cut has a bed, so a quiet
+    stretch with none is the clips' own sound."""
+    from app.models.clips import FinalVideo
+
+    none = FinalVideo(project_id=1, file_id=1, take_ids=[], timeline={"music": None})
+    removed = FinalVideo(project_id=1, file_id=1, take_ids=[],
+                         timeline={"music": {"removed": True}})  # fmt: skip
+    bed = FinalVideo(project_id=1, file_id=1, take_ids=[], timeline={"music": {"removed": False}})
+    db.add_all([none, removed, bed])
+    db.flush()
+    assert watch_cut._bed(db, none.id) == watch_cut._bed(db, removed.id) == watch_cut.NO_BED
+    assert watch_cut._bed(db, bed.id) == watch_cut.BED
+    assert watch_cut._bed(db, None) == ""  # an older watch: nothing said

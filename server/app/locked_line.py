@@ -46,6 +46,12 @@ ASKS = (
     r"R\s+instead\s+of\s+Q",
     r"\binstead\s+of\s+Q\s*,?\s*(?:say|use|write|put)\s+R",
 )
+UNSAID = re.compile(  # with no quotes (video 245: "Ray should say a coin flip, not a slot machine")
+    r"(?:\b[\w.'’-]+\s+(?:should|could|can|would|needs?\s+to|has\s+to|must)\s+)?\bsays?\s+"
+    r"(?P<r>[^,.;!?“”\"]+?)\s*,?\s+(?:not|instead\s+of|rather\s+than)\s+(?P<q>[^,.;!?“”\"]+)",
+    re.I,
+)
+ARTICLE = re.compile(r"^(?:a|an|the)\s+", re.I)
 POLITE = re.compile(
     r"^(?:(?:can|could|would|will)\s+(?:we|you|i|it\s+be)\b|please\b|maybe\b)\s*", re.I
 )
@@ -84,6 +90,13 @@ def asked(text: str, script: str) -> tuple[str, bool] | None:
             found = re.search(pattern.replace("Q", re.escape(raw)).replace("R", repl), text, re.I)
             if found:
                 return words, _only(text[: found.start()] + " " + text[found.end() :])
+    for found in UNSAID.finditer(text):  # "say R, not Q": Q the script's words, R new ones
+        new = found["r"].strip()
+        old = re.sub(r"\s+(?:please|instead|thanks)$", "", found["q"].strip(), flags=re.I)
+        words = next((w for w in (old, ARTICLE.sub("", old)) if len(w) > 2 and _in(w, script)),
+                     None)  # fmt: skip
+        if words and not _in(new, script):
+            return words, _only(text[: found.start()] + " " + text[found.end() :])
     return None
 
 

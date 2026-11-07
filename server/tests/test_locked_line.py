@@ -712,3 +712,41 @@ def test_the_boards_path_a_new_video_from_a_published_script_gets_the_reply_at_o
     assert any(t["kind"] == "ask" and t.get("ask_id") == card["id"] for t in thread)  # in chat
     said = next(t for t in thread if t["kind"] == "message" and t["text"] == note)
     assert said["answered"]  # answered: no Make it again waits for it
+
+
+def test_a_note_with_no_quotes_that_asks_for_other_words_is_answered_too():
+    """Video 245 (7 Nov): "Ray should say a coin flip, not a slot machine" had no quotes, so
+    it went to the director, which delivered again with the refusal buried in the note."""
+    from tests.test_script_library import SCRIPT
+
+    for text in ("Nate should say bought the top, not bought the dip",
+                 "Say bought the top instead of bought the dip.",
+                 "He could say bought the top rather than bought the dip please",
+                 "nate should say I bought the top, not I bought the dip"):  # fmt: skip
+        assert locked_line.asked(text, SCRIPT) in (("bought the dip", True),
+                                                   ("I bought the dip", True)), text  # fmt: skip
+    for text in (
+        "Nate should say it louder, not quieter",  # how it's said: the director's
+        "Say it with a smile, not a frown",
+        "Mom should say bought the dip, not sold it",
+    ):  # her new words are the script's
+        assert locked_line.asked(text, SCRIPT) is None, text
+
+
+def test_the_owners_unquoted_note_gets_the_reply_at_once_never_a_new_delivery(
+    app, db, owner, editor
+):
+    """Rule 31: a published script's lines are final, for the owner too, so the owner gets
+    S3-14's reply at once, with what can change instead; no run, no new delivery note."""
+    pid = _delivered(app, db, owner, editor)
+    notes = db.query(Job).filter(Job.input["step"].as_string() == "director").count()
+    out = owner.post(
+        f"/projects/{pid}/director/messages",
+        json={"text": "Nate should say bought the top, not bought the dip"},
+    ).json()
+    assert out["status"] == "delivered" and out["unread"] == 0  # answered: no run waits on it
+    assert db.query(Job).filter(Job.input["step"].as_string() == "director").count() == notes
+    card = _card(owner, pid)
+    assert card["question"].startswith("The script’s words are set for this script, so I can’t "
+                                       "change “bought the dip”.")  # fmt: skip
+    assert [c["do"] for c in card["choices"]][:1] == ["softer"]  # S3-14's offer, priced
