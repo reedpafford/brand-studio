@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import director, locked_line
+from app.models.accounts import User
 from app.models.asks import Ask
 from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
@@ -712,3 +713,161 @@ def test_the_boards_path_a_new_video_from_a_published_script_gets_the_reply_at_o
     assert any(t["kind"] == "ask" and t.get("ask_id") == card["id"] for t in thread)  # in chat
     said = next(t for t in thread if t["kind"] == "message" and t["text"] == note)
     assert said["answered"]  # answered: no Make it again waits for it
+
+
+def test_a_note_with_no_quotes_that_asks_for_other_words_is_answered_too():
+    """Video 245 (7 Nov): "Ray should say a coin flip, not a slot machine" had no quotes, so
+    it went to the director, which delivered again with the refusal buried in the note."""
+    from tests.test_script_library import SCRIPT
+
+    for text in ("Nate should say bought the top, not bought the dip",
+                 "Say bought the top instead of bought the dip.",
+                 "He could say bought the top rather than bought the dip please",
+                 "nate should say I bought the top, not I bought the dip"):  # fmt: skip
+        assert locked_line.asked(text, SCRIPT) in (("bought the dip", True),
+                                                   ("I bought the dip", True)), text  # fmt: skip
+    for text in (
+        "Nate should say it louder, not quieter",  # how it's said: the director's
+        "Say it with a smile, not a frown",
+        "Mom should say bought the dip, not sold it",
+    ):  # her new words are the script's
+        assert locked_line.asked(text, SCRIPT) is None, text
+    lines = ("SCENE 1\nUNCLE RAY: That's a slot machine. Too fast, kid.\nMIA: Not so loud.\n"
+             "JAY: Yeah.")  # fmt: skip
+    for text in (  # QA on #1429: how it's said goes to the director, never the locked card
+        "Ray should say it slower, not fast",
+        "Mia should say it softer, not loud",
+        "say it with a smile rather than fast",
+        "Ray should say it a bit slower, not so fast",
+        "Jay should say a coin flip, not a slot machine",  # not Jay's line: the director's
+    ):
+        assert locked_line.asked(text, lines) is None, text
+    assert locked_line.asked("Ray should say a coin flip, not a slot machine", lines) == (
+        "a slot machine", True)  # fmt: skip
+
+
+def test_the_owners_unquoted_note_gets_the_reply_at_once_never_a_new_delivery(
+    app, db, owner, editor
+):
+    """Rule 31: a published script's lines are final, for the owner too, so the owner gets
+    S3-14's reply at once, with what can change instead; no run, no new delivery note."""
+    pid = _delivered(app, db, owner, editor)
+    notes = db.query(Job).filter(Job.input["step"].as_string() == "director").count()
+    out = owner.post(
+        f"/projects/{pid}/director/messages",
+        json={"text": "Nate should say bought the top, not bought the dip"},
+    ).json()
+    assert out["status"] == "delivered" and out["unread"] == 0  # answered: no run waits on it
+    assert db.query(Job).filter(Job.input["step"].as_string() == "director").count() == notes
+    card = _card(owner, pid)
+    assert card["question"].startswith("The script’s words are set for this script, so I can’t "
+                                       "change “bought the dip”.")  # fmt: skip
+    assert [c["do"] for c in card["choices"]][:1] == ["softer"]  # S3-14's offer, priced
+
+
+def test_one_word_is_a_word_change_only_in_the_named_speakers_own_line():
+    """QA on #1429: "Ray should say sure, not okay" started a run that re-delivered."""
+    lines = "SCENE 1\nUNCLE RAY: Okay, kid. Too fast.\nJAY: Yeah."
+    assert locked_line.asked("Ray should say sure, not okay", lines) == ("okay", True)
+    for text in ("Say sure, not okay",  # no one named: one word isn't enough
+                 "Jay should say sure, not okay",  # not Jay's word
+                 "Ray should say it slower, not fast"):  # how it's said  # fmt: skip
+        assert locked_line.asked(text, lines) is None, text
+
+
+def test_the_directors_locked_line_answers_a_note_no_card_caught_and_ends_the_run(
+    app, db, owner, editor, monkeypatch
+):
+    """The safety net: a word change the matcher misses goes to the director, which posts
+    S3-14's card at once (`locked_line`, free). With nothing else asked, the run ends there,
+    delivered with the cut it had: no new cut and no new delivery note. Words that aren't the
+    script's are refused."""
+    pid = _delivered(app, db, owner, editor)
+    project = db.get(Project, pid)
+    cuts = db.query(FinalVideo).filter_by(project_id=pid).count()
+    monkeypatch.setattr(locked_line, "asked", lambda text, script: None)  # missed as it came
+    real = director.choose
+
+    def answer(state):
+        if state.get("chat") and not state["chat"][-1]["answered"]:
+            return {"tool": "locked_line", "word": "bought the dip",
+                    "why": "Note 1: the script's words are set."}  # fmt: skip
+        return real(state)
+
+    monkeypatch.setattr(director, "choose", answer)
+    owner.post(f"/projects/{pid}/director/messages",
+               json={"text": "Nate should say bought the top, not bought the dip"})  # fmt: skip
+    _run(app, db, ticks=10, start=False)
+    db.expire_all()
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", out["ended"]
+    assert out["ended"] == locked_line.POSTED  # its card is the answer
+    assert db.query(FinalVideo).filter_by(project_id=pid).count() == cuts  # no new cut
+    card = _card(owner, pid)
+    assert card["question"].startswith("The script’s words are set for this script, so I can’t "
+                                       "change “bought the dip”.")  # fmt: skip
+    note = db.get(Project, pid).director_chat[-1]
+    assert note["offer"] == card["id"]  # the note reads as answered by the card
+    turns = director.turns(db, project)
+    assert [
+        t.output.get("note")
+        for t in turns
+        if t.input.get("result") == director.DELIVERED
+        and isinstance((t.output or {}).get("note"), dict)
+    ] == []  # no new delivery note
+    user = db.get(User, project.created_by_id)
+    no = locked_line.for_director(db, user, project, "sold the top", "Note 1", None)
+    assert no == locked_line.NOT_SCRIPT.format("sold the top")
+
+
+def test_a_delivery_note_still_goes_to_the_director(app, db, owner, editor):
+    pid = _delivered(app, db, owner, editor)
+    out = owner.post(f"/projects/{pid}/director/messages",
+                     json={"text": "Nate should say it slower, not so fast"}).json()  # fmt: skip
+    assert out["status"] == "running"  # a run reads it: how it's said is the director's
+    assert not [a for a in owner.get(f"/projects/{pid}/asks").json() if a["kind"] == "instead"]
+
+
+def _safety_net(app, db, owner, editor, monkeypatch, text: str, first: list[dict]) -> int:
+    """A delivered video, a note the matcher misses, and a director that makes `first`'s moves
+    (then posts the card) before the stand-in goes on."""
+    pid = _delivered(app, db, owner, editor)
+    monkeypatch.setattr(locked_line, "asked", lambda text, script: None)
+    moves = [*first, {"tool": "locked_line", "word": "bought the dip",
+                      "why": "Note 1: the script's words are set."}]  # fmt: skip
+    real = director.choose
+
+    def answer(state):
+        return moves.pop(0) if moves and state.get("chat") else real(state)
+
+    monkeypatch.setattr(director, "choose", answer)
+    owner.post(f"/projects/{pid}/director/messages", json={"text": text})
+    _run(app, db, ticks=40, start=False)
+    db.expire_all()
+    return pid
+
+
+def test_a_note_that_asks_more_gets_the_card_and_the_run_goes_on(app, db, owner, editor,
+                                                                 monkeypatch):  # fmt: skip
+    """QA on #1429: "…, and tighten the pause before it" ended at the card; the pause waits."""
+    pid = _safety_net(app, db, owner, editor, monkeypatch,
+                      "Nate should say bought the top, not bought the dip, and tighten the "
+                      "pause before it", [])  # fmt: skip
+    assert _card(owner, pid)["subject"] == "bought the dip"  # the card is posted
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert out["ended"] != locked_line.POSTED  # the run went on for the rest of the note
+
+
+def test_after_a_free_edit_the_card_never_ends_the_run_with_the_cut_out_of_date(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1429: after "Ending trimmed 0.3 s" the card ended the run with no new cut."""
+    trim = {"tool": "edit_cut", "why": "Note 1: a breath less at the end.", "clip_id": None,
+            "take_id": None, "note": "", "edit": {"kind": "retime", "piece": "c1"}}  # fmt: skip
+    pid = _safety_net(app, db, owner, editor, monkeypatch,
+                      "Nate should say bought the top, not bought the dip", [trim])  # fmt: skip
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert out["ended"] != locked_line.POSTED
+    edits = [t for t in out["turns"] if t["tool"] == "edit_cut"]
+    assert edits and not edits[0]["result"].startswith("Refused"), edits  # a real free edit
+    assert director.video_state(db, db.get(Project, pid))["cut"] != "out of date"

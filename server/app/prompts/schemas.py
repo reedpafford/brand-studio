@@ -794,7 +794,7 @@ class DirectorTurn(Strict):
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
         "mute", "splice_word", "add_sound", "song", "narration", "host", "edit_cut", "ask",
         "add_place", "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model",
-        "settings", "split_clip", "outfit", "real_screen",
+        "settings", "split_clip", "outfit", "real_screen", "locked_line",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -879,7 +879,8 @@ class DirectorTurn(Strict):
     word: Name = Field(
         default=None,
         description="For splice_word: the brand word as the script spells it, e.g. 'fomo', from "
-        "that clip's can_splice; else empty.",
+        "that clip's can_splice; for locked_line: the script's words the note asks to change, "
+        "exactly as the script has them; else empty.",
     )
     note: str = Field(
         default="",

@@ -26,7 +26,8 @@ CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
          "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place",
-         "change_look", "ask_cast_ok", "split_clip", "outfit", "real_screen")  # fmt: skip
+         "change_look", "ask_cast_ok", "split_clip", "outfit", "real_screen",
+         "locked_line")  # fmt: skip
 WAITING = "{} for the cast and places OK."
 
 
@@ -241,6 +242,12 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                                         decision.get("model") or decision.get("value"),
                                         decision.get("why") or "",
                                         (run or {}).get("id"))  # fmt: skip
+        if tool == "locked_line":  # S3-14's card, for a note no card answered as it came
+            from app import locked_line
+
+            return locked_line.for_director(db, user, project, decision.get("word"),
+                                            decision.get("why") or "",
+                                            (run or {}).get("id"))  # fmt: skip
         if tool == "host":  # a presenter's host, as Make the host
             from app import host
 
