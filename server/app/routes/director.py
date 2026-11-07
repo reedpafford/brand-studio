@@ -2,6 +2,7 @@
 published script, read what it did (its log), stop it. Whoever may change the video may run
 it; every action it takes is checked as that person's own press (app/director_tools)."""
 
+import logging
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +19,7 @@ from app.routes.clips import generation_on
 from app.routes.projects import _mine, get_project, video_writer
 from app.schemas import UtcTime
 
+log = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/projects/{project_id}/director", tags=["director"],
     dependencies=[Depends(video_writer)],
@@ -133,7 +135,7 @@ class RunStepOut(BaseModel):
 
 class ChangedClipOut(BaseModel):
     clip_id: str
-    number: int
+    number: str  # "6c" for a split's c6c, as ClipCellOut's (video 251: an int here 500'd)
     take_id: int | None
     frame_file_id: int | None
     watched: bool
@@ -218,6 +220,8 @@ class ProgressOut(BaseModel):
     # editor's Carry on waits for the owner's OK (its card says so)
     stops: list[RunStopOut] = []  # Stops it carried on from, oldest first
     failed: RunFailedOut | None  # stopped on a problem, with its fixes (S3-11)
+    degraded: str | None = None  # the owner only, when a part couldn't be read: the error's
+    # kind and where it was raised ("KeyError in cell (run_progress.py:251)"), never its words
 
 
 def _expected_usd(db: Session, user: User, project: Project) -> float | None:
@@ -386,8 +390,58 @@ def stop(project_id: int, user: User = Depends(current_user), db: Session = Depe
 def progress(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """The newest run's live record: its scenes and clips, its steps, its cost; null before
     any run. Free to read, in the same few queries however long the video."""
-    with director.reading(db):
-        return run_progress.record(db, get_project(db, user, project_id), user)
+    project = get_project(db, user, project_id)
+    try:
+        with director.reading(db):
+            out = run_progress.record(db, project, user)
+            return ProgressOut.model_validate(out) if out is not None else None
+    except Exception as broke:  # never a 500 for one bad part: the run's line, said plainly
+        log.exception("video %s: its progress couldn't be read", project.id)
+        db.rollback()
+        return _degraded(db, user, project, broke)
+
+
+DEGRADED = "Some of this run's details can't be shown right now."
+
+
+def _degraded(db: Session, user: User, project, broke: Exception) -> ProgressOut | None:
+    """The run's head line only, when its record couldn't be read (video 251): where it is
+    from its own turns, and for the owner where it broke (`where`)."""
+    from app.db import utcnow
+
+    every = run_progress.runs(db, project)
+    if not every:
+        return None
+    run_id, turns = list(every.items())[-1]
+    how, _ = run_progress.ending(turns)
+    status, tone = {"delivered": ("delivered", "done"), "stopped": ("stopped", "stop"),
+                    "needs_fix": ("needs_fix", "bad")}.get(how, ("working", "now"))  # fmt: skip
+    title = {"delivered": "Delivered", "stopped": "Stopped",
+             "needs_fix": "Stopped"}.get(how, "Working")  # fmt: skip
+    return ProgressOut(
+        run=run_id, status=status, title=title, sub=DEGRADED, tone=tone,
+        started_at=turns[0].created_at, ended_at=utcnow() if how else None, clips=0, made=0,
+        redone=0, scene_at=0, scenes=[], counts=ClipCountsOut(all=0, redone=0, flagged=0,
+        needs_you=0), minutes_left=None, steps=[], spent=0, up_to=0, spent_usd=None,
+        changed=[], stopped=None, failed=None,
+        degraded=where(broke) if user.is_owner else None)  # fmt: skip
+
+
+def where(broke: Exception) -> str:
+    """An error's kind and the last frame of our own code it went through, never its words
+    (they can hold data): "ValidationError in progress (routes/director.py:389)"."""
+    import traceback
+
+    from pydantic import ValidationError
+
+    kind = type(broke).__name__
+    if isinstance(broke, ValidationError) and broke.errors():  # which field, never its value
+        kind += " at " + ".".join(str(x) for x in broke.errors()[0]["loc"])
+    ours = [f for f in traceback.extract_tb(broke.__traceback__) if "/app/" in f.filename]
+    if not ours:
+        return kind
+    at = f"{ours[-1].filename.split('/app/')[-1]}:{ours[-1].lineno}"
+    return f"{kind} in {ours[-1].name} ({at})"
 
 
 # Its own router: a per-person mark, not a change to the video, so any teammate who can open

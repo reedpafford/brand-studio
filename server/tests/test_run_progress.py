@@ -770,3 +770,39 @@ def test_before_any_clip_the_card_says_the_step_the_run_is_on():
     assert said == {"plan": "Planning", "make_looks": "Casting",
                     "storyboard": "Drawing the stills",
                     "clip_prompts": "Writing the clip prompts"}  # fmt: skip
+
+
+def test_a_split_clip_redone_after_watching_reads_and_its_number_is_its_own(app, db, owner, editor):
+    """Video 251 (7 Nov): GET /progress 500'd on every call: a clip of a split ("c6c") was
+    redone after its watch, and the changed list's number was an int ("6c" isn't one)."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.models.breakdowns import BreakdownVersion
+
+    pid = _done(app, db, owner, editor)
+    row = _clip(db, pid)
+    _remade(db, row)
+    for bd in db.query(BreakdownVersion).filter_by(project_id=pid):  # a narration's split
+        bd.data = {**bd.data, "clips": [{**c, "id": "c1c"} if c["id"] == "c1" else c
+                                        for c in bd.data["clips"]]}  # fmt: skip
+        flag_modified(bd, "data")
+    row.clip_id = "c1c"
+    db.commit()
+    p = _progress(owner, pid)
+    assert p.get("degraded") is None and p["changed"][0]["number"] == "1c"
+
+
+def test_one_bad_part_never_500s_the_record(app, db, owner, editor, monkeypatch):
+    """The run's line still shows when its record can't be read; the owner alone reads where
+    it broke (the error's kind and our own last frame, never its words)."""
+    pid = _done(app, db, owner, editor)
+
+    def broken(*a, **k):
+        raise KeyError("secret-looking words")
+
+    monkeypatch.setattr(run_progress, "cell", broken)
+    p = _progress(owner, pid)
+    assert (p["status"], p["title"], p["scenes"]) == ("delivered", "Delivered", [])
+    assert p["degraded"].startswith("KeyError in record (run_progress.py:")  # our last frame
+    assert "secret" not in p["degraded"]
+    assert _progress(editor, pid)["degraded"] is None  # an editor never reads it
