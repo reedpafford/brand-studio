@@ -386,8 +386,9 @@ def previews(db: Session, user: User, project: Project) -> dict:
     from app.credits import COUNTED, USD_PER_CREDIT
 
     own = set(db.scalars(select(LibraryItem.id).where(LibraryItem.owner_project_id == project.id)))
-    jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(COUNTED)))
-    used = sum((j.credits for j in jobs if j.input.get("library_item_id") in own), Decimal(0))
+    looks = Job.input["library_item_id"].as_integer().in_(own or {0})  # its looks' rows only
+    used = sum(db.scalars(select(Job.credits).where(
+        Job.project_id == project.id, Job.status.in_(COUNTED), looks)), Decimal(0))  # fmt: skip
     budget = Decimal(project.budget_credits)
 
     def usd(credits: Decimal, up) -> float | None:

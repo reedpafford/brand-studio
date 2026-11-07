@@ -642,6 +642,7 @@ def _undrawn(db: Session, project: Project, slot) -> LibraryItem | None:
     if not (item and item.owner_project_id == project.id and item.source_photo_file_id):
         return None
     drawing = db.scalar(select(Job.id).where(
+        Job.workspace_id == project.workspace_id,  # its workspace's jobs, never the table's
         Job.input["library_item_id"].as_integer() == item.id,
         Job.status.in_((*COUNTED, JobStatus.needs_owner_approval))).limit(1))  # fmt: skip
     return None if item.sheet_file_id or drawing else item
@@ -685,9 +686,13 @@ def _made(db: Session, project: Project) -> MadeOut | None:
     jobs = [
         j
         for j in db.scalars(
-            select(Job).where(Job.project_id == project.id, Job.status.in_(COUNTED))
-        )
-        if j.input.get("auto_made") and j.input.get("library_item_id") in own
+            select(Job).where(  # its own rows only, never every turn's prompt
+                Job.project_id == project.id,
+                Job.status.in_(COUNTED),
+                Job.input["auto_made"].as_boolean(),
+            )
+        )  # fmt: skip
+        if j.input.get("library_item_id") in own
     ]
     if not jobs:
         return None

@@ -227,14 +227,11 @@ def _snapshot(item: LibraryItem) -> dict:
 def _waiting_sheets(item: LibraryItem) -> list[Job]:
     """This item's sheet jobs not finished yet (queued, running or held for the owner)."""
     db = object_session(item)
-    jobs = (
-        db.scalars(
-            select(Job).where(Job.workspace_id == item.workspace_id, Job.status.in_(WAITING))
-        )
-        if db
-        else []
-    )
-    return [j for j in jobs if j.input.get("library_item_id") == item.id]
+    if db is None:
+        return []
+    mine = Job.input["library_item_id"].as_integer() == item.id  # only its own rows are read
+    return list(db.scalars(select(Job).where(Job.workspace_id == item.workspace_id,
+                                             Job.status.in_(WAITING), mine)))  # fmt: skip
 
 
 def _sheet_looks_drawing(item: LibraryItem) -> list[str]:

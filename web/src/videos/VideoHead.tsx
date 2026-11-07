@@ -293,9 +293,10 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
         <h1 className="min-w-0 max-w-[300px] shrink-0 truncate text-lg font-semibold">{head.title}</h1>
         <StatusWords status={status} /> {/* its reason gives way before the title does (a question's words are long) */}
         <span className="flex-1" />
-        <p className="shrink-0 text-sm tabular-nums text-muted">
+        {/* the owner's full line can be long (H20): it wraps under the title, never past the column */}
+        <p className="min-w-0 max-w-full text-sm tabular-nums text-muted">
           {lead && `${lead} `}
-          <b className="font-medium text-text">{most}</b>
+          <b className="whitespace-nowrap font-medium text-text">{most}</b>
         </p>
       </div>
       <Chips projectId={projectId} head={head} cast={cast} lookOnly={lookOnly} />

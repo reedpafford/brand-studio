@@ -247,7 +247,12 @@ test("S3-02: the director's treatment is a card in the thread, as the board draw
   const told = (id: string, text: string, hook: string, when: string) => ({ ...item(id, "move", "Director", text, "done", when), treatment: treatment(hook) });
   server(owner, fs({ thread: [item("m1", "message", "Reed", SCRIPT), told("s1", "The treatment: …", "Your gut after the weekend", at), told("s2", "Changed the treatment: …", "A brewery with a pulse", later)] }), run());
   renderApp("/b/1/videos/50");
-  const [first, second] = await screen.findAllByRole("region", { name: "Treatment" });
+  // H20: the treatment a note replaced folds to its line, so the current one leads; it opens in place
+  expect(await screen.findAllByRole("region", { name: "Treatment" })).toHaveLength(1);
+  expect(within(screen.getByRole("region", { name: "Treatment" })).getByText("Changed")).toBeInTheDocument();
+  expect(screen.queryByText("Here’s how I’ll make it. Tell me if anything should change before I spend.")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Earlier treatment · Show" }));
+  const [first, second] = screen.getAllByRole("region", { name: "Treatment" });
   expect(screen.getAllByText("Here’s how I’ll make it. Tell me if anything should change before I spend.")).toHaveLength(1); // the first one only
   expect(within(first).getByText("Dr. Pickle style guide · Presenter format")).toBeInTheDocument();
   expect(within(first).getByText("In one line:").parentElement).toHaveTextContent("In one line: a doctor who’s sick of your excuses");
@@ -1199,6 +1204,9 @@ test("uncapped: the start card is an estimate, the header and the run card read 
   const banner = await screen.findByRole("banner");
   expect(await within(banner).findByText("This video so far $16.77 ($4.00 of it at list price) ·", { exact: false })).toBeInTheDocument();
   expect(within(banner).getByText("this run about $9.10 (estimate)")).toBeInTheDocument();
+  const line = within(banner).getByText("this run about $9.10 (estimate)").parentElement!; // H20: it wraps in the column
+  expect(line).toHaveClass("min-w-0", "max-w-full");
+  expect(line).not.toHaveClass("shrink-0");
   expect(within(banner).queryByText(/budget|up to/)).toBeNull();
   expect(await screen.findByText("$3.20 spent on this run, more not reported yet · about $9.10 (estimate)")).toBeInTheDocument();
 });

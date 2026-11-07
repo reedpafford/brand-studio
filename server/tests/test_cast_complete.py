@@ -269,3 +269,26 @@ def test_completing_the_cast_keeps_the_plans_song_part(owner, editor, db):
     assert any("now appears in" in x for x in _fill(db))  # it changed the plan
     db.refresh(row)
     assert row.data["song"] == song and row.data["plan_version"] == 2
+
+
+def test_a_write_between_the_unlocked_look_and_the_lock_is_kept(owner, editor, db, monkeypatch):
+    """QA on #1427: complete_cast looks first without the lock, then changes under it. A song
+    part another writer saved in between was dropped: the locked pass wrote back the plan row
+    as the first look had loaded it. It reads everything again once it holds the lock."""
+    from app import credits
+
+    _, pid, _ = _video(owner, editor)
+    row = db.query(BreakdownVersion).filter_by(project_id=pid).one()
+    song = {"take_id": 0, "shots": {"1.1": {"start": 0.0, "end": 2.0, "sung": True}}}
+    real = credits.lock
+
+    def meanwhile(db_, model, row_id):  # another writer, just before this one gets the lock
+        db_.execute(BreakdownVersion.__table__.update().where(BreakdownVersion.id == row.id)
+                    .values(data={**row.data, "song": song, "plan_version": 7}))  # fmt: skip
+        real(db_, model, row_id)
+
+    monkeypatch.setattr(credits, "lock", meanwhile)
+    assert any("now appears in" in x for x in _fill(db))  # it changed the plan, under the lock
+    db.expire_all()
+    kept = db.get(BreakdownVersion, row.id).data
+    assert kept["song"] == song and kept["plan_version"] == 7
