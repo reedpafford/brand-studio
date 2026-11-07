@@ -128,7 +128,7 @@ for (const width of [1440, 390]) {
     await expect(page).toHaveURL(new RegExp(`/b/${brandId}/videos$`));
     if (width !== 1440) await page.getByRole("link", { name: /Unsorted/ }).click(); // a phone opens on its folders (P-01)
     await expect(page.getByRole("main").getByRole("link", { name: /Listed video/ })).toBeVisible(); // Unsorted opens when no folder is picked (S-gaps-02)
-    await expect(page.getByText(width === 1440 ? "1 video idea · 1 needs you" : "1 idea · 1 needs you", { exact: false })).toBeVisible();
+    await expect(page.getByText(width === 1440 ? "1 video idea · 1 video needs you" : "1 idea · 1 video needs you", { exact: false })).toBeVisible();
     if (width !== 1440) await page.getByRole("button", { name: "Search this folder" }).click();
     await page.getByRole("searchbox", { name: "Search this folder" }).fill("nothing like this");
     await expect(page.getByText("Nothing matches. Try another tab or search.")).toBeVisible();
