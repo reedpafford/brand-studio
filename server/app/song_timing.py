@@ -28,8 +28,9 @@ BPM = (70, 180)  # tempos we look for; ads sit near 120
 BEATS_PER_BAR = 4
 TIMEOUT = 180
 # Whisper's read of a take: never under TIMEOUT, more for a longer take (it ran past 180 s on
-# a real UGC narration while a deploy built on the same server), and tried once more on its
-# own (free, local) before it's said to have failed.
+# a real UGC narration while a deploy built on the same server). One try a job: the local lane
+# is one worker every cut and listen shares; a failed read is read again as its own job
+# (song_takes.time_again).
 PER_SECOND, MOST = 6, 900
 MAX_SECONDS = 900  # far longer than any ad (the stand-ins make one past the cap)
 PEAKS = 200  # waveform points for the screens
@@ -127,20 +128,16 @@ def read_timeout(path: Path) -> int:
 
 
 def words(path: Path, lyrics: str) -> list[dict]:
-    """Local Whisper, prompted with the lyrics: [{word, start, end}]. Tried once more on its
-    own (free, on our server) when it runs out of time or fails, before it's said to fail."""
+    """Local Whisper, prompted with the lyrics: [{word, start, end}], in the time the take's
+    length gives it (`read_timeout`)."""
     args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics]
-    timeout, why = read_timeout(path), ""
-    for _ in range(2):
-        try:
-            done = _run(args, timeout)
-        except subprocess.TimeoutExpired:
-            why = "Reading the sung words took too long."
-            continue
-        if done.returncode == 0:
-            return json.loads(done.stdout)
-        why = f"Reading the sung words failed ({done.returncode})."
-    raise RuntimeError(why)
+    try:
+        done = _run(args, read_timeout(path))
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Reading the sung words took too long.") from None
+    if done.returncode != 0:
+        raise RuntimeError(f"Reading the sung words failed ({done.returncode}).")
+    return json.loads(done.stdout)
 
 
 def _norm(word: str) -> str:

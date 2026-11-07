@@ -396,3 +396,42 @@ def test_a_narration_whose_timing_fails_is_read_again_then_remade_never_stuck(ap
                 if j.status == "queued"]  # no more retries on its own  # fmt: skip
     said = director_song.run(db, user, video, decision, {})
     assert said.startswith("Making the narration again: its timing couldn't be read"), said
+
+
+def test_a_narrations_failed_timing_is_read_again_by_the_worker_and_lands(app, db, owner):
+    """QA on #1414: the worker ran the free re-read (it was cancelled as an unwanted retry), so
+    a timing that failed once, then reads, makes its take ready with no remake; the failed read
+    isn't one of the run's failures, and a narration's is named as one."""
+    from app import director, song_takes
+    from app.providers import get_providers
+    from app.worker import run_once
+
+    app.state.settings.fake_providers = True
+    fs = _sent(owner, "narrated", NARRATION)
+    providers = get_providers(app.state.settings, app.state.storage)
+    hear, misses = providers["local"].hear_voice, []
+
+    def once_deaf(path, text):
+        if not misses:
+            misses.append(path)
+            raise RuntimeError("Reading the sung words took too long.")
+        return hear(path, text)
+
+    providers["local"].hear_voice = once_deaf
+    for _ in range(60):
+        if db.query(Job).filter(Job.kind == "narration_timing").count():
+            break
+        run_once(db, providers, app.state.storage, only={"replicate", "claude"})
+        db.expire_all()
+        make_it(db)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    for _ in range(3):  # the read fails, then the worker reads it again
+        run_once(db, providers, app.state.storage, only={"local"})
+        db.expire_all()
+    first, again = db.query(Job).filter(Job.kind == "narration_timing").order_by(Job.id).all()
+    assert (first.status, again.status, again.auto) == ("failed", "succeeded", True)
+    take = song_takes.for_video(db, video)[0]
+    assert song_takes.state(db, take)[0] == "ready" and take.timing  # no remake
+    assert first.input.get(director.RETRIED)  # not one of the run's failures
+    assert director._item(db, first) == "The narration's timing"

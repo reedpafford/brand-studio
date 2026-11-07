@@ -200,13 +200,16 @@ REREAD = "reread"  # in a timing job: the director read it again after its own r
 def time_again(db: Session, job: Job) -> None:
     """A take's timing read failed: read it once more on its own (free, on our server), unless
     it was already a retry or the file itself can't be read (trying again won't help)."""
+    from app.director import RETRIED
+
     if job.auto or job.retry_of_id or job.input.get(REREAD) or job.error in UNREADABLE:
         return
     for take in _by_job(db, SongTake.timing_job_id, job):
         _time(db, take, db.get(User, job.created_by_id), spread=bool(job.input.get("spread")))
         again = db.get(Job, take.timing_job_id)
         again.auto, again.retry_of_id = True, job.id
-        db.commit()
+        job.input = {**job.input, RETRIED: True}  # read again on its own: not one of a run's
+        db.commit()  # failures (director._failed_too_often)
 
 
 def reread(db: Session, take: SongTake, user: User) -> None:
