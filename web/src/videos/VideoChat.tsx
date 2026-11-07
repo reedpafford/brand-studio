@@ -396,7 +396,8 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       return refreshJobs(queryClient);
     },
   });
-  // Carry on after a person's Stop (S3-08): the same run goes on under the owner's OK, up to the rest of its own price.
+  // Carry on after a Stop, or a run that stopped itself (S3-08, video 240): the same run goes on under the owner's OK,
+  // up to the rest of its own price (with none left, the server starts a new run with its own start card).
   const carry = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director/carry-on", { params: { path: { project_id: id } } });
@@ -585,7 +586,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
                 )}
                 {progress.failed && p && (
                   <Item t={{ ...t, id: `${t.id}-failed`, status: "done" }} owner={owner} words={null}>
-                    <Failed progress={progress} projectId={p.id} onSettings={onSettings} onCarryOn={() => again.mutate()} busy={again.isPending} blocked={blocked} />
+                    <Failed progress={progress} projectId={p.id} onSettings={onSettings} onCarryOn={() => carry.mutate()} busy={carry.isPending} blocked={blocked} />
                   </Item>
                 )}
               </Fragment>

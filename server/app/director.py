@@ -11,7 +11,7 @@ import json
 import logging
 import re
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -118,14 +118,15 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
 
 CARRIES = asks.CARRIES  # in a carried-on run's held turn: the run's own approved price
 CARRY_HOLD = "Waiting for the owner's OK to carry on after their Stop."
-WAS_STOPPED = "was_stopped"  # on a turn a person's Stop ended, once the run carried on
+WAS_STOPPED = "was_stopped"  # on a turn a Stop (or a fault) ended, once the run carried on
 
 
 CARRY_WAITING = "Waiting for the owner's OK to carry on."
 
 
 def carry_on(db: Session, user: User, project: Project) -> Job:
-    """Carry on (S3-08): the run a person stopped goes on where it left off, the same run
+    """Carry on (S3-08): the run a person stopped, or that stopped itself at a fault, goes on
+    where it left off (its treatment, plan and Make it stand: video 240), the same run
     (rule 34: its price, holds, counts, notes and the director's own limits are its own), under
     the owner's existing OK and with no new start card, while its own approved price has
     something left (`run_progress.carry_left`); a step past it waits for the owner as any does
@@ -153,9 +154,9 @@ def carry_on(db: Session, user: User, project: Project) -> Job:
     if left is None:
         db.rollback()
         return start(db, user, project, hold=asks.start_hold(db, user, project))
-    rows = turns(db, project)
-    stopped = next(j for j in reversed(rows) if j.input.get(run_progress.STOPPED_BY))
-    by = db.get(User, stopped.input[run_progress.STOPPED_BY])
+    rows = turns(db, project)  # a person's Stop, or none: it stopped itself (video 240)
+    stopped = next((j for j in reversed(rows) if j.input.get(run_progress.STOPPED_BY)), None)
+    by = db.get(User, stopped.input[run_progress.STOPPED_BY]) if stopped else None
     run = dict(rows[-1].input[RUN])
     if notes := set(leftover(db, project)):  # what was said since the Stop: it reads them
         project.director_chat = [{**m, "run": run["id"]} if n in notes else m
@@ -2010,14 +2011,17 @@ def _muted(clip: dict, span: list[float]) -> bool:
 def _failed_too_often(db: Session, project: Project, run: dict) -> str:
     """Plain words for the first item of the run's work that failed more than MAX_REDOS
     times since the run began (tried, then retried twice), e.g. "Clip 3's still failed 3
-    times"; else "". The run then delivers what it has or stops, never spending turns on it."""
-    first = next((j for j in turns(db, project) if j.input[RUN]["id"] == run["id"]), None)
-    if first is None:
+    times"; else "". The run then delivers what it has or stops, never spending turns on it.
+    Counted since its last Carry on, which is a press to try again."""
+    own = [j for j in turns(db, project) if j.input[RUN]["id"] == run["id"]]
+    if not own:
         return ""
-    counts: dict[str, int] = {}
+    since = max([own[0].created_at, *(datetime.fromisoformat(w["carried_at"]) for j in own
+                 if (w := j.input.get(WAS_STOPPED)) and w.get("carried_at"))])  # fmt: skip
+    counts: dict[str, int] = {}  # since its last Carry on: a press to try again
     for job in db.scalars(select(Job).where(Job.project_id == project.id,
                                             Job.status == JobStatus.failed,
-                                            Job.created_at >= first.created_at)):  # fmt: skip
+                                            Job.created_at >= since)):  # fmt: skip
         if job.input.get(RETRIED):  # asked again on its own (`_again`): not a failure
             continue
         what = _item(db, job)
