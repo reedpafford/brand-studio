@@ -5,6 +5,7 @@ Everything runs as subprocesses with timeouts, so a stuck run fails the job, not
 
 import io
 import json
+import logging
 import re
 import subprocess  # noqa: S404 - fixed argument lists, never a shell
 import sys
@@ -12,6 +13,8 @@ import time
 from pathlib import Path
 
 from PIL import Image, ImageDraw
+
+log = logging.getLogger(__name__)
 
 MAX_MB = 100
 MAX_SECONDS = 90
@@ -205,7 +208,10 @@ def frame_grids(path: Path, cut_times: list[float], seconds: float, folder: Path
 
 def warm() -> None:
     """Download and load the speech model once (at worker start)."""
+    from app.whisper import timings
+
     done = _run([sys.executable, "-m", "app.whisper", "--warm"], 900)
+    log.info("whisper model at worker start: %s", timings(done.stderr))
     if done.returncode != 0:
         raise RuntimeError(f"Loading the speech model failed ({done.returncode}).")
 
@@ -238,11 +244,15 @@ def transcribe(path: Path, sounds: bool = False, words: bool = False) -> list[di
     `sounds`: keep whisper's non-speech tags ("(gasps)"), for a take's words check; `words`:
     each line's words and when (`words: [{word, start, end}]`), for a cut's watch."""
     flag = ["--sounds"] if sounds else ["--study"] if words else []
+    from app.whisper import timings
+
     args = [sys.executable, "-m", "app.whisper", str(path), *flag]
     try:
         done = _run(args, TRANSCRIBE_TIMEOUT)
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as late:  # where the time went: the load, or the read
+        log.warning("whisper transcription ran out of time: %s", timings(late.stderr))
         raise RuntimeError("Transcription took too long.") from None
+    log.info("whisper transcription: %s", timings(done.stderr))
     if done.returncode != 0:
         raise RuntimeError(f"Transcription failed ({done.returncode}).")
     return json.loads(done.stdout)
