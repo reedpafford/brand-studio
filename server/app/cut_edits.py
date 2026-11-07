@@ -75,7 +75,7 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
                   data=data, said=said, at=round(at, 2))  # fmt: skip
     db.add(row)
     db.flush()
-    row.kept = ""  # a word a trim was moved to keep (said back to whoever pressed it)
+    row.kept = []  # the words a trim was moved to keep (said back to whoever pressed it)
     while True:
         after = _replayed(db, project, row)
         try:
@@ -85,10 +85,17 @@ def add(db: Session, user: User, project: Project, kind: str, asked: dict,
             moved = _keeping(db, tl, row, lost) if kind == "trim" else None
             if moved is None:
                 raise
-            row.data, row.kept = moved, row.kept or lost.word  # the first word it would cut
-            row.said = f"{label(data['piece'])} trimmed, keeping “{row.kept}”"
+            row.data = moved  # each word it would cut, named (one at each edge)
+            row.kept += [lost.word] if lost.word not in row.kept else []
+            row.said = f"{label(data['piece'])} trimmed, keeping {quoted(row.kept)}"
             flag_modified(row, "data")
             db.flush()
+
+
+def quoted(words: list[str]) -> str:
+    """“Get”, or “Get” and “up”: the words a trim was moved to keep."""
+    q = [f"“{w}”" for w in words]
+    return q[0] if len(q) == 1 else f"{', '.join(q[:-1])} and {q[-1]}"
 
 
 def _replayed(db: Session, project: Project, row: CutEdit) -> dict:

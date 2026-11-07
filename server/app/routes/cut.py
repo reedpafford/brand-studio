@@ -146,7 +146,9 @@ class CutDirectorOut(BaseModel):
     doing: str
 
 
-KEPT = "That would have cut “{}”, so the edge moved to just past it. Every spoken word stays."
+KEPT = "That would have cut {}, so the edge moved to just past it. Every spoken word stays."
+KEPT_ALL = ("That would have cut {}, so the edges moved to just past them. Every spoken word "
+            "stays.")  # fmt: skip
 
 
 class CutOut(BaseModel):
@@ -403,7 +405,8 @@ def edit(project_id: int, body: EditIn, request: Request, user: User = Depends(c
                   lambda: made.append(cut_edits.add(db, user, project, body.kind, asked,
                                                     director=DIRECTOR_TOOL.get())))  # fmt: skip
     if made and made[0].kept:  # moved to keep a word (S4): said, never a refusal with no way on
-        out.notice = KEPT.format(made[0].kept)
+        words = made[0].kept
+        out.notice = (KEPT if len(words) == 1 else KEPT_ALL).format(cut_edits.quoted(words))
     return out
 
 
