@@ -45,14 +45,15 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     require_looks(would_show(db, project, breakdown, shots), known)
     model = model_map.of_clip(project, clip)  # its own (the director's), else the video's
     unsent = model_map.unsent(looks.drawn(project), model.id, _shots(breakdown, shots))
+    images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
+    unsent += model_map.unsent_people(model.id, images)  # Omni: 2 people, the rest in words
     drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
-    images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
     prompt = _in_words(db, clip.prompt, images, drop, known) if drop else clip.prompt
-    images = [i for i in images if not i.startswith(drop)] if drop else images
+    images = [i for i in images if not _out(i, drop)]
     for ref in clip.references:
-        if drop and ref["id"].startswith(drop):
+        if _out(ref["id"], drop):
             continue
         if ref["id"] not in known:
             raise HTTPException(
@@ -110,6 +111,11 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
 LOOKALIKE = ("frame:", "char:")  # left out in turn when a take is refused as a look-alike
 
 
+def _out(ref: str, drop: tuple[str, ...]) -> bool:
+    """The reference is left out: a kind ("char:") or that one reference ("char:12")."""
+    return any(ref == d or (d.endswith(":") and ref.startswith(d)) for d in drop)
+
+
 def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...],
               known: dict) -> str:  # fmt: skip
     """A clip prompt with its dropped pictures said in words: a character's [ImageN] becomes
@@ -117,7 +123,7 @@ def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...]
     keeps are numbered again in order."""
     from app.clip_prompts import TAGS_N
 
-    kept = [i for i in images if not i.startswith(drop)]
+    kept = [i for i in images if not _out(i, drop)]
     said = names(known)
 
     def word(m: re.Match) -> str:

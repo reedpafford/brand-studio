@@ -62,6 +62,69 @@ def test_omni_1_2_replaces_1_1_and_makes_the_realistic_style(owner):
     assert video_model(look="skeleton", kind="song").id == "seedance-2.5"  # songs lip-sync
 
 
+AUDIO = "Audio: only the spoken lines and kitchen sounds. No music, background music, BGM."
+SEEDANCE_SHAPED = (
+    f"{AUDIO}\nReferences: [Image1] is the first frame. It sets the opening composition only. "
+    "[Image2] is Theo.\nShots (hard cuts):\nShot 1 | 0-4 s. Theo lifts the bowl. No one "
+    f"speaks.\n{AUDIO}"
+)
+
+
+def test_omni_reads_its_own_prompt_words_and_two_people(owner):
+    """QA on #1394, docs/prompting/omni-1.2.md's "must" rows: one short sound line instead of
+    Seedance's two; the opening still a guide, never "the first frame"; references named in
+    words by order; one continuous shot asked for; 2 people a clip, the rest said in words."""
+    from app.clip_takes import _out
+
+    omni = get_model(model_map.OMNI)
+    asked = {"prompt": SEEDANCE_SHAPED, "duration": 20, "resolution": "480p",
+             "aspect_ratio": "9:16", "generate_audio": False}  # fmt: skip
+    sent, files = model_map.fit(omni, asked, {"reference_images": [11, 12]})
+    said = sent["prompt"]
+    assert "Audio:" not in said and "[Image" not in said and said.count("Sound:") == 1
+    assert said.startswith("References: the first reference picture guides the opening picture "
+                           "(not an exact first frame). It sets")  # fmt: skip
+    assert "the second reference picture is Theo." in said
+    assert said.endswith(f"{model_map.ONE_SHOT}\n" + model_map.SILENT.format(room="kitchen sounds"))
+    assert (sent["duration"], sent["resolution"], files) == (
+        15,
+        "720p",
+        {"reference_images": [11, 12]},
+    )
+    assert "generate_audio" not in sent
+    two = SEEDANCE_SHAPED.replace("No one speaks.\n", 'Theo: "Mm."\nShot 2 | 4-6 s. Dad nods.\n')
+    spoken = model_map.fit(omni, {**asked, "prompt": two, "generate_audio": True}, {})[0]["prompt"]
+    assert model_map.ONE_SHOT not in spoken
+    assert spoken.endswith(model_map.SPOKEN.format(room="kitchen sounds"))
+    cast = ["frame:1", "char:1", "char:15", "char:150", "screen:2"]
+    assert model_map.unsent_people(model_map.OMNI, cast) == ("char:150",)
+    assert model_map.unsent_people("seedance-2.5", cast) == ()
+    assert not _out("char:15", ("char:150",)) and _out("char:150", ("char:",))
+
+
+def test_the_ugc_sample_and_a_one_clip_freestyle_are_sent_as_omni_reads_them(db, owner):
+    """QA on #1394: the UGC look sample goes at Omni's own 720p with its words, not 480p with
+    Seedance's sound switch; its shown price stays as it was (prices frozen, Reed, 6 Nov). A
+    one-clip Freestyle in UGC sends no sound switch either."""
+    from app import look_samples
+    from app.credits import estimate
+    from app.models.freestyles import Freestyle
+    from app.routes.freestyles import _job_input
+
+    clip = look_samples.clip_input("ugc", 1, 7, "Sam")
+    sent = clip["input"]
+    assert clip["model"] == model_map.OMNI and sent["resolution"] == "720p"
+    assert clip["fit_images_to"] == 1280 and clip["files"] == {"reference_images": [7]}
+    assert "generate_audio" not in sent and "[Image" not in sent["prompt"]
+    assert ". The first reference picture guides the opening picture" in sent["prompt"]
+    quoted = look_samples.clip_input("ugc", 0, 0, "", quote=True)
+    assert quoted["input"]["resolution"] == "480p"  # the price reads it as it always has
+    ws = 1
+    assert look_samples.price(db, ws, "ugc") > estimate(db, ws, "video", 5, clip)
+    quick = _job_input(Freestyle(id=1, look="ugc", shape="9:16", brand_id=1), ["Hi, I'm Sam."])
+    assert quick["model"] == model_map.OMNI and "generate_audio" not in quick["input"]
+
+
 def test_omni_takes_get_its_own_inputs(app, db, owner, ugc):
     """docs/prompting/omni-1.2.md: a duration, no sound switch, references named in words; a
     narrated video's B-roll says no one speaks."""
@@ -73,8 +136,29 @@ def test_omni_takes_get_its_own_inputs(app, db, owner, ugc):
     assert job["model"] == model_map.OMNI
     assert set(sent) == {"prompt", "duration", "resolution", "aspect_ratio"}
     assert sent["resolution"] == "720p" and 3 <= sent["duration"] <= 15
-    assert "[Image" not in sent["prompt"] and sent["prompt"].endswith(model_map.SILENT)
+    said = sent["prompt"].splitlines()
+    assert "[Image" not in sent["prompt"] and not any(x.startswith("Audio:") for x in said)
+    assert said[-1].startswith("Sound: no one speaks in this shot") and "No music" in said[-1]
     assert len(job["files"].get("reference_images", [])) <= 6
+
+
+def test_a_clip_or_take_still_on_omni_1_1_reads_as_the_videos_model_not_a_crash(
+    app, db, owner, ugc
+):
+    """QA on #1394: 1.1 left the catalogue, so a clip or take that still names it (before
+    n43 moves it) shows the video's model and the take's old id, never a 500."""
+    from app.models.clips import ClipTake
+
+    clip = next(r for c, r in _rows(db, ugc).items() if c not in talker.clips(db, ugc))
+    clip.model = {"id": "gemini-omni-1.1", "why": "A face kept.", "by": "director"}
+    take = db.get(ClipTake, clip.picked_take_id)
+    take.made_with = {**take.made_with, "model": "gemini-omni-1.1"}
+    db.commit()
+    got = owner.get(f"/projects/{ugc.id}/clips")
+    assert got.status_code == 200
+    row = next(c for c in got.json() if c["clip_id"] == clip.clip_id)
+    assert row["model"]["id"] == model_map.OMNI and row["model"]["by"] == "map"
+    assert next(t for t in row["takes"] if t["id"] == take.id)["model"] == "gemini-omni-1.1"
 
 
 def test_a_ugc_talker_in_one_spot_is_heygen_one_who_moves_and_the_broll_are_omni(
@@ -160,6 +244,11 @@ def test_the_animated_styles_clips_stay_on_seedance(app, db, owner, ugc):
         ugc.look = look
         db.flush()
         assert model_map.why(db, ugc, clip)["id"] == model_map.of_clip(ugc, clip).id == model
+    whole = {"tool": "settings", "setting": "video_model", "model": model_map.OMNI}
+    assert _move(app, db, ugc, **whole, why="Realer.") == model_map.off_map(ugc, model_map.OMNI)
+    assert "Skeleton's videos are made on Seedance" in model_map.off_map(ugc, model_map.OMNI)
+    assert _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model_map.OMNI,
+                 why=" ") == model_map.NO_REASON  # fmt: skip
     why = "A real phone video of the dog's bowl, the one realistic shot."
     moved = _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model_map.OMNI,
                   why=why)  # fmt: skip
@@ -172,8 +261,12 @@ def test_the_animated_styles_clips_stay_on_seedance(app, db, owner, ugc):
 
 
 def test_a_persons_setting_wins_and_the_directors_switch_says_its_price(app, db, owner, ugc):
-    said = _move(app, db, ugc, tool="settings", setting="video_model", model="seedance-1-lite",
-                 why="Asked in the chat.")  # fmt: skip
+    """The director moves a whole UGC video off Omni 1.2 only for a person's note (Reed's map,
+    QA on #1394); its switch says the price first."""
+    lite = {"tool": "settings", "setting": "video_model", "model": "seedance-1-lite"}
+    assert _move(app, db, ugc, **lite, why="Cheaper.") == model_map.off_map(ugc, "seedance-1-lite")
+    assert model_map.off_map(ugc, "seedance-1-lite").startswith("Refused: UGC's videos are made")
+    said = _move(app, db, ugc, **lite, why="Note 1: asked in the chat.")
     assert said.startswith(
         "Switched the video model to Seedance 1 Lite. The switch is free; "
         "3 clips go out of date; making what's left costs up to"
@@ -181,11 +274,11 @@ def test_a_persons_setting_wins_and_the_directors_switch_says_its_price(app, db,
     assert "Undo puts back Auto" in said
     clips = owner.get(f"/projects/{ugc.id}/clips").json()
     chosen = next(c["model"] for c in clips if c["model"]["id"] == "seedance-1-lite")
-    assert chosen["by"] == "director" and chosen["why"].startswith("Asked in the chat.")
+    assert chosen["by"] == "director" and chosen["why"].startswith("Note 1: asked in the chat.")
     shown = owner.get(f"/projects/{ugc.id}/settings").json()
-    assert shown["changes"][0] | {"at": ""} == {"field": "video_model", "was": None,
-                                               "now": "seedance-1-lite", "by": "director",
-                                               "why": "Asked in the chat.", "at": ""}  # fmt: skip
+    assert shown["changes"][0] | {"at": ""} == {
+        "field": "video_model", "was": None, "now": "seedance-1-lite", "by": "director",
+        "why": "Note 1: asked in the chat.", "at": ""}  # fmt: skip
     undo = owner.post(f"/projects/{ugc.id}/settings", json={"video_model": None, "undo": True})
     assert undo.status_code == 200 and undo.json()["settings"]["video_model"] is None
     picked = owner.post(f"/projects/{ugc.id}/settings", json={"video_model": "seedance-2.0"})
@@ -233,7 +326,7 @@ def test_a_narrated_video_keeps_its_narration_and_its_omni_broll_has_no_one_spea
     said = talker.clips(db, ugc)
     broll = next(r for c, r in _rows(db, ugc).items() if c not in said)
     prompt = take_input(db, ugc, broll)["input"]["prompt"]
-    assert prompt.endswith(model_map.SILENT) and "only the sounds of the place" in prompt
+    assert prompt.splitlines()[-1].startswith("Sound: no one speaks in this shot")
     shown = owner.get(f"/projects/{ugc.id}/settings").json()
     assert "narration_only" not in shown  # nothing to switch off: the narration runs throughout
 

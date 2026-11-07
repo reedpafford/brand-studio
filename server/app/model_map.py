@@ -46,17 +46,31 @@ SAYS_IT = (
 REAL = ("Refused: in UGC every clip that isn't the HeyGen talker is made on Omni 1.2, the B-roll "
         "and a talker who moves around in the story (Reed, 6 Nov: \"Omni is more for the "
         "realistic stuff\").")  # fmt: skip
+NO_REASON = ("Refused: say in `why` what this shot needs from Omni 1.2; it's shown on the clip "
+             "(Reed, 6 Nov: \"with its reason shown\").")  # fmt: skip
+WHOLE = ("Refused: {style}'s videos are made on {model} (Reed, 6 Nov: \"keep seedance for the "
+         "animated and expression-full ones for now. Omni is more for the realistic stuff\"). "
+         "Switch the whole video only when a person asks in the chat (name their "
+         "note).")  # fmt: skip
 PERSONS = "Refused: {who} chose {model} for this video's clips themselves; their choice stays."
 SUNG = "Refused: this clip's shots are sung, so it needs a model that lip-syncs to the song."
 SHAPE = "Refused: {model} makes {shapes} videos only; this one is {shape}."
 LONG = "Refused: this clip is {seconds} s and {model} makes about {most} s at most."
-# Omni has no sound switch (docs/prompting/omni-1.2.md §5)
-SILENT = (
-    "Sound: no one speaks in this shot (no voices, narration or dialogue), only the sounds "
-    "of the place. No music."
-)
+# Omni's prompt words (docs/prompting/omni-1.2.md): no sound switch, so one short sound line
+# in place of Seedance's (§5); references named by order (§2, §6), the opening still a guide,
+# never "the first frame" (row 3); one shot asked for in words, as it cuts by default (§3)
+SILENT = ("Sound: no one speaks in this shot (no voices, narration or dialogue), only {room}. "
+          "No music.")  # fmt: skip
+SPOKEN = "Sound: only the spoken lines, each from the person who says it, and {room}. No music."
+PLACE = "the sounds of the place"
+ONE_SHOT = "One continuous shot, no scene cuts."
+AUDIO = re.compile(r"^Audio:.*(?:\n|$)", re.M)  # Seedance's audio line, first and last
+ROOM = re.compile(r"\bonly (?:the spoken lines and )?(.+?)\. No music", re.I)
+FIRST = re.compile(r"\[Image(\d+)\] is the first frame\b")
 IMAGE = re.compile(r"\[Image(\d+)\]")
+SHOT = re.compile(r"^Shot \d+ \|", re.M)
 ORDINAL = ("first", "second", "third", "fourth", "fifth", "sixth")
+PEOPLE = 2  # Omni: 2 people a clip, 3 pictures each (§6); each sends one sheet
 
 
 def _model(model_id: str):
@@ -95,8 +109,8 @@ def why(db, project, clip) -> dict:
         return {"id": found.id, "name": found.name, "by": "map",
                 "why": "The talker saying the narration: cut from their one HeyGen take, "
                        "lip-synced to the video's own voice."}  # fmt: skip
-    if own := clip.model:
-        found = _model(own["id"])
+    own = clip.model or {}
+    if found := _model(own.get("id", "")):  # one since taken out of the catalogue: the video's
         return {"id": found.id, "name": found.name, "why": own.get("why", ""), "by": own["by"]}
     found = video_model(project)
     picked = project.video_model == found.id
@@ -132,6 +146,19 @@ def _persons(db, project) -> str:
     return (user_name(db, found.get("by_id")) or "A person") if found else ""
 
 
+def off_map(project, model_id: str | None) -> str:
+    """The refusal when the director would switch a whole video against Reed's map (UGC off
+    Omni 1.2, or an animated style onto it) without a person asking; "" when it fits. Auto
+    (None) is the style's own model."""
+    from app import guides
+
+    real = looks.base(looks.drawn(project)) in PHOTOREAL
+    if model_id is None or (model_id == OMNI) == real:
+        return ""
+    style = guides.style(looks.drawn(project))["name"]
+    return WHOLE.format(style=style, model="Omni 1.2" if real else "Seedance")
+
+
 def choose(db, project, clip, model_id: str | None, reason: str) -> str:
     """The director's model for one clip (null: back to the video's), checked against the
     model map, with its new price said first and its reason shown. It never changes the video's
@@ -156,6 +183,8 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
         return PERSONS.format(who=who, model=_model(project.video_model).name)
     if found.id != OMNI and looks.base(looks.drawn(project)) in PHOTOREAL:
         return REAL
+    if found.id == OMNI and not reason.strip():
+        return NO_REASON
     if (clip.song_slice or {}).get("sung_shots") and not found.lip_sync:
         return SUNG
     if project.aspect_ratio not in found.aspect_ratios:
@@ -175,20 +204,45 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
 
 def fit(model, input: dict, files: dict) -> tuple[dict, dict]:
     """A take's input as Omni reads it (docs/prompting/omni-1.2.md): prompt, duration (3–15 s),
-    resolution, shape and up to 6 reference pictures; no sound switch, so a take with no one
-    speaking says so in words (a narrated video keeps its narration throughout, Reed, 5 Nov).
-    Its references are named in words by their order, never as tags like [Image1] (§2, §6);
-    the clip prompt's opening still is a reference, never a literal first frame (§1)."""
+    resolution, shape and up to 6 reference pictures. Seedance's audio lines become one short
+    sound line (no one speaking says so, as there's no sound switch: a narrated video keeps its
+    narration throughout, Reed, 5 Nov); references are named in words by their order, the
+    opening still as a guide, never a literal first frame; a one-shot clip asks for one
+    continuous shot. Extra people are said in words before this (`unsent`)."""
     if model.id != OMNI:
         return input, files
     pictures = files.get("reference_images", [])[: model.max_reference_images]
-    prompt = IMAGE.sub(lambda m: _picture(int(m.group(1)), len(pictures)), input["prompt"])
+    asked = input["prompt"]
+    audio = AUDIO.search(asked)
+    room = (m.group(1) if audio and (m := ROOM.search(audio.group(0))) else PLACE).strip()
+    body = AUDIO.sub("", asked).strip()
+    prompt = FIRST.sub(lambda m: _guide(m, body, len(pictures)), body)
+    prompt = IMAGE.sub(lambda m: _picture(int(m.group(1)), len(pictures)), prompt)
+    if len(SHOT.findall(prompt)) <= 1:
+        prompt += f"\n{ONE_SHOT}"
     if not input.get("generate_audio"):
-        prompt = f"{prompt}\n{SILENT}"
+        prompt += "\n" + SILENT.format(room=room)
+    elif audio:
+        prompt += "\n" + SPOKEN.format(room=room)
     shaped = {"prompt": prompt, "duration": max(model.duration.min, min(input["duration"],
               model.duration.max)), "resolution": resolution(model),
               "aspect_ratio": input["aspect_ratio"]}  # fmt: skip
     return shaped, {"reference_images": pictures} if pictures else {}
+
+
+def unsent_people(model_id: str, images: list[str]) -> tuple[str, ...]:
+    """On Omni, the characters past its first two people (each has one sheet, within its 3 a
+    person): left out of the pictures and described in words instead (clip_takes._in_words)."""
+    people = [i for i in images if i.startswith("char:")]
+    return tuple(people[PEOPLE:]) if model_id == OMNI else ()
+
+
+def _guide(m: re.Match, prompt: str, sent: int) -> str:
+    """`[Image1] is the first frame` → "The first reference picture guides the opening"."""
+    picture = _picture(int(m.group(1)), sent)
+    said = f"{picture} guides the opening picture (not an exact first frame)"
+    before = prompt[: m.start()].rstrip(" ")
+    return said[0].upper() + said[1:] if not before or before.endswith((".", "\n")) else said
 
 
 def _picture(n: int, sent: int) -> str:

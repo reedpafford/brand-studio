@@ -260,7 +260,7 @@ def _speed(db: Session, project: Project, emotion: str | None) -> float | None:
 def _voice(db: Session, project: Project) -> str:
     """The narrator when none is picked: a person's for this video, else the video's own (its
     host's or its style's, e.g. Dr. Pickle's clone), else the MiniMax voice for a talker or a
-    UGC presenter in one spot, in a corner too (Reed, 3 and 6 Nov: talker.minimax), else
+    UGC presenter in one spot (talks or corner; Reed, 3 and 6 Nov: talker.minimax), else
     narration's."""
     from app import talker
 

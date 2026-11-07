@@ -810,8 +810,8 @@ class DirectorTurn(Strict):
     ) = Field(
         default=None,
         description="For narration being made: the narrator's voice; empty gives Sarah on the "
-        "first narration (a UGC talker: English_FriendlyPerson) and keeps the voice in use on a "
-        "remake. Else empty.",
+        "first narration (a UGC presenter in one spot, talks or corner: English_FriendlyPerson) "
+        "and keeps the voice in use on a remake. Else empty.",
     )  # fmt: skip
     emotion: _pick(
         "auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent",

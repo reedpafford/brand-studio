@@ -340,10 +340,8 @@ def _spent(db: Session, row: ProjectClip) -> dict:
 def _model_name(model_id: str | None) -> str | None:
     from app.catalogue import get_model
 
-    try:
-        return get_model(model_id).name if model_id else None
-    except (KeyError, ValueError):
-        return model_id  # a model since taken out of the catalogue: its id
+    found = get_model(model_id) if model_id else None
+    return found.name if found else model_id  # one since taken out of the catalogue: its id
 
 
 def _clip(db: Session, user: User, project_id: int, clip_id: int):
