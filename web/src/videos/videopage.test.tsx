@@ -394,14 +394,15 @@ test("S3-08: Start the plan again starts a new run that plans the whole video ag
 test("S3-11: a step that failed says why in plain words, with its one-click fixes", async () => {
   setViewport(1440);
   const failed = record({ status: "needs_fix", title: "Stopped at clip 4", sub: "3 of 4 clips made", tone: "bad", scenes: scenes.slice(0, 1), failed: { title: "Clip 4 couldn’t be made", why: "The service was busy. Nothing was charged.", clip: 44, fixes: [{ kind: "again", label: "Try again", price: "$0.32" }, { kind: "carry_on", label: "Carry on", price: "$10.74" }] } });
-  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, failed], "POST /projects/50/clips/44/generate": [201, { id: 1 }], "POST /projects/50/director": [201, run()] });
+  const calls = server(owner, null, run({ status: "ended", thread: [card] }), { "GET /projects/50/director/progress": [200, failed], "POST /projects/50/clips/44/generate": [201, { id: 1 }], "POST /projects/50/director/carry-on": [201, run()] });
   renderApp("/b/1/videos/50");
   const box = await screen.findByRole("region", { name: "Clip 4 couldn’t be made" });
   expect(within(box).getByText("The service was busy. Nothing was charged.")).toBeInTheDocument();
   await userEvent.click(within(box).getByRole("button", { name: "Try again · up to $0.32" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/clips/44/generate")).toBe(true));
   await userEvent.click(within(box).getByRole("button", { name: "Carry on · up to $10.74" }));
-  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(true));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /projects/50/director/carry-on")).toBe(true)); // the same run (video 240)
+  expect(calls.some((c) => c.key === "POST /projects/50/director")).toBe(false); // never a new run
 });
 
 test("S3-11: a clip too long for its model offers Split it into N clips · free, with what its new clips then cost, and the settings to pick a longer model", async () => {

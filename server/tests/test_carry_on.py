@@ -384,3 +384,36 @@ def test_a_new_run_closes_a_carry_on_still_waiting_for_the_owner(app, db, owner,
         late = owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"})
         assert late.status_code == 409  # never a press that does nothing
         assert director._carry_waiting(db, db.get(Project, pid)) is None
+
+
+def test_a_run_that_stopped_itself_carries_on_as_the_same_run(app, db, owner, editor):
+    """Video 240 (7 Nov): a run stopped itself mid-way ("the narration is still being made"),
+    with its Make it pressed; Carry on started a new run, refused its free re-time ("the
+    treatment comes first"), rewrote the treatment and showed a new start card. It's the same
+    run, under its OK: no treatment, no start card, and its next step runs."""
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _until(app, db, pid)
+    project = db.get(Project, pid)
+    last = director.turns(db, project)[-1]  # it stops itself at its next turn
+    last.status = JobStatus.succeeded
+    last.input = {**last.input, "ended": "It stopped: the narration is still being made."}
+    db.commit()
+    assert run_progress.ending(director.turns(db, project))[0] == "needs_fix"
+    stopped, cards = last.input[director.RUN], _starts(db, pid)
+    first = db.query(Job).order_by(Job.id.desc()).first().id
+    assert run_progress.carry_left(db, project) is not None  # its own OK has something left
+    r = owner.post(f"/projects/{pid}/director/carry-on")
+    assert r.status_code == 201, r.text
+    run = director.turns(db, project)[-1].input[director.RUN]
+    assert run["id"] == stopped["id"] and run["ok"]  # the same run, started
+    _run(app, db, ticks=120, start=False)  # nobody presses Make it: none is needed
+    db.expire_all()
+    after = [j for j in db.query(Job).filter(Job.project_id == pid, Job.id > first)]
+    assert not [j for j in after if j.input.get("step") == "treatment"]  # its story stands
+    assert _starts(db, pid) == cards  # no new start card
+    tools = [(t.output or {}).get("tool") for t in director.turns(db, project) if t.id > first]
+    assert tools and tools[0] not in ("treatment", None)  # its next step runs
+    assert {t.input[director.RUN]["id"] for t in director.turns(db, project)
+            if t.id > first} == {stopped["id"]}  # fmt: skip
+    assert director.turns(db, project)[-1].input.get("result") == director.DELIVERED

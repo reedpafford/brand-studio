@@ -556,12 +556,15 @@ def carry_left(db: Session, project: Project, whole: bool = False) -> Decimal | 
     approved price (rule 34, Reed 6 Nov: each run its own price; a run is one pass from its
     Make it to its delivery or Stop): that price, with its OKs at the director's own limit,
     less what the run has charged against it (`asks.approved_run`). None when the newest run
-    wasn't stopped by a person, had no Make it, or has nothing of its price left."""
+    wasn't stopped (by a person, or by itself at a fault: video 240), had no Make it, or has
+    nothing of its price left. A delivered, declined or withdrawn run isn't carried on."""
     from app.credits import COUNTED
 
     every = runs(db, project)
     run_id, rows = list(every.items())[-1] if every else (None, [])
-    if not any(j.input.get(STOPPED_BY) for j in rows):
+    stopped = rows and (any(j.input.get(STOPPED_BY) for j in rows)
+                        or ending(rows)[0] == "needs_fix")  # fmt: skip
+    if not stopped:
         return None
     card = db.scalar(select(Job).where(  # its own Make it, pressed: never an earlier run's OK
         Job.project_id == project.id, Job.input[asks.START].as_boolean(),
