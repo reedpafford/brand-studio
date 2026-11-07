@@ -30,7 +30,7 @@ a hand-sculpted claymation look with large almond eyes and matte clay skin
 - Every character in frame keeps the whole clay design language from their sheet (the white of the eye clearly visible around a deeply coloured iris, the thick sculpted brows): cut short, a face turns generic and simplified.
 - Name the clay on every major object ("a coiled clay towel", "clay plants with thumb-pressed leaves"), not only in the look. Glass, metal and flame are "sculpted as a professional clay imitation of an amber glass dropper bottle" (or a brass kettle). Liquids are glossy and wet against matte clay, in any shot. With a character in frame to anchor the clay, a hard prop may be its real material (clear plastic, metal); in a shot of objects alone, everything stays clay but the liquids and the product's real packaging.
 - The product is its real packaging, set on a clay plinth or held in clay hands, its label exactly as in its image.
-- Never call the clay smooth, polished or glossy: those words turn it into computer animation. Say matte, thumb-worked, tool-striated.
+- Never call the clay polished or glossy: those words turn it into computer animation. Smooth is fine (smooth motion, smooth-matte clay); name its hand-made texture with it: matte, thumb-worked, tool-striated.
 - Keep the light warm by default; a cold, grey or low-key look is allowed for the problem, as long as the fix turns warm and bright. A cold source (a fridge, a phone screen) keeps the skin warm against it: "cold blue light from the fridge while her warm terracotta clay skin keeps its own colour".
 - Hands handling something are "sculpted like a clay figurine's: thick rounded fingers with plain blunt tips and no fingernails at all", or they come out as real human hands. A crowd names its faces ("each one a distinct sculpted clay face with the white of the eye clearly visible and thick sculpted brows"), or the background turns to mush.
 - Name the feeling, then the brows, lids and mouth, and where the clay deforms: "his cheek squashed hard against his palm, eyelids heavy and half-lowered".
@@ -86,7 +86,7 @@ Never show set edges, workbench, or the room around the set.
 
 ## safe to vary
 - How much of the world is clay: fully sculpted rooms (4 of 5) or realistic, film-like rooms around clay people (1 of 5).
-- Music: none at all (2 of 5) or a quiet tonal bed 11–25 dB under the voice, no drums (3 of 5).
+- Music: none at all (2 of 5) or a quiet tonal bed 11–25 dB under the voice, no drums (3 of 5). Music is added in post: the site makes the video's own sound, the voices, the room and the effects, never a music bed, and a cut with none is right.
 - Sound effects: none, or literal effects on clay events (a thump when something lands, a whoosh on a fly-through or whip, alarms, ticks on a countdown).
 - Aspect: 9:16 (4 of 5) or 4:5 (1 of 5). Length: 1 to 4 minutes seen.
 - The character: any age and walk of life, held the same across the video (the sheet carries the face).
@@ -122,7 +122,7 @@ The style suits voiceover + B-roll content best.
 ## What makes anything read as clay (apply to every sub-style)
 1. Visible making-marks on every surface — fingerprints and thumb smudges (goofy, puppet) or fine tool striations (cinematic, clean). A clay world with no trace of hands reads as CGI.
 
-2. Soft clay materiality — matte-to-satin plasticine sheen, slight subsurface warmth; never write "smooth," "polished," or "glossy" for the clay — those words trigger the CGI drift (liquids are the one glossy thing).
+2. Soft clay materiality — matte-to-satin plasticine sheen, slight subsurface warmth; never write "polished" or "glossy" for the clay — those words trigger the CGI drift (liquids are the one glossy thing); "smooth" is fine beside the hand-made texture words.
 
 3. Clay imitations for hard materials. Glass, liquid, metal, and flame are clay's hardest cases — describe them as "sculpted as a professional clay imitation of [an amber glass dropper bottle / pouring water / a brass kettle]" and they hold. One tested exception, in the cinematic lane only: when a character is in frame anchoring the clay read, real materials for hard props (translucent plastic, metal, real liquid) look excellent and make the frame pop. In an object-only shot there is no anchor and real materials collapse the whole image into product photography — keep everything clay but the liquids and the product's real packaging. Liquids are glossy and wet against matte clay, in any shot.
 
@@ -235,7 +235,7 @@ Chain end frame → next start frame for a continuously flowing sequence.
 ## Known limitations & workarounds
 | Failure                                     | Fix                                                                                                                                                              |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Drifts to smooth CGI render                 | Never write "smooth/polished/glossy"; physicality block verbatim; reroll                                                                        |
+| Drifts to smooth CGI render                 | Never write "polished/glossy"; name the hand-made texture; physicality block verbatim; reroll                                                                        |
 | Characters look generic and simplified      | The full design language was abbreviated — write it out per character, especially in multi-character scenes                                                      |
 | The named emotion doesn't show on the face  | Emotion written as an adjective — rewrite it as face mechanics (brows, lids, mouth, where the cheek deforms)                                                     |
 | Clay skin comes out blue / colour-stained   | A cold light source in the scene — keep it, but pin the skin's own colour against it                                                                             |

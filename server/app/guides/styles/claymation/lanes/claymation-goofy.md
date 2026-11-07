@@ -24,7 +24,7 @@ a goofy claymation look with an oversized head and huge round googly eyes
 - Every character in frame keeps the whole goofy design language from their sheet (the googly eyes, the blush-pink cheeks, the grin): cut short, a face turns generic.
 - Hair stays "neatly shaped with a few playful strands out of place", never sticking out in every direction.
 - Name the clay on every object, wonky and thumb-printed ("a lopsided clay mug"); glass and metal are "sculpted as a professional clay imitation of …"; liquids are glossy and wet against matte clay. The product is its real packaging, set on a clay plinth or held in clay hands, its label exactly as in its image.
-- Never call the clay smooth, polished or glossy. Keep the light bright and warm, the camera inside the clay world at a named angle, and never show the set's edges or the workbench.
+- Never call the clay polished or glossy. Keep the light bright and warm, the camera inside the clay world at a named angle, and never show the set's edges or the workbench.
 - The googly-eye extreme close-up is this look's charm shot. Name the feeling, then the brows, lids and mouth.
 
 ## Clips

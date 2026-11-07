@@ -143,11 +143,11 @@ A screen is a phone in a character's hand or a laptop seen over the hands, filli
 ## combines with
 - **Dialogue** is its format: all 10 references are dialogue skits.
 - **Real footage:** every reference ends on a 1.5–3.7 s live-action handheld tag after the animation (10 of 10), and one cuts a 1.1 s real phone clip into the middle (1 of 10). In the references it is the creator's own life; for a brand it is an optional slot for the brand's real thing (see the Dialogue format).
-- Not seen in the references, so untested: a narrated or song script over House's wordless montages, which already run on music with no lines.
+- Not seen in the references, so untested: a narrated or song script over House's wordless montages, which in the references run on music with no lines (music is added in post).
 
 ## measured in the reference videos
 <!-- 3 Nov, deep-watch kit (per-shot colour, per-second camera flow, stems and spectrograms). Facts only; Reed's answers of 3 Nov applied. -->
 - Colour (average of the frame): day interiors #594a43 to #7d5a49, gently warm, saturation about a quarter to a third; night #0e1d32 to #30343c, blue, saturation about two thirds, blacks deep but not crushed; golden hour #8a5e56 to #997d72; the whole animated part averages about #665650 to #6f5556. The colour comes from props and one hero object, not from a saturated grade.
 - Depth of field: shallow on close-ups; wides keep the set readable (7 of 10 noted).
 - No slow motion in any of the 10; fast motion and ghosted time-lapse instead.
-- Sound: a music bed under every second (no silence in 10 of 10), about −14 LUFS overall; under lines it is a soft pad or low drone about 10–27 dB below the voice (8 of 10), and it rises with drums when no one speaks. Whooshes and impacts on whips, a ding on each notification. Cuts follow the lines and the sound hits, never the musical beat (10 of 10 at chance).
+- Sound: Music is added in post: the site makes the video's own sound, the voices, the room and the effects, never a music bed, and a cut with none is right. In the references a music bed runs under every second (no silence in 10 of 10), about −14 LUFS overall; under lines it is a soft pad or low drone about 10–27 dB below the voice (8 of 10), and it rises with drums when no one speaks; that's the editor's, in post. Whooshes and impacts on whips, a ding on each notification. Cuts follow the lines and the sound hits, never the musical beat (10 of 10 at chance).

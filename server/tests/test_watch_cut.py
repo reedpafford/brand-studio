@@ -112,6 +112,7 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     assert "[Image2] c1, 0.0–1.1 s: the sound as a spectrogram" in said
     assert "<cut>" in said and "<measured>" in said and "Loudness" in said
     assert "Music bed: none in this cut" in said  # a dialogue cut: its quiet is the clips
+    assert "which is right: music is added in post" in said and "7 Nov" not in said
     assert look.credits > 0  # priced "up to", on the director's own limit
     run_writer(app, db)
     db.expire_all()
