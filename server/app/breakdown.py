@@ -499,6 +499,8 @@ def _complete_cast(db: Session, project: Project, locked: bool) -> list[str]:
         return []
     if locked:  # one at a time per video (QA-2: Assets' parallel requests each merged Girl
         lock(db, Project, project.id)  # again); the next one sees what this one did
+        db.flush()  # then everything is read again as committed: what the unlocked look
+        db.expire_all()  # loaded may be older than a write since (QA on #1427: a song part)
     db.refresh(project)
     out, kept = [], set()
     records = select(CastMerge).where(CastMerge.project_id == project.id).order_by(CastMerge.id)
