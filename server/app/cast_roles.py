@@ -107,6 +107,40 @@ def plays(slots: list[ScriptCastSlot]) -> str:
     return "; ".join(f"plays {s.role}" for s in slots)
 
 
+DECADE = r"((?:early\s+|late\s+|mid-?)?\d0s)"  # "50s", "mid-40s"
+
+
+def stated_age(name: str, texts: list[str]) -> str:
+    """The age these words state outright for a role, as a sheet's words say it ("aged 19",
+    "in his 50s"), or "". Only explicit ages: "Jay is 19." (nothing but punctuation after),
+    "aged 19", "19-year-old Jay", "Jay, 19 years old", a cue's own "JAY (19, …)" or "(19)",
+    and a decade said of them ("Uncle Ray is in his 50s", "MIA (mid-40s, …)"). Never a clock
+    time, a count, a score, a stretch of time, money or a decade before a noun ("Marcus, 3 AM",
+    "Jay (2 of 3)", "Jay is 5 for 5", "Jay, 30 seconds later", "90s kid": QA on #1428).
+    Video 245: the note said "Jay is 19", the role's words were only "Jay", and his sheet read
+    about 30."""
+    if not name.strip():
+        return ""
+    who = re.escape(name.strip())
+    exact = (
+        rf"\b{who}\b\s+is\s+(\d{{1,2}})\s*(?:[.,;!?)]|$)",  # "Jay is 19." / "Jay is 19,"
+        rf"\b{who}\b[^.\n]{{0,20}}?\baged?\s+(\d{{1,2}})\b",  # "Jay, aged 19"
+        rf"\b(\d{{1,2}})-year-old\s+(?:[a-z]+\s+)?{who}\b",  # "19-year-old Jay"
+        rf"\b{who}\b,?\s+(?:a\s+)?(\d{{1,2}})(?:-year-old\b|\s+years?\s+old\b)",
+        rf"\b{who}\b\s*\(\s*(\d{{1,2}})\s*[,)]",
+    )  # a cue's own "JAY (19, …)" or "(19)"
+    decade = (rf"\b{who}\b\s+is\s+(in\s+(?:his|her|their)\s+{DECADE})\b(?!\s+[a-z])",
+              rf"\b{who}\b\s*(?:\(\s*|,\s*){DECADE}\s*[,)]")  # fmt: skip
+    for text in texts:
+        for pattern in exact:
+            if m := re.search(pattern, text or "", re.I | re.M):
+                return f"aged {m[1]}"
+        for pattern in decade:
+            if m := re.search(pattern, text or "", re.I):
+                return m[1] if m[1].lower().startswith("in ") else f"in their {m[1]}"
+    return ""
+
+
 def short(role: str) -> str:
     """A role's name as a script labels it: "Nate, the teen groom" -> "Nate", "The bride" ->
     "bride"."""
