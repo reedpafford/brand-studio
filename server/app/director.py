@@ -89,7 +89,8 @@ CAST_WAIT = "Waiting for the cast and places OK."  # its run waits on that point
 
 
 def start(db: Session, user: User, project: Project, *, hold: str = "",
-          extra: dict | None = None, frozen: bool = True, fresh: bool = False) -> Job:  # fmt: skip
+          extra: dict | None = None, frozen: bool = True, fresh: bool = False,
+          approved: bool = False) -> Job:  # fmt: skip
     """A run on a video made from a published script (its words are locked): its first turn.
     Every way in starts the same (S3-02): its plan (the treatment) first, charged at its real
     cost on the video's planning allowance (`asks.past_planning`), then the run waits on its
@@ -99,7 +100,8 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     `extra`: more of its input (the freestyle it's for), carried to the start card.
     `frozen=False`: a freestyle's, whose version is frozen and published when its run starts
     (`freestyles.freeze`). `fresh`: "Start the plan again" (S3-08): after Make it the run
-    plans the whole video again instead of carrying on from its shots (`fresh`)."""
+    plans the whole video again instead of carrying on from its shots (`fresh`). `approved`:
+    the owner's own priced press is its OK (line_change: "Change the line"), so no start card."""
     if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
     _close_carry(db, project)  # a Carry on still waiting for the owner isn't needed now
@@ -109,8 +111,8 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     left = set(leftover(db, project))  # every note no run has read: this run reads them
     if left and not fresh and delivered(turns(db, project)):  # notes after a delivery: a
         again = {**again, REVISION: True}  # revision, whose story stands
-    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id, "ok": False,
-           "hold": hold, **again}  # fmt: skip
+    run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id,
+           "ok": approved and user.is_owner, "hold": hold, **again}  # fmt: skip
     if left:
         project.director_chat = [{**m, "run": run["id"]} if n in left else m
                                  for n, m in enumerate(project.director_chat)]  # fmt: skip

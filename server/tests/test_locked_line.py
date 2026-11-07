@@ -478,15 +478,17 @@ def test_on_a_presenter_video_it_offers_cutting_away_free_and_makes_the_cut(
     out = owner.post(f"/projects/{pid}/director/messages", json={"text": ON_A_PRESENTER}).json()
     assert out["unread"] == 0
     card = _card(owner, pid)
-    (away,) = card["choices"]  # no Say it softer: the presenter's narration carries the voice
+    change, away = card["choices"]  # no Say it softer: the presenter's narration carries the
+    assert change["do"] == "change_line"  # voice; the owner may change the line (Reed, 7 Nov)
     assert (away["title"], away["do"], away["price"]) == ("Cut away while it’s said", "cut_away",
                                                           None)  # free  # fmt: skip
     assert away["why"].startswith("Show the B-roll instead of ") and away["why"].endswith(
         "’s face on that line")  # fmt: skip
     jobs = db.query(Job).filter(Job.kind != cut.STEP).count()
-    pressed = owner.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    pressed = owner.post(f"/asks/{card['id']}/answer",
+                         json={"how": "instead", "choice": away["key"]})  # fmt: skip
     assert pressed.status_code == 200, pressed.text
-    done = pressed.json()["choices"][0]
+    done = pressed.json()["choices"][1]
     assert done["made"] == "done" and done["said"].startswith("Done. Making Cut ")
     assert done["said"].endswith(" with it.")
     edit = db.query(CutEdit).filter_by(project_id=pid).one()
@@ -496,7 +498,8 @@ def test_on_a_presenter_video_it_offers_cutting_away_free_and_makes_the_cut(
     assert edit.data["start"] <= said[0] and said[1] <= edit.data["end"]  # over that line
     assert db.query(Job).filter(Job.kind != cut.STEP).count() == jobs  # nothing paid
     assert cut.making(db, db.get(Project, pid)) is not None  # the next cut is being made
-    again = owner.post(f"/asks/{card['id']}/answer", json={"how": "instead", "choice": "A"})
+    again = owner.post(f"/asks/{card['id']}/answer",
+                       json={"how": "instead", "choice": away["key"]})  # fmt: skip
     assert (again.status_code, again.json()["detail"]) == (409, "That's made already.")
 
 
@@ -759,10 +762,13 @@ def test_the_owners_unquoted_note_gets_the_reply_at_once_never_a_new_delivery(
     ).json()
     assert out["status"] == "delivered" and out["unread"] == 0  # answered: no run waits on it
     assert db.query(Job).filter(Job.input["step"].as_string() == "director").count() == notes
-    card = _card(owner, pid)
-    assert card["question"].startswith("The script’s words are set for this script, so I can’t "
+    card = _card(owner, pid)  # the owner's: Change the line first (Reed, 7 Nov), then S3-14's
+    assert card["question"] == locked_line.OWNS.format("bought the dip")
+    assert [c["do"] for c in card["choices"]][:2] == ["change_line", "softer"]
+    seen = _card(editor, pid)  # an editor reads S3-14's card
+    assert seen["question"].startswith("The script’s words are set for this script, so I can’t "
                                        "change “bought the dip”.")  # fmt: skip
-    assert [c["do"] for c in card["choices"]][:1] == ["softer"]  # S3-14's offer, priced
+    assert [c["do"] for c in seen["choices"]][:1] == ["softer"]
 
 
 def test_one_word_is_a_word_change_only_in_the_named_speakers_own_line():
@@ -785,7 +791,7 @@ def test_the_directors_locked_line_answers_a_note_no_card_caught_and_ends_the_ru
     pid = _delivered(app, db, owner, editor)
     project = db.get(Project, pid)
     cuts = db.query(FinalVideo).filter_by(project_id=pid).count()
-    monkeypatch.setattr(locked_line, "asked", lambda text, script: None)  # missed as it came
+    monkeypatch.setattr(locked_line, "asked_for", lambda text, script: None)  # missed as it came
     real = director.choose
 
     def answer(state):
@@ -832,7 +838,7 @@ def _safety_net(app, db, owner, editor, monkeypatch, text: str, first: list[dict
     """A delivered video, a note the matcher misses, and a director that makes `first`'s moves
     (then posts the card) before the stand-in goes on."""
     pid = _delivered(app, db, owner, editor)
-    monkeypatch.setattr(locked_line, "asked", lambda text, script: None)
+    monkeypatch.setattr(locked_line, "asked_for", lambda text, script: None)
     moves = [*first, {"tool": "locked_line", "word": "bought the dip",
                       "why": "Note 1: the script's words are set."}]  # fmt: skip
     real = director.choose
