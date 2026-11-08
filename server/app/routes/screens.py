@@ -110,7 +110,9 @@ def list_screens(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Filter by `tag`, or by `moment` to get the screens attached to it by default."""
+    """Filter by `tag`, or by `moment` to get the screens attached to it by default. An
+    archived product's pictures are left out, as the director leaves them out
+    (enhance.screens_of): they stay with its old videos only."""
     get_brand(db, user, brand_id)
     gone = BrandScreen.deleted_at.is_not(None)
     screens = db.scalars(
@@ -121,7 +123,9 @@ def list_screens(
     return [
         s
         for s in screens
-        if (tag is None or tag in s.tags) and (moment is None or moment in s.default_for)
+        if (tag is None or tag in s.tags)
+        and (moment is None or moment in s.default_for)
+        and (s.product_item is None or not s.product_item.archived)
     ]
 
 

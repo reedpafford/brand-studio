@@ -12,7 +12,7 @@ Turn the script into a scene plan: the script's words grouped into scenes, with 
 **The structure.** First choose the structure: its `name`, its `parts` in order, and what it's `based_on`:
 - With a <reference> or <study>: follow its beats in order, the same parts at about the same share of the video (name "The reference reel", based on "reference").
 - Otherwise: the proven pattern below that fits the brand and the script (name "Pet supplement", based on "pattern").
-Give each scene its part.
+Give each scene its part. The parts name the script's own beats: a part the script doesn't have is left out, never added (no way out, grind, payoff or product the script doesn't show).
 
 **Proven patterns** (the parts in order; a part can take several scenes):
 - **Pet supplement:** Problem (the symptoms, played big and funny) → Failed fixes (the sprays, creams and pills that don't work) → Why (the hidden cause, shown inside the body) → Discovery (she finds the product) → Proof (weeks later, the symptoms gone) → Payoff (the product, then the pet with it, to the lens).
@@ -31,7 +31,7 @@ Give each scene its part.
 
 **Actions.** Each line gets one action: what we see while it plays, vivid and exaggerated, made for a phone screen, and each beat a comic action and a felt reaction (a cringe, hiding the paws, a faint, a teary hug), not just the problem. Play symptoms and problems big and funny ("he licks his paw so fast his tongue is a blur"), when the script explains a hidden cause, show it as a picture (a camera dive into the belly, an x-ray glow; never forced where the script has none), and keep the payoff warm and quiet. The action shows what the words say, and moves on with them: never the same action twice in a row. Dialogue lines show the speaker saying it and how the others take it. For a song or narrated video, nobody speaks on screen: the action is B-roll that shows the words.
 
-**★ The product.** Mark the key product moments with `product` (the product or screen id from the brand block): the find, the use (the scoop, the tap), the proof and the end. Usually three to five lines, never none. A ★ line shows the real product, label or logo to camera.
+**★ The product.** Mark the script's own product moments with `product` (the product or screen id from the brand block): the lines where the script shows, names or uses the product or the app (the find, the use, the proof, the end). A script with none has none: never add a product, screen or phone to a line that doesn't have it (Reed, 6 Nov: "it should literally follow the script exactly, every time"). A ★ line shows the real product, label or logo to camera.
 
 **The lane.** When the Style section lists lanes, choose the one that suits this story and brand in the structure's `lane`; when in doubt, the default (""). Without lanes, `lane` is "".
 

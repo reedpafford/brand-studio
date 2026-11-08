@@ -242,9 +242,14 @@ def test_an_archived_products_pictures_are_not_offered_to_new_work(owner, db):
     pic = owner.post(f"/brands/{b}/screens", json={"name": "Bag", "file_id": upload(owner),
                                                    "product_id": bag}).json()["id"]  # fmt: skip
     assert pic in [s.id for s in screens_of(db, db.get(Brand, b))]
+    assert pic in [s["id"] for s in owner.get(f"/brands/{b}/screens").json()]
     owner.delete(f"/library/prop/{bag}")
     db.expire_all()
     assert pic not in [s.id for s in screens_of(db, db.get(Brand, b))]
+    listed = owner.get(f"/brands/{b}/screens").json()  # polish: the API agrees with the director
+    assert pic not in [s["id"] for s in listed]
+    owner.post(f"/library/prop/{bag}/unarchive")  # back: listed again
+    assert pic in [s["id"] for s in owner.get(f"/brands/{b}/screens").json()]
 
 
 def test_each_version_says_which_sheet_it_had(owner, db):

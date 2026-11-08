@@ -188,10 +188,10 @@ export function NewScriptPage() {
           </Button>
         )}
         {folders.data && me && (
-          <Menu title="Project" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label="Project: none" disabled={make.isPending} {...t}><PickLabel label="Project">None</PickLabel></Button>}>
+          <Menu title="Folder" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label="Folder: Unsorted" disabled={make.isPending} {...t}><PickLabel label="Folder">Unsorted</PickLabel></Button>}>
             {(close) =>
               folders.data!.length === 0 ? (
-                <p className="p-3 text-sm text-muted">No projects yet. Make one on the Scripts page.</p>
+                <p className="p-3 text-sm text-muted">No folders yet. Make one on the Scripts page.</p>
               ) : (
                 folders.data!.map((f) => (
                   <MenuItem key={f.id} onClick={() => { close(); start("", { folder: f.id }); }}>
@@ -215,7 +215,7 @@ export function NewScriptPage() {
           </Menu>
         )}
       </SettingsRow>
-      {picking && looks.data && <LookPicker current={look} looks={looks.data} busy={make.isPending ? look : null} error={null} onPick={(l) => { setPicking(false); start("", { look: l.id }); }} onClose={() => setPicking(false)} />}
+      {picking && looks.data && <LookPicker current={look} looks={looks.data} busy={make.isPending ? look : null} error={null} onPick={(l) => { setPicking(false); start("", { look: l.id }); }} onClose={() => setPicking(false)} format={format.id} />}
       <div className="p-4 sm:p-8">
         {kind === "song" ? (
           // A song's first box stays the Song step's own, so the swap between them can't be seen (Song takes are a separate board).

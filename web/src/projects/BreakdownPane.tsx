@@ -13,17 +13,15 @@ import { BreakdownVersions } from "./VersionLists";
 
 
 /** Claude's scenes → shots → clips for the working script. Read-only here; editing comes next. */
-/** The newest breakdown for the project, or null when there is none (or no script). */
+/** The newest breakdown for the project, or null when there is none yet (204) or no script (409). */
+export async function readBreakdown(projectId: number) {
+  const { data, response } = await api.GET("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } } });
+  if (response.ok || response.status === 404 || response.status === 409) return data ?? null;
+  throw new Error("load");
+}
+
 export function useBreakdown(projectId: number, scriptVersion: number) {
-  return useQuery({
-    queryKey: ["breakdown", projectId, scriptVersion],
-    queryFn: async () => {
-      const { data, response } = await api.GET("/projects/{project_id}/breakdown", { params: { path: { project_id: projectId } } });
-      if (response.status === 404 || response.status === 409) return null;
-      if (!data) throw new Error("load");
-      return data;
-    },
-  });
+  return useQuery({ queryKey: ["breakdown", projectId, scriptVersion], enabled: projectId > 0, queryFn: () => readBreakdown(projectId) });
 }
 
 export function BreakdownPane(props: { projectId: number; brandId: number; scriptVersion: number; plannedSeconds: number; used: number; budget: number; line: number | null; onShowLines: (lines: number[]) => void; onDirty?: (dirty: boolean) => void }) {

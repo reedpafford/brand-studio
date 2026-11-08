@@ -19,4 +19,5 @@ card: People talk on camera
 
 ## closing slot
 <!-- 3 Nov, Reed's H8 answer (approved rec). -->
-An optional closing slot for the brand's real thing: after the animation, about 1.5–3.7 s of the brand's own real footage, screens or product, cut fast. Use it when the brand has something real to show; leave it out when it doesn't.
+<!-- 6 Nov, Reed: "it should literally follow the script exactly, every time." -->
+Only when the script calls for it: after the animation, about 1.5–3.7 s of the brand's own real footage, screens or product, cut fast. A script that doesn't ask for it ends where its own last line or action ends, with nothing added.

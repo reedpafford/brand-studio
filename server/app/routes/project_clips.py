@@ -5,7 +5,7 @@ picked takes into the finished video (free)."""
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -1022,5 +1022,5 @@ def read_video(project_id: int, user: User = Depends(current_user), db: Session 
         .limit(1)
     )
     if not video:
-        raise HTTPException(404, "This project has no video yet.")
+        return Response(status_code=204)  # none yet: polled, and a 404 is a console error
     return _video_out(db, video)

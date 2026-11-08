@@ -10,6 +10,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import looks, prompts
@@ -148,6 +149,15 @@ def queue_sheet(
     house = item.sheet_file_id if look and item.sheet_approved else None
     photo = item.source_photo_file_id or house
     from_photo = bool(photo)
+    from_sheet = from_photo and (
+        photo == house
+        or db.scalar(
+            select(LibraryItem.id)
+            .where(LibraryItem.sheet_file_id == photo, LibraryItem.id != item.id)
+            .limit(1)
+        )
+        is not None
+    )
     style = look or (item.sheet_look if own_look(item) else looks.DEFAULT)
     last = ((item.look_sheets or {}).get(look) or {}).get("file_id") if look else item.sheet_file_id
     redo = bool(body.change.strip()) and last is not None
@@ -158,6 +168,7 @@ def queue_sheet(
     prompt = prompts.sheet_prompt(
         str(kind), noted if anew else item.notes, from_photo=from_photo,
         change=body.change if redo and not anew else "", role=role_for(db, item), style_id=style,
+        from_sheet=from_sheet,
     )  # fmt: skip
     job = image_job_input(
         get_model(body.model_id), prompt, ASPECT[kind], objects=refs, resolution=RESOLUTION

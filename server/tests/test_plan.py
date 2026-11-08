@@ -52,6 +52,17 @@ def test_every_line_with_words_is_in_one_scene_once_in_order():
     )
 
 
+def test_a_scripts_own_product_moment_still_gets_its_star():
+    """QA on #1400: only an added product goes; the script's own product moment ("Then she
+    found Iron Paws.", line 7) is still asked for and kept, with no Advice against it."""
+    said = (prompts.HERE / "plan.md").read_text()
+    assert "Mark the script's own product moments with `product`" in said
+    assert "the lines where the script shows, names or uses the product or the app" in said
+    assert "Iron Paws" in SCRIPT.splitlines()[6]
+    assert check.plan(SCRIPT, GOOD, ["char:1", "char:2"], ["product:1"]) == []  # ★ on line 7
+    assert [x.line for sc in GOOD.scenes for x in sc.lines if x.product] == [7]
+
+
 def test_the_plans_advice_names_its_press():
     bad = _plan(
         _scene(1, "INT. LIVING ROOM, then EXT. PARK — DAY", [2, 3, 4], cast=["char:1", "char:9"]),
@@ -63,7 +74,7 @@ def test_the_plans_advice_names_its_press():
         in problems
     )
     assert "Advice: scene 1: char:9 isn't in the cast" in problems
-    assert "Advice: the product is never shown; ★ a line" in problems
+    assert not any("product is never shown" in p for p in problems)  # the script decides
     wrong_star = _plan(GOOD.scenes[0], _scene(2, "INT. KITCHEN — DAY", [7], product="product:7"))
     assert check.plan(SCRIPT, wrong_star, ["char:1"], ["product:1"]) == [
         "scene 2: ★ product:7 isn't the brand's product or screen"

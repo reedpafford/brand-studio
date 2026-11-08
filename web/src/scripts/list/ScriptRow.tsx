@@ -155,7 +155,7 @@ export function ScriptRow({ row: r, brandName, narrow, mayOpen, ownScript, panel
           );
         })}
       </ul>
-      <div className={`${cell} lg:truncate`}>{waiting ? <Dot tone="warning">{waiting}</Dot> : <span className="text-muted">Nothing</span>}</div>
+      <div className={`${cell} lg:truncate`}>{waiting ? <Dot tone="warning">{waiting}</Dot> : <span className="text-muted">{narrow ? "Nothing waiting" : "Nothing"}</span>}</div>
       <div className={`${cell} lg:truncate`}>{r.created_by_name}</div>
       <div className="ml-auto flex shrink-0 items-center justify-end gap-1 text-xs tabular-nums text-muted">
         {removed ? (
