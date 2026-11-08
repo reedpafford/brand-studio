@@ -130,7 +130,7 @@ It adds only what is specific to the skeleton format: the escalating spine, the 
 
 ---
 
-## Script: the format strategy
+## The format strategy
 The skeleton format runs on a curiosity-gap question + an escalating spine + a payoff:
 
 A. The hook is a curiosity-gap question.
@@ -318,7 +318,7 @@ A skeleton ad for a men's fragrance, angle = _origin/scenario + transformation_,
 
 ---
 
-## Script: swipe file (study the voice; tag = angle / spine)
+## Swipe file (study the voice; tag = angle / spine)
 Every one opens on a curiosity-gap question, runs 5–7 escalating shots of concrete physical imagery in second person, and lands a payoff.
 
 - Transformation / Time (best for "use the product"): _30 Days of Daily Creatine_ — "Day one, chalky water, you feel scammed… Day 14 saturation hits, jet fuel… Day 30 the brain fog lifts… Day 60 a different person." · _What Braces ACTUALLY Do_ — "Day one it feels weird… Day 30 gaps closing… Day 360 Hollywood smile."

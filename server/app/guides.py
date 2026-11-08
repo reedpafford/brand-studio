@@ -16,8 +16,8 @@ FIXED = {*TOKENS, *DATA, "lanes"}
 BRIEFED = {"treatment", "plan", "plan_scene", "breakdown", "song_breakdown", "narrated_breakdown",
            "storyboard", "clip_prompts", "song_clip_prompts", "narrated_clip_prompts",
            "review_stills", "watch_cut", "take_watch", "director"}  # fmt: skip
-# The steps after the plan: the story's words and shape are settled, so a guide's script
-# sections (`Script`, and any named "Script: …") would only add words (speed, Reed 8 Nov).
+# The steps after the plan: the story's words and shape are settled, so a guide's `Script`
+# section would only add words (speed, Reed 8 Nov).
 AFTER_PLAN = BRIEFED - {"treatment", "plan", "plan_scene", "director"}
 KIND = {"": "dialogue", "story": "dialogue"}  # a script's kind names its format (song, narrated)
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
@@ -130,15 +130,10 @@ def video_format(kind: str, style_id: str, picked: str = "") -> str:
 
 def guidance(sections: dict, only: tuple = (), step: str = "") -> list[tuple[str, str]]:
     """A guide's sections for a model: everything but the tokens and data (`only`: those);
-    for a `step` after the plan, none of its script sections."""
+    for a `step` after the plan, not its `Script` section."""
     late = step in AFTER_PLAN
     return [(k, v) for k, v in sections.items() if k not in FIXED and v
-            and (not only or k in only) and not (late and _script(k))]  # fmt: skip
-
-
-def _script(name: str) -> bool:
-    """A section on writing the script: `Script`, or one named "Script: …"."""
-    return name == "Script" or name.startswith("Script:")
+            and (not only or k in only) and not (late and k == "Script")]  # fmt: skip
 
 
 def fill(text: str, style_id: str) -> str:

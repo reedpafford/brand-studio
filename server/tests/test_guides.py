@@ -26,16 +26,13 @@ def test_every_writing_step_gets_craft_the_format_and_the_style():
     assert guides.format_("zack-d")["sections"]["Step 3 — Voiceover in the Zack D voice"] in zack
 
 
-def test_script_sections_reach_only_the_steps_that_write_or_plan_the_story():
+def test_the_script_section_reaches_only_the_steps_that_write_or_plan_the_story():
     """Speed (Reed, 8 Nov): after the plan the story's words are settled, so a guide's
-    `Script` sections ("Script", "Script: …") would only make those steps longer to read."""
+    `Script` section would only make those steps longer to read."""
     skeleton = guides.style("skeleton")["sections"]
-    script = [v for k, v in skeleton.items() if k == "Script" or k.startswith("Script:")]
-    assert len(script) == 3
     for step in guides.BRIEFED:
         text = prompts.system(step, "skeleton", "narrated")
-        late = step in guides.AFTER_PLAN
-        assert all((part in text) != late for part in script), step
+        assert (skeleton["Script"] in text) != (step in guides.AFTER_PLAN), step
         assert skeleton["Breakdown"] in text and skeleton["Stills"] in text, step
     assert skeleton["Script"] in prompts.system("script_draft", "skeleton")  # the writers'
     assert {"breakdown", "clip_prompts", "storyboard", "take_watch"} <= guides.AFTER_PLAN

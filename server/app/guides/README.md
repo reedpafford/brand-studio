@@ -57,7 +57,7 @@ them. A few names mean something to the site:
 | Section | What the site does with it |
 |---|---|
 | `sheet_look`, `place_look`, `still_look`, `clip_style`, `fit_look` | The look's own words, put into the step prompts where they say `{{sheet_look}}` and so on. Every style needs all five. |
-| `Script` | Also reaches the script writers (a new draft, Enhance, Variations). It, and any section named `Script: …`, never reaches the steps after the plan (breakdown, storyboard, clip prompts, the watches): the story's words are settled by then. |
+| `Script` | Also reaches the script writers (a new draft, Enhance, Variations). |
 | `Clips` | Also reaches Improve. |
 | `lanes` | The plan reads it to pick this video's lane. |
 | `banned` | One `word → replacement` a line, repaired in picture prompts (never sent as guidance). |
