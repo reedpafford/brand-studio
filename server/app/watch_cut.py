@@ -151,7 +151,8 @@ def heard_cut(db: Session, job: Job) -> None:
                                       broll=project.broll_look or "")], "prompt": text,
             "effort": "high", "max_tokens": 16000,
             "fit_images_to": 1024, "director_run": job.input.get("director_run"),
-            "cut": cut, "words": out.get("words", []), "ending": ending, "script": version.text if version else "",
+            "cut": cut, "words": out.get("words", []), "ending": ending,
+            "script": version.text if version else "",
             "files": {"reference_images": out.get("file_ids", [])}}  # fmt: skip
     from app.credits import estimate, past_approved
     from app.director import GRANT, past_own
@@ -334,7 +335,8 @@ def state(db: Session, project: Project) -> dict:
     out = newest.output or {}
     return {"state": "done", **base, "lands": bool(out.get("lands")),
             "summary": out.get("summary", ""), "findings": out.get("checked", []),
-            "last_frame": out.get("last_frame", ""), "ending": newest.input.get("ending", "")}  # fmt: skip
+            "last_frame": out.get("last_frame", ""),
+            "ending": newest.input.get("ending", "")}  # fmt: skip
 
 
 def ending_shows(db: Session, video: FinalVideo | None) -> str:
