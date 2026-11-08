@@ -507,6 +507,7 @@ def test_the_end_fades_only_after_the_last_word():
     assert cut_render.fade_out(10.0, 0) == "st=8.50:d=1.50"  # the usual 1.5 s
     assert cut_render.fade_out(7.29, 6.99) == "st=6.99:d=0.30"  # a shorter end: after the word
     assert cut_render.fade_out(7.0, 7.0) == "st=7.00:d=0.05"
+    assert cut_render.fade_out(8.2, 7.0) == "st=7.70:d=0.50"  # a held end: only its last 0.5 s
 
 
 def _redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter):

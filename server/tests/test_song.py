@@ -121,6 +121,10 @@ def test_a_narrations_last_shot_holds_past_the_last_word_and_the_clip_counts_it(
     assert "the shots end at 7.20 s, the song at 6.00 s" in song
     plan, timed = song_breakdown.split(_breakdown(shots), 1, broll=True, shortest=4, longest=15)
     assert plan.clips[-1].seconds == 8 and timed["shots"]["1.3"]["end"] == 7.2  # priced, made
+    talker = [*shots[:2], {**shots[2], "sung": True}]  # QA on #1450: a talker's picture is
+    hold = narration.FINAL_HOLD  # the presenter's take of the narration: never held past it
+    said = check.song_breakdown(LYRICS, _breakdown(talker), SONG, {}, 4, 15, hold=hold)
+    assert "the shots end at 7.20 s, the song at 6.00 s" in said
 
 
 def test_gaps_and_a_speaking_b_roll_shot_need_a_fix_and_the_rest_is_advice():

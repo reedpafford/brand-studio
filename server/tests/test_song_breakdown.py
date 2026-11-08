@@ -149,6 +149,12 @@ def test_the_reflow_keeps_shots_on_their_lines():
         (17, 30),  # line 2 starts at 14 in the new take; 10 is its middle
     ]
     assert moved["1.2"]["sung"] is True
+    held = {**part, "shots": {**part["shots"], "1.3": {"start": 10, "end": 21.2, "sung": False}}}
+    assert reflow(held, old, new, 2)["shots"]["1.3"]["end"] == 30  # a song: to its end
+    kept = reflow(held, old, new, 2, hold=1.5)["shots"]  # QA on #1450: a remade narration
+    assert kept["1.3"]["end"] == 31.2  # keeps its last shot's hold past the end
+    longer = {**part, "shots": {**part["shots"], "1.3": {"start": 10, "end": 24, "sung": False}}}
+    assert reflow(longer, old, new, 2, hold=1.5)["shots"]["1.3"]["end"] == 31.5  # at most 1.5
 
 
 def test_deleting_or_adding_a_shot_repacks_the_song_free_and_undo_is_exact(

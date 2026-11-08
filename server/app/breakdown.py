@@ -8,7 +8,7 @@ from inspect import signature
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session
 
-from app import guides, looks, prompts, song_breakdown
+from app import guides, looks, narration, prompts, song_breakdown
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
@@ -205,8 +205,6 @@ def problems(
     take = db.get(SongTake, song["take_id"]) if song else None
     if take:
         timed, timing = song_breakdown.joined(bd, song), take.timing or {}
-        from app import narration
-
         hold = narration.FINAL_HOLD if take.kind == narration.KIND else 0.0  # its last shot's
         found = check.song_breakdown(script, timed, timing, screens, m.duration.min,
                                      m.duration.max, written=written, hold=hold,

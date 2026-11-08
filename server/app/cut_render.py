@@ -15,7 +15,16 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from app import cut_in, host, host_layer, screen_figures, take_mute, take_sound, word_splice
+from app import (
+    cut_in,
+    host,
+    host_layer,
+    narration,
+    screen_figures,
+    take_mute,
+    take_sound,
+    word_splice,
+)
 from app.models.clips import ClipTake, ProjectClip
 from app.models.files import StoredFile
 from app.models.jobs import Job
@@ -23,6 +32,7 @@ from app.models.projects import Project
 
 log = logging.getLogger(__name__)
 FADE = 1.5  # seconds: a song video's end fades out (flows V6)
+HELD_FADE = 0.5  # seconds: a held end fades only at its very end
 # A narrated video's mix (flows V6n): the takes' own sound under the narration, the music
 # lower still, the whole about -14 LUFS
 TAKES, MUSIC, LOUD = 0.75, 0.30, "loudnorm=I=-14:TP=-1.5:LRA=11"
@@ -401,8 +411,11 @@ def level(music: dict | None) -> str:
 
 
 def fade_out(total: float, last_word: float) -> str:
-    """The end's fade: FADE seconds, but never starting before the last word has ended."""
-    st = max(total - FADE, last_word, 0)
+    """The end's fade: FADE seconds, but never starting before the last word has ended; a
+    held end (the last shot's hold past the last word) fades only its last HELD_FADE, so the
+    payoff plays (QA on #1450)."""
+    held = last_word and total - last_word <= narration.FINAL_HOLD + 0.05
+    st = max(total - (HELD_FADE if held else FADE), last_word, 0)
     return f"st={st:.2f}:d={max(total - st, 0.05):.2f}"
 
 
