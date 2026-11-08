@@ -1798,8 +1798,12 @@ def choose(state: dict) -> dict:
     if long := state.get("too_long"):  # before its stills: the split makes new shots
         return go("split_clip", f"{long[0]} is longer than the video model makes: split it.",
                   clip_id=long[0])  # fmt: skip
-    if state["missing_looks"]:
-        return go("make_looks", "Some roles have no look yet.")
+    if state["missing_looks"]:  # the first one in words, should nothing describe it
+        return go(
+            "make_looks",
+            "Some roles have no look yet.",
+            look={"name": state["missing_looks"][0], "description": "A practice look."},
+        )
     cast = state.get("cast_ok") or {}
     if cast.get("state") == "ready" and not cast.get("asked"):  # each drawn: the person's OK
         return go("ask_cast_ok", "all: the cast and places are drawn; they're the person's OK.")

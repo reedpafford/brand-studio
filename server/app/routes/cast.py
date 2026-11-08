@@ -24,7 +24,7 @@ from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.routes.clips import generation_on
-from app.routes.library import _waiting_sheets, pick_item
+from app.routes.library import LookFitOut, _waiting_sheets, pick_item
 from app.routes.project_assets import _newest, _resave
 from app.routes.projects import get_project, video_writer
 from app.routes.sheets import SheetIn, queue_sheet
@@ -52,6 +52,7 @@ class CastItemOut(BaseModel):
     source: Literal["library", "uploaded", "video", "script"] | None  # None: no look yet
     preview_file_id: int | None  # the picture its stills and takes use
     readiness: Literal["ready", "needs_look", "drawing", "waiting_for_owner"]
+    look_fit: LookFitOut | None = None  # the look check says its sheet is wrong: who it reads as
     approval: Literal["approved", "changed", "new"]  # as it is now, against the last OK
     sig: str  # send back with Approve: what you saw
     clip_ids: list[str]  # the clips that show it
@@ -119,6 +120,7 @@ class CastOut(BaseModel):
 
 class CastApproveIn(BaseModel):
     seen: dict[str, str]  # each item's `sig` as the person saw it
+    anyway: bool = False  # approve a look the check says is wrong ("Approve anyway")
 
 
 class CastKeepIn(BaseModel):
@@ -162,7 +164,7 @@ def approve(
     """Approve cast & places: the person making the video (or the owner) approves the whole
     set as they saw it. Stills and takes that waited for it go on. Free."""
     project = get_project(db, user, project_id)
-    cast_gate.approve(db, user, project, body.seen)
+    cast_gate.approve(db, user, project, body.seen, body.anyway)
     return _out(db, user, project)
 
 

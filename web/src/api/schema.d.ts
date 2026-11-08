@@ -6867,6 +6867,11 @@ export interface components {
             seen: {
                 [key: string]: string;
             };
+            /**
+             * Anyway
+             * @default false
+             */
+            anyway: boolean;
         };
         /** CastItemOut */
         CastItemOut: {
@@ -6892,6 +6897,7 @@ export interface components {
              * @enum {string}
              */
             readiness: "ready" | "needs_look" | "drawing" | "waiting_for_owner";
+            look_fit?: components["schemas"]["LookFitOut"] | null;
             /**
              * Approval
              * @enum {string}

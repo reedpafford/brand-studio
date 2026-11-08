@@ -4,6 +4,7 @@ editor (picked or new), whose sheet is made and approved with the library's shee
 Storyboard and takes already refuse until every sheet they need is approved."""
 
 import json
+import re
 from decimal import Decimal
 from typing import Literal
 
@@ -474,12 +475,12 @@ def make_look(
 
 def _make_look(
     db: Session, user: User, project: Project, slot: ScriptCastSlot, auto: bool = False,
-    change: str = "",
+    change: str = "", words: str = "",
 ) -> None:  # fmt: skip
     """`change`: what the person or the director asked for, added to the role's words. A role
     whose words give no age takes the one the script or a person's note states for it
     ("Jay is 19"), so its sheet and its fit check both know it (video 245)."""
-    words = slot.description or slot.role
+    words = words or role_words(db, project, slot) or slot.role
     if not check.AGE.search(words) and (age := cast_roles.stated_age(
             cast_roles.short(slot.role), _told(db, project))):  # fmt: skip
         words = f"{words.rstrip('. ')}, {age}"
@@ -499,6 +500,26 @@ def _make_look(
     queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+def role_words(db: Session, project: Project, slot: ScriptCastSlot) -> str:
+    """What a role looks like, for its sheet and its fit check: the script's description, else
+    the newest shots' sentences that show and name them (video 268: Bruno had no description,
+    so his sheet was drawn from his name, as an old man, while the shots said "a stocky tan
+    clay dog"), up to 300 characters. "" when neither says anything."""
+    if (slot.description or "").strip():
+        return slot.description
+    bd, refs = _newest(db, project), {f"slot:{slot.id}", f"char:{cast_roles.picked(project, slot)}"}
+    said = [s for sc in (bd.data["scenes"] if bd else []) for shot in sc["shots"]
+            if refs & set(shot["character_ids"])
+            for s in re.split(r"(?<=[.!?])\s+", shot.get("action") or "")
+            if cast_roles.named(slot.role, s)]  # fmt: skip
+    out = ""
+    for s in dict.fromkeys(said):
+        if len(out) + len(s) >= 300:
+            break
+        out = f"{out} {s}".strip()
+    return out
 
 
 def _told(db: Session, project: Project) -> list[str]:
@@ -738,18 +759,32 @@ def make_missing_looks(
     from its budget or the editor's week. All or none: if they don't all fit, nothing is made
     and the plain reason comes back (409). Each sheet still needs the editor's Approve (or a
     Redo, or a swap) before Storyboard; Storyboard refuses until then."""
-    project = get_project(db, user, project_id)
+    make_missing(db, user, get_project(db, user, project_id))
+    return list_assets(project_id, user, db)
+
+
+def make_missing(db: Session, user: User, project: Project, told=("", "")) -> tuple[int, list]:
+    """`make_missing_looks`; `told`: a role's name and what it looks like, as the director gives
+    it for a role nothing describes. Such a role is left without a look, never drawn from its
+    name alone (video 268). How many looks it started, and the roles it left."""
     out = _missing_out(db, user, project)
     if out.reason:
         raise HTTPException(409, out.reason)
+    made, blind = 0, []
     for slot in _missing(db, project):
+        given = told[1].strip() if cast_roles.same(told[0], slot.role) else ""
         if own := _undrawn(db, project, slot):  # from the photo given for it
             queue_sheet(db, user, own, SheetIn(), auto=True)
+        elif words := role_words(db, project, slot) or given:
+            _make_look(db, user, project, slot, auto=True, words=words)
         else:
-            _make_look(db, user, project, slot, auto=True)
+            blind.append(cast_roles.short(slot.role) or slot.role)
+            continue
+        made += 1
     for place in missing_places(db, project):  # a place made for this video
         queue_sheet(db, user, place, SheetIn(), auto=True)
-    return list_assets(project_id, user, db)
+        made += 1
+    return made, blind
 
 
 @router.post("/missing-looks/decline", response_model=MissingLooksOut)

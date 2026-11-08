@@ -12,6 +12,7 @@ export type CastItem = {
   source: "library" | "uploaded" | "video" | "script" | null;
   preview_file_id: number | null;
   readiness: "ready" | "needs_look" | "drawing" | "waiting_for_owner";
+  look_fit?: { seen: string; problem: string } | null; // the look check says its sheet is wrong
   approval: "approved" | "changed" | "new";
   sig: string;
   clip_ids: string[];
@@ -63,8 +64,10 @@ async function call(method: string, url: string, body?: unknown) {
   return out as Cast;
 }
 
+/** Waiting items the look check says are wrong (video 268: a man drawn for Bruno the dog): approved only "anyway". */
+export const wrongLooks = (items: CastItem[]) => items.filter((i) => i.approval !== "approved" && i.look_fit);
 /** "Approve cast & places": the items as this person saw them (each one's sig); 409 if anything changed meanwhile. */
-export const approveCast = (projectId: number, items: CastItem[]) => call("POST", `/projects/${projectId}/cast/approve`, { seen: Object.fromEntries(items.map((i) => [i.ref, i.sig])) });
+export const approveCast = (projectId: number, items: CastItem[]) => call("POST", `/projects/${projectId}/cast/approve`, { seen: Object.fromEntries(items.map((i) => [i.ref, i.sig])), ...(wrongLooks(items).length ? { anyway: true } : {}) });
 /** A place's look for this video: one of the brand's places, an uploaded photo (free), or made (paid, its "up to" first). */
 export const pickPlace = (projectId: number, itemId: number, libraryItemId: number) => call("PUT", `/projects/${projectId}/cast/places/${itemId}`, { library_item_id: libraryItemId });
 export const uploadPlace = (projectId: number, itemId: number, fileId: number) => call("POST", `/projects/${projectId}/cast/places/${itemId}/upload`, { file_id: fileId });

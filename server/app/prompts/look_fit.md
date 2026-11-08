@@ -3,7 +3,8 @@
 
 The image is a character turnaround sheet for an animated brand video: one character drawn three times (front, side, back) in {{fit_look}}. The style never makes an adult look like a child: an adult still has an adult's height, build and face. Check that it shows the character in <character>, so a viewer reads the right person at a glance.
 
-Judge only four things, as a viewer would:
+Judge only five things, as a viewer would:
+- **What they are:** a person, or an animal or creature of the kind <character> says. A person drawn for a dog, a dog for a person, or a cat for a dog does not fit, and neither does a sheet that shows two beings (a dog with a person still drawn behind it).
 - **Age range:** from body proportions, face, height and posture, allowing for the cartoon style. A child or teen drawn for an adult, an adult for a child, or someone elderly for a young role does not fit. A 30s character who looks 25 or 40 fits. A stated age ("aged 19", "in his 50s") is read the same way, a few years either side: a 19-year-old drawn as someone about 30, or a man in his 50s drawn in his 30s, does not fit.
 - **Gender:** as described.
 - **Role or job:** only where the outfit plainly contradicts it (a school uniform on a teacher, a business suit on a toddler). A plain outfit that doesn't show the job fits.
