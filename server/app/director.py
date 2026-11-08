@@ -1511,21 +1511,20 @@ def _ready(db: Session, project: Project, run: dict, last: Job) -> bool:
     notes = [m["at"] for m in project.director_chat or [] if m.get("run") == run["id"]]
     if not notes or kept and max(notes) <= kept.isoformat():
         return True
-    # every note was given to a turn before the treatment was asked (run 287: the brief sent
-    # while the first turn was being answered was never read, and the card showed the plan
-    # from before it)
-    asked = db.scalar(select(func.max(Job.id)).where(
+    # every note was given to a turn (run 287: a brief sent while the first turn was being
+    # answered was never read, and the card showed the plan from before it), and a treatment
+    # asked since that turn is written: one that reads a note and changes nothing (a wait, a
+    # question) gets its card too
+    mine = [t for t in turns(db, project) if t.input[RUN]["id"] == run["id"]]
+    reader = next((t for t in mine if t.input.get(READ, 0) >= len(notes)), None)
+    if reader is None:
+        return False
+    newest = db.scalar(select(Job).where(
         Job.project_id == project.id, Job.input["step"].as_string() == "treatment",
-        Job.input[RUN]["id"].as_string() == run["id"]))  # fmt: skip
-    given = max(
-        (
-            t.input.get(READ, 0)
-            for t in turns(db, project)
-            if t.input[RUN]["id"] == run["id"] and asked and t.id < asked
-        ),
-        default=0,
-    )
-    return given >= len(notes) and max(notes) <= at.isoformat()
+        Job.input[RUN]["id"].as_string() == run["id"],
+    ).order_by(Job.id.desc()).limit(1))  # fmt: skip
+    return (newest is None or newest.status == JobStatus.succeeded
+            or newest.id < reader.id and newest.status not in WAITING)  # fmt: skip
 
 
 def keep_plan(db: Session, project: Project, job: Job) -> None:

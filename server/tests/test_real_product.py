@@ -187,8 +187,8 @@ def test_a_real_pack_goes_only_on_the_close(db, owner, setup, monkeypatch):  # n
         Insert("1.1", f"screen:{shown['id']}", "Bag", 1, 0.0, 1.0, False)])  # fmt: skip
     clips = SimpleNamespace(data={"clips": [{"id": "c1"}, {"id": "c2"}]})
     monkeypatch.setattr("app.clip_prompts.newest", lambda db, project: clips)
-    movie = {"sections": {"clip_style": "never a studio packshot (unless it's the very end)"}}
-    monkeypatch.setattr(guides, "style", lambda look: movie)
+    project.look = "movie"  # its real guide: "never a studio packshot (unless it's the very end)"
+    db.commit()
     c1, c2 = SimpleNamespace(clip_id="c1"), SimpleNamespace(clip_id="c2")
     said = director_tools._pack_mid_scene(db, project, c1, "1.1")
     assert said == director_tools.PACK_AT_CLOSE.format(n="1") and "make clip 1 again" in said
@@ -196,5 +196,11 @@ def test_a_real_pack_goes_only_on_the_close(db, owner, setup, monkeypatch):  # n
     shown["id"] = app_screen.id
     assert director_tools._pack_mid_scene(db, project, c1, "1.1") == ""  # a screen, not a pack
     shown["id"] = screen
-    monkeypatch.setattr(guides, "style", lambda look: {"sections": {"x": "Packshots welcome."}})
+    project.look = "house"
+    db.commit()
     assert director_tools._pack_mid_scene(db, project, c1, "1.1") == ""  # another style
+    assert [
+        s["id"]
+        for s in guides.styles()
+        if "never a studio packshot" in " ".join(s["sections"].values()).lower()
+    ] == ["movie"]  # no lane of it lost the line

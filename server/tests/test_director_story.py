@@ -3,6 +3,8 @@ turn reads what the video is, its script, plan beats and each clip's shots, and 
 so far; the treatment, when there is one, goes to every step that writes the video; and it
 delivers only a cut it has watched."""
 
+import pytest
+
 from app import director
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
@@ -242,14 +244,17 @@ def test_a_watch_still_going_is_not_a_watched_cut(app, db, owner, editor, monkey
     assert director.UNWATCHED in results
 
 
+@pytest.mark.parametrize("changes", [True, False])
 def test_a_note_sent_while_the_first_turn_is_answered_is_read_before_the_start_card(
-    app, db, owner, editor, monkeypatch
+    app, db, owner, editor, monkeypatch, changes
 ):
     """Run 287: the owner's brief landed while the first turn was being answered (after it had
     read the chat); the treatment it asked for never read it and the start card showed the
-    plan from before the brief. The card now waits until a turn has read every note."""
-    real, sent = director.refresh, []
-    brief = "Make her a nurse coming off a night shift."
+    plan from before the brief. The card now waits until a turn has read every note, and
+    comes once it has, also when that turn changes nothing ("Thanks, looks fine.": no dead
+    end, QA on #1469)."""
+    real, sent, choose = director.refresh, [], director.choose
+    brief = "Make her a nurse coming off a night shift." if changes else "Thanks, looks fine."
 
     def late(db_, job):  # the note lands just after the first turn read the chat
         out = real(db_, job)
@@ -257,8 +262,16 @@ def test_a_note_sent_while_the_first_turn_is_answered_is_read_before_the_start_c
             sent.append(editor.post(f"/projects/{pid}/director/messages", json={"text": brief}))
         return out
 
+    def content(state):  # a director that reads the thanks and changes nothing
+        if state.get("chat") and state.get("started") is False:
+            return {"tool": "wait", "why": "Note 1: nothing to change.", "clip_id": None,
+                    "take_id": None, "note": ""}  # fmt: skip
+        return choose(state)
+
     monkeypatch.setattr(director, "refresh", late)
     monkeypatch.setattr("app.worker.director.refresh", late)
+    if not changes:
+        monkeypatch.setattr(director, "choose", content)
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
     for _ in range(3):
@@ -270,6 +283,8 @@ def test_a_note_sent_while_the_first_turn_is_answered_is_read_before_the_start_c
     assert sent and sent[0].status_code == 201, sent
     turns = director.turns(db, db.get(Project, pid))
     (card,) = [t for t in turns if t.input.get(director.START)]
+    assert not director.ended(db, db.get(Project, pid))  # never "it waited twice"
+    assert any(t.input.get(director.READ) == 1 and t.id < card.id for t in turns)  # read first
     written = db.query(Job).filter(Job.project_id == pid,
                                    Job.input["step"].as_string() == "treatment").all()  # fmt: skip
-    assert any(j.input.get("note") == brief and j.id < card.id for j in written)
+    assert any(j.input.get("note") == brief and j.id < card.id for j in written) == changes
