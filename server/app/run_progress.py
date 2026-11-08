@@ -889,12 +889,12 @@ def _too_long(db: Session, video: _Video, c: dict, owner: bool, carry: dict) -> 
 def _then(db: Session, project: Project, clips: list) -> Decimal:
     """What a split's new clips then need, "up to" (rule 36): a still for each of their
     shots, their prompts written, and a take of each with the watch that rides along."""
-    from app import take_watch
+    from app import clip_prompts, take_watch
     from app.routes.estimate import _claude, _still, _video
 
     ws = project.workspace_id
     shots = sum(len(c.shot_ids) for c in clips)
-    return (_still(db, ws, project) * shots + _claude(db, ws) * len(clips)  # a call a clip
+    return (_still(db, ws, project) * shots + _claude(db, ws) * clip_prompts.priced(len(clips))
             + _video(db, ws, sum(c.seconds for c in clips), project)
             + take_watch.per_take(db, ws) * len(clips))  # fmt: skip
 

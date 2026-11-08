@@ -243,9 +243,9 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
             * (
                 clip_prompts.calls(db, project, rewrite or None)
                 if bd_ok  # before a plan: as the quote
-                else n_clips
+                else clip_prompts.priced(n_clips)
             ),
-            "a Claude call per clip",
+            "half a Claude call a clip",
         ),
         (
             "clips",

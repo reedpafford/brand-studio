@@ -69,7 +69,7 @@ def test_a_long_video_finishes_and_the_clip_that_ran_out_gets_a_free_fix(app, db
     price = editor.get(f"{base}/clips/prompts/price").json()["credits"]
     job = editor.post(f"{base}/clips/prompts").json()
     shown = job["credits"]
-    assert price == shown == 12  # 3 credits a Claude call, a call a clip (never under its cost)
+    assert price == shown == 6  # 3 credits a Claude call, half a call a clip (one answer each)
 
     writer = Writer(cut={"c2"})
     _run(app, db, writer)

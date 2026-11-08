@@ -217,6 +217,17 @@ Assets = dict[str, tuple[str, str, list[int]]]
 # Each clip is asked on its own, all at once (speed, Reed 8 Nov): every clip of a long video in
 # one answer once ran out of room, and a few at a time were written one call after another.
 PART_TOKENS = 16000  # one clip's answer, its thinking included
+# A clip's part is priced at half a Claude call: a one-clip answer reading the cached prompt
+# (261–284's runs cost $0.45–0.57 for their clips, about $0.07–0.10 a clip, plus up to a quarter
+# for asking each on its own); a run is never priced under one call (its cache is written once).
+PART_CALLS = Decimal("0.5")
+
+
+def priced(clips: int) -> Decimal:
+    """A run of this many clips' prompts, in Claude calls, as its price counts them."""
+    return max(PART_CALLS * clips, Decimal(1))
+
+
 UNWRITTEN = "This clip's prompt wasn't written"
 
 
@@ -1222,10 +1233,10 @@ def to_rewrite(db: Session, project: Project, clip_id: str | None = None) -> lis
     return [i for i in ids if i in stale or i not in have] if rows else []
 
 
-def calls(db: Session, project: Project, clip_ids: list[str] | None = None) -> int:
-    """How many Claude calls writing these clips' prompts takes (one a clip)."""
+def calls(db: Session, project: Project, clip_ids: list[str] | None = None) -> Decimal:
+    """Writing these clips' prompts, in Claude calls as priced (`priced`)."""
     bd = newest(db, project)
-    return max(len(written(Breakdown.model_validate(bd.data), clip_ids)) if bd else 0, 1)
+    return priced(len(written(Breakdown.model_validate(bd.data), clip_ids)) if bd else 0)
 
 
 def rewrite_price(db: Session, project: Project, clip_ids: list[str] | None = None) -> Decimal:
@@ -1233,7 +1244,7 @@ def rewrite_price(db: Session, project: Project, clip_ids: list[str] | None = No
     3-credit price). The charge is the real cost, never above this (worker)."""
     from app.credits import estimate
 
-    return estimate(db, project.workspace_id, "write-claude", Decimal(calls(db, project, clip_ids)))
+    return estimate(db, project.workspace_id, "write-claude", calls(db, project, clip_ids))
 
 
 def _waiting(db: Session, project: Project) -> set[str]:
@@ -1258,7 +1269,7 @@ def queue_rewrite(
     if "clip_prompts" in waiting:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
     data = {**job_input(db, project, bd, clip_ids), "clip_ids": clip_ids, **(extra or {})}
-    units = calls(db, project, clip_ids)  # one price per Claude call: one a clip
+    units = calls(db, project, clip_ids)  # half a Claude call a clip
     return enqueue(db, user, "write-claude", data, units=units, project=project,
                    provider="claude", prepaid=prepaid)  # fmt: skip
 

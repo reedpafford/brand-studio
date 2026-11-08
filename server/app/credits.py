@@ -98,16 +98,17 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
               video=None, look=None, kind=None) -> Decimal:  # fmt: skip
     """What making a video costs, every step, not just its seconds (QA-Live, video #17:
     "About 55" quoted, 99 charged): the breakdown (`breakdown`), the frame prompts, a still
-    per clip, the clip prompts (a Claude call per clip), a look per role (`roles`) and
+    per clip, the clip prompts (half a Claude call a clip), a look per role (`roles`) and
     its seconds of video. `bd` is its Breakdown, if it has one; `video` its models (VS1),
     else its `look` and script `kind` say which (`breakdown.video_model`). Redos aren't counted."""
-    from app import take_watch
+    from app import clip_prompts, take_watch
     from app.breakdown import video_model
     from app.sheets import look_usual
     from app.storyboard import image_model, still_credits
 
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
-    claude = estimate(db, ws, "write-claude", Decimal(1)) * (int(breakdown) + 1 + clips)
+    calls = int(breakdown) + 1 + clip_prompts.priced(clips)
+    claude = estimate(db, ws, "write-claude", Decimal(1)) * calls
     m = video_model(video, look, kind)
     clip = {"model": m.id, "input": {"resolution": m.take_resolution}}
     checks = clips * take_watch.per_take(db, ws)  # a watch of a take a clip, while on
