@@ -120,7 +120,8 @@ def test_the_directors_motion_note_makes_the_talker_and_a_remake_keeps_it(app, d
     heard = db.get(SongTake, video.song_take_id).timing["pace"]  # measured, then set from it
     want = director_song.target(db, video)
     assert want == (3.3, 3.5) and director_song.state(db, video)["pace_wanted"] == want
-    speed = narration.retimed(narration.MINIMAX_SPEED, heard, want) or narration.MINIMAX_SPEED
+    first = narration.speed_for("auto", talker.VOICE)  # the talker's voice's own start
+    speed = narration.retimed(first, heard, want) or first
     said = director_song.run(db, user, video, {"tool": "narration", "emotion": "auto"}, {})
     assert said.startswith("Making the narration"), said
     (voice, *_) = sorted((j for j in _steps(db, video, "song_take") if j.kind == "speech"),
@@ -133,6 +134,10 @@ def test_an_emotion_speeds_minimax_up_and_a_remake_is_set_from_the_measured_pace
     speed = {e: narration.job(words, "English_Graceful_Lady", emotion=e)["input"]["speed"]
              for e in ("fearful", "sad", "auto", "calm")}  # fmt: skip
     assert speed == {"fearful": 1.5, "sad": 1.3, "auto": 1.1, "calm": 1.1}  # th-20s, measured
+    friendly = narration.job(words, "English_FriendlyPerson", emotion="calm")["input"]["speed"]
+    assert friendly == 0.76  # video 281: 4.9 words a second at 1.1, in auto and calm alike
+    scared = narration.job(words, "English_FriendlyPerson", emotion="fearful")["input"]["speed"]
+    assert scared == round(0.76 * 1.5 / 1.1, 2)  # the emotion's rise, from the voice's own start
     assert narration.job(words, "English_Graceful_Lady", speed=2.6)["input"]["speed"] == 2.0
     heard = [{"word": "a", "start": 0.0, "end": 0.4}, {"word": "b", "start": 0.45, "end": 1.0},
              {"word": "c", "start": 2.0, "end": 2.5}]  # a 1 s pause, left out  # fmt: skip
@@ -159,7 +164,8 @@ def test_a_minimax_reading_keeps_the_words_and_its_pauses_survive_the_trim(tmp_p
     made = narration.job(words, "English_ConfidentWoman", emotion="calm", reading=marked)
     assert made["model"] == narration.MINIMAX and made["input"]["text"] == marked
     assert (made["input"]["emotion"], made["input"]["speed"]) == ("calm", 1.1)
-    assert narration.kept_pause(made) == 0.4  # the trim keeps the marked pause
+    assert narration.kept_pause(made) == narration.MARKED_KEEP  # kept, at most 0.3 s (281)
+    assert narration.kept_pause({"input": {"text": "One. <#0.2#> Two."}}) == 0.2
     for wrong in ("Your cat's gut is a mess. <#0.4#> Iron Paws fixes it.",
                   "Your dog's gut is a mess. <#0.4#><#0.3#> Iron Paws fixes it."):  # fmt: skip
         with pytest.raises(ValueError, match="words exactly"):
@@ -196,6 +202,10 @@ def test_the_room_keeps_the_voices_length_fills_its_gaps_and_sets_its_loudness(t
     assert abs(_length(wet) - _length(dry)) < 0.06
     gaps = _ff("ffmpeg", "-i", str(wet), "-af", "silencedetect=n=-70dB:d=0.2", "-f", "null", "-")
     assert "silence_start" not in gaps  # room tone under every gap
+    tone = _ff("ffmpeg", "-i", str(wet), "-af", "atrim=1.65:1.85,highpass=f=200,astats",
+               "-f", "null", "-")  # fmt: skip
+    level = float(re.findall(r"RMS level dB:\s+(-?[\d.]+)", tone)[-1])
+    assert -64 < level < -45  # heard on a phone's speaker, well under the voice (281's: -68)
     loud = _ff("ffmpeg", "-i", str(wet), "-af", "ebur128", "-f", "null", "-")
     assert abs(float(re.findall(r"I:\s+(-?[\d.]+) LUFS", loud)[-1]) - room.LUFS) < 1.5
 

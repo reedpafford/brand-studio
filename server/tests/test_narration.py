@@ -130,6 +130,18 @@ def test_the_trim_cuts_each_pause_to_its_quiet_middle_and_never_into_a_word(tmp_
     assert song_timing.length(trimmed) == timing["seconds"]
 
 
+def test_a_blip_inside_a_pause_is_still_the_pause():
+    """Video 281: MiniMax's faint breath and noise flicker around the quiet line, so its
+    0.6-1.3 s sentence gaps broke into pieces too short to cut and stayed whole. A blip up to
+    BLIP long between quiet frames is part of the pause; a short word isn't."""
+    word, still = [0.0] * 50, [-60.0] * 30
+    blip = [*word, *still, *[-20.0] * 4, *still, *word]  # 40 ms of sound in a 0.64 s pause
+    cut = sum(b - a for a, b in narration.cuts(blip))
+    assert abs(cut - (0.64 - narration.KEEP)) < 0.02  # one pause, cut to 0.2 s
+    short = [*word, *still, *[-20.0] * 10, *still, *word]  # a 0.1 s word between two pauses
+    assert len(narration.cuts(short)) == 2
+
+
 def test_a_soft_word_whisper_heard_in_a_pause_is_never_cut(tmp_path):
     """QA on #1444: a whispered word under the quiet line ("psst") lasting over 0.2 s was cut.
     Only quiet outside every heard word is cut now."""
@@ -577,6 +589,10 @@ def test_a_read_that_says_every_line_is_never_judged_missing_lines(tmp_path):
     timing, _ = narration.measure(path, check.narration_text(SCRIPT_281), hear=hear)
     assert asked == [True, False]  # the site's read lost 9 of 11 lines: heard plainly too
     assert all(ln["heard"] >= 0.6 for ln in timing["lines"]) and timing["extras"] == []
+    assert timing["pace"]  # heard whole: its pace sets a remake's speed
+    lost, _ = narration.measure(path, check.narration_text(SCRIPT_281),
+                                hear=lambda file, text, prompted=True: _read(SITE_281))  # fmt: skip
+    assert lost["pace"] is None  # one line heard is no pace (281's remake fell to about 0.7)
     said = check.narration_text(SCRIPT_281)
 
     def missing(heard):  # as the director reads a timed take
