@@ -289,4 +289,7 @@ def test_a_short_line_heard_run_together_with_another_counts_as_said():
     assert found(c1, "c1_take1") == []
     assert found(c1, "c1_take2") == [("missing", "Not heard: Granny: “Oh.”")]  # said nowhere
     assert found(c2, "c2_take1") == [] and found(c2, "c2_take2") == []
+    for invented in ("Granny, your gut's fat.", "Well, that's not well."):  # script words, new
+        said = [*heard["c2_take2"], {"text": invented, "start": 10.0, "end": 11.0}]  # lines
+        assert [f["kind"] for f in compare(c2, said, "Resilia", "", [])] == ["extra"], invented
     assert found(c3, "c3_take1") == []  # "30 days." is the start of its line, not an extra

@@ -173,8 +173,8 @@ SLACK = 1.0  # s: how far outside its shot a one-word line may be heard (a take'
 
 
 def _words(text: str) -> list[str]:
-    """A line's words as compared: bare, a figure ("30", "thirty") left out."""
-    return [w for w in _bare(text).split() if not NUMBERS.match(w)]
+    """A line's words as compared: bare, any figure one word ("30" and "thirty" alike)."""
+    return ["#" if NUMBERS.match(w) else w for w in _bare(text).split()]
 
 
 def _run(want: list[str], words: list[str]) -> bool:
@@ -200,17 +200,24 @@ def _within(line: dict, heard: list[dict], lines: list[dict]) -> bool:
 
 
 def _pieces(said: str, lines: list[str]) -> bool:
-    """A heard line made only of pieces of the script's lines, run together ("Hey, Granny
-    means well.": the line "Hey." and the start of the next), never an extra to mute (unless
-    it's heard again inside another heard line: a repeat)."""
+    """A heard line made only of the script's lines run together, joined at their edges ("Hey,
+    Granny means well.": the line "Hey." and the start of the next), never an extra to mute
+    (unless it's heard again inside another heard line: a repeat). Each piece is a whole line,
+    or two words or more from a line's start or end, never a few script words in a new order
+    ("Granny, your gut's fat." is an extra: rule 19)."""
     words, parts = _words(said), [_words(x) for x in lines]
+
+    def piece(run: list[str]) -> bool:
+        return any(run == p or len(run) >= 2 and run in (p[: len(run)], p[-len(run) :])
+                   for p in parts)  # fmt: skip
+
     if not words:
         return False
     ok = [True] + [False] * len(words)  # ok[k]: the first k words are pieces of lines
     for k in range(len(words)):
         if ok[k]:
             for j in range(k + 1, len(words) + 1):
-                ok[j] = ok[j] or any(_run(words[k:j], p) for p in parts)
+                ok[j] = ok[j] or piece(words[k:j])
     return ok[-1]
 
 
