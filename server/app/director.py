@@ -674,8 +674,10 @@ PRICED_ONLY = ("Refused: this run was priced for clip {} only (the owner's Chang
 def priced(db: Session, project: Project) -> dict | None:
     """The newest run's price when the owner's priced press started it (no start card): its
     OK, as a Make it's (`asks.approved_run`), held to on the uncapped site too."""
-    rows = all_turns(db, project.id)
-    return rows[-1].input[RUN].get(PRICED) if rows else None
+    last = db.scalar(select(Job).where(Job.project_id == project.id,  # the newest turn only
+                                       Job.input["step"].as_string() == STEP)
+                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
+    return last.input[RUN].get(PRICED) if last else None
 
 
 def _outside(db: Session, project: Project, run: dict, decision: dict) -> str:
