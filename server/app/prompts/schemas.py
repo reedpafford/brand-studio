@@ -679,6 +679,7 @@ def _none(kind: dict):
 
 Name = Annotated[str | None, *_none({"type": "string"})]  # "": none
 Id = Annotated[int | None, *_none({"type": "integer"})]  # 0: none
+Number = Annotated[float | None, *_none({"type": "number"})]  # 0: none
 
 
 def _pick(*values: str):
@@ -853,6 +854,12 @@ class DirectorTurn(Strict):
         "is set from the last read's measured pace (the take's 'pace' against 'pace_wanted'). "
         "Else empty.",
     )  # fmt: skip
+    speed: Number = Field(
+        default=None,
+        description="For a narration remake in Sarah, Alexandra, Hope, Jane, Austin or Roger: "
+        "its pace, 0.7 to 1.2 (1 or 0 keeps the voice's own), e.g. 1.1 for a read slower than "
+        "the style wants (the take's 'pace' under 'pace_wanted'). Else 0.",
+    )
     reading: str = Field(
         default="",
         description="For narration in an English_ voice, optional: the narration's words exactly "

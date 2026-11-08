@@ -27,6 +27,7 @@ from app.prompts.check import LIP_SYNC
 log = logging.getLogger(__name__)
 
 RATE = 8000  # Hz: enough to hear where the beats land
+CLEAR = 24000  # Hz: enough to hear an "s" or an "f" at a word's edge as sound
 HOP = 0.01  # s per energy frame
 BPM = (70, 180)  # tempos we look for; ads sit near 120
 BEATS_PER_BAR = 4
@@ -39,6 +40,10 @@ TIMEOUT = 180
 FLOOR, PER_SECOND, MOST, NEAR = 300, 6, 900, 0.75
 MAX_SECONDS = 900  # far longer than any ad (the stand-ins make one past the cap)
 PEAKS = 200  # waveform points for the screens
+# Quiet: this far under a voice's own loud level (its 95th-percentile 10 ms frame). In video
+# 261's narration the breaths and room tone in its pauses sat 31-43 dB under it and the words'
+# fading ends 13-22 dB under it.
+QUIET_DB = 28
 
 
 class TooLong(ValueError):
@@ -60,8 +65,8 @@ def length(path: Path) -> float:
     return round(seconds, 2)
 
 
-def _samples(path: Path) -> array:
-    done = _run(["ffmpeg", "-v", "error", "-i", str(path), "-ac", "1", "-ar", str(RATE),
+def _samples(path: Path, rate: int = RATE) -> array:
+    done = _run(["ffmpeg", "-v", "error", "-i", str(path), "-ac", "1", "-ar", str(rate),
                  "-f", "s16le", "-"])  # fmt: skip
     if done.returncode != 0:
         raise ValueError("The song file couldn't be decoded.")
@@ -75,6 +80,19 @@ def peaks(samples: array, count: int = PEAKS) -> list[float]:
     tops = [max(map(abs, samples[i : i + size]), default=0) for i in range(0, len(samples), size)]
     loudest = max(tops, default=0) or 1
     return [round(x / loudest, 2) for x in tops]
+
+
+def levels(samples: array, rate: int = RATE) -> list[float]:
+    """The loudness of each HOP frame, in dB under full scale."""
+    hop = int(rate * HOP)
+    return [10 * math.log10(sum(x * x for x in samples[i : i + hop]) / hop / 32768**2 + 1e-12)
+            for i in range(0, len(samples) - hop + 1, hop)]  # fmt: skip
+
+
+def quiet(loudness: list[float]) -> float:
+    """The level under which a frame is quiet: QUIET_DB under the loud frames."""
+    ranked = sorted(loudness)
+    return ranked[int(0.95 * (len(ranked) - 1))] - QUIET_DB if ranked else 0.0
 
 
 def _onsets(samples: array) -> list[float]:
@@ -153,23 +171,81 @@ def words(path: Path, lyrics: str) -> list[dict]:
 
 
 def _norm(word: str) -> str:
-    return re.sub(r"[^\w']", "", word.lower())
+    """A word as it's compared: letters, digits and apostrophes only. Whisper glues stray
+    characters onto a sentence's first word ("?ÿÿÿÿDay", ".שובDay"), which `\\w` kept."""
+    return re.sub(r"[^a-z0-9']", "", word.lower().replace("’", "'"))
 
 
-def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0) -> list[dict]:
+def glued(word: str) -> bool:
+    """Whisper glued junk onto this heard word: a stray character ("?ÿÿÿÿDay", ".שובDay",
+    ".ManiaResilia"), beyond the punctuation around a word, in a number or an abbreviation
+    ("U.S.", "e.g."); a name with a capital inside ("iPhone", "McDonald's") is a word."""
+    core = re.sub(r"(?<=\d)[.,](?=\d)|(?<=\b[A-Za-z])\.(?=[A-Za-z]\b)", "", word.strip())
+    core = core.strip("\"“”‘’'()[]¡¿$%").rstrip(".,!?;:…-")
+    return bool(re.search(r"[^A-Za-z0-9'’-]", core))
+
+
+def _ending(word: str, known: set[str]) -> str:
+    """A heard word with junk glued on that the lyrics don't have, ending with one they do
+    (".ManiaResilia" in video 261), is that word; it stays as it is otherwise."""
+    if word in known:
+        return word
+    return max((w for w in known if len(w) >= 3 and word.endswith(w)), key=len, default=word)
+
+
+REACH = 0.15  # s: how much earlier than Whisper's start a word's own sound may begin
+
+
+def sounds_from(start: float, end: float, loudness: list[float]) -> float | None:
+    """Where a word heard with junk glued on really starts: where the sound rises inside it,
+    past any tail of the word before (it starts too early, in the pause before it); None
+    when nothing inside it is loud."""
+    floor, k, last = quiet(loudness), round(start / HOP), min(round(end / HOP), len(loudness))
+    while 0 < k < last and loudness[k - 1] >= floor and loudness[k] >= floor:
+        k += 1  # the word before still sounding
+    k = next((n for n in range(k, last) if loudness[n] >= floor), None)
+    return round(max(start, k * HOP), 2) if k is not None else None
+
+
+def _start(found: list[tuple], loudness: list[float] | None) -> float | None:
+    """When a line starts: its first heard word's start. With the take's loudness, a word
+    with junk glued on starts where its sound rises inside it (`sounds_from`); any other where
+    its sound began, up to REACH before Whisper's start, never before the word heard before
+    it ends (Whisper often starts a word a little late, inside its first sound)."""
+    if not found:
+        return None
+    a, b, junk, after = min(found)
+    if not loudness:
+        return a
+    if junk:
+        return sounds_from(a, b, loudness) or a
+    floor = quiet(loudness)
+
+    def loud(k: int) -> bool:
+        return 0 <= k < len(loudness) and loudness[k] >= floor
+
+    first, last = round(max(after, a - REACH) / HOP), round(a / HOP)
+    k = next((n for n in range(first, last + 1) if loud(n) and not loud(n - 1)), None)
+    return round(k * HOP, 2) if k is not None else a
+
+
+def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0,
+          levels: list[float] | None = None) -> list[dict]:  # fmt: skip
     """Each lyric line, word for word, with when it's sung: [{section, text, start, end,
     heard, times_sung}]. `heard` is the share of its words Whisper caught; lines it missed
     get times between their neighbours, so the order and the words never change.
     `times_sung` is 1 for a line sung as often as it's written (a chorus written twice and
-    sung twice), 2 when the song sings it once more than written, and so on."""
+    sung twice), 2 when the song sings it once more than written, and so on. With the take's
+    `levels`, a line starts where its first word's sound does (`_start`)."""
     out = _written(lyrics)
-    theirs = [_norm(h["word"]) for h in heard]
-    times: dict[int, list[tuple[float, float]]] = {}
-    ours, matcher = _matcher(out, theirs)
+    times: dict[int, list[tuple]] = {}
+    ours, theirs, junk, matcher = _matcher(out, heard)
     for block in matcher.get_matching_blocks():
         for k in range(block.size):
-            h = heard[block.b + k]
-            times.setdefault(ours[block.a + k][0], []).append((h["start"], h["end"]))
+            j = block.b + k
+            after = heard[j - 1]["end"] if j else 0.0  # the word heard before it ends
+            found = (heard[j]["start"], heard[j]["end"], junk[j], after)
+            times.setdefault(ours[block.a + k][0], []).append(found)
     for i, line in enumerate(out):
         found = times.get(i, [])
         mine = [_norm(w) for w in line["words"]]
@@ -179,8 +255,8 @@ def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0) ->
         written = sum(other["text"] == line["text"] for other in out)
         line["times_sung"] = max(heard_times - written + 1, 0) if heard_times else 0
         line["heard"] = round(len(found) / len(line.pop("words")), 2)
-        line["start"] = min((a for a, _ in found), default=None)
-        line["end"] = max((b for _, b in found), default=None)
+        line["start"] = _start(found, levels)
+        line["end"] = max((x[1] for x in found), default=None)
     _fill(out, start, seconds)
     return out
 
@@ -197,20 +273,28 @@ def _written(lyrics: str) -> list[dict]:
     return out
 
 
-def _matcher(out: list[dict], theirs: list[str]) -> tuple[list[tuple[int, str]], SequenceMatcher]:
-    """The lyric words, (line index, word), lined up with the words heard."""
-    ours = [(i, _norm(w)) for i, line in enumerate(out) for w in line["words"]]
-    return ours, SequenceMatcher(None, [w for _, w in ours], theirs, autojunk=False)
+def _matcher(out: list[dict], heard: list[dict], norm=_norm):
+    """The lyric words, (line index, word), the heard words (`_ending`), which of them came
+    with junk glued on, and the two lined up."""
+    ours = [(i, norm(w)) for i, line in enumerate(out) for w in line["words"]]
+    known = {w for _, w in ours}
+    junk = [glued(h["word"]) for h in heard]
+    theirs = [_ending(norm(h["word"]), known) if j else norm(h["word"])
+              for h, j in zip(heard, junk, strict=True)]  # fmt: skip
+    matcher = SequenceMatcher(None, [w for _, w in ours], theirs, autojunk=False)
+    return ours, theirs, junk, matcher
 
 
-def extras(lyrics: str, heard: list[dict], pause: float = 1.0) -> list[dict]:
+def extras(lyrics: str, heard: list[dict], pause: float = 1.0, norm=_norm,
+           added_only: bool = False) -> list[dict]:  # fmt: skip
     """What the song sings that isn't in the lyrics (an ad-lib, a repeated hook, an invented
     line): [{text, start, end}], in phrases split at a pause. Heard words with no lyric word
-    to line up with count; a word heard in place of a lyric word is that word misheard."""
-    theirs = [_norm(h["word"]) for h in heard]
-    _, matcher = _matcher(_written(lyrics), theirs)
-    loose = [k for tag, i1, i2, j1, j2 in matcher.get_opcodes() if tag in ("insert", "replace")
-             for k in range(j1 + (i2 - i1), j2)]  # fmt: skip
+    to line up with count; a word heard in place of a lyric word is that word misheard.
+    `added_only`: of several words heard in place of fewer, none count (a narration's)."""
+    _, theirs, _, matcher = _matcher(_written(lyrics), heard, norm)
+    loose = [k for tag, i1, i2, j1, j2 in matcher.get_opcodes()
+             if tag == "insert" or tag == "replace" and not added_only
+             for k in range(j1 + (i2 - i1), j2) if theirs[k]]  # fmt: skip
     phrases: list[dict] = []
     for n, k in enumerate(loose):
         h = heard[k]
@@ -287,7 +371,9 @@ def measure(path: Path, lyrics: str, hear=words) -> dict:
     samples = _samples(path)
     bpm, beat_times = beats(samples, seconds)
     heard = hear(path, lyrics.strip())
-    sung = lines(lyrics, heard, seconds, start=beat_times[0] if beat_times else 0.0)
+    sung = lines(
+        lyrics, heard, seconds, start=beat_times[0] if beat_times else 0.0, levels=levels(samples)
+    )
     return {
         "seconds": seconds,
         "bpm": bpm,

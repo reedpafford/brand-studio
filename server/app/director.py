@@ -1956,15 +1956,21 @@ def choose(state: dict) -> dict:
 
 
 def _still_wrong(state: dict) -> str:
-    """For the delivery note: the brand's name the narration in use still says wrong, once
-    its remakes are used (director.md: say what's off)."""
+    """For the delivery note: the brand's name the narration in use still says wrong, or the
+    words it says that the script doesn't have, once its remakes are used (director.md: say
+    what's off)."""
     audio = state.get("narration") or {}
     used = next((t for t in audio.get("takes") or [] if t["used"]), None)
-    if not used or not used.get("misheard"):
-        return ""
-    w = used["misheard"][0]
-    return (f"The narration still says “{w['heard']}” for {w['word']} at {w['at']:.1f} s: it "
-            "was read again as often as allowed, so listen before you share it.")  # fmt: skip
+    said = []
+    if used and used.get("misheard"):
+        w = used["misheard"][0]
+        said.append(f"The narration still says “{w['heard']}” for {w['word']} at {w['at']:.1f} s")
+    if used and used.get("extras"):
+        x = used["extras"][0]
+        said.append(f"The narration says “{x['text']}” at {x['start']:.1f} s, which the "
+                    "script doesn't have")  # fmt: skip
+    return (f"{'. '.join(said)}: it was read again as often as allowed, so listen before you "
+            "share it.") if said else ""  # fmt: skip
 
 
 STAND_IN_STYLE = "bright pop, warm female vocal, 110 bpm"  # a song version with no style line

@@ -19,6 +19,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
+from app.prompts import check
 
 REMADE = "audio_remakes"  # the run's count of them, a song's or a narration's alike
 REMAKES = 2  # a run's song (or narration) made again, with a note (Song-Producer: 2)
@@ -28,6 +29,8 @@ CLOSE = 0.8  # a name of more than one word: this close in letters is the name s
 NO_SONG = "Refused: this video has no song."
 NO_NARRATOR = "Refused: this video has no narrator."
 AGAIN = f"Refused: the {{what}} was made again {REMAKES} times this run."
+NO_SPEED = ("Refused: `speed` sets an ElevenLabs voice's pace; an English_ voice's pace follows "
+            "its `emotion`.")  # fmt: skip
 OFF = "Refused: songs aren't switched on here yet."
 NO_STYLE = "Refused: the first song needs its style line as the note (genre, vocal, tempo)."
 REFUSED = (music.REFUSED, music.REFUSED_IN_VIDEO)  # the words or style refused: never as is
@@ -80,12 +83,13 @@ def misheard(timing: dict | None, brand: str, script: str = "") -> list[dict] | 
 
 def _missing(take: SongTake, lines: list[dict]) -> list[str]:
     """Lines not heard as written. A song's: under HEARD of its words. A narration's: any word
-    lost, by its letters against everything heard, as the trim check compares (one dropped
-    "probiotics" is a miss)."""
+    lost, by its letters against everything heard, as `letters` compares (one dropped
+    "probiotics" is a miss), its speaker label left out ("NARRATOR:", video 271)."""
     if take.kind != narration.KIND:
         return [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
     heard = narration.letters((take.timing or {}).get("words") or [])
-    return [x["text"] for x in lines if narration.letters([{"word": x["text"]}]) not in heard]
+    said = [(x["text"], check.narration_text(x["text"])) for x in lines]  # never a label
+    return [text for text, words in said if narration.letters([{"word": words}]) not in heard]
 
 
 def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dict:
@@ -109,17 +113,20 @@ def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dic
             "pace": timing.get("pace"),  # words a second while speaking, as measured
             **({"misheard": misheard(take.timing, brand, take.lyrics)}
                if take.kind == narration.KIND else {}),
-            **({"extras": _extras(take)} if take.kind == "song" else {})}  # fmt: skip
+            "extras": _extras(take)}  # fmt: skip
 
 
 def _extras(take: SongTake) -> list[dict] | None:
-    """Sung but not in the lyrics (ad-libs, an extra chorus); None until timed. Timings read
-    before extras were saved work them out from their words."""
+    """Sung or said but not in the words (ad-libs, an extra chorus, a note read aloud); None
+    until timed. Timings read before extras were saved work them out from their words."""
     if take.timing is None:
         return None
     if "extras" in take.timing:
         return take.timing["extras"]
-    return song_timing.extras(take.lyrics, take.timing.get("words") or [])
+    words = take.timing.get("words") or []
+    if take.kind == narration.KIND:
+        return narration.extras(check.narration_text(take.lyrics), words)
+    return song_timing.extras(take.lyrics, words)
 
 
 def state(db: Session, project: Project) -> dict | None:
@@ -137,7 +144,7 @@ def state(db: Session, project: Project) -> dict | None:
            else "ready" if "ready" in states else "failed")  # fmt: skip
     out = {"state": now, "takes": takes, "used_take_id": project.song_take_id}
     if found == "narrated":  # the note a narration with the name wrong is read with
-        out["say"] = say(brand)
+        out["say"] = narration.SAY  # a short tag: a sentence in one is read aloud
         used = next((t.voice for t in made if t.id == project.song_take_id), None)
         said = used or narrator(db, project)
         if own := voices.for_director(db, project.workspace_id, project.brand_id, said):
@@ -155,14 +162,6 @@ def state(db: Session, project: Project) -> dict | None:
     return out
 
 
-def say(brand: Brand) -> str:
-    """The pronunciation note for the narrator ("Say fomo as FOH-moh.")."""
-    said_as = take_words.say(brand)
-    if said_as == brand.name:
-        return f"Say the name {brand.name} clearly, as it's written."
-    return f"Say {brand.name} as {said_as}."
-
-
 def _on(db: Session, draft: ScriptDraft) -> bool:
     """As the songs route's own switch (routes/songs.songs_on), from the server's settings."""
     settings = _settings()
@@ -175,31 +174,41 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     """The tool: with `take_id`, use that timed take (free); with no note and a timed take,
     the best one; else make takes. The first song of a version with no style line takes its
     style from the note (the director's music words); after that a note is a remake, REMAKES
-    a run (counted in `run`). A MiniMax narrator's `emotion` and `reading` ask like a note."""
+    a run (counted in `run`). A MiniMax narrator's `emotion` and `reading` ask like a note,
+    and so does an ElevenLabs narrator's `speed` (its pace) on a remake."""
     tool, note = decision["tool"], (decision.get("note") or "").strip()
     delivery = {k: decision[k] for k in ("emotion", "reading") if decision.get(k)}
     if delivery and (speed := _speed(db, project, delivery.get("emotion"))):
         delivery["speed"] = speed  # set from the last read's measured pace
-    asked = note or delivery
     found = kind(db, project)
     if found is None or (tool == "song") != (found == "song"):
         return NO_SONG if tool == "song" else NO_NARRATOR
+    pace = decision.get("speed") if found == "narrated" and not delivery else None
+    pace = pace if pace and pace != 1 else None  # an ElevenLabs remake's pace (below)
+    asked = note or delivery or pace
     draft = db.get(ScriptDraft, project.script_draft_id)
     what = "song" if found == "song" else "narration"
     takes = song_takes.for_video(db, project)
     ready = [t for t in takes if song_takes.state(db, t)[0] == "ready"]
+    left = run.get(REMADE, 0) < REMAKES  # a remake is left to fix a take that says more
     if (chosen := decision.get("take_id")) is not None:
         take = next((t for t in ready if t.id == chosen), None)
         if take is None:
             return f"Refused: take {chosen} isn't a finished {what} of this video."
+        if left and (extra := narration.says_more(take)):
+            return "Refused: " + narration.SAYS_MORE.format(extra)
         song_takes.use_in_video(db, project, take)
         _follow(db, project, user)
         return f"Using take {take.number} for the {what}."
     if ready and not asked:
         if project.song_take_id in {t.id for t in ready}:
             return f"The {what} is set: take {_number(db, project.song_take_id)}."
-        best = next((t for t in ready if t.preferred), None) or min(
-            ready, key=lambda t: _rank(_take(db, t, None), t.id))  # fmt: skip
+        fit = [t for t in ready if not narration.says_more(t)]  # never a note read aloud,
+        if not fit and left:  # while a remake can fix it; then the best of them
+            return "Refused: " + narration.SAYS_MORE.format(narration.says_more(ready[-1]))
+        fit = fit or ready
+        best = next((t for t in fit if t.preferred), None) or min(
+            fit, key=lambda t: _rank(_take(db, t, None), t.id))  # fmt: skip
         song_takes.use_in_video(db, project, best)
         _follow(db, project, user)
         return f"Using take {best.number} for the {what}."
@@ -239,13 +248,23 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     voice = narrator(db, project, named, kept) if found == "narrated" else _voice(db, project)
     if not voices.usable(db, project.workspace_id, project.brand_id, voice):
         return f"Refused: the narrator's voice is one of {', '.join(narration.VOICES)}."
+    if pace and voice not in narration.ELEVENLABS and not note:
+        return NO_SPEED  # nothing would change: a MiniMax read's pace follows its emotion
+    if pace and takes and voice in narration.ELEVENLABS:  # the first read: the voice's own
+        delivery = {"speed": pace}
     song_takes.make(
         db, user, draft, project, kie=_real(db, found), note=note, voice=voice, delivery=delivery
     )  # a reading that changes a word is refused (422)
     run["song_note"], run["song_voice"], run["song_delivery"] = note, voice, delivery
     if takes:  # a remake; the first song's note is its style line, not a remake
         run[REMADE] = run.get(REMADE, 0) + 1
-    return f"Making the {what}{f' ({note})' if note else ''}."
+    said = ", ".join(
+        [
+            *([note] if note else []),
+            *([f"speed {pace}"] if pace and delivery.get("speed") == pace else []),
+        ]
+    )
+    return f"Making the {what}{f' ({said})' if said else ''}."
 
 
 def _follow(db: Session, project: Project, user: User) -> None:
