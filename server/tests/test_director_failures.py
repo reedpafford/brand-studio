@@ -253,7 +253,7 @@ def test_a_cut_off_answer_and_its_retry_are_both_counted_once_charged(app, db, o
         return real(self, kind, input)
 
     monkeypatch.setattr(FakeWriter, "run", once)
-    _ticks(app, db, n=2)
+    _ticks(app, db, n=12)  # its next Claude turn (the server takes the mechanical steps)
     failed = next(t for t in _turns(db, pid) if t.status == JobStatus.failed)
     retry = next(t for t in _turns(db, pid) if t.retry_of_id == failed.id)
     assert failed.status not in COUNTED and retry.status in COUNTED  # charged once

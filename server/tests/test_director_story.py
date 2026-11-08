@@ -60,6 +60,7 @@ def test_it_delivers_only_a_cut_it_watched(app, db, owner, editor, monkeypatch):
         return real(state)
 
     monkeypatch.setattr(director, "choose", early)
+    monkeypatch.setattr("app.director_auto.move", lambda state: None)  # its own watch too
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
     _run(app, db, ticks=40)

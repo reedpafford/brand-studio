@@ -12,6 +12,7 @@ import logging
 import re
 import uuid
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -532,6 +533,9 @@ def reading(db: Session):
     """A page's read (GET /director, /progress): the video's turns are read once, not once a
     helper (video 240: each turn holds its whole prompt, and /director read them all some 30
     times, 11-30 s). Any write in the session reads them fresh again."""
+    if READING in db.info:  # inside another read: its cache
+        yield
+        return
     db.info[READING] = {}
     try:
         yield
@@ -709,7 +713,7 @@ def _outside(db: Session, project: Project, run: dict, decision: dict) -> str:
     so its price holds (only its clips were priced)."""
     mine = (run.get(PRICED) or {}).get("clips")
     tool = decision.get("tool")
-    if not mine or tool not in ("make_take", "redraw_still"):
+    if not mine or tool not in ("make_take", "redraw_still") or decision.get("redraws"):
         return ""
     if tool == "make_take":
         clip = decision.get("clip_id") or ""
@@ -724,9 +728,20 @@ def _outside(db: Session, project: Project, run: dict, decision: dict) -> str:
     return PRICED_ONLY.format(", ".join(c.removeprefix("c") for c in mine))
 
 
+STORE: ContextVar = ContextVar("director_storage", default=None)  # the worker's, for `_auto`
+
+
 def after(db: Session, job: Job, storage) -> None:
     """The worker finished `job`: a turn's answer is acted on; any other work on a video with
     a run going may wake the next turn."""
+    kept = STORE.set(storage)
+    try:
+        _after(db, job, storage)
+    finally:
+        STORE.reset(kept)
+
+
+def _after(db: Session, job: Job, storage) -> None:
     if job.input.get("step") == STEP:
         if _stopped(db, job) or over(db, job.input[RUN]["id"], job.project_id):  # Stop landed
             return
@@ -853,10 +868,18 @@ def _unread(project: Project, last: Job) -> bool:
     return len(chat(project, last.input[RUN]["id"])) > last.input.get(READ, 0)
 
 
-def sweep(db: Session) -> None:
+def sweep(db: Session, storage=None) -> None:
     """Each worker tick: every run whose last turn was acted on and has nothing left being
     made gets its next turn, however its work ended (failed, cancelled, released): a run
     never waits on work that is over (QA on #1087)."""
+    kept = STORE.set(storage)
+    try:
+        _sweep(db)
+    finally:
+        STORE.reset(kept)
+
+
+def _sweep(db: Session) -> None:
     step = Job.input["step"].as_string()
     acted = select(Job.project_id).where(
         step == STEP, Job.status == JobStatus.succeeded,
@@ -894,7 +917,7 @@ def _act(db: Session, job: Job, storage) -> None:
         if isinstance(decision.get("ask"), dict):
             decision["ask"] = advice.uncited(decision["ask"], "ask", named)
     job.output = decision
-    run = dict(job.input[RUN])
+    run = _refund(db, project, dict(job.input[RUN]))
     tool = decision.get("tool")
     free = tool in REVISE_FREE and _free_revision(db, run, project.id)
     if not run.get("ok", True) and tool not in PRE_OK and not free:  # nothing made before Make it
@@ -954,13 +977,6 @@ def _act(db: Session, job: Job, storage) -> None:
         return _record(db, job, run, IDLE if idle else "Waiting.")
     if (refused := _refused_again(db, job, decision)) is not None:
         return _end(job, f"It stopped: {refused}", result=f"Refused again: {refused}")
-    if tool == "redraw_still":  # the review's redraws: twice a still, a run
-        from app.still_review import REDRAWS
-
-        sid = _still_key(db, project, decision)
-        if run.get("redraws", {}).get(sid, 0) >= REDRAWS:
-            what = "the talker's still" if sid == TALKER else f"shot {sid}"
-            return _record(db, job, run, f"Refused: {what} was drawn again {REDRAWS} times.")
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
@@ -974,7 +990,11 @@ def _act(db: Session, job: Job, storage) -> None:
             return _record(db, job, run, WATCHED_AGAIN)  # not a watch; it goes on
     db.commit()  # the turn's answer is kept whatever the tool does
     user = db.get(User, run["by"])
-    result = director_tools.run(db, user, project, decision, storage, run)
+    counted, mark = _counts(run), _newest_id(db, project)
+    if tool == "redraw_still":
+        result = _redraw(db, user, project, decision, storage, run)
+    else:
+        result = director_tools.run(db, user, project, decision, storage, run)
     if tool == "locked_line" and _answered_at_once(db, project, run, job, result):
         return _end(job, result, result=DELIVERED)  # its card is the answer: no re-delivery
     if tool == "watch_cut" and not result.startswith("Refused"):
@@ -983,10 +1003,130 @@ def _act(db: Session, job: Job, storage) -> None:
         run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
     if replan and not result.startswith("Refused"):
         run["replans"] = run.get("replans", 0) + 1
-    if tool == "redraw_still" and not result.startswith("Refused"):
-        sid = _still_key(db, project, decision)
-        run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}
+    _spent_on(db, project, run, counted, mark)
     _record(db, job, run, result)
+
+
+def _redraw(db: Session, user: User, project: Project, decision: dict, storage,
+            run: dict) -> str:  # fmt: skip
+    """`redraw_still`: every still it names (`redraws`, or one `shot_id`) drawn again at once,
+    each with its own note, in parallel (video 261: four redraws one turn after another took
+    3 min). Twice a still a run; the talker's one still once a move."""
+    from app.still_review import REDRAWS
+
+    asked = decision.get("redraws") or [{"shot_id": decision.get("shot_id"),
+                                         "note": decision.get("note")}]  # fmt: skip
+    said, keys = [], set()
+    for one in asked:
+        move = {**decision, "redraws": None, "shot_id": one.get("shot_id"),
+                "note": one.get("note") or ""}  # fmt: skip
+        sid = _still_key(db, project, move)
+        what = "the talker's still" if sid == TALKER else f"shot {sid}"
+        if sid in keys:
+            continue  # the talker's still, asked from two of their shots: once
+        keys.add(sid)
+        if run.get("redraws", {}).get(sid, 0) >= REDRAWS:
+            said.append(f"Refused: {what} was drawn again {REDRAWS} times.")
+        elif outside := _outside(db, project, run, move):
+            said.append(outside)
+        else:
+            done = director_tools.run(db, user, project, move, storage, run)
+            if not done.startswith("Refused"):
+                run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(
+                    sid, 0) + 1}  # fmt: skip
+            said.append(done)
+    made = [x for x in said if not x.startswith("Refused")]
+    if not made:  # nothing drawn: one refusal, all its reasons
+        return "Refused: " + " ".join(x.removeprefix("Refused: ") for x in said)
+    return " ".join([*made, *(x for x in said if x not in made)])
+
+
+COUNTERS = ("redos", "watches", "replans", "redraws", director_song.REMADE)  # used up a run
+SPENDS = "spends"  # in a run: its counted moves' work, until it runs (`_refund`)
+
+
+def _counts(run: dict) -> dict[str, int]:
+    """The run's counted work, flat: {"redos/c3": 1, "watches": 2}."""
+    out = {}
+    for k in COUNTERS:
+        v = run.get(k)
+        out.update({f"{k}/{i}": n for i, n in v.items()} if isinstance(v, dict) else
+                   {k: v} if v else {})  # fmt: skip
+    return out
+
+
+def _newest_id(db: Session, project: Project) -> int:
+    return db.scalar(select(func.coalesce(func.max(Job.id), 0)).where(
+        Job.project_id == project.id)) or 0  # fmt: skip
+
+
+def _spent_on(db: Session, project: Project, run: dict, before: dict, mark: int) -> None:
+    """A move that used some of the run's counts keeps the jobs it made beside them, so that
+    work which never runs is given back (`_refund`)."""
+    now = _counts(run)
+    used = {k: n - before.get(k, 0) for k, n in now.items() if n > before.get(k, 0)}
+    if not used:
+        return
+    step = Job.input["step"].as_string()
+    made = db.scalars(
+        select(Job.id).where(
+            Job.project_id == project.id, Job.id > mark, or_(step.is_(None), step != STEP)
+        )
+    ).all()
+    if run.get("watches", 0) > before.get("watches", 0):
+        from app import watch_cut
+
+        cut = watch_cut._cut(db, project)
+        run[SPENDS] = [*run.get(SPENDS, []), {"used": {"watches": 1}, "cut": cut.id if cut else 0}]
+        used.pop("watches")
+    if used and made:
+        run[SPENDS] = [*run.get(SPENDS, []), {"used": used, "jobs": list(made)}]
+
+
+def _refund(db: Session, project: Project, run: dict) -> dict:
+    """Refused or never-run work never counts as used (Reed, 8 Nov): a counted move (a redo, a
+    redraw, a re-plan, a narration or song remade, a watch) whose work all failed or was
+    cancelled (declined, withdrawn) gives its count back; once it ran, it's spent."""
+    from app import watch_cut
+
+    if not run.get(SPENDS):
+        return run
+    run, keep = {**run}, []
+    for s in run[SPENDS]:
+        if "cut" in s:  # a watch: its listen, then its look, as <video>.watch reads it
+            w = watch_cut.state(db, project)
+            ran = None if w.get("for_cut") == s["cut"] and w["state"] == "watching" else not (
+                w.get("for_cut") == s["cut"] and w["state"] == "failed")  # fmt: skip
+        else:
+            ran = _ran(db, s["jobs"])
+        if ran is None:
+            keep.append(s)
+        elif not ran:
+            for key, n in s["used"].items():
+                name, _, item = key.partition("/")
+                if item:
+                    run[name] = {**run[name], item: max(0, run[name].get(item, 0) - n)}
+                else:
+                    run[name] = max(0, run.get(name, 0) - n)
+    run[SPENDS] = keep
+    return run
+
+
+def _ran(db: Session, ids: list[int]) -> bool | None:
+    """Whether a move's work ran (QA on #1468): True once any of its jobs, or their automatic
+    retries (`retry_of_id`), succeeded or was billed by its provider; None while one is still
+    queued, running or held; False when every one failed or was cancelled, unbilled."""
+    states, seen, todo = set(), set(), list(ids)
+    while todo:
+        if (i := todo.pop()) in seen or (job := db.get(Job, i)) is None:
+            continue
+        seen.add(i)
+        billed = db.scalar(select(Usage.id).where(Usage.job_id == i, Usage.cost_usd > 0).limit(1))
+        states.add(JobStatus.succeeded if billed else job.status)
+        todo += db.scalars(select(Job.id).where(Job.retry_of_id == i)).all()
+    if JobStatus.succeeded in states:
+        return True
+    return False if states <= {JobStatus.failed, JobStatus.cancelled} else None
 
 
 TALKER = "talker"  # a run's redraws of the talker's one still, whichever of their shots asked
@@ -1112,7 +1252,7 @@ def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
     again never stops it: it's told to fix something or deliver (QA on #1145)."""
     project = db.get(Project, job.project_id)
     rows = [j for j in turns(db, project) if j.id < job.id]
-    keys = ("tool", "clip_id", "take_id", "note", "edit")
+    keys = ("tool", "clip_id", "take_id", "shot_id", "note", "edit", "redraws")
     said = []
     for before in rows[-2:][::-1]:  # the last turn, then the one before it
         result = before.input.get("result") or ""
@@ -1195,9 +1335,14 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
     before = not run.get("ok", True)  # before Make it: planning, on its allowance
     card = (before and last is not None and last.input[RUN]["id"] == run["id"]
             and _ready(db, project, run, last))  # its own turn moved it there  # fmt: skip
-    run = {**run, "turn": run["turn"] + 1, **({"ok": True} if card else {})}
-    prompt = turn_input(db, project, run)
+    run = _refund(db, project, {**run, "turn": run["turn"] + 1, **({"ok": True} if card else {})})
+    seen: dict = {}
+    prompt = turn_input(db, project, run, seen=seen)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
+    if (not (card or carry or before) and last is not None
+            and last.input[RUN]["id"] == run["id"]
+            and (step := _auto(db, project, run, seen, last))):  # fmt: skip
+        return _by_server(db, user, project, run, step, after)
     data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
     wait = ""
     if card:  # the start card: its first generating turn, held for Make it (S3-02)
@@ -1227,14 +1372,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         wait = past_own(db, project, run["id"], turn, user)
         data = {**data, GRANT: True} if wait else data  # an OK here grants another limit
         wait = wait or past_approved(db, project, user, turn)
-    if after is not None:  # woken: under the video's lock, unless another waker got here first
-        lock(db, Project, project.id)  # a second waker waits here, then sees the first's turn
-        newer = db.scalar(select(Job).where(Job.project_id == project.id,
-                                            Job.input["step"].as_string() == STEP,
-                                            Job.input[RUN]["id"].as_string() == run["id"],
-                                            Job.id > after).limit(1))  # fmt: skip
-        if newer is not None:
-            return newer
+    if (newer := _taken(db, project, run, after)) is not None:
+        return newer
     try:
         job = enqueue(db, user, "write-claude", data, project=project, provider="claude",
                       prepaid=not wait, wait=wait)  # fmt: skip
@@ -1255,6 +1394,71 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         fs.chat = [{**m, "job": job.id} if m.get("job") in mine - {job.id} else m
                    for m in fs.chat]  # fmt: skip
         db.commit()
+    return job
+
+
+def _taken(db: Session, project: Project, run: dict, after: int | None) -> Job | None:
+    """Woken (`after`): under the video's lock, the turn another waker got in first, if any;
+    a second waker waits on the lock, then sees the first's turn."""
+    if after is None:
+        return None
+    lock(db, Project, project.id)
+    return db.scalar(select(Job).where(Job.project_id == project.id,
+                                       Job.input["step"].as_string() == STEP,
+                                       Job.input[RUN]["id"].as_string() == run["id"],
+                                       Job.id > after).limit(1))  # fmt: skip
+
+
+def _auto(db: Session, project: Project, run: dict, seen: dict, last: Job) -> dict | None:
+    """The server's own next step (`director_auto`), when it's mechanical: never right after
+    a refusal (the director reads it), and a take or a cut only with the worker's storage."""
+    from app import director_auto
+
+    if (last.input.get("result") or "").startswith("Refused"):
+        return None
+    at = (last.started_at or last.created_at).isoformat()
+    questions = bool(asks.waiting(db, project)) or asks.answered_since(db, project, at)
+    step = director_auto.move({**seen, "questions": questions, "tried": _tried(db, project, run)})
+    if step and step["tool"] in ("make_take", "final_cut") and STORE.get() is None:
+        return None
+    if step and last.input.get(director_auto.SAID) and (last.output or {}).get("tool") == step[
+            "tool"]:  # fmt: skip
+        return None  # its own step again (a clip prompt's part that failed): the director's
+    if step and step["tool"] == "make_take" and run.get(PRICED):
+        return None  # a priced run makes only its own clips' takes, named by the director
+    return step
+
+
+def _tried(db: Session, project: Project, run: dict) -> bool:
+    """A still or a take of this run failed (trying again or going on without it is the
+    director's call)."""
+    first = next((t for t in turns(db, project) if t.input[RUN]["id"] == run["id"]), None)
+    return bool(first) and any(
+        j.input.get("frame_id") or j.input.get("project_clip_id")
+        for j in db.scalars(select(Job).where(Job.project_id == project.id,
+                                              Job.status == JobStatus.failed,
+                                              Job.created_at >= first.created_at))
+    )  # fmt: skip
+
+
+def _by_server(db: Session, user: User, project: Project, run: dict, step: dict,
+               after: int | None) -> Job:  # fmt: skip
+    """A mechanical step the server takes itself: logged as the run's turn (no Claude call,
+    nothing charged for it) and acted on as the director's own move."""
+    from app import director_auto
+
+    if (newer := _taken(db, project, run, after)) is not None:
+        return newer
+    now = utcnow()
+    job = Job(workspace_id=project.workspace_id, created_by_id=user.id, kind="director_step",
+              provider="server", input={"step": STEP, RUN: run, director_auto.SAID: True},
+              output=step, project_id=project.id, brand_id=project.brand_id, credits=0,
+              status=JobStatus.succeeded, started_at=now, finished_at=now)  # fmt: skip
+    db.add(job)
+    db.commit()
+    if _stopped(db, job) or over(db, run["id"], project.id):  # Stop landed meanwhile
+        return job
+    _act(db, job, STORE.get())
     return job
 
 
@@ -1445,9 +1649,18 @@ def _listed(result: str | None) -> str | None:
     return NOT_MADE if result == START_FIRST else result
 
 
-def turn_input(db: Session, project: Project, run: dict, job_id: int | None = None) -> dict:
+def turn_input(db: Session, project: Project, run: dict, job_id: int | None = None,
+               seen: dict | None = None) -> dict:  # fmt: skip
     """The director's prompt (app/prompts/director.md, the Director's) and the brand, then the
-    video's state, its run's last actions and what it still may do."""
+    video's state, its run's last actions and what it still may do; `seen` gets what it read
+    (<video> with its chat, allowed and actions), for the server's own steps (`_auto`). Its
+    turns are read once (`reading`), not once a helper."""
+    with reading(db):
+        return _turn_input(db, project, run, job_id, seen if seen is not None else {})
+
+
+def _turn_input(db: Session, project: Project, run: dict, job_id: int | None,
+                seen: dict) -> dict:  # fmt: skip
     from app.enhance import project_context
 
     system, brief = project_context(db, project, STEP)
@@ -1496,6 +1709,7 @@ def turn_input(db: Session, project: Project, run: dict, job_id: int | None = No
              *((("chat", asked),) if asked else ()), *((("asks", questions),) if questions else ()),
              *((("seen", looked),) if looked else ()),
              *((("look_reference", reel),) if reel else ()))  # fmt: skip
+    seen.update(video, chat=asked, allowed=allowed, done=done)
     tagged = "\n".join(f"<{tag}>\n{json.dumps(value, indent=1)}\n</{tag}>" for tag, value in parts)
     return {"system": system, "prompt": f"{brief}\n{story(db, project)}{tagged}",
             READ: len(asked), **eyes}  # fmt: skip
@@ -1710,7 +1924,6 @@ def video_state(db: Session, project: Project) -> dict:
     from app.clip_prompts import newest
     from app.clip_takes import take_credits
     from app.item_checks import latest, shown, verdict
-    from app.routes.project_assets import _missing, missing_copies, missing_places
     from app.routes.project_clips import out_of_date
 
     bd = newest(db, project)
@@ -1801,9 +2014,7 @@ def video_state(db: Session, project: Project) -> dict:
         "outfits": project.outfits or {},  # this video's outfit per character ("char:12")
         "shots": "ready" if bd else "none",
         "too_long": _splittable(db, project, bd),  # split_clip
-        "missing_looks": [*(s.role for s in _missing(db, project)),
-                          *(c.name for c in missing_copies(db, project)),  # a brand character
-                          *(p.name for p in missing_places(db, project))] if bd else [],
+        "missing_looks": director_tools.missing_looks(db, project) if bd else [],
         # someone the shots show who isn't a role (an extra: "Crowd"), yours to cast or leave
         "no_role": breakdown_extras(bd.problems) if bd else [],
         "cast_ok": cast,  # the person's OK on the cast and places, and what waits for it
@@ -1924,10 +2135,14 @@ def choose(state: dict) -> dict:
     if review["state"] == "reviewing":
         return go("wait", "It's looking at the stills.")
     used = state.get("allowed", {}).get("redraws_used", {})
-    for f in review.get("findings") or [] if review.get("current") else []:
-        if not used.get(f["shot_id"]):
-            return go("redraw_still", f"{f['problem']} Drawing it again.",
-                      shot_id=f["shot_id"], note=f["note"])  # fmt: skip
+    if redraw := [{"shot_id": f["shot_id"], "note": f["note"]} for f in (
+            review.get("findings") or [] if review.get("current") else [])
+            if not used.get(f["shot_id"])]:  # fmt: skip
+        return go(
+            "redraw_still",
+            "The review found stills off the treatment: drawn again.",
+            redraws=redraw,
+        )  # every one at once
     if asked := _asked(state):
         return asked  # a new note: what the person asked, once; then cut and deliver again
     if not clips or any(c["stale"] for c in clips):

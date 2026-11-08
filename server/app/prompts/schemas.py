@@ -790,6 +790,14 @@ class AskMove(Strict):
     )
 
 
+class StillFix(Strict):
+    shot_id: str = Field(description="The still's shot, e.g. '3.1'.")
+    note: str = Field(
+        description="What the beat needs in this frame, in plain words; at most 500 characters: "
+        "a longer one is refused, never cut."
+    )
+
+
 class LookMove(Strict):
     name: str = Field(description="The place or character as people call it ('The penthouse').")
     description: str = Field(
@@ -838,8 +846,12 @@ class DirectorTurn(Strict):
     )
     shot_id: Name = Field(
         default=None,
-        description="For redraw_still: the still's shot, e.g. '3.1'; for real_screen: the "
-        "insert's shot, from that clip's `inserts`; else empty.",
+        description="For real_screen: the insert's shot, from that clip's `inserts`; else empty.",
+    )
+    redraws: list[StillFix] = Field(
+        default_factory=list,
+        description="For redraw_still: every still to draw again, each with its own note; "
+        "they're drawn at once. Else empty.",
     )
     voice: _pick(
         "Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger", "English_FriendlyPerson",
@@ -919,8 +931,8 @@ class DirectorTurn(Strict):
     note: str = Field(
         default="",
         description="What it must change, in plain words: for make_take as a redo, what to fix "
-        "(e.g. 'say fomo as FOH-moh; no extra people'); for redraw_still, what the beat needs "
-        "in the frame; for treatment or plan made again, what changes; for song with no style "
+        "(e.g. 'say fomo as FOH-moh; no extra people'); "
+        "for treatment or plan made again, what changes; for song with no style "
         "yet, the style line ('laid-back breezy pop, warm female vocal, 100 BPM, acoustic "
         "guitar, sunny, modern polished'); for song made again, the music's change ('vocals "
         "start immediately, no instrumental intro'); for narration "

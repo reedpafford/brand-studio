@@ -550,7 +550,7 @@ def run_once(
     if only and "claude" not in only:
         return  # the director's turns are Claude's: only that lane's worker sweeps
     try:  # a director run whose work ended any other way (failed, cancelled) goes on
-        director.sweep(db)
+        director.sweep(db, storage)
         db.commit()
     except Exception:  # never let the director break the worker
         db.rollback()
