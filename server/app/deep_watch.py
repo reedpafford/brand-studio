@@ -227,7 +227,8 @@ def look(src: Path, folder: Path, words: list[dict], count: int, dense: int,
     ({path, what, start, end}): `count` frames sampled over the whole, `dense` windows
     sampled at 10 a second on its jumps, then its shot changes, then the first word, and its
     spectrogram when it has sound. `ending`: a cut's, whose first dense window is its last
-    moment (what it ends on: the director's trim says what that should be).
+    moment (what it ends on: the director's trim says what that should be), one more than
+    `dense`, so its glitches and clip joins keep theirs.
     `words` ({word, start, end}) label the frames and split the loudness."""
     facts = probe(src)
     facts["cuts"] = cuts(src)
@@ -236,7 +237,7 @@ def look(src: Path, folder: Path, words: list[dict], count: int, dense: int,
     first = [words[0]["start"]] if words else []
     last = [facts["length"]] if ending else []
     moments = [*last, *facts["motion"]["jumps"], *facts["cuts"], *first]
-    made = strips(src, facts, folder, words, count, moments, dense)
+    made = strips(src, facts, folder, words, count, moments, dense + len(last))
     spec = folder / "spectrogram.png"
     if facts["audio"] and spectrogram(src, spec, wide):
         made.append({"path": spec, "what": "the sound as a spectrogram (time across, pitch up)",
