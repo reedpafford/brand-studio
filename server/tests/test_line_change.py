@@ -138,6 +138,13 @@ def test_in_a_narrated_video_the_narration_is_read_again_and_only_its_clips_made
     video = f"/projects/{owner.post(f'{narrated}/produce').json()['project_id']}"
     _work(app, db)
     _approve_plan(app, db, owner, video)
+    plan = owner.get(f"{video}/breakdown").json()["breakdown"]  # one clip a line (F7 now packs
+    shots = [s for sc in plan["scenes"] for s in sc["shots"]]  # neighbours into one clip)
+    plan["clips"] = [{"id": f"c{n}", "seconds": 4, "seam": "",
+                      "shot_ids": [s["id"] for s in shots if n in s["script_lines"]]}
+                     for n in (1, 2)]  # fmt: skip
+    assert all(c["shot_ids"] for c in plan["clips"]), shots
+    assert owner.put(f"{video}/breakdown", json=plan).status_code == 200
     _clips_made(app, db, owner, video)
     pid = int(video.rsplit("/", 1)[1])
     assert make_cut(app, db, owner, video).status_code == 200
@@ -161,7 +168,11 @@ def test_in_a_narrated_video_the_narration_is_read_again_and_only_its_clips_made
     assert take.id != old_take.id and "a wreck" in take.lyrics and take.voice == old_take.voice
     after = _takes(db, pid)
     redone = {c for c in after if after[c] != before.get(c)}
-    assert redone == {"c1"} and after["c1b"] == before["c1b"], (before, after)  # only its clip
+    assert redone == {"c1"} and after["c2"] == before["c2"], (before, after)  # only its clip
+    from app.clip_prompts import newest
+
+    kept = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c2").one()
+    assert kept.breakdown_id == newest(db, project).id  # kept on the new times: it fits
     assert _card(owner, pid)["choices"][0]["made"] == "done"
     assert _charged(db, pid, since) <= change["price"]["credits"]  # rule 36: never past it
 
@@ -179,29 +190,92 @@ def test_a_clip_whose_piece_grew_past_its_take_is_made_again():
     assert not song_breakdown._fits(data, SimpleNamespace(clip_id="c1", seconds=3))
 
 
-def test_the_priced_runs_own_limit_holds_for_the_uncapped_owner_too(app, db, owner, editor,
-                                                                    monkeypatch):  # fmt: skip
-    """Its "up to" counted the director's own limit, so past it the run waits for an OK even
+def test_the_priced_runs_price_holds_for_the_uncapped_owner_too(app, db, owner, editor,
+                                                              monkeypatch):  # fmt: skip
+    """Its "up to" is its OK, as a Make it's price: past it the run waits for an OK even
     where the owner has no limit (rule 36)."""
     from decimal import Decimal
 
+    from app.credits import past_approved
     from app.models.accounts import User
     from app.settings import get_settings
 
     pid = _delivered(app, db, owner, editor, monkeypatch)
     monkeypatch.setattr(get_settings(), "owner_uncapped", True)
-    project = db.get(Project, pid)
     me = db.query(User).filter_by(email=owner.get("/auth/me").json()["email"]).one()
-    turn = director.turns(db, project)[-1]
-    run = turn.input[director.RUN]["id"]
-    past = director.own_limit() + Decimal(1)
-    assert director.past_own(db, project, run, past, me) == ""  # an ordinary run: uncapped
-    turn.input = {**turn.input, director.RUN: {**turn.input[director.RUN], director.PRICED: True}}
-    db.commit()
-    assert director.past_own(db, project, run, past, me) != ""  # the priced run waits
+    assert past_approved(db, db.get(Project, pid), me, Decimal(10**6)) == ""  # uncapped
+    owner.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    card = _card(owner, pid)
+    assert owner.post(f"/asks/{card['id']}/answer",
+                      json={"how": "instead", "choice": "A"}).status_code == 200  # fmt: skip
+    db.expire_all()
+    project, up_to = db.get(Project, pid), Decimal(str(card["choices"][0]["price"]["credits"]))
+    assert past_approved(db, project, me, Decimal(1)) == ""
+    assert past_approved(db, project, me, up_to) != ""  # the priced run waits past its price
 
 
 def test_a_version_past_c_has_a_name():
     from app.script_library import letter
 
     assert [letter(n) for n in (0, 2, 3, 25, 26)] == ["A", "C", "D", "Z", "27"]
+
+
+def _pressed(app, db, owner, editor, monkeypatch) -> tuple[int, dict]:
+    pid = _delivered(app, db, owner, editor, monkeypatch)
+    owner.post(f"/projects/{pid}/director/messages", json={"text": ASK})
+    card = _card(owner, pid)
+    return pid, card
+
+
+def test_a_priced_run_makes_only_its_own_clips_and_its_price_is_sized_to_them(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1437: a priced run's stand-in remade clip 1 twice (not the line's clip), so its
+    "up to" was no bound. It makes only the clips its price counted, refusing the rest plainly,
+    and its price is sized to them (about 30 credits for one clip; QA saw 97 for 19.8 used)."""
+    pid, card = _pressed(app, db, owner, editor, monkeypatch)
+    change = card["choices"][0]
+    before = _takes(db, pid)
+    real = director.choose
+    asked = [{"tool": "make_take", "clip_id": "c1", "take_id": None,
+              "why": "Note 1: clip 1 too.", "note": ""}]  # fmt: skip
+
+    def other(state):
+        return asked.pop(0) if asked and state.get("started") else real(state)
+
+    monkeypatch.setattr(director, "choose", other)
+    since = _last_job(db)
+    assert owner.post(f"/asks/{card['id']}/answer",
+                      json={"how": "instead", "choice": "A"}).status_code == 200  # fmt: skip
+    _run(app, db, ticks=80, start=False)
+    db.expire_all()
+    results = [t.input.get("result") for t in director.turns(db, db.get(Project, pid))]
+    assert director.PRICED_ONLY.format("2") in results  # refused, plainly
+    assert _takes(db, pid)["c1"] == before["c1"]  # clip 1 never made again
+    used = _charged(db, pid, since)
+    assert used <= change["price"]["credits"] < 2 * used, (used, change["price"])  # tight
+
+
+def test_carry_on_after_a_priced_run_stops_goes_on_as_the_same_run(app, db, owner, editor,
+                                                                  monkeypatch):  # fmt: skip
+    """QA on #1437: Carry on started a new, unpriced run (no start card to carry on from). The
+    owner's press is the priced run's OK: the same run goes on under it."""
+    pid, card = _pressed(app, db, owner, editor, monkeypatch)
+    assert owner.post(f"/asks/{card['id']}/answer",
+                      json={"how": "instead", "choice": "A"}).status_code == 200  # fmt: skip
+    project = db.get(Project, pid)
+    run = director.turns(db, project)[-1].input[director.RUN]["id"]
+    _run(app, db, ticks=2, start=False)
+    assert owner.post(f"/projects/{pid}/director/stop").status_code == 200
+    _run(app, db, ticks=4, start=False)
+    from app import run_progress
+
+    db.expire_all()
+    assert run_progress.carry_left(db, db.get(Project, pid)) is not None
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    db.expire_all()
+    assert director.turns(db, db.get(Project, pid))[-1].input[director.RUN]["id"] == run
+    _run(app, db, ticks=80, start=False)
+    db.expire_all()
+    assert owner.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+    assert {t.input[director.RUN]["id"] for t in director.turns(db, db.get(Project, pid))} == {run}

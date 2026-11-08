@@ -17,6 +17,7 @@ from app.models.accounts import User
 from app.models.asks import Ask
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
+from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 
@@ -85,24 +86,25 @@ def choice(db: Session, user: User, project: Project, words: str, new: str | Non
 
 
 def price(db: Session, project: Project, found: dict) -> Decimal | None:
-    """As much as its press can charge (rule 36: "up to", never below; QA on #1437: 7 shown,
-    19.8 charged). Its run has no start card, so this is its whole price. Dialogue: each of
-    the line's clips made again with its watch, and as many times again as a watch may remake
-    it, each with its prompt written again; its stills drawn again as often as a run may; and
-    the director's own limit for its turns and its cut watch (`director.PRICED`: past it the
-    run waits for an OK, on the uncapped site too). Narrated: the narration read again moves
-    every clip's times, so any clip may need making again: the video's whole run price."""
-    from app import director
+    """As much as its press can charge (rule 36: "up to"; QA on #1437: 7 shown, 19.8 charged,
+    then 97 shown). Its run has no start card: this is its OK, as a Make it's price, so past it
+    the run waits for the owner's OK, on the uncapped site too (`director.priced`), and it
+    makes only these clips (`director._outside`). Dialogue: each of the line's clips made
+    again with its prompt written again, and once more if the cut's watch asks; its stills
+    drawn again as often as a run may; a turn for each take and for the cut, its watch and the
+    delivery, and one watch. Narrated: the narration read again moves every clip's times, so
+    any clip may need making again: the video's whole run price."""
     from app.clip_prompts import rewrite_price
     from app.clip_takes import take_credits
-    from app.routes.estimate import _still, run_price
+    from app.credits import estimate
+    from app.routes.estimate import WATCH_LOOKS, _still, run_price
+    from app.watch_cut import KIND
 
     rows = [_row(db, project, c) for c in found.get("clips") or []]
     if not rows or any(r is None for r in rows):
         return None
     if _narrated(db, project):  # plus its new reading, and as many again as a run may remake
         from app import director_song, narration, plans, song_takes
-        from app.credits import estimate
 
         job = narration.job(_new_text(plans.script(db, project).text, found))
         read = estimate(db, project.workspace_id, "speech", song_takes._units(job), job)
@@ -110,9 +112,15 @@ def price(db: Session, project: Project, found: dict) -> Decimal | None:
         return whole + (1 + director_song.REMAKES) * read
     each = [take_credits(db, project, r) + rewrite_price(db, project, [r.clip_id]) for r in rows]
     shots = sum(len(_shots(db, project, r.clip_id)) for r in rows)
-    still = _still(db, project.workspace_id, project)
-    return ((1 + director.MAX_REDOS) * sum(each, Decimal(0))
-            + REDRAWS * shots * still + director.own_limit())  # fmt: skip
+    ws = project.workspace_id
+    turns = TAKES * len(rows) + CUT_TURNS
+    return (TAKES * sum(each, Decimal(0)) + REDRAWS * shots * _still(db, ws, project)
+            + turns * estimate(db, ws, "write-claude", Decimal(1), {})
+            + estimate(db, ws, KIND, Decimal(WATCH_LOOKS), {}))  # fmt: skip
+
+
+TAKES = 2  # a clip made again, and once more if the cut's watch asks
+CUT_TURNS = 3  # the cut, its watch and the delivery
 
 
 REDRAWS = 2  # a still drawn again at most this often in a run (<allowed>'s redraws_per_still)
@@ -168,6 +176,8 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
     found = {**found, "old": ask.subject}
     if why := cannot(db, project, found, ask.subject, user):
         raise HTTPException(409, why)
+    shown = price(db, project, found)  # the card's "up to", as it's pressed: the run's OK
+    since = db.scalar(select(func.max(Job.id))) or 0  # its charges count from here
     lock(db, Project, project.id)
     version = plans.script(db, project)
     text = _new_text(version.text, found)
@@ -221,7 +231,9 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
     db.commit()
     if not narrated:  # its prompts are written again now, as after any edit (a narrated
         clip_prompts.follow(db, project, user)  # one's, once its new reading is timed)
-    turn = director.start(db, user, project, approved=True)
+    priced = {"price": float(shown or 0), "clips": None if narrated else found["clips"],
+              "since": since}  # fmt: skip
+    turn = director.start(db, user, project, approved=priced)
     return {"run": turn.input[director.RUN]["id"], "version": now.version}
 
 
@@ -248,7 +260,6 @@ def _read_again(db: Session, user: User, project: Project, draft: ScriptDraft) -
 def made(db: Session, mine: dict) -> tuple[str, str]:
     """How the press is going: its run's own state."""
     from app import director
-    from app.models.jobs import Job
 
     rows = [j for j in db.scalars(select(Job).where(Job.input["step"].as_string() == director.STEP,
                                                     Job.input[director.RUN]["id"].as_string()

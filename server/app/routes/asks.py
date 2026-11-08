@@ -281,7 +281,7 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         later = False
         if run and any(j.input.get(asks.PAST_PRICE) for j in held):  # past its Make it's price
             top, spent = run  # the run's own price and what it charged against it (rule 34)
-            later = asks.runs_made(db, project) > 1  # after a delivery or a stop: the run's words
+            later = asks.runs_made(db, project) > 1 or bool(director.priced(db, project))
         money.spent, money.budget = _price(user, spent), _price(user, top)
         money.past = _past(money.spent, money.up_to, money.budget, spent + more - top)
         money.clips, money.what = _clips(db, project, held), _what(db, held)

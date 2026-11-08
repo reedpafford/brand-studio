@@ -90,7 +90,7 @@ CAST_WAIT = "Waiting for the cast and places OK."  # its run waits on that point
 
 def start(db: Session, user: User, project: Project, *, hold: str = "",
           extra: dict | None = None, frozen: bool = True, fresh: bool = False,
-          approved: bool = False) -> Job:  # fmt: skip
+          approved: dict | None = None) -> Job:  # fmt: skip
     """A run on a video made from a published script (its words are locked): its first turn.
     Every way in starts the same (S3-02): its plan (the treatment) first, charged at its real
     cost on the video's planning allowance (`asks.past_planning`), then the run waits on its
@@ -101,7 +101,8 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     `frozen=False`: a freestyle's, whose version is frozen and published when its run starts
     (`freestyles.freeze`). `fresh`: "Start the plan again" (S3-08): after Make it the run
     plans the whole video again instead of carrying on from its shots (`fresh`). `approved`:
-    the owner's own priced press is its OK (line_change: "Change the line"), so no start card."""
+    the owner's own priced press is its OK (line_change: "Change the line"), so no start card:
+    its price, the clips it may make, and where its charges start (`PRICED`)."""
     if why := blocked(db, project) if frozen else (RUNNING if active(db, project) else ""):
         raise HTTPException(409, why)
     _close_carry(db, project)  # a Carry on still waiting for the owner isn't needed now
@@ -112,8 +113,8 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     if left and not fresh and delivered(turns(db, project)):  # notes after a delivery: a
         again = {**again, REVISION: True}  # revision, whose story stands
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id,
-           "ok": approved and user.is_owner, "hold": hold, **again,
-           **({PRICED: True} if approved else {})}  # fmt: skip
+           "ok": bool(approved) and user.is_owner, "hold": hold, **again,
+           **({PRICED: approved} if approved else {})}  # fmt: skip
     if left:
         project.director_chat = [{**m, "run": run["id"]} if n in left else m
                                  for n, m in enumerate(project.director_chat)]  # fmt: skip
@@ -657,7 +658,7 @@ def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal
     not one step. "" if it fits, and always on the owner's own run with `owner_uncapped`."""
     from app.credits import PAST_APPROVED, price
 
-    if not run_id or uncapped(user) and not _priced(db, project, run_id):
+    if not run_id or uncapped(user):
         return ""
     charged, oks = own_charged(db, run_id, project.id)
     if charged + credits <= own_limit() * (1 + oks):
@@ -665,14 +666,36 @@ def past_own(db: Session, project: Project, run_id: str | None, credits: Decimal
     return PAST_APPROVED if project.hidden else OWN_LIMIT.format(n=price(own_limit()))
 
 
-PRICED = "priced"  # in a run its press priced (line_change): its own limit holds, uncapped too
+PRICED = "priced"  # in a run its press priced (line_change): {price, clips, since}
+PRICED_ONLY = ("Refused: this run was priced for clip {} only (the owner's Change the line); "
+               "it makes nothing else. Cut and watch what it made.")  # fmt: skip
 
 
-def _priced(db: Session, project: Project, run_id: str) -> bool:
-    """A run the owner's priced press started (no start card): its "up to" counted the
-    director's own limit, so past it the run waits for an OK even on the uncapped site."""
-    return any(j.input[RUN].get(PRICED) for j in all_turns(db, project.id)
-               if j.input[RUN]["id"] == run_id)  # fmt: skip
+def priced(db: Session, project: Project) -> dict | None:
+    """The newest run's price when the owner's priced press started it (no start card): its
+    OK, as a Make it's (`asks.approved_run`), held to on the uncapped site too."""
+    rows = all_turns(db, project.id)
+    return rows[-1].input[RUN].get(PRICED) if rows else None
+
+
+def _outside(db: Session, project: Project, run: dict, decision: dict) -> str:
+    """A priced run's take or still of a clip its price didn't count (QA on #1437): refused,
+    so its price holds (only its clips were priced)."""
+    mine = (run.get(PRICED) or {}).get("clips")
+    tool = decision.get("tool")
+    if not mine or tool not in ("make_take", "redraw_still"):
+        return ""
+    if tool == "make_take":
+        clip = decision.get("clip_id") or ""
+    else:
+        from app.clip_prompts import newest
+
+        bd = newest(db, project)
+        clip = next((c["id"] for c in (bd.data.get("clips", []) if bd else [])
+                     if decision.get("shot_id") in c["shot_ids"]), "")  # fmt: skip
+    if clip in mine:
+        return ""
+    return PRICED_ONLY.format(", ".join(c.removeprefix("c") for c in mine))
 
 
 def after(db: Session, job: Job, storage) -> None:
@@ -881,6 +904,8 @@ def _act(db: Session, job: Job, storage) -> None:
         return _end(job, why, result=DELIVERED)  # a note it didn't read waits for Make it
     if tool == "stop":  # it can't go on (a story choice, a step that keeps refusing): says why
         return _end(job, decision.get("why") or "It stopped.", result="Stopped.")
+    if outside := _outside(db, project, run, decision):
+        return _record(db, job, run, outside)
     if tool == "make_take" and decision.get("clip_id"):
         clip = decision["clip_id"]
         if _redos(db, project, run).get(clip, 0) >= MAX_REDOS and _has_take(db, project, clip):
