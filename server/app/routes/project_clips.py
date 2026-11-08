@@ -577,7 +577,7 @@ def use_version(
 
 
 class TakeIn(BaseModel):
-    note: str = Field("", max_length=500)  # Redo: "What's wrong?" (this take only)
+    note: str = Field("", max_length=clip_takes.NOTE_MAX)  # Redo: "What's wrong?" (this take)
 
 
 @router.post(
