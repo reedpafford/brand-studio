@@ -150,12 +150,12 @@ def read_timeout(path: Path) -> int:
     return min(MOST, max(FLOOR, round(PER_SECOND * seconds)))
 
 
-def words(path: Path, lyrics: str) -> list[dict]:
-    """Local Whisper, prompted with the lyrics: [{word, start, end}], in the time the take's
-    length gives it (`read_timeout`)."""
+def words(path: Path, lyrics: str, prompted: bool = True) -> list[dict]:
+    """Local Whisper, prompted with the lyrics (unless `prompted` is False): [{word, start,
+    end}], in the time the take's length gives it (`read_timeout`)."""
     from app.whisper import timings
 
-    args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics]
+    args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics if prompted else ""]
     allowed, began = read_timeout(path), time.monotonic()
     try:
         done = _run(args, allowed)
@@ -183,6 +183,14 @@ def glued(word: str) -> bool:
     core = re.sub(r"(?<=\d)[.,](?=\d)|(?<=\b[A-Za-z])\.(?=[A-Za-z]\b)", "", word.strip())
     core = core.strip("\"“”‘’'()[]¡¿$%").rstrip(".,!?;:…-")
     return bool(re.search(r"[^A-Za-z0-9'’-]", core))
+
+
+def _capital(word: str, known: set[str], norm=_norm) -> bool:
+    """Junk glued on in letters: a heard word the lyrics don't have whose part from its last
+    inner capital on is one they do ("iPhDanny" for "Danny", video 281). A name ("iPhone",
+    "TikTok") is only one when the lyrics have its tail but not it."""
+    tail = re.search(r"[a-z]([A-Z][a-z']*)\W*$", word.strip())
+    return bool(tail) and norm(word) not in known and norm(tail[1]) in known
 
 
 def _ending(word: str, known: set[str]) -> str:
@@ -278,7 +286,7 @@ def _matcher(out: list[dict], heard: list[dict], norm=_norm):
     with junk glued on, and the two lined up."""
     ours = [(i, norm(w)) for i, line in enumerate(out) for w in line["words"]]
     known = {w for _, w in ours}
-    junk = [glued(h["word"]) for h in heard]
+    junk = [glued(h["word"]) or _capital(h["word"], known, norm) for h in heard]
     theirs = [_ending(norm(h["word"]), known) if j else norm(h["word"])
               for h, j in zip(heard, junk, strict=True)]  # fmt: skip
     matcher = SequenceMatcher(None, [w for _, w in ours], theirs, autojunk=False)

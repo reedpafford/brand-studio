@@ -90,7 +90,7 @@ def main(path: str, words_prompt: str | None = None, study: bool = False,
     # `sounds`: whisper's non-speech tags ("(gasps)", "[breathing]") are kept, not suppressed.
     start = time.monotonic()
     found, info = model.transcribe(
-        path, word_timestamps=True, vad_filter=False, initial_prompt=words_prompt,
+        path, word_timestamps=True, vad_filter=False, initial_prompt=words_prompt or None,
         **({"suppress_tokens": []} if sounds else {}),
     )  # fmt: skip
     segments = list(found)  # the read itself happens here
