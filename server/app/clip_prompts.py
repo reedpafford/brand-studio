@@ -1010,17 +1010,25 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
 SHOT = re.compile(r"^(Shot \d+ \| )(\d+(?:\.\d+)?) ?[-–] ?(\d+(?:\.\d+)?) ?s\b\.?(.*)$")
 
 
-def edges(lengths: list[float], seconds: int) -> list[int]:
+SAYS = re.compile(r"(\w+) \([^)]*\): [\"“]")  # a spoken line: 'Mom (in English, warm): "…'
+
+
+def edges(lengths: list[float], seconds: int, speaking: set[int] = frozenset()) -> list[int]:
     """Where each shot ends, in whole seconds from the clip's start: each edge rounded where it
     falls (the lengths added up, squeezed in when they run over), never each length on its
     own, whose errors add up and slide the later shots off their words (video 271's clip 2:
-    the yield shot 0.6 s off its line). Every shot at least 1 s; the last ends at `seconds`,
-    taking up any gap."""
+    the yield shot 0.6 s off its line). A shot with a line (`speaking`, by place) is never
+    rounded shorter: its end goes up, the time taken from the shots after it (276: a 3.5 s
+    line given 3 s put its end on the next face). Every shot at least 1 s; the last ends at
+    `seconds`, taking up any gap."""
     total, ends, at = sum(lengths), [], 0.0
     scale = seconds / total if total > seconds else 1.0
-    for n in lengths[:-1]:
-        at += n * scale
-        ends.append(max(math.floor(at + 0.5), ends[-1] + 1 if ends else 1))  # at least 1 s
+    for k, n in enumerate(lengths[:-1]):
+        at, before = at + n * scale, ends[-1] if ends else 0
+        end = math.floor(at + 0.5)
+        if k in speaking:
+            end = max(math.ceil(at - 0.01), before + math.ceil(n * scale - 0.01))
+        ends.append(max(end, before + 1))  # at least 1 s
     ends.append(seconds)
     for k in range(len(ends) - 2, -1, -1):  # room for the shots after it, 1 s each
         ends[k] = min(ends[k], ends[k + 1] - 1)
@@ -1029,12 +1037,17 @@ def edges(lengths: list[float], seconds: int) -> list[int]:
 
 def _retime(lines: list[str], seconds: int) -> list[str]:
     """Shots back to back from 0 to the clip's length in whole seconds, written "0-2 s.", on
-    their rounded edges (`edges`). Unchanged when the shots can't fit (more than seconds)."""
+    their rounded edges (`edges`; in a clip with spoken lines, a shot that says one is never
+    rounded shorter). Unchanged when the shots can't fit (more than seconds)."""
     at = [i for i, x in enumerate(lines) if x.startswith("Shot ")]
     found = [SHOT.match(lines[i]) for i in at]
     if not at or not all(found) or len(at) > seconds:
         return lines
-    ends = edges([max(float(m[3]) - float(m[2]), 0.0) for m in found], seconds)
+    stop = [*at[1:], next((i for i, x in enumerate(lines) if x.startswith("Keep: ")), len(lines))]
+    said = [{w for x in lines[a:b] for w in SAYS.findall(x)} - {"Voiceover"}
+            for a, b in zip(at, stop, strict=True)]  # fmt: skip
+    speaking = {k for k, who in enumerate(said) if who}
+    ends = edges([max(float(m[3]) - float(m[2]), 0.0) for m in found], seconds, speaking)
     out, start = list(lines), 0
     for i, m, end in zip(at, found, ends, strict=True):
         line = f"{m[1]}{start}-{end} s.{m[4]}"

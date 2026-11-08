@@ -83,3 +83,46 @@ def test_breakdown_needs_a_script_switch_and_workspace(app, editor, outsider, se
         app.state.settings.generation_enabled = True
     editor.post(url)
     assert_no_dollars(editor, [f"/projects/{setup['project']}"])
+
+
+def test_each_line_gets_room_at_the_styles_pace_and_the_clips_keep_to_the_length(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+):
+    """Critique 276: Movie gave Granny's two sentences 2.8 s and Omni put the rest of her line
+    on Maya's face; the plan ran 35 s for a 30 s brief. A line's shot gets its words at the
+    style's pace and its pauses (free), and clips over the length asked for are written again
+    once, what's left kept as Advice."""
+    from app import guides
+    from app.prompts import check
+    from app.prompts.schemas import Breakdown
+
+    assert (guides.pace("movie", "dialogue"), guides.pause("movie", "dialogue")) == ((2, 3), 0.6)
+    assert guides.pace("house", "dialogue") == (3.5, 4.8) and not guides.pause("house", "dialogue")
+    bd = copy.deepcopy(BREAKDOWN)
+    bd["scenes"][0]["shots"][0].update(line="Oh honey, congratulations! When are you due?",
+                                       seconds=2.8)  # fmt: skip
+    bd["scenes"][0]["shots"][1]["seconds"] = 2.5
+    bd["clips"][0]["seconds"] = 8  # a long wordless tail
+    roomy, said = check.line_room(Breakdown.model_validate(bd), 3, 0.6)
+    assert [s.seconds for s in roomy.scenes[0].shots] == [3.5, 2.5]  # 7 ÷ 3 + 2 × 0.6; never less
+    assert said == ["Advice: Shots 1.1 got more time so each line has room at this style's pace."]
+    assert check.planned_length(roomy, 8, 3, 0.6) == []  # within a tenth
+    assert check.planned_length(roomy, 20, 3, 0.6) == []  # short: never padded
+    assert not check.planned_length(roomy, 5, 3, 0.6)[0].startswith("Advice: ")  # over: a fix
+    assert "lines alone need about 5 s" in check.planned_length(roomy, 2, 3, 0.6)[0]  # kept
+
+    long = copy.deepcopy(BREAKDOWN)  # 40 s against the brief's 30 s
+    long["clips"] = [{"id": "c1", "shot_ids": ["1.1"], "seconds": 20, "seam": "A look."},
+                     {"id": "c2", "shot_ids": ["1.2"], "seconds": 20, "seam": "end"}]  # fmt: skip
+    editor.post(f"/projects/{setup['project']}/breakdown")
+    fake = FakeClaude(long)
+    _run(app, db, fake)
+    first, again = (r["messages"][0]["content"] for r in fake.requests)
+    assert "<timing>\nSpeaking pace in this style: up to 4.8 words a second" in first
+    assert "Length: about 30 s asked for, so the clips add up to 27–33 s." in first
+    assert "the clips add up to 40 s, over the 30 s asked for" in again.split("<fix>")[1]
+    got = editor.get(f"/projects/{setup['project']}/breakdown").json()
+    assert any(p.startswith("Advice: the clips add up to 40 s") for p in got["problems"])

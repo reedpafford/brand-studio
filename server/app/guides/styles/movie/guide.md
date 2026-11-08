@@ -62,6 +62,7 @@ Writing a new script in this look: a story told in scenes, each in one place, wi
 
 ## Clips
 - Every clip is made on Omni 1.2, which makes 3–15 s clips with their own sound and voices. A clip can hold a short run of timecoded shots ("Shot 1 | 0–3 s. …", "Shot 2 | 3–6 s. …"): about one exchange of a scene, 2–4 shots, cut on the lines and the reactions.
+- Omni cuts the picture on those marks but times its voices by its own delivery, often with a dramatic beat between sentences. So a speaking shot is sized from its line (its words at the pace below, plus a pause after each sentence), never 2 s by default; it holds one speaker, the listener's mouth closed, and the next speaker's close-up starts only once the line has room (or at a clip boundary).
 - The voices are Omni's own, made from the quoted lines: each spoken line in quotes, word for word, with who says it and how ("Mom (quiet, flat): …"). Describe each character's voice in the same few words in every clip they speak in, so it stays theirs from clip to clip. Nobody's voice is laid in from elsewhere.
 - A line that carries over an insert (the mechanism, the product, a hand) is best kept in the same clip as its speaker, with the insert as its own timecoded shot, so the voice runs on over it.
 - The sound is the place: room tone, a crowd, an engine, gravel, a door. No score and no music bed under anything (music, if any, is added in post); diegetic music only when the scene has a radio or a dance floor in it.
@@ -80,7 +81,7 @@ Measured over the three studied films (6–9 min each; a short video keeps the s
 - The longest hold, 6–10 s, is saved for a reveal or the big confrontation.
 - The hook: a line or a hit in the first 1.2 s, the first cut by about 3 s, the conflict visible at once and a reaction face by 1–3 s.
 - Dialogue scenes run about 2–3 words a second over the scene, faster inside a run of lines, with pauses of about 0.6–0.7 s; wordless beats (a low point, a first use, an arrival) run on held faces and the place's sound.
-- Up to 30 s: one to three scenes, about 8–14 shots, two to four clips.
+- Up to 30 s: one to three scenes, about 8–14 shots, two to four clips, landing within about a tenth of the length the brief or script asks for. When it runs long, a wordless insert or end hold gives up its seconds before any line does.
 
 ## camera
 - Eye level by default; a long lens with very shallow focus on singles, a normal lens with deep focus on wides, macro on inserts.

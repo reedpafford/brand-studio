@@ -59,6 +59,41 @@ def video_model_block(m: CatalogueModel) -> str:
     )
 
 
+PAUSE = 0.2  # after a sentence, when the guides give no pause (a house reply: 0.05–0.2 s)
+
+
+def timing(db: Session, project: Project) -> dict:
+    """How long a line takes in this video (critique 276): the style's fastest words a second
+    and its pause after a sentence (its guide's, else its format's; else 4.8 and PAUSE), and
+    the length to land near: the brief's planned length (a library script's target too), else
+    the newest length a note of this run asks for ("about 30 s"; never "at 12 s" or "cut 5 s")."""
+    from app.director import run_notes
+    from app.narration import video_script
+    from app.script_library import WORDS_PER_SECOND, format_id
+
+    script = video_script(db, project)
+    look, fmt = project.look or "house", format_id(script) if script else "dialogue"
+    try:
+        fast = (guides.pace(look, fmt) or (0, WORDS_PER_SECOND))[1]
+        pause = guides.pause(look, fmt) or PAUSE
+    except ValueError:  # a style or format since taken out of the guides
+        fast, pause = WORDS_PER_SECOND, PAUSE
+    asked = [n for _, text in run_notes(db, project) if (n := check.asked_length(text))]
+    return {"fast": fast, "pause": pause, "target": project.planned_seconds or next(
+        reversed(asked), None)}  # fmt: skip
+
+
+def timing_block(t: dict) -> str:
+    """<timing> for the breakdown: the pace a line's shot is sized at, and the length."""
+    pace = (f"Speaking pace in this style: up to {t['fast']:g} words a second, with about "
+            f"{t['pause']:g} s after each sentence. A shot with a line holds at least its words "
+            f"÷ {t['fast']:g}, plus {t['pause']:g} s for each sentence in it.")  # fmt: skip
+    if target := t.get("target"):
+        pace += (f"\nLength: about {target} s asked for, so the clips add up to "
+                 f"{round(target * 0.9)}–{round(target * 1.1)} s.")  # fmt: skip
+    return f"<timing>\n{pace}\n</timing>"
+
+
 def _places(db: Session, project: Project) -> str:
     items = db.scalars(
         select(LibraryItem).where(
@@ -147,6 +182,9 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     if block := payoffs_block(recent_payoffs(db, project.brand_id, project.id, viewer=viewer)):
         parts.append(block)
     parts.append(video_model_block(video_model(project)))
+    timed = None if take else timing(db, project)  # a song or narration is timed to its audio
+    if timed:
+        parts.append(timing_block(timed))
     if project.reference_breakdown:
         ref = prompts.reference_block(project.reference_breakdown, project.reference_replace)
         parts.append(escape_block(ref))
@@ -168,6 +206,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
             if planned
             else {}
         ),
+        **({"timing": timed} if timed else {}),
         "project_id": project.id,
         "script_version": version.version,
         "system": system,

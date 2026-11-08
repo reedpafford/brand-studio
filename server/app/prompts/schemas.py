@@ -180,7 +180,8 @@ class Shot(BaseModel):
         "'Over-the-shoulder close-up on the phone in his hand, static'."
     )
     seconds: float = Field(
-        description="Estimated length. Dialogue: words / 4.8 plus any held reaction. Silent "
+        description="Estimated length. A shot with a line: at least its words at the speaking "
+        "pace in <timing> plus its pause after each sentence, then any held reaction. Silent "
         "reactions and inserts: 0.5–1.5."
     )
     character_ids: list[str] = Field(

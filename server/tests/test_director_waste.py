@@ -161,3 +161,26 @@ def test_a_cut_being_made_and_a_redo_that_is_only_a_doubt_read_as_such(app, db, 
     assert director_tools.run(db, user, project, {"tool": "final_cut"}, app.state.storage, {})
     db.commit()
     assert director.video_state(db, project)["cut"] == "being made"
+
+
+def test_a_doubt_both_watches_saw_is_a_fault_the_director_may_remake(app, db, owner, editor):
+    """276: clip 1's take watch and the watch of the cut both saw its lines on the listener's
+    face, and the director's remake was refused as only a doubt. The same kind of doubt on the
+    same take, seen by both, is a fault (within the usual 2 redos); a different one isn't."""
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    job = watch_cut._newest(db, project)
+    job.output = {**job.output, "checked": [{**f, "fix": "keep", "doubt": True, "kind": "lipsync"}
+                                            for f in job.output["checked"]]}  # fmt: skip
+    row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
+    take = db.get(ClipTake, row.picked_take_id)
+    fault = {"kind": "voice", "at": 3.0, "says": "The voice may thin out", "verified": False}
+    take.watch = {**(take.watch or {}), "faults": [fault]}
+    db.commit()
+    assert director._only_a_doubt(db, project, "c1", "Lines on the wrong faces.")
+    take.watch = {**take.watch, "faults": [{**fault, "kind": "lipsync",
+                                            "says": "Maya mouths Granny's line"}]}  # fmt: skip
+    db.commit()
+    clip = next(c for c in director.video_state(db, project)["clips"] if c["clip_id"] == "c1")
+    assert "redo" not in clip
+    assert not director._only_a_doubt(db, project, "c1", "Lines on the wrong faces.")
