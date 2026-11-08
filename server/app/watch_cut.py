@@ -345,7 +345,7 @@ def ending_shows(db: Session, video: FinalVideo | None) -> str:
     cut it away, ending mid-drink."""
     edits = [db.get(CutEdit, i) for i in sorted(video.edit_ids or [])] if video else []
     ends = [e for e in edits if e and e.kind == "trim" and e.undone_at is None
-            and (e.said.startswith("Ending") or "shows" in (e.data or {}))]  # fmt: skip
+            and (e.data or {}).get("ending")]  # fmt: skip
     return (ends[-1].data or {}).get("shows", "") if ends else ""
 
 

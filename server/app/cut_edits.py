@@ -218,6 +218,7 @@ def _shape(db: Session, user: User, project: Project, tl: dict, kind: str,
         raise Refused(f"The take is {longest:g} s long: start it before {longest - MIN:g} s.")
     last = i == len(tl["pieces"]) - 1
     if last and end is not None and start is None:
+        data["ending"] = True  # the ending's trim, kept when it's moved to keep a word
         cut = round(p["end"] - end, 1)
         said = f"Ending trimmed {cut} s" if cut > 0 else f"Ending held {-cut} s longer"
     else:
