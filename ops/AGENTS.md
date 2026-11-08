@@ -1,4 +1,6 @@
 # Agent team
+**How it actually runs now (8 Nov 2026):** one lead chat (sanaa workspace) holds state, merges as Reed and runs paid tests, and spawns builder, QA, critic and runner subagents per task. A babysitter chat (georgetown) sweeps PRs hourly and reports to Reed only. Reed critiques each style in its own desk chat and asks general questions in short Ask chats; decisions from those go into files the lead reads, never only into a chat. The roles below are the long-term design; most are played by the lead's subagents today.
+
 Each agent is its own Claude Code session on this repo. Work is tracked as GitHub issues (labels: `agent:<name>`). Reed talks to the Producer, and directly to the Writer for scripts.
 
 | Agent | Model | Job | Runs |
@@ -34,33 +36,8 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 - **After any compaction, and before every new task:** re-read ops/HANDOFF.md and the Current rules at the top of ops/DECISIONS.md before acting. Newer decisions override older ones; if unclear, ask the Producer.
 - **QA-Live sessions** are listed in the table below while they run, and removed when they finish.
 
-## Sessions (current)
-| Agent | Session |
-|---|---|
-| Builder-Server-5 (replaced Builder-Server-3 and -4 on 2026-10-27, context hygiene; montage trading screens) | session_01FRDAYJJv6AhprHx2GkXuCr |
-| Builder-Server-7 (Next: study → song directions wiring, then brand setup BR1) | session_01FRDAYFH6rssaRstCKXKqHk |
-| Builder-Server-8 (Next 1b: creative plan, automatic fixes, advisory check) | session_01FRDAYEp2gLv1FV5wFBnwnd |
-| Builder-Screens-4 (live screens, UX audit fixes) | session_01FRDAYHTQXtVgwKpPjzi8Yt |
-| Next-Layout (Next: layout and wording) | session_01FRDAYFBXFobYo8VFRkdXJF |
-| UX-Auditor (docs/next/ux-audit.md, wireframes) | session_01FRDAYJ8rMAHbCsr2LY6pBC |
-| Song-Producer (Reed's hand-made song and narrated ads) | session_01FRDAYHNoiSK3NwTtj4n7cE |
-| Writer (Reed talks to it directly) | session_01FRDAYF8xUEnyc2USaQdPNF |
-| Researcher (Starpop, Phases 1–2, done) | session_01FRDAYGsMfXmbBgso61qMqh |
-| Next-Lead (branch `next`, ops/NEXT.md) | session_01FRDAYGxkc3gPaKGXtreXsy |
-| Next-Server | session_01FRDAYHAqt6VpjWXU1MbtNR |
-| Next-Screens | session_01FRDAYFB7SvzZ39XgExCxPt |
-| Flow-QA | session_01FRDAYFWiQrAfCDjT614hkp |
-| Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
-| Builder-Screens-3 (editor video flow; replaced Builder-Screens-2 on 2026-10-26) | session_01RY7gQZ2FyTVwVAYrbX5MXu |
-| QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
-| QA-2 (web) | session_0151NB9uZupi8GLzzTbeAtEv |
-| Designer | session_01USbuJ9znkRnKbNV4cnJUNW |
-| Director | session_01HeFuWAEdxcgfha4QYoAC3Z |
-| Steward | session_01FRDAYFCGf1CkVUYdddfvi7 |
-| QA-Live 6 (live checks, while it runs) | session_01FRDAYFjPARnHGEy8SXNuo8 |
-| Scribe-2 | session_01FRDAYHZyBA1pmnXw7MYEdi |
-| Release | session_01BGZgB9afnDnbYURA7D11gk |
-| Status Desk | session_01GYxBJctxeeNdzejMuRiCW6 |
+## Sessions
+The per-role session table (Oct 2026) is retired: those sessions have ended. Its last version is in git history (before 8 Nov 2026). Live agents are listed in the lead's `MAIN-HANDOFF.md`.
 
 ## QA review checklist (every PR)
 - Tests: lint, typecheck and unit tests pass; the browser tests pass on the free stand-ins (`BS_FAKE_PROVIDERS`).
