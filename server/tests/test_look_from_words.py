@@ -168,3 +168,33 @@ def test_the_check_reads_the_sheets_look_into_the_words_the_clips_keep(app, owne
     save_sheet(db, redo)
     db.commit()
     assert _look(db, pid, slot).short_description == ""  # until its own check reads it
+
+
+def test_a_sheets_words_go_with_that_sheet_when_it_comes_back(db, owner):
+    """QA on #1451: Use this sheet, or restoring a version, brings back that sheet's own words
+    (never the newer sheet's "tan" under a brown dog), and restoring never 422s on them."""
+    from app.routes.library import _save_version
+    from app.routes.sheets import said_short
+    from tests.helpers import with_sheet
+
+    made = {"name": "Rex", "notes": "a dog", "image_file_ids": [upload(owner)]}
+    rex = owner.post("/library/character", json=made).json()["id"]
+    with_sheet(db, rex)
+    item, me = db.get(LibraryItem, rex), db.query(User).filter_by(role="owner").one()
+    first, item.short_description = item.sheet_file_id, "brown terrier, heavy brow"
+    db.commit()
+    _save_version(db, me, item)  # a new sheet, read by its check
+    item.sheet_file_id, item.short_description = upload(owner), "tan terrier, white chest blaze"
+    db.commit()
+    url = f"/library/character/{rex}"
+    back = owner.post(f"{url}/sheet/preferred", json={"file_id": first})
+    assert back.status_code == 200, back.text
+    db.expire_all()
+    assert db.get(LibraryItem, rex).short_description == "brown terrier, heavy brow"
+    versions = owner.get(f"{url}/versions").json()
+    newer = max(v["version"] for v in versions)  # the tan sheet, saved by the press
+    restored = owner.post(f"{url}/versions/{newer}/restore")
+    assert restored.status_code == 200, restored.text
+    db.expire_all()
+    assert db.get(LibraryItem, rex).short_description == "tan terrier, white chest blaze"
+    assert said_short("a" * 60 + ", " + "b" * 60) == "a" * 60  # cut at a comma for the clips

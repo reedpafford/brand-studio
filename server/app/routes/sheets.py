@@ -309,6 +309,12 @@ def check_fit(
         log.info("look %s: the fit check doesn't fit the budget; shown unchecked", item.id)
 
 
+def said_short(words: str, most: int = 100) -> str:
+    """A sheet's words, cut at a comma to fit a clip's Keep line."""
+    words = words.strip()
+    return words if len(words) <= most else words[:most].rsplit(",", 1)[0].strip()
+
+
 def save_fit(db: Session, job: Job) -> None:
     """It fits: nothing to say. It doesn't: redo the sheet once with the check's note, within
     the budget; after that (or past the budget, or after a person's change), the look shows
@@ -317,7 +323,7 @@ def save_fit(db: Session, job: Job) -> None:
     if not item or item.archived:
         return
     fit = LookFit.model_validate(job.output)
-    item.short_description = fit.anchors.strip()[:300]  # its look in words, for the clips
+    item.short_description = said_short(fit.anchors)  # its look in words, for the clips
     if read := job.input.get("text_for"):
         item.text_fit = {**read, "seen": fit.seen, **text_to(read, fit)}
     if fit.fits:
@@ -448,6 +454,16 @@ def sheet_versions(
     return _sheets(db, _item(db, user, kind, item_id))
 
 
+def _words_of(db: Session, item: LibraryItem, file_id: int) -> str:
+    """The words its check read off this sheet, as its saved version kept them ("" if none)."""
+    from app.models.library import LibraryItemVersion
+
+    snaps = db.scalars(select(LibraryItemVersion).where(LibraryItemVersion.item_id == item.id)
+                       .order_by(LibraryItemVersion.version.desc()))  # fmt: skip
+    found = next((v.snapshot for v in snaps if v.snapshot.get("sheet_file_id") == file_id), {})
+    return found.get("short_description") or ""
+
+
 @router.post("/preferred", response_model=PreferredOut)
 def use_sheet(
     kind: Kind,
@@ -476,6 +492,7 @@ def use_sheet(
     _save_version(db, user, item)
     if look is None:
         item.sheet_file_id, item.sheet_approved, item.look_fit = body.file_id, True, None
+        item.short_description = _words_of(db, item, body.file_id)  # that sheet's own words
     else:
         item.look_sheets = {**(item.look_sheets or {}),
                             look: {"file_id": body.file_id, "approved": True}}  # fmt: skip

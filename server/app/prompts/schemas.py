@@ -383,7 +383,8 @@ class LookFit(BaseModel):
         description="What the sheet shows that pins the character down, in a few words read off "
         "the sheet: an animal's species and breed, coat colour and one distinctive marking "
         "('stocky tan terrier, white chest blaze, one folded ear'); a person's hair, build and "
-        "one outfit detail ('short dark curls, slim build, red beanie').",
+        "skin tone, never clothes ('short dark curls, slim build, light brown skin'); under 100 "
+        "characters.",
     )
 
 
