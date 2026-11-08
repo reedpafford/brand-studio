@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app import guides, looks, narration, prompts, song_breakdown
 from app.catalogue import CatalogueModel, catalogue
-from app.enhance import escape, escape_block, project_context, project_screens
+from app.enhance import escape, escape_block, project_context, project_screens, screen_name
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
 from app.models.jobs import Job
@@ -580,6 +580,8 @@ def _complete_cast(db: Session, project: Project, locked: bool) -> list[str]:
         project.slot_merged = {**(project.slot_merged or {}), str(slot.id): into.id}
         merged.append(f"Advice: {short(slot.role) or slot.role} is {short(into.role) or into.role}"
                       ", one role in this video.")  # fmt: skip
+    named = _named_extras(db, project, bd)  # before show_roles puts them in their shots
+    out += [f"{script.title}: added {name} to the cast" for name in named]
     if not (added := show_roles(db, project, bd, words.text)) and not merged:
         return out
     counts: dict[str, int] = {}
@@ -692,12 +694,67 @@ def _person(db: Session, project: Project, slots: list, name: str):
 
 def _proper(name: str, text: str) -> bool:
     """A person's own name in the script: capitalised after a lowercase word ("hands Grant
-    the ring"), or a speaker's label ("GRANT:")."""
+    the ring"), a speaker's label ("GRANT:"), or someone a line speaks to ("MARCUS: Danny,
+    you were right.")."""
     if not name[:1].isupper():
         return False
     word = re.escape(name.strip())
     mid = re.search(rf"\b[a-z][\w']*[,;]? +{word}\b", text)
-    return bool(mid or re.search(rf"^\s*{word.upper()}\s*(?:\([^)]*\))?:", text, re.M))
+    told = re.search(rf"^\s*[A-Z][A-Z .'-]*(?:\([^)]*\))?:\s*{word},", text, re.M)
+    return bool(mid or told or re.search(rf"^\s*{word.upper()}\s*(?:\([^)]*\))?:", text, re.M))
+
+
+CALENDAR = re.compile(r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|"
+                      r"February|March|April|May|June|July|August|September|October|November|"
+                      r"December|Thanksgiving|Christmas|Easter|Halloween|Hanukkah|Diwali|Eid|"
+                      r"Ramadan|Valentine)$")  # fmt: skip
+
+
+def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
+    """A person the script names who the shots' actions show in two or more clips is a role,
+    so they get a look and the cast and places OK covers them (video 281: Danny, Marcus's
+    brother-in-law, in four B-roll clips, was no role and drifted from clip to clip). Named
+    in one clip only, they're a one-off: drawn as part of the scene, never a paid look. Only
+    someone the script treats as a person: a speaker's label, or someone a line speaks to
+    ("MARCUS: Danny, you were right."); never the brand, its products, screens or places
+    (QA on #1466: "Iron Paws", "Robinhood", "Resilia"), a word before another capitalised one,
+    a day or a holiday, or someone already in the cast. The names added."""
+    from app.cast_roles import all_slots, same, video_slots
+    from app.models.library import Kind, LibraryItem
+    from app.models.script_library import ScriptDraft
+    from app.storyboard import cast_looks
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if draft is None:
+        return []
+    clip_of = {s: c.id for c in bd.clips for s in c.shot_ids}
+    seen: dict[str, set[str]] = {}
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        for found in re.finditer(r"(?<=[a-z,] )([A-Z][a-z]{2,})\b(?!\s+[A-Z])", shot.action):
+            seen.setdefault(found[1], set()).add(clip_of.get(shot.id, shot.id))
+    items = db.scalars(select(LibraryItem.name).where(  # its places and products
+        LibraryItem.workspace_id == project.workspace_id,
+        LibraryItem.kind.in_([Kind.place, Kind.prop])))  # fmt: skip
+    screens = [screen_name(x) for x in project_screens(db, project)]
+    things = " ".join([db.get(Brand, project.brand_id).name, *items, *screens]).lower()
+    known = [s.role for s in all_slots(db, project)] + [i.name for i in cast_looks(db, project)]
+    slots, out = video_slots(db, project), []
+    for name, clips in seen.items():
+        if (len(clips) < 2 or CALENDAR.match(name) or any(same(name, k) for k in known)
+                or re.search(rf"\b{name.lower()}\b", things)
+                or not _addressed(name, draft.text)):  # fmt: skip
+            continue
+        if _person(db, project, slots, name):
+            out.append(name)
+    return out
+
+
+def _addressed(name: str, text: str) -> bool:
+    """The script treats them as a person: a speaker's label ("DANNY:") or someone a line
+    speaks to ("MARCUS: Danny, you were right.")."""
+    word = re.escape(name)
+    label = re.search(rf"^\s*{word.upper()}\s*(?:\([^)]*\))?:", text, re.M)
+    return bool(label or re.search(rf"^\s*[A-Z][A-Z .'-]*(?:\([^)]*\))?:\s*{word},", text, re.M))
 
 
 def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:
