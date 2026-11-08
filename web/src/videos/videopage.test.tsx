@@ -35,7 +35,7 @@ function server(me: object, f: object | null, r: object, routes: Record<string, 
     "GET /projects/50/clips": [200, []],
     "GET /projects/50/storyboard": [200, []],
     "GET /projects/50/assets": [200, [{ kind: "character", ref: "char:5", role: "Dr. Pickle", library_item_id: 5, name: "Dr. Pickle", locked: true, sheet_status: "approved", ready: true, slot_id: null, shots: 3 }]],
-    "GET /projects/50/video": [404, { detail: "none" }],
+    "GET /projects/50/video": [204, null], // none yet
     "GET /projects/50/locks": [200, locks],
     ...routes,
   });

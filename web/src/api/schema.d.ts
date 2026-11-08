@@ -5567,7 +5567,8 @@ export interface paths {
         };
         /**
          * Read
-         * @description The plan, or 404 when there's none and none is being made (E).
+         * @description The plan, or 204 (no content) when there's none and none is being made (E). Not a 404:
+         *     the video page polls this while planning, and each 404 is a console error.
          */
         get: operations["read_projects__project_id__plan_get"];
         /**

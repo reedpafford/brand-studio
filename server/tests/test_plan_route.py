@@ -13,7 +13,7 @@ from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 def test_make_check_edit_and_approve_the_plan(app, db, editor, setup):  # noqa: F811
     pid = setup["project"]
     url = f"/projects/{pid}/plan"
-    assert editor.get(url).status_code == 404  # E: no plan yet
+    assert editor.get(url).status_code == 204  # E: no plan yet (no content, not an error)
     assert editor.get(f"/projects/{pid}").json()["plan_status"] == "none"
     price = editor.get(f"/projects/{pid}").json()["plan_credits"]
     job = editor.post(url, json={}).json()

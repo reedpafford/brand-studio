@@ -4,7 +4,7 @@ save the editor's edited version. Each comes with the checks' problems in plain 
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
@@ -186,13 +186,17 @@ def queue(db: Session, user: User, project, version) -> Job:
     )
 
 
-def _newest(db: Session, project) -> BreakdownVersion:
-    row = db.scalar(
+def _newest_or_none(db: Session, project) -> BreakdownVersion | None:
+    return db.scalar(
         select(BreakdownVersion)
         .where(BreakdownVersion.project_id == project.id)
         .order_by(BreakdownVersion.id.desc())
         .limit(1)
     )
+
+
+def _newest(db: Session, project) -> BreakdownVersion:
+    row = _newest_or_none(db, project)
     if not row:
         raise HTTPException(404, "This project has no breakdown yet.")
     return row
@@ -211,7 +215,10 @@ def make_price(project_id: int, user: User = Depends(current_user), db: Session 
 @router.get("", response_model=BreakdownOut)
 def read(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project, version = _working(db, user, project_id)
-    return _out(_newest(db, project), version.version)
+    row = _newest_or_none(db, project)
+    if not row:
+        return Response(status_code=204)  # none yet: polled, and a 404 is a console error
+    return _out(row, version.version)
 
 
 @router.post("/keep", response_model=BreakdownOut)

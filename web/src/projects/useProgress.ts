@@ -33,9 +33,8 @@ export const videoQuery = (projectId: number) => ({
   enabled: projectId > 0,
   queryFn: async () => {
     const { data, response } = await api.GET("/projects/{project_id}/video", { params: { path: { project_id: projectId } } });
-    if (response.status === 404) return null;
-    if (!data) throw new Error("load");
-    return data;
+    if (response.ok || response.status === 404) return data ?? null; // none yet: 204
+    throw new Error("load");
   },
 });
 

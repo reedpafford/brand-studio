@@ -18,10 +18,10 @@ export function ScriptTable({ rows, row, editor }: { rows: Row[]; row: (r: Row) 
 export function ProjectGroups({ rows, folders, row }: { rows: Row[]; folders: FolderOut[] | null | undefined; row: (r: Row) => ReactNode }) {
   const groups = (folders ?? []).map((f) => ({ key: String(f.id), name: f.name, rows: rows.filter((r) => r.folder_id === f.id) })).filter((g) => g.rows.length > 0);
   const known = new Set((folders ?? []).map((f) => f.id));
-  const loose = rows.filter((r) => r.folder_id == null || !known.has(r.folder_id)); // a deleted project's scripts read as No project
+  const loose = rows.filter((r) => r.folder_id == null || !known.has(r.folder_id)); // a deleted folder's scripts read as Unsorted
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // With no projects yet there is still the one group bar, "No project 17" (C_Scripts), open since it's all there is.
-  const all = [...groups, ...(loose.length ? [{ key: "none", name: "No project", rows: loose }] : [])];
+  const all = [...groups, ...(loose.length ? [{ key: "none", name: "Unsorted", rows: loose }] : [])];
   return (
     <div className="-mx-4 sm:-mx-6">
       <TableHead />
