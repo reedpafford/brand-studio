@@ -198,3 +198,30 @@ def test_a_sheets_words_go_with_that_sheet_when_it_comes_back(db, owner):
     db.expire_all()
     assert db.get(LibraryItem, rex).short_description == "tan terrier, white chest blaze"
     assert said_short("a" * 60 + ", " + "b" * 60) == "a" * 60  # cut at a comma for the clips
+
+
+def test_a_role_is_drawn_from_what_the_brief_says_of_them_never_anothers_sentence(
+    owner, editor, db
+):
+    """Video 284: Maya's look came from a shot's action (average build, a hoodie) though the
+    brief said "Maya (30s, heavy-set, satin dress)", and one sentence about Granny and Maya
+    became both their words."""
+    from app import cast_roles
+    from app.models.script_library import ScriptCastSlot, ScriptDraft
+    from app.routes.project_assets import role_words
+
+    both = "Granny pats Maya's belly. Granny, in pearl earrings, beams at the guests."
+    pid, slot = _bruno(owner, editor, both, role="Granny")
+    project = db.get(Project, pid)
+    draft = db.get(ScriptDraft, project.script_draft_id)
+    db.add(ScriptCastSlot(script_id=draft.script_id, role="Maya", kind="Helper",
+                          appears_in=[draft.slot], position=9))  # fmt: skip
+    project.director_chat = [{"text": "Brief: Maya (30s, heavy-set, satin dress) freezes. "
+                                      "Her cue is MAYA (V.O.).", "run": "r"}]  # fmt: skip
+    db.commit()
+    slots = {s.role: s for s in cast_roles.all_slots(db, project)}
+    assert role_words(db, project, slots["Maya"]) == "Maya, 30s, heavy-set, satin dress"
+    assert (
+        role_words(db, project, slots["Granny"])
+        == "Granny, in pearl earrings, beams at the guests."
+    )

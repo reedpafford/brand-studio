@@ -518,19 +518,26 @@ def _make_look(
 
 
 def role_words(db: Session, project: Project, slot: ScriptCastSlot) -> str:
-    """What a role looks like, for its sheet and its fit check: the script's description, else
-    the newest shots' sentences that show and name them (video 268: Bruno had no description,
-    so his sheet was drawn from his name, as an old man, while the shots said "a stocky tan
-    clay dog"), up to 300 characters; else its script name when it says more than a name
-    ("Kel, a 30-year-old trader") or an age the script or a note states ("Jay is 19": video
-    245). "" when nothing says anything."""
+    """What a role looks like, for its sheet and its fit check: the script's description; else
+    what the brief, the script or a note says of them in brackets ("Maya (30s, heavy-set,
+    satin dress)": video 284, whose Maya was drawn average-build in a hoodie from a shot's
+    action); else the newest shots' sentences that show and name them and nobody else (268:
+    "Bruno, a stocky tan clay dog"; 284: one sentence about Granny and Maya became both their
+    words), up to 300 characters; else its script name when it says more than a name ("Kel, a
+    30-year-old trader") or an age the script or a note states ("Jay is 19": video 245). ""
+    when nothing says anything."""
     if (slot.description or "").strip():
         return slot.description
+    name, told = cast_roles.short(slot.role) or slot.role, _told(db, project)
+    if said := _bracketed(name, told):
+        return f"{slot.role.rstrip('. ')}, {said}"
+    others = [s.role for s in _slots(db, project) if s.id != slot.id]
     bd, refs = _newest(db, project), {f"slot:{slot.id}", f"char:{cast_roles.picked(project, slot)}"}
     said = [s for sc in (bd.data["scenes"] if bd else []) for shot in sc["shots"]
             if refs & set(shot["character_ids"])
             for s in re.split(r"(?<=[.!?])\s+", shot.get("action") or "")
-            if cast_roles.named(slot.role, s)]  # fmt: skip
+            if cast_roles.named(slot.role, s)
+            and not any(cast_roles.named(o, s) for o in others)]  # fmt: skip
     out = ""
     for s in dict.fromkeys(said):
         if len(out) + len(s) >= 300:
@@ -538,17 +545,32 @@ def role_words(db: Session, project: Project, slot: ScriptCastSlot) -> str:
         out = f"{out} {s}".strip()
     if out or slot.role.partition(",")[2].strip():
         return out or slot.role
-    age = cast_roles.stated_age(cast_roles.short(slot.role), _told(db, project))
+    age = cast_roles.stated_age(name, told)
     return f"{slot.role.rstrip('. ')}, {age}" if age else ""
 
 
+CUE = re.compile(r"(?i)^(v\.?o\.?|o\.?s\.?|o\.?c\.?|cont'?d|continued|off|on screen)$")
+
+
+def _bracketed(name: str, texts: list[str]) -> str:
+    """What these words say of a person in brackets after their name, newest words first
+    ("Maya (30s, heavy-set, satin dress)", a script's "MAYA (30s, nervous)"), never a cue
+    like "(V.O.)"."""
+    pattern = re.compile(rf"(?<!\w){re.escape(name)}\s*\(([^()]{{2,200}})\)", re.I)
+    for text in reversed(texts):
+        for found in pattern.finditer(text or ""):
+            if not CUE.match(said := found.group(1).strip()):
+                return said
+    return ""
+
+
 def _told(db: Session, project: Project) -> list[str]:
-    """What the video's own words say about its people: its script and people's notes."""
+    """What the video's own words say about its people: its script, its brief and notes."""
     from app.routes.scripts import latest
 
     version = latest(db, project)
     notes = [m.get("text") or "" for m in project.director_chat or []]
-    return [version.text if version else "", *notes]
+    return [version.text if version else "", project.goal or "", *notes]
 
 
 class PhotoIn(BaseModel):
