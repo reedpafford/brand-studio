@@ -102,9 +102,10 @@ def test_the_still_review_sees_the_sheets_and_a_sheet_redraw_needs_one(app, db, 
 def test_a_long_note_is_trimmed_and_one_that_takes_away_what_the_prompt_shows_rewrites_it(
     app, db, owner, editor
 ):
-    """A4: a 543-character note was refused as "name one clip"; it's cut to 500, as a still's
-    is. A7: "no phone" under a prompt with the phone was appended, both stood, and the $0.82
-    take raised the phone; now the prompt is rewritten with the note (Change it…) first."""
+    """A4: a 543-character note was refused as "name one clip"; now a note past 500 is refused
+    in plain words, never cut short (F16: 261's ended "on the pouch held still"). A7: "no
+    phone" under a prompt with the phone was appended, both stood, and the $0.82 take raised
+    the phone; now the prompt is rewritten with the note (Change it…) first."""
     assert contradicts("His phone lights up in his limp hand.", "No phone in this one.")
     assert contradicts("Two phones glow on the desk.", "without the phone")
     assert not contradicts("A warm kitchen at night.", "No phone, warmer light.")
@@ -120,12 +121,17 @@ def test_a_long_note_is_trimmed_and_one_that_takes_away_what_the_prompt_shows_re
     project = db.get(Project, pid)
     user = db.get(User, project.created_by_id)
     row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
-    long = "Warmer light in the kitchen. " * 20  # 580 characters
+    jobs = db.query(Job).count()
+    long = "Warmer light in the kitchen. " * 19 + "End on the pouch held still."  # ~580
     note = {"tool": "make_take", "clip_id": "c1", "note": long}
     said = director_tools.run(db, user, project, note, app.state.storage, {"id": "r"})
-    assert said == "Making 1 take. The note was cut to its first 500 characters.", said
+    assert said == director_tools.LONG_NOTE.format(what="redo", most=500, n=len(long.strip()))
+    assert db.query(Job).count() == jobs  # refused, never cut: 261 lost its note's end (F16)
+    note = {**note, "note": long[-200:]}  # said shorter, all of it
+    said = director_tools.run(db, user, project, note, app.state.storage, {"id": "r"})
+    assert said == "Making 1 take.", said
     job = db.query(Job).order_by(Job.id.desc()).first()
-    assert job.kind == "video" and job.input["note"] == long[:500].strip()
+    assert job.kind == "video" and job.input["note"].endswith("End on the pouch held still.")
     db.delete(job)  # as if it were made: the next take may start
     row.prompt = f"{row.prompt}\nHis phone lights up in his limp hand."
     db.commit()
@@ -184,3 +190,89 @@ def test_a_doubt_both_watches_saw_is_a_fault_the_director_may_remake(app, db, ow
     clip = next(c for c in director.video_state(db, project)["clips"] if c["clip_id"] == "c1")
     assert "redo" not in clip
     assert not director._only_a_doubt(db, project, "c1", "Lines on the wrong faces.")
+
+
+def test_no_note_is_cut_short_anywhere_the_director_writes_one(app, db, owner, editor):
+    """F16: every note the director writes goes on as written or is refused with its length:
+    a still's redraw, a plan, a talker's motion, a card's question, a voice's description."""
+    import pytest
+    from fastapi import HTTPException
+
+    from app import asks, talker, voices
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    user = db.get(User, project.created_by_id)
+    long, jobs = "x " * 300, db.query(Job).count()
+    for tool, what in (("redraw_still", "redraw"), ("plan", "plan"), ("change_look", "change")):
+        said = director_tools.run(db, user, project, {"tool": tool, "shot_id": "1.1",
+                                                      "note": long}, app.state.storage)  # fmt: skip
+        assert said.startswith(f"Refused: a {what} note is at most 500 characters"), said
+    motion = "y " * (talker.LONGEST_MOTION // 2 + 5)
+    said = director_tools.run(db, user, project, {"tool": "host", "note": motion},
+                              app.state.storage)  # fmt: skip
+    assert said.startswith("Refused: a motion note is at most 600 characters"), said
+    assert db.query(Job).count() == jobs  # nothing made, nothing charged
+    move = {"kind": "story", "question": "How should it end? " * 30,
+            "choices": [{"title": "A"}, {"title": "B"}], "pick": "A"}  # fmt: skip
+    assert asks.asked(db, project, None, move).startswith("Refused: an ask's question is at most")
+    with pytest.raises(HTTPException) as no:
+        voices.describe(db, user, project.brand_id, "A warm low voice. " * 40)
+    assert "500 characters or fewer" in no.value.detail
+
+
+def test_every_instruction_of_a_note_is_kept_in_the_redo_or_named_as_left_out(app, db, owner,
+                                                                              editor):  # fmt: skip
+    """F16, video 261: the owner's revision note asked four things; the redo note lost its last
+    ("end on the pouch held still for a beat"). The director's redo note keeps each one in its
+    own words; what can't be done is its move's `left_out`, and the delivery note names it."""
+    from app import delivery
+    from app.prompts.schemas import DirectorTurn
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    user = db.get(User, project.created_by_id)
+    redo = {"tool": "make_take", "clip_id": "c1", "why": "Note 1: clip 1, as asked.",
+            "note": "Warmer late-sun light; she smiles only at the very end; one mug, hers; "
+                    "end on the pouch held still for a beat.",
+            "left_out": "Note 1: a 20-second clip 1: the model makes 8 s at most."}  # fmt: skip
+    asked = ["Warmer late-sun light", "she smiles only at the very end", "one mug, hers",
+             "end on the pouch held still for a beat"]  # fmt: skip
+    assert director_tools.run(db, user, project, redo, app.state.storage, {"id": "r"}) == (
+        "Making 1 take.")  # fmt: skip
+    job = db.query(Job).order_by(Job.id.desc()).first()
+    assert all(a in job.input["note"] for a in asked), job.input["note"]
+    turns = director.turns(db, project)
+    deliver = turns[-1]
+    moves = [({**redo, "left_out": "Note 1: the hold: no room."}, "Making 1 take."),  # done later
+             ({**redo, "left_out": "Note 1: the whole note: too long."}, "Refused: long"),
+             (redo, "Making 1 take.")]  # fmt: skip
+    for t, (move, result) in zip(turns[-4:-1], moves, strict=True):
+        t.output, t.input = move, {**t.input, "result": result}
+        flag_modified(t, "output")
+        flag_modified(t, "input")
+    db.commit()
+    turn = DirectorTurn(tool="deliver", why="Note 1: done.", made="Clip 1 made again.")
+    note = delivery.note(db, project, deliver, turn.model_dump())
+    assert "Note 1: a 20-second clip 1: the model makes 8 s at most." in note["open"]
+    assert not any("too long" in x or "no room" in x for x in note["open"])  # refused; redone
+    said = turn.model_copy(update={"needs": "Note 1: a 20-second clip 1: the model makes 8 s "
+                                            "at most."}).model_dump()  # fmt: skip
+    assert not any("20-second" in x for x in delivery.note(db, project, deliver, said)["open"])
+
+
+def test_a_change_box_takes_a_whole_note_and_a_short_one_refuses_plainly(app, db, owner, editor):
+    """F16 (Reed, 8 Nov): Change this… on a clip read a pasted note cut at 500; it's read whole
+    (its prompt is rewritten in its own words). A look's change goes into the picture's own
+    words, so past 500 it's refused at send, plainly, never cut."""
+    pid = _done(app, db, owner, editor)
+    row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
+    long = "Warmer light in the kitchen, and she smiles only at the end. " * 30  # ~1,800
+    said = owner.post(f"/projects/{pid}/clips/{row.id}/change", json={"note": long})
+    assert said.status_code != 422, said.text
+    no = owner.post(f"/projects/{pid}/plan/scenes/1/change", json={"note": "x" * 20_001})
+    assert no.status_code == 422 and "Send it as two notes." in no.json()["detail"][0]["msg"]
+    item = owner.post("/library/character", json={"name": "Ana", "image_file_ids": [upload(owner)]})
+    no = owner.post(f"/library/character/{item.json()['id']}/sheet", json={"change": "y" * 501})
+    assert no.status_code == 422 and no.json()["detail"][0]["msg"] == (
+        "This note is 501 characters; the most is 500. Say it shorter.")  # fmt: skip

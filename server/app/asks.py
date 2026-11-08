@@ -53,6 +53,10 @@ def _now():
 # --- The director's move --------------------------------------------------------------------
 
 
+LONGEST = 500  # characters in an ask's question, why or describe
+LONG = "Refused: an ask's {what} is at most 500 characters (this one is {n}); say it shorter."
+
+
 PAID = re.compile(  # a choice that makes something (paid), never a story about money (rule 37:
     # "End on his balance at $418,260", "It costs him the girlfriend", QA on #1457)
     r"\b(?:paid|costs?\s+more|extra\s+cost|credits|remake|redo|redraw|another\s+(?:try|take)"
@@ -72,13 +76,18 @@ def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
             return f"Refused: there's no question {close} on this video."
         if ask.state not in OPEN:
             return f"Refused: question {close} is already answered."
-        ask.state, ask.closed = "not_needed", (move.get("closed") or "").strip()[:500]
+        if len(closed := (move.get("closed") or "").strip()) > LONGEST:
+            return LONG.format(what="why", n=len(closed))
+        ask.state, ask.closed = "not_needed", closed
         opts.stop_options(db, ask)
         db.commit()
         return f"No longer needed: {ask.question}"
     kind, question = move.get("kind"), (move.get("question") or "").strip()
     if kind not in QUESTIONS or not question:
         return "Refused: an ask needs its kind and its question."
+    for what in ("question", "why", "describe"):  # never cut short (a card's end lost)
+        if len(said := (move.get(what) or "").strip()) > LONGEST:
+            return LONG.format(what=what, n=len(said))
     subject = (move.get("subject") or "").strip()[:120]
     if kind in NAMED and not subject:  # video 233: "Who plays Maya?" came with topic "Maya" only
         subject = (move.get("topic") or "").strip()[:120]
@@ -116,8 +125,8 @@ def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
         return PAID_CHOICE  # video 281: "one more paid try", no price, picked at its time
     pick = _pick(db, project, kind, move.get("pick"), choices)
     db.add(Ask(workspace_id=project.workspace_id, project_id=project.id, run=run_id, kind=kind,
-               topic=(move.get("topic") or "")[:80], subject=subject, question=question[:500],
-               why=(move.get("why") or "")[:500], describe=(move.get("describe") or "")[:500],
+               topic=(move.get("topic") or "")[:80], subject=subject, question=question,
+               why=(move.get("why") or "").strip(), describe=(move.get("describe") or "").strip(),
                choices=choices, pick=pick,
                decide_at=_now() + STORY_WAIT if kind == "story" else None))  # fmt: skip
     db.commit()

@@ -465,7 +465,7 @@ def change_look(db: Session, user: User, project: Project, name: str, note: str)
 
     if no := locks.refusal(project, "cast"):
         return no
-    note = note.strip()[:500]
+    note = note.strip()  # at most a Redo note's (director_tools.LONG_NOTE): never cut
     found = next((i for i in cast_gate.current(db, project)
                   if cast_roles.same(i["name"], name)), None)  # fmt: skip
     item = db.get(LibraryItem, (found or {}).get("library_item_id") or 0)

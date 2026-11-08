@@ -55,7 +55,6 @@ export function ChangeBox({ fs, status }: { fs: Freestyle; status: ReactNode }) 
       <textarea
         id={`change-${fs.id}`}
         rows={rail ? 2 : 1}
-        maxLength={2000}
         value={text}
         placeholder="Tell the director what to change"
         onChange={(e) => setText(e.target.value)}

@@ -6,10 +6,10 @@ source photo never is."""
 import logging
 import re
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -27,6 +27,7 @@ from app.prompts.schemas import LookFit
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.library import ItemOut, _out, _save_version, get_item, look_writer, sheet_status
+from app.schemas import longest
 from app.sheets import RESOLUTION, SHEET_MODEL, check_price, is_checked, worst
 
 log = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ ASPECT = {Kind.character: "9:16", Kind.place: "16:9"}  # a tall turnaround / a w
 
 class SheetIn(BaseModel):
     model_id: Literal["nano-banana-pro", "nano-banana-2.1"] = SHEET_MODEL
-    change: str = Field("", max_length=500)  # Redo: "What should change?" (optional)
+    change: Annotated[str, longest(500)] = ""  # Redo: "What should change?" (optional)
     look_id: str | None = None  # ST2: the owner's "{look} sheet" on a Cast & places item
 
 
