@@ -67,3 +67,51 @@ def test_with_an_outfit_the_sheet_line_never_says_not_to_describe_clothes(owner,
     line, _ = assets(db, project)[f"char:{kid}"]
     assert "coat," not in line and "except for what they wear" in line
     assert line.endswith("wears: a yellow raincoat (this video)")
+
+
+def test_every_clip_keeps_the_videos_outfit_in_its_own_words(owner, editor, db):
+    """284: the Keep line said "this video's champagne satin dress" and each clip drew a new
+    neckline. Each person's outfit as set, with its cut and fabric, is in every clip's Keep
+    line once (free): kept when a clause names them with it (the article dropped or not), an
+    older one of theirs replaced, never in a clip whose shots change their clothes."""
+    from app.clip_prompts import _pictures, _worn
+    from app.clip_prompts import assets as clip_assets
+
+    pid, mia, kid = _video(owner, editor, db)
+    worn = "a sleeveless champagne satin sheath, high round neck"
+    editor.put(f"/projects/{pid}/locks",
+               json={"outfits": {f"char:{kid}": worn, f"char:{mia}": worn}})  # fmt: skip
+    project = db.get(Project, pid)
+    db.refresh(project)
+    known = clip_assets(db, project)
+    pics, both = _pictures(known), [f"char:{kid}", f"char:{mia}"]
+    bare = worn.removeprefix("a ")
+
+    def keep(text: str, said: str = "", who=both) -> str:
+        return _worn(f"Audio: x.\nShot 1 | 0-3 s. They wait.\nKeep: {text}\nAudio: x.", who,
+                     known, pics, said).splitlines()[2]  # fmt: skip
+
+    added = keep("Kid as in [Image2], the same look as on their sheet.", who=[f"char:{kid}"])
+    assert added.endswith(f"Kid in this video's {bare}.") and "'s a " not in added
+    assert keep(added.removeprefix("Keep: "), who=[f"char:{kid}"]) == added  # again: the same
+    said = f"Kid as in [Image2], in this video's {bare}."  # the writer's own words, kept
+    assert keep(said, who=[f"char:{kid}"]) == f"Keep: {said}"
+    assert keep(said).endswith(f"Mia in this video's {bare}.")  # each person, by name
+    older = keep("Kid as in [Image2], in this video's green dress.", who=[f"char:{kid}"])
+    assert older == f"Keep: Kid as in [Image2], in this video's {bare}."  # replaced, not twice
+    pinned = (
+        "Kid as in [Image2], in the champagne satin dress; Mia as in [Image3], in this "
+        "video's long red wool coat, never in Kid's satin dress."
+    )  # QA: Mia's names Kid
+    once = keep(pinned, who=[f"char:{kid}"])
+    assert "never in Kid's satin dress." in once and once.endswith(f"Kid in this video's {bare}.")
+    assert keep(once.removeprefix("Keep: "), who=[f"char:{kid}"]) == once  # one run settles it
+    assert keep("Kid as in [Image2], in this video's green dress, never Mia's red coat.") == (
+        f"Keep: Kid as in [Image2], in this video's {bare}, never Mia's red coat. "
+        f"Mia in this video's {bare}."
+    )  # only the outfit words go; the never-pin stays
+    assert keep("Kid as in [Image2].", "Kid puts on a smile; the plane takes off.",
+                [f"char:{kid}"]).endswith(bare + ".")  # not a change of clothes  # fmt: skip
+    assert keep("Kid as in [Image2].", "Kid changes into pyjamas.", [f"char:{kid}"]) == (
+        "Keep: Kid as in [Image2]."
+    )  # the script changes it here
