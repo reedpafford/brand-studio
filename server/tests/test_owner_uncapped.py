@@ -83,6 +83,25 @@ def test_the_start_card_is_an_estimate_with_no_limit(app, db, owner, editor, on,
     assert expected(db, draft, project) < run_price(db, draft, project)
 
 
+def test_an_answered_start_card_keeps_what_was_approved(app, db, owner, editor, on, monkeypatch):
+    """MAIN's Claymation run: after the plan grew, the answered card re-read "Make it? About
+    $14.78 (estimate). Approved" though $13.17 was approved. It keeps the approved figure and
+    says the run's new estimate apart."""
+    from app.routes import asks as routes
+
+    pid, _ = _video(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=4, start=False)
+    card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
+    said = card["question"]
+    assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
+    grown = routes._expected
+    monkeypatch.setattr(routes, "_expected", lambda db, p: grown(db, p) + Decimal(50))
+    after = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["id"] == card["id"])
+    assert after["state"] == "answered" and after["question"] == said
+    assert after["money"]["since"].startswith("This run's estimate has since grown to about $")
+
+
 def test_the_header_reads_the_providers_spend_and_never_a_budget(app, db, owner, editor, on):
     pid, _ = _video(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")

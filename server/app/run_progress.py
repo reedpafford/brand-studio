@@ -13,7 +13,7 @@ from decimal import Decimal
 from statistics import median
 from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import asks, model_map
@@ -682,6 +682,11 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     )  # an option: its card
     held = held.order_by(Job.id)
     holds = None if how else db.scalar(held.limit(1))
+    from app.director import CAST_WAIT
+
+    # Waiting on a person's cast and places OK (MAIN's Claymation run): the header knew, the
+    # record still said "Drawing the stills", so a watcher reading it couldn't tell.
+    cast_ok = not how and holds is None and turns[-1].input.get("result") == CAST_WAIT
     revising = any(r != run_id and ending(t)[0] == "delivered" for r, t in every.items())
     notes = [(j.output or {}).get("note") for r, t in every.items() if r != run_id for j in t]
     cut = next((n["cut"] for n in reversed(notes) if isinstance(n, dict) and n.get("cut")), None)
@@ -696,7 +701,12 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
     at = next((n for n, s in enumerate(scenes, 1) if s["done"] < s["total"]), len(scenes))
     total, made = len(cells), sum(c["state"] in DONE for c in cells)
     redone = sum(c["changed"] for c in cells)
-    charged, up_to = spent(db, project)
+    up_to = spent(db, project)[1]
+    # What finished work has charged, so it only grows (MAIN's Claymation run: 2.41 then 2.20).
+    # The header's "used" also holds what's queued or running at its price, which drops again
+    # when that work fails or is cancelled (nothing charged); a running total waits for it.
+    charged = Decimal(db.scalar(select(func.coalesce(func.sum(Job.credits), 0)).where(
+        Job.project_id == project.id, Job.status == JobStatus.succeeded)))  # fmt: skip
     if how == "delivered":
         head = ("delivered", _took(turns), _n(total, "clip") + (
             f" · {redone} redone after watching" if redone else ""), "done")  # fmt: skip
@@ -723,6 +733,11 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
             why = f"{stays} until the owner says yes"
         head = ("waiting", "Waiting for your OK" if owner else "Waiting for the owner's OK",
                 why, "wait")  # fmt: skip
+    elif cast_ok:
+        drawn = f"{video.drawn} of {video.stills} stills drawn, " if video.stills else ""
+        head = ("waiting", "Waiting for the cast and places OK",
+                f"{drawn}the rest wait for it" if drawn else "Nothing more is made until then",
+                "wait")  # fmt: skip
     elif revising:
         head = ("revising", "Revising", _changes(video, turns, start), "now")
     elif made < total:
@@ -746,7 +761,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
                       "flagged": sum(c["state"] == "flagged" for c in cells),
                       "needs_you": sum(c["state"] in NEEDS_YOU for c in cells)},
            "minutes_left": None if how else _left(video, cells, start, now),
-           "steps": steps(db, video, turns, cells, how, holds is not None, owner),
+           "steps": steps(db, video, turns, cells, how, holds is not None or cast_ok, owner),
            "spent": float(charged), "up_to": float(up_to),
            "spent_usd": dollars(charged) if owner else None, **_actual(db, project, viewer, start),
            "changed": [{k: c[k] for k in ("clip_id", "number", "take_id", "frame_file_id",

@@ -96,6 +96,10 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`));
   useMovesRefresh(id, (fs?.thread.length ?? 0) + (run?.turns.length ?? 0), `${fs?.status}:${run?.status}`);
   useRunEnd(id, liveRun?.status, run?.status);
+  // When this video starts or stops needing you, the rail's Needs you count is read again at once, not at its next 30 s
+  // poll (MAIN's Claymation run: the count was behind while a question waited on this very video).
+  const needs = `${head.data?.status.kind}:${run?.waiting?.length ?? 0}:${run?.make_it ?? ""}`;
+  useEffect(() => void queryClient.invalidateQueries({ queryKey: ["needs-you"] }), [needs, queryClient]);
   const stop = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director/stop", { params: { path: { project_id: id } } });
@@ -332,7 +336,11 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   if (live >= 0) {
     const [card] = items.splice(live, 1);
     const next = items.findIndex((t, i) => i >= live && (t.kind === "message" || t.note || t.run));
-    items.splice(next < 0 ? items.length : next, 0, card);
+    const at = next < 0 ? items.length : next;
+    // Moved below later cards, it never keeps the run's start time above them (MAIN's Claymation run: 01:07 under 01:17).
+    const before = items[at - 1];
+    const late = before && serverTime(before.at).getTime() > serverTime(card.at).getTime();
+    items.splice(at, 0, late ? { ...card, at: before.at } : card);
   }
   const seen = useSeen(id);
   // A treatment a note replaced folds to its line, so the current one leads (H20).
@@ -347,6 +355,11 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const named = items.flatMap((t) => (t.kind === "ask" && t.ask_id != null ? [t.ask_id] : []));
   const asksRead = useAsks(id, running || (run?.waiting?.length ?? 0) > 0, named);
   const cards = asksRead.data ?? [];
+  // A start card waits while a note is read into the plan (MAIN's run 276); once it's in, the plan panel reads it again.
+  const updating = cards.some((a) => a.money?.updating);
+  useEffect(() => {
+    if (!updating) for (const queryKey of [["plan", p?.id], ["breakdown", p?.id], ["idea", p?.id]]) void queryClient.invalidateQueries({ queryKey });
+  }, [updating, p?.id, queryClient]);
   // A card the chat names that the cards don't have yet (made after they were read: a start card after a note, video 233)
   // is read at once, not on the next poll.
   const unreadIds = named.filter((n) => !cards.some((a) => a.id === n)).join(",");

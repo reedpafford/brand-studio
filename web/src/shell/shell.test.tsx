@@ -143,6 +143,14 @@ test("Needs you is always in the rail with its count, 0 when nothing waits (v6 S
   }
 });
 
+test("MAIN's Claymation run: until Needs you has been read the rail shows no count, never a 0 that isn't so", async () => {
+  setViewport(1440);
+  const calls = fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /needs-you": [500, { detail: "busy" }], "GET /scripts": [200, []], "GET /projects": [200, []] });
+  renderAt("/b/1/scripts");
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /needs-you")).toBe(true));
+  expect((await screen.findByRole("link", { name: /^Needs you/ })).textContent).toBe("Needs you");
+});
+
 test("when only a stuck video waits, Reed still reaches Needs you: the tab and the rail row count everything it lists (S9-01)", async () => {
   for (const width of [390, 1440]) {
     setViewport(width);

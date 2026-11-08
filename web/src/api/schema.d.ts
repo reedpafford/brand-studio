@@ -9613,6 +9613,16 @@ export interface components {
             /** Held */
             held: string;
             /**
+             * Since
+             * @default
+             */
+            since: string;
+            /**
+             * Updating
+             * @default false
+             */
+            updating: boolean;
+            /**
              * What
              * @default
              */
