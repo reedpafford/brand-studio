@@ -605,6 +605,12 @@ class CutWatch(BaseModel):
     """The cut as a viewer meets it. Judging only: the director acts on it."""
 
     lands: bool = Field(description="Whether the ending lands.")
+    last_frame: str = Field(
+        default="",
+        description="What the cut's last frames show, in a few plain words ('he drinks from a "
+        "glass beside the pouch'); when <ending> names what they should show and they don't, "
+        "say so ('not his smile at the pouch: it ends mid-drink').",
+    )
     summary: str = Field(description="One or two plain sentences on how it plays as a whole.")
     findings: list[CutFinding] = Field(
         max_length=6, description="Worst first, 6 at most; empty when it plays well."
@@ -731,6 +737,12 @@ class CutMove(Strict):
         "as it is.",
     )
     edit_id: Id = Field(default=None, description="For undo: from timeline.edits; else 0.")
+    shows: str = Field(
+        default="",
+        description="For a trim of the ending (the last piece's end): what the new last frame "
+        "shows, from that take's own frames or watch ('his satisfied smile at the pouch'); "
+        "else ''.",
+    )
 
 
 class AskChoice(Strict):
