@@ -36,7 +36,7 @@ stylised 3D → photoreal
 refused: Soften it (the free fix rewords the picture, never the lines), then Make another.
 face: Make another first. If it drifts again, Change this… "keep the face exactly as the sheet, natural skin texture, no smoothing".
 outfit: Change this… naming the outfit's key pieces in the shot, this video's when it gives one, else the sheet's.
-product: Change this… "the real product from its image, in the character's hand, the label facing the camera and readable".
+product: Change this… "the real product from its image, in the character's hand, used in the scene; its label readable on its product moment".
 
 ## sample
 A tired man in his forties with a short dark beard, in a navy hoodie, in a diner booth under warm lamp light, looking just off the lens.

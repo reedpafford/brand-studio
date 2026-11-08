@@ -99,6 +99,19 @@ def test_every_clip_keeps_the_videos_outfit_in_its_own_words(owner, editor, db):
     assert keep(said).endswith(f"Mia in this video's {bare}.")  # each person, by name
     older = keep("Kid as in [Image2], in this video's green dress.", who=[f"char:{kid}"])
     assert older == f"Keep: Kid as in [Image2], in this video's {bare}."  # replaced, not twice
+    pinned = (
+        "Kid as in [Image2], in the champagne satin dress; Mia as in [Image3], in this "
+        "video's long red wool coat, never in Kid's satin dress."
+    )  # QA: Mia's names Kid
+    once = keep(pinned, who=[f"char:{kid}"])
+    assert "never in Kid's satin dress." in once and once.endswith(f"Kid in this video's {bare}.")
+    assert keep(once.removeprefix("Keep: "), who=[f"char:{kid}"]) == once  # one run settles it
+    assert keep("Kid as in [Image2], in this video's green dress, never Mia's red coat.") == (
+        f"Keep: Kid as in [Image2], in this video's {bare}, never Mia's red coat. "
+        f"Mia in this video's {bare}."
+    )  # only the outfit words go; the never-pin stays
+    assert keep("Kid as in [Image2].", "Kid puts on a smile; the plane takes off.",
+                [f"char:{kid}"]).endswith(bare + ".")  # not a change of clothes  # fmt: skip
     assert keep("Kid as in [Image2].", "Kid changes into pyjamas.", [f"char:{kid}"]) == (
         "Keep: Kid as in [Image2]."
     )  # the script changes it here
