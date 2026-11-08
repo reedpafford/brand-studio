@@ -646,7 +646,8 @@ def _copy(db: Session, user: User, project: Project, item: LibraryItem, auto=Fal
     real = looks.base(project.look) in model_map.PHOTOREAL and item.source_photo_file_id
     house = item.sheet_file_id if item.sheet_approved and not real else None
     new = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character, name=item.name,
-                      notes=item.notes, source_photo_file_id=house or item.source_photo_file_id,
+                      notes=item.notes, short_description=item.short_description or "",
+                      source_photo_file_id=house or item.source_photo_file_id,
                       owner_project_id=project.id, sheet_look=project.look)  # fmt: skip
     db.add(new)
     db.flush()

@@ -40,7 +40,10 @@ function Sample({ name, clip, still, testTag, playing, onPlay, w, h }: { name: s
         <video ref={video} src={clip} poster={still} muted loop playsInline preload="none" aria-label={`${name} sample`} className="size-full object-cover" onTimeUpdate={(e) => setAt(e.currentTarget.currentTime / (e.currentTarget.duration || 1))} />
       ) : still ? (
         <img src={still} alt="" className="size-full object-cover" />
-      ) : null}
+      ) : (
+        // A style with no sample made or shipped yet (Movie, MAIN's run 276): said, never a blank box.
+        <span className="grid size-full place-items-center px-2 text-center text-xs text-muted">No sample yet</span>
+      )}
       {(clip || still) && testTag && tag}
       {clip && (
         <button type="button" aria-label={`${playing ? "Pause" : "Play"} the ${name} sample`} onClick={(e) => (e.stopPropagation(), onPlay())} className="absolute inset-0 grid place-items-center text-white">
@@ -110,7 +113,7 @@ export function StyleCards({ looks, value, onPick, small, locked, only }: { look
   const [playing, setPlaying] = useState<string | null>(null);
   const shown = useShown(value + looks.length, small);
   return (
-    <div ref={shown} role="radiogroup" aria-label="Style" className={`flex items-start gap-2 ${small ? "-mx-3.5 overflow-x-auto px-3.5 pb-1" : "overflow-x-auto pb-1"}`}>
+    <div ref={shown} role="radiogroup" aria-label="Style" className={`flex items-start gap-2 ${small ? "-mx-3.5 overflow-x-auto px-3.5 pb-1" : "flex-wrap"}`}>
       {looks.map((l) => {
         const m = lookMedia(l);
         const sel = l.id === value;

@@ -75,12 +75,21 @@ test("S3-01: the header says where it is, its status and reason, the money, and 
 
 test("before Make it the header says No generation started, even after the treatment's small planning spend (Reed, 4 Nov)", async () => {
   setViewport(1440);
-  server(owner, fs(), run({ started: false }));
+  server(owner, fs(), run({ started: false }), { "GET /projects/50/idea": [200, head({ status: status("needs_you", "Needs you", "Make it?") })] });
   renderApp("/b/1/videos/50");
   const top = await screen.findByRole("banner");
   expect(await within(top).findByText("No generation started ·", { exact: false })).toBeInTheDocument();
   expect(within(top).getByText("up to $16.86")).toBeInTheDocument();
   expect(top.textContent).not.toMatch(/Nothing spent/);
+});
+
+test("MAIN's Claymation run: planning right after New video's Make it says Planning, never Working beside No generation started", async () => {
+  setViewport(1440);
+  server(owner, fs(), run({ started: false }));
+  renderApp("/b/1/videos/50");
+  const top = await screen.findByRole("banner");
+  expect(await within(top).findByText("Planning, no generation yet ·", { exact: false })).toBeInTheDocument();
+  expect(top.textContent).not.toMatch(/No generation started/);
 });
 
 test("an editor sees credits and the budget, never dollars (rule 4)", async () => {
@@ -368,6 +377,21 @@ test("S3-03/04: the run is one card: its frames scene by scene, the scene being 
   expect(screen.queryByText("Making the clips · 3 of 4 · scene 2 of 2")).toBeNull(); // the card, not its line
 });
 
+test("MAIN's Claymation run: the live card, moved below a later card, is never stamped earlier than it", async () => {
+  setViewport(1440);
+  const early = item("r9", "move", "Director", "Making the clips · 3 of 4 · scene 2 of 2", "running", at, { run: "r9" });
+  const asked8 = item("a8", "move", "Director", "Who plays the husband?", null, later, { kind: "ask", ask_id: 8 });
+  server(owner, null, run({ thread: [early, asked8] }), { "GET /projects/50/director/progress": [200, record()], ...cards(ask({ id: 8, state: "answered", topic: "Husband", question: "Who plays the husband?", answer: { how: "saved", name: "Mark", file_id: 31 }, answered_by: "Reed", answered_at: later })) });
+  renderApp("/b/1/videos/50");
+  const live = await screen.findByRole("region", { name: "Making the clips" });
+  const thread = screen.getByRole("list", { name: "Conversation with the director" });
+  const rows = [...thread.children];
+  const clockOf = (el: Element) => el.querySelector("p span.tabular-nums")?.textContent?.slice(0, 5);
+  const card = rows.find((r) => r.contains(live))!;
+  expect(rows.indexOf(card)).toBe(rows.length - 1); // the newest thing it says
+  expect(clockOf(card)).toBe(clockOf(rows[rows.length - 2])); // 10:25, not the run's 10:02
+});
+
 test("S3-08: stopped by a person: who and when, what's kept, and Carry on at its price starts it again", async () => {
   setViewport(1440);
   const stopped = record({ status: "stopped", title: "Stopped", sub: "3 of 4 clips made", tone: "stop", stopped: { by: "Reed", at: "2026-11-04T10:14:00Z", made: 3, total: 4, carry_on: "$10.74" } });
@@ -651,8 +675,13 @@ test("S4-03: a failed round says nothing was charged, with Try again and Upload 
   const done = screen.getByRole("region", { name: "Who plays the husband?" });
   expect(within(done).getByText("Husband: Mark")).toBeInTheDocument();
   expect(within(done).getByText(/picked by Reed, \d\d:\d\d/)).toBeInTheDocument();
-  await userEvent.click(within(done).getByRole("button", { name: "Change" }));
-  expect(within(screen.getByRole("region", { name: "Who plays the husband?" })).getByText("Saved in Resilia")).toBeInTheDocument();
+  await userEvent.click(within(done).getByRole("button", { name: "Change your answer: Husband" }));
+  const changing = screen.getByRole("region", { name: "Who plays the husband?" });
+  expect(within(changing).getByText("Saved in Resilia")).toBeInTheDocument();
+  // MAIN's Claymation run: Change only opens it here, saying so, and Keep my answer folds it back unchanged.
+  expect(within(changing).getByText("Changing your answer · nothing changes until you pick")).toBeInTheDocument();
+  await userEvent.click(within(changing).getByRole("button", { name: "Keep my answer" }));
+  expect(within(screen.getByRole("region", { name: "Who plays the husband?" })).getByText("Husband: Mark")).toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "Which kitchen?" })).getByText(/You locked the cast to Mark/)).toBeInTheDocument();
 });
 
@@ -1041,14 +1070,25 @@ test("S3-12: the director making Cut 1 again before it delivers adds no second C
   expect(within(panel).queryByText(/stays watchable/)).toBeNull();
 });
 
+test("MAIN's run 276: a start card says it's updating the plan for a note, with no Make it until the new plan is in", async () => {
+  setViewport(1440);
+  const start = ask({ kind: "start", question: "Make it? About $8.82 (estimate).", why: "I'm updating the plan for your note. Make it comes back here with the new plan and its price.", saved: [], money: { ...held$(), expected: true, updating: true }, state: "open", can: [] });
+  server(owner, null, run({ thread: [asked()] }), cards(start));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it? About $8.82 (estimate)." });
+  expect(within(card).getByText("Updating the plan for your note…")).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: /^Make it/ })).toBeNull();
+});
+
 test("an answered money card says who approved it and when, never picked by", async () => {
   setViewport(1440);
-  const start = ask({ kind: "start", question: "Make it for up to $14.73?", saved: [], money: held$(), state: "answered", answer: { how: "make_it" }, answered_by: "Reed", answered_at: later, can: [] });
+  const start = ask({ kind: "start", question: "Make it for up to $14.73?", saved: [], money: { ...held$(), since: "This run may now charge up to $15.10." }, state: "answered", answer: { how: "make_it" }, answered_by: "Reed", answered_at: later, can: [] });
   server(owner, null, run({ thread: [asked()] }), cards(start));
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to $14.73?" });
   expect(within(card).getByText("Make it for up to $14.73? Approved")).toBeInTheDocument();
   expect(within(card).getByText(/^by Reed, \d\d:\d\d$/)).toBeInTheDocument();
+  expect(within(card).getByText("This run may now charge up to $15.10.")).toBeInTheDocument(); // apart from what was approved
   expect(card.textContent).not.toMatch(/picked by/);
 });
 

@@ -37,6 +37,9 @@ OPEN = ("open", "uploading")
 NOT_NEEDED = "This question is no longer needed."
 LOCKED = "{} is locked in this video: unlock it in Cast to change who plays them."
 NOT_WAITING = "This isn't waiting for an OK any more."
+UPDATING = ("I'm updating the plan for your note. Make it comes back here with the new plan and "
+            "its price.")  # fmt: skip
+REPLANS = ("director", "treatment", "plan")  # a director turn, its treatment, its plan
 NAMED = ("cast", "presenter", "place")  # a card about one role or place, by the script's name
 UNUSED = "This wasn't used: {why} Tell the director which role it's for."
 KEPT = "Kept as it is. Nothing was charged for it."
@@ -487,6 +490,24 @@ def _money_state(db: Session, ask: Ask) -> tuple[str, Job | None]:
     return ("answered", went or no) if went or no else ("not_needed", None)
 
 
+def replanning(db: Session, project: Project) -> bool:
+    """Whether a note is still being read into the plan while its start card waits (MAIN's
+    run 276 approved the plan from before the note): a director turn, treatment or plan queued
+    or running, or one finished that no director turn has read yet (the worker's next tick
+    takes the next turn, so the chain has a gap between its steps). The card comes after its
+    plan, so neither happens on a card's own way in. Only the director's own steps wait to be
+    read: a plan a person made (Make a new plan) wakes no turn, so it never holds the card."""
+    step = Job.input["step"].as_string()
+    mine = (Job.project_id == project.id, step.in_(REPLANS))
+    if db.scalar(select(Job.id).where(*mine, Job.status.in_((JobStatus.queued, JobStatus.running)))
+                 .limit(1)) is not None:  # fmt: skip
+        return True
+    read = db.scalar(select(func.max(Job.id)).where(*mine, step == "director")) or 0
+    done = db.scalars(select(Job).where(*mine, step != "director", Job.id > read,
+                                        Job.status == JobStatus.succeeded)).all()  # fmt: skip
+    return any(j.input.get("director_run") or j.input.get("by_director") for j in done)
+
+
 def _money(db: Session, user: User, ask: Ask, project: Project, how: str) -> None:
     """A money card's press, checked whole before any job moves: Make it (the owner, or the
     video's editor on a run not held for the owner, inside what's left of its budget now),
@@ -500,6 +521,8 @@ def _money(db: Session, user: User, ask: Ask, project: Project, how: str) -> Non
     if how in ("make_it", "approve"):
         if not (user.is_owner or ask.kind == "start" and may_start(db, user, project)):
             raise HTTPException(403, "Only the owner can approve this.")
+        if ask.kind == "start" and replanning(db, project):  # a card read earlier, another
+            raise HTTPException(409, UPDATING)  # tab or Needs you: never the plan before a note
         if not user.is_owner and (why := start_hold(db, user, project)):
             held[-1].input = {**held[-1].input, HOLD: why, "held": why}  # the budget moved: to the
             db.commit()  # owner, saying why (rule 36: never less than it can charge)
