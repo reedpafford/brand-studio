@@ -56,6 +56,16 @@ def test_a_remakes_note_reaches_the_voice_as_a_short_tag_and_the_voice_is_one_of
         narration.job(WORDS, "Morgan Freeman")
 
 
+def test_a_remakes_pace_is_v3s_own_speed_within_its_recorded_range():
+    """Replicate's elevenlabs/v3 schema (recorded) has `speed`, 0.7 to 1.2, default 1."""
+    recorded = Path(__file__).parent / "fixtures/replicate/elevenlabs_v3.json"
+    speed = json.loads(recorded.read_text())["Input"]["properties"]["speed"]
+    assert (speed["minimum"], speed["maximum"], speed["default"]) == (*narration.V3_SPEED, 1)
+    assert narration.job(WORDS, "Sarah", "warm", speed=1.1)["input"]["speed"] == 1.1
+    assert narration.job(WORDS, "Sarah", speed=1.5)["input"]["speed"] == 1.2  # its fastest
+    assert "speed" not in narration.job(WORDS, "Sarah", speed=1)["input"]  # v3's own pace
+
+
 def test_the_male_voices_are_elevenlabs_own_names():
     """Austin and Roger are in Replicate's elevenlabs/v3 voice list (the recorded schema)."""
     recorded = Path(__file__).parent / "fixtures/replicate/elevenlabs_v3.json"

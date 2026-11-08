@@ -172,11 +172,14 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     """The tool: with `take_id`, use that timed take (free); with no note and a timed take,
     the best one; else make takes. The first song of a version with no style line takes its
     style from the note (the director's music words); after that a note is a remake, REMAKES
-    a run (counted in `run`). A MiniMax narrator's `emotion` and `reading` ask like a note."""
+    a run (counted in `run`). A MiniMax narrator's `emotion` and `reading` ask like a note,
+    and so does an ElevenLabs narrator's `speed` (its pace) on a remake."""
     tool, note = decision["tool"], (decision.get("note") or "").strip()
     delivery = {k: decision[k] for k in ("emotion", "reading") if decision.get(k)}
     if delivery and (speed := _speed(db, project, delivery.get("emotion"))):
         delivery["speed"] = speed  # set from the last read's measured pace
+    elif decision.get("speed") and decision["speed"] != 1:  # a v3 remake's pace
+        delivery["speed"] = decision["speed"]
     asked = note or delivery
     found = kind(db, project)
     if found is None or (tool == "song") != (found == "song"):
@@ -226,6 +229,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         return f"Trying the {what} again: the service failed, nothing was charged."
     if takes and run.get(REMADE, 0) >= REMAKES:
         return AGAIN.format(what=what)
+    if not takes and delivery.keys() == {"speed"}:
+        delivery = {}  # the first narration is read at the voice's own pace
     if found == "song" and not note and not draft.style_line.strip():
         return NO_STYLE  # free: never a song with no genre, vocal or tempo (QA-10)
     if not _on(db, draft):
@@ -243,7 +248,13 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     run["song_note"], run["song_voice"], run["song_delivery"] = note, voice, delivery
     if takes:  # a remake; the first song's note is its style line, not a remake
         run[REMADE] = run.get(REMADE, 0) + 1
-    return f"Making the {what}{f' ({note})' if note else ''}."
+    said = ", ".join(
+        [
+            *([note] if note else []),
+            *([f"speed {delivery['speed']}"] if delivery.keys() == {"speed"} else []),
+        ]
+    )
+    return f"Making the {what}{f' ({said})' if said else ''}."
 
 
 def target(db: Session, project: Project) -> tuple[float, float] | None:

@@ -23,8 +23,12 @@ MODEL = "elevenlabs-v3"
 VOICE = "Sarah"
 # Natural v3 voices (song-ad-workflow.md); the names are ElevenLabs v3's own (Replicate's enum).
 # Austin (deep, ~81 Hz) and Roger (relaxed, ~115 Hz) are male, from the presenter-1 test.
-# Words a second at our slowest voice (the paid test: 2.6; Reed's reference narrator reads 3.37)
+# Words a second at our slowest voice (the paid test: 2.6, at v3's own speed 1; Reed's reference
+# narrator reads 3.37)
 SLOWEST = 2.6
+# v3 does take a speed: Replicate's elevenlabs/v3 schema (recorded 29 Oct, fixtures) has
+# `speed`, 0.7 to 1.2, default 1. A remake may set it for pace (`job`); the first read is at 1.
+V3_SPEED = (0.7, 1.2)
 VOICED = 0.84  # the least of a narration the voice is on in the guides (84%: the rest pauses)
 ELEVENLABS = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 # MiniMax Speech 2.8 HD (replicate.com/minimax/speech-2.8-hd; platform.minimax.io's system
@@ -142,7 +146,8 @@ NO_NOTE = "A MiniMax voice takes no note: give it an emotion, or pause marks in 
 def job(script: str, voice: str = VOICE, note: str = "", emotion: str | None = None,
         reading: str = "", speed: float | None = None) -> dict:  # fmt: skip
     """The voice call. A remake's note ("quickly") goes in as a v3 delivery tag (`tag`) on
-    this request only, never into the version's words; the voice is the Director's pick. A
+    this request only, never into the version's words, and its `speed` (pace, within
+    V3_SPEED; None or 1 leaves v3's own); the voice is the Director's pick. A
     MiniMax voice reads `reading` when given (the words exactly, with pause marks and sounds
     added) in `emotion` (auto: its own choice), at `speed` (None: the emotion's own)."""
     text = check.narration_text(script)  # the Director's: what the narrator reads
@@ -152,9 +157,10 @@ def job(script: str, voice: str = VOICE, note: str = "", emotion: str | None = N
         raise ValueError(f"The narrator's voice is one of {', '.join(VOICES)}.")
     if voice in MINIMAX_VOICES:
         return _minimax(text, voice, note, emotion or "auto", (reading or "").strip(), speed)
-    said = tag(note)
+    said, (low, high) = tag(note), V3_SPEED
+    pace = {"speed": round(min(max(speed, low), high), 2)} if speed and speed != 1 else {}
     return {"model": MODEL, "input": {"prompt": f"[{said}] {text}" if said else text,
-                                      "voice": voice}}  # fmt: skip
+                                      "voice": voice, **pace}}  # fmt: skip
 
 
 def tag(note: str) -> str:

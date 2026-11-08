@@ -306,6 +306,28 @@ def test_the_real_turns_voice_reaches_the_narration(app, db, owner, monkeypatch)
     assert db.get(SongTake, video.song_take_id).voice == "Jane"
 
 
+def test_a_narration_remakes_pace_is_its_speed_and_the_first_read_stays_at_1(
+    app, db, owner, monkeypatch
+):
+    """MAIN, round 2: pace goes to v3's own `speed`, the note only says how to speak."""
+    from app import director
+
+    choose = director.choose
+
+    def faster(state):  # every narration move asks for 1.1; only the remake sends it
+        move = choose(state)
+        return {**move, "speed": 1.1} if move["tool"] == "narration" else move
+
+    monkeypatch.setattr(director, "choose", faster)
+    fs = _sent(owner, "narrated", "Every morning starts the same. Get fake:misheard fomo today.")
+    _run(app, db, ticks=120)
+    pid = db.get(Freestyle, fs["id"]).project_id
+    moves = helpers.moves(db, pid)
+    assert "Making the narration (clearly, speed 1.1)." in moves, moves
+    reads = db.query(Job).filter(Job.kind == "speech", Job.project_id == pid).order_by(Job.id)
+    assert [j.input["input"].get("speed") for j in reads] == [None, 1.1]
+
+
 def test_a_name_still_wrong_when_the_remakes_are_used_is_said_in_the_delivery(
     app, db, owner, monkeypatch
 ):
