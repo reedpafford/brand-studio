@@ -90,8 +90,9 @@ def made_stale(project: Project, clip: ProjectClip, take: ClipTake) -> bool:
     """This take of the clip made with another video model, shape, flavour or Sung shots."""
     from app.model_map import of_clip
 
-    sung = (clip.song_slice or {}).get("sung_shots")
-    return _stale(project, take.made_with or {}, of_clip(project, clip).id, sung)
+    sung, made = (clip.song_slice or {}).get("sung_shots"), take.made_with or {}
+    model = made.get("model") if made.get("talker") else of_clip(project, clip).id  # HeyGen's
+    return _stale(project, made, model, sung)
 
 
 # --- Choices and prices ----------------------------------------------------------------------

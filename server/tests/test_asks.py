@@ -160,6 +160,11 @@ def test_a_story_choice_shows_its_pick_and_goes_with_it_after_its_time(app, db, 
     }
     assert asks.asked(db, db.get(Project, pid), None, {**move, "choices": []}).startswith(
         "Refused")  # fmt: skip
+    paid = [{"title": "Make his confession again", "why": "One more paid try, alone in the car."},
+            {"title": "Keep it as it is", "why": "Free."}]  # video 281's card 53  # fmt: skip
+    assert asks.asked(db, db.get(Project, pid), None, {**move, "choices": paid}) == (
+        asks.PAID_CHOICE
+    )  # a spending OK never decides itself: never a story choice
     ask = _ask(db, pid, move)
     card = _card(owner, ask)
     assert card["pick"] == "A" and card["choices"][0]["why"] == "Clear before and after."

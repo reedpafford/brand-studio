@@ -693,8 +693,12 @@ def _with_note(prompt: str, note: str) -> str:
 def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
     """What one more take costs: the estimate `enqueue` charges, and the director's watch of
     it that rides along while watches are on (`take_watch.rides`)."""
-    from app import take_watch
+    from app import take_watch, talker
 
+    if talker.says(db, project, clip):  # cut from the talker's one HeyGen take (video 281)
+        from app import host
+
+        return host.price(db, project, 1)
     m = model_map.of_clip(project, clip)
     job = {"model": m.id, "input": {"resolution": model_map.resolution(m)}}
     seconds = model_map.billed(m, clip.seconds)  # as it's asked for on its own model

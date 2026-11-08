@@ -36,7 +36,8 @@ STILL, PIECE = "host_still", "host_piece"
 NOT_PRESENTER = "This video has no host: its format isn't Presenter."
 NO_NARRATION = "Make the narration first: the host says it."
 MAKING = "The host is being made. It's ready in a moment."
-MADE = "The host is made. Make it again to change it."
+MADE = ("The host is made. To change it, draw its still again with a note: its take is made "
+        "again from it.")  # fmt: skip
 NOT_READY = "Make the host first: a presenter video lays its host over the B-roll."
 NO_PIECE = "There's no such piece of the host."
 STILL_PROMPT = (
@@ -146,9 +147,16 @@ def _piece_price(db: Session, ws: int, seconds: int) -> Decimal:
 
 
 def _still_price(db: Session, project: Project) -> Decimal:
+    """The still; a talker's with its check before any take, and drawn once more if the check
+    finds it wrong (`host_watch.check_still`)."""
     from app.storyboard import image_model, still_credits
 
-    return still_credits(db, project.workspace_id, image_model(project))
+    one = still_credits(db, project.workspace_id, image_model(project))
+    if not talker.on(db, project):
+        return one
+    from app import item_checks
+
+    return 2 * (one + item_checks.price(db, project, "frame"))
 
 
 def price(db: Session, project: Project, number: int | None = None) -> Decimal:
@@ -185,7 +193,8 @@ def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None,
     script = db.get(Script, draft.script_id)
     if not hosted(script) or (video is not None and how(video) == "acts"):
         return Decimal(0)
-    still = still_credits(db, script.workspace_id, image_model(video))
+    still = _still_price(db, video) if video is not None else still_credits(
+        db, script.workspace_id, image_model(video))  # fmt: skip
     return still + _piece_price(db, script.workspace_id, seconds + 1) * (1 + redos)
 
 
@@ -269,9 +278,10 @@ def host_look(db: Session, project: Project):
     return looks[0] if looks else None
 
 
-def still_input(db: Session, project: Project, row: HostPiece) -> dict:
+def still_input(db: Session, project: Project, row: HostPiece, note: str = "") -> dict:
     """The host's still: the cast host's sheet in the video's look, else the look's own words;
-    on green, or a UGC talker in their own room (talker.STILL_PROMPT)."""
+    on green, or a UGC talker where the plan puts them (talker.STILL_PROMPT). `note`: what a
+    redraw changes."""
     from app.sheets import sheet_for
     from app.storyboard import image_model
     from app.storyboard import still_input as drawn
@@ -282,8 +292,15 @@ def still_input(db: Session, project: Project, row: HostPiece) -> dict:
     who = (f"The host, {item.name}, exactly as [Image1], their character sheet: the same face, "
            "hair, build and outfit" if sheet else
            f"The host, drawn in this look: {look}")  # fmt: skip
-    prompt = talker.STILL_PROMPT if talker.on(db, project) else STILL_PROMPT
-    job = drawn(image_model(project), prompt.format(who=who), project.aspect_ratio, sheet)
+    talks = talker.on(db, project)
+    place = talker.frame(db, project) if talks else None  # what HeyGen gets: their clip's place
+    shown = f"[Image{len(sheet) + 1}] (the opening still of their clip)"
+    where = (f"exactly where {shown} shows them, its place and light, alone" if place
+             else talker.where(db, project))  # fmt: skip
+    said = (talker.STILL_PROMPT if talks else STILL_PROMPT).format(who=who, where=where)
+    said += f" Change from the last still: {note.strip()[:500]}" if note.strip() else ""
+    pictures = [*sheet, *([place] if place else [])]
+    job = drawn(image_model(project), said, project.aspect_ratio, pictures)
     return {**job, "step": STILL, "project_id": project.id, "host_piece_id": row.id,
             "made_with": {"cast": _cast(db, project)}}  # fmt: skip
 
@@ -312,8 +329,9 @@ def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int
     motion = motion or (talker.MOTION if talks else TALK)
     if note:  # first, so the fit to HeyGen's limit never cuts it
         motion = f"{note[:200].rstrip('.')}. {motion}"
-    if talks:
-        data = talker.piece_input(project, row, still, motion)
+    if talks:  # nobody else in it, whatever the note says (video 281: strangers, three times)
+        room = talker.LONGEST_MOTION - len(talker.ALONE) - 1
+        data = talker.piece_input(project, row, still, f"{motion[:room]} {talker.ALONE}")
     else:  # on green, whatever the director's note says: the cut keys it
         room = talker.LONGEST_MOTION - len(GREEN) - 1
         said = " ".join(motion.split())[:room]
@@ -362,12 +380,37 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
     return "Making the host's take." if len(todo) == 1 else f"Making the host's {len(todo)} takes."
 
 
+def redraw(db: Session, user: User, project: Project, note: str, mark: dict | None = None,
+           **kwargs) -> str:  # fmt: skip
+    """The host's still drawn again with `note` (video 281: three HeyGen tries from one still
+    in the wrong room, and no way to draw it again), then its take made again from it, priced
+    together like Make the host; `mark` goes on to the take (a watch's remake)."""
+    from app.routes.jobs import enqueue
+
+    have = rows(db, project)
+    if not have or not have[0].file_id:
+        return make(db, user, project, None)
+    jobs = _jobs(db, project)
+    if any(_state(r, jobs.get(r.id)) == "making" for r in have):
+        raise HTTPException(409, MAKING)
+    _cast(db, project, check=True)
+    hold = sum((_piece_price(db, project.workspace_id, _seconds(r)) for r in have[1:]),
+               Decimal(0))  # fmt: skip
+    motion = _motion(jobs, have)
+    drawn = {**still_input(db, project, have[0], note), **({"motion": motion} if motion else {}),
+             **({"mark": mark} if mark else {})}  # fmt: skip
+    enqueue(db, user, "image", drawn, project=project, provider="replicate", hold=hold,
+            **kwargs)  # fmt: skip
+    return f"Drawing the host's still again ({note.strip()}), then making its take from it."
+
+
 def _motion(jobs: dict[int, Job], have: list[HostPiece]) -> str:
     """The motion note the host's take was last made with ("" when none was written)."""
     made = [jobs[r.id] for r in have if r.id in jobs]
     said = [j.input.get("motion") or (j.input.get("input") or {}).get("motion_prompt")
             for j in made]  # fmt: skip
-    said = [(m or "").removesuffix(f" {GREEN}") for m in said]  # the director's own words
+    said = [(m or "").removesuffix(f" {GREEN}").removesuffix(f" {talker.ALONE}")
+            for m in said]  # the director's own words  # fmt: skip
     return next((m for m in said if m and m not in (talker.MOTION, TALK)), "")
 
 
@@ -387,13 +430,21 @@ def saved(db: Session, job: Job) -> None:
     project = db.get(Project, job.project_id)
     if row is None or row.take_id != project.song_take_id or not _keep(row, job):
         return  # a narration since: this host is for the old one
-    if job.input["step"] != STILL:
-        from app import host_watch  # rule 11: looked at as it lands
+    from app import host_watch
 
+    if job.input["step"] != STILL:  # rule 11: looked at as it lands
         return host_watch.queue_safely(db, job, row)
-    user = db.get(User, job.created_by_id)
+    if talker.on(db, project) and host_watch.check_still(db, job, row):
+        return  # its take waits for the still's check (`pieces` after it)
+    pieces(db, job, row)
+
+
+def pieces(db: Session, job: Job, row: HostPiece) -> None:
+    """Every piece made again from the still `job` drew (prepaid: its press held them)."""
+    project, user = db.get(Project, job.project_id), db.get(User, job.created_by_id)
     for piece in rows(db, project)[1:]:
-        _piece(db, user, project, piece, row.file_id, job.input.get("motion", ""), prepaid=True)
+        _piece(db, user, project, piece, row.file_id, job.input.get("motion", ""),
+               mark=job.input.get("mark"), prepaid=True)  # fmt: skip
 
 
 def labels(db: Session, project: Project) -> list[str]:

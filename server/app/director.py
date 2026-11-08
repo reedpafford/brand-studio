@@ -1090,19 +1090,24 @@ def _over_others(text: str, span: list[float], said: list[dict]) -> bool:
 
 
 def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
-    """The same tool, as it was, right after it was refused: the refusal (else None). Nothing
-    changed, so it would be refused again; the run stops and says why. Asking to watch the
-    same cut again never stops it: it's told to fix something or deliver (QA on #1145)."""
-    rows = turns(db, db.get(Project, job.project_id))
-    before = next((j for j in reversed(rows) if j.id < job.id), None)
-    said = (before.input.get("result") or "") if before else ""
+    """The same tool, as it was, right after it was refused, or after one other refused step
+    in between (video 281: redraw_still and host, each refused pointing at the other): the
+    refusal (else None). Nothing changed, so it would be refused again; the run stops and says
+    why. Asking to watch the same cut again never stops it: it's told to fix something or
+    deliver (QA on #1145)."""
+    rows = [j for j in turns(db, db.get(Project, job.project_id)) if j.id < job.id]
     keys = ("tool", "clip_id", "take_id", "note", "edit")
-    same = before is not None and all((before.output or {}).get(k) == decision.get(k) for k in keys)
-    if said == WATCHED_AGAIN or not (same and said.startswith("Refused: ")):
-        return None
-    if "being rewritten to fit" in said:  # its prompt is rewritten since: its take may go
-        return None  # (video 271: its take never followed the rewrite)
-    return said.removeprefix("Refused: ")
+    said = []
+    for before in rows[-2:][::-1]:  # the last turn, then the one before it
+        result = before.input.get("result") or ""
+        if result == WATCHED_AGAIN or not result.startswith("Refused: "):
+            return None  # something went between: not a loop
+        said.append(result.removeprefix("Refused: "))
+        if all((before.output or {}).get(k) == decision.get(k) for k in keys):
+            if "being rewritten to fit" in result:  # its prompt is rewritten since: its take
+                return None  # may go (video 271: its take never followed the rewrite)
+            return " Then: ".join(reversed(said))
+    return None
 
 
 def _record(db: Session, job: Job, run: dict, result: str) -> None:
