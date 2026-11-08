@@ -66,7 +66,7 @@ class KieSuno:
             "negative_tags": song.get("exclude_styles", ""),
         }}  # fmt: skip
         if song.get("vocal_gender") in ("f", "m"):  # from the style line; else Suno picks
-            body["input"]["vocalGender"] = song["vocal_gender"]
+            body["input"]["vocal_gender"] = song["vocal_gender"]  # KIE's docs and pilots: snake
         return self._call("POST", "/jobs/createTask", json=body)["taskId"]
 
     def poll(self, ref: str) -> Result:

@@ -54,13 +54,13 @@ def test_the_style_lines_voice_goes_to_kie_only_when_set(gender):
     job["input"]["vocal_gender"] = gender  # prompts.song_request reads it from the style line
     kie.submit("music", job)
     sent = json.loads(seen[0].content)["input"]
-    assert sent.get("vocalGender") == (gender or None)
+    assert sent.get("vocal_gender") == (gender or None) and "vocalGender" not in sent
 
 
 def test_a_female_vocal_in_the_style_line_reaches_kie():
     kie, seen = _kie(lambda r: _ok({"taskId": "t1"}))
     kie.submit("music", _real(music.job("Iron Paws, bowl is bright", "pop, warm female vocal")))
-    assert json.loads(seen[0].content)["input"]["vocalGender"] == "f"
+    assert json.loads(seen[0].content)["input"]["vocal_gender"] == "f"
 
 
 def test_poll_waits_then_gives_both_songs():
