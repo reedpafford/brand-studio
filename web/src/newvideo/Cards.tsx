@@ -99,12 +99,6 @@ export function FormatCards({ formats, value, onPick, small, locked }: { formats
   );
 }
 
-/** A style made only in some formats, said plainly: "Movie is made only as Dialogue: its people say …" (QA on #1440). */
-export function onlyAs(l: Look, formats: { id: string; name: string }[]): string {
-  const names = (l.formats ?? []).map((id) => formats.find((f) => f.id === id)?.name ?? id).join(" or ");
-  return `${l.name} is made only as ${names}${l.formats_why ? `: ${l.formats_why}` : ""}.`;
-}
-
 /** Its short tag: "Dialogue only". */
 export function onlyShort(l: Look, formats: { id: string; name: string }[]): string {
   return `${(l.formats ?? []).map((id) => formats.find((f) => f.id === id)?.name ?? id).join(" or ")} only`;

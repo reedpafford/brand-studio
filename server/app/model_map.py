@@ -69,6 +69,9 @@ SILENT = ("Sound: no one speaks in this shot (no voices, narration or dialogue),
 SPOKEN = "Sound: only the spoken lines, each from the person who says it, and {room}. No music."
 PLACE = "the sounds of the place"
 ONE_SHOT = "One continuous shot, no scene cuts."
+# a take made at Omni's nearest shape is cropped to the video's in the cut (`nearest`)
+FRAMED = ("Framing: this shot is cropped to {shape} in the edit, so keep the action and faces "
+          "inside the centre {area}.")  # fmt: skip
 AUDIO = re.compile(r"^Audio:.*(?:\n|$)", re.M)  # Seedance's audio line, first and last
 ROOM = re.compile(r"\bonly (?:the spoken lines and )?(.+?)\. No music", re.I)
 FIRST = re.compile(r"\[Image(\d+)\] is the first frame\b")
@@ -283,9 +286,12 @@ def fit(model, input: dict, files: dict) -> tuple[dict, dict]:
         prompt += "\n" + SILENT.format(room=room)
     elif audio:
         prompt += "\n" + SPOKEN.format(room=room)
+    if (shape := nearest(input["aspect_ratio"], model.aspect_ratios)) != input["aspect_ratio"]:
+        area = "square" if input["aspect_ratio"] == "1:1" else f"{input['aspect_ratio']} area"
+        prompt += "\n" + FRAMED.format(shape=input["aspect_ratio"], area=area)
     shaped = {"prompt": prompt, "duration": max(model.duration.min, min(input["duration"],
               model.duration.max)), "resolution": resolution(model),
-              "aspect_ratio": nearest(input["aspect_ratio"], model.aspect_ratios)}  # fmt: skip
+              "aspect_ratio": shape}  # fmt: skip
     return shaped, {"reference_images": pictures} if pictures else {}
 
 

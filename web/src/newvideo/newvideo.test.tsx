@@ -279,7 +279,7 @@ test("MAIN's run (video 233): a sample the test site's stand-ins made never hide
   expect(lookMedia({ ...made, sample_stand_in: false } as never).clip).toMatch(/\/9\b/); // a real one: the owner's own
 });
 
-test("QA on #1440: a style made only as Dialogue (Movie) isn't offered for Presenter, with its reason; picked first, it gives way", async () => {
+test("QA on #1440: a style made only as Dialogue (Movie) isn't offered for Presenter, with its reason; picked, it gives way and says so", async () => {
   setViewport(1440);
   const movie = look("movie", "Movie", { formats: ["dialogue"], formats_why: "its people say the script's lines on camera", video_model: "gemini-omni-1.2" });
   server(owner, { "GET /looks": [200, [movie, ...LOOKS]] });
@@ -289,10 +289,12 @@ test("QA on #1440: a style made only as Dialogue (Movie) isn't offered for Prese
   const card = await within(styles).findByRole("radio", { name: /^Movie/ });
   expect(card).toHaveAttribute("aria-checked", "true"); // Dialogue: Movie is offered (the first style)
   expect(card).not.toHaveAttribute("aria-disabled");
+  await userEvent.click(card); // picked by the person: a format that can't use it says so
   await userEvent.click(within(screen.getByRole("radiogroup", { name: "Format" })).getByRole("radio", { name: /Presenter/ }));
   const off = within(styles).getByRole("radio", { name: /^Movie/ });
   expect(off).toHaveAttribute("aria-disabled", "true");
   expect(off).toHaveAttribute("aria-checked", "false"); // the next style that fits is used instead
   expect(within(styles).getByText("Movie is made only as Dialogue: its people say the script's lines on camera.")).toBeInTheDocument();
   expect(within(styles).getByRole("radio", { name: /^House/ })).toHaveAttribute("aria-checked", "true");
+  expect(screen.getByText("Movie is made only as Dialogue: its people say the script's lines on camera. The style is House for now.")).toBeInTheDocument();
 });

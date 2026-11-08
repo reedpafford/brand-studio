@@ -141,6 +141,30 @@ def test_movie_is_made_only_as_dialogue_with_its_reason(app, db, owner, editor):
     assert moved.status_code == 409 and moved.json()["detail"].startswith("Movie is made only as")
 
 
+def test_a_script_is_never_movie_in_a_format_movie_isnt_made_in(owner):
+    """QA on #1440: a narrated Movie script was published (its narration paid for) and then
+    never made. Writing or changing one is refused in Make's words; Dialogue stays free."""
+    from app import looks
+
+    said = looks.format_refusal("movie", "narrated")
+    brand = owner.get("/brands").json()[0]["id"]
+    for body in ({"format": "narrated"}, {"kind": "narrated"}, {"format": "presenter"}):
+        made = owner.post("/scripts", json={"brand_id": brand, "title": "T", "look": "movie",
+                                            **body})  # fmt: skip
+        assert made.status_code == 409 and made.json()["detail"].startswith(said[:30]), body
+    rows = owner.post("/scripts/bulk", json={"scripts": [
+        {"brand_id": brand, "title": "T", "look": "movie", "format": "narrated"}]})  # fmt: skip
+    assert (rows.status_code, rows.json()["detail"]) == (409, f"Row 1: {said}")
+    movie = _make(owner, text=DRAMA, look="movie")["id"]
+    moved = owner.patch(f"/scripts/{movie}", json={"format": "narrated"})
+    assert (moved.status_code, moved.json()["detail"]) == (409, said)
+    told = _make(owner, text=DRAMA, format="narrated")["id"]
+    moved = owner.patch(f"/scripts/{told}", json={"look": "movie"})
+    assert (moved.status_code, moved.json()["detail"]) == (409, said)
+    assert owner.patch(f"/scripts/{told}", json={"look": "movie", "format": "dialogue"}).is_success
+    assert owner.get(f"/scripts/{told}").json()["look"] == "movie"
+
+
 def test_an_omni_take_in_a_shape_omni_doesnt_make_is_made_nearest_and_cropped_in_the_cut():
     """QA on #1440: Omni 1.2 makes only 9:16 and 16:9, so a 1:1 Movie or UGC video's takes
     failed at the provider. Its takes are made at the nearest shape Omni has (9:16 on a tie)
@@ -154,7 +178,11 @@ def test_an_omni_take_in_a_shape_omni_doesnt_make_is_made_nearest_and_cropped_in
         "9:16", "16:9", "9:16", "16:9"]  # fmt: skip
     taken, _ = model_map.fit(omni, {"prompt": "Audio: only room tone.\nShot 1 | 0-4 s. A.",
                                     "duration": 4, "aspect_ratio": "1:1"}, {})  # fmt: skip
-    assert taken["aspect_ratio"] == "9:16"
+    assert taken["aspect_ratio"] == "9:16"  # with a line keeping faces in the crop, only then
+    assert "keep the action and faces inside the centre square." in taken["prompt"]
+    own, _ = model_map.fit(omni, {"prompt": "Shot 1 | 0-4 s. A.", "duration": 4,
+                                  "aspect_ratio": "9:16"}, {})  # fmt: skip
+    assert "Framing" not in own["prompt"]
     tall = subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",  # noqa: S603, S607
                            "color=c=red:s=270x480:d=1", "-f", "lavfi", "-i",
                            "anullsrc=r=44100:cl=mono", "-t", "1", "-c:v", "libx264",
