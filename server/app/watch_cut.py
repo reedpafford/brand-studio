@@ -305,7 +305,21 @@ def save(db: Session, job: Job) -> None:
     """The look's answer: its findings checked, kept with it for the director."""
     i = job.input
     found = checked(job.output or {}, i.get("cut", []), i.get("words", []), i.get("script", ""))
-    job.output = {**(job.output or {}), "checked": found}
+    job.output = {**(job.output or {}), "checked": [_mutable(db, job, f) for f in found]}
+
+
+def _mutable(db: Session, job: Job, f: dict) -> dict:
+    """A mute finding that would silence a scripted line's only copy (take_mute.lost_line,
+    video 284) is kept instead, saying why, so it's never offered as a mute."""
+    from app import take_mute
+
+    if f.get("fix") != "mute" or not f.get("mute"):
+        return f
+    span = next((c for c in job.input.get("cut", []) if c["clip_id"] == f.get("clip_id")), None)
+    take = db.get(ClipTake, span["take_id"]) if span else None
+    row = db.get(ProjectClip, take.clip_id) if take else None
+    lost = take_mute.lost_line(db, row, take, *f["mute"]) if row else ""
+    return {**f, "fix": "keep", "mute": None, "note": lost} if lost else f
 
 
 def _newest(db: Session, project: Project) -> Job | None:
