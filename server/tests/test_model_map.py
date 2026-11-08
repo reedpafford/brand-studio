@@ -111,8 +111,13 @@ def test_omni_reads_its_own_prompt_words_and_two_people(owner):
     assert model_map.ONE_SHOT not in spoken
     assert spoken.endswith(model_map.SPOKEN.format(room="kitchen sounds"))
     cast = ["frame:1", "char:1", "char:15", "char:150", "screen:2"]
-    assert model_map.unsent_people(model_map.OMNI, cast) == ("char:150",)
-    assert model_map.unsent_people("seedance-2.5", cast) == ()
+    assert model_map.unsent_pictures(model_map.OMNI, cast) == ("char:150",)
+    assert model_map.unsent_pictures("seedance-2.5", cast) == ()
+    # Past Omni's six pictures, a place, then the opening still, never a product (video 284)
+    full = ["frame:1", "char:1", "char:2", "char:3", "place:3", "screen:2", "screen:7", "prop:5"]
+    assert model_map.unsent_pictures(model_map.OMNI, full) == ("char:3", "place:3")
+    screens = ["frame:1", "char:1", "char:2", "screen:1", "screen:2", "screen:3", "screen:4"]
+    assert model_map.unsent_pictures(model_map.OMNI, screens) == ("frame:1",)
     assert not _out("char:15", ("char:150",)) and _out("char:150", ("char:",))
 
 
@@ -633,3 +638,20 @@ def test_the_director_never_switches_how_the_presenter_appears_unasked(app, db, 
     assert other == settings_move.PRESENTER  # note 2 isn't there: only note 1 is
     db.refresh(ugc)
     assert host.how(ugc) == "talks"  # nothing switched
+
+
+def test_a_dropped_still_and_place_are_said_in_words_without_the_first_frame_line():
+    """QA on #1461: a dropped opening still takes its "[Image1] is the first frame. It sets…"
+    sentences with it, and a dropped place is said by its name."""
+    from app.clip_takes import _in_words
+
+    known = {"frame:c3": ("frame:c3 | still", "image", [1]),
+             "place:41": ("place:41 | place | The truck lot", "image", [2]),
+             "screen:13": ("screen:13 | product | Oil of Oregano pouch", "image", [3])}  # fmt: skip
+    prompt = ("References: [Image1] is the first frame. It sets the opening composition only; "
+              "the sheets override the first frame where they differ. [Image2] is the truck lot. "
+              "[Image3] is the pouch.\n"
+              "Shot 1 | 0-3 s. In [Image2], she holds [Image3].")  # fmt: skip
+    said = _in_words(None, prompt, list(known), ("frame:", "place:41"), known)
+    assert said == ("References: [Image1] is the pouch.\n"
+                    "Shot 1 | 0-3 s. In The truck lot, she holds [Image1].")  # fmt: skip
