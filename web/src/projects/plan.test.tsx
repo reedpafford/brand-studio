@@ -22,7 +22,7 @@ const base: Record<string, [number, unknown]> = {
   "GET /projects/9/breakdown": [200, breakdown],
   "GET /projects/9/storyboard": [200, []],
   "GET /projects/9/clips": [200, []],
-  "GET /projects/9/video": [404, { detail: "none" }],
+  "GET /projects/9/video": [204, null], // none yet
   "GET /projects/9/assets": [200, [asset({})]],
   "GET /library/character/5": [200, item({})],
   "GET /library/character": [200, []],
@@ -59,7 +59,7 @@ const NO_PLANNING = /Make the plan|Write it myself|Approve the plan|Make a new p
 
 test("no plan yet: the director makes it after Make it, with no press of its own; Shots is greyed until approved", async () => {
   setViewport(1440);
-  fakeServer({ ...withPlan("none"), "GET /projects/9": [200, { ...project, plan_status: "none", plan_credits: 9 }], "GET /projects/9/plan": [404, { detail: "none" }] });
+  fakeServer({ ...withPlan("none"), "GET /projects/9": [200, { ...project, plan_status: "none", plan_credits: 9 }], "GET /projects/9/plan": [204, null] }); // no plan yet: no content
   open();
   expect(await screen.findByText("The director makes the plan after Make it: where each line happens and what we see.")).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: /Shots/ })).toHaveAttribute("aria-disabled", "true");

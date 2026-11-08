@@ -850,7 +850,8 @@ class DirectorTurn(Strict):
         default=None,
         description="For clip_model: the catalogue id of the model that makes this clip "
         '(Reed, 6 Nov: "Omni is more for the realistic stuff"), the reason in `why`. UGC\'s '
-        "clips stay on 'gemini-omni-1.2' (its B-roll, and a talker who acts in the story); a "
+        "clips stay on 'gemini-omni-1.2' (its B-roll, and a talker who acts in the story), and so "
+        "does every Movie clip; a "
         "talker in one spot is HeyGen in our own voice and never moves. An animated style's "
         "clips are on its Seedance, and 'gemini-omni-1.2' may make a realistic shot there. Empty "
         "puts the clip back on the video's model. For settings with setting video_model or "

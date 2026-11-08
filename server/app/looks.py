@@ -133,6 +133,20 @@ def pick(db: Session, user: User, look_id: str) -> str:
     return look_id
 
 
+def format_refusal(look_id: str, format_id: str) -> str:
+    """Why this style isn't made in this format, in plain words, or "" when it is: a style
+    whose guide names its formats ("formats: dialogue") is made only in those (QA on #1440:
+    Movie as Narrated or Presenter added a voice track of ours)."""
+    from app import guides
+
+    style = guides.style(look_id)
+    if not style["formats"] or format_id in style["formats"]:
+        return ""
+    names = " or ".join(guides.format_(f)["name"] for f in style["formats"])
+    why = f": {style['formats_why']}" if style["formats_why"] else ""
+    return f"{style['name']} is made only as {names}{why}."
+
+
 PICKED = "look_picked"  # in Project.locks: a person chose this video's look themselves
 STYLE_KEPT = ("This video keeps its script's style, {}. The style is chosen on the script "
               "before it's published.")  # fmt: skip

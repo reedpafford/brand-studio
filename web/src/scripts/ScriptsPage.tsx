@@ -148,7 +148,7 @@ export function ScriptsPage() {
     setParams({}, { replace: true });
   };
 
-  // Picking: the owner's scripts and an editor's own, for Move to project and Archive.
+  // Picking: the owner's scripts and an editor's own, for Move to folder and Archive.
   const mayPick = (r: Row) => !removed && (owner || r.created_by_id === me?.id);
   const pick = (id: number, on: boolean) => setPicked((was) => { const next = new Set(was); if (on) next.add(id); else next.delete(id); return next; });
   const pickedRows = rows.filter((r) => picked.has(r.id) && mayPick(r));
@@ -177,7 +177,7 @@ export function ScriptsPage() {
       <EditorRow
         key={r.id}
         row={r}
-        project={folders.data?.find((f) => f.id === r.folder_id)?.name ?? "No project"}
+        project={folders.data?.find((f) => f.id === r.folder_id)?.name ?? "Unsorted"}
         look={lookName(looks, r.look)}
         video={r.versions.some((v) => beingMade(v.status) && !!v.project_id)}
         onMakeVideo={directed(r.kind) && r.versions.some((v) => finished(v) && !v.project_id) ? () => set("video", String(r.id)) : undefined}
@@ -246,7 +246,7 @@ export function ScriptsPage() {
         {owner ? (
           <div className="flex flex-wrap items-center gap-1">
             <ProjectsChip brandId={brandId} plain />
-            <BandMenu label="Group" value={flat ? "none" : ""} options={[["", "Project"], ["none", "None"]]} onPick={(v) => set("group", v)} />
+            <BandMenu label="Group" value={flat ? "none" : ""} options={[["", "Folder"], ["none", "None"]]} onPick={(v) => set("group", v)} />
             <BandMenu label="Sort" value={sort} options={SORTS} onPick={(v) => set("sort", v)} />
             {more}
           </div>

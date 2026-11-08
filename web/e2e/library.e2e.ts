@@ -31,7 +31,7 @@ test("an empty brand's Make one draws a new character's sheet, its page opens, a
   await expect(page.getByRole("heading", { name: "No characters in fomo yet" })).toBeVisible();
   await page.getByRole("button", { name: /^Make one · up to \$/ }).click();
   const form = page.getByRole("form", { name: "New character" });
-  await form.getByPlaceholder("Name").fill("Max");
+  await form.getByLabel("Name").fill("Max");
   await form.getByLabel("Description").fill("Man, 40s, gym coach, grey hoodie");
   await form.getByRole("button", { name: /^Make it · up to \$/ }).click();
   await expect(page.getByRole("heading", { name: "Max", level: 1 })).toBeVisible({ timeout: 30_000 });
@@ -43,7 +43,7 @@ test("an empty brand's Make one draws a new character's sheet, its page opens, a
 test("a character from a photo, and search narrows the list by name (S8-01)", async ({ page }) => {
   await page.getByRole("button", { name: "New character" }).click();
   const form = page.getByRole("form", { name: "New character" });
-  await form.getByPlaceholder("Name").fill("Rex");
+  await form.getByLabel("Name").fill("Rex");
   await form.getByText("Upload a photo").locator("input").setInputFiles(image("rex.png"));
   await form.getByRole("button", { name: /^Make it/ }).click();
   await expect(page.getByRole("heading", { name: "Rex", level: 1 })).toBeVisible({ timeout: 30_000 });

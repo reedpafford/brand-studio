@@ -13,6 +13,7 @@ type Frame = components["schemas"]["FrameOut"];
 export function useFrames(projectId: number, poll?: (frames: Frame[] | undefined) => boolean) {
   return useQuery({
     queryKey: ["storyboard", projectId],
+    enabled: projectId > 0, // no video yet (the page before it loads): never /projects/0
     refetchInterval: (q) => (poll?.(q.state.data) ? 3000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/storyboard", { params: { path: { project_id: projectId } } }), []),
   });
@@ -21,6 +22,7 @@ export function useFrames(projectId: number, poll?: (frames: Frame[] | undefined
 export function useProjectClips(projectId: number) {
   return useQuery({
     queryKey: ["project-clips", projectId],
+    enabled: projectId > 0,
     queryFn: () => polled(api.GET("/projects/{project_id}/clips", { params: { path: { project_id: projectId } } }), []),
   });
 }
@@ -28,11 +30,11 @@ export function useProjectClips(projectId: number) {
 /** The stitched video's query, shared so the Videos list can ask once for every project. */
 export const videoQuery = (projectId: number) => ({
   queryKey: ["project-video", projectId] as const,
+  enabled: projectId > 0,
   queryFn: async () => {
     const { data, response } = await api.GET("/projects/{project_id}/video", { params: { path: { project_id: projectId } } });
-    if (response.status === 404) return null;
-    if (!data) throw new Error("load");
-    return data;
+    if (response.ok || response.status === 404) return data ?? null; // none yet: 204
+    throw new Error("load");
   },
 });
 

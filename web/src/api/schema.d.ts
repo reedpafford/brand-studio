@@ -705,7 +705,9 @@ export interface paths {
         };
         /**
          * List Screens
-         * @description Filter by `tag`, or by `moment` to get the screens attached to it by default.
+         * @description Filter by `tag`, or by `moment` to get the screens attached to it by default. An
+         *     archived product's pictures are left out, as the director leaves them out
+         *     (enhance.screens_of): they stay with its old videos only.
          */
         get: operations["list_screens_brands__brand_id__screens_get"];
         put?: never;
@@ -4709,9 +4711,9 @@ export interface paths {
         /**
          * Make Look Copy
          * @description Make a {look} look for this video (flows ST2; paid from this video's budget): a Cast &
-         *     places character with no sheet in the video's look gets its own copy here, drawn in the
-         *     look from its photo or House sheet. Used in this video only, never saved to Cast & places
-         *     (rule 12); its library character and its locked roles stay as they are.
+         *     places character with no sheet in the video's look gets its own copy here (`_copy`). Used
+         *     in this video only, never saved to Cast & places (rule 12); its library character and its
+         *     locked roles stay as they are.
          */
         post: operations["make_look_copy_projects__project_id__assets_looks__item_id__copy_post"];
         delete?: never;
@@ -5567,7 +5569,8 @@ export interface paths {
         };
         /**
          * Read
-         * @description The plan, or 404 when there's none and none is being made (E).
+         * @description The plan, or 204 (no content) when there's none and none is being made (E). Not a 404:
+         *     the video page polls this while planning, and each 404 is a console error.
          */
         get: operations["read_projects__project_id__plan_get"];
         /**
@@ -9249,6 +9252,16 @@ export interface components {
              * @default false
              */
             sample_stand_in: boolean;
+            /**
+             * Formats
+             * @default []
+             */
+            formats: string[];
+            /**
+             * Formats Why
+             * @default
+             */
+            formats_why: string;
         };
         /** LookSheetOut */
         LookSheetOut: {

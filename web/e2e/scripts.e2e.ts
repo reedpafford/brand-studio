@@ -6,7 +6,7 @@ test("a script is made in the library: describe it, write its words, and it is l
   test.setTimeout(90_000); // the variation is written by the worker
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
-  await page.goto(`/b/${await emptyBrand(page, "Script Library Co")}`);
+  await page.goto(`/b/${await emptyBrand(page, "Script Library Co")}/scripts`);
   await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
   await expect(page.getByText("No scripts for Script Library Co yet.")).toBeVisible();
 

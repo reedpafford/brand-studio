@@ -1650,7 +1650,7 @@ def video_state(db: Session, project: Project) -> dict:
     from app.clip_prompts import newest
     from app.clip_takes import take_credits
     from app.item_checks import latest, shown, verdict
-    from app.routes.project_assets import _missing, missing_places
+    from app.routes.project_assets import _missing, missing_copies, missing_places
     from app.routes.project_clips import out_of_date
 
     bd = newest(db, project)
@@ -1742,6 +1742,7 @@ def video_state(db: Session, project: Project) -> dict:
         "shots": "ready" if bd else "none",
         "too_long": _splittable(db, project, bd),  # split_clip
         "missing_looks": [*(s.role for s in _missing(db, project)),
+                          *(c.name for c in missing_copies(db, project)),  # a brand character
                           *(p.name for p in missing_places(db, project))] if bd else [],
         # someone the shots show who isn't a role (an extra: "Crowd"), yours to cast or leave
         "no_role": breakdown_extras(bd.problems) if bd else [],

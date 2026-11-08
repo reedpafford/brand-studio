@@ -72,7 +72,7 @@ test("the stage, Group and Sort live in the address and go to the server; Clear 
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));
   expect(screen.getByRole("tab", { name: /In production/ })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByRole("button", { name: "Sort: Title A–Z ▾" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Group: Project ▾" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Group: Folder ▾" })).toBeInTheDocument();
   expect(await screen.findByText("Nothing matches these filters.")).toBeInTheDocument();
   await userEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]);
   expect(screen.getByRole("tab", { name: /All/ })).toHaveAttribute("aria-selected", "true");
@@ -126,7 +126,7 @@ test("New script: picking Dialogue saves nothing; the first word typed saves it 
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(1);
 });
 
-test("New script at 390 and desktop: the header shows on load and opening saves nothing; a Look pick saves the script with that look, a Project pick files it", async () => {
+test("New script at 390 and desktop: the header shows on load and opening saves nothing; a Look pick saves the script with that look, a Folder pick files it", async () => {
   const looks = [{ id: "house", name: "House", blurb: "", on: true, sample_still_id: null }, { id: "noir", name: "Noir", blurb: "", on: true, sample_still_id: null }];
   for (const width of [1440, 390]) {
     setViewport(width);
@@ -140,7 +140,7 @@ test("New script at 390 and desktop: the header shows on load and opening saves 
   }
   const calls = fakeServer({ ...base, "GET /looks": [200, looks], "GET /brands/1/folders": [200, [{ id: 3, name: "Launch", brand_id: 1, counts: {} }]], "POST /scripts": [201, full({ title: "Untitled script" })], "GET /scripts/7": [200, full({ title: "Untitled script" })], "POST /folders/file": [200, { folder_id: 3, was: [{ id: 7, folder_id: null }] }] });
   renderApp("/b/1/scripts/new?format=dialogue");
-  await userEvent.click(await screen.findByRole("button", { name: /Project: none/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Folder: Unsorted/ }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Launch" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /folders/file")?.body).toMatchObject({ kind: "script", ids: [7], folder_id: 3 }));
 });

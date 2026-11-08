@@ -49,6 +49,8 @@ class LookOut(BaseModel):
     test_still: bool = False
     test_tag: bool = False  # its card says "Test sample" (not the site's own frame)
     sample_stand_in: bool = False  # its sample is a test-site stand-in: the card shows the test one
+    formats: list[str] = []  # the formats it's made in, when only some (Movie: dialogue)
+    formats_why: str = ""  # why, in plain words
 
 
 class LookSwitchIn(BaseModel):
@@ -69,7 +71,8 @@ def _out(db: Session, ws: int, look: dict) -> LookOut:
                    card=look.get("card", ""), broll=look.get("broll", ""),
                    test_clip=_sample_file("looks", look["id"], "mp4") is not None,
                    test_still=_sample_file("looks", look["id"], "jpg") is not None,
-                   test_tag=look["id"] not in SITE_OUTPUT)  # fmt: skip
+                   test_tag=look["id"] not in SITE_OUTPUT, formats=look.get("formats", []),
+                   formats_why=look.get("formats_why", ""))  # fmt: skip
 
 
 def _sample_file(kind: str, item_id: str, ext: str) -> Path | None:

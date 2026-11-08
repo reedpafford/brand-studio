@@ -8,6 +8,7 @@ type Asset = components["schemas"]["AssetOut"];
 export function useAssets(projectId: number) {
   return useQuery({
     queryKey: ["assets", projectId],
+    enabled: projectId > 0,
     refetchInterval: (q) => (q.state.data?.some((a) => a.sheet_status === "drawing") ? 3000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/assets", { params: { path: { project_id: projectId } } }), []),
   });

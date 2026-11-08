@@ -174,11 +174,15 @@ test("on a phone (P-02): the folder's name over its counts, all four tabs, two c
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });
 
-test("Reed's brand still opens on Scripts", async () => {
+test("Reed's brand opens on its open folder (S1-01 to S1-08), New video and Scripts one tap away", async () => {
   setViewport(1440);
   fakeServer({ ...base(owner), "GET /scripts": [200, []], "GET /references": [200, []] });
   open("/b/1");
-  expect(await screen.findByRole("heading", { name: "Scripts" })).toBeInTheDocument();
+  expect(await screen.findByText("Beer gut doctor rant")).toBeInTheDocument(); // the folder's ideas
+  expect(screen.queryByRole("heading", { name: "Scripts" })).toBeNull();
+  const rail = screen.getByRole("navigation", { name: "Main" });
+  expect(within(rail).getByRole("link", { name: /^New video/ })).toHaveAttribute("href", "/b/1/videos/new");
+  expect(within(rail).getByRole("link", { name: "Scripts" })).toHaveAttribute("href", "/b/1/scripts");
 });
 
 test("a folder that's gone says so, with a way to Unsorted (QA on #1304)", async () => {

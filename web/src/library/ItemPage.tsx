@@ -160,14 +160,15 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
                 ) : null,
               )}
               {product && app && (
-                <button type="button" onClick={() => setAdding(true)} className="flex h-[94px] w-[70px] items-center justify-center rounded-md border border-dashed border-border-strong bg-surface-2 text-muted" aria-label="Add screens">
+                <button type="button" onClick={() => setAdding(true)} className="flex h-[94px] w-[70px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-strong bg-surface-2 text-muted hover:text-text">
                   <Upload size={16} strokeWidth={1.75} aria-hidden />
+                  <span className="text-[11px] leading-tight">Add screens</span>
                 </button>
               )}
               {product && !app && (
-                <label className="flex h-[94px] w-[70px] cursor-pointer items-center justify-center rounded-md border border-dashed border-border-strong bg-surface-2 text-muted" title="Add a photo">
+                <label className="flex h-[94px] w-[70px] cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-strong bg-surface-2 text-center text-muted hover:text-text" title="Another photo: a flavour, a size or another side">
                   <Upload size={16} strokeWidth={1.75} aria-hidden />
-                  <span className="sr-only">Add a photo</span>
+                  <span className="text-[11px] leading-tight">{(item.pictures ?? []).length ? "Add another photo" : "Add a photo"}</span>
                   <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && photo.mutate(e.target.files[0])} />
                 </label>
               )}

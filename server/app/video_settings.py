@@ -111,6 +111,13 @@ def check(db: Session, user: User, project: Project, values: dict) -> dict:
     if field == "look":
         value = looks.pick(db, user, value)  # the look's own rules (Off for editors)
         looks.keep_style(db, project, value)  # a published script's style stays (item 7)
+        from app import guides
+        from app.narration import video_script
+
+        script = video_script(db, project)
+        kind, own = (script.kind, script.format or "") if script else ("story", "")
+        if no := looks.format_refusal(value, guides.video_format(kind, looks.base(value), own)):
+            raise HTTPException(409, no)  # a style made only in some formats
     elif field == "broll_look":  # a hosted video's B-roll in another style's look (n31)
         value = looks.pick_broll(db, user, project, value)
     elif field in ("video_model", "image_model"):

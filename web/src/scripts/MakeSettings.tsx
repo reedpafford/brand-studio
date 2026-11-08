@@ -120,7 +120,7 @@ export function MakeSettings({ script, defaults, picks, onPick }: { script: Scri
         </Panel>
       )}
       {picking?.key === "look" && looks.data ? (
-        <LookPicker current={picking.current} looks={looks.data} busy={null} error={null} onPick={(l) => pick(picking.choices.find((c) => c.id === l.id)!)} onClose={() => setPicking(null)} />
+        <LookPicker current={picking.current} looks={looks.data} busy={null} error={null} onPick={(l) => pick(picking.choices.find((c) => c.id === l.id)!)} onClose={() => setPicking(null)} format={script.format} />
       ) : (
         picking && <ChoicePanel field={picking} owner={owner} onPick={(c) => (c.id === picking.current ? setPicking(null) : pick(c))} onClose={() => setPicking(null)} />
       )}

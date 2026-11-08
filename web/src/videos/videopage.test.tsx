@@ -35,7 +35,7 @@ function server(me: object, f: object | null, r: object, routes: Record<string, 
     "GET /projects/50/clips": [200, []],
     "GET /projects/50/storyboard": [200, []],
     "GET /projects/50/assets": [200, [{ kind: "character", ref: "char:5", role: "Dr. Pickle", library_item_id: 5, name: "Dr. Pickle", locked: true, sheet_status: "approved", ready: true, slot_id: null, shots: 3 }]],
-    "GET /projects/50/video": [404, { detail: "none" }],
+    "GET /projects/50/video": [204, null], // none yet
     "GET /projects/50/locks": [200, locks],
     ...routes,
   });
@@ -947,6 +947,15 @@ test("S3-12: while Cut 2 is made, Cut 1 stays watchable; the switch plays and do
   expect(within(done).getByLabelText("The cut")).toHaveAttribute("src", "/api/files/80");
   expect(within(done).getByRole("link", { name: "Download MP4" })).toHaveAttribute("download", "beer-gut-doctor-rant-cut-1.mp4");
   expect(within(done).queryByText(/stays watchable/)).toBeNull();
+});
+
+test("Polish: a run waiting for Make it says so once on its card, never twice", async () => {
+  setViewport(1440);
+  const sub = "Cut 1 stays as it is until you press Make it";
+  server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, record({ status: "waiting", title: "Ready to make", sub, tone: "wait" })] });
+  renderApp("/b/1/videos/50");
+  const runCard = await screen.findByRole("region", { name: "Ready to make" });
+  expect(within(runCard).getAllByText(sub, { exact: false })).toHaveLength(1);
 });
 
 test("S3-09: one cut and nothing being made: no switch, the heading reads Final cut", async () => {
