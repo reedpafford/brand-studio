@@ -98,9 +98,9 @@ def asked_for(text: str, script: str) -> tuple[str, str | None, bool] | None:
             continue
         new = [re.escape(r) for r, w in quotes if w != words and not _in(w, script)]
         repl = f"(?:{'|'.join(new)})" if new else r"(?!x)x"
-        for pattern in ASKS:
-            found = re.search(pattern.replace("Q", re.escape(raw)).replace("R", f"(?P<r>{repl})"),
-                              text, re.I)  # fmt: skip
+        fill = {"Q": re.escape(raw), "R": f"(?P<r>{repl})"}  # in one pass: never inside the
+        for pattern in ASKS:  # quoted words themselves (video 261: "Resilia" has an R)
+            found = re.search(re.sub("[QR]", lambda m, f=fill: f[m[0]], pattern), text, re.I)
             if found:
                 new = (found.groupdict().get("r") or "").strip("“”\"'‘’ ") or None
                 return words, new, _only(text[: found.start()] + " " + text[found.end() :])

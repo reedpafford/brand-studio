@@ -238,10 +238,15 @@ def say(db: Session, user: User, project: Project, text: str, files: list[int] =
         raise HTTPException(429, TOO_MANY)
     said = {"by": user.id, "text": text, "at": now.isoformat(), "run": run_id,
             **({"files": list(files)} if files else {})}  # fmt: skip
-    answered = None
-    if not going and (instead := locked_line.offer(db, user, project, text)):
-        if instead[1]:  # all it asked: answered at once (S3-14), no run reads it; a note that
-            said["offer"], answered = instead[0].id, instead[0]  # asks more waits for Make it
+    answered = instead = None
+    if not going:
+        try:  # a card that can't be made never loses the note (video 261: a 500 on a note)
+            with db.begin_nested():
+                instead = locked_line.offer(db, user, project, text)
+        except Exception:
+            log.exception("video %s: no locked-line card; the note goes on as it is", project.id)
+    if instead and instead[1]:  # all it asked: answered at once (S3-14), no run reads it; a
+        said["offer"], answered = instead[0].id, instead[0]  # note that asks more: Make it
     project.director_chat = [*every, said]
     db.commit()
     if going and going.status == JobStatus.needs_owner_approval and going.input.get(START):
