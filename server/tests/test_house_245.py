@@ -85,38 +85,33 @@ def test_the_director_sees_unscripted_words_on_a_take(app, db, owner, editor):
     assert take["unscripted"] == [finding["text"]]
 
 
-def test_the_director_shows_the_brands_real_screen_at_the_word(app, db, editor, approved):  # noqa: F811
-    """Generated numbers and screen changes garbled in 233, 226 and 245 ($0.00, "$41,2000").
-    The director switches an insert shot to the brand's real screen, its figure drawn on it,
-    as the Clips switch does: free, and it can put the generated one back."""
+def test_a_real_screen_is_the_clips_reference_never_a_cut_in(app, db, editor, approved):  # noqa: F811
+    """Reed, 8 Nov (rule 13): the real product or screen is attached as the generation's
+    reference, never pasted in as a flat full-frame still (run 287's pouch, mid-scene). The
+    director has no cut-in tool; the switch only takes an older cut-in off."""
     from app import director_tools
     from app.director import video_state
     from app.models.accounts import User
     from app.models.projects import Project
+    from app.routes.project_clips import AS_REFERENCE
 
     base, clip = approved
     project = db.get(Project, int(base.rsplit("/", 1)[1]))
     ed = db.query(User).filter_by(email="ed@example.com").one()
     (state,) = [c for c in video_state(db, project)["clips"] if c["clip_id"] == clip["clip_id"]]
-    assert state["inserts"] == [{"shot_id": "1.2", "screen": "Buy", "real": False}]
-
-    def run(**decision) -> str:
-        said = director_tools.run(db, ed, project, {"tool": "real_screen", **decision},
-                                  app.state.storage)  # fmt: skip
-        db.commit()
-        return said
-
-    said = run(clip_id=clip["clip_id"], shot_id="1.2")
-    assert said.startswith("Shot 1.2 of clip 1 shows the brand's real screen in the cut")
-    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": True, "1.2@director": True}
-    assert editor.get(f"{base}/clips").json()[0]["inserts"][0]["use_real_image"] is True
-    assert run(clip_id=clip["clip_id"], shot_id="1.2", value="off").endswith(
-        "generated screen again."
-    )
-    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": False, "1.2@director": True}
-    assert run(clip_id=clip["clip_id"], shot_id="1.1") == (
-        "Refused: That shot isn't an insert in this clip.")  # fmt: skip
-    assert run(clip_id="", shot_id="1.2") == "Refused: name one clip."
+    assert "inserts" not in state
+    said = director_tools.run(db, ed, project, {"tool": "real_screen", "clip_id": clip["clip_id"],
+                                                "shot_id": "1.2"}, app.state.storage)  # fmt: skip
+    assert said == "Refused: there's no tool called real_screen."
+    url = f"{base}/clips/{clip['id']}/inserts/1.2"
+    on = editor.put(url, json={"use_real_image": True})
+    assert (on.status_code, on.json()["detail"]) == (409, AS_REFERENCE)
+    row = db.get(ProjectClip, clip["id"])
+    row.real_images = {"1.2": True}  # an older video's cut-in stays until switched off
+    db.commit()
+    assert editor.put(url, json={"use_real_image": False}).status_code == 200
+    db.expire_all()
+    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": False}
 
 
 @pytest.mark.parametrize(("name", "texts", "age"), [
@@ -208,7 +203,7 @@ def test_a_line_comes_early_in_its_shot_unless_the_setup_is_the_point():
     assert "Only when the setup is itself the point" in plan
     assert "the line comes at or near its start" in clip and "unless the setup is itself" in clip
     director = prompts.system("director")
-    assert "- `real_screen` (free, `clip_id`, `shot_id`)" in director
+    assert "real_screen" not in director  # rule 13: a reference, never a cut-in
     assert "**Unscripted words** (`unscripted` on a take)" in director
 
 
@@ -231,21 +226,3 @@ def test_a_mute_never_covers_a_word_its_finding_doesnt_name():
         [4.5, 5.0],
         [{"word": "That's", "start": 4.5, "end": 4.7}, {"word": "fine", "start": 4.7, "end": 5.0}],
     )
-
-
-def test_a_persons_real_screen_choice_stays_theirs(app, db, editor, approved):  # noqa: F811
-    from app import director_tools
-    from app.models.accounts import User
-    from app.models.projects import Project
-
-    base, clip = approved
-    project = db.get(Project, int(base.rsplit("/", 1)[1]))
-    ed = db.query(User).filter_by(email="ed@example.com").one()
-    url = f"{base}/clips/{clip['id']}/inserts/1.2"
-    assert editor.put(url, json={"use_real_image": False}).status_code == 200  # a person's "no"
-    said = director_tools.run(db, ed, project, {"tool": "real_screen", "clip_id": clip["clip_id"],
-                                                "shot_id": "1.2"}, app.state.storage)  # fmt: skip
-    assert said.startswith("Refused: a person set shot 1.2 of clip 1 themselves")
-    editor.put(url, json={"use_real_image": True})
-    db.expire_all()
-    assert db.get(ProjectClip, clip["id"]).real_images == {"1.2": True}

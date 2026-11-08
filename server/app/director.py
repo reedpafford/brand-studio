@@ -1894,18 +1894,6 @@ def old_take(row: ProjectClip) -> dict:
     return {"old_take": why.removeprefix("Advice: ")}
 
 
-def _inserts(db: Session, project: Project, row: ProjectClip) -> dict:
-    """The clip's shots that show a brand screen, each with its figure and whether the cut
-    shows the brand's real screen there (`real`), for `real_screen`; {} with none."""
-    from app import cut_in
-
-    out = [{"shot_id": i.shot_id, "screen": i.name, "real": i.on,
-            **({"figure": " ".join(x for x in (i.figure.get("balance"), i.figure.get("change"))
-                                   if x)} if i.figure else {})}
-           for i in cut_in.inserts(db, project, row)]  # fmt: skip
-    return {"inserts": out} if out else {}
-
-
 def cut_findings(db: Session, project: Project) -> dict[int, list[str]]:
     """What the watches of this video's cuts found on each take, by take id (each finding is
     about the take its clip played in that cut): picking a take back brings these back (233:
@@ -1986,7 +1974,6 @@ def video_state(db: Session, project: Project) -> dict:
                       "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
                                 if k in ("state", "how")},
                       **({"own_sound": True} if take_sound.own(db, picked) else {}),
-                      **_inserts(db, project, row),  # real_screen
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
