@@ -1515,6 +1515,8 @@ def _ready(db: Session, project: Project, run: dict, last: Job) -> bool:
     # answered was never read, and the card showed the plan from before it), and a treatment
     # asked since that turn is written: one that reads a note and changes nothing (a wait, a
     # question) gets its card too
+    if not _own_story(db, run, project.id):  # a revision's story stands: its free changes,
+        return False  # or Make it once it moves past them (START_FIRST)
     mine = [t for t in turns(db, project) if t.input[RUN]["id"] == run["id"]]
     reader = next((t for t in mine if t.input.get(READ, 0) >= len(notes)), None)
     if reader is None:
