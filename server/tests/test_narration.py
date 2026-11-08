@@ -234,6 +234,10 @@ def test_a_line_starts_at_its_first_sound_when_whisper_starts_the_word_late():
     _, theirs, junk, _ = song_timing._matcher([{"words": ["Call", "one", "friend."]}], [
         {"word": w} for w in ("Call", "phone", ".ManiaFriend.")])  # fmt: skip
     assert theirs == ["call", "phone", "friend"] and junk == [False, False, True]
+    for word in ("iPhone", "TikTok", "McDonald's", "U.S.", "e.g.", "$5,000", "days?"):
+        assert not song_timing.glued(word), word  # names and abbreviations are words
+    for word in ("?ÿÿÿÿÿÿÿÿDay", ".שובDay", ".ManiaResilia"):  # video 261's
+        assert song_timing.glued(word), word
 
 
 SCRIPT_261 = """What happens to your gut if you take two softgels of oil of oregano every morning for thirty days?

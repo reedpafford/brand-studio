@@ -177,11 +177,12 @@ def _norm(word: str) -> str:
 
 
 def glued(word: str) -> bool:
-    """Whisper glued junk onto this heard word: a stray character ("?ÿÿÿÿDay", ".שובDay") or a
-    capital inside it (".ManiaResilia"), beyond the punctuation around a word or in a number."""
-    core = re.sub(r"(?<=\d)[.,](?=\d)", "", word.strip()).strip("\"“”‘’'()[]¡¿$%")
-    core = core.rstrip(".,!?;:…-")
-    return bool(re.search(r"[^A-Za-z0-9'’-]", core) or re.search(r"[a-z][A-Z]", core))
+    """Whisper glued junk onto this heard word: a stray character ("?ÿÿÿÿDay", ".שובDay",
+    ".ManiaResilia"), beyond the punctuation around a word, in a number or an abbreviation
+    ("U.S.", "e.g."); a name with a capital inside ("iPhone", "McDonald's") is a word."""
+    core = re.sub(r"(?<=\d)[.,](?=\d)|(?<=\b[A-Za-z])\.(?=[A-Za-z]\b)", "", word.strip())
+    core = core.strip("\"“”‘’'()[]¡¿$%").rstrip(".,!?;:…-")
+    return bool(re.search(r"[^A-Za-z0-9'’-]", core))
 
 
 def _ending(word: str, known: set[str]) -> str:
