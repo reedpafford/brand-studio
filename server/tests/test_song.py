@@ -106,6 +106,23 @@ def test_a_clean_song_breakdown_passes():
     assert _check(_breakdown(shots)) == []
 
 
+def test_a_narrations_last_shot_holds_past_the_last_word_and_the_clip_counts_it():
+    """CRITIQUE-268: "And so do you" got 0.87 s on screen and the video ended 0.06 s after it,
+    as the narrated plan ran the shots only to the narration's end. The last shot may now
+    hold its picture past the end (planned), and its clip is made long enough to keep it."""
+    from app import narration, song_breakdown
+
+    shots = [_shot("1.1", [1, 2], 0.0, 2.0), _shot("1.2", [3], 2.0, 4.0),
+             _shot("1.3", [4, 5], 4.0, 7.2)]  # 1.2 s past the narration's 6.0 s  # fmt: skip
+    held = check.song_breakdown(LYRICS, _breakdown(shots), SONG, {}, 4, 15,
+                                hold=narration.FINAL_HOLD)  # fmt: skip
+    assert not [p for p in held if "the shots end at" in p]
+    song = check.song_breakdown(LYRICS, _breakdown(shots), SONG, {}, 4, 15)  # a song: its end
+    assert "the shots end at 7.20 s, the song at 6.00 s" in song
+    plan, timed = song_breakdown.split(_breakdown(shots), 1, broll=True, shortest=4, longest=15)
+    assert plan.clips[-1].seconds == 8 and timed["shots"]["1.3"]["end"] == 7.2  # priced, made
+
+
 def test_gaps_and_a_speaking_b_roll_shot_need_a_fix_and_the_rest_is_advice():
     shots = [_shot("1.1", [1, 2], 0.0, 2.2), _shot("1.2", [3], 2.5, 4.6, sung=True),
              _shot("1.3", [4, 5], 4.6, 5.0, line="Get Iron Paws now")]  # fmt: skip

@@ -205,8 +205,12 @@ def problems(
     take = db.get(SongTake, song["take_id"]) if song else None
     if take:
         timed, timing = song_breakdown.joined(bd, song), take.timing or {}
+        from app import narration
+
+        hold = narration.FINAL_HOLD if take.kind == narration.KIND else 0.0  # its last shot's
         found = check.song_breakdown(script, timed, timing, screens, m.duration.min,
-                                     m.duration.max, written=written, **extra)  # fmt: skip
+                                     m.duration.max, written=written, hold=hold,
+                                     **extra)  # fmt: skip
     else:
         found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     from app.advice import names, plain
