@@ -1345,6 +1345,17 @@ def test_a_note_asks_a_length_only_in_length_words():
     assert {note: check.asked_length(note) for note in asked} == asked
 
 
+def test_the_prompts_write_the_face_not_a_hidden_feeling_and_give_a_short_line_its_beat():
+    """276 and 284: "Humiliated…, her smile frozen" came out as tears both times (the named
+    feeling won), and "Hey." glued to a longer line was dropped both times."""
+    clip, still = (HERE / "clip_prompts.md").read_text(), (HERE / "storyboard.md").read_text()
+    assert 'never "humiliated" or "mortified"' in clip and "A feeling the character hides" in clip
+    assert "A reaction names the feeling and its reason" in clip  # rule 17 for a shown feeling
+    assert "never a feeling the character hides" in still
+    assert '"saying Hey on its own, then a beat"' in clip
+    assert "cut, colour and fabric" in clip
+
+
 def test_the_free_fix_never_drops_a_lip_sync_note():
     """Reed's c4: Fix this clip's prompt dropped "nobody on screen lip-syncs it", which
     invites lip-sync. It's put back before the Keep line."""
