@@ -64,7 +64,15 @@ def test_a_movie_goes_from_its_script_to_a_cut_with_every_clip_on_omni(app, db, 
     jobs = db.query(Job).filter_by(project_id=pid).all()
     steps = {j.input.get("step") for j in jobs}
     assert {"breakdown", "storyboard", "frame", "clip_prompts", "clip_take", "cut_make"} <= steps
-    kinds = {"write-claude", "check-claude", "image", "video", "cut_make", "cut_listen"}
+    kinds = {
+        "write-claude",
+        "check-claude",
+        "image",
+        "video",
+        "cut_make",
+        "cut_listen",
+        "director_step",
+    }  # the server's own steps (director_auto)
     assert {j.kind for j in jobs} <= kinds, {j.kind for j in jobs}  # no voice, narration, music
     takes = [j for j in jobs if j.kind == "video"]
     omni = get_model(model_map.OMNI)

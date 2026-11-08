@@ -22,7 +22,7 @@ def test_two_wakers_start_one_turn(app, db, owner, editor, monkeypatch):
     second now waits on the video's lock, reads the turn the first queued, and stops."""
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=6)
+    _run(app, db, ticks=2)  # its second turn queued (the server takes the mechanical steps)
     project = db.get(Project, pid)
     last = director.turns(db, project)[-1]
     last.status, last.input = JobStatus.succeeded, {**last.input, "result": "Made the plan."}
