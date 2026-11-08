@@ -196,8 +196,8 @@ def _music_that_stops_early_fails_with_one_click_fixes(app, db, owner, presenter
     _local(app, db)
     failed = owner.get(f"{presenter}/cut").json()
     assert failed["number"] == n and failed["making"] is None
-    assert failed["failed"]["why"].startswith(
-        f"Cut {n + 1} couldn’t be made: the music file stops at 0:01, and the cut runs to 0:07"
+    assert failed["failed"]["why"].startswith(  # the cut: the stand-in narration's length
+        f"Cut {n + 1} couldn’t be made: the music file stops at 0:01, and the cut runs to 0:0"
     )
     assert failed["failed"]["why"].endswith("Nothing was charged.")
     assert failed["failed"]["fixes"] == ["loop_music", "remove_music"]

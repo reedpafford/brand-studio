@@ -60,6 +60,16 @@ def test_strips_sample_the_take_and_its_moments(tmp_path):
     assert deep_watch.said_at(words, 0.5) == "Get" and deep_watch.said_at(words, 0.7) == ""
 
 
+def test_a_cuts_end_window_is_one_more_never_one_of_the_others(tmp_path):
+    """QA on #1448: a cut's end window took one of the 4, so with 3 glitches its clip joins
+    got none. The end comes first, and the glitches, joins and first word keep their own."""
+    src = tmp_path / "cut.mp4"
+    _video(src, flash=5)  # a glitch early on, far from the end
+    _, made = deep_watch.look(src, tmp_path, [], 10, 1, ending=True)
+    near = [(m["start"], m["end"]) for m in made if "key moment" in m["what"]]
+    assert len(near) == 2 and near[0][0] < 0.5 and near[1][0] == 1.2  # the glitch and the end
+
+
 def test_dense_windows_never_overlap_and_stay_inside():
     assert deep_watch.windows(6.0, [5.9, 1.0, 1.2, 3.0, 4.0], 3) == [0.6, 2.6, 5.2]
     assert deep_watch.windows(0.5, [0.2], 3) == [0.0]

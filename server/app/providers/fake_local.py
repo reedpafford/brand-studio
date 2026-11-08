@@ -162,17 +162,16 @@ def hear_song(path: Path, lyrics: str) -> list[dict]:
 
 # The stand-in narrator: each sentence a tone, 0.3 s a word, with 0.8 s of silence after it
 # (so the pause trim has something to shorten). "fake:fail" in the words fails the voice
-# call; "fake:clip-word" makes the trimmed narration lose its last word when heard again
-# (so it's kept untrimmed: "Kept the pauses"); "fake:misheard" makes the word after it heard
-# one letter off ("fomo" as "foma") unless the request carries a "[Say …]" note: the voice is
-# read quieter then, which the stand-in Whisper tells by its peak. v3 tags are never read.
+# call; "fake:misheard" makes the word after it heard one letter off ("fomo" as "foma")
+# unless the request carries the `say` tag ("[clearly]"): the voice is read quieter then,
+# which the stand-in Whisper tells by its peak. v3 tags are never read.
 WORD, GAP, MISHEARD = 0.3, 0.8, 0.3
 
 
 def narration(text: str) -> bytes:
-    from app.narration import MARK, sentences
+    from app.narration import MARK, SAY, sentences
 
-    told = re.search(r"\[say [^\]]*\]", text, re.I)
+    told = f"[{SAY}]" in text
     loud = MISHEARD if "fake:misheard" in text and not told else 1
     text = MARK.sub("", re.sub(r"\[[^\]]*\]\s*", "", text))  # MiniMax's marks aren't read
     parts, t = [], GAP
@@ -225,9 +224,7 @@ def hear_voice(path: Path, text: str) -> list[dict]:
         each = (b - a) / len(words)
         heard += [{"word": w, "start": round(a + n * each, 2), "end": round(a + (n + 1) * each, 2)}
                   for n, w in enumerate(words)]  # fmt: skip
-    if "fake:clip-word" in text and path.name == "trimmed.mp3":
-        heard = heard[:-1]
-    if "fake:misheard" in text and max(map(abs, samples), default=0) < 16000:  # no [Say …] note
+    if "fake:misheard" in text and max(map(abs, samples), default=0) < 16000:  # no `say` tag
         k = next((n + 1 for n, w in enumerate(heard) if w["word"] == "fake:misheard"), len(heard))
         if k < len(heard):
             w = heard[k]["word"]

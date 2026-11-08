@@ -137,3 +137,24 @@ def test_prose_with_a_direction_or_a_name_and_colon_is_read_whole():
     )
     vo = "BISCUIT (V.O.): Day one.\nHe sniffs.\nHe sighs.\nBiscuit (V.O.): Nope."
     assert check.narration_text(vo) == "Day one.\nNope."  # a V.O. script, action lines aren't read
+
+
+def test_a_narrator_label_on_one_line_of_prose_is_never_read_or_checked():
+    """Zack D video 271: "NARRATOR:" on the first line only, prose after it. The label was read
+    as part of the words, so the first line was flagged as "not heard as written"."""
+    from app import director_song, narration
+    from app.models.songs import SongTake
+
+    script = ("NARRATOR: They dump wild oregano into a steel tank.\nThe steam rips the oil out.\n"
+              "The oil floats on top.")  # fmt: skip
+    words = check.narration_text(script)
+    assert (
+        words == "They dump wild oregano into a steel tank.\nThe steam rips the oil out.\n"
+        "The oil floats on top."
+    )
+    assert narration.job(script)["input"]["prompt"] == words
+    heard = [{"word": w, "start": 0.0, "end": 0.1} for w in words.split()]
+    take = SongTake(kind=narration.KIND, lyrics=script, timing={"words": heard})
+    old = [{"text": "NARRATOR: They dump wild oregano into a steel tank."}]  # timed before
+    assert director_song._missing(take, old) == []
+    assert narration.extras(words, heard) == []

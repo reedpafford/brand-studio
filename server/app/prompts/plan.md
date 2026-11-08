@@ -33,6 +33,8 @@ Give each scene its part. The parts name the script's own beats: a part the scri
 
 **★ The product.** Mark the script's own product moments with `product` (the product or screen id from the brand block): the lines where the script shows, names or uses the product or the app (the find, the use, the proof, the end). A script with none has none: never add a product, screen or phone to a line that doesn't have it (Reed, 6 Nov: "it should literally follow the script exactly, every time"). A ★ line shows the real product, label or logo to camera.
 
+**When the product enters.** Where the Style section says when the product comes in (on one clean turn, at the payoff), that wins over the ★ marks above: no ★ before that moment, and the lines before it show what they name without the pack or its label, unless the script's own line shows the pack.
+
 **The lane.** When the Style section lists lanes, choose the one that suits this story and brand in the structure's `lane`; when in doubt, the default (""). Without lanes, `lane` is "".
 
 **The note (<note>, when given):** follow it over your own choices, still with the script's words unchanged.

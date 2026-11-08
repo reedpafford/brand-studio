@@ -151,7 +151,7 @@ def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app
     out = owner.get(f"/freestyles/{fs['id']}").json()
     moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
-    again = next(i for i, m in enumerate(moves) if m.startswith("Making the narration (Say"))
+    again = next(i for i, m in enumerate(moves) if m.startswith("Making the narration (clearly)"))
     plan = next(i for i, m in enumerate(moves) if m.startswith("Making the plan"))
     assert again < plan, moves
     video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
@@ -163,7 +163,7 @@ def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app
     draft = db.get(ScriptDraft, video.script_draft_id)
     assert "[" not in draft.text  # the note went to the voice, never into the version's words
     redo = db.get(Job, db.get(SongTake, second["id"]).job_id)
-    assert redo.input["input"]["prompt"].startswith("[Say ")
+    assert redo.input["input"]["prompt"].startswith("[clearly] ")  # a tag: never read aloud
     assert db.get(SongTake, second["id"]).voice == "Sarah"  # no voice picked: the default
 
 
@@ -306,6 +306,61 @@ def test_the_real_turns_voice_reaches_the_narration(app, db, owner, monkeypatch)
     assert db.get(SongTake, video.song_take_id).voice == "Jane"
 
 
+def test_a_narration_remakes_pace_is_its_speed_and_the_first_read_stays_at_1(
+    app, db, owner, monkeypatch
+):
+    """MAIN, round 2: pace goes to v3's own `speed`, the note only says how to speak."""
+    from app import director
+
+    choose = director.choose
+
+    def faster(state):  # every narration move asks for 1.1; only the remake sends it
+        move = choose(state)
+        return {**move, "speed": 1.1} if move["tool"] == "narration" else move
+
+    monkeypatch.setattr(director, "choose", faster)
+    fs = _sent(owner, "narrated", "Every morning starts the same. Get fake:misheard fomo today.")
+    _run(app, db, ticks=120)
+    pid = db.get(Freestyle, fs["id"]).project_id
+    moves = helpers.moves(db, pid)
+    assert "Making the narration (clearly, speed 1.1)." in moves, moves
+    reads = db.query(Job).filter(Job.kind == "speech", Job.project_id == pid).order_by(Job.id)
+    assert [j.input["input"].get("speed") for j in reads] == [None, 1.1]
+
+
+def test_speed_never_remakes_a_song_and_a_narration_with_extras_waits_for_a_remake(app, db, owner):
+    """QA on #1444: `speed` is read only in a narrated video; a take that says more than the
+    script is used only once the remakes are spent, and the delivery note says so."""
+    from app import director, director_tools
+    from app.models.accounts import User
+
+    fs = _sent(owner, "song", LYRICS)
+    _run(app, db, ticks=120)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    me = db.query(User).filter_by(email="reed@example.com").one()
+    songs = db.query(Job).filter(Job.kind == "music").count()
+    said = director_tools.run(db, me, video, {"tool": "song", "speed": 1.1}, app.state.storage, {})
+    assert (
+        said.startswith("The song is set")
+        and db.query(Job).filter(Job.kind == "music").count() == songs
+    )
+
+    fs = _sent(owner, "narrated", NARRATION)
+    _run(app, db, ticks=120)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    take = db.get(SongTake, video.song_take_id)
+    take.timing = {**take.timing, "extras": [{"text": "Quickly", "start": 0.0, "end": 0.3}]}
+    video.song_take_id = None
+    db.commit()
+    move = {"tool": "narration", "take_id": take.id}
+    assert director_song.run(db, me, video, move, {}).startswith("Refused: This narration says")
+    assert director_song.run(db, me, video, move, {director_song.REMADE: 2}).startswith("Using")
+    state = {"narration": director_song.state(db, video)}
+    assert director._still_wrong(state).startswith("The narration says “Quickly” at 0.0 s")
+
+
 def test_a_name_still_wrong_when_the_remakes_are_used_is_said_in_the_delivery(
     app, db, owner, monkeypatch
 ):
@@ -315,7 +370,7 @@ def test_a_name_still_wrong_when_the_remakes_are_used_is_said_in_the_delivery(
     out = owner.get(f"/freestyles/{fs['id']}").json()
     moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
-    assert not any(m.startswith("Making the narration (Say") for m in moves)
+    assert not any(m.startswith("Making the narration (clearly)") for m in moves)
     assert "The narration still says “foma” for fomo at" in moves[-1], moves[-1]
 
 

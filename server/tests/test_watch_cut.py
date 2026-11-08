@@ -100,7 +100,8 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     assert make_cut(app, db, editor, base).status_code == 200
     video = watch_cut._cut(db, project)  # the director's trim of its ending said what it ends on
     trim = CutEdit(project_id=project.id, director=True, kind="trim", said="Ending trimmed 0.2 s",
-                   data={"piece": "c1", "end": 0.9, "shows": "her grin at the phone"})  # fmt: skip
+                   data={"piece": "c1", "end": 0.9, "ending": True,
+                         "shows": "her grin at the phone"})  # fmt: skip
     db.add(trim)
     db.flush()
     video.edit_ids = [trim.id]
