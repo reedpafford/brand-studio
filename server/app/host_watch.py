@@ -36,6 +36,74 @@ SHOT = (
 )
 
 
+STILL_CHECK = "host_still"  # an ItemCheck's target: the talker's still, before any take
+CHECKED = "still_checked"  # in a still's input: drawn again for its check (looked at once)
+PICTURE = ("cast", "style")  # a piece's faults in what its still shows: the still is redrawn
+
+
+def check_still(db: Session, job: Job, row: HostPiece) -> bool:
+    """The talker's still looked at before any HeyGen take (video 281: three takes from one
+    still in the wrong room): only the talker, where the plan puts them (item_check with its
+    <place>). True when the check is queued (the take follows its answer, `still_checked`);
+    False with no check (checks off, or the still its check already had redrawn)."""
+    from app import host, item_checks, talker
+
+    project = db.get(Project, job.project_id)
+    if job.input.get(CHECKED) or not item_checks.on():
+        return False
+    item = host.host_look(db, project)
+    who = [f"char:{item.id}"] if item else []
+    shot = {
+        "character_ids": who,
+        "action": f"{item.name if item else 'One person'} alone, talking to their phone",
+    }
+    seen = item_checks.compared(db, project, who, [shot]) or {
+        "said": shot["action"],
+        "sheets": [],
+        "cast": None,
+        "images": [],
+        "ref_ids": [],
+    }
+    check = ItemCheck(project_id=project.id, target=STILL_CHECK, target_id=row.id,
+                      status="checking")  # fmt: skip
+    db.add(check)
+    db.flush()
+    text = prompts.item_check_input(seen["said"], seen["sheets"], cast=seen["cast"],
+                                    place=talker.where(db, project))  # fmt: skip
+    data = {"step": "item_check", "item_check_id": check.id, "project_id": project.id,
+            "system": [prompts.system("item_check")], "prompt": text, "effort": "low",
+            "max_tokens": 2000, "fit_images_to": 1024, "ref_ids": seen["ref_ids"],
+            "cast": True, "still_job_id": job.id,
+            "files": {"reference_images": [row.file_id, *seen["images"]]}}  # fmt: skip
+    look = Job(workspace_id=project.workspace_id, created_by_id=job.created_by_id,
+               kind=item_checks.KIND, provider="claude", input=data, project_id=project.id,
+               brand_id=project.brand_id, credits=item_checks.price(db, project, "frame"),
+               status="queued", approved_by_id=job.approved_by_id)  # fmt: skip  # its press's
+    db.add(look)
+    db.flush()
+    check.job_id = look.id
+    return True
+
+
+def still_checked(db: Session, check: ItemCheck, job: Job) -> None:
+    """The still's check is back (or failed): wrong for who or where, it's drawn again once
+    with the check's notes and looked at no more; else, or then, its take is made from it."""
+    from app import host
+    from app.routes.jobs import enqueue
+
+    still, row = db.get(Job, job.input.get("still_job_id") or 0), db.get(HostPiece, check.target_id)
+    if still is None or row is None:
+        return
+    wrong = [f for f in check.findings or [] if f.get("kind") in ("cast", "place")]
+    if not wrong:
+        return host.pieces(db, still, row)
+    project, user = db.get(Project, still.project_id), db.get(User, still.created_by_id)
+    note = " ".join(f["change_note"] or f["text"] for f in wrong)
+    drawn = {**host.still_input(db, project, row, note), CHECKED: True,
+             **{k: still.input[k] for k in ("motion", "mark") if k in still.input}}  # fmt: skip
+    enqueue(db, user, "image", drawn, project=project, provider="replicate", prepaid=True)
+
+
 def _words(db: Session, project: Project, row: HostPiece) -> list[dict]:
     """The narration's words this piece says, in its own seconds."""
     from app.models.songs import SongTake
@@ -153,7 +221,8 @@ def save(db: Session, job: Job) -> None:
     note = ("; ".join(f["says"] for f in sure) if doubts and sure
             else answer.note.strip() or "; ".join(f["says"] for f in faults))  # fmt: skip
     if redo and sure:  # only confirmed faults pay for making it again
-        did, action, made, credits = act(db, row, note)
+        picture = any(f["kind"] in PICTURE for f in sure)  # in what its still shows
+        did, action, made, credits = act(db, row, note, picture)
     elif doubts:  # shown to the owner, never paid for
         unsure = [f for f in faults if not f["verified"]]
         did, action, made, credits = watch_report.unsure(unsure), "unsure", None, None
@@ -192,8 +261,11 @@ def remakes(db: Session, row: HostPiece) -> int:
                and (since is None or j.created_at >= since))  # fmt: skip
 
 
-def act(db: Session, row: HostPiece, note: str) -> tuple[str, str, Job | None, Decimal | None]:
-    """A weak piece made again with the fix in its prompt, or why not (as take_watch.act)."""
+def act(db: Session, row: HostPiece, note: str,
+        picture: bool = False) -> tuple[str, str, Job | None, Decimal | None]:  # fmt: skip
+    """A weak piece made again with the fix in its prompt, or why not (as take_watch.act). A
+    talker's fault in what its still shows (`picture`: someone else in it, the wrong look)
+    draws the still again with the fix first, never the same still again (video 281)."""
     from fastapi import HTTPException
 
     from app import host
@@ -208,7 +280,10 @@ def act(db: Session, row: HostPiece, note: str) -> tuple[str, str, Job | None, D
         return (f"Flagged for you: {name} was made again {take_watch.REMAKES} times already, the "
                 "most a run allows. Make it again or keep it.", "flagged", None, None)  # fmt: skip
     user = db.get(User, jobs[row.id].created_by_id)
-    credits = host.price(db, project, row.number)  # its watch included
+    from app import talker
+
+    picture = picture and talker.on(db, project)
+    credits = host.price(db, project, 0 if picture else row.number)  # its watch included
     wait = f"{WAIT_OK}making {name} again goes past the video's budget." if fits(
         db, project, user, credits) else ""  # fmt: skip
     from app import cast_gate
@@ -219,6 +294,14 @@ def act(db: Session, row: HostPiece, note: str) -> tuple[str, str, Job | None, D
         return cast_gate.not_yet(no), "flagged", None, None
     marked = DIRECTOR_TOOL.set(True)
     try:
+        if picture:  # its still drawn again with the fix, its take made from that
+            host.redraw(db, user, project, note, mark={REDO: row.id, NOTE: note},
+                        prepaid=not wait, wait=wait)  # fmt: skip
+            if wait:
+                return (f"Asked the owner: drawing {name}'s still again goes past the video's "
+                        "budget.", "held", None, credits)  # fmt: skip
+            return (f"Drawing its still again with “{note}”, then making it again from it.",
+                    "redo", None, credits)  # fmt: skip
         made = host._piece(db, user, project, row, host.rows(db, project)[0].file_id,
                            note=note, mark={REDO: row.id, NOTE: note},
                            prepaid=not wait, wait=wait)  # fmt: skip

@@ -9,6 +9,7 @@ a video is held for an OK (`held`, from `enqueue`): the start of a run (Make it)
 the video's budget, or the director past its own limit (rule 34). Its state is read from its
 held jobs, so the job routes' Approve, Decline and Withdraw keep it right too."""
 
+import re
 from datetime import timedelta
 from decimal import Decimal
 
@@ -50,6 +51,16 @@ def _now():
 
 
 # --- The director's move --------------------------------------------------------------------
+
+
+PAID = re.compile(  # a choice that makes something (paid), never a story about money (rule 37:
+    # "End on his balance at $418,260", "It costs him the girlfriend", QA on #1457)
+    r"\b(?:paid|costs?\s+more|extra\s+cost|credits|remake|redo|redraw|another\s+(?:try|take)"
+    r"|make\s+(?:\w+\s+){0,4}again)\b", re.I)  # fmt: skip
+PAID_CHOICE = ("Refused: a story choice goes with your pick at its time, so it's never one that "
+               "costs (a spending OK never decides itself). Make that step with its own tool: "
+               "its card shows its \"up to\" and waits for the owner's OK. A talker's picture: "
+               "redraw_still its shot with a note.")  # fmt: skip
 
 
 def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
@@ -101,6 +112,8 @@ def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
                for n, c in enumerate(move.get("choices") or []) if c.get("title")][:4]  # fmt: skip
     if kind == "story" and len(choices) < 2:
         return "Refused: a story choice needs at least two choices and your pick."
+    if kind == "story" and any(PAID.search(f"{c['title']} {c['why']}") for c in choices):
+        return PAID_CHOICE  # video 281: "one more paid try", no price, picked at its time
     pick = _pick(db, project, kind, move.get("pick"), choices)
     db.add(Ask(workspace_id=project.workspace_id, project_id=project.id, run=run_id, kind=kind,
                topic=(move.get("topic") or "")[:80], subject=subject, question=question[:500],

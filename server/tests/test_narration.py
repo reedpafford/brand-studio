@@ -550,3 +550,91 @@ def test_a_plan_that_lost_its_narration_times_names_the_press_that_times_it(
     newest = db.query(BreakdownVersion).filter_by(project_id=pid).order_by(
         BreakdownVersion.id.desc()).first()  # fmt: skip
     assert newest.id != row.id and newest.data.get("song")  # timed to the narration again
+
+
+def test_a_read_that_says_every_line_is_never_judged_missing_lines(tmp_path):
+    """UGC video 281: the site's Whisper, prompted with the script, kept only the last line of
+    takes 1 and 2 ("iPhDanny, you were right…"; locally reproduced: a retry at temperature 0.8
+    continues the prompt and skips what it holds), so two paid remakes were made and the clean
+    23.7 s take thrown away. A read missing most of the script is heard again without the
+    prompt; a read with the script's words in order but for a few written another way ("10",
+    "Everything's giving") has no lines missing; and "iPhDanny" is Danny with junk glued on."""
+    import subprocess
+
+    from app import director_song, song_timing
+    from app.models.songs import SongTake
+
+    path = tmp_path / "voice.wav"  # take 1's length; its words are the real reads' words
+    tone = "aevalsrc='0.3*sin(2*PI*180*t)':s=24000:d=24.05"
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", tone, str(path)],  # noqa: S603, S607
+                   check=True)  # fmt: skip
+    asked = []
+
+    def hear(file, text, prompted=True):
+        asked.append(prompted)
+        return _read(SITE_281 if prompted else PLAIN_281)
+
+    timing, _ = narration.measure(path, check.narration_text(SCRIPT_281), hear=hear)
+    assert asked == [True, False]  # the site's read lost 9 of 11 lines: heard plainly too
+    assert all(ln["heard"] >= 0.6 for ln in timing["lines"]) and timing["extras"] == []
+    said = check.narration_text(SCRIPT_281)
+
+    def missing(heard):  # as the director reads a timed take
+        take = SongTake(kind=narration.KIND, lyrics=SCRIPT_281, timing={"words": heard})
+        timed = song_timing.lines("\n".join(narration.sentences(said)), heard, 24.05)
+        return director_song._missing(take, timed, "fomo")
+
+    assert narration.covered(said, _read(PLAIN_281)) >= 0.9
+    assert missing(_read(PLAIN_281)) == []  # "10", "Everything's giving"
+    assert len(missing(_read(SITE_281))) == 9  # what the site's read had
+    # A close read that truly drops a line, or the brand's name, still misses it (QA)
+    perfect = [{"word": w, "start": n * 0.3, "end": n * 0.3 + 0.2}
+               for n, w in enumerate(said.split())]  # fmt: skip
+    no_cta = perfect[:-4]
+    assert narration.covered(said, no_cta) >= 0.9 and missing(no_cta) == ["Link's in my bio."]
+    no_brand = [w for w in perfect if w["word"] != "fomo,"]
+    assert missing(no_brand) == ["Small trades on fomo, ten minutes a day."]
+    danny = song_timing.lines("Danny, you were right.", _read(SITE_281), 23.18)[0]
+    assert (danny["start"], danny["heard"]) == (19.38, 1.0)  # "iPhDanny," is Danny
+
+
+def _read(words: str) -> list[dict]:
+    out = []
+    for token in words.split():
+        word, at = token.rsplit("@", 1)
+        start, end = at.split("-")
+        out.append({"word": word, "start": float(start), "end": float(end)})
+    return out
+
+
+SCRIPT_281 = (
+    "MARCUS: I owe my brother-in-law a public apology.\n"
+    "MARCUS: Every Thanksgiving I laughed at him for staring at his phone at the table.\n"
+    "MARCUS: Called him the crypto guy. In front of everybody.\n"
+    "MARCUS: This year he finally showed me. Small trades on fomo, ten minutes a day.\n"
+    "MARCUS: Then he showed me the balance.\n"
+    "MARCUS: I didn't say a word for the rest of dinner.\n"
+    "MARCUS: I downloaded it in the parking lot.\n"
+    "MARCUS: Danny, you were right. Link's in my bio."
+)
+# Take 1 (job 1798) as the site heard it, and as faster-whisper small hears it unprompted
+SITE_281 = (
+    "iPhDanny,@19.38-19.82 you@21.06-21.28 were@21.28-21.42 right.@21.42-21.62 "
+    "Link's@22.18-22.36 in@22.36-22.42 my@22.42-22.54 bio.@22.54-22.76"
+)
+PLAIN_281 = """I@0-0.26 owe@0.26-0.42
+my@0.42-0.54 brother@0.54-0.74 -in@0.74-0.9 -law@0.9-1.04 a@1.04-1.46
+public@1.46-1.68 apology.@1.68-2.16 Everything's@2.92-3.36 giving.@3.36-3.5 I@3.88-4.06
+laughed@4.06-4.3 at@4.3-4.42 him@4.42-4.54 for@4.54-4.68 staring@4.68-4.9 at@4.9-5.08
+his@5.08-5.18 phone@5.18-5.4 at@5.4-5.58 the@5.58-5.66 table.@5.66-5.9 Called@6.3-6.68
+him@6.68-6.84 the@6.84-6.94 crypto@6.94-7.18 guy@7.18-7.48 in@7.48-8.22 front@8.22-8.38
+of@8.38-8.5 everybody.@8.5-8.82 This@10-10.44 year@10.44-10.72 he@10.72-10.84
+finally@10.84-11.12 showed@11.12-11.4 me@11.4-11.62 small@11.62-12.22 trades@12.22-12.58
+on@12.58-12.82 FOMO@12.82-13.2 10@13.2-13.66 minutes@13.66-13.82 a@13.82-14 day.@14-14.26
+Then@14.8-15.08 he@15.08-15.16 showed@15.16-15.32 me@15.32-15.42 the@15.42-15.52
+balance.@15.52-15.78 I@16.5-16.86 didn't@16.86-17.04 say@17.04-17.16 a@17.16-17.26
+word@17.26-17.42 for@17.42-17.56 the@17.56-17.64 rest@17.64-17.8 of@17.8-17.92
+dinner.@17.92-18.08 I@18.62-18.82 downloaded@18.82-19.18 it@19.18-19.42 in@19.42-19.56
+the@19.56-19.66 parking@19.66-19.82 lot.@19.82-20.12 Danny,@21.26-21.7 you@21.94-22.16
+were@22.16-22.28 right.@22.28-22.5 Links@23.08-23.16 in@23.16-23.32 my@23.32-23.42
+bio.@23.42-23.62"""

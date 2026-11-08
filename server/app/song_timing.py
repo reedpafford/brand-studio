@@ -150,12 +150,12 @@ def read_timeout(path: Path) -> int:
     return min(MOST, max(FLOOR, round(PER_SECOND * seconds)))
 
 
-def words(path: Path, lyrics: str) -> list[dict]:
-    """Local Whisper, prompted with the lyrics: [{word, start, end}], in the time the take's
-    length gives it (`read_timeout`)."""
+def words(path: Path, lyrics: str, prompted: bool = True) -> list[dict]:
+    """Local Whisper, prompted with the lyrics (unless `prompted` is False): [{word, start,
+    end}], in the time the take's length gives it (`read_timeout`)."""
     from app.whisper import timings
 
-    args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics]
+    args = [sys.executable, "-m", "app.whisper", str(path), "--words", lyrics if prompted else ""]
     allowed, began = read_timeout(path), time.monotonic()
     try:
         done = _run(args, allowed)
@@ -183,6 +183,14 @@ def glued(word: str) -> bool:
     core = re.sub(r"(?<=\d)[.,](?=\d)|(?<=\b[A-Za-z])\.(?=[A-Za-z]\b)", "", word.strip())
     core = core.strip("\"“”‘’'()[]¡¿$%").rstrip(".,!?;:…-")
     return bool(re.search(r"[^A-Za-z0-9'’-]", core))
+
+
+def _capital(word: str, known: set[str], norm=_norm) -> bool:
+    """Junk glued on in letters: a heard word the lyrics don't have whose part from its last
+    inner capital on is one they do ("iPhDanny" for "Danny", video 281). A name ("iPhone",
+    "TikTok") is only one when the lyrics have its tail but not it."""
+    tail = re.search(r"[a-z]([A-Z][a-z']*)\W*$", word.strip())
+    return bool(tail) and norm(word) not in known and norm(tail[1]) in known
 
 
 def _ending(word: str, known: set[str]) -> str:
@@ -278,7 +286,7 @@ def _matcher(out: list[dict], heard: list[dict], norm=_norm):
     with junk glued on, and the two lined up."""
     ours = [(i, norm(w)) for i, line in enumerate(out) for w in line["words"]]
     known = {w for _, w in ours}
-    junk = [glued(h["word"]) for h in heard]
+    junk = [glued(h["word"]) or _capital(h["word"], known, norm) for h in heard]
     theirs = [_ending(norm(h["word"]), known) if j else norm(h["word"])
               for h, j in zip(heard, junk, strict=True)]  # fmt: skip
     matcher = SequenceMatcher(None, [w for _, w in ours], theirs, autojunk=False)
@@ -365,12 +373,30 @@ def sections(sung: list[dict], beat_times: list[float], heard: list[dict], secon
     return [p for p in parts if p["end"] > p["start"]]
 
 
+# The share of the words a read must have, in order, to count as all heard: Whisper writes a
+# few another way ("10" for "ten", "Everything's giving" for "Every Thanksgiving", video 281)
+COVERED = 0.9
+
+
+def covered(lyrics: str, heard: list[dict], norm=_norm) -> float:
+    """The share of the lyrics' words heard, in order (junk glued on taken off)."""
+    ours, _, _, matcher = _matcher(_written(lyrics), heard, norm)
+    said = sum(1 for _, w in ours if w)
+    found = sum(1 for b in matcher.get_matching_blocks() for k in range(b.size) if ours[b.a + k][1])
+    return round(min(found / said, 1.0), 3) if said else 1.0
+
+
 def measure(path: Path, lyrics: str, hear=words) -> dict:
     """Everything the breakdown needs about one take. Free (all on our server)."""
     seconds = length(path)
     samples = _samples(path)
     bpm, beat_times = beats(samples, seconds)
     heard = hear(path, lyrics.strip())
+    if (
+        covered(lyrics, heard) < COVERED
+    ):  # an empty read too (lyrics with no words: 1.0)  # the lyrics as Whisper's prompt can lose
+        again = hear(path, lyrics.strip(), prompted=False)  # most of a read: hear it plainly
+        heard = again if covered(lyrics, again) > covered(lyrics, heard) else heard
     sung = lines(
         lyrics, heard, seconds, start=beat_times[0] if beat_times else 0.0, levels=levels(samples)
     )

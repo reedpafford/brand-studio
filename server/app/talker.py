@@ -35,18 +35,24 @@ STILL_PROMPT = (
     "level and looking straight into the lens, the whole head and both shoulders in frame with "
     "a little space above the head, a relaxed, natural expression, the mouth closed or just "
     "parted. Nothing covers the face: no sunglasses, no hat brim, no hand near the mouth. They "
-    "are in their own real, lived-in room that says who they are, in focus behind them, lit by "
-    "soft window daylight from the front. A real vertical phone photo, unretouched: natural "
-    "skin with pores, no studio light, no shallow-focus blur, only this one person in it."
+    "are {where}, in focus behind them, lit by soft daylight from the front. A real vertical "
+    "phone photo, unretouched: natural skin with pores, no studio light, no shallow-focus blur, "
+    "only this one person in it, alone in the frame."
 )  # HeyGen: a clear, front-facing, evenly lit portrait, the whole head in frame, one person
+ROOM = "in their own real, lived-in room that says who they are"  # with no plan to say where
 EXPRESSIVENESS = "high"  # HeyGen: high, medium or low ("energy and range of movement")
 MOTION = (
     "They stay where they are and talk straight into the phone lens like a real selfie video: "
     "small natural head nods and tilts, blinks, eyebrows and mouth that move with the feeling "
-    "of the words. The phone is locked off: no camera movement."
+    "of the words. The camera stays locked off the whole time."
 )  # when the director writes none (Make the host pressed by a person)
+ALONE = ("They are alone in the frame the whole time; the place behind them stays exactly as "
+         "the picture shows it, still and empty.")  # fmt: skip  # every talker take: said as what
+# is there, never as what isn't (#1392's HeyGen notes: a negative can suggest it; 281's strangers)
 LONGEST_MOTION = 600  # characters: a motion note is a few sentences
-SAID = "The talker says this clip: its picture is cut from the talker's take. Make the host."
+SAID = ("The talker says this clip: its picture is cut from the talker's take. To change how "
+        "the talker looks or where they are, press Make it again on the presenter in the "
+        "Cast tab: their still is drawn again and their take made from it.")  # fmt: skip
 NO_SHOTS = ("The plan has no talker shots, so the talker would never be seen. Plan again with "
             "the talker on screen for the hook, the turns and the close.")  # fmt: skip
 TOO_LONG = "The narration runs past HeyGen's 10 minutes. Shorten the script to make the talker."
@@ -85,6 +91,47 @@ def clips(db: Session, project: Project) -> set[str]:
     bd = newest(db, project) if on(db, project) else None
     data = bd.data if bd else {}
     return {c["id"] for c in data.get("clips", []) if _spoken(data, c["id"])}
+
+
+def where(db: Session, project: Project) -> str:
+    """Where the plan puts the talker (video 281: the still said "their own room" and HeyGen
+    made all three tries in a home office, for "Marcus in his parked car"): the scene of their
+    first clip, its heading and its look; ROOM with none."""
+    from app.clip_prompts import newest
+
+    bd = newest(db, project)
+    data = bd.data if bd else {}
+    mine = clips(db, project)
+    ids = next((c["shot_ids"] for c in data.get("clips", []) if c["id"] in mine), [])  # first
+    scene = next((sc for sc in data.get("scenes", []) for s in sc.get("shots", [])
+                  if ids and s["id"] == ids[0]), None)  # fmt: skip
+    if scene is None:
+        return ROOM
+    look = (scene.get("look") or "").strip()
+    return f"where the plan puts them, {scene.get('heading', '').strip()}: {look}"[:400]
+
+
+def frame(db: Session, project: Project) -> int | None:
+    """The drawn still of the talker's first clip: where the plan puts them, as drawn."""
+    from app.clip_prompts import newest
+    from app.models.storyboards import StoryboardFrame
+
+    bd, mine = newest(db, project), clips(db, project)
+    first = next((c["id"] for c in (bd.data if bd else {}).get("clips", []) if c["id"] in mine),
+                 None)  # fmt: skip
+    return db.scalar(select(StoryboardFrame.file_id).where(
+        StoryboardFrame.project_id == project.id, StoryboardFrame.breakdown_id == bd.id,
+        StoryboardFrame.clip_id == first, StoryboardFrame.file_id.is_not(None))
+        .order_by(StoryboardFrame.id).limit(1)) if first else None  # fmt: skip
+
+
+def shot(db: Session, project: Project, shot_id: str) -> bool:
+    """The shot is the talker's (one of their clips'): its picture is the talker's still."""
+    from app.clip_prompts import newest
+
+    bd, mine = newest(db, project), clips(db, project)
+    return any(shot_id in c["shot_ids"] for c in (bd.data if bd else {}).get("clips", [])
+               if c["id"] in mine)  # fmt: skip
 
 
 def says(db: Session, project: Project, clip: ProjectClip) -> bool:
@@ -159,7 +206,6 @@ def fill(db: Session, storage, project: Project) -> None:
     """Each talker clip's take, cut from the talker's one take (free: ffmpeg), picked and
     approved; cut again only when the talker's take is a new one."""
     from app import host, video_settings
-    from app.breakdown import video_model
 
     piece = next(iter(host.rows(db, project)[1:]), None)
     made = host._jobs(db, project).get(piece.id) if piece and piece.file_id else None
@@ -184,9 +230,8 @@ def fill(db: Session, storage, project: Project) -> None:
         sung = row.song_slice.get("sung_shots")
         take = ClipTake(clip_id=row.id, number=(number or 0) + 1, job_id=made.id,
                         file_id=stored.id, prompt=row.prompt, look=project.look,
-                        made_with={**video_settings.made_with(db, project, [],
-                                                              video_model(project).id, sung),
-                                   "talker": piece.file_id})  # fmt: skip
+                        made_with={**video_settings.made_with(db, project, [], MODEL, sung),
+                                   "talker": piece.file_id})  # fmt: skip  # made on HeyGen
         db.add(take)
         db.flush()
         row.picked_take_id, row.file_id, row.approved = take.id, stored.id, True

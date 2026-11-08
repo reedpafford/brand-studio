@@ -695,13 +695,28 @@ def _with_note(prompt: str, note: str) -> str:
 def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
     """What one more take costs: the estimate `enqueue` charges, and the director's watch of
     it that rides along while watches are on (`take_watch.rides`)."""
-    from app import take_watch
+    from app import take_watch, talker
 
+    if talker.says(db, project, clip):  # cut from the talker's one HeyGen take (video 281)
+        from app import host
+
+        return host.price(db, project, 1)
     m = model_map.of_clip(project, clip)
     job = {"model": m.id, "input": {"resolution": model_map.resolution(m)}}
     seconds = model_map.billed(m, clip.seconds)  # as it's asked for on its own model
     take = estimate(db, project.workspace_id, "video", Decimal(seconds), job)
     return take + take_watch.rides(db, project, clip)
+
+
+def takes_price(db: Session, project: Project, clips) -> Decimal:
+    """One more take of each clip, the talker's clips once together: one HeyGen take of the
+    whole narration makes them all (QA on #1457)."""
+    from app import talker
+
+    rows = list(clips)
+    said = [c for c in rows if talker.says(db, project, c)]
+    each = sum((take_credits(db, project, c) for c in rows if c not in said), Decimal(0))
+    return each + (take_credits(db, project, said[0]) if said else Decimal(0))
 
 
 def save_take(db: Session, job: Job) -> None:

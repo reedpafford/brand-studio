@@ -142,7 +142,7 @@ def song(style: str = "") -> bytes:
         return path.read_bytes()
 
 
-def hear_song(path: Path, lyrics: str) -> list[dict]:
+def hear_song(path: Path, lyrics: str, prompted: bool = True) -> list[dict]:
     """Stand-in Whisper for the stand-in song: every lyric word, one a beat, 0.3 s each (the
     last line left out, or sung twice, for those markers)."""
     beat = 60 / SONG["bpm"]
@@ -199,7 +199,7 @@ def bed(seconds: int) -> bytes:
         return path.read_bytes()
 
 
-def hear_voice(path: Path, text: str) -> list[dict]:
+def hear_voice(path: Path, text: str, prompted: bool = True) -> list[dict]:
     """Stand-in Whisper for the stand-in narrator: each run of sound is a sentence, its words
     spread evenly over it."""
     from app import song_timing

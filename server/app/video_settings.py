@@ -90,8 +90,9 @@ def made_stale(project: Project, clip: ProjectClip, take: ClipTake) -> bool:
     """This take of the clip made with another video model, shape, flavour or Sung shots."""
     from app.model_map import of_clip
 
-    sung = (clip.song_slice or {}).get("sung_shots")
-    return _stale(project, take.made_with or {}, of_clip(project, clip).id, sung)
+    sung, made = (clip.song_slice or {}).get("sung_shots"), take.made_with or {}
+    model = made.get("model") if made.get("talker") else of_clip(project, clip).id  # HeyGen's
+    return _stale(project, made, model, sung)
 
 
 # --- Choices and prices ----------------------------------------------------------------------
@@ -182,7 +183,7 @@ def to_finish(db: Session, project: Project) -> Decimal:
     stills, clips = out_of_date(db, project)
     left = sum(Decimal(str(s.credits)) for s in _stages(db, project))
     redo = len(stills) * storyboard.still_price(db, project)
-    redo += sum((clip_takes.take_credits(db, project, c) for c in clips), Decimal(0))
+    redo += clip_takes.takes_price(db, project, clips)
     return (left + redo).quantize(Decimal("0.01"))
 
 
