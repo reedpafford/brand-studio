@@ -175,7 +175,7 @@ def test_a_person_omni_says_in_words_never_makes_its_take_older(app, db, editor,
                        prompt=PROMPT, references=refs, approved=True)  # fmt: skip
     db.add(clip)
     db.flush()
-    assert model_map.unsent_people(model_map.OMNI, [r["id"] for r in refs]) == (gran,)
+    assert model_map.unsent_pictures(model_map.OMNI, [r["id"] for r in refs]) == (gran,)
     job = Job(workspace_id=1, kind="video", provider="fake", project_id=pid, status="succeeded",
               input={"project_clip_id": clip.id, "model": model_map.OMNI,
                      "files": {"reference_images": [sheet[mom], sheet[nate]]}})  # fmt: skip

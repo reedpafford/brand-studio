@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import cast_gate
+from app import cast_gate, take_mute
 from app.models.accounts import User
 from app.models.clips import ClipTake, ProjectClip
 from app.models.projects import Project
@@ -24,7 +24,7 @@ from app.models.storyboards import StoryboardFrame
 log = logging.getLogger(__name__)
 CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start it again."
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
-         "pick_take", "mute", "splice_word", "add_sound", "song", "narration", "host",
+         "pick_take", "mute", "unmute", "splice_word", "add_sound", "song", "narration", "host",
          "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place",
          "change_look", "ask_cast_ok", "split_clip", "outfit", "real_screen",
          "locked_line")  # fmt: skip
@@ -231,11 +231,39 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             spans, clip = to_mute(db, row), f"clip {row.clip_id.removeprefix('c')}"
             if not spans:
                 return f"Refused: nothing to mute in {clip}."
+            take, done, refused = db.get(ClipTake, row.picked_take_id), 0, []
             for start, end in spans:
-                project_clips.mute(clip_id=row.id, body=project_clips.MuteIn(start=start, end=end),
-                                   **me)  # fmt: skip
-            what = "a stretch" if len(spans) == 1 else f"{len(spans)} stretches"
-            return f"Muted {what} of {clip} instead of remaking it."
+                was = take_mute.spans(take)
+                try:
+                    project_clips.mute(clip_id=row.id, body=project_clips.MuteIn(
+                        start=start, end=end), **me)  # fmt: skip
+                except HTTPException as no:  # the only copy of a scripted line (video 284)
+                    refused.append(no.detail)
+                    continue
+                mine = [s for s in take_mute.spans(take) if s not in was]  # its own: Unmute
+                take.made_with = {**take.made_with, "director_mutes": [
+                    *(take.made_with.get("director_mutes") or []), *mine]}  # fmt: skip
+                db.commit()
+                done += 1
+            if not done:
+                return f"Refused: {refused[0]}"
+            what = "a stretch" if done == 1 else f"{done} stretches"
+            kept = f" Kept one: {refused[0]}" if refused else ""
+            return f"Muted {what} of {clip} instead of remaking it.{kept}"
+        if tool == "unmute":  # free: its own mutes on that clip lifted, a person's stay
+            (row,) = _clips(db, pid, decision.get("clip_id"))
+            take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
+            clip = f"clip {row.clip_id.removeprefix('c')}"
+            mine = (take.made_with or {}).get("director_mutes") or [] if take else []
+            at = [i for i, s in enumerate(take_mute.spans(take)) if s in mine]
+            if not at:
+                return f"Refused: nothing you muted is left in {clip}; a person's mutes stay."
+            for i in reversed(at):
+                project_clips.unmute(clip_id=row.id, index=i, **me)
+            take.made_with = {**take.made_with, "director_mutes": []}
+            db.commit()
+            what = "the stretch" if len(at) == 1 else f"the {len(at)} stretches"
+            return f"Unmuted {what} you muted in {clip}. Free; it shows in the next cut."
         if tool == "splice_word":  # free: a clean copy the server found (word_splice)
             from app import word_splice
 
