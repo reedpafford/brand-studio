@@ -84,8 +84,8 @@ PRE_OK = ("treatment", "ask", "wait", "stop", "locked_line")  # before Make it: 
 # watch and delivery they lead to, need no Make it (Reed: a revision charges only the affected
 # work). Anything that makes something new still waits on its start card.
 REVISION = "revision"  # in a run: started after a delivery, it reuses the video's story
-REVISE_FREE = ("edit_cut", "final_cut", "mute", "pick_take", "splice_word", "watch_cut",
-               "deliver")  # fmt: skip
+REVISE_FREE = ("edit_cut", "final_cut", "mute", "unmute", "pick_take", "splice_word",
+               "watch_cut", "deliver")  # fmt: skip
 ON_YOU = "Waiting on your answer; everything else is made."  # parked on open questions
 CAST_WAIT = "Waiting for the cast and places OK."  # its run waits on that point only
 

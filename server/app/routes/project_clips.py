@@ -901,8 +901,10 @@ def mute(
 ):
     """Mute a stretch of the picked take in the final cut (an unscripted line, a gasp). Free;
     the take and its approval stay as they are. Undo: DELETE …/mute/{index}. A director tool
-    calls this same route."""
+    calls this same route. Never the only heard copy of a scripted line (video 284)."""
     project, row, take = _muting(db, user, project_id, clip_id)
+    if lost := take_mute.lost_line(db, row, take, body.start, body.end):
+        raise HTTPException(409, lost)
     try:
         take_mute.add(take, body.start, body.end, longest=float(row.seconds))
     except ValueError as no:
