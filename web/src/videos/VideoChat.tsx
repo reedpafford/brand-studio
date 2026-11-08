@@ -721,7 +721,6 @@ function Composer({ placeholder, closed, note, error, busy, upload, disabled, on
       <textarea
         id="director-box"
         rows={1}
-        maxLength={2000}
         value={text}
         disabled={off}
         placeholder={closed ?? placeholder}

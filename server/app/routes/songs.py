@@ -240,7 +240,8 @@ def try_again(
     if not songs_on(request, db, draft):
         raise HTTPException(503, SONGS_OFF)
     paid = song_takes.state(db, take)[0] == "failed"  # a timing is read again free
-    kie = paid and _real(request, db, draft)
+    again = song_takes.fetch_again(db, take)  # songs made but not saved: no new request
+    kie = paid and not again and _real(request, db, draft)
     song_takes.try_again(db, user, take, kie=kie)
     return _take_out(db, take, draft)
 

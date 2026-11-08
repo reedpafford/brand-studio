@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Literal, Protocol
 
 STAND_IN = "stand-in-"  # every stand-in's work id starts so: never a real call (real_spent)
+UNSAVED = "unsaved"  # in a failed job's output: the provider made it (paid); we didn't save it
 
 
 class NetworkError(Exception):
@@ -164,7 +165,8 @@ def _kie(settings, stand_in=None):
 
     return KieSuno(settings.kie_base_url, settings.kie_api_key.get_secret_value(),
                    tuple(settings.kie_delivery_hosts), settings.max_download_mb,
-                   stand_in=stand_in)  # fmt: skip
+                   stand_in=stand_in, usd_per_credit=settings.kie_usd_per_credit,
+                   usd_per_request=settings.kie_usd_per_request)  # fmt: skip
 
 
 def kie_on(settings) -> bool:

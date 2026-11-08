@@ -1,5 +1,6 @@
 """A clip prompt run's parts are asked at the same time (Producer, approved by Reed): each part
-only ever sees the shared prompt, so asking them together changes nothing but the wait."""
+only ever sees the shared prompt, so asking them together changes nothing but the wait. The
+first goes alone until its answer begins, so the rest read the shared prompt's cache."""
 
 import threading
 import time
@@ -22,7 +23,7 @@ def _answer(clip: str, cost: str = "0.01"):
 
 def _provider(ask) -> ClaudeProvider:
     provider = ClaudeProvider("k", client=object())
-    provider._ask = lambda input, prompt, shared="": ask(prompt)
+    provider._ask = lambda input, prompt, shared="", started=None: ask(prompt)
     return provider
 
 
@@ -90,19 +91,36 @@ def test_busy_or_lost_raise_only_when_nothing_was_answered_or_billed():
     assert result.output["failed_parts"] == [{"part": 1, "error": "busy"}]
 
 
-def test_the_first_part_is_asked_alone_so_the_rest_read_its_cache():
+def test_the_rest_start_once_the_first_answer_begins_so_they_read_its_cache():
     """QA and the Producer: asked together, every part would write the shared prompt's
-    cache; the first part goes alone and finishes before the others start."""
+    cache. A cache is readable once its answer starts streaming (Anthropic's caching docs),
+    so the rest wait only for the first part's answer to begin, never for it to finish."""
     times, lock = {}, threading.Lock()
 
-    def ask(part):
+    def ask(input, part, shared="", started=None):
         start = time.monotonic()
-        time.sleep(0.05)
+        time.sleep(0.05)  # reading the prompt, writing its cache
+        if started:
+            started()
+            with lock:
+                times["begun"] = time.monotonic()
+        time.sleep(0.2 if part == "c1" else 0.05)  # the answer
         with lock:
             times[part] = (start, time.monotonic())
         return _answer(part)
 
-    _provider(ask).run("write", INPUT | {"parts": ["c1", "c2", "c3"]})
-    first_end = times["c1"][1]
-    assert all(times[p][0] >= first_end for p in ("c2", "c3"))
-    assert times["c3"][0] < times["c2"][1]  # the rest still overlap
+    provider = ClaudeProvider("k", client=object())
+    provider._ask = ask
+    provider.run("write", INPUT | {"parts": ["c1", "c2", "c3"]})
+    assert all(times[p][0] >= times["begun"] for p in ("c2", "c3"))  # after it began
+    assert all(times[p][0] < times["c1"][1] for p in ("c2", "c3"))  # not after it finished
+
+
+def test_a_first_part_that_fails_before_its_answer_never_holds_the_rest():
+    def ask(part):
+        if part == "c1":
+            raise NotStarted("busy")
+        return _answer(part)
+
+    result = _provider(ask).run("write", INPUT | {"parts": ["c1", "c2"]})
+    assert [c["clip_id"] for c in result.output["clips"]] == ["c2"]

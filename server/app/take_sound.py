@@ -43,6 +43,7 @@ STEPS, CFG = 25, 4.5  # the model's own defaults
 # Each effect's loudness in LU against the voice (room.LUFS, our voice's level): under it,
 # "slight" well under, "over" the one moment louder than the voice (th-20s: the alarm)
 LEVELS = {"slight": -18.0, "normal": -12.0, "strong": -6.0, "over the voice": 3.0}
+LONGEST = 300  # characters in what was asked (the button's and the director's): never cut
 LOWEST, LOUDEST = -30.0, 6.0  # a level asked for in decibels, at most this far either side
 GAIN = 30.0  # the most it's turned up or down (th-20s set them by hand: +2 to +19 dB)
 VOICE = room.LUFS
@@ -171,7 +172,7 @@ def add(db: Session, user: User, project: Project, rows: list[ProjectClip], aske
     if any(state(db, t)["state"] == "making" for _, t in takes):
         raise HTTPException(409, MAKING)
     for row, take in takes:
-        enqueue(db, user, "sound", job_input(db, project, row, take, asked[:300]), units=1,
+        enqueue(db, user, "sound", job_input(db, project, row, take, asked), units=1,
                 project=project, provider="replicate")  # fmt: skip
     db.commit()
     n = len(takes)

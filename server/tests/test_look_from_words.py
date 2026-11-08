@@ -244,3 +244,40 @@ def test_a_role_is_drawn_from_what_the_brief_says_of_them_never_anothers_sentenc
     assert role_words(db, project, slots["Granny"]) == (
         "Granny, in pearl earrings, beams at the guests."
     )  # never the sentence with Maya in it
+
+
+def test_a_named_person_in_two_clips_gets_a_role_and_a_look_a_one_off_doesnt(owner, editor, db):
+    """Video 281: Danny, Marcus's brother-in-law, was in four B-roll clips but no role (the
+    script names him once, "Danny, you were right"), so no look: his face and sweater drifted.
+    Rosa, named in one clip only, is drawn as part of the scene; a brand or a product is never
+    a person (QA on #1466: "Iron Paws", "Robinhood", "Resilia" became paid roles)."""
+    script = ("MARCUS: Every year I laughed at him, and Rosa laughed too.\n"
+              "MARCUS: I switched him to Iron Paws, then opened Robinhood. Try Resilia.\n"
+              "MARCUS: Danny, you were right.")  # fmt: skip
+    base = f"/scripts/{_make(owner, text=script)['id']}"
+    bd = copy.deepcopy(BREAKDOWN)
+    first, second = bd["scenes"][0]["shots"]
+    first["action"] = (
+        "At the table, quiet Danny in a grey sweater hunches over his phone. "
+        "She scoops Iron Paws into a bowl, opens Robinhood and the Resilia pouch."
+    )
+    second["action"] = (
+        "A roll bounces off Danny's shoulder while Rosa laughs. He scoops Iron "
+        "Paws, opens Robinhood and tears the Resilia pouch."
+    )
+    first["script_lines"], second["script_lines"] = [1], [2]
+    bd["clips"] = [{"id": "c1", "shot_ids": ["1.1"], "seconds": 3, "seam": "Cut."},
+                   {"id": "c2", "shot_ids": ["1.2"], "seconds": 2, "seam": "End."}]  # fmt: skip
+    owner.put(f"{base}/drafts/0/breakdown", json=bd)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    missing = editor.get(f"/projects/{pid}/assets/missing-looks").json()
+    assert missing["roles"] == ["Danny"]  # never Rosa, Iron, Robinhood or Resilia
+    rows = {r["role"]: r for r in editor.get(f"/projects/{pid}/assets").json()}
+    assert "Danny" in rows and "Rosa" not in rows
+    assert _make_looks(db, pid) == "Making the missing looks."
+    danny = _look(db, pid, rows["Danny"]["slot_id"])
+    assert danny.notes.startswith("At the table, quiet Danny in a grey sweater")  # #1458's words
+    shown = editor.get(f"/projects/{pid}/cast").json()
+    assert "Danny" in [i["name"] for i in shown["items"]]  # in the cast and places OK

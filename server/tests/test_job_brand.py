@@ -26,6 +26,7 @@ def test_a_job_takes_the_brand_of_its_project_request_script_or_item(owner, db):
     assert enqueue(db, me, "write-claude", {"script_id": script["id"]}).brand_id == fomo
     draft = db.execute(text("SELECT id FROM script_drafts LIMIT 1")).scalar()
     assert enqueue(db, me, "write-claude", {"script_draft_id": draft}).brand_id == fomo
+    assert enqueue(db, me, "music", {"on_script": script["id"]}).brand_id == fomo  # its song
 
     def item(brand_ids):
         body = {"name": "Mia", "image_file_ids": [upload(owner)], "brand_ids": brand_ids}

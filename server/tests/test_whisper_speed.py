@@ -96,3 +96,17 @@ def test_a_read_that_uses_over_three_quarters_of_its_time_warns(monkeypatch, cap
     assert song_timing.words("v.mp3", "Hi.") == []
     (warned,) = [r for r in caplog.records if r.levelname == "WARNING"]
     assert "took 226 of 300 s" in warned.getMessage()
+
+
+def test_a_silent_take_with_no_speech_never_loads_whisper(model, monkeypatch, capsys):
+    """281: nine takes, 10.7 minutes of whisper, mostly B-roll planned to be silent. A quick
+    speech check (the VAD faster-whisper ships with) comes first: no speech, nothing to read
+    and no model loaded; any speech, and whisper reads it as ever, so a voice is still caught."""
+    monkeypatch.setattr(whisper, "speech", lambda path: False)
+    whisper.main("broll.mp4", sounds=True, first=True)
+    out = capsys.readouterr()
+    assert json.loads(out.out) == [] and model == []  # never loaded
+    assert whisper.timings(out.err)["speech"] is False
+    monkeypatch.setattr(whisper, "speech", lambda path: True)
+    whisper.main("broll.mp4", sounds=True, first=True)
+    assert json.loads(capsys.readouterr().out)[0]["text"] == "hi" and len(model) == 1

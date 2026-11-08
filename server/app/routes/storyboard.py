@@ -34,7 +34,7 @@ from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import _mine, get_project, video_writer
 from app.routes.scripts import latest
-from app.schemas import PromptText
+from app.schemas import NoteText, PromptText
 from app.sheets import require_looks
 
 router = APIRouter(
@@ -100,7 +100,7 @@ class SoftenOut(BaseModel):
 
 
 class ChangeIn(BaseModel):
-    note: str = Field(max_length=500)
+    note: NoteText  # Change it…: read whole, said in the prompt's own words (never cut)
 
 
 class PriceOut(BaseModel):

@@ -1,5 +1,6 @@
 # Narrated videos
 <!-- Added to the breakdown step for a narrated video only (EXTENDS), so story breakdowns stay as they were (flows V6n). Inputs added to the breakdown's: <song> (song_block of the narration in use: its length, and each sentence as a line with its measured times; no beats or sections). Output: SongBreakdown, with `sung` always false. -->
+<!-- Leaves out of the step above (they are for spoken lines and the clock of a dialogue video): **A line comes early in its shot.** **Silence is a choice.** **Length.** **Voiceover.** **The hook is the inciting moment.** -->
 
 This script is narrated: every spoken line is the narrator's voiceover, read once as one track and laid under the finished video. The <song> block is that narration, measured: its sentences, each with when it's heard. Everything above still holds unless this section says otherwise.
 

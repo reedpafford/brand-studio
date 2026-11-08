@@ -26,7 +26,6 @@ from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.models.seen import TakeSeen
 from app.models.storyboards import StoryboardFrame
-from app.prompts.schemas import Breakdown
 
 TYPICAL_TAKE = 180  # seconds a take takes, until this workspace has made some
 HELD = JobStatus.needs_owner_approval
@@ -895,9 +894,7 @@ def _then(db: Session, project: Project, clips: list) -> Decimal:
 
     ws = project.workspace_id
     shots = sum(len(c.shot_ids) for c in clips)
-    calls = len(clip_prompts.batches(Breakdown(hook="", scenes=[], clips=clips),
-                                     [c.id for c in clips]))  # fmt: skip
-    return (_still(db, ws, project) * shots + _claude(db, ws) * calls
+    return (_still(db, ws, project) * shots + _claude(db, ws) * clip_prompts.priced(len(clips))
             + _video(db, ws, sum(c.seconds for c in clips), project)
             + take_watch.per_take(db, ws) * len(clips))  # fmt: skip
 

@@ -27,7 +27,7 @@ KIND = {"char": "a character", "slot": "a character", "place": "a place", "prop"
 CITED = re.compile(r"\s*\(Reed,\s*(?:\d{1,2}\s+[A-Z][a-z]{2}|\d{4}-\d{2}-\d{2})[^()]*\)")
 REED = re.compile(r"\breed\b", re.I)
 SAID = {  # the words people read: never a tool's arguments (a look, a brand, a note)
-    "move": ("why", "made", "unsure", "needs"),
+    "move": ("why", "made", "unsure", "needs", "left_out"),
     "ask": ("question", "why"),
     "treatment": ("hook", "logline", "why_it_holds", "ending"),
     "beat": ("purpose", "picture"),

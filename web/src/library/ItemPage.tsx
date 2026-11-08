@@ -215,7 +215,7 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
             <div className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
               <label className="text-sm">
                 What should change?
-                <input autoFocus value={changing} maxLength={500} onChange={(e) => setChanging(e.target.value)} placeholder="“Navy polo, no hat, a little older”" className="mt-1 h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
+                <input autoFocus value={changing} onChange={(e) => setChanging(e.target.value)} placeholder="“Navy polo, no hat, a little older”" className="mt-1 h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
               </label>
               <div className="flex gap-2">
                 <Button busy={draw.isPending} disabled={!changing.trim()} onClick={() => draw.mutate(changing.trim())}>
