@@ -358,7 +358,8 @@ class ImprovedPrompt(BaseModel):
 class LookFit(BaseModel):
     fits: bool = Field(
         description="False only for a clear mismatch a viewer would notice at a glance: the "
-        "wrong age range, the wrong gender, or an outfit that contradicts the job."
+        "wrong kind of being (a person for an animal), the wrong age range, the wrong gender, "
+        "or an outfit that contradicts the job."
     )
     seen: str = Field(description="Who the sheet shows, in a few words: '8-year-old boy'.")
     problem: str = Field(
@@ -786,7 +787,8 @@ class LookMove(Strict):
         description="For add_place: what the place looks like, in a sentence, from the plan and "
         "the treatment (the light, the time of day, what's in it). For outfit: what the story "
         "dresses the character in for this video, in a few words ('navy wedding suit, white "
-        "boutonniere'). Else empty.",
+        "boutonniere'). For make_looks: what a role nothing describes yet is and looks like, "
+        "from the plan ('a stocky tan clay dog'). Else empty.",
     )
     shot_ids: list[str] = Field(
         default_factory=list,
@@ -889,7 +891,8 @@ class DirectorTurn(Strict):
         description="For add_place: the place, its look in words and the plan's shots there. "
         "For change_look: the character or place by name (as <video>'s cast_ok names it), "
         "with the change in `note`. For outfit: the character by name and the outfit in "
-        "`description`. Else null.",
+        "`description`. For make_looks: only after it said nothing describes a role, that "
+        "role by name and what it looks like in `description`. Else null.",
     )
     word: Name = Field(
         default=None,

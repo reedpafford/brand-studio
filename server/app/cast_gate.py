@@ -30,6 +30,7 @@ WAIT = "{} {} for the cast and places OK. Approve them in Cast to go on."
 SEEN_AGAIN = "{} changed since you opened Cast. Look at it again, then approve."
 NOT_READY = "{} first, then approve the cast and places."
 NOTHING = "There's nothing new to approve: the cast and places are approved."
+WRONG = "The look check says {} look{} wrong. Change it, or approve anyway."
 PAUSED = "Not made: the cast or places changed since. Approve them in Cast, then make it again."
 
 
@@ -218,6 +219,13 @@ def _readiness(db: Session, project: Project, item: LibraryItem | None, files) -
     return "ready" if files else "needs_look"
 
 
+def _fit(db: Session, project: Project, item: LibraryItem | None) -> dict | None:
+    """What the look check found wrong with the sheet this video uses, or None."""
+    from app.sheets import look_copy
+
+    return (look_copy(db, project, item) or item).look_fit if item else None
+
+
 WHY = {"needs_look": "{} needs a look", "drawing": "{} is still being drawn",
        "waiting_for_owner": "{}'s look waits for the owner's OK"}  # fmt: skip
 
@@ -251,6 +259,7 @@ def current(db: Session, project: Project) -> list[dict]:
             "source": source(db, project, item),
             "preview_file_id": files[0] if files else None,
             "readiness": _readiness(db, project, item, files),
+            "look_fit": _fit(db, project, item),  # the look check says it's wrong
             "approval": "approved" if ok.get(ref) == now else ("changed" if ref in ok else "new"),
             "sig": now,
             # what changed since the OK: "look", "words" (name, role, outfit), "voice"
@@ -439,10 +448,13 @@ def _clip_order(clip_id: str) -> tuple:
     return (0, int(digits)) if digits.isdigit() else (1, clip_id)
 
 
-def approve(db: Session, user: User, project: Project, seen: dict[str, str]) -> None:
+def approve(db: Session, user: User, project: Project, seen: dict[str, str],
+            anyway: bool = False) -> None:  # fmt: skip
     """Approve cast & places: the whole set as the person saw it (`seen`: each item's sig).
     Refused while anything has no look or is still being drawn, when something changed since
-    they looked, or when there's nothing new. Unchanged items stay approved as they were."""
+    they looked, or when there's nothing new. A look the check says is wrong needs `anyway`
+    (video 268: a man drawn for Bruno the dog, one press from approved). Unchanged items stay
+    approved as they were."""
     from app import director
     from app.credits import lock
 
@@ -456,6 +468,9 @@ def approve(db: Session, user: User, project: Project, seen: dict[str, str]) -> 
         raise HTTPException(409, NOT_READY.format(why[:1].upper() + why[1:]))
     if moved := [i["name"] for i in items if seen.get(i["ref"]) != i["sig"]]:
         raise HTTPException(409, SEEN_AGAIN.format(_and(list(dict.fromkeys(moved)))))
+    wrong = [i["name"] for i in items if i["approval"] != "approved" and i["look_fit"]]
+    if wrong and not anyway:
+        raise HTTPException(409, WRONG.format(_and(wrong), "s" if len(wrong) == 1 else ""))
     kept = (project.cast_ok or {}).get("items") or {}
     known = assets_of(db, project)
     now = {i["ref"]: {"sig": i["sig"], "item": i["library_item_id"], "version": i["version"],

@@ -26,7 +26,7 @@ test("the director's ask shows the whole set with its previews, and one press ap
   expect(await screen.findByRole("img", { name: "Nate" })).toBeTruthy();
   expect(screen.getByText("From the brand's library")).toBeTruthy();
   await userEvent.click(screen.getByRole("button", { name: "Approve cast & places" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/cast/approve")?.body).toEqual({ seen: { "char:12": "abc", "place:3": "def" } }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/cast/approve")?.body).toEqual({ seen: { "char:12": "abc", "place:3": "def" }, anyway: false }));
 });
 
 test("a set ready with no director asking still has its press", async () => {
@@ -41,4 +41,13 @@ test("someone who may not approve it sees no press", async () => {
   show();
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /projects/9/cast")).toBe(true));
   expect(screen.queryByRole("button", { name: "Approve cast & places" })).toBeNull();
+});
+
+test("a look the check says is wrong shows what it found, and the press says it approves anyway (video 268)", async () => {
+  const bruno = item({ name: "Bruno", look_fit: { seen: "elderly man in a brown coat", problem: "draw a stocky tan clay dog" } });
+  const calls = fakeServer({ "GET /projects/9/cast": [200, cast({ items: [bruno] })], "POST /projects/9/cast/approve": [200, cast({ state: "approved" })] });
+  show();
+  expect(await screen.findByText("This look reads as elderly man in a brown coat, but draw a stocky tan clay dog.")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "Approve anyway" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/cast/approve")?.body).toEqual({ seen: { "char:12": "abc" }, anyway: true }));
 });

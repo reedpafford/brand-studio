@@ -342,6 +342,18 @@ test("S-gaps-07 B: no OK on a card; the set is checked together and approved in 
   expect(await screen.findByText("Cast and places approved. What waited for them carries on.")).toBeInTheDocument();
 });
 
+test("video 268: a look the check says is wrong is approved only anyway, saying what it found", async () => {
+  setViewport(1440);
+  const fit = { seen: "elderly man in a brown coat", problem: "draw a stocky tan clay dog" };
+  const set = gate([item("char:5", "Bruno", { look_fit: fit })], { waiting: ["Bruno"] });
+  const calls = server(owner, [role({ role: "Bruno", name: "Bruno", sheet_status: "needs_approval", look_fit: fit })], { "GET /projects/50/cast": [200, set], "POST /projects/50/cast/approve": [200, gate(set.items, { state: "approved" })] });
+  open();
+  expect(await screen.findByText("This look reads as elderly man in a brown coat, but draw a stocky tan clay dog.")).toBeInTheDocument();
+  expect(screen.getByText("The look check says Bruno looks wrong. Change it above, or approve anyway.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Approve anyway" }));
+  await vi.waitFor(() => expect(calls.find((x) => x.key === "POST /projects/50/cast/approve")?.body).toEqual({ seen: { "char:5": "sig-char:5" }, anyway: true }));
+});
+
 test("S-gaps-07 B: a change after the OK needs the combined OK again; the rest stay approved; clips with the old look wait for a choice", async () => {
   setViewport(1440);
   const chase2 = role({ ref: "char:30", role: "Chase", name: "Chase", library_item_id: 30, own_look_id: 30, slot_id: 3, sheet_status: "needs_approval", clip_ids: ["c2", "c3", "c4"] });

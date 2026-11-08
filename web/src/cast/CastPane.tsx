@@ -18,7 +18,7 @@ import { Empty } from "../videos/Empty";
 import { useLocks } from "../videos/locks";
 import { spent, upTo } from "../videos/money";
 import type { PaneProps } from "../videos/Preview";
-import { approveCast, keepOld, makePlace, pickPlace, uploadPlace, useCast, type Cast, type CastItem } from "./gate";
+import { approveCast, keepOld, makePlace, pickPlace, uploadPlace, useCast, wrongLooks, type Cast, type CastItem } from "./gate";
 import { Presenter } from "./Presenter";
 import { notInShots, useAssets } from "./useAssets";
 import { clipNo } from "../projects/names";
@@ -868,6 +868,7 @@ export function CastPane({ p, head, progress }: PaneProps) {
     </div>
   );
   const waiting = !!gate && (gate.state === "ready" || gate.state === "not_ready" || gate.waiting.length > 0);
+  const wrong = wrongLooks(gate?.items ?? []);
   // Flow-QA S11: an approved set with a look being drawn again isn't "Approved" until that look is checked
   const redrawing = gate?.state === "approved" ? gate.not_ready : [];
   const said = !gate ? null : changed.length && gate.approved_at ? `Needs you · ${changed.length} change${changed.length === 1 ? "" : "s"}` : redrawing.length ? `${redrawing.length === 1 ? `${redrawing[0].name} is` : `${redrawing.length} looks are`} being drawn again` : gate.state === "approved" ? "Approved" : gate.state === "none" ? null : "Needs you · approve to continue";
@@ -940,9 +941,9 @@ export function CastPane({ p, head, progress }: PaneProps) {
           {gate && waiting && gate.can_approve === false && <p className="text-sm text-muted">Whoever made this video, or the owner, approves the cast and places.</p>}
           {gate && waiting && gate.can_approve !== false && (
             <div className={`sticky -bottom-5 z-10 -mx-5 -mb-5 flex items-center gap-3 border-t border-border bg-surface px-5 pt-3 pb-5 ${phone ? "flex-col items-stretch" : ""}`}>
-              {!phone && <span className="flex-1 text-sm text-muted">{[counts, changed.length && gate.approved_at ? `${changed.length} change${changed.length === 1 ? "" : "s"} · ${gate.items.length - changed.length} still approved` : ""].filter(Boolean).join(" · ")}</span>}
+              {wrong.length > 0 ? <span className="flex-1 text-sm text-warning">The look check says {names(wrong.map((i) => i.name))} look{wrong.length === 1 ? "s" : ""} wrong. Change {wrong.length === 1 ? "it" : "them"} above, or approve anyway.</span> : !phone && <span className="flex-1 text-sm text-muted">{[counts, changed.length && gate.approved_at ? `${changed.length} change${changed.length === 1 ? "" : "s"} · ${gate.items.length - changed.length} still approved` : ""].filter(Boolean).join(" · ")}</span>}
               <Button icon={Check} busy={approve.isPending} disabled={gate.state === "not_ready" || gate.waiting.length === 0} reason={gate.state === "not_ready" ? `Not ready yet: ${gate.not_ready.map((x) => x.why).join("; ")}.` : gate.waiting.length === 0 ? "Nothing new to approve." : null} onClick={() => approve.mutate(gate)}>
-                Approve cast &amp; places
+                {wrong.length ? "Approve anyway" : <>Approve cast &amp; places</>}
               </Button>
             </div>
           )}

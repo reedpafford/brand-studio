@@ -93,11 +93,39 @@ IDENTITY = re.compile(  # a clear change of age, face or build; an outfit never 
     r"muscular|overweight|chubby|stocky|skinny)\b"
 )
 KEEPS = re.compile(r"(?i)\b(keep|same)\b")  # "keep the same face": the sheet stays
+BEING = re.compile(  # names a kind of being: "a stocky tan clay dog", "not a person"
+    r"(?i)\ban? (?:[\w-]+ ){0,4}?(person|human|man|woman|boy|girl|child|kid|animal|creature|"
+    r"dog|puppy|cat|kitten|bird|horse|rabbit|bunny|bear|fox|pig|cow|robot|monster|alien)\b(?![-'’])"
+)
 
 
 def own_look(item: LibraryItem) -> bool:
     """Made for one video or script (never Cast & places)."""
     return bool(item.owner_project_id or item.owner_script_id)
+
+
+def described(item: LibraryItem) -> bool:
+    """Its notes say more than its name: something to draw it from and check it against."""
+
+    def bare(text: str) -> str:
+        return re.sub(r"\W+", " ", text).strip().lower()
+
+    return bare(item.notes) not in ("", bare(item.name))
+
+
+def fresh(item: LibraryItem, change: str, fit_redo: bool) -> bool:
+    """A redraw that changes who it is starts fresh from its words and the note, without the
+    last sheet (its `## redo` keeps the species, face and build, so video 268's dog came out
+    wearing the old man's coat, his head still behind it): the check's own redo, and on a
+    video's or script's own look, a sheet the check found wrong or drawn with nothing to keep
+    to, a note naming a kind of being, or a clear change of age, face or build (QA-Live 6)."""
+    if fit_redo:
+        return True
+    if not own_look(item):
+        return False
+    if item.look_fit or not described(item) or BEING.search(change):
+        return True
+    return bool(IDENTITY.search(change)) and not KEEPS.search(change)  # unsure: keep it
 
 
 def queue_sheet(
@@ -133,16 +161,15 @@ def queue_sheet(
     style = look or (item.sheet_look if own_look(item) else looks.DEFAULT)
     last = ((item.look_sheets or {}).get(look) or {}).get("file_id") if look else item.sheet_file_id
     redo = bool(body.change.strip()) and last is not None
-    # A note that reworks the face, age or build of a video's or script's own look is drawn
-    # fresh from its description and the note: the old sheet won over the note (QA-Live 6).
-    fresh = (redo and own_look(item) and bool(IDENTITY.search(body.change))
-             and not KEEPS.search(body.change))  # unsure: keep the sheet  # fmt: skip
+    anew = redo and fresh(item, body.change, fit_redo)
     refs = [photo] if from_photo else []
-    refs += [last] if redo and not fresh else []
-    notes = f"{item.notes.rstrip('. ')}. {body.change.strip()}" if fresh else item.notes
+    refs += [last] if redo and not anew else []
+    noted = ". ".join(filter(None, [item.notes.rstrip(". "), body.change.strip()]))
+    noted = noted if body.change.strip() else ""
     prompt = prompts.sheet_prompt(
-        str(kind), notes, from_photo=from_photo, change=body.change if redo and not fresh else "",
-        role=role_for(db, item), style_id=style, from_sheet=from_sheet,
+        str(kind), noted if anew else item.notes, from_photo=from_photo,
+        change=body.change if redo and not anew else "", role=role_for(db, item), style_id=style,
+        from_sheet=from_sheet,
     )  # fmt: skip
     job = image_job_input(
         get_model(body.model_id), prompt, ASPECT[kind], objects=refs, resolution=RESOLUTION
@@ -158,10 +185,14 @@ def queue_sheet(
             "after_check": str(after), "auto_made": auto, "sheet_look_id": look,
             "change": body.change.strip(), "fit_redo": fit_redo,
             **({"by_director": True} if director else {})}  # fmt: skip  # why (Cast)
-    return enqueue(  # a video's own look is paid from that video's budget (gaps #19)
+    job = enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db, user, "image", data, project=project, provider="replicate",
         hold=check + after, prepaid=fit_redo,
     )  # fmt: skip
+    if noted and own_look(item) and not fit_redo and not look:  # the note is its words now,
+        item.notes = noted  # so later redraws and its check know it (268: still just "Bruno")
+        db.commit()
+    return job
 
 
 def text_to(read: dict, fit: LookFit) -> dict:
@@ -242,6 +273,11 @@ def check_fit(
     until it's queued or the look fits. If it's refused anyway, the
     check is skipped and the look shown, never held."""
     slot = slot or slot_for(db, item)  # its role's words are read against the sheet too
+    if not described(item):  # nothing to check it against: never "fits" (video 268)
+        item.look_fit = {"seen": f"a guess from the name alone: nothing says what {item.name} "
+                                 "is or looks like. Say it with Change", "problem": ""}  # fmt: skip
+        db.commit()
+        return
     data = {
         "step": "look_fit",
         "library_item_id": item.id,
