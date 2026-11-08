@@ -877,3 +877,40 @@ def test_after_a_free_edit_the_card_never_ends_the_run_with_the_cut_out_of_date(
     edits = [t for t in out["turns"] if t["tool"] == "edit_cut"]
     assert edits and not edits[0]["result"].startswith("Refused"), edits  # a real free edit
     assert director.video_state(db, db.get(Project, pid))["cut"] != "out of date"
+
+
+SKELETON = ("NARRATOR: What happens to your gut if you take two softgels of oil of oregano every "
+            "morning for thirty days?\nNARRATOR: Resilia oil of oregano with black seed oil. Two "
+            "softgels a day.")  # video 261's script, its first and last lines  # fmt: skip
+WHEN = (
+    'Remake only clip 7, as one steady shot. On "two softgels a day", two softgels drop '
+    'into its open palm. Start the pouch shot as "Resilia" is said, not on "oil", and end '
+    "on the pouch held still for a beat."
+)  # video 261's note: when, never what's said
+
+
+def test_a_note_that_quotes_the_script_to_say_when_is_no_word_change():
+    """Video 261: the owner's revision note quoted the script's words ("Resilia", "oil") to say
+    when something happens, and the note got a 500: the quoted capital R was read as the
+    pattern's own R. Quoting the words to say when isn't asking to change them."""
+    assert locked_line.asked_for(WHEN, SKELETON) is None
+    said = locked_line.asked_for("Change “Resilia oil of oregano” to “Resilia oregano oil”.",
+                                 SKELETON)  # fmt: skip
+    assert said == ("Resilia oil of oregano", "Resilia oregano oil", True)  # an R, asked for
+    assert locked_line.asked_for("Replace “Two softgels a day” with “Two a day”", SKELETON) == (
+        "Two softgels a day", "Two a day", True)  # fmt: skip
+
+
+def test_a_note_is_never_lost_to_a_card_that_cant_be_made(app, db, owner, editor, monkeypatch):
+    """Whatever goes wrong finding the script-words card, the note goes on as a revision."""
+    pid = _delivered(app, db, owner, editor)
+
+    def broken(*a, **k):
+        raise ValueError("a card that can't be made")
+
+    monkeypatch.setattr(locked_line, "offer", broken)
+    text = "Change “bought the dip” to “bought the top”."
+    sent = editor.post(f"/projects/{pid}/director/messages", json={"text": text})
+    assert sent.status_code < 300, sent.text
+    assert sent.json()["status"] == "running"  # the director reads it
+    assert any(t.get("text") == text for t in sent.json()["thread"])
