@@ -19,7 +19,7 @@ router = APIRouter(prefix="/projects/{project_id}/clips/{clip_id}/sound",
 
 
 class SoundIn(BaseModel):
-    asked: str = Field("", max_length=300)  # "slight footsteps and wind"; empty: what fits
+    asked: str = Field("", max_length=take_sound.LONGEST)  # "slight footsteps"; empty: what fits
 
 
 @router.post("", response_model=ProjectClipOut, status_code=201,

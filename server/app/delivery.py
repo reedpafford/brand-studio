@@ -39,7 +39,8 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
     rows = (_merged(_remade(db, project, spans, turns) + _fixed(db, project, spans, turns))
             + _host_rows(db, project, turns[0].created_at))  # fmt: skip
     return {"made": said(decision.get("made") or decision.get("why") or ""),
-            "open": open_items(db, project, spans, decision.get("needs") or ""),
+            "open": open_items(db, project, spans, decision.get("needs") or "")
+            + left_out(turns, decision),
             "redid": sorted(rows, key=lambda r: r["at"]),
             "unsure": " ".join(x for x in (said(decision.get("unsure") or ""),
                                            watch_report.doubts(db, project)) if x),
@@ -49,6 +50,20 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "seconds": round(sum(s["seconds"] for s in spans), 1),
             "since": turns[0].created_at.isoformat(),  # the run, to read its real cost later
             "until": utcnow().isoformat()}  # fmt: skip
+
+
+def left_out(turns: list[Job], decision: dict) -> list[str]:
+    """Each part of a person's note the run's moves said they couldn't fit or do (`left_out`),
+    so the note always names it (Reed, 8 Nov: never dropped), but those its words already say."""
+    told = said(" ".join(decision.get(k) or "" for k in ("needs", "unsure", "made"))).lower()
+    out = []
+    for j in turns:
+        if (j.input.get("result") or "").startswith("Refused"):
+            continue  # the move wasn't made: its next try says what it leaves out
+        line = said(((j.output or {}).get("left_out") or "").strip())
+        if line and line.lower().rstrip(".") not in told and line not in out:
+            out.append(line)
+    return out
 
 
 def run_cost(db: Session, project_id: int, note: dict):

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from pydantic import AfterValidator, PlainSerializer, StringConstraints
+from pydantic_core import PydanticCustomError
 
 
 def _email(value: str) -> str:
@@ -34,6 +35,19 @@ LongText = Annotated[str, StringConstraints(max_length=5000)]
 # A still's or clip's prompt: generated ones run past 5,000 (QA-Live, video #17's clip 1 was
 # 5,070), and a saved prompt must always be editable.
 PromptText = Annotated[str, StringConstraints(max_length=20_000)]
+NOTE_LONGEST = 20_000  # a person's note to the director: no real one comes near it
+
+
+def _note(text: str) -> str:
+    """Never cut (Reed, 8 Nov): a note past the most is refused at send, in plain words."""
+    if len(text) > NOTE_LONGEST:
+        raise PydanticCustomError("note_too_long", f"This note is {len(text):,} characters; "
+                                  "the most is 20,000. Send it as two notes.")  # fmt: skip
+    return text
+
+
+# What a person tells the director, read whole (the box has no limit of its own to cut a paste)
+Note = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1), AfterValidator(_note)]
 
 
 def slugify(text: str) -> str:

@@ -219,3 +219,42 @@ def test_no_note_is_cut_short_anywhere_the_director_writes_one(app, db, owner, e
     with pytest.raises(HTTPException) as no:
         voices.describe(db, user, project.brand_id, "A warm low voice. " * 40)
     assert "500 characters or fewer" in no.value.detail
+
+
+def test_every_instruction_of_a_note_is_kept_in_the_redo_or_named_as_left_out(app, db, owner,
+                                                                              editor):  # fmt: skip
+    """F16, video 261: the owner's revision note asked four things; the redo note lost its last
+    ("end on the pouch held still for a beat"). The director's redo note keeps each one in its
+    own words; what can't be done is its move's `left_out`, and the delivery note names it."""
+    from app import delivery
+    from app.prompts.schemas import DirectorTurn
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    user = db.get(User, project.created_by_id)
+    redo = {"tool": "make_take", "clip_id": "c1", "why": "Note 1: clip 1, as asked.",
+            "note": "Warmer late-sun light; she smiles only at the very end; one mug, hers; "
+                    "end on the pouch held still for a beat.",
+            "left_out": "Note 1: a 20-second clip 1: the model makes 8 s at most."}  # fmt: skip
+    asked = ["Warmer late-sun light", "she smiles only at the very end", "one mug, hers",
+             "end on the pouch held still for a beat"]  # fmt: skip
+    assert director_tools.run(db, user, project, redo, app.state.storage, {"id": "r"}) == (
+        "Making 1 take.")  # fmt: skip
+    job = db.query(Job).order_by(Job.id.desc()).first()
+    assert all(a in job.input["note"] for a in asked), job.input["note"]
+    turns = director.turns(db, project)
+    deliver, made = turns[-1], turns[-2]
+    refused = {**redo, "left_out": "Note 1: the whole note: too long."}
+    made.output, made.input = redo, {**made.input, "result": "Making 1 take."}
+    turns[-3].output, turns[-3].input = refused, {**turns[-3].input, "result": "Refused: long"}
+    for t in turns[-3:-1]:
+        flag_modified(t, "output")
+        flag_modified(t, "input")
+    db.commit()
+    turn = DirectorTurn(tool="deliver", why="Note 1: done.", made="Clip 1 made again.")
+    note = delivery.note(db, project, deliver, turn.model_dump())
+    assert "Note 1: a 20-second clip 1: the model makes 8 s at most." in note["open"]
+    assert not any("too long" in x for x in note["open"])  # a refused move's: never made
+    said = turn.model_copy(update={"needs": "Note 1: a 20-second clip 1: the model makes 8 s "
+                                            "at most."}).model_dump()  # fmt: skip
+    assert not any("20-second" in x for x in delivery.note(db, project, deliver, said)["open"])

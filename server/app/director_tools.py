@@ -32,7 +32,7 @@ WAITING = "{} for the cast and places OK."
 LONG_NOTE = ("Refused: a {what} note is at most {most} characters (this one is {n}); say it "
              "shorter, keeping everything it asks.")  # fmt: skip  # never cut (261: its end lost)
 NOTES = {"make_take": "redo", "redraw_still": "redraw", "plan": "plan", "change_look": "change",
-         "host": "motion"}  # fmt: skip  # the tools whose note goes on as written
+         "host": "motion", "add_sound": "sound"}  # fmt: skip  # their note goes on as written
 REDRAW = " Use redraw_still on one of its shots, with the note."
 
 
@@ -495,11 +495,12 @@ def _clips(db: Session, project_id: int, clip_id: str | None) -> list[ProjectCli
 
 
 def _most(tool: str) -> int:
-    """The longest note a tool takes: a redo's (a take's Redo note), else a motion note's."""
-    from app import talker
+    """The longest note a tool takes: a redo's (a take's Redo note), a motion note's or a
+    sound's (its button's)."""
+    from app import take_sound, talker
     from app.clip_takes import NOTE_MAX
 
-    return talker.LONGEST_MOTION if tool == "host" else NOTE_MAX
+    return {"host": talker.LONGEST_MOTION, "add_sound": take_sound.LONGEST}.get(tool, NOTE_MAX)
 
 
 def _rewritten(db: Session, row: ProjectClip, note: str) -> bool:
