@@ -113,8 +113,8 @@ def test_before_make_it_a_revision_may_edit_the_cut_but_never_make_anything(app,
     project = db.get(Project, pid)
     run = {**director.turns(db, project)[-1].input[director.RUN], "ok": False,
            director.REVISION: True, "id": "rev"}  # fmt: skip
-    assert director.REVISE_FREE == ("edit_cut", "final_cut", "mute", "pick_take", "splice_word",
-                                    "watch_cut", "deliver")  # fmt: skip
+    assert director.REVISE_FREE == ("edit_cut", "final_cut", "mute", "unmute", "pick_take",
+                                    "splice_word", "watch_cut", "deliver")  # fmt: skip
     assert director._written(db, run, pid)  # its story is the video's
     assert not director._written(db, {**run, director.REVISION: False}, pid)
     assert not director._own_story(db, run, pid)

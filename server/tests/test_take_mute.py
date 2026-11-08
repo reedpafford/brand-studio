@@ -91,3 +91,86 @@ def test_mute_and_undo_from_the_clip_keep_its_approval(app, db, editor, setup, c
     db.commit()
     archived = editor.post(f"{clips}/{clip['id']}/mute", json={"start": 1, "end": 2})
     assert archived.status_code == 409
+
+
+LINE = "Two of these every morning. Oil of oregano with black seed oil."
+
+
+def _words(*spans):
+    """Heard words, each (text, start): one word a tenth of a second."""
+    return [{"word": w, "start": round(t + n / 10, 2), "end": round(t + (n + 1) / 10, 2)}
+            for text, t in spans for n, w in enumerate(text.split())]  # fmt: skip
+
+
+def test_a_line_heard_in_two_pieces_is_never_called_unscripted():
+    """Video 284: c3's line was heard as "Two of these every morning." and "Oil of oregano with
+    black seed oil.", and the first piece was called unscripted, to mute: the line's only
+    copy. A piece heard twice is still a repeat."""
+    lines = [{"who": "JESS", "text": LINE}]
+    apart = [{"start": 1.1, "end": 2.5, "text": "Two of these every morning."},
+             {"start": 2.7, "end": 5.0, "text": "Oil of oregano with black seed oil."}]  # fmt: skip
+    assert compare(lines, apart, "Resilia", "", ["Jess holds up the pouch."]) == []
+    twice = [{"start": 0.0, "end": 1.0, "text": "Two of these every morning."}, *apart]
+    (extra,) = compare(lines, [twice[0], {**apart[0], "text": LINE}], "Resilia", "", [])
+    assert extra["kind"] == "extra" and extra["span"] == [0.0, 1.0]
+
+
+def test_a_mute_never_silences_a_lines_only_copy_and_the_director_undoes_its_own(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+    clip,  # noqa: F811
+    monkeypatch,
+):
+    """Video 284: the director muted "Two of these every morning", the line's only copy, and
+    said it couldn't lift the mute. A mute (anyone's) that leaves a scripted line heard
+    nowhere in the cut is refused, saying why; a repeat can still be muted; and the director
+    can unmute what it muted, never a person's mute."""
+    from app import director_tools
+    from app.models.accounts import User
+
+    clips = f"/projects/{setup['project']}/clips"
+    editor.post(f"{clips}/{clip['id']}/generate")
+    _work(app, db, FakeSeedance([_mp4("red")]))
+    heard = _words(("Two of these every morning.", 1.1), ("Oil of oregano with black seed oil.",
+                                                          2.7))  # fmt: skip
+    monkeypatch.setattr("app.word_splice._heard", lambda db, take: (heard, ""))
+    monkeypatch.setattr(take_mute, "_lines", lambda db, row: [("Jess", LINE)])
+    only = editor.post(f"{clips}/{clip['id']}/mute", json={"start": 1.0, "end": 1.6})
+    assert only.status_code == 409, only.text
+    assert only.json()["detail"] == take_mute.LOST_LINE.format(who="Jess's ", line=LINE)
+    heard[:0] = _words(("Two of these every morning.", 0.0))  # said twice: a repeat to mute
+    assert (
+        editor.post(f"{clips}/{clip['id']}/mute", json={"start": 0.0, "end": 0.5}).status_code
+        == 200
+    )
+    row = db.get(ProjectClip, clip["id"])
+    take = db.get(ClipTake, row.picked_take_id)
+    db.refresh(take)
+    take.made_with = {**take.made_with, "director_mutes": [[0.0, 0.5]]}  # the director's
+    db.commit()
+    person = editor.post(f"{clips}/{clip['id']}/mute", json={"start": 3.6, "end": 3.9})
+    assert person.status_code == 200, person.text  # a person's own mute
+    db.expire_all()  # the person's mute was made in the app's own session
+    project = db.get(Project, setup["project"])
+    ed = db.query(User).filter_by(email="ed@example.com").one()
+    move = {"tool": "unmute", "clip_id": row.clip_id}
+    said = director_tools.run(db, ed, project, move, app.state.storage)
+    assert said.startswith("Unmuted the stretch you muted in clip 1"), said
+    db.refresh(take)
+    assert take_mute.spans(take) == [[3.6, 3.9]]  # the person's stays
+    again = director_tools.run(db, ed, project, move, app.state.storage)
+    assert again.startswith("Refused: nothing you muted is left in clip 1")
+
+
+def test_the_delivery_note_never_says_a_line_the_cut_has_isnt_heard():
+    """Video 284's note said "Not heard: Jess: “Your gut's backed up.”" from a take check,
+    while the final cut's transcript has it."""
+    from app.delivery import _heard_in_cut
+
+    missing = {"kind": "missing", "text": "Not heard: Jess: “Your gut's backed up.”"}
+    cut = ["granny", "means", "well", "your", "gut's", "backed", "up", "mine", "was", "too"]
+    assert _heard_in_cut(missing, cut)
+    assert not _heard_in_cut(missing, ["granny", "means", "well"])
+    assert not _heard_in_cut({**missing, "kind": "extra"}, cut) and not _heard_in_cut(missing, None)

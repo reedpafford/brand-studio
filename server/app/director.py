@@ -85,8 +85,8 @@ PRE_OK = ("treatment", "ask", "wait", "stop", "locked_line")  # before Make it: 
 # watch and delivery they lead to, need no Make it (Reed: a revision charges only the affected
 # work). Anything that makes something new still waits on its start card.
 REVISION = "revision"  # in a run: started after a delivery, it reuses the video's story
-REVISE_FREE = ("edit_cut", "final_cut", "mute", "pick_take", "splice_word", "watch_cut",
-               "deliver")  # fmt: skip
+REVISE_FREE = ("edit_cut", "final_cut", "mute", "unmute", "pick_take", "splice_word",
+               "watch_cut", "deliver")  # fmt: skip
 ON_YOU = "Waiting on your answer; everything else is made."  # parked on open questions
 CAST_WAIT = "Waiting for the cast and places OK."  # its run waits on that point only
 
@@ -1084,7 +1084,8 @@ def to_mute(db: Session, row: ProjectClip) -> list[list[float]]:
     for s in spans:
         span = [round(float(s[0]), 2), round(float(s[1]), 2)]
         if tuple(span) not in done and span not in out:
-            out.append(span)
+            if not take_mute.lost_line(db, row, take, *span):  # never a line's only copy
+                out.append(span)
     return out
 
 

@@ -120,14 +120,18 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
         out.append("The takes weren't checked one by one.")
     ids = [s["take"].id for s in spans]
     checks = {k: item_checks.latest(db, k, ids) for k in ("take", "words")}
+    cut_words = _cut_words(db, project) if watch.get("current") else {}
     for s in spans:
         take, n = s["take"], _clip(s["row"])
         if (take.made_with or {}).get("talker"):
             continue  # cut from the talker's take: watched as the host's piece, below
         for k in ("take", "words"):
             for f in _found(checks[k].get(take.id)):
-                if f.get("verified", True) and not _fixed_free(db, take, f):  # doubts: unsure
-                    out.append(f"{n}: {said(f['text']).rstrip('.')}. Kept as it is.")
+                if not f.get("verified", True) or _fixed_free(db, take, f):  # doubts: unsure
+                    continue
+                if _heard_in_cut(f, cut_words.get(s["row"].clip_id)):
+                    continue  # "Not heard" by the take's check, but the cut's words have it
+                out.append(f"{n}: {said(f['text']).rstrip('.')}. Kept as it is.")
         mine = [checks[k].get(take.id) for k in ("take", "words")]
         if item_checks.on() and (mine[0] is None or any(c and c.status != "done" for c in mine)):
             out.append(f"{n}'s take wasn't checked.")  # none, failed, skipped or never finished
@@ -140,6 +144,26 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
         if line not in out:
             out.append(line)
     return out
+
+
+def _cut_words(db: Session, project: Project) -> dict[str, list[str]]:
+    """The current cut's heard words (its watch's transcript), bare, by clip."""
+    from app.take_mute import _bare
+    from app.watch_cut import _newest
+
+    job, out = _newest(db, project), {}
+    for w in (job.input.get("words") or []) if job else []:
+        out.setdefault(w.get("clip_id") or "", []).extend(_bare(w.get("word") or ""))
+    return out
+
+
+def _heard_in_cut(f: dict, words: list[str] | None) -> bool:
+    """A take check's "Not heard: “line”" that the final cut's transcript does hear (video
+    284's note said "Your gut's backed up" wasn't heard; the cut has it at 0:14)."""
+    from app.take_mute import _said
+
+    quoted = re.findall(r"“([^”]+)”", f.get("text") or "")
+    return f.get("kind") == "missing" and bool(quoted and words) and _said(quoted[-1], words)
 
 
 def _host_open(db: Session, project: Project) -> list[str]:

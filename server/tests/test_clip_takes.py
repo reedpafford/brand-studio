@@ -600,3 +600,4 @@ def test_a_photoreal_style_says_people_in_words(app, db, editor, setup, clip, mo
     sent = json.loads(next(q for q in fake.requests if q.method == "POST").content)["input"]
     assert len(sent["reference_images"]) == 1  # the screen only, not Mom's sheet
     assert "Mom" in sent["prompt"] and "[Image2]" not in sent["prompt"]
+    assert "first frame" not in sent["prompt"] and "opening shot is" not in sent["prompt"]
