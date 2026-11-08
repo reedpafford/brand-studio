@@ -67,8 +67,9 @@ def test_a_sheet_with_nothing_to_check_against_never_fits(owner, editor, db):
                        owner_project_id=None)  # fmt: skip
     db.add(item)
     db.commit()
+    landed = {"file_ids": [upload(editor)]}
     job = Job(workspace_id=1, created_by_id=1, kind="image", provider="fake", status="succeeded",
-              input={"library_item_id": item.id}, output={"file_ids": [upload(editor)]})  # fmt: skip
+              input={"library_item_id": item.id}, output=landed)  # fmt: skip
     db.add(job)
     db.commit()
     save_sheet(db, job)
