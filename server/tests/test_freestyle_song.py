@@ -151,7 +151,7 @@ def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app
     out = owner.get(f"/freestyles/{fs['id']}").json()
     moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
-    again = next(i for i, m in enumerate(moves) if m.startswith("Making the narration (Say"))
+    again = next(i for i, m in enumerate(moves) if m.startswith("Making the narration (clearly)"))
     plan = next(i for i, m in enumerate(moves) if m.startswith("Making the plan"))
     assert again < plan, moves
     video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
@@ -163,7 +163,7 @@ def test_a_narration_with_the_brand_said_wrong_is_read_again_before_the_plan(app
     draft = db.get(ScriptDraft, video.script_draft_id)
     assert "[" not in draft.text  # the note went to the voice, never into the version's words
     redo = db.get(Job, db.get(SongTake, second["id"]).job_id)
-    assert redo.input["input"]["prompt"].startswith("[Say ")
+    assert redo.input["input"]["prompt"].startswith("[clearly] ")  # a tag: never read aloud
     assert db.get(SongTake, second["id"]).voice == "Sarah"  # no voice picked: the default
 
 
@@ -315,7 +315,7 @@ def test_a_name_still_wrong_when_the_remakes_are_used_is_said_in_the_delivery(
     out = owner.get(f"/freestyles/{fs['id']}").json()
     moves = helpers.moves(db, db.get(Freestyle, fs["id"]).project_id)
     assert out["status"] == "delivered", moves
-    assert not any(m.startswith("Making the narration (Say") for m in moves)
+    assert not any(m.startswith("Making the narration (clearly)") for m in moves)
     assert "The narration still says “foma” for fomo at" in moves[-1], moves[-1]
 
 

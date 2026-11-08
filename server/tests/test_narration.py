@@ -41,10 +41,17 @@ def test_the_narrator_reads_the_directors_narration_text():
     ]  # fmt: skip
 
 
-def test_a_remakes_note_reaches_the_voice_as_a_tag_and_the_voice_is_one_of_ours():
-    made = narration.job(WORDS, "Jane", note="Say fomo as FOH-moh.")
-    assert made["input"] == {"prompt": f"[Say fomo as FOH-moh.] {check.narration_text(WORDS)}",
+def test_a_remakes_note_reaches_the_voice_as_a_short_tag_and_the_voice_is_one_of_ours():
+    """F1 (video 261): v3 read "[A touch quicker and more animated, about 3.4 words a second,
+    …]" aloud before the script. A note is a short delivery tag; a longer one, or one with a
+    number, is refused before anything is paid for."""
+    made = narration.job(WORDS, "Jane", note="warm, upbeat")
+    assert made["input"] == {"prompt": f"[warm, upbeat] {check.narration_text(WORDS)}",
                              "voice": "Jane"}  # fmt: skip
+    for note in ("A touch quicker and more animated", "quicker, 3.4 words a second",
+                 "Say fomo as FOH-moh."):  # fmt: skip
+        with pytest.raises(ValueError, match=r"short delivery tag .* read aloud"):
+            narration.job(WORDS, "Jane", note=note)
     with pytest.raises(ValueError, match="voice"):
         narration.job(WORDS, "Morgan Freeman")
 
@@ -80,28 +87,117 @@ def test_a_narration_is_made_trimmed_timed_and_used(app, db, owner, narrated):
     assert owner.get(f"{narrated}/songs").json()["takes"][0]["out_of_date"]
 
 
-def test_a_trim_that_would_clip_a_word_keeps_the_pauses(app, db, owner, narrated):
-    _words(owner, narrated, WORDS + " fake:clip-word")
+def test_the_trim_cuts_each_pause_to_its_quiet_middle_and_never_into_a_word(tmp_path):
+    """Video 261 kept every 0.5-0.8 s pause (`trimmed: false`): its trim was refused because
+    two Whisper reads of the same words differed. The trim now cuts only quiet (a breath
+    above -40 dB included), leaving 0.1 s each side of a pause, and is heard once."""
+    import subprocess
+
+    from app import song_timing
+
+    voice = "0.5*sin(2*PI*220*t)*(between(t,0.5,1.5)+between(t,2.3,3))"
+    path = tmp_path / "voice.wav"  # two words with a breath (about -39 dBFS) under it all
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",  # noqa: S603, S607
+                    f"aevalsrc='{voice}+0.015*sin(2*PI*90*t)':s=24000:d=3.5", str(path)],
+                   check=True)  # fmt: skip
+    asked = []
+
+    def hear(file, text):
+        asked.append(file.name)
+        return [{"word": w, "start": 0.1 + n, "end": 0.9 + n} for n, w in enumerate(text.split())]
+
+    timing, trimmed = narration.measure(path, "Hi there.", hear=hear)
+    assert asked == ["trimmed.mp3"] and timing["trimmed"] and trimmed is not None
+    assert abs(timing["seconds"] - 2.1) < 0.12  # 0.1 + 1.0 + 0.2 + 0.7 + 0.1 s
+    loud = [x >= -30 for x in narration._levels(trimmed)]
+    assert abs(sum(loud) - 170) <= 6  # every 10 ms of both words is still there
+    gaps = "".join("x" if x else "." for x in loud).strip(".").split("x")
+    assert max(len(g) for g in gaps) <= 25  # the pause between them: about 0.2 s of quiet
+    assert song_timing.length(trimmed) == timing["seconds"]
+
+
+def test_a_narration_that_says_more_than_the_script_is_never_used(app, db, owner, narrated,
+                                                                  monkeypatch):  # fmt: skip
+    """F1: a note read aloud is words the script doesn't have (`extras`, as a song's). A word
+    heard another way ("5000 dollars", "soft gels") isn't one."""
+    from app.providers import fake_local
+
+    said = "We hit $5,000 today. Two softgels a day."
+    other_way = [
+        {"word": w, "start": n * 0.4, "end": n * 0.4 + 0.3}
+        for n, w in enumerate("We hit 5000 dollars today. Two soft gels a day.".split())
+    ]
+    assert narration.extras(said, other_way) == []
+    note = "A touch quicker and more animated about 3.4 words a second".split()
+    read = [{"word": w, "start": n * 0.3, "end": n * 0.3 + 0.2} for n, w in enumerate(note)]
+    assert [x["text"] for x in narration.extras(said, read + other_way)] == [" ".join(note)]
+
+    heard = fake_local.hear_voice
+    monkeypatch.setattr(
+        fake_local,
+        "hear_voice",
+        lambda path, text: (
+            [{"word": w, "start": 0.0, "end": 0.1} for w in ("Quickly", "warm")] + heard(path, text)
+        ),
+    )
     owner.post(f"{narrated}/songs", json={})
     _work(app, db)
     (take,) = owner.get(f"{narrated}/songs").json()["takes"]
-    assert take["status"] == "ready" and take["advice"] == [narration.KEPT_PAUSES]
-    assert take["untrimmed_seconds"] is None  # the untrimmed narration is the one kept
+    extra = narration.SAYS_MORE.format("Quickly warm")
+    assert take["status"] == "ready" and not take["preferred"] and take["advice"] == [extra]
+    used = owner.post(f"/songs/{take['id']}/preferred")
+    assert (used.status_code, used.json()["detail"]) == (409, extra)
 
 
-def test_a_trim_heard_with_its_number_written_another_way_is_kept(tmp_path):
-    from app.providers.fake_local import narration as voice
+def test_each_sentence_starts_on_its_first_word_with_whispers_junk_glued_on():
+    """Video 261 (CRITIQUE-261 cause 2): Whisper glued junk onto each sentence's first word
+    ("?ÿÿÿÿÿÿÿÿDay", ".שובDay", ".ManiaResilia"), `\\w` kept it, so every rung was timed from
+    its second word and cut 0.2-0.7 s late. The words are the critic's local read of 261 with
+    the site's glued tokens put in (job 1435; the other rungs glued the same way); the voice
+    starts where the critic measured it, inside each glued word."""
+    from app import song_timing
 
-    path = tmp_path / "voice.mp3"
-    path.write_bytes(voice("We hit $5,000 today."))
+    heard = []
+    for token in HEARD_261.split():
+        word, at = token.rsplit("@", 1)
+        start, end = at.split("-")
+        heard.append({"word": word, "start": float(start), "end": float(end)})
+    glued = [k for k, w in enumerate(heard) if w["word"].endswith(("Day", "Resilia"))]
+    onsets = dict(zip(glued, (6.27, 10.38, 15.94, 19.91, 23.93, 29.27), strict=True))
+    levels = [-70.0] * 3440  # 10 ms frames: the voice is on in each word, from its onset
+    for n, w in enumerate(heard):
+        for k in range(round(onsets.get(n, w["start"]) * 100), round(w["end"] * 100)):
+            levels[k] = -15.0
+    lines = song_timing.lines("\n".join(narration.sentences(SCRIPT_261)), heard, 34.4,
+                              levels=levels)  # fmt: skip
+    assert [ln["start"] for ln in lines] == [0.0, 6.27, 10.38, 15.94, 19.91, 23.93, 29.27, 32.68]
+    assert all(ln["heard"] >= 0.6 for ln in lines)
 
-    def hear(file, text):  # Whisper writes the number one way, then the other
-        trim = file.name == "trimmed.mp3"
-        said = "We hit $5,000 today." if trim else "We hit 5000 dollars today."
-        return [{"word": w, "start": 0.0, "end": 0.3} for w in said.split()]
 
-    timing, trimmed = narration.measure(path, "We hit $5,000 today.", hear=hear)
-    assert trimmed is not None and timing["trimmed"]  # the same words: the trim is used
+SCRIPT_261 = """What happens to your gut if you take two softgels of oil of oregano every morning for thirty days?
+Day one, they go down easy, and you burp a little oregano.
+Day three, the gas that's been trapped in there since Christmas finally finds the exit.
+Day ten, your belly stops inflating after every meal.
+Day twenty, your jeans close without lying down on the bed.
+Day thirty, you're flat, light, and nobody at work can figure out what changed.
+Resilia oil of oregano with black seed oil. Two softgels a day."""  # noqa: E501
+HEARD_261 = """What@0-0.14 happens@0.14-0.44 to@0.44-0.66 your@0.66-0.76 gut@0.76-1 if@1-1.36
+you@1.36-1.46 take@1.46-1.68 two@1.68-1.96 soft@1.96-2.32 gels@2.32-2.72 of@2.72-2.92 oil@2.92-3.14
+of@3.14-3.38 oregano@3.38-3.86 every@3.86-4.14 morning@4.14-4.54 for@4.54-4.8 30@4.8-5.04
+days?@5.04-5.4 ?ÿÿÿÿÿÿÿÿDay@5.48-6.42 one,@6.42-6.7 They@7.14-7.4 go@7.4-7.54 down@7.54-7.74
+easy@7.74-7.94 and@7.94-8.48 you@8.48-8.66 burp@8.66-8.96 a@8.96-9.02 little@9.02-9.16
+oregano.@9.16-9.76 .שובDay@9.74-10.54 three,@10.54-10.88 The@11.4-11.6 gas@11.6-11.84
+that's@11.84-12.26 been@12.26-12.4 trapped@12.4-12.62 in@12.62-12.9 there@12.9-13.04
+since@13.04-13.26 Christmas@13.26-13.72 finally@13.72-14.28 finds@14.28-14.7 the@14.7-14.92
+exit.@14.92-15.12 .ÿÿDay@15.12-16.1 ten,@16.1-16.46 Your@16.9-17.12 belly@17.12-17.32
+stops@17.32-17.68 inflating@17.68-18.28 after@18.28-18.56 every@18.56-18.9 meal.@18.9-19.14
+?ÿÿDay@19.14-20.08 twenty,@20.08-20.4 Your@20.9-21.14 jeans@21.14-21.34 close@21.34-21.68
+without@21.68-22.08 lying@22.08-22.5 down@22.5-22.76 on@22.76-22.92 the@22.92-23 bed.@23-23.16
+.ÿÿDay@23.16-24.06 thirty,@24.06-24.44 Your@24.86-25.06 flat,@25.06-25.34 light,@25.7-25.84
+and@26.18-26.28 nobody@26.28-26.6 at@26.6-26.96 work@26.96-27.12 can@27.12-27.36
+figure@27.36-27.6 out@27.6-27.84 what@27.84-28.04 changed.@28.04-28.36 .ManiaResilia@28.6-29.76
+oil@29.76-29.98 of@29.98-30.44 oregano@30.44-31 with@31-31.28 black@31.28-31.5 seed@31.5-31.82
+oil.@31.82-32.12 Two@32.68-32.9 soft@32.9-33.24 gels@33.24-33.58 a@33.58-33.72 day.@33.72-33.94"""
 
 
 def test_a_failed_narration_says_so_and_costs_nothing(app, db, owner, narrated):

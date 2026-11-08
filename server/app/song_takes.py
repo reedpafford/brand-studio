@@ -244,11 +244,11 @@ def save_timing(db: Session, job: Job) -> None:
         from app import narration_music
 
         narration_music.start(db, take, db.get(User, job.created_by_id))
-    if timing.get("trimmed") is False:
-        take.advice = [narration.KEPT_PAUSES, *take.advice]
+    if extra := narration.says_more(take):  # a note read aloud: never used (F1, video 261)
+        take.advice = [narration.SAYS_MORE.format(extra), *take.advice]
     draft = db.get(ScriptDraft, take.draft_id)
     project = db.get(Project, take.project_id) if take.project_id else None
-    usable = not out_of_date(take, draft)
+    usable = not out_of_date(take, draft) and not narration.says_more(take)
     if usable and project:  # a video picks its song by song_take_id, never Preferred
         if project.song_take_id is None:
             project.song_take_id = take.id
@@ -353,9 +353,12 @@ def lyrics_estimate(db: Session, draft: ScriptDraft) -> Decimal:
 
 
 def _usable(take: SongTake, draft: ScriptDraft) -> None:
-    """A take that can be Preferred or a video's song: it sings the current words."""
+    """A take that can be Preferred or a video's song: it sings the current words, and a
+    narration says nothing the script doesn't have."""
     if out_of_date(take, draft):
         raise HTTPException(409, OLDER_WORDS)
+    if extra := narration.says_more(take):
+        raise HTTPException(409, narration.SAYS_MORE.format(extra))
 
 
 def _free_retry(old: Job) -> bool:

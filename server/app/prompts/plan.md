@@ -33,6 +33,8 @@ Give each scene its part.
 
 **★ The product.** Mark the key product moments with `product` (the product or screen id from the brand block): the find, the use (the scoop, the tap), the proof and the end. Usually three to five lines, never none. A ★ line shows the real product, label or logo to camera.
 
+**When the product enters.** Where the Style section says when the product comes in (on one clean turn, at the payoff), that wins over the ★ marks above: no ★ before that moment, and the lines before it show what they name without the pack or its label.
+
 **The lane.** When the Style section lists lanes, choose the one that suits this story and brand in the structure's `lane`; when in doubt, the default (""). Without lanes, `lane` is "".
 
 **The note (<note>, when given):** follow it over your own choices, still with the script's words unchanged.

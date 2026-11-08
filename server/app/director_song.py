@@ -19,6 +19,7 @@ from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.songs import SongTake
+from app.prompts import check
 
 REMADE = "audio_remakes"  # the run's count of them, a song's or a narration's alike
 REMAKES = 2  # a run's song (or narration) made again, with a note (Song-Producer: 2)
@@ -80,7 +81,7 @@ def misheard(timing: dict | None, brand: str, script: str = "") -> list[dict] | 
 
 def _missing(take: SongTake, lines: list[dict]) -> list[str]:
     """Lines not heard as written. A song's: under HEARD of its words. A narration's: any word
-    lost, by its letters against everything heard, as the trim check compares (one dropped
+    lost, by its letters against everything heard, as `letters` compares (one dropped
     "probiotics" is a miss)."""
     if take.kind != narration.KIND:
         return [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
@@ -109,17 +110,20 @@ def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dic
             "pace": timing.get("pace"),  # words a second while speaking, as measured
             **({"misheard": misheard(take.timing, brand, take.lyrics)}
                if take.kind == narration.KIND else {}),
-            **({"extras": _extras(take)} if take.kind == "song" else {})}  # fmt: skip
+            "extras": _extras(take)}  # fmt: skip
 
 
 def _extras(take: SongTake) -> list[dict] | None:
-    """Sung but not in the lyrics (ad-libs, an extra chorus); None until timed. Timings read
-    before extras were saved work them out from their words."""
+    """Sung or said but not in the words (ad-libs, an extra chorus, a note read aloud); None
+    until timed. Timings read before extras were saved work them out from their words."""
     if take.timing is None:
         return None
     if "extras" in take.timing:
         return take.timing["extras"]
-    return song_timing.extras(take.lyrics, take.timing.get("words") or [])
+    words = take.timing.get("words") or []
+    if take.kind == narration.KIND:
+        return narration.extras(check.narration_text(take.lyrics), words)
+    return song_timing.extras(take.lyrics, words)
 
 
 def state(db: Session, project: Project) -> dict | None:
@@ -137,7 +141,7 @@ def state(db: Session, project: Project) -> dict | None:
            else "ready" if "ready" in states else "failed")  # fmt: skip
     out = {"state": now, "takes": takes, "used_take_id": project.song_take_id}
     if found == "narrated":  # the note a narration with the name wrong is read with
-        out["say"] = say(brand)
+        out["say"] = narration.SAY  # a short tag: a sentence in one is read aloud
         used = next((t.voice for t in made if t.id == project.song_take_id), None)
         said = used or narrator(db, project)
         if own := voices.for_director(db, project.workspace_id, project.brand_id, said):
@@ -153,14 +157,6 @@ def state(db: Session, project: Project) -> dict | None:
                         else draft.style_line.strip())  # fmt: skip
         out["recent_styles"] = music.recent_styles(db, project.brand_id)
     return out
-
-
-def say(brand: Brand) -> str:
-    """The pronunciation note for the narrator ("Say fomo as FOH-moh.")."""
-    said_as = take_words.say(brand)
-    if said_as == brand.name:
-        return f"Say the name {brand.name} clearly, as it's written."
-    return f"Say {brand.name} as {said_as}."
 
 
 def _on(db: Session, draft: ScriptDraft) -> bool:
@@ -197,8 +193,11 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if ready and not asked:
         if project.song_take_id in {t.id for t in ready}:
             return f"The {what} is set: take {_number(db, project.song_take_id)}."
-        best = next((t for t in ready if t.preferred), None) or min(
-            ready, key=lambda t: _rank(_take(db, t, None), t.id))  # fmt: skip
+        fit = [t for t in ready if not narration.says_more(t)]  # never a note read aloud
+        if not fit:
+            return "Refused: " + narration.SAYS_MORE.format(narration.says_more(ready[-1]))
+        best = next((t for t in fit if t.preferred), None) or min(
+            fit, key=lambda t: _rank(_take(db, t, None), t.id))  # fmt: skip
         song_takes.use_in_video(db, project, best)
         return f"Using take {best.number} for the {what}."
     if takes and not asked:
