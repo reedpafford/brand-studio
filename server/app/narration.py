@@ -242,10 +242,11 @@ def kept_pause(job_input: dict) -> float:
     return max([KEEP, *(float(s) for s in MARK.findall(said) if s)])
 
 
-def cuts(levels: list[float], keep: float = KEEP) -> list[tuple[float, float]]:
+def cuts(levels: list[float], keep: float = KEEP, heard=()) -> list[tuple[float, float]]:
     """The stretches to cut, in seconds: the middle of every quiet run (song_timing.quiet:
-    breath and room tone, never a word) longer than `keep`, leaving half of `keep` after the
-    word before it and half before the word after it (only the word's side at the ends)."""
+    breath and room tone) longer than `keep`, leaving half of `keep` after the sound before it
+    and half before the sound after it (only the sound's side at the ends), and never inside
+    a word Whisper heard, with that much to spare (`_words`: a soft or whispered word stays)."""
     floor, step, found, start = song_timing.quiet(levels), song_timing.HOP, [], None
     for k, level in enumerate([*levels, math.inf]):
         if level < floor:
@@ -257,17 +258,40 @@ def cuts(levels: list[float], keep: float = KEEP) -> list[tuple[float, float]]:
             if b - a >= step:
                 found.append((round(a, 2), round(b, 2)))
             start = None
-    return found
+    for s, e in _words(heard, levels):  # what's left of each cut beside every heard word
+        found = [piece for a, b in found
+                 for piece in ((a, min(b, s - keep / 2)), (max(a, e + keep / 2), b))
+                 if piece[1] - piece[0] >= step]  # fmt: skip
+    return [(round(a, 2), round(b, 2)) for a, b in found]
+
+
+def _words(heard, levels: list[float]) -> list[tuple[float, float]]:
+    """Each heard word's span; one with junk glued on from where its sound starts (its glued
+    part spans the pause before it)."""
+    return [((song_timing.sounds_from(w["start"], w["end"], levels) or w["end"])
+             if song_timing.glued(w["word"]) else w["start"], w["end"]) for w in heard]  # fmt: skip
+
+
+def moved(heard: list[dict], found: list[tuple[float, float]]) -> list[dict]:
+    """The words' times in the trimmed narration: each moved back by what was cut before it."""
+
+    def at(t: float) -> float:
+        return round(t - sum(min(b, t) - a for a, b in found if a < t), 2)
+
+    return [{**w, "start": at(w["start"]), "end": at(w["end"])} for w in heard]
 
 
 def _levels(path: Path) -> list[float]:
     return song_timing.levels(song_timing._samples(path, song_timing.CLEAR), song_timing.CLEAR)
 
 
-def trim(path: Path, out: Path, longest: float = KEEP) -> Path | None:
-    """Every pause cut down to `longest` of quiet (`cuts`), nothing with sound touched; None
-    when there's no pause to cut."""
-    found = cuts(_levels(path), longest)
+def trim(path: Path, out: Path, longest: float = KEEP, heard=()) -> Path | None:
+    """Every pause cut down to `longest` of quiet (`cuts`), nothing with sound or a heard word
+    touched; None when there's no pause to cut."""
+    return _cut(path, out, cuts(_levels(path), longest, heard))
+
+
+def _cut(path: Path, out: Path, found: list[tuple[float, float]]) -> Path | None:
     if not found:
         return None
     spans = zip([0.0, *(b for _, b in found)], [*(f":end={a}" for a, _ in found), ""], strict=True)
@@ -296,12 +320,30 @@ def letters(heard: list[dict]) -> str:
     return plain(" ".join(w["word"] for w in heard))
 
 
+# Heard but never an extra: the sounds a voice makes ("hmm" for MiniMax's "(laughs)" or
+# "emm"), and Whisper's own sign-off after the last word ("Thank you.")
+FILLER = {"hmm", "hm", "mm", "mmm", "uh", "um", "umm", "uhm", "ah", "ha", "haha", "oh", "emm",
+          "er", "erm", "huh"}  # fmt: skip
+SIGN_OFF = {"thankyou", "thanks", "thanksforwatching", "bye"}
+LONG_EXTRA = 0.4  # s: one stray word heard this long is said, not misheard
+
+
 def extras(text: str, heard: list[dict]) -> list[dict]:
     """Words the narration says that the script doesn't have, in phrases [{text, start,
     end}]: a note read aloud, an ad-lib. Only words heard with no script word in their place,
     compared as `plain` letters, so a word heard another way ("5000 dollars" for "$5,000") or
-    split ("soft gels") isn't one."""
-    return song_timing.extras("\n".join(sentences(text)), heard, norm=plain, added_only=True)
+    split ("soft gels") isn't one. A phrase counts before the first script word (where a tag
+    read aloud lands), at two words or more, or as one word lasting LONG_EXTRA; never a filler
+    sound, the sign-off after the last word, or one word that came with junk glued on."""
+    found = []
+    for x in song_timing.extras("\n".join(sentences(text)), heard, norm=plain, added_only=True):
+        said = [w for w in x["text"].split() if plain(w) not in FILLER]
+        if not said or x["end"] >= heard[-1]["end"] and plain(" ".join(said)) in SIGN_OFF:
+            continue
+        one = x["end"] - x["start"] >= LONG_EXTRA and not song_timing.glued(said[0])
+        if x["start"] <= heard[0]["start"] or len(said) >= 2 or one:
+            found.append(x)
+    return found
 
 
 def says_more(take) -> str:
@@ -314,12 +356,14 @@ def says_more(take) -> str:
 def measure(path: Path, text: str, hear=song_timing.words,
             longest: float = KEEP) -> tuple[dict, Path | None]:  # fmt: skip
     """The narration's timing, and the trimmed file (beside `path`; None: there was no pause
-    to cut). The trim cuts only quiet (`cuts`), so the trimmed file is the one heard. A pause
-    up to `longest` stays (the reading's own marks)."""
-    before = song_timing.length(path)
-    trimmed = trim(path, path.with_name("trimmed.mp3"), longest)
-    use = trimmed or path
-    heard, seconds, samples = hear(use, text), song_timing.length(use), song_timing._samples(use)
+    to cut). It's heard once, as made; the trim then cuts only quiet outside every heard word
+    (`cuts`), and the words' times move with the cuts. A pause up to `longest` stays (the
+    reading's own marks)."""
+    before, said = song_timing.length(path), hear(path, text)
+    found = cuts(_levels(path), longest, said)
+    trimmed = _cut(path, path.with_name("trimmed.mp3"), found)
+    use, heard = trimmed or path, moved(said, found)
+    seconds, samples = song_timing.length(use), song_timing._samples(use)
     timing = {
         "seconds": seconds, "untrimmed_seconds": before, "trimmed": trimmed is not None,
         "bpm": None, "beats": [], "sections": [], "words": heard,

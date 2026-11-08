@@ -114,11 +114,15 @@ def test_the_trim_cuts_each_pause_to_its_quiet_middle_and_never_into_a_word(tmp_
 
     def hear(file, text):
         asked.append(file.name)
-        return [{"word": w, "start": 0.1 + n, "end": 0.9 + n} for n, w in enumerate(text.split())]
+        return [
+            {"word": "Hi", "start": 0.5, "end": 1.5},
+            {"word": "there.", "start": 2.3, "end": 3},
+        ]
 
     timing, trimmed = narration.measure(path, "Hi there.", hear=hear)
-    assert asked == ["trimmed.mp3"] and timing["trimmed"] and trimmed is not None
+    assert asked == ["voice.wav"] and timing["trimmed"] and trimmed is not None  # heard once
     assert abs(timing["seconds"] - 2.1) < 0.12  # 0.1 + 1.0 + 0.2 + 0.7 + 0.1 s
+    assert [w["start"] for w in timing["words"]] == [0.1, 1.3]  # moved with the cuts
     loud = [x >= -30 for x in narration._levels(trimmed)]
     assert abs(sum(loud) - 170) <= 6  # every 10 ms of both words is still there
     gaps = "".join("x" if x else "." for x in loud).strip(".").split("x")
@@ -126,8 +130,27 @@ def test_the_trim_cuts_each_pause_to_its_quiet_middle_and_never_into_a_word(tmp_
     assert song_timing.length(trimmed) == timing["seconds"]
 
 
-def test_a_narration_that_says_more_than_the_script_is_never_used(app, db, owner, narrated,
-                                                                  monkeypatch):  # fmt: skip
+def test_a_soft_word_whisper_heard_in_a_pause_is_never_cut(tmp_path):
+    """QA on #1444: a whispered word under the quiet line ("psst") lasting over 0.2 s was cut.
+    Only quiet outside every heard word is cut now."""
+    import subprocess
+
+    soft = "0.5*sin(2*PI*220*t)*(between(t,0.5,1.5)+between(t,3,3.5))"
+    path = tmp_path / "voice.wav"  # the soft word, 2.0-2.4 s, is 32 dB under the voice
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",  # noqa: S603, S607
+                    f"aevalsrc='{soft}+0.0126*sin(2*PI*300*t)*between(t,2,2.4)':s=24000:d=4",
+                    str(path)], check=True)  # fmt: skip
+    said = (("Hi", 0.5, 1.5), ("psst", 2.0, 2.4), ("listen.", 3.0, 3.5))
+    heard = [{"word": w, "start": a, "end": b} for w, a, b in said]
+    levels = narration._levels(path)
+    found = narration.cuts(levels, narration.KEEP, heard)
+    assert all(b <= 1.9 or a >= 2.5 for a, b in found)  # nothing from 0.1 s before it to after
+    assert any(a < 2.0 < b for a, b in narration.cuts(levels))  # without the words, it was cut
+
+
+def test_a_narration_that_says_more_than_the_script_is_never_used_on_its_own(
+    app, db, owner, narrated, monkeypatch
+):
     """F1: a note read aloud is words the script doesn't have (`extras`, as a song's). A word
     heard another way ("5000 dollars", "soft gels") isn't one."""
     from app.providers import fake_local
@@ -142,6 +165,15 @@ def test_a_narration_that_says_more_than_the_script_is_never_used(app, db, owner
     read = [{"word": w, "start": n * 0.3, "end": n * 0.3 + 0.2} for n, w in enumerate(note)]
     assert [x["text"] for x in narration.extras(said, read + other_way)] == [" ".join(note)]
 
+    def stray(*words):  # the script heard, with words added where `words` says
+        return [{"word": w, "start": n * 0.4, "end": n * 0.4 + 0.3} for n, w in enumerate(words)]
+
+    script = said.split()
+    assert narration.extras(said, stray(*script, "Thank", "you.")) == []  # Whisper's sign-off
+    assert narration.extras(said, stray(*script[:3], "Hmm.", *script[3:])) == []  # a sound
+    assert narration.extras(said, stray(*script[:3], "the", *script[3:])) == []  # one word
+    assert [x["text"] for x in narration.extras(said, stray("Quickly", *script))] == ["Quickly"]
+
     heard = fake_local.hear_voice
     monkeypatch.setattr(
         fake_local,
@@ -155,8 +187,7 @@ def test_a_narration_that_says_more_than_the_script_is_never_used(app, db, owner
     (take,) = owner.get(f"{narrated}/songs").json()["takes"]
     extra = narration.SAYS_MORE.format("Quickly warm")
     assert take["status"] == "ready" and not take["preferred"] and take["advice"] == [extra]
-    used = owner.post(f"/songs/{take['id']}/preferred")
-    assert (used.status_code, used.json()["detail"]) == (409, extra)
+    assert owner.post(f"/songs/{take['id']}/preferred").status_code == 200  # a person may
 
 
 def test_each_sentence_starts_on_its_first_word_with_whispers_junk_glued_on():
@@ -182,6 +213,27 @@ def test_each_sentence_starts_on_its_first_word_with_whispers_junk_glued_on():
                               levels=levels)  # fmt: skip
     assert [ln["start"] for ln in lines] == [0.0, 6.27, 10.38, 15.94, 19.91, 23.93, 29.27, 32.68]
     assert all(ln["heard"] >= 0.6 for ln in lines)
+
+
+def test_a_line_starts_at_its_first_sound_when_whisper_starts_the_word_late():
+    """QA on #1444: "Actually" sounds from 1.92 s with a closure inside it (1.98-2.12 s);
+    Whisper starting it anywhere up to 0.15 s late put the line at 2.12 s. A clean word now
+    steps back to its sound; a junk one still walks on; only a junk word is read by its end."""
+    from app import song_timing
+
+    levels = [-70.0] * 300
+    for a, b in ((100, 150), (192, 198), (212, 260)):  # "Say", then "A-ctually"
+        levels[a:b] = [-15.0] * (b - a)
+    for late in (1.95, 2.0, 2.05):
+        heard = [{"word": "Say", "start": 1.0, "end": 1.6},
+                 {"word": "Actually.", "start": late, "end": 2.6}]  # fmt: skip
+        (_, line) = song_timing.lines("Say.\nActually.", heard, 3.0, levels=levels)
+        assert line["start"] == 1.92, late
+    heard[1] = {"word": "Actually.", "start": 2.1, "end": 2.6}
+    assert song_timing.lines("Say.\nActually.", heard, 3.0, levels=levels)[1]["start"] == 2.1
+    _, theirs, junk, _ = song_timing._matcher([{"words": ["Call", "one", "friend."]}], [
+        {"word": w} for w in ("Call", "phone", ".ManiaFriend.")])  # fmt: skip
+    assert theirs == ["call", "phone", "friend"] and junk == [False, False, True]
 
 
 SCRIPT_261 = """What happens to your gut if you take two softgels of oil of oregano every morning for thirty days?

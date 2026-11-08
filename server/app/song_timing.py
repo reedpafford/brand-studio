@@ -176,28 +176,56 @@ def _norm(word: str) -> str:
     return re.sub(r"[^a-z0-9']", "", word.lower().replace("’", "'"))
 
 
+def glued(word: str) -> bool:
+    """Whisper glued junk onto this heard word: a stray character ("?ÿÿÿÿDay", ".שובDay") or a
+    capital inside it (".ManiaResilia"), beyond the punctuation around a word or in a number."""
+    core = re.sub(r"(?<=\d)[.,](?=\d)", "", word.strip()).strip("\"“”‘’'()[]¡¿$%")
+    core = core.rstrip(".,!?;:…-")
+    return bool(re.search(r"[^A-Za-z0-9'’-]", core) or re.search(r"[a-z][A-Z]", core))
+
+
 def _ending(word: str, known: set[str]) -> str:
-    """A heard word the lyrics don't have that ends with one they do (".ManiaResilia" in
-    video 261) is that word, heard with junk in front; any other word stays as it is."""
+    """A heard word with junk glued on that the lyrics don't have, ending with one they do
+    (".ManiaResilia" in video 261), is that word; it stays as it is otherwise."""
     if word in known:
         return word
     return max((w for w in known if len(w) >= 3 and word.endswith(w)), key=len, default=word)
 
 
-def _start(found: list[tuple[float, float]], loudness: list[float] | None) -> float | None:
-    """When a line starts: its first heard word's start, moved on to where its sound rises
-    inside that word (a word with junk glued on starts too early, in the pause before it,
-    sometimes over the last word's tail)."""
-    if not found:
-        return None
-    a, b = min(found)
-    if not loudness:
-        return a
-    floor, k, last = quiet(loudness), round(a / HOP), min(round(b / HOP), len(loudness))
+REACH = 0.15  # s: how much earlier than Whisper's start a word's own sound may begin
+
+
+def sounds_from(start: float, end: float, loudness: list[float]) -> float | None:
+    """Where a word heard with junk glued on really starts: where the sound rises inside it,
+    past any tail of the word before (it starts too early, in the pause before it); None
+    when nothing inside it is loud."""
+    floor, k, last = quiet(loudness), round(start / HOP), min(round(end / HOP), len(loudness))
     while 0 < k < last and loudness[k - 1] >= floor and loudness[k] >= floor:
         k += 1  # the word before still sounding
     k = next((n for n in range(k, last) if loudness[n] >= floor), None)
-    return round(max(a, k * HOP), 2) if k is not None else a
+    return round(max(start, k * HOP), 2) if k is not None else None
+
+
+def _start(found: list[tuple], loudness: list[float] | None) -> float | None:
+    """When a line starts: its first heard word's start. With the take's loudness, a word
+    with junk glued on starts where its sound rises inside it (`sounds_from`); any other where
+    its sound began, up to REACH before Whisper's start, never before the word heard before
+    it ends (Whisper often starts a word a little late, inside its first sound)."""
+    if not found:
+        return None
+    a, b, junk, after = min(found)
+    if not loudness:
+        return a
+    if junk:
+        return sounds_from(a, b, loudness) or a
+    floor = quiet(loudness)
+
+    def loud(k: int) -> bool:
+        return 0 <= k < len(loudness) and loudness[k] >= floor
+
+    first, last = round(max(after, a - REACH) / HOP), round(a / HOP)
+    k = next((n for n in range(first, last + 1) if loud(n) and not loud(n - 1)), None)
+    return round(k * HOP, 2) if k is not None else a
 
 
 def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0,
@@ -209,12 +237,14 @@ def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0,
     sung twice), 2 when the song sings it once more than written, and so on. With the take's
     `levels`, a line starts where its first word's sound does (`_start`)."""
     out = _written(lyrics)
-    times: dict[int, list[tuple[float, float]]] = {}
-    ours, theirs, matcher = _matcher(out, heard)
+    times: dict[int, list[tuple]] = {}
+    ours, theirs, junk, matcher = _matcher(out, heard)
     for block in matcher.get_matching_blocks():
         for k in range(block.size):
-            h = heard[block.b + k]
-            times.setdefault(ours[block.a + k][0], []).append((h["start"], h["end"]))
+            j = block.b + k
+            after = heard[j - 1]["end"] if j else 0.0  # the word heard before it ends
+            found = (heard[j]["start"], heard[j]["end"], junk[j], after)
+            times.setdefault(ours[block.a + k][0], []).append(found)
     for i, line in enumerate(out):
         found = times.get(i, [])
         mine = [_norm(w) for w in line["words"]]
@@ -225,7 +255,7 @@ def lines(lyrics: str, heard: list[dict], seconds: float, start: float = 0.0,
         line["times_sung"] = max(heard_times - written + 1, 0) if heard_times else 0
         line["heard"] = round(len(found) / len(line.pop("words")), 2)
         line["start"] = _start(found, levels)
-        line["end"] = max((b for _, b in found), default=None)
+        line["end"] = max((x[1] for x in found), default=None)
     _fill(out, start, seconds)
     return out
 
@@ -243,12 +273,15 @@ def _written(lyrics: str) -> list[dict]:
 
 
 def _matcher(out: list[dict], heard: list[dict], norm=_norm):
-    """The lyric words, (line index, word), the heard words (`_ending`), and the two lined
-    up."""
+    """The lyric words, (line index, word), the heard words (`_ending`), which of them came
+    with junk glued on, and the two lined up."""
     ours = [(i, norm(w)) for i, line in enumerate(out) for w in line["words"]]
     known = {w for _, w in ours}
-    theirs = [_ending(norm(h["word"]), known) for h in heard]
-    return ours, theirs, SequenceMatcher(None, [w for _, w in ours], theirs, autojunk=False)
+    junk = [glued(h["word"]) for h in heard]
+    theirs = [_ending(norm(h["word"]), known) if j else norm(h["word"])
+              for h, j in zip(heard, junk, strict=True)]  # fmt: skip
+    matcher = SequenceMatcher(None, [w for _, w in ours], theirs, autojunk=False)
+    return ours, theirs, junk, matcher
 
 
 def extras(lyrics: str, heard: list[dict], pause: float = 1.0, norm=_norm,
@@ -257,7 +290,7 @@ def extras(lyrics: str, heard: list[dict], pause: float = 1.0, norm=_norm,
     line): [{text, start, end}], in phrases split at a pause. Heard words with no lyric word
     to line up with count; a word heard in place of a lyric word is that word misheard.
     `added_only`: of several words heard in place of fewer, none count (a narration's)."""
-    _, theirs, matcher = _matcher(_written(lyrics), heard, norm)
+    _, theirs, _, matcher = _matcher(_written(lyrics), heard, norm)
     loose = [k for tag, i1, i2, j1, j2 in matcher.get_opcodes()
              if tag == "insert" or tag == "replace" and not added_only
              for k in range(j1 + (i2 - i1), j2) if theirs[k]]  # fmt: skip

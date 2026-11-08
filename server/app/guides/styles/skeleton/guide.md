@@ -31,7 +31,7 @@ a cinematic 3D cartoon look (a skeleton character is an ivory cartoon skeleton w
 ## Stills
 - The skeleton is in every shot of its world and is always the same character, from its sheet: never change its eyes, bones or proportions. A shot inside its body (a macro of the part the line names) or of the product needs no skeleton.
 - Each shot shows one rung of the ladder, literally (Day 1: the first try, in an ordinary place; later rungs: bigger reactions, a grander place), so the climb reads with the sound off: the picture is the proof of the line. Vary the framing: a wide of the world, a medium on the skeleton, a two-shot with someone reacting, a close-up of the product in its bony hands, a hero shot for the payoff. People who react (townsfolk, coworkers, a crowd) make the climb bigger, from a stare to awe.
-- The pack enters once, on the turn or at the payoff, as Reed's references bring it in late. Before that, show the product itself (the softgels, the drops) or what it does, never the pack or its label.
+- The pack enters once, on the turn or at the payoff, as Reed's references bring it in late. Before that, show the product itself (the softgels, the drops) or what it does, never the pack or its label, unless the script's own line shows the pack.
 - Describe the body gently and dry: bones and glow, never wounds or anything gory.
 
 ## Clips

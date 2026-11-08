@@ -328,6 +328,39 @@ def test_a_narration_remakes_pace_is_its_speed_and_the_first_read_stays_at_1(
     assert [j.input["input"].get("speed") for j in reads] == [None, 1.1]
 
 
+def test_speed_never_remakes_a_song_and_a_narration_with_extras_waits_for_a_remake(app, db, owner):
+    """QA on #1444: `speed` is read only in a narrated video; a take that says more than the
+    script is used only once the remakes are spent, and the delivery note says so."""
+    from app import director, director_tools
+    from app.models.accounts import User
+
+    fs = _sent(owner, "song", LYRICS)
+    _run(app, db, ticks=120)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    me = db.query(User).filter_by(email="reed@example.com").one()
+    songs = db.query(Job).filter(Job.kind == "music").count()
+    said = director_tools.run(db, me, video, {"tool": "song", "speed": 1.1}, app.state.storage, {})
+    assert (
+        said.startswith("The song is set")
+        and db.query(Job).filter(Job.kind == "music").count() == songs
+    )
+
+    fs = _sent(owner, "narrated", NARRATION)
+    _run(app, db, ticks=120)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    take = db.get(SongTake, video.song_take_id)
+    take.timing = {**take.timing, "extras": [{"text": "Quickly", "start": 0.0, "end": 0.3}]}
+    video.song_take_id = None
+    db.commit()
+    move = {"tool": "narration", "take_id": take.id}
+    assert director_song.run(db, me, video, move, {}).startswith("Refused: This narration says")
+    assert director_song.run(db, me, video, move, {director_song.REMADE: 2}).startswith("Using")
+    state = {"narration": director_song.state(db, video)}
+    assert director._still_wrong(state).startswith("The narration says “Quickly” at 0.0 s")
+
+
 def test_a_name_still_wrong_when_the_remakes_are_used_is_said_in_the_delivery(
     app, db, owner, monkeypatch
 ):
