@@ -407,6 +407,13 @@ def _words(bd: Breakdown, clip: ClipPrompt, note: str = "") -> str:
     return " ".join([*said, clip.prompt, note])
 
 
+def _acts(bd: Breakdown, clip: ClipPrompt) -> str:
+    """What the clip's shots show happening, from the breakdown."""
+    planned = next((c for c in bd.clips if c.id == clip.clip_id), None)
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    return " ".join(shots[i].action for i in (planned.shot_ids if planned else []) if i in shots)
+
+
 def _sheet_words(prompt: str, n: int, who: str) -> str:
     """After a sheet change (QA-Live, video #17: Goth GF 2's removed streak came back): the
     person's References sentence and Keep clause as the code writes them, and no look words in
@@ -489,6 +496,61 @@ def _kept(prompt: str, people: list[str], ids: list[str], pics: dict) -> str:
     return prompt
 
 
+WEARS = re.compile(r"\bwears: (.+?) \(this video\)")  # its cast line's own outfit (enhance.wears)
+
+
+CLOTHES = (
+    r"dress|gown|suit|tux(?:edo)?|coat|jacket|blazer|shirt|t-shirt|tee|top|blouse|hoodie|"
+    r"sweater|jumper|cardigan|vest|skirt|jeans|trousers|pants|shorts|pyjamas|pajamas|robe|"
+    r"uniform|costume|outfit|clothes|apron|swimsuit|scrubs|boots|shoes|heels|sneakers|hat|cap"
+)
+CHANGES = re.compile(  # the script changes their clothes in this clip: no outfit pinned there
+    rf"\b(?:changes? into|changed into|slips? into|puts? on|takes? off|strips? off|"
+    rf"now (?:wears|wearing|in)|dressed in)\s+(?:[\w'-]+\s+){{0,4}}?(?:{CLOTHES})s?\b",
+    re.I,
+)
+OUTFIT = re.compile(r"in this video's (.*?)(?=,\s*never\b|[;.]|$)")  # its outfit words only
+
+
+def _named(name: str, text: str) -> int:
+    """Where `name` first stands as a whole word in `text` ("Mom", never "Mommy"); -1 if not."""
+    found = re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text)
+    return found.start() if found else -1
+
+
+def _worn(prompt: str, people: list[str], known: dict, pics: dict, said: str = "") -> str:
+    """This video's outfit for each attached person in the Keep line, in its own words (284:
+    "this video's champagne satin dress" drew a new neckline in each clip; one wording, with
+    its cut and fabric, repeated in every clip). A clause is a person's when theirs is the
+    first name in it (another's "never in Kid's dress" names them too): kept when theirs
+    holds it, an older "in this video's …" of theirs has only its outfit words replaced (a
+    ", never …" after it stays), else it's said once. Never in a clip whose shots (`said`)
+    change that person's clothes. Free; one run settles it."""
+    names = list({_name(pics, k) for k in [*pics, *people] if k.startswith(CHAR)})  # the cast
+
+    def first(c: str) -> str:
+        at = {n: _named(n, c) for n in names}
+        return min((n for n in at if at[n] >= 0), key=lambda n: at[n], default="")
+
+    for r in people:
+        found, who = WEARS.search(known.get(r, ("",))[0]), _name(pics, r)
+        keep = next((ln for ln in prompt.splitlines() if ln.startswith("Keep: ")), None)
+        if not found or keep is None or any(_named(who, x) >= 0 and CHANGES.search(x) for x in
+                                             re.split(r"(?<=[.!?])\s+", said)):  # fmt: skip
+            continue
+        worn = re.sub(r"^(?:a|an|the)\s+", "", found[1].strip(), flags=re.I)
+        mine = [c for c in re.split(r"(?<=[;.])\s+", keep.removeprefix("Keep: "))
+                if first(c) == who]  # fmt: skip
+        if any(worn.lower() in c.lower() for c in mine):
+            continue
+        if old := next((c for c in mine if OUTFIT.search(c)), None):
+            line = keep.replace(old, OUTFIT.sub(f"in this video's {worn}", old, count=1), 1)
+        else:
+            line = f"{keep.rstrip()} {who} in this video's {worn}."
+        prompt = prompt.replace(keep, line, 1)
+    return prompt
+
+
 def with_cast(
     db: Session,
     project: Project,
@@ -558,8 +620,10 @@ def with_cast(
         want = [product, *want]
     new += [Reference(kind="image", id=s, role=f"{_name(pics, s)} screen") for s in want]
     was = [r for r in clip.references if r.kind == "image"]
+    worn = [r.id for r in new if r.id.startswith(CHAR)]  # their outfit, word for word
     if new == was:
-        return clip
+        prompt = _worn(clip.prompt, worn, known, pics, _acts(bd, clip))
+        return clip if prompt == clip.prompt else clip.model_copy(update={"prompt": prompt})
     ids, before = [r.id for r in new], [r.id for r in was]
     moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
     dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(was) if before[i] not in ids}
@@ -585,6 +649,7 @@ def with_cast(
             continue
         prompt = _add(prompt, "References: ", f"{tag} is {who}.")
         prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
+    prompt = _worn(prompt, worn, known, pics, _acts(bd, clip))
     return clip.model_copy(update={"prompt": prompt, "references": new + others})
 
 
