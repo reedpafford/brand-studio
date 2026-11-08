@@ -60,6 +60,18 @@ test("an editor sees an Off look greyed, Not switched on yet; the owner may try 
   expect(within(picker).getByRole("button", { name: "Close" })).toBeInTheDocument();
 });
 
+test("QA on #1440: a narrated script's picker greys Movie with why, for the owner too (Movie is made only as Dialogue)", async () => {
+  setViewport(1440);
+  const movie = { id: "movie", name: "Movie", blurb: "A short drama", on: true, sample_still_id: null, formats: ["dialogue"], formats_why: "its people say the lines" };
+  fakeServer({ ...base, "GET /looks": [200, [...looks, movie]], "GET /scripts/7": [200, story({ kind: "narrated", format: "narrated" })], "GET /scripts/7/drafts/0/songs": [200, { songs_on: true, estimate_credits: 1, video_estimate_credits: 40, takes: [] }] });
+  open("/b/1/scripts/7?step=script");
+  await userEvent.click(await screen.findByRole("button", { name: "Style: House" }));
+  const picker = await screen.findByRole("dialog", { name: "Style" });
+  expect(within(picker).getAllByRole("button", { name: "Use this style" }).at(-1)).toBeDisabled();
+  expect(within(picker).getByText("Movie is made only as Dialogue: its people say the lines.")).toBeInTheDocument();
+  expect(within(picker).getAllByRole("button", { name: "Use this style" })[0]).toBeEnabled(); // Disney Pixar fits any format
+});
+
 test("the owner sees Off for editors: only you can use it", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /looks": [200, looks], "GET /scripts/7": [200, story()] });

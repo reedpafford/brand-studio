@@ -99,9 +99,14 @@ export function FormatCards({ formats, value, onPick, small, locked }: { formats
   );
 }
 
+/** Its short tag: "Dialogue only". */
+export function onlyShort(l: Look, formats: { id: string; name: string }[]): string {
+  return `${(l.formats ?? []).map((id) => formats.find((f) => f.id === id)?.name ?? id).join(" or ")} only`;
+}
+
 /** Style cards (S2): a sample that plays (one at a time), the style's line and its B-roll look; a style off on this
- *  site is greyed with "Off on this site" (S2-03). */
-export function StyleCards({ looks, value, onPick, small, locked }: { looks: Look[]; value: string; onPick: (id: string) => void; small?: boolean; locked?: boolean }) {
+ *  site is greyed with "Off on this site" (S2-03), and one not made in the picked format says why (`only`). */
+export function StyleCards({ looks, value, onPick, small, locked, only }: { looks: Look[]; value: string; onPick: (id: string) => void; small?: boolean; locked?: boolean; only?: (l: Look) => string | null }) {
   const [playing, setPlaying] = useState<string | null>(null);
   const shown = useShown(value + looks.length, small);
   return (
@@ -109,12 +114,13 @@ export function StyleCards({ looks, value, onPick, small, locked }: { looks: Loo
       {looks.map((l) => {
         const m = lookMedia(l);
         const sel = l.id === value;
-        const can = l.on && !locked;
+        const why = only?.(l) ?? null;
+        const can = l.on && !locked && !why;
         // The picture plays its sample; the words under it pick the style (a radio holds no other button).
         return (
-          <div key={l.id} className={`${card(sel, !l.on)} ${small ? "w-[100px]" : "w-[132px]"} ${locked && !sel ? "opacity-55" : ""}`}>
+          <div key={l.id} className={`${card(sel, !l.on || !!why)} ${small ? "w-[100px]" : "w-[132px]"} ${locked && !sel ? "opacity-55" : ""}`}>
             <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h={small ? "h-[130px]" : "h-[150px]"} />
-            <button type="button" role="radio" aria-checked={sel} aria-disabled={!can || undefined} onClick={() => can && onPick(l.id)} className={`flex flex-col gap-0.5 px-2.5 py-2 text-left ${can ? "" : "cursor-default"}`}>
+            <button type="button" role="radio" aria-checked={sel} aria-disabled={!can || undefined} title={why ?? undefined} onClick={() => can && onPick(l.id)} className={`flex flex-col gap-0.5 px-2.5 py-2 text-left ${can ? "" : "cursor-default"}`}>
               <span className="flex items-center gap-1">
                 <span className="text-sm font-semibold">{l.name}</span>
                 <span className="flex-1" />
@@ -123,6 +129,7 @@ export function StyleCards({ looks, value, onPick, small, locked }: { looks: Loo
               {!small && <span className="line-clamp-2 text-xs text-muted">{sub(l)}</span>}
               {l.broll && <span className="text-xs text-muted">{small ? l.broll : brollLine(l)}</span>}
               {!l.on && !small && <span className="mt-1 self-start rounded-sm bg-surface-2 px-1.5 text-xs font-semibold text-muted">{OFF}</span>}
+              {l.on && why && !small && <span className="mt-1 text-xs text-muted">{why}</span>}
             </button>
           </div>
         );

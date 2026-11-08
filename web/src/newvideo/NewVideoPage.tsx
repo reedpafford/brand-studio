@@ -7,14 +7,14 @@ import { useMe } from "../auth/useMe";
 import { Button, creditsLabel, wholeCredits } from "../components";
 import { useFolders } from "../folders/Projects";
 import { SHAPES, sentTo } from "../freestyle/useFreestyle";
-import { useLooks } from "../scripts/Looks";
+import { notMadeAs, useLooks } from "../scripts/Looks";
 import { counts } from "../scripts/ScriptFrame";
 import { useFormats } from "../scripts/useFormats";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { Attach, Attached, useAttachments } from "./Attach";
-import { BrollPicker, FormatCards, StyleCards, type Look } from "./Cards";
+import { BrollPicker, FormatCards, StyleCards, onlyShort, type Look } from "./Cards";
 import { CastIcon, Chip, FolderIcon } from "./Chips";
 import { Reel } from "./Reel";
 import { SavedScripts } from "./SavedScripts";
@@ -106,7 +106,11 @@ export function NewVideoPage() {
   const files = useAttachments();
   const firstOn = <T extends { on: boolean; off?: string | null }>(xs: T[]) => xs.find((x) => x.on && !x.off);
   const format = formats.find((f) => f.id === (fixed?.type ?? picked.type)) ?? firstOn(formats);
-  const look = looks.find((l) => l.id === (fixed?.look ?? picked.look)) ?? firstOn(looks); // brands keep no default style (S-gaps-05 L1)
+  // A style made only in some formats (Movie: Dialogue only) isn't offered for another (QA on #1440).
+  const only = (l: Look) => notMadeAs(l, format?.id, formats);
+  const look = looks.find((l) => l.id === (fixed?.look ?? picked.look) && (fixed || !only(l))) ?? firstOn(looks.filter((l) => !only(l))); // brands keep no default style (S-gaps-05 L1)
+  // A picked style the new format can't use is said, never swapped silently: "Movie is made only as Dialogue: … The style is House for now."
+  const unused = fixed ? undefined : looks.find((l) => l.id === picked.look && only(l));
   const folder = picked.folder !== undefined ? picked.folder : folders.some((f) => f.id === opened) ? opened : null;
   const cast = picked.cast ?? []; // nobody until picked: brands keep no default cast
   const broll = format?.host ? (picked.broll_look ?? null) : null;
@@ -123,7 +127,7 @@ export function NewVideoPage() {
   const chips = (all: boolean) => (
     <>
       {all && <Chip label="Format" value={settings.type} options={formats.map((f) => ({ id: f.id, name: f.name, off: f.off ? "Off" : undefined }))} onPick={pickFormat} />}
-      {all && <Chip label="Style" value={settings.look} options={looks.map((l) => ({ id: l.id, name: l.name, off: l.on ? undefined : "Off" }))} onPick={pickLook} />}
+      {all && <Chip label="Style" value={settings.look} options={looks.map((l) => ({ id: l.id, name: l.name, off: !l.on ? "Off" : only(l) ? onlyShort(l, formats) : undefined }))} onPick={pickLook} />}
       <Chip label="Cast" icon={CastIcon} many empty="Nobody" value={cast} options={characters.map((c) => ({ id: c.id, name: c.name }))} onPick={(id) => setPicked({ ...picked, cast: cast.includes(id) ? cast.filter((x) => x !== id) : [...cast, id] })} />
       <Chip label="Shape" value={settings.shape} options={SHAPES.map((s) => ({ id: s, name: s }))} onPick={(shape) => setPicked({ ...picked, shape })} />
       <Chip label="Folder" icon={FolderIcon} value={folder ?? 0} options={[...folders.map((f) => ({ id: f.id, name: f.name })), { id: 0, name: "Unsorted" }]} onPick={(f) => setPicked({ ...picked, folder: f || null })} />
@@ -182,7 +186,8 @@ export function NewVideoPage() {
           )}
           {brolling && look && <BrollPicker looks={looks} style={look} value={broll} onPick={(b) => (setPicked({ ...picked, broll_look: b }), setBrolling(false))} onClose={() => setBrolling(false)} />}
         </div>
-        <StyleCards looks={looks} value={settings.look} onPick={pickLook} small={!rail} locked={!!fixed} />
+        {unused && <p role="status" className="text-sm text-warning">{only(unused)} The style is {look?.name ?? "not picked"} for now.</p>}
+        <StyleCards looks={looks} value={settings.look} onPick={pickLook} small={!rail} locked={!!fixed} only={only} />
       </section>
     </>
   );

@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app import cut_in, host, host_layer, screen_figures, take_mute, take_sound, word_splice
 from app.models.clips import ClipTake, ProjectClip
 from app.models.files import StoredFile
+from app.models.jobs import Job
 from app.models.projects import Project
 
 log = logging.getLogger(__name__)
@@ -63,6 +64,19 @@ def _source(db: Session, project: Project, take_id: int) -> dict:
             if sound else None}  # fmt: skip
 
 
+def _reshaped(db: Session, project: Project, tl: dict) -> str | None:
+    """The video's shape, when a take in the cut was made in another one (Omni 1.2 makes only
+    9:16 and 16:9: a 1:1 video's takes are made 9:16, `model_map.nearest`), so the cut crops
+    each piece to it; None when every take was asked for in the video's own shape."""
+    for take_id in {p["take_id"] for p in tl["pieces"] if p.get("take_id")}:
+        take = db.get(ClipTake, take_id)
+        job = db.get(Job, take.job_id) if take and take.job_id else None
+        asked = ((job.input or {}).get("input") or {}).get("aspect_ratio") if job else None
+        if asked and asked != project.aspect_ratio:
+            return project.aspect_ratio
+    return None
+
+
 def recipe(db: Session, project: Project, tl: dict) -> dict:
     """What `render` makes, as files and numbers."""
     from app.cut import song
@@ -75,7 +89,7 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
            "sources": {str(t): _source(db, project, t)
                        for t in dict.fromkeys(p["take_id"] for p in tl["pieces"])},
            "voice": _key(db, voice.file_id) if voice else None,
-           "last_word": tl.get("last_word") or 0.0,
+           "last_word": tl.get("last_word") or 0.0, "aspect": _reshaped(db, project, tl),
            "music": {**{k: music[k] for k in ("quieter_db", "gaps", "loop")},
                      "key": _key(db, music["file_id"]),
                      "lines": tl.get("lines") or []} if music else None,
@@ -114,12 +128,15 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
         progress(round(60 * n / len(r["sources"])))
     pieces = r["pieces"]
     videos = [made[str(p["take_id"])] for p in pieces]
+    shape = r.get("aspect")  # the video's own shape: a take made in another is cropped to it
     if r["mode"] == "takes" and all(p["whole"] and not p["from"] for p in pieces):
         # As made: copied when every take is the same format, else joined with each take's
         # own sound (a silent one, or one with no audio track, gets silence; no drift).
-        data = (not laid and stitch(videos)) or joined(videos, [(0.0, None)] * len(videos))
+        copy = not laid and _shaped(videos[0], shape) and stitch(videos)
+        data = copy or joined(videos, [(0.0, None)] * len(videos), shape)
     elif r["mode"] == "takes":
-        data = joined(videos, [(p["from"], None if p["whole"] else p["length"]) for p in pieces])
+        data = joined(videos, [(p["from"], None if p["whole"] else p["length"]) for p in pieces],
+                      shape)  # fmt: skip
     music = r["music"]
     bed = storage.get(music["key"]) if music else None
     if music and not music["loop"] and (have := seconds(bed)) < r["length"] - 0.5:
@@ -137,6 +154,7 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
             bed,
             [p["from"] for p in pieces],
             {**(music or {}), "last_word": r.get("last_word") or 0},
+            shape,
         )
     progress(85)
     if r["host"]:
@@ -277,7 +295,38 @@ def stitch(videos: list[bytes]) -> bytes | None:
         return (folder / "out.mp4").read_bytes() if done.returncode == 0 else None
 
 
-def joined(videos: list[bytes], cuts: list[tuple[float, float | None]]) -> bytes:
+def _ratio(shape: str) -> float:
+    w, _, h = shape.partition(":")
+    return float(w) / float(h)
+
+
+def _frame(folder: Path, shape: str | None) -> str:
+    """Each piece's picture filter: scaled to the first take's size, as before; with the
+    video's `shape`, first cut to that shape around its centre and scaled to the first take's
+    size cut the same way (Movie and UGC on Omni 1.2, which makes only 9:16 and 16:9: a 1:1
+    video's takes are made 9:16 and cropped here, QA on #1440)."""
+    size = _probe(folder, "0.mp4", "v:0", "width,height") or "720x1280"
+    w, h = (int(x) for x in size.split("x")[:2])
+    if not shape or ":" not in shape:
+        return f"scale={w}:{h}"
+    r = _ratio(shape)
+    big_w, big_h = (round(h * r) // 2 * 2, h) if w / h > r else (w, round(w / r) // 2 * 2)
+    return f"crop='min(iw,ih*{r:.6f})':'min(ih,iw/{r:.6f})',scale={big_w}:{big_h}"
+
+
+def _shaped(data: bytes, shape: str | None) -> bool:
+    """The take is already the video's shape (or none is asked), so it can be copied."""
+    if not shape or ":" not in shape:
+        return True
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "0.mp4").write_bytes(data)
+        size = _probe(Path(tmp), "0.mp4", "v:0", "width,height")
+    w, _, h = size.partition("x")
+    return bool(size) and abs(int(w) / int(h) - _ratio(shape)) < 0.02
+
+
+def joined(videos: list[bytes], cuts: list[tuple[float, float | None]],
+           shape: str | None = None) -> bytes:  # fmt: skip
     """A story video's takes back to back, each from its in-point for its length (None: to
     its end), with their own sound (silence for a silent one); a short take holds its last
     frame."""
@@ -285,13 +334,13 @@ def joined(videos: list[bytes], cuts: list[tuple[float, float | None]]) -> bytes
         folder = Path(tmp)
         for n, data in enumerate(videos):
             (folder / f"{n}.mp4").write_bytes(data)
-        size = (_probe(folder, "0.mp4", "v:0", "width,height") or "720x1280").replace("x", ":")
+        frame = _frame(folder, shape)
         lengths = [d if d is not None else max(0.1, _length(folder, f"{n}.mp4") - f)
                    for n, (f, d) in enumerate(cuts)]  # fmt: skip
         parts = []
         for n, ((f, _), d) in enumerate(zip(cuts, lengths, strict=True)):
             parts.append(f"[{n}:v]trim=start={f},setpts=PTS-STARTPTS,tpad=stop_mode=clone:"
-                         f"stop_duration={d},trim=duration={d},scale={size},setsar=1,fps=30,"
+                         f"stop_duration={d},trim=duration={d},{frame},setsar=1,fps=30,"
                          f"format=yuv420p[v{n}]")  # fmt: skip
             parts.append(f"[{n}:a]{LATE}{SAME},atrim=start={f},asetpts=PTS-STARTPTS,apad=whole_dur={d},"
                          f"atrim=duration={d}[a{n}]" if _probe(folder, f"{n}.mp4", "a:0", "index")
@@ -360,6 +409,7 @@ def fade_out(total: float, last_word: float) -> str:
 def song_cut(
     videos: list[bytes], lengths: list[float], song: bytes, narrated: bool = False,
     music: bytes | None = None, froms: list[float] | None = None, mix: dict | None = None,
+    shape: str | None = None,
 ) -> bytes:  # fmt: skip
     """A song video (flows V6, free): each piece from its in-point (`froms`) for its length
     of the song (a short one slowed to fill it, never sped up: Song-Producer), joined in
@@ -373,12 +423,12 @@ def song_cut(
         for n, data in enumerate(videos):
             (folder / f"{n}.mp4").write_bytes(data)
         (folder / "song").write_bytes(song)
-        size = _probe(folder, "0.mp4", "v:0", "width,height") or "720x1280"
+        frame = _frame(folder, shape)
         slow = [max(1.0, d / have) if (have := _length(folder, f"{n}.mp4") - froms[n]) > 0
                 else 1.0 for n, d in enumerate(lengths)]  # fmt: skip
         parts = [f"[{n}:v]trim=start={froms[n]},setpts={slow[n]:.4f}*(PTS-STARTPTS),"
                  f"trim=duration={d},tpad=stop_mode=clone:stop_duration={d},trim=duration={d},"
-                 f"scale={size.replace('x', ':')},setsar=1,fps=30,format=yuv420p[v{n}]"
+                 f"{frame},setsar=1,fps=30,format=yuv420p[v{n}]"
                  for n, d in enumerate(lengths)]  # fmt: skip
         joined_v = "".join(f"[v{n}]" for n in range(len(videos)))
         fade = fade_out(total, (mix or {}).get("last_word") or 0)

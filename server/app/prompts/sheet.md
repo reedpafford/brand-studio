@@ -7,6 +7,9 @@ Generate a character turnaround sheet of one character on a plain light grey bac
 ## photo
 Image 1 is a photo of a real person. Keep their likeness, translated into this style: the same face shape, hair, skin tone and build, and the same wardrobe. Don't copy the photo's background, lighting or photographic realism. Keep the person, not a famous character's signature costume, hairstyle or prop if the picture shows one.
 
+## sheet
+Image 1 is this character's approved sheet, drawn in another style. Keep who they are, translated into this style: the same face shape, hair, skin tone, age and build, the same wardrobe and the same signature items (jewellery, glasses, a hat, a tattoo). Copy who they are, never how they are drawn: their rendering, proportions-as-drawn and colours of light come from this style, not the sheet.
+
 ## redo
 The last sheet is attached as the final image. Keep everything about it the same, its species, breed, face, coat and colouring included, even where the words above describe them differently; change only this from the last sheet: {change}
 

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, cast_roles, clip_prompts, locks, looks, merge_roles
+from app import advice, breakdown, cast_roles, clip_prompts, locks, looks, merge_roles, model_map
 from app.auth import current_user
 from app.credits import COUNTED, fits, price
 from app.db import get_db
@@ -50,6 +50,7 @@ from app.sheets import (
     own,
     press_price,
     sheet_for,
+    sheet_price,
 )
 
 router = APIRouter(
@@ -581,9 +582,9 @@ def make_look_copy(
     project_id: int, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Make a {look} look for this video (flows ST2; paid from this video's budget): a Cast &
-    places character with no sheet in the video's look gets its own copy here, drawn in the
-    look from its photo or House sheet. Used in this video only, never saved to Cast & places
-    (rule 12); its library character and its locked roles stay as they are."""
+    places character with no sheet in the video's look gets its own copy here (`_copy`). Used
+    in this video only, never saved to Cast & places (rule 12); its library character and its
+    locked roles stay as they are."""
     project = get_project(db, user, project_id)
     item = db.get(LibraryItem, item_id)
     if item is None or item.workspace_id != project.workspace_id or item.archived:
@@ -593,15 +594,56 @@ def make_look_copy(
     copy = look_copy(db, project, item)
     if sheet_for(db, project, item) or (copy and copy.sheet_look == project.look):
         raise HTTPException(409, HAS_LOOK.format(item.name))
-    house = item.sheet_file_id if item.sheet_approved else None
+    _copy(db, user, project, item)
+    return list_assets(project_id, user, db)
+
+
+def _copy(db: Session, user: User, project: Project, item: LibraryItem, auto=False) -> None:
+    """A Cast & places character's look for this video, drawn in the video's look from its
+    approved sheet (who they are: face, build, outfit and signature items), else its photo.
+    A photoreal style (Movie, UGC) draws from the photo when there is one: a sheet is a
+    drawing."""
+    real = looks.base(project.look) in model_map.PHOTOREAL and item.source_photo_file_id
+    house = item.sheet_file_id if item.sheet_approved and not real else None
     new = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character, name=item.name,
-                      notes=item.notes, source_photo_file_id=item.source_photo_file_id or house,
+                      notes=item.notes, source_photo_file_id=house or item.source_photo_file_id,
                       owner_project_id=project.id, sheet_look=project.look)  # fmt: skip
     db.add(new)
     db.flush()
     project.look_copies = {**(project.look_copies or {}), str(item.id): new.id}
-    queue_sheet(db, user, new, SheetIn())  # commits; a refusal adds nothing
-    return list_assets(project_id, user, db)
+    queue_sheet(db, user, new, SheetIn(), auto=auto)  # commits; a refusal adds nothing
+
+
+def missing_copies(db: Session, project: Project) -> list[LibraryItem]:
+    """The Cast & places characters the newest shots show (cast or locked in a role, or named
+    in a shot) with no sheet in this video's look and no look of their own here yet: make-
+    missing makes each one (`_copy`), so a brand character with only a House sheet never
+    stops a video in another style. Made once in each look, never again by itself (Not now
+    keeps it out); a copy made in another look before a style switch counts as none."""
+    bd = _newest(db, project)
+    if bd is None or (project.look or "house") == "house":
+        return []
+    shown = list(dict.fromkeys(c for s in bd.data["scenes"] for x in s["shots"]
+                               for c in x["character_ids"]))  # fmt: skip
+    picks = {f"slot:{s.id}": cast_roles.pick(db, project, s) for s in _slots(db, project)}
+    ids = [picks.get(r) if r.startswith("slot:") else int(r[5:]) if r.startswith("char:")
+           else None for r in shown]  # fmt: skip
+    out = []
+    for item in (db.get(LibraryItem, i) for i in dict.fromkeys(i for i in ids if i)):
+        if (item is not None and not item.archived and _other_look(project, item)
+                and not _copied(db, project, item)
+                and (item.sheet_approved and item.sheet_file_id or item.source_photo_file_id)
+                and not sheet_for(db, project, item)):  # fmt: skip
+            out.append(item)
+    return out
+
+
+def _copied(db: Session, project: Project, item: LibraryItem) -> bool:
+    """Not now was said to its look here, or its copy is a live one in this video's look."""
+    if (project.look_copies or {}).get(str(item.id), 0) is None:
+        return True
+    copy = look_copy(db, project, item)
+    return bool(copy and copy.sheet_look == project.look)
 
 
 class MadeOut(BaseModel):
@@ -677,16 +719,20 @@ def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
     if breakdown.complete_cast(db, project):  # as when Assets opens: every role in its shots
         db.commit()
     slots, places = _missing(db, project), missing_places(db, project)
-    total = look_price(db, project.workspace_id) * len(slots)
+    copies = missing_copies(db, project)  # a brand character in this video's look
+    total = look_price(db, project.workspace_id) * (len(slots) + len(copies))
     total += sum((press_price(db, p) for p in places), Decimal(0))
-    n = len(slots) + len(places)
+    n = len(slots) + len(copies) + len(places)
     why = fits(db, project, user, total) if n else ""
     said = f"Making {'a look' if n == 1 else f'{n} looks'} (up to {price(total)} credits) {why}"
     usual = look_usual(db, project.workspace_id) * len(slots)
+    usual += sheet_price(db, project.workspace_id) * len(copies)  # from its sheet: unchecked
     usual += sum((press_price(db, p) for p in places), Decimal(0))  # a place isn't checked
     return MissingLooksOut(
         slot_ids=[s.id for s in slots],
-        roles=[cast_roles.short(s.role) or s.role for s in slots] + [p.name for p in places],
+        roles=[cast_roles.short(s.role) or s.role for s in slots]
+        + [c.name for c in copies]
+        + [p.name for p in places],
         credits=price(total) if n else 0,
         usual_credits=price(usual) if n else 0,
         reason=said if why else None,
@@ -697,7 +743,7 @@ def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
 def _made(db: Session, project: Project) -> MadeOut | None:
     """The looks Assets made by itself (make-missing) and their real cost: the jobs it started
     for them (sheet, check, the one redo), stopped ones not counted."""
-    own = {v for v in project.slot_looks.values() if v}
+    own = {v for v in [*project.slot_looks.values(), *(project.look_copies or {}).values()] if v}
     jobs = [
         j
         for j in db.scalars(
@@ -747,6 +793,8 @@ def make_missing_looks(
             queue_sheet(db, user, own, SheetIn(), auto=True)
         else:
             _make_look(db, user, project, slot, auto=True)
+    for item in missing_copies(db, project):  # a brand character, in this video's look
+        _copy(db, user, project, item, auto=True)
     for place in missing_places(db, project):  # a place made for this video
         queue_sheet(db, user, place, SheetIn(), auto=True)
     return list_assets(project_id, user, db)
@@ -761,6 +809,8 @@ def decline_missing_looks(
     project = get_project(db, user, project_id)
     waiting = {str(s.id): None for s in _missing(db, project)}
     project.slot_looks = {**project.slot_looks, **waiting}
+    copies = {str(c.id): None for c in missing_copies(db, project)}  # Make a look stays
+    project.look_copies = {**(project.look_copies or {}), **copies}
     db.commit()
     return _missing_out(db, user, project)
 

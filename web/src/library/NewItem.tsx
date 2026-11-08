@@ -22,6 +22,12 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
   const [name, setName] = useState("");
   const [words, setWords] = useState("");
   const [photo, setPhoto] = useState<File | null>(picked);
+  // A photo picked on the page while the form is open (its hidden "… photo" input) joins it, never lost (polish)
+  const [was, setWas] = useState(picked);
+  if (picked !== was) {
+    setWas(picked);
+    if (picked) setPhoto(picked);
+  }
   const [more, setMore] = useState<File[]>([]); // an app's other screens
   const [type, setType] = useState<"app" | "physical">("physical");
   const [made, setMade] = useState<number | null>(null);
@@ -106,11 +112,11 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
       {drawing && !product ? null : (
         <>
           <label className="block text-sm">
-            <span className="sr-only">Name</span>
-            <input className={field} required disabled={locked} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} data-autofocus />
+            <span className="mb-1 block font-medium">Name</span>
+            <input className={field} required disabled={locked} placeholder={product ? "“Peanut butter bag”" : undefined} value={name} onChange={(e) => setName(e.target.value)} data-autofocus />
           </label>
           <label className="block text-sm">
-            <span className="sr-only">{product ? "What must read right" : "Description"}</span>
+            <span className="mb-1 block font-medium">{product ? "What must read right" : "Description"}</span>
             <input className={field} disabled={locked} value={words} onChange={(e) => setWords(e.target.value)} placeholder={product ? (type === "app" ? "Always the real UI; numbers can be made up" : "The label must read right: the brand, the claim, the flavour") : kind === "place" ? "“A small kitchen at night, one warm lamp”" : "“Woman, late 30s, glasses, cardigan, tired but kind”"} />
           </label>
           {product && (

@@ -13,6 +13,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
+from app.routes import cast
 from app.worker import start_next
 from tests.conftest import upload
 from tests.helpers import approve_cast, with_sheet
@@ -251,7 +252,7 @@ def test_a_video_with_no_shots_yet_has_nothing_to_approve(owner, editor, db):
     shown = editor.get(f"/projects/{pid}/cast").json()
     assert (shown["state"], shown["items"]) == ("none", [])
     added = editor.post(f"/projects/{pid}/cast/places", json={"shot_ids": ["1.1"], "name": "X"})
-    assert added.json()["detail"] == "Make the plan first: a place belongs to its scenes."
+    assert added.json()["detail"] == cast.NO_PLAN and "after Make it" in cast.NO_PLAN
 
 
 def test_only_the_person_making_the_video_or_the_owner_approves(app, owner, editor, db):

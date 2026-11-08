@@ -65,6 +65,9 @@ def _style(path: Path, parent: dict | None = None) -> dict:
         "blurb": meta["blurb"],
         "card": meta.get("card", ""),  # New video's card: a short line, then its B-roll look
         "broll": meta.get("broll", ""),
+        # the formats it's made in, when only some ("formats: dialogue"; none: any), and why
+        "formats": [f.strip() for f in meta.get("formats", "").split(",") if f.strip()],
+        "formats_why": meta.get("formats_why", ""),
         "sections": sections,
         "meta": meta,
     }

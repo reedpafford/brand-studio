@@ -9,6 +9,7 @@ import { Badge, Button, Card, Dialog, Panel, Skeleton } from "../components";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { PickLabel, pickClass } from "./ScriptFrame";
+import { useFormats } from "./useFormats";
 
 /** A look: how the pictures are drawn (flows ST1; Next-Server's GET /looks, #873). House first, then Reed's order. */
 export type Look = components["schemas"]["LookOut"];
@@ -32,6 +33,13 @@ export function lookName(looks: Look[] | null | undefined, id: string | null | u
 export const styleOf = (looks: Look[] | null | undefined, id: string): string =>
   looks?.find((l) => (l.lanes ?? []).some((x) => x.id === id))?.id ?? looks?.find((l) => id.startsWith(`${l.id}-`))?.id ?? id;
 
+/** Why a style isn't made in this format, or null: "Movie is made only as Dialogue: …", the server's words (QA on #1440). */
+export function notMadeAs(l: Look, format: string | null | undefined, formats: { id: string; name: string }[]): string | null {
+  if (!l.formats?.length || !format || l.formats.includes(format)) return null;
+  const names = l.formats.map((id) => formats.find((f) => f.id === id)?.name ?? id).join(" or ");
+  return `${l.name} is made only as ${names}${l.formats_why ? `: ${l.formats_why}` : ""}.`;
+}
+
 /** The looks, or null where the server doesn't offer them (the pickers stay hidden: never a press with nothing behind it). */
 export function useLooks() {
   return useQuery({
@@ -46,17 +54,20 @@ export function useLooks() {
   });
 }
 
-/** The picker: one card per look with its sample still, name and line. Off looks are greyed for editors; the owner may try one on their own work. */
-export function LookPicker({ current, looks, onPick, busy, error, onClose }: { current: string; looks: Look[]; onPick: (l: Look) => void; busy: string | null; error: string | null; onClose: () => void }) {
+/** The picker: one card per look with its sample still, name and line. Off looks are greyed for editors; the owner may try one on their own work.
+ *  A style not made in the script's `format` (Movie: Dialogue only) is greyed for everyone, with why. */
+export function LookPicker({ current, looks, onPick, busy, error, onClose, format }: { current: string; looks: Look[]; onPick: (l: Look) => void; busy: string | null; error: string | null; onClose: () => void; format?: string | null }) {
   const owner = useMe().data?.role === "owner";
+  const formats = useFormats().data ?? [];
   return (
     <Panel title="Style" onClose={onClose}>
-      <p className="mb-3 text-sm text-muted">How the pictures are drawn. Any style goes with any format.</p>
+      <p className="mb-3 text-sm text-muted">How the pictures are drawn.</p>
       {error && <p role="alert" className={`mb-3 ${errorClass}`}>{error}</p>}
       <ul className="grid gap-3 sm:grid-cols-2 [&>li]:min-w-0">
         {looks.map((l) => {
           const inUse = l.id === styleOf(looks, current);
-          const closed = !l.on && !owner;
+          const why = notMadeAs(l, format, formats);
+          const closed = (!l.on && !owner) || !!why;
           return (
             <li key={l.id}>
               <Card className={`h-full space-y-2 ${closed ? "opacity-60" : ""}`}>
@@ -71,7 +82,7 @@ export function LookPicker({ current, looks, onPick, busy, error, onClose }: { c
                 <p className="text-sm text-muted">{l.blurb}</p>
                 {!l.on && owner && <p className="text-sm text-warning">Off for editors: only you can use it.</p>}
                 {!inUse && (
-                  <Button variant="secondary" disabled={closed} reason={closed ? "Not switched on yet" : null} busy={busy === l.id} onClick={() => onPick(l)}>
+                  <Button variant="secondary" disabled={closed} reason={why ?? (closed ? "Not switched on yet" : null)} busy={busy === l.id} onClick={() => onPick(l)}>
                     Use this style
                   </Button>
                 )}
@@ -90,7 +101,7 @@ const lookChange = async (scriptId: number, look: string): Promise<LookChange> =
   (await must(api.GET("/scripts/{script_id}/look-change", { params: { path: { script_id: scriptId }, query: { look } } }))).data!;
 
 /** "Look: House ▾" for a script or a video: opens the picker, saves at once (free) with Undo. Read only once published. Hidden until the server offers looks. */
-export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: string | null | undefined; scriptId: number; queryKey: unknown[]; readOnly?: boolean }) {
+export function LookSetting({ value, scriptId, queryKey, readOnly, format }: { value: string | null | undefined; scriptId: number; queryKey: unknown[]; readOnly?: boolean; format?: string | null }) {
   const looks = useLooks();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -130,7 +141,7 @@ export function LookSetting({ value, scriptId, queryKey, readOnly }: { value: st
         <PickLabel label="Style">{name}</PickLabel>
       </Button>
       {refused && !open && <p role="alert" className={errorClass}>{refused}</p>}
-      {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : check.isPending ? (check.variables ?? null) : null} error={refused} onPick={pick} onClose={() => setOpen(false)} />}
+      {open && <LookPicker current={id} looks={looks.data} busy={save.isPending ? (save.variables ?? null) : check.isPending ? (check.variables ?? null) : null} error={refused} onPick={pick} onClose={() => setOpen(false)} format={format} />}
       {asking && (
         <Dialog title={`Change to ${asking.look.name}?`} cancelLabel="Not yet" actionLabel="Change" busy={save.isPending} holdReason={asking.change.over_budget ? asking.change.reason || "That would go over this week's credits." : null} onCancel={() => setAsking(null)} onConfirm={() => change(asking.look)}>
           {n} role{n === 1 ? "" : "s"} need{n === 1 ? "s" : ""} a new look ({asking.change.roles.join(", ")}). To finish: about {asking.change.to_finish_credits} credits (planned; was {asking.change.was_credits}).

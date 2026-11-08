@@ -126,7 +126,7 @@ function ProductCard({ brandId, item: i }: { brandId: number; item: Item }) {
       <input type="file" accept="image/*" className="sr-only" aria-label={`Add a photo of ${i.name}`} onChange={(e) => e.target.files?.[0] && add.mutate(e.target.files[0])} />
     </label>
   );
-  return <LibraryCard size="" width={WIDTH.products} picture={box} name={i.name} tag={tag} line={app ? "No screens yet. The director asks for them when a video needs them." : "No photo yet. The director asks for it when a video needs it."} />;
+  return <LibraryCard size="" width={WIDTH.products} picture={box} name={i.name} nameTo={`/b/${brandId}/library/products/${i.id}`} tag={tag} line={app ? "No screens yet. The director asks for them when a video needs them." : "No photo yet. The director asks for it when a video needs it."} />;
 }
 
 /** An archived item (S8-08): faded, "Archived 20 Oct · kept for old videos", with Unarchive (and the owner's Delete

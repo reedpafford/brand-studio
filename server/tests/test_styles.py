@@ -28,7 +28,7 @@ def test_reeds_order_and_only_house_starts_on():
         ("zack-d", "narrated"),
         ("presenter", "narrated"),
     ]
-    assert [s["id"] for s in prompts.styles() if s["on"]] == ["house"]
+    assert [s["id"] for s in prompts.styles() if s["on"]] == ["house", "movie"]  # Movie: 7 Nov
     for s in prompts.styles():
         assert s["kind"] in ("look", "lane") and s["blurb"], s["id"]
         assert set(TOKENS) <= set(s["sections"]), s["id"]

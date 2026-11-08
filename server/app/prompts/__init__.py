@@ -373,6 +373,7 @@ def sheet_prompt(
     change: str = "",
     role: str = "",
     style_id: str = "house",
+    from_sheet: bool = False,
 ) -> str:
     """The Nano Banana prompt for a library item's reference picture. kind "character": a front
     / side / back turnaround sheet, from a description or (from_photo) an uploaded photo of a
@@ -380,12 +381,13 @@ def sheet_prompt(
     when redoing a sheet (the last sheet goes in as the final image). `description` is the
     item's notes; `role` is the script's part for a look made from a cast slot ("Omar, the
     boyfriend"), given without its name. Names stay out so none is drawn. `style_id` is the
-    style the sheet is drawn in (a sheet is per style)."""
+    style the sheet is drawn in (a sheet is per style). `from_sheet`: image 1 is the character's
+    approved sheet in another style, not a photo (its look in a video's other style)."""
     sections = guides.fill((HERE / "sheet.md").read_text(), style_id).split("\n## ")[1:]
     parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
     out = [parts[kind]]
     if kind == "character" and from_photo:
-        out.append(parts["photo"])
+        out.append(parts["sheet" if from_sheet else "photo"])
     if description.strip():
         out.append(f"The {kind}: {description.strip()}")
     if part := role.split(",", 1)[-1].strip():  # "Omar, the boyfriend" -> "the boyfriend"

@@ -124,10 +124,12 @@ def test_house_light_is_the_time_of_day_and_its_guides_leave_captions_to_post():
         assert "caption" not in (guide / "guide.md").read_text().lower(), guide
 
 
-def test_dialogue_has_an_optional_closing_slot_for_the_brands_real_thing():
-    """Reed, 3 Nov (H8)."""
+def test_dialogue_has_a_closing_slot_only_when_the_script_calls_for_it():
+    """Reed, 3 Nov (H8), then 6 Nov: "it should literally follow the script exactly, every
+    time": the slot for the brand's real thing only when the script asks for it."""
     slot = guides.format_("dialogue")["sections"]["closing slot"]
-    assert "optional closing slot for the brand's real thing" in slot
+    assert slot.startswith("<!--") and "Only when the script calls for it" in slot
+    assert "with nothing added" in slot
 
 
 def test_rival_products_may_be_characters_only_where_the_style_says_so():

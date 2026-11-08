@@ -142,7 +142,7 @@ A screen is a phone in a character's hand or a laptop seen over the hands, filli
 
 ## combines with
 - **Dialogue** is its format: all 10 references are dialogue skits.
-- **Real footage:** every reference ends on a 1.5–3.7 s live-action handheld tag after the animation (10 of 10), and one cuts a 1.1 s real phone clip into the middle (1 of 10). In the references it is the creator's own life; for a brand it is an optional slot for the brand's real thing (see the Dialogue format).
+- **Real footage:** every reference ends on a 1.5–3.7 s live-action handheld tag after the animation (10 of 10), and one cuts a 1.1 s real phone clip into the middle (1 of 10). In the references it is the creator's own life; for a brand it is a slot for the brand's real thing only when the script calls for it (see the Dialogue format).
 - Not seen in the references, so untested: a narrated or song script over House's wordless montages, which in the references run on music with no lines (music is added in post).
 
 ## measured in the reference videos
