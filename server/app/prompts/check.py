@@ -1174,10 +1174,13 @@ def song_breakdown(
     song: dict,
     *args,
     written: bool = False,
+    hold: float = 0.0,
     **kwargs,
 ) -> list[str]:
     """`breakdown(...)`'s checks on the lyrics (tags left out), plus the song's: shots back to
-    back over the whole take (a fix: the slices are cut from them), B-roll silent, and edges on
+    back over the whole take (a fix: the slices are cut from them; a narration's last B-roll
+    shot may `hold` its picture that long past the end, never a talker's, whose picture is the
+    presenter's take of the narration), B-roll silent, and edges on
     beats, inside a section (advice). Only on a breakdown the AI `written` (off unless said, so
     an edit stays quiet): a Sung shot the
     script didn't ask for (advice); an editor's own Sung flips are theirs (rule 31), and the
@@ -1198,7 +1201,8 @@ def song_breakdown(
         at = shot.song_end
         if shot.line and not shot.sung:
             problems.append(f"shot {shot.id}: a B-roll shot has a line; B-roll is silent picture")
-    if abs(at - end) > 0.5:
+    hold = 0.0 if shots[-1].sung else hold  # a talker's picture ends with the narration
+    if not end - 0.5 <= at <= end + hold + 0.5:
         problems.append(f"the shots end at {at:.2f} s, the song at {end:.2f} s")
     sections = song.get("sections") or []
     beats = (song.get("beats") or []) + [c for x in sections for c in x.get("cuts", [])]
