@@ -11664,7 +11664,7 @@ export interface components {
             camera: string;
             /**
              * Seconds
-             * @description Estimated length. Dialogue: words / 4.8 plus any held reaction. Silent reactions and inserts: 0.5–1.5.
+             * @description Estimated length. A shot with a line: at least its words at the speaking pace in <timing> plus its pause after each sentence, then any held reaction. Silent reactions and inserts: 0.5–1.5.
              */
             seconds: number;
             /**
