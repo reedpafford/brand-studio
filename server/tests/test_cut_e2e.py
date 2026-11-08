@@ -56,3 +56,38 @@ def test_a_cut_made_again_under_its_number_says_so(app, db, owner, editor):
     assert said == f"Making Cut 1 again ({director_tools._nth(made + 1)} try).", said
     assert [director_tools._nth(n) for n in (2, 3, 4, 11, 12, 21, 22)] == [
         "2nd", "3rd", "4th", "11th", "12th", "21st", "22nd"]  # fmt: skip
+
+
+def test_a_trim_of_the_ending_says_what_it_ends_on_and_the_next_watch_checks_it(app, db, owner,
+                                                                               editor):  # fmt: skip
+    """Video 271: the trim "about 0.7 s after 'two a day'" said it kept his satisfied look at
+    the pouch, and cut it away: the cut ended mid-drink. A trim of the ending now says what its
+    last frame shows, and the next watch of the cut is told it, to check the last frames."""
+    from types import SimpleNamespace
+
+    from app import cut_edits, director_tools, watch_cut
+    from app.models.accounts import User
+    from app.models.checks import ItemCheck
+    from app.models.clips import CutEdit, ProjectClip
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    user = db.get(User, project.created_by_id)
+    for row in db.query(ProjectClip).filter_by(project_id=pid):  # its words heard: a trim may
+        db.add(ItemCheck(project_id=pid, target="words", target_id=row.picked_take_id,
+                         status="done", findings=[]))  # fmt: skip
+    db.commit()
+    run = director.turns(db, project)[-1].input[director.RUN]
+    last = cut_edits.for_director(db, project)["pieces"][-1]
+    shows = "his satisfied smile at the pouch"
+    move = {"tool": "edit_cut", "why": "b6: end on his smile",
+            "edit": {"kind": "trim", "piece": last["piece"], "end": last["end"] - 0.5,
+                     "shows": shows}}  # fmt: skip
+    said = director_tools.run(db, user, project, move, app.state.storage, run)
+    assert said.startswith("Ending trimmed"), said
+    edit = db.get(CutEdit, run["edit_id"])
+    assert edit.data["shows"] == shows
+    assert watch_cut.ending_shows(db, SimpleNamespace(edit_ids=[edit.id])) == shows
+    cut_edits.undo(db, project, edit.id)
+    db.commit()
+    assert watch_cut.ending_shows(db, SimpleNamespace(edit_ids=[edit.id])) == ""

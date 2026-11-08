@@ -54,7 +54,9 @@ def test_a_prompt_too_long_for_its_model_is_rewritten_to_fit_never_sent(
     (fix,) = [j for j in jobs if j.input.get(clip_takes.FIT)]
     assert fix.input["clip_ids"] == [row.clip_id] and fix.credits == 0  # free
     told = fix.input["prompt"]  # its own instruction: shorten all else, keep these lines
-    assert "under 3400 characters" in told and "each shot's description in fewer words" in told
+    assert f"under {fix.input['fit_max'] - clip_takes.SLACK} characters" in told
+    assert fix.input["fit_max"] < 3400  # room for any Redo note (video 271)
+    assert "each shot's description in fewer words" in told
     assert '"Shot N | a–b s."' in told and "every spoken or quoted line word for word" in told
     assert "the Keep: line" in told and "Change only the lines" not in told
     again = editor.post(f"{base}/clips/{row.id}/generate")  # while it's being rewritten
@@ -80,7 +82,7 @@ def test_the_writer_is_told_each_clips_model_limit(db, setup, clip):  # noqa: F8
     _on_two(db, clip)
     said = clip_prompts.prompt_limits(db, video, [row.clip_id])
     assert said == (f"<limit>{row.clip_id} is made on Seedance 2.0, which takes a prompt of "
-                    "at most 4000 characters: write its prompt in under 3400 "
+                    "at most 4000 characters: write its prompt in under 3200 "
                     "characters.</limit>")  # fmt: skip
     data = clip_prompts.job_input(db, video, clip_prompts.newest(db, video), [row.clip_id])
     assert said in data["prompt"]
@@ -138,6 +140,58 @@ def test_the_directors_take_names_the_fix_and_the_rewrite_is_on_its_way(
                     "rewritten.")  # fmt: skip
     assert [j for j in db.query(Job) if j.input.get(clip_takes.FIT)]  # the fix is on its way
     assert not [j for j in db.query(Job) if j.input.get("step") == "clip_take"]
+
+
+def test_a_redo_note_that_takes_it_past_the_limit_is_fitted_with_room_for_the_note(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+    clip,  # noqa: F811
+):
+    """Video 271 (Seedance 2.0): a prompt that fit alone went over with the director's Redo
+    note; its fit came back 3,441 characters, under the 4,000 it was held to but still over
+    with the note, so the take was refused again, twice, and never made. The fit now leaves
+    room for any Redo note, and the take with that note is made once it lands."""
+    base = f"/projects/{setup['project']}"
+    row = _on_two(db, clip)
+    short = row.prompt.splitlines()
+
+    def padded(n: int) -> str:
+        return "\n".join(f"{x[:16]}{PAD * n}{x[16:]}" if x.startswith("Shot ") else x
+                         for x in short)  # fmt: skip
+
+    note = "Two softgels slide out of the pile toward camera and hold a beat. " * 7  # ~460
+    row.prompt = next(padded(n) for n in range(60) if len(padded(n)) > 3500)
+    db.commit()
+    alone = clip_takes.take_input(db, db.get(Project, setup["project"]), row, check=False)
+    assert len(alone["input"]["prompt"]) <= 4000  # it fits alone: its first take went
+    made = editor.post(f"{base}/clips/{row.id}/generate", json={"note": note})
+    assert made.status_code == 409 and "rewritten to fit, free" in made.json()["detail"]
+    (fix,) = [j for j in db.query(Job) if j.input.get(clip_takes.FIT)]
+    fit = fix.input["fit_max"]
+    _land(
+        db,
+        fix,
+        row.clip_id,
+        next(padded(n) for n in range(60, 0, -1) if len(padded(n)) < fit + 300),
+        row.references,
+    )  # 271's
+    db.refresh(row)
+    assert len(row.prompt) > 3500 and row.change["status"] == "failed"  # never saved
+    editor.post(f"{base}/clips/{row.id}/generate", json={"note": note})  # its second fit
+    fix2 = [j for j in db.query(Job) if j.input.get(clip_takes.FIT)][-1]
+    _land(db, fix2, row.clip_id, next(padded(n) for n in range(60, 0, -1)
+                                      if len(padded(n)) <= fit), row.references)  # fmt: skip
+    db.refresh(row)
+    assert len(row.prompt) <= fit and (row.change or {}).get("status") != "failed"
+    again = editor.post(f"{base}/clips/{row.id}/generate", json={"note": note})
+    assert again.status_code == 201, again.text  # the take follows the fit, with its note
+    take = [j for j in db.query(Job) if j.input.get("step") == "clip_take"][-1]
+    assert note.strip() in take.input["input"]["prompt"]
+    assert len(take.input["input"]["prompt"]) <= 4000
+    longest = clip_takes._noted("x" * clip_takes.NOTE_MAX) - clip_takes._noted(note)
+    assert len(take.input["input"]["prompt"]) + longest <= 4000  # any other note fits too
 
 
 def _land(db, fix, clip_id, prompt, references):

@@ -8,7 +8,7 @@ import type { components } from "../api/schema";
 import { Button, Dialog, Field, Menu, MenuItem, Panel, useToast } from "../components";
 import { errorText as errorClass } from "../ui";
 
-/** A brand's project (flows OR1). Internally a "folder": the database already calls a video a project. People only see "Project". */
+/** A brand's folder (flows OR1; v5 called it a project). The same folders as the v6 tree, so people see "Folder" and "Unsorted". */
 export type FolderOut = components["schemas"]["FolderOut"];
 export type FolderKind = "script" | "video" | "clip";
 
@@ -42,7 +42,7 @@ function useRefresh(brandId: number) {
   return () => Promise.all(["folders", "scripts", "videos", "jobs", "project", "script-lib"].map((k) => queryClient.invalidateQueries({ queryKey: k === "folders" ? [k, brandId] : [k] })));
 }
 
-/** One project's Rename and Delete (the owner, or whoever made it): Delete moves its items to No project, with Undo. */
+/** One project's Rename and Delete (the owner, or whoever made it): Delete moves its items to Unsorted, with Undo. */
 function ProjectMenu({ folder, brandId }: { folder: FolderOut; brandId: number }) {
   const toast = useToast();
   const refresh = useRefresh(brandId);
@@ -86,7 +86,7 @@ function ProjectMenu({ folder, brandId }: { folder: FolderOut; brandId: number }
       )}
       {deleting && (
         <Dialog title={`Delete ${folder.name}?`} cancelLabel="Keep it" actionLabel="Delete" danger busy={remove.isPending} holdReason={remove.isError ? remove.error.message : null} onCancel={() => setDeleting(false)} onConfirm={() => remove.mutate()}>
-          {n > 0 ? `Its ${n} item${n === 1 ? " moves" : "s move"} to No project. Nothing inside is deleted.` : "Nothing is in it."}
+          {n > 0 ? `Its ${n} item${n === 1 ? " moves" : "s move"} to Unsorted. Nothing inside is deleted.` : "Nothing is in it."}
         </Dialog>
       )}
     </>
@@ -127,18 +127,18 @@ export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?
     );
   };
   return (
-    <section aria-label="Projects" className="space-y-1">
+    <section aria-label="Folders" className="space-y-1">
       <ul className="space-y-0.5">
         {row("all", "All", null, null)}
         {nested(folders.data).map(({ f, depth }) => row(String(f.id), f.name, count(f), String(f.id), f.can_manage ? <ProjectMenu folder={f} brandId={brandId} /> : undefined, depth))}
-        {row("none", "No project", null, "none")}
+        {row("none", "Unsorted", null, "none")}
       </ul>
-      {folders.data.length === 0 && <p className="px-3 text-sm text-muted">No projects yet. Everything works without one.</p>}
+      {folders.data.length === 0 && <p className="px-3 text-sm text-muted">No folders yet. Everything works without one.</p>}
       <Button variant="ghost" dense icon={Plus} onClick={() => setNaming("")}>
-        New project
+        New folder
       </Button>
       {naming !== null && (
-        <Dialog title="New project" cancelLabel="Not now" actionLabel="Make the project" busy={make.isPending} holdReason={!naming.trim() ? "Give it a name" : make.isError ? make.error.message : null} onCancel={() => { setNaming(null); make.reset(); }} onConfirm={() => make.mutate(naming.trim())}>
+        <Dialog title="New folder" cancelLabel="Not now" actionLabel="Make the folder" busy={make.isPending} holdReason={!naming.trim() ? "Give it a name" : make.isError ? make.error.message : null} onCancel={() => { setNaming(null); make.reset(); }} onConfirm={() => make.mutate(naming.trim())}>
           <Field label="Name" value={naming} maxLength={80} placeholder="November launch" onChange={(e) => { setNaming(e.target.value); make.reset(); }} />
         </Dialog>
       )}
@@ -146,27 +146,27 @@ export function ProjectsList({ brandId, onPicked }: { brandId: number; onPicked?
   );
 }
 
-/** On a list page: "Project: All ▾", opening the brand's projects (pick, New project, Rename, Delete) in a panel.
+/** On a list page: "Folder: All ▾", opening the brand's folders (pick, New folder, Rename, Delete) in a panel.
  *  At every width since the rail lost its Projects list (Reed, 2 Nov: nav A). */
-export function ProjectsChip({ brandId, plain }: { brandId: number; /** The Scripts band's quiet text press, "Project ▾", like Group and Sort (v5 C_Scripts). */ plain?: boolean }) {
+export function ProjectsChip({ brandId, plain }: { brandId: number; /** The Scripts band's quiet text press, "Folder ▾", like Group and Sort (v5 C_Scripts). */ plain?: boolean }) {
   const folders = useFolders(brandId);
   const folder = useFolderFilter();
   const [open, setOpen] = useState(false);
   if (!folders.data) return null;
-  const name = folder === "none" ? "No project" : folder ? (folders.data.find((f) => String(f.id) === folder)?.name ?? "All") : "All";
+  const name = folder === "none" ? "Unsorted" : folder ? (folders.data.find((f) => String(f.id) === folder)?.name ?? "All") : "All";
   return (
     <>
       {plain ? (
-        <Button variant="ghost" dense aria-haspopup="dialog" aria-label={`Project: ${name}`} className="text-muted!" onClick={() => setOpen(true)}>
-          {folder ? `Project: ${name}` : "Project"} ▾
+        <Button variant="ghost" dense aria-haspopup="dialog" aria-label={`Folder: ${name}`} className="text-muted!" onClick={() => setOpen(true)}>
+          {folder ? `Folder: ${name}` : "Folder"} ▾
         </Button>
       ) : (
         <Button variant="secondary" dense icon={Folder} trailing={ChevronDown} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-          Project: {name}
+          Folder: {name}
         </Button>
       )}
       {open && (
-        <Panel title="Projects" onClose={() => setOpen(false)}>
+        <Panel title="Folders" onClose={() => setOpen(false)}>
           <ProjectsList brandId={brandId} onPicked={() => setOpen(false)} />
         </Panel>
       )}
@@ -174,7 +174,7 @@ export function ProjectsChip({ brandId, plain }: { brandId: number; /** The Scri
   );
 }
 
-/** "Project: none ▾" on a script, video or quick clip: pick a project and it moves there, with Undo. */
+/** "Folder: Unsorted ▾" on a script, video or quick clip: pick a folder and it moves there, with Undo. */
 export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: number; kind: FolderKind; id: number; folderId: number | null | undefined; /** v5's settings row: "Project None ▾" */ pick?: boolean }) {
   const folders = useFolders(brandId);
   const toast = useToast();
@@ -187,7 +187,7 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
     onSuccess: (made) => { setNaming(null); move(made.id, made); },
   });
   if (!folders.data) return null;
-  const nameOf = (fid: number | null | undefined) => (fid == null ? "none" : (folders.data!.find((f) => f.id === fid)?.name ?? "none")); // a deleted project reads as none
+  const nameOf = (fid: number | null | undefined) => (fid == null ? "Unsorted" : (folders.data!.find((f) => f.id === fid)?.name ?? "Unsorted")); // a deleted folder reads as Unsorted
   // `made`: the project New project just made for this item. Undo then deletes it again, unless something else was filed there since.
   const move = (to: number | null, made?: { id: number; name: string }) =>
     file.mutate(to, {
@@ -201,7 +201,7 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
           }
           await refresh();
         };
-        const said = made ? `Made ${made.name} and moved this there.` : to === null ? "Moved to No project." : `Moved to ${nameOf(to)}.`;
+        const said = made ? `Made ${made.name} and moved this there.` : to === null ? "Moved to Unsorted." : `Moved to ${nameOf(to)}.`;
         toast(said, () => void undo().catch((e: Error) => toast(e.message, undefined, "error")));
       },
       onError: (e) => toast(e.message, undefined, "error"),
@@ -209,15 +209,15 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
   return (
     <>
       <Menu
-        title="Project"
+        title="Folder"
         trigger={(p) => (
-          <Button {...p} variant="ghost" dense icon={pick ? undefined : Folder} trailing={ChevronDown} busy={file.isPending} aria-label={pick ? `Project: ${nameOf(folderId)}` : undefined} className={`max-w-full whitespace-nowrap ${pick ? pickClass : ""}`}>
+          <Button {...p} variant="ghost" dense icon={pick ? undefined : Folder} trailing={ChevronDown} busy={file.isPending} aria-label={pick ? `Folder: ${nameOf(folderId)}` : undefined} className={`max-w-full whitespace-nowrap ${pick ? pickClass : ""}`}>
             {pick ? (
               <>
-                <span className="text-muted">Project</span> {folderId == null ? "None" : nameOf(folderId)}
+                <span className="text-muted">Folder</span> {nameOf(folderId)}
               </>
             ) : (
-              <>Project: {nameOf(folderId)}</>
+              <>Folder: {nameOf(folderId)}</>
             )}
           </Button>
         )}
@@ -230,19 +230,19 @@ export function ProjectPicker({ brandId, kind, id, folderId, pick }: { brandId: 
               </MenuItem>
             ))}
             <MenuItem checked={folderId == null} onClick={() => { close(); if (folderId != null) move(null); }}>
-              No project
+              Unsorted
             </MenuItem>
-            {folders.data!.length === 0 && <p className="px-3 py-2 text-sm text-muted">No projects yet. Everything works without one.</p>}
+            {folders.data!.length === 0 && <p className="px-3 py-2 text-sm text-muted">No folders yet. Everything works without one.</p>}
             <MenuItem onClick={() => { close(); setNaming(""); }}>
               <Plus size={20} strokeWidth={1.75} aria-hidden />
-              New project
+              New folder
             </MenuItem>
             {file.isError && <p role="alert" className={`px-3 py-2 ${errorClass}`}>{file.error.message}</p>}
           </>
         )}
       </Menu>
       {naming !== null && (
-        <Dialog title="New project" cancelLabel="Not now" actionLabel="Make it and move this there" busy={make.isPending || file.isPending} holdReason={!naming.trim() ? "Give it a name" : make.isError ? make.error.message : null} onCancel={() => { setNaming(null); make.reset(); }} onConfirm={() => make.mutate(naming.trim())}>
+        <Dialog title="New folder" cancelLabel="Not now" actionLabel="Make it and move this there" busy={make.isPending || file.isPending} holdReason={!naming.trim() ? "Give it a name" : make.isError ? make.error.message : null} onCancel={() => { setNaming(null); make.reset(); }} onConfirm={() => make.mutate(naming.trim())}>
           <Field label="Name" value={naming} maxLength={80} placeholder="November launch" onChange={(e) => { setNaming(e.target.value); make.reset(); }} />
         </Dialog>
       )}

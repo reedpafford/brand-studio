@@ -68,10 +68,10 @@ export function BulkBar({ brandId, picked, mayArchive, onDone }: { brandId: numb
       <span className="text-sm font-medium tabular-nums text-accent-text">{n} selected</span>
       {folders.data && (
         <Menu
-          title="Move to project"
+          title="Move to folder"
           trigger={(p) => (
             <Button {...p} variant="secondary" dense busy={busy}>
-              Move to project
+              Move to folder
             </Button>
           )}
         >
@@ -82,7 +82,7 @@ export function BulkBar({ brandId, picked, mayArchive, onDone }: { brandId: numb
                   <span style={{ paddingLeft: depth * 16 }}>{f.name}</span>
                 </MenuItem>
               ))}
-              <MenuItem onClick={() => { close(); void move(null, "No project"); }}>No project</MenuItem>
+              <MenuItem onClick={() => { close(); void move(null, "Unsorted"); }}>Unsorted</MenuItem>
             </>
           )}
         </Menu>

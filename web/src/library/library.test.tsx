@@ -82,7 +82,7 @@ test("S8-07: New character takes a name and a description, makes the character i
   renderApp("/b/1/library/characters");
   await userEvent.click(await screen.findByRole("button", { name: "New character" }));
   const form = screen.getByRole("form", { name: "New character" });
-  await userEvent.type(within(form).getByPlaceholderText("Name"), "Kim");
+  await userEvent.type(within(form).getByLabelText("Name"), "Kim");
   await userEvent.type(within(form).getByLabelText("Description"), "Woman, late 30s, glasses");
   await userEvent.click(within(form).getByRole("button", { name: "Make it · up to $0.08" }));
   await vi.waitFor(() => expect(posted(calls, "POST /library/character/12/sheet")).toMatchObject({ change: "" }));
@@ -204,13 +204,47 @@ test("New product: an app with its screens, each named from its file and linked 
   renderApp("/b/2/library/products");
   await userEvent.click(await screen.findByRole("button", { name: "New product" }));
   const form = screen.getByRole("form", { name: "New product" });
-  await userEvent.type(within(form).getByPlaceholderText("Name"), "fomo app");
+  await userEvent.type(within(form).getByLabelText("Name"), "fomo app");
   await userEvent.click(within(form).getByRole("radio", { name: "An app" }));
   await userEvent.upload(within(form).getByLabelText("Upload screens"), [new File(["a"], "home-rich.png", { type: "image/png" }), new File(["b"], "token-up.png", { type: "image/png" })]);
   await userEvent.click(within(form).getByRole("button", { name: "Save product" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /brands/2/screens")).toHaveLength(2));
   expect(posted(calls, "POST /library/prop")).toMatchObject({ name: "fomo app", product_type: "app", brand_ids: [2] });
   expect(calls.filter((c) => c.key === "POST /brands/2/screens").map((c) => (c.body as { name: string; product_id: number }).name)).toEqual(["Home rich", "Token up"]);
+});
+
+test("Polish: New product shows its labels, takes a photo from the page's own picker, and its hint goes once it's named", async () => {
+  const calls = fakeServer(server(owner, { "POST /library/prop": [201, { ...chicken, id: 16 }], "POST /files": [201, { id: 79 }], "POST /brands/2/screens": [201, {}] }));
+  renderApp("/b/2/library/products");
+  await userEvent.click(await screen.findByRole("button", { name: "New product" }));
+  const form = screen.getByRole("form", { name: "New product" });
+  for (const words of ["Name", "What must read right"]) expect(within(form).getByText(words)).not.toHaveClass("sr-only"); // seen, not only placeholders
+  expect(within(form).getByText("Name it first")).toBeInTheDocument();
+  await userEvent.type(within(form).getByLabelText("Name"), "Oil of Oregano pour-over drops");
+  expect(within(form).queryByText("Name it first")).toBeNull(); // named: the hint goes
+  await userEvent.upload(screen.getByLabelText("product photo"), new File(["x"], "oregano.png", { type: "image/png" })); // the page's own picker
+  expect(within(form).getByText("Photo: oregano.png")).toBeInTheDocument(); // never "No photo yet"
+  await userEvent.click(within(form).getByRole("button", { name: "Save product" }));
+  await vi.waitFor(() => expect(posted(calls, "POST /brands/2/screens")).toMatchObject({ product_id: 16, file_id: 79 }));
+});
+
+test("Polish: a product's name opens its page even with no photo, and a long name shows whole on hover", async () => {
+  const long = { ...chicken, name: "Oil of Oregano pour-over drops, the big bottle" };
+  fakeServer(server(owner, { "GET /library/prop": [200, [bag, long]] }));
+  renderApp("/b/2/library/products");
+  const name = await screen.findByRole("link", { name: long.name });
+  expect(name).toHaveAttribute("href", "/b/2/library/products/10");
+  expect(within(name).getByText(long.name)).toHaveAttribute("title", long.name);
+  expect(within(screen.getByRole("link", { name: "Peanut butter bag" })).getByText("Peanut butter bag")).toHaveClass("line-clamp-2"); // wraps, never "pour…"
+});
+
+test("Polish: a product's page offers another photo in plain sight (a flavour, a size, another side)", async () => {
+  const calls = fakeServer(server(owner, { "GET /library/prop/9": [200, bag], "GET /brands/2/screens": [200, []], "POST /files": [201, { id: 80 }], "POST /brands/2/screens": [201, {}] }));
+  renderApp("/b/2/library/products/9");
+  const more = await screen.findByText("Add another photo");
+  expect(more.closest("label")).toHaveAttribute("title", "Another photo: a flavour, a size or another side");
+  await userEvent.upload(screen.getByLabelText("Add another photo"), new File(["x"], "chicken.png", { type: "image/png" }));
+  await vi.waitFor(() => expect(posted(calls, "POST /brands/2/screens")).toMatchObject({ product_id: 9, file_id: 80 }));
 });
 
 test("the old Props tab lands on Products", async () => {
@@ -300,7 +334,7 @@ test("a New character whose sheet is refused can be tried again without making a
   const calls = fakeServer(routes);
   renderApp("/b/1/library/characters?new=1");
   const form = await screen.findByRole("form", { name: "New character" });
-  await userEvent.type(within(form).getByPlaceholderText("Name"), "Kim");
+  await userEvent.type(within(form).getByLabelText("Name"), "Kim");
   await userEvent.type(within(form).getByLabelText("Description"), "Woman, 30s");
   await userEvent.click(within(form).getByRole("button", { name: /^Make it/ }));
   expect(await within(form).findByText("Generation is paused.")).toBeInTheDocument();

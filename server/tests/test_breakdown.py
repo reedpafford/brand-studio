@@ -43,7 +43,7 @@ BREAKDOWN = {
 
 def test_breakdown_made_checked_and_edited(app, db, editor, setup):  # noqa: F811
     url = f"/projects/{setup['project']}/breakdown"
-    assert editor.get(url).status_code == 404
+    assert editor.get(url).status_code == 204  # none yet: no content, not an error
     job = editor.post(url)
     assert job.status_code == 201 and job.json()["credits"] == 3
     assert editor.post(url).status_code == 409  # one at a time

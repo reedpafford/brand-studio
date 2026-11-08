@@ -386,6 +386,8 @@ def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
 def _check(db: Session, user: User, request: Request, type: str, look: str,
            brand_id: int | None, folder_id: int | None = None) -> None:  # fmt: skip
     looks.pick(db, user, look)  # an editor: only a look that's on
+    if type != ONE_CLIP and (no := looks.format_refusal(look, type)):
+        raise HTTPException(409, no)  # Movie is made only as Dialogue
     if type != ONE_CLIP and (why := off_reason(guides.format_(type), request.app.state.settings)):
         raise HTTPException(409, f"{guides.format_(type)['name']} can't be made yet: {why}.")
     if brand_id is not None:

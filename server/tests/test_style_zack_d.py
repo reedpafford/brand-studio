@@ -20,7 +20,7 @@ def test_zack_d_follows_the_originals_one_real_set_one_following_camera():
     )
     board = prompts.system("breakdown", "zack-d")
     for part in ("Start mid-action", "two other distinct opening pictures", "rides the camera move",
-                 "a small visual gag", "a new camera beat every 2–3 s"):  # fmt: skip
+                 "one small visual gag", "a new camera beat every 2–3 s"):  # fmt: skip
         assert part in board, part
     for gone in ("podium", "data object", "about every 4–8 s", "unhurried", "Colour is state",
                  "never changes while the world", "Captions ("):  # fmt: skip

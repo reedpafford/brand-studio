@@ -35,7 +35,7 @@ test("New script → Song waits for a word or a setting, then opens on its Song 
   await userEvent.click(screen.getByRole("menuitem", { name: /Song/ }));
   expect(await screen.findByLabelText("Lyrics")).toHaveValue("");
   expect(calls.filter((c) => c.key === "POST /scripts")).toHaveLength(0);
-  await userEvent.click(await screen.findByRole("button", { name: "Project: none" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Folder: Unsorted" }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Launch" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /scripts")?.body).toMatchObject({ kind: "song", format: "song", text: "" }));
   // The new page shows the same steps before the save, so wait for the script page's own Next first.

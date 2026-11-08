@@ -346,8 +346,11 @@ def past_approved(db: Session, project: Project, user: User, credits: Decimal) -
     """A run's step its Make it doesn't cover: PAST_APPROVED, and it waits for the owner on a
     card, the owner's own run too (rule 34; Reed, 4 Nov: anything beyond the authorized budget
     needs the owner's OK); a freestyle's past the prices its sends were approved at; else "".
-    Never for the owner's own work when `uncapped`."""
-    if uncapped(user):
+    Never for the owner's own work when `uncapped`, but for a run the owner's priced press
+    started (`director.priced`: its "up to" holds there too)."""
+    from app.director import priced
+
+    if uncapped(user) and not priced(db, project):
         return ""
     if _over_freestyle(db, project, user, credits):
         return PAST_APPROVED
@@ -359,8 +362,10 @@ def past_price(db: Session, project: Project, user: User, credits: Decimal) -> b
     (rule 34: `asks.past_run`), not a freestyle's whole budget: its card speaks in the run's
     figures."""
     from app import asks
+    from app.director import priced
 
-    return (not uncapped(user) and not _over_freestyle(db, project, user, credits)
+    return ((not uncapped(user) or priced(db, project))
+            and not _over_freestyle(db, project, user, credits)
             and asks.past_run(db, project, credits))  # fmt: skip
 
 

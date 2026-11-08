@@ -48,7 +48,7 @@ test("the stage tabs show the server's count for each stage, and a tab is the St
   expect(screen.getByRole("tab", { name: "Writing 4" })).toHaveAttribute("aria-selected", "true");
 });
 
-test("scripts are grouped by project with a count each; No project starts open with its rows, and closes", async () => {
+test("scripts are grouped by folder with a count each; Unsorted starts open with its rows, and closes", async () => {
   setViewport(1440);
   fakeServer({
     ...base,
@@ -59,15 +59,15 @@ test("scripts are grouped by project with a count each; No project starts open w
   const spring = await screen.findByRole("region", { name: "Spring launch" });
   expect(within(spring).getByRole("button", { name: /^Spring launch 1$/ })).toHaveAttribute("aria-expanded", "true");
   expect(within(spring).getByText("Bo tries salmon")).toBeInTheDocument();
-  const loose = screen.getByRole("region", { name: "No project" });
-  const toggle = within(loose).getByRole("button", { name: /^No project 2$/ });
-  expect(toggle).toHaveAttribute("aria-expanded", "true"); // C_Scripts: "No project 17" is open (QA-3 on #1260)
+  const loose = screen.getByRole("region", { name: "Unsorted" });
+  const toggle = within(loose).getByRole("button", { name: /^Unsorted 2$/ });
+  expect(toggle).toHaveAttribute("aria-expanded", "true"); // C_Scripts: "No project 17" (now Unsorted) is open (QA-3 on #1260)
   expect(within(loose).getByText("Morning walk")).toBeInTheDocument();
   await userEvent.click(toggle);
   expect(screen.queryByText("Morning walk")).toBeNull();
 });
 
-test("picked scripts move to a project together, with Undo putting each back", async () => {
+test("picked scripts move to a folder together, with Undo putting each back", async () => {
   setViewport(1440);
   const calls = fakeServer({
     ...base,
@@ -80,9 +80,9 @@ test("picked scripts move to a project together, with Undo putting each back", a
   await userEvent.click(screen.getByRole("checkbox", { name: "Select Morning walk" }));
   const bar = screen.getByRole("region", { name: "Selected scripts" });
   expect(within(bar).getByText("2 selected")).toBeInTheDocument();
-  await userEvent.click(within(bar).getByRole("button", { name: "Move to project" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "No project" }));
-  expect(await screen.findByText("Moved 2 scripts to No project.")).toBeInTheDocument();
+  await userEvent.click(within(bar).getByRole("button", { name: "Move to folder" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Unsorted" }));
+  expect(await screen.findByText("Moved 2 scripts to Unsorted.")).toBeInTheDocument();
   expect(calls.filter((c) => c.key === "POST /folders/file").map((c) => c.body)).toEqual([{ kind: "script", ids: [7, 8], folder_id: null }]);
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /folders/file").slice(1).map((c) => c.body)).toEqual([{ kind: "script", ids: [7, 8], folder_id: 3 }]));
@@ -188,4 +188,13 @@ test("a published script has no Publish to library; a script with no words yet o
   renderApp("/b/1/scripts/7");
   expect(await screen.findByLabelText("Script · version A")).toBeInTheDocument();
   expect(screen.queryByText("Overview")).toBeNull();
+});
+
+test("on a phone (owner's path sweep): a script waiting on nothing says so, and its group is Unsorted under Group: Folder", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /scripts": [200, [script({ versions: [v(0, "done")] })]], "GET /brands/1/folders": [200, []] });
+  renderApp("/b/1/scripts");
+  expect(await screen.findByText("Nothing waiting")).toBeInTheDocument(); // no column header on a phone to say what "Nothing" was
+  expect(screen.getByRole("region", { name: "Unsorted" })).toBeInTheDocument(); // the v6 word, not "No project"
+  expect(screen.getByRole("button", { name: "Group: Folder ▾" })).toBeInTheDocument();
 });

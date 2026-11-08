@@ -13,7 +13,7 @@ from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 def test_make_check_edit_and_approve_the_plan(app, db, editor, setup):  # noqa: F811
     pid = setup["project"]
     url = f"/projects/{pid}/plan"
-    assert editor.get(url).status_code == 404  # E: no plan yet
+    assert editor.get(url).status_code == 204  # E: no plan yet (no content, not an error)
     assert editor.get(f"/projects/{pid}").json()["plan_status"] == "none"
     price = editor.get(f"/projects/{pid}").json()["plan_credits"]
     job = editor.post(url, json={}).json()
@@ -30,13 +30,12 @@ def test_make_check_edit_and_approve_the_plan(app, db, editor, setup):  # noqa: 
     assert [x["n"] for s in plan["scenes"] for x in s["lines"]] == [2, 3, 4]  # each line once
     assert plan["scenes"][0]["lines"][1]["text"] == "MOM: Nate, where is all your money?"
     assert plan["scenes"][0]["place"] == "SCENE 1 — INT. KITCHEN" and plan["scenes"][0]["time"]
-    assert any(a["kind"] == "no_product" for a in plan["advice"])  # Advice, never a block
+    assert not any("product" in a["text"] for a in plan["advice"])  # the script decides
 
     scenes = [{**s, "lines": [{**x, "star": x["n"] == 3} for x in s["lines"]]}
               for s in plan["scenes"]]  # fmt: skip
     starred = editor.put(url, json={"scenes": scenes}).json()
     assert starred["scenes"][0]["lines"][1]["star"] is True
-    assert not any(a["kind"] == "no_product" for a in starred["advice"])
     split = [{**scenes[0], "lines": scenes[0]["lines"][:1]},
              {**scenes[0], "lines": scenes[0]["lines"][1:]}]  # Split here  # fmt: skip
     assert len(editor.put(url, json={"scenes": split}).json()["scenes"]) == 2

@@ -6,6 +6,7 @@ import { api } from "../api/client";
 export function useLatestScript(projectId: number) {
   return useQuery({
     queryKey: ["script", projectId],
+    enabled: projectId > 0,
     queryFn: async () => {
       const { data, response } = await api.GET("/projects/{project_id}/script", { params: { path: { project_id: projectId } } });
       if (response.status === 404) return null;
@@ -41,9 +42,9 @@ export function ScriptText({ text, around, highlight = [], rewritten = [], marks
           return (
             <Fragment key={i}>
               {around?.(i + 1, "before")}
-              <li className={`grid grid-cols-[2.5rem_1fr] items-baseline gap-2 ${highlight.includes(i + 1) ? "bg-accent-soft" : ""}`} data-direction={tag ? tag[1] : undefined} data-hl={highlight.includes(i + 1) || undefined}>
+              <li className={`grid grid-cols-[2.5rem_1fr] items-baseline gap-2 ${onLineClick ? "max-lg:grid-cols-[2.75rem_1fr]" : ""} ${highlight.includes(i + 1) ? "bg-accent-soft" : ""}`} data-direction={tag ? tag[1] : undefined} data-hl={highlight.includes(i + 1) || undefined}>
                 {onLineClick ? (
-                  <button type="button" className="text-right text-xs text-faint underline" aria-label={`Show line ${i + 1} in the breakdown`} onClick={() => onLineClick(i + 1)}>
+                  <button type="button" className="text-right text-xs text-faint underline max-lg:min-h-control" aria-label={`Show line ${i + 1} in the breakdown`} onClick={() => onLineClick(i + 1)}>
                     {i + 1}
                   </button>
                 ) : (

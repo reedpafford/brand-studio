@@ -4,6 +4,7 @@ editor (picked or new), whose sheet is made and approved with the library's shee
 Storyboard and takes already refuse until every sheet they need is approved."""
 
 import json
+import re
 from decimal import Decimal
 from typing import Literal
 
@@ -12,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, cast_roles, clip_prompts, locks, looks, merge_roles
+from app import advice, breakdown, cast_roles, clip_prompts, locks, looks, merge_roles, model_map
 from app.auth import current_user
 from app.credits import COUNTED, fits, price
 from app.db import get_db
@@ -50,6 +51,7 @@ from app.sheets import (
     own,
     press_price,
     sheet_for,
+    sheet_price,
 )
 
 router = APIRouter(
@@ -472,14 +474,28 @@ def make_look(
     return list_assets(project_id, user, db)
 
 
+def blind(names: list[str]) -> str:
+    """Why a role gets no look: nothing says what it is (video 268)."""
+    return (f"Nothing says what {' and '.join(names)} look{'s' if len(names) == 1 else ''} "
+            "like, so a look would only guess from the name.")  # fmt: skip
+
+
+BLIND_FIX = " Upload or pick a look, or tell the director in the chat what they look like."
+
+
 def _make_look(
     db: Session, user: User, project: Project, slot: ScriptCastSlot, auto: bool = False,
-    change: str = "",
+    change: str = "", words: str = "",
 ) -> None:  # fmt: skip
     """`change`: what the person or the director asked for, added to the role's words. A role
     whose words give no age takes the one the script or a person's note states for it
-    ("Jay is 19"), so its sheet and its fit check both know it (video 245)."""
-    words = slot.description or slot.role
+    ("Jay is 19"), so its sheet and its fit check both know it (video 245). Never from a name
+    alone: a role nothing describes, with no change, is refused."""
+    words = words or role_words(db, project, slot)
+    if not (words or change.strip()):
+        name = cast_roles.short(slot.role) or slot.role
+        raise HTTPException(409, blind([name]) + BLIND_FIX)
+    words = words or slot.role
     if not check.AGE.search(words) and (age := cast_roles.stated_age(
             cast_roles.short(slot.role), _told(db, project))):  # fmt: skip
         words = f"{words.rstrip('. ')}, {age}"
@@ -499,6 +515,31 @@ def _make_look(
     queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+def role_words(db: Session, project: Project, slot: ScriptCastSlot) -> str:
+    """What a role looks like, for its sheet and its fit check: the script's description, else
+    the newest shots' sentences that show and name them (video 268: Bruno had no description,
+    so his sheet was drawn from his name, as an old man, while the shots said "a stocky tan
+    clay dog"), up to 300 characters; else its script name when it says more than a name
+    ("Kel, a 30-year-old trader") or an age the script or a note states ("Jay is 19": video
+    245). "" when nothing says anything."""
+    if (slot.description or "").strip():
+        return slot.description
+    bd, refs = _newest(db, project), {f"slot:{slot.id}", f"char:{cast_roles.picked(project, slot)}"}
+    said = [s for sc in (bd.data["scenes"] if bd else []) for shot in sc["shots"]
+            if refs & set(shot["character_ids"])
+            for s in re.split(r"(?<=[.!?])\s+", shot.get("action") or "")
+            if cast_roles.named(slot.role, s)]  # fmt: skip
+    out = ""
+    for s in dict.fromkeys(said):
+        if len(out) + len(s) >= 300:
+            break
+        out = f"{out} {s}".strip()
+    if out or slot.role.partition(",")[2].strip():
+        return out or slot.role
+    age = cast_roles.stated_age(cast_roles.short(slot.role), _told(db, project))
+    return f"{slot.role.rstrip('. ')}, {age}" if age else ""
 
 
 def _told(db: Session, project: Project) -> list[str]:
@@ -581,9 +622,9 @@ def make_look_copy(
     project_id: int, item_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Make a {look} look for this video (flows ST2; paid from this video's budget): a Cast &
-    places character with no sheet in the video's look gets its own copy here, drawn in the
-    look from its photo or House sheet. Used in this video only, never saved to Cast & places
-    (rule 12); its library character and its locked roles stay as they are."""
+    places character with no sheet in the video's look gets its own copy here (`_copy`). Used
+    in this video only, never saved to Cast & places (rule 12); its library character and its
+    locked roles stay as they are."""
     project = get_project(db, user, project_id)
     item = db.get(LibraryItem, item_id)
     if item is None or item.workspace_id != project.workspace_id or item.archived:
@@ -593,15 +634,56 @@ def make_look_copy(
     copy = look_copy(db, project, item)
     if sheet_for(db, project, item) or (copy and copy.sheet_look == project.look):
         raise HTTPException(409, HAS_LOOK.format(item.name))
-    house = item.sheet_file_id if item.sheet_approved else None
+    _copy(db, user, project, item)
+    return list_assets(project_id, user, db)
+
+
+def _copy(db: Session, user: User, project: Project, item: LibraryItem, auto=False) -> None:
+    """A Cast & places character's look for this video, drawn in the video's look from its
+    approved sheet (who they are: face, build, outfit and signature items), else its photo.
+    A photoreal style (Movie, UGC) draws from the photo when there is one: a sheet is a
+    drawing."""
+    real = looks.base(project.look) in model_map.PHOTOREAL and item.source_photo_file_id
+    house = item.sheet_file_id if item.sheet_approved and not real else None
     new = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character, name=item.name,
-                      notes=item.notes, source_photo_file_id=item.source_photo_file_id or house,
+                      notes=item.notes, source_photo_file_id=house or item.source_photo_file_id,
                       owner_project_id=project.id, sheet_look=project.look)  # fmt: skip
     db.add(new)
     db.flush()
     project.look_copies = {**(project.look_copies or {}), str(item.id): new.id}
-    queue_sheet(db, user, new, SheetIn())  # commits; a refusal adds nothing
-    return list_assets(project_id, user, db)
+    queue_sheet(db, user, new, SheetIn(), auto=auto)  # commits; a refusal adds nothing
+
+
+def missing_copies(db: Session, project: Project) -> list[LibraryItem]:
+    """The Cast & places characters the newest shots show (cast or locked in a role, or named
+    in a shot) with no sheet in this video's look and no look of their own here yet: make-
+    missing makes each one (`_copy`), so a brand character with only a House sheet never
+    stops a video in another style. Made once in each look, never again by itself (Not now
+    keeps it out); a copy made in another look before a style switch counts as none."""
+    bd = _newest(db, project)
+    if bd is None or (project.look or "house") == "house":
+        return []
+    shown = list(dict.fromkeys(c for s in bd.data["scenes"] for x in s["shots"]
+                               for c in x["character_ids"]))  # fmt: skip
+    picks = {f"slot:{s.id}": cast_roles.pick(db, project, s) for s in _slots(db, project)}
+    ids = [picks.get(r) if r.startswith("slot:") else int(r[5:]) if r.startswith("char:")
+           else None for r in shown]  # fmt: skip
+    out = []
+    for item in (db.get(LibraryItem, i) for i in dict.fromkeys(i for i in ids if i)):
+        if (item is not None and not item.archived and _other_look(project, item)
+                and not _copied(db, project, item)
+                and (item.sheet_approved and item.sheet_file_id or item.source_photo_file_id)
+                and not sheet_for(db, project, item)):  # fmt: skip
+            out.append(item)
+    return out
+
+
+def _copied(db: Session, project: Project, item: LibraryItem) -> bool:
+    """Not now was said to its look here, or its copy is a live one in this video's look."""
+    if (project.look_copies or {}).get(str(item.id), 0) is None:
+        return True
+    copy = look_copy(db, project, item)
+    return bool(copy and copy.sheet_look == project.look)
 
 
 class MadeOut(BaseModel):
@@ -677,16 +759,20 @@ def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
     if breakdown.complete_cast(db, project):  # as when Assets opens: every role in its shots
         db.commit()
     slots, places = _missing(db, project), missing_places(db, project)
-    total = look_price(db, project.workspace_id) * len(slots)
+    copies = missing_copies(db, project)  # a brand character in this video's look
+    total = look_price(db, project.workspace_id) * (len(slots) + len(copies))
     total += sum((press_price(db, p) for p in places), Decimal(0))
-    n = len(slots) + len(places)
+    n = len(slots) + len(copies) + len(places)
     why = fits(db, project, user, total) if n else ""
     said = f"Making {'a look' if n == 1 else f'{n} looks'} (up to {price(total)} credits) {why}"
     usual = look_usual(db, project.workspace_id) * len(slots)
+    usual += sheet_price(db, project.workspace_id) * len(copies)  # from its sheet: unchecked
     usual += sum((press_price(db, p) for p in places), Decimal(0))  # a place isn't checked
     return MissingLooksOut(
         slot_ids=[s.id for s in slots],
-        roles=[cast_roles.short(s.role) or s.role for s in slots] + [p.name for p in places],
+        roles=[cast_roles.short(s.role) or s.role for s in slots]
+        + [c.name for c in copies]
+        + [p.name for p in places],
         credits=price(total) if n else 0,
         usual_credits=price(usual) if n else 0,
         reason=said if why else None,
@@ -697,7 +783,7 @@ def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
 def _made(db: Session, project: Project) -> MadeOut | None:
     """The looks Assets made by itself (make-missing) and their real cost: the jobs it started
     for them (sheet, check, the one redo), stopped ones not counted."""
-    own = {v for v in project.slot_looks.values() if v}
+    own = {v for v in [*project.slot_looks.values(), *(project.look_copies or {}).values()] if v}
     jobs = [
         j
         for j in db.scalars(
@@ -737,19 +823,43 @@ def make_missing_looks(
     """Make a look for every role that has none (`_missing`), each for this video only, paid
     from its budget or the editor's week. All or none: if they don't all fit, nothing is made
     and the plain reason comes back (409). Each sheet still needs the editor's Approve (or a
-    Redo, or a swap) before Storyboard; Storyboard refuses until then."""
-    project = get_project(db, user, project_id)
+    Redo, or a swap) before Storyboard; Storyboard refuses until then. A role nothing
+    describes stops it too (409, saying which)."""
+    make_missing(db, user, get_project(db, user, project_id), whole=True)
+    return list_assets(project_id, user, db)
+
+
+def make_missing(db: Session, user: User, project: Project, told=("", ""),
+                 whole=False) -> tuple[int, list]:  # fmt: skip
+    """`make_missing_looks`; `told`: a role's name and what it looks like, as the director gives
+    it for a role nothing describes. Such a role is left without a look, never drawn from its
+    name alone (video 268); `whole`: then nothing is made. How many looks it started, and the
+    roles it left."""
     out = _missing_out(db, user, project)
     if out.reason:
         raise HTTPException(409, out.reason)
-    for slot in _missing(db, project):
-        if own := _undrawn(db, project, slot):  # from the photo given for it
-            queue_sheet(db, user, own, SheetIn(), auto=True)
+    slots = [(s, None if _undrawn(db, project, s) else role_words(db, project, s)
+              or (told[1].strip() if cast_roles.same(told[0], s.role) else ""))
+             for s in _missing(db, project)]  # fmt: skip
+    left = [cast_roles.short(s.role) or s.role for s, words in slots if words == ""]
+    if left and whole:
+        raise HTTPException(409, blind(left) + BLIND_FIX)
+    made = 0
+    for slot, words in slots:
+        if words is None:  # from the photo given for it
+            queue_sheet(db, user, _undrawn(db, project, slot), SheetIn(), auto=True)
+        elif words:
+            _make_look(db, user, project, slot, auto=True, words=words)
         else:
-            _make_look(db, user, project, slot, auto=True)
+            continue
+        made += 1
+    for item in missing_copies(db, project):  # a brand character, in this video's look
+        _copy(db, user, project, item, auto=True)
+        made += 1
     for place in missing_places(db, project):  # a place made for this video
         queue_sheet(db, user, place, SheetIn(), auto=True)
-    return list_assets(project_id, user, db)
+        made += 1
+    return made, left
 
 
 @router.post("/missing-looks/decline", response_model=MissingLooksOut)
@@ -761,6 +871,8 @@ def decline_missing_looks(
     project = get_project(db, user, project_id)
     waiting = {str(s.id): None for s in _missing(db, project)}
     project.slot_looks = {**project.slot_looks, **waiting}
+    copies = {str(c.id): None for c in missing_copies(db, project)}  # Make a look stays
+    project.look_copies = {**(project.look_copies or {}), **copies}
     db.commit()
     return _missing_out(db, user, project)
 

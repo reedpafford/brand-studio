@@ -35,7 +35,7 @@ function server(me: object, f: object | null, r: object, routes: Record<string, 
     "GET /projects/50/clips": [200, []],
     "GET /projects/50/storyboard": [200, []],
     "GET /projects/50/assets": [200, [{ kind: "character", ref: "char:5", role: "Dr. Pickle", library_item_id: 5, name: "Dr. Pickle", locked: true, sheet_status: "approved", ready: true, slot_id: null, shots: 3 }]],
-    "GET /projects/50/video": [404, { detail: "none" }],
+    "GET /projects/50/video": [204, null], // none yet
     "GET /projects/50/locks": [200, locks],
     ...routes,
   });
@@ -949,6 +949,15 @@ test("S3-12: while Cut 2 is made, Cut 1 stays watchable; the switch plays and do
   expect(within(done).queryByText(/stays watchable/)).toBeNull();
 });
 
+test("Polish: a run waiting for Make it says so once on its card, never twice", async () => {
+  setViewport(1440);
+  const sub = "Cut 1 stays as it is until you press Make it";
+  server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, record({ status: "waiting", title: "Ready to make", sub, tone: "wait" })] });
+  renderApp("/b/1/videos/50");
+  const runCard = await screen.findByRole("region", { name: "Ready to make" });
+  expect(within(runCard).getAllByText(sub, { exact: false })).toHaveLength(1);
+});
+
 test("S3-09: one cut and nothing being made: no switch, the heading reads Final cut", async () => {
   setViewport(1440);
   server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cut": [200, cutOut({ number: 1, file_id: 80, versions: [{ number: 1, file_id: 80, made_at: at }] })], "GET /projects/50/video": [200, { file_id: 80, take_ids: [], out_of_date: false }] });
@@ -1069,6 +1078,21 @@ test("S3-14: the reply to a locked line offers what can change instead at its pr
   await userEvent.click(screen.getByRole("tab", { name: "Script" }));
   expect(await screen.findByText("Published script · the words are set")).toBeInTheDocument();
   expect(screen.getByText("beer gut", { selector: "mark" })).toBeInTheDocument();
+});
+
+test("rule 31 (Reed, 7 Nov): the owner's card offers Change the line first, priced in dollars; its press makes it", async () => {
+  setViewport(1440);
+  const change = { key: "A", title: "Change the line", why: "A new version of the script says “belly” for “beer gut”. Only clip 2 is made again, then the cut", do: "change_line", price: price(9, 0.93), made: "" };
+  const softer = { key: "B", title: "Say it softer", why: "Dr. Pickle says it more softly. Redo the voice line and clip 2", do: "softer", price: price(4, 0.42), made: "" };
+  const card = instead({ question: "You can change “beer gut” in a new version of the script, or change how it plays instead:", choices: [change, softer] });
+  const thread = [item("m1", "message", "Reed", "Change “beer gut” to “belly”", null, later, { answered: true }), item("a12", "move", "Director", "You can change…", null, later, { kind: "ask", ask_id: 12 })];
+  const calls = server(owner, null, run({ status: "delivered", thread }), { ...cards(card), "POST /asks/12/answer": [200, instead({ choices: [{ ...change, made: "making" }, softer], can: ["instead"] })] });
+  renderApp("/b/1/videos/50");
+  expect(await screen.findByText("You can change “beer gut” in a new version of the script, or change how it plays instead:")).toBeInTheDocument();
+  const press = screen.getByRole("button", { name: /^Change the line/ });
+  expect(press).toHaveTextContent("Only clip 2 is made again, then the cut · up to $0.93"); // the owner reads dollars
+  await userEvent.click(press);
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/12/answer")?.body).toEqual({ how: "instead", choice: "A" }));
 });
 
 test("S3-14: an editor's note on a delivered video from New video goes through its freestyle, and the reply shows at once", async () => {

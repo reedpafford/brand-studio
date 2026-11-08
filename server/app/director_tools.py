@@ -80,8 +80,16 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         if tool == "make_looks":
             if no := locks.refusal(project, "cast"):  # the cast and its looks are fixed
                 return f"{no} {CAST_LOCKED}"  # what to do (rule 22), said again when it stops
-            project_assets.make_missing_looks(**me)
-            return "Making the missing looks."
+            look = decision.get("look") or {}
+            made, blind = project_assets.make_missing(
+                db, user, project, (look.get("name") or "", look.get("description") or "")
+            )
+            if not blind:
+                return "Making the missing looks."
+            said = "Making the other missing looks." if made else "Refused:"
+            return (f"{said} {project_assets.blind(blind)} make_looks again with `look`: the "
+                    "name, and in `description` what they are and look like from the plan "
+                    "(person or animal, age, build, what they wear).")  # fmt: skip
         if tool == "storyboard":
             try:  # the right cast in each shot first, free (Reed's item 9: the director's job)
                 breakdown.fix_cast(**me)
@@ -259,8 +267,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             from app import locked_line
 
             return locked_line.for_director(db, user, project, decision.get("word"),
-                                            decision.get("why") or "",
-                                            (run or {}).get("id"))  # fmt: skip
+                                            decision.get("why") or "", (run or {}).get("id"),
+                                            decision.get("value"))  # fmt: skip
         if tool == "host":  # a presenter's host, as Make the host
             from app import host
 
@@ -421,6 +429,10 @@ def _edit_cut_now(db: Session, project: Project, move: dict, request, me: dict, 
         return "Refused: say the edit's kind and its piece."
     made = max(out.edits, key=lambda e: e.id)
     run["edit_id"] = made.id
+    if (shows := (move.get("shows") or "").strip()) and made.said.startswith("Ending"):
+        row = db.get(CutEdit, made.id)  # what the ending was trimmed to show: the next watch
+        row.data = {**row.data, "shows": shows}  # checks the cut's last frames show it
+        db.commit()
     return f"{made.said}. Free; it shows in the next cut."
 
 

@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app import watch_cut
 from app.models.accounts import User
+from app.models.clips import CutEdit
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.providers.fake_local import hear_cut
@@ -97,6 +98,12 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     _work(app, db, FakeSeedance([_mp4("red")]))
     editor.post(f"{base}/clips/{clip['id']}/approve")
     assert make_cut(app, db, editor, base).status_code == 200
+    video = watch_cut._cut(db, project)  # the director's trim of its ending said what it ends on
+    trim = CutEdit(project_id=project.id, director=True, kind="trim", said="Ending trimmed 0.2 s",
+                   data={"piece": "c1", "end": 0.9, "shows": "her grin at the phone"})  # fmt: skip
+    db.add(trim)
+    db.flush()
+    video.edit_ids = [trim.id]
     run = {"id": "r1", "turn": 3, "redos": {}}
     assert watch_cut.start(db, user, project, run) == "Watching the cut."
     db.commit()
@@ -106,10 +113,12 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     look = db.query(Job).filter(Job.kind == "check-claude").order_by(Job.id.desc()).first()
     assert look.input["step"] == "watch_cut" and look.input["director_run"] == run
     pictures = look.input["files"]["reference_images"]
-    assert len(pictures) == 2  # a 1 s square cut: one strip of 16 frames, and its sound
+    assert len(pictures) == 3  # a 1 s square cut: one strip of 16 frames, its end, its sound
     said = look.input["prompt"]
     assert "[Image1] c1, 0.0–" in said and "sampled frames over the whole" in said
-    assert "[Image2] c1, 0.0–1.1 s: the sound as a spectrogram" in said
+    assert "[Image2] c1, 0.3–" in said and "round a key moment" in said  # the last 0.8 s
+    assert "[Image3] c1, 0.0–1.1 s: the sound as a spectrogram" in said
+    assert "<ending>her grin at the phone</ending>" in said  # checked against the last frames
     assert "<cut>" in said and "<measured>" in said and "Loudness" in said
     assert "Music bed: none in this cut" in said  # a dialogue cut: its quiet is the clips
     assert "which is right: music is added in post" in said and "7 Nov" not in said
@@ -118,6 +127,7 @@ def test_the_director_watches_its_cut_and_reads_what_to_fix(app, db, editor, set
     db.expire_all()
     watch = watch_cut.state(db, project)
     assert (watch["state"], watch["current"], watch["lands"]) == ("done", True, True)
+    assert watch["ending"] == "her grin at the phone" and "last_frame" in watch
     redo, mute = watch["findings"]
     assert (redo["clip_id"], redo["fix"], redo["mute"]) == ("c1", "redo", None)
     start, end = mute["mute"]  # in c1's take seconds, half a second

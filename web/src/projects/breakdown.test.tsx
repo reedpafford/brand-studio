@@ -1,9 +1,10 @@
-import { screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { fakeServer } from "../test/server";
 import { renderApp } from "../test/render";
 import { editor } from "../test/people";
+import { ScriptText } from "./ScriptTab";
 
 const project = {
   id: 9, brand_id: 1, name: "Mia buys the dip", planned_seconds: 30, status: "active", goal: "", platform: "TikTok", aspect_ratio: "9:16", format: "",
@@ -46,7 +47,7 @@ function open() {
 afterEach(() => vi.unstubAllGlobals());
 
 test("with no breakdown, the director makes it: a video's Shots has no press of its own (S8)", async () => {
-  fakeServer({ ...base, "GET /projects/9/breakdown": [404, { detail: "This project has no breakdown yet." }] });
+  fakeServer({ ...base, "GET /projects/9/breakdown": [204, null] }); // none yet: no content, so no console error
   open();
   expect(await screen.findByText("No breakdown yet")).toBeInTheDocument();
   expect(screen.getByText(/The director splits the script into scenes, shots and clips once the plan is approved/)).toBeInTheDocument();
@@ -272,6 +273,15 @@ test("every tap target on a shot is at least 44px tall below the sm width", asyn
   await userEvent.click(screen.getByRole("button", { name: "Edit shot 1.1" }));
   const mia = screen.getByLabelText("Mia");
   expect(mia.closest("label")?.className).toContain("min-h-11");
+});
+
+test("on a phone each script line's number is a 44 px press (it was 40×16, owner's path sweep)", () => {
+  render(<ScriptText text={"MAYA: Hi.\nJORDAN: Hey."} onLineClick={() => {}} />);
+  for (const n of [1, 2]) {
+    const press = screen.getByRole("button", { name: `Show line ${n} in the breakdown` });
+    expect(press).toHaveClass("max-lg:min-h-control");
+    expect(press.closest("li")).toHaveClass("max-lg:grid-cols-[2.75rem_1fr]");
+  }
 });
 
 

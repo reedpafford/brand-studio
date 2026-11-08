@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app import (
     advice,
     folders,
+    guides,
     languages,
     looks,
     merge_roles,
@@ -500,6 +501,14 @@ def _fields(body: ScriptIn, leave: set[str]) -> dict:
     return fields
 
 
+def _fits(look: str, kind: str, format_id: str | None) -> None:
+    """A style made only in some formats is refused in another, in Make's own words: else a
+    narrated Movie script is published, its narration paid for, and never made (QA on #1440)."""
+    format_id = guides.video_format(kind, looks.base(look), format_id or "")
+    if no := looks.format_refusal(look, format_id):
+        raise HTTPException(409, no)
+
+
 @router.post("", response_model=ScriptOut, status_code=201)
 def create_script(
     body: ScriptIn,
@@ -520,6 +529,7 @@ def create_script(
     )
     if not body.look:  # House unless one was picked (the brand keeps no default, Reed 4 Nov)
         script.look = looks.DEFAULT
+    _fits(script.look, script.kind, script.format)
     db.add(script)
     db.flush()
     db.add(ScriptDraft(script_id=script.id, slot=0, text=lib.house(script, body.text.strip())))
@@ -562,8 +572,8 @@ def create_many(
                 raise HTTPException(422, "That video was added for another brand.")
             if not (item.title or item.reel_url or item.upload_id):
                 raise HTTPException(422, "Give it a title.")
-            if item.format:
-                lib.pick_format(item.format)
+            kind = lib.pick_format(item.format) if item.format else item.kind
+            _fits(item.look or looks.DEFAULT, kind, item.format)
         except HTTPException as exc:
             raise HTTPException(exc.status_code, f"{row}: {exc.detail}") from None
     if any(links) or any(uploads):  # one batch at a time; the reel worker spaces its fetches
@@ -626,6 +636,9 @@ def update_script(
     if values.get("look") is not None:
         lib.editable(user, script)  # a published script's look is final (ST1)
         values["look"] = looks.pick(db, user, values["look"])
+    if values.get("format") is not None or values.get("look") is not None:
+        _fits(values.get("look") or script.look, values.get("kind", script.kind),
+              values.get("format") or script.format)  # fmt: skip
     if values.get("new_lines") is not None and any(
         d.slot == 0 and d.status == "approved" for d in lib.drafts(db, script)
     ):
@@ -888,7 +901,8 @@ def publish(
     versions = lib.drafts(db, script)
     picks = body.flavours if body else {}
     if unknown := set(picks) - {d.slot for d in versions}:
-        raise HTTPException(422, f"There's no version {'ABC'[min(unknown)]} to pick a flavour for.")
+        name = lib.letter(min(unknown))
+        raise HTTPException(422, f"There's no version {name} to pick a flavour for.")
     if not versions or any(d.status != "approved" for d in versions):
         raise HTTPException(409, "Approve or remove every version first.")
     if lib.writing(db, script.id):
@@ -897,7 +911,7 @@ def publish(
         from app import song_takes
 
         if songless := [d for d in versions if song_takes.preferred(db, d) is None]:
-            name = "ABC"[songless[0].slot]
+            name = lib.letter(songless[0].slot)
             if script.kind == "narrated":
                 said = f"Make the narration first: version {name} has no narration yet."
                 raise HTTPException(409, f"{said} Press Make the narration.")

@@ -585,8 +585,13 @@ def approved_run(
     at the planning cap: their own OKs cover those. `waiting`: a start card not pressed yet
     counts as the newest run too (what the header shows while it waits, never a hold)."""
     from app.credits import COUNTED
-    from app.director import GRANT, RUN, own_limit
+    from app.director import GRANT, RUN, own_limit, priced
 
+    if mine := priced(db, project):  # the owner's Change the line: its press is its OK
+        rows = db.scalars(select(Job).where(Job.project_id == project.id, Job.id > mine["since"],
+                                            Job.status.in_(COUNTED))).all()  # fmt: skip
+        spent = sum((j.credits for j in rows if not j.input.get(PAST_PRICE)), Decimal(0))
+        return Decimal(str(mine["price"])), spent  # all made since the press, prompts too
     states = (*COUNTED, JobStatus.needs_owner_approval) if waiting else COUNTED
     card = db.scalar(select(Job).where(
         Job.project_id == project.id, Job.input[START].as_boolean(), Job.status.in_(states))

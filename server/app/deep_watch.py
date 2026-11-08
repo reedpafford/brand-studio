@@ -222,18 +222,20 @@ def told(m: dict) -> str:
 
 
 def look(src: Path, folder: Path, words: list[dict], count: int, dense: int,
-         wide: int = 1000) -> tuple[dict, list[dict]]:  # fmt: skip
+         wide: int = 1000, ending: bool = False) -> tuple[dict, list[dict]]:  # fmt: skip
     """Everything a watch looks at, free: the facts (`told` says them), and its pictures
     ({path, what, start, end}): `count` frames sampled over the whole, `dense` windows
     sampled at 10 a second on its jumps, then its shot changes, then the first word, and its
-    spectrogram when it has sound.
+    spectrogram when it has sound. `ending`: a cut's, whose first dense window is its last
+    moment (what it ends on: the director's trim says what that should be).
     `words` ({word, start, end}) label the frames and split the loudness."""
     facts = probe(src)
     facts["cuts"] = cuts(src)
     facts["motion"] = motion(src, facts["cuts"])
     facts["sound"] = sound(src, words) if facts["audio"] else None
     first = [words[0]["start"]] if words else []
-    moments = [*facts["motion"]["jumps"], *facts["cuts"], *first]
+    last = [facts["length"]] if ending else []
+    moments = [*last, *facts["motion"]["jumps"], *facts["cuts"], *first]
     made = strips(src, facts, folder, words, count, moments, dense)
     spec = folder / "spectrogram.png"
     if facts["audio"] and spectrogram(src, spec, wide):

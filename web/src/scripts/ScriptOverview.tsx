@@ -74,7 +74,7 @@ export function ScriptOverview({ script: s, brandId, onMake }: { script: Script;
   // The words shown are the next version to make, else the first.
   const shown = versions.find((v) => finished(v) && !v.project_id) ?? versions[0];
   const words = shown ? shown.text.split(/\s+/).filter(Boolean).length : 0;
-  const project = folders.data?.find((f) => f.id === s.folder_id)?.name ?? "No project";
+  const project = folders.data?.find((f) => f.id === s.folder_id)?.name ?? "Unsorted";
   const fact = (label: string, value: ReactNode) => (
     <div className="space-y-1.5">
       <p className="text-xs text-muted">{label}</p>
@@ -116,7 +116,7 @@ export function ScriptOverview({ script: s, brandId, onMake }: { script: Script;
       <aside aria-label="About this script" className="space-y-[18px] border-border lg:border-l lg:pl-6">
         {fact("Type", [formatName(s.format), !s.language || s.language === "en" ? "English" : s.language].join(" · "))}
         {fact("Look", s.look === "house" ? `House style${brand ? ` (${brand.name})` : ""}` : lookName(looks, s.look))}
-        {fact("Project", project)}
+        {fact("Folder", project)}
         {fact(
           "Cast",
           s.cast.length === 0 ? (

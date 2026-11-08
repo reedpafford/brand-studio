@@ -112,7 +112,7 @@ function Grid({ rows, takes, onOpen, phone }: { rows: Row[]; takes: Map<string, 
               <span className="whitespace-nowrap text-sm font-semibold">Clip {r.number}</span>
               <RowStatus r={r} phone={phone} wrap />
             </span>
-            {!phone && <span className="text-xs text-muted">{r.said || r.label}</span>}
+            {!phone && <span className="whitespace-pre-line text-xs text-muted">{r.said || r.label}</span>}
           </li>
         );
       })}

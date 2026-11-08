@@ -352,15 +352,11 @@ export function GoToBrand() {
   return target ? <Navigate to={`/b/${target.id}`} replace /> : <Navigate to="/team" replace />;
 }
 
-/** Where a brand opens: an editor's day starts from their videos; Reed's from the scripts (audit M6). */
-export const HOME: Record<string, string> = { editor: "videos", owner: "scripts" };
-
+/** Where a brand opens, for the owner and editors alike: its open folder of videos (v6 S1-01 to S1-08, P-02). */
 export function BrandHome() {
   const { brandId } = useParams();
   const { data: brands } = useBrands();
-  const { data: me } = useMe();
   if (!brands?.some((b) => b.id === Number(brandId))) return <p className="p-6">That brand doesn't exist.</p>;
-  if (!me) return <p className="p-6 text-muted">Loading…</p>;
-  return <Navigate to={`/b/${brandId}/${HOME[me.role] ?? "scripts"}`} replace />;
+  return <Navigate to={`/b/${brandId}/videos`} replace />;
 }
 

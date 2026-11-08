@@ -1294,6 +1294,26 @@ def test_c4s_shape_is_put_right_in_code_with_its_words_unchanged():
     assert words(fixed.prompt).splitlines()[1:-1] == words(broken.prompt).splitlines()[1:-1]
 
 
+def test_shot_times_round_their_edges_not_their_lengths():
+    """Video 271's clip 2 (12 s, its slice 11.02 s): the plan's shots, from the clip's start,
+    run 0–2.76, –5.20, –6.60, –9.56 and –11.02 s. Rounding each length (3, 2, 1, 3, 1) put
+    the yield shot at 6–9 s, 0.6 s off its words; rounding where each edge falls keeps every
+    edge within half a second of the narration, and the last shot takes the clip's spare."""
+    from app.clip_prompts import _retime, edges
+
+    plan = [0, 2.76, 5.2, 6.6, 9.56, 11.02]
+    lengths = [b - a for a, b in zip(plan, plan[1:], strict=False)]
+    assert edges(lengths, 12) == [3, 5, 7, 10, 12]
+    assert all(abs(e - p) <= 0.5 for e, p in zip(edges(lengths, 12)[:-1], plan[1:], strict=False))
+    lines = [f"Shot {n} | {a}-{b} s. Beat {n}. No one speaks." for n, (a, b)
+             in enumerate(zip(plan, plan[1:], strict=False), 1)]  # fmt: skip
+    assert [x.split(" Beat")[0] for x in _retime(lines, 12)] == [
+        "Shot 1 | 0-3 s.", "Shot 2 | 3-5 s.", "Shot 3 | 5-7 s.", "Shot 4 | 7-10 s.",
+        "Shot 5 | 10-12 s."]  # fmt: skip
+    assert edges([3, 3, 3], 8) == [3, 5, 8] and edges([0.2, 0.2, 0.2, 5], 4) == [1, 2, 3, 4]
+    assert "never each shot's length on its own" in (HERE / "clip_prompts.md").read_text()
+
+
 def test_the_free_fix_never_drops_a_lip_sync_note():
     """Reed's c4: Fix this clip's prompt dropped "nobody on screen lip-syncs it", which
     invites lip-sync. It's put back before the Keep line."""
