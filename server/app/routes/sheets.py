@@ -164,7 +164,8 @@ def queue_sheet(
     anew = redo and fresh(item, body.change, fit_redo)
     refs = [photo] if from_photo else []
     refs += [last] if redo and not anew else []
-    noted = f"{item.notes.rstrip('. ')}. {body.change.strip()}" if body.change.strip() else ""
+    noted = ". ".join(filter(None, [item.notes.rstrip(". "), body.change.strip()]))
+    noted = noted if body.change.strip() else ""
     prompt = prompts.sheet_prompt(
         str(kind), noted if anew else item.notes, from_photo=from_photo,
         change=body.change if redo and not anew else "", role=role_for(db, item), style_id=style,

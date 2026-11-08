@@ -4756,7 +4756,8 @@ export interface paths {
          * @description Make a look for every role that has none (`_missing`), each for this video only, paid
          *     from its budget or the editor's week. All or none: if they don't all fit, nothing is made
          *     and the plain reason comes back (409). Each sheet still needs the editor's Approve (or a
-         *     Redo, or a swap) before Storyboard; Storyboard refuses until then.
+         *     Redo, or a swap) before Storyboard; Storyboard refuses until then. A role nothing
+         *     describes stops it too (409, saying which).
          */
         post: operations["make_missing_looks_projects__project_id__assets_make_missing_post"];
         delete?: never;

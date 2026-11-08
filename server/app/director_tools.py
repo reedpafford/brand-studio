@@ -86,10 +86,9 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             )
             if not blind:
                 return "Making the missing looks."
-            said = "Making the other missing looks, but not" if made else "Refused: no look for"
-            return (f"{said} {' and '.join(blind)}: nothing says what they look like, "
-                    "and a sheet drawn from a name alone guesses. make_looks again with `look`: "
-                    "the name, and in `description` what they are and look like from the plan "
+            said = "Making the other missing looks." if made else "Refused:"
+            return (f"{said} {project_assets.blind(blind)} make_looks again with `look`: the "
+                    "name, and in `description` what they are and look like from the plan "
                     "(person or animal, age, build, what they wear).")  # fmt: skip
         if tool == "storyboard":
             try:  # the right cast in each shot first, free (Reed's item 9: the director's job)

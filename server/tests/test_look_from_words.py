@@ -18,10 +18,10 @@ DOG = "Bruno, a stocky tan clay dog, sniffs his bowl. Lena laughs."
 SCRIPT = "SCENE 1 — INT. KITCHEN — DAY\nBruno sniffs his bowl."  # no one speaks
 
 
-def _bruno(owner, editor, action: str):
+def _bruno(owner, editor, action: str, role="Bruno"):
     """A video whose role Bruno has no description, in a shot that does `action`."""
     base = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
-    slot = owner.post(f"{base}/cast", json={"role": "Bruno"}).json()[-1]["id"]
+    slot = owner.post(f"{base}/cast", json={"role": role}).json()[-1]["id"]
     bd = copy.deepcopy(BREAKDOWN)
     shot = bd["scenes"][0]["shots"][1]
     shot["character_ids"], shot["action"] = [f"slot:{slot}"], action
@@ -55,11 +55,21 @@ def test_a_role_is_drawn_from_its_shots_words_or_the_directors_never_its_name(ow
     pid, slot = _bruno(owner, editor, "They argue.")  # nothing anywhere says what he is
     jobs = db.query(Job).count()
     said = _make_looks(db, pid)
-    assert said.startswith("Refused: no look for Bruno: nothing says what they look like")
+    assert said.startswith("Refused: Nothing says what Bruno looks like, so a look would only")
     assert db.query(Job).count() == jobs and _look(db, pid, slot) is None
+    for url in (f"slots/{slot}/make-look", "make-missing"):  # a person's press: refused too
+        refused = editor.post(f"/projects/{pid}/assets/{url}")
+        assert refused.status_code == 409 and refused.json()["detail"].startswith(
+            "Nothing says what Bruno looks like"
+        )
+    assert db.query(Job).count() == jobs
     told = {"name": "Bruno", "description": "a stocky tan clay dog"}
     assert _make_looks(db, pid, told) == "Making the missing looks."
     assert _look(db, pid, slot).notes == "a stocky tan clay dog"
+
+    pid, slot = _bruno(owner, editor, "They argue.", role="Bruno, a stocky tan clay dog")
+    assert _make_looks(db, pid) == "Making the missing looks."  # the script's words for him
+    assert _look(db, pid, slot).notes == "Bruno, a stocky tan clay dog"
 
 
 def test_a_sheet_with_nothing_to_check_against_never_fits(owner, editor, db):
