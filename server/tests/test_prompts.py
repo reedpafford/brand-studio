@@ -1986,3 +1986,14 @@ def test_the_product_is_a_prop_in_the_story_its_label_shown_on_its_own_moments()
     assert "never a fault or a redo" in prompts.system("take_watch")  # a prop's turned label
     assert "the product way, label to camera" not in prompts.system("treatment")
     assert "not held to camera in every shot" in prompts.system("treatment")  # rules.md
+
+
+def test_the_real_pack_is_judged_against_its_own_picture_never_the_stills_copy():
+    """Movie video 284: the pouch reached every product clip as its real picture, but the
+    storyboard still drew it small with a close-but-wrong label, the take followed the still,
+    and the take watch compared the pack with the still. Now a product moment's still must
+    show the label readably, and the take is judged against the product's own picture."""
+    assert "never as the still copied it" in prompts.system("take_watch")
+    stills = prompts.system("review_stills")
+    assert "**The product on its own moments:**" in stills
+    assert "the take starts from this still" in stills

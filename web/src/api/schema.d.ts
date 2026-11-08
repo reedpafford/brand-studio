@@ -4078,7 +4078,7 @@ export interface paths {
          * Mute
          * @description Mute a stretch of the picked take in the final cut (an unscripted line, a gasp). Free;
          *     the take and its approval stay as they are. Undo: DELETE …/mute/{index}. A director tool
-         *     calls this same route.
+         *     calls this same route. Never the only heard copy of a scripted line (video 284).
          */
         post: operations["mute_projects__project_id__clips__clip_id__mute_post"];
         delete?: never;

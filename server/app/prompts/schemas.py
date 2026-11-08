@@ -821,8 +821,8 @@ class DirectorTurn(Strict):
     tool: Literal[
         "treatment", "plan", "make_looks", "storyboard", "stills", "review_stills",
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
-        "mute", "splice_word", "add_sound", "song", "narration", "host", "edit_cut", "ask",
-        "add_place", "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model",
+        "mute", "unmute", "splice_word", "add_sound", "song", "narration", "host", "edit_cut",
+        "ask", "add_place", "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model",
         "settings", "split_clip", "outfit", "real_screen", "locked_line",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "

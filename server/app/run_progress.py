@@ -44,6 +44,7 @@ PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "outfit": "
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
           "split_clip": "plan",
           "make_take": "takes", "pick_take": "takes", "splice_word": "takes", "mute": "takes",
+          "unmute": "takes",
           "add_sound": "takes", "real_screen": "cut", "host": "host", "final_cut": "cut",
           "edit_cut": "cut",
           "watch_cut": "cut", "deliver": "cut"}  # fmt: skip  # each tool's step
@@ -624,7 +625,8 @@ def dollars(credits: Decimal) -> float:
     return float(round(credits * USD_PER_CREDIT * 100) / 100)
 
 
-FREE_FIXES = ("pick_take", "mute", "splice_word", "edit_cut")  # a revision's changes made at once
+FREE_FIXES = ("pick_take", "mute", "unmute", "splice_word",
+              "edit_cut")  # fmt: skip  # a revision's changes made at once
 
 
 def _changes(video: _Video, turns: list[Job], since: datetime) -> str:
