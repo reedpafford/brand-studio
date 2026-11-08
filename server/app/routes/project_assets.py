@@ -4,6 +4,7 @@ editor (picked or new), whose sheet is made and approved with the library's shee
 Storyboard and takes already refuse until every sheet they need is approved."""
 
 import json
+import re
 from decimal import Decimal
 from typing import Literal
 
@@ -473,14 +474,28 @@ def make_look(
     return list_assets(project_id, user, db)
 
 
+def blind(names: list[str]) -> str:
+    """Why a role gets no look: nothing says what it is (video 268)."""
+    return (f"Nothing says what {' and '.join(names)} look{'s' if len(names) == 1 else ''} "
+            "like, so a look would only guess from the name.")  # fmt: skip
+
+
+BLIND_FIX = " Upload or pick a look, or tell the director in the chat what they look like."
+
+
 def _make_look(
     db: Session, user: User, project: Project, slot: ScriptCastSlot, auto: bool = False,
-    change: str = "",
+    change: str = "", words: str = "",
 ) -> None:  # fmt: skip
     """`change`: what the person or the director asked for, added to the role's words. A role
     whose words give no age takes the one the script or a person's note states for it
-    ("Jay is 19"), so its sheet and its fit check both know it (video 245)."""
-    words = slot.description or slot.role
+    ("Jay is 19"), so its sheet and its fit check both know it (video 245). Never from a name
+    alone: a role nothing describes, with no change, is refused."""
+    words = words or role_words(db, project, slot)
+    if not (words or change.strip()):
+        name = cast_roles.short(slot.role) or slot.role
+        raise HTTPException(409, blind([name]) + BLIND_FIX)
+    words = words or slot.role
     if not check.AGE.search(words) and (age := cast_roles.stated_age(
             cast_roles.short(slot.role), _told(db, project))):  # fmt: skip
         words = f"{words.rstrip('. ')}, {age}"
@@ -500,6 +515,31 @@ def _make_look(
     queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
+
+
+def role_words(db: Session, project: Project, slot: ScriptCastSlot) -> str:
+    """What a role looks like, for its sheet and its fit check: the script's description, else
+    the newest shots' sentences that show and name them (video 268: Bruno had no description,
+    so his sheet was drawn from his name, as an old man, while the shots said "a stocky tan
+    clay dog"), up to 300 characters; else its script name when it says more than a name
+    ("Kel, a 30-year-old trader") or an age the script or a note states ("Jay is 19": video
+    245). "" when nothing says anything."""
+    if (slot.description or "").strip():
+        return slot.description
+    bd, refs = _newest(db, project), {f"slot:{slot.id}", f"char:{cast_roles.picked(project, slot)}"}
+    said = [s for sc in (bd.data["scenes"] if bd else []) for shot in sc["shots"]
+            if refs & set(shot["character_ids"])
+            for s in re.split(r"(?<=[.!?])\s+", shot.get("action") or "")
+            if cast_roles.named(slot.role, s)]  # fmt: skip
+    out = ""
+    for s in dict.fromkeys(said):
+        if len(out) + len(s) >= 300:
+            break
+        out = f"{out} {s}".strip()
+    if out or slot.role.partition(",")[2].strip():
+        return out or slot.role
+    age = cast_roles.stated_age(cast_roles.short(slot.role), _told(db, project))
+    return f"{slot.role.rstrip('. ')}, {age}" if age else ""
 
 
 def _told(db: Session, project: Project) -> list[str]:
@@ -783,21 +823,43 @@ def make_missing_looks(
     """Make a look for every role that has none (`_missing`), each for this video only, paid
     from its budget or the editor's week. All or none: if they don't all fit, nothing is made
     and the plain reason comes back (409). Each sheet still needs the editor's Approve (or a
-    Redo, or a swap) before Storyboard; Storyboard refuses until then."""
-    project = get_project(db, user, project_id)
+    Redo, or a swap) before Storyboard; Storyboard refuses until then. A role nothing
+    describes stops it too (409, saying which)."""
+    make_missing(db, user, get_project(db, user, project_id), whole=True)
+    return list_assets(project_id, user, db)
+
+
+def make_missing(db: Session, user: User, project: Project, told=("", ""),
+                 whole=False) -> tuple[int, list]:  # fmt: skip
+    """`make_missing_looks`; `told`: a role's name and what it looks like, as the director gives
+    it for a role nothing describes. Such a role is left without a look, never drawn from its
+    name alone (video 268); `whole`: then nothing is made. How many looks it started, and the
+    roles it left."""
     out = _missing_out(db, user, project)
     if out.reason:
         raise HTTPException(409, out.reason)
-    for slot in _missing(db, project):
-        if own := _undrawn(db, project, slot):  # from the photo given for it
-            queue_sheet(db, user, own, SheetIn(), auto=True)
+    slots = [(s, None if _undrawn(db, project, s) else role_words(db, project, s)
+              or (told[1].strip() if cast_roles.same(told[0], s.role) else ""))
+             for s in _missing(db, project)]  # fmt: skip
+    left = [cast_roles.short(s.role) or s.role for s, words in slots if words == ""]
+    if left and whole:
+        raise HTTPException(409, blind(left) + BLIND_FIX)
+    made = 0
+    for slot, words in slots:
+        if words is None:  # from the photo given for it
+            queue_sheet(db, user, _undrawn(db, project, slot), SheetIn(), auto=True)
+        elif words:
+            _make_look(db, user, project, slot, auto=True, words=words)
         else:
-            _make_look(db, user, project, slot, auto=True)
+            continue
+        made += 1
     for item in missing_copies(db, project):  # a brand character, in this video's look
         _copy(db, user, project, item, auto=True)
+        made += 1
     for place in missing_places(db, project):  # a place made for this video
         queue_sheet(db, user, place, SheetIn(), auto=True)
-    return list_assets(project_id, user, db)
+        made += 1
+    return made, left
 
 
 @router.post("/missing-looks/decline", response_model=MissingLooksOut)

@@ -4,6 +4,7 @@ import { api, errorText, polled } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Button } from "../components";
 import { refreshJobs } from "../jobs/refresh";
+import { lookFitNote } from "../library/sheets";
 
 const FROM = { library: "From the brand's library", uploaded: "Uploaded for this video", video: "Made for this video", script: "Made for this script" } as const;
 
@@ -17,8 +18,8 @@ export function CastOk({ projectId }: { projectId: number }) {
     refetchInterval: 4000,
   });
   const approve = useMutation({
-    mutationFn: async (seen: Record<string, string>) => {
-      const { data, error } = await api.POST("/projects/{project_id}/cast/approve", { params: { path: { project_id: projectId } }, body: { seen } });
+    mutationFn: async ({ seen, anyway }: { seen: Record<string, string>; anyway: boolean }) => {
+      const { data, error } = await api.POST("/projects/{project_id}/cast/approve", { params: { path: { project_id: projectId } }, body: { seen, anyway } });
       if (!data) throw new Error(errorText(error));
       return data;
     },
@@ -33,6 +34,7 @@ export function CastOk({ projectId }: { projectId: number }) {
   // look changed after it asked, is never left without the press.
   if (!shown || shown.state !== "ready" || !shown.can_approve) return null;
   const changed = shown.items.filter((i) => i.approval === "changed").map((i) => i.name);
+  const wrong = shown.items.some((i) => i.approval !== "approved" && i.look_fit); // the look check says it's wrong: "anyway"
   return (
     <section aria-label="Cast & places waiting for your OK" className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <p className="text-sm">
@@ -45,11 +47,12 @@ export function CastOk({ projectId }: { projectId: number }) {
             {i.preview_file_id ? <img src={fileUrl(i.preview_file_id)} alt={i.name} className="aspect-square w-full rounded-md object-cover" /> : <div aria-hidden className="aspect-square w-full rounded-md bg-surface-3" />}
             <p className="text-sm">{i.name}</p>
             <p className="text-xs text-muted">{i.source ? FROM[i.source] : "No look yet"}</p>
+            {i.look_fit && i.approval !== "approved" && <p className="text-xs text-warning">{lookFitNote(i.look_fit)}</p>}
           </li>
         ))}
       </ul>
-      <Button icon={Check} busy={approve.isPending} onClick={() => approve.mutate(Object.fromEntries(shown.items.map((i) => [i.ref, i.sig])))}>
-        Approve cast &amp; places
+      <Button icon={Check} busy={approve.isPending} onClick={() => approve.mutate({ seen: Object.fromEntries(shown.items.map((i) => [i.ref, i.sig])), anyway: wrong })}>
+        {wrong ? "Approve anyway" : <>Approve cast &amp; places</>}
       </Button>
       {approve.isError && <p role="alert" className="text-sm text-danger">{approve.error.message}</p>}
     </section>

@@ -93,16 +93,24 @@ def test_a_house_video_needs_no_copy(app, db, owner, editor):
 
 
 def test_a_style_switch_makes_the_look_again_in_the_new_style(app, db, owner, editor):
+    from app import cast_roles
+
     pid, mia = _locked(app, owner, editor, db, "claymation", text=SCRIPT, shots=True)
     url = f"/projects/{pid}/assets"
-    assert editor.post(f"{url}/make-missing").status_code == 200
+    editor.get(url)  # opening Cast adds the speakers as roles
+    for slot in cast_roles.video_slots(db, db.get(Project, pid)):  # say who Nate is (no blind
+        slot.description = slot.description or "a shy teen"  # draws: test_look_from_words)
+    db.commit()
+    r = editor.post(f"{url}/make-missing")
+    assert r.status_code == 200, r.text
     db.expire_all()
     clay = db.get(Project, pid).look_copies[str(mia)]
     assert db.get(LibraryItem, clay).sheet_look == "claymation"
     db.get(Project, pid).look = "skeleton"  # the video switched style
     db.commit()
     assert [i.id for i in missing_copies(db, db.get(Project, pid))] == [mia]  # Claymation's isn't
-    assert editor.post(f"{url}/make-missing").status_code == 200
+    r = editor.post(f"{url}/make-missing")
+    assert r.status_code == 200, r.text
     db.expire_all()
     bones = db.get(LibraryItem, db.get(Project, pid).look_copies[str(mia)])
     assert bones.id != clay and bones.sheet_look == "skeleton"

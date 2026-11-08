@@ -80,8 +80,16 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
         if tool == "make_looks":
             if no := locks.refusal(project, "cast"):  # the cast and its looks are fixed
                 return f"{no} {CAST_LOCKED}"  # what to do (rule 22), said again when it stops
-            project_assets.make_missing_looks(**me)
-            return "Making the missing looks."
+            look = decision.get("look") or {}
+            made, blind = project_assets.make_missing(
+                db, user, project, (look.get("name") or "", look.get("description") or "")
+            )
+            if not blind:
+                return "Making the missing looks."
+            said = "Making the other missing looks." if made else "Refused:"
+            return (f"{said} {project_assets.blind(blind)} make_looks again with `look`: the "
+                    "name, and in `description` what they are and look like from the plan "
+                    "(person or animal, age, build, what they wear).")  # fmt: skip
         if tool == "storyboard":
             try:  # the right cast in each shot first, free (Reed's item 9: the director's job)
                 breakdown.fix_cast(**me)
