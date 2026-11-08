@@ -373,6 +373,28 @@ def test_the_start_card_waits_for_make_it_and_change_the_plan_first_keeps_it_wai
     assert out["status"] == "delivered" and out["started"] and out["spent"] > 0, out["ended"]
 
 
+def test_an_answered_up_to_start_card_says_a_grown_price_needs_another_ok(app, db, owner, editor):
+    """QA on #1447: the "up to" card's line read "This run's may now charge up to $X", and it
+    can't charge past the OK without asking. It keeps the approved figure and says both."""
+    pid, _ = _video(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=4, start=False)
+    (card,) = owner.get(f"/projects/{pid}/asks").json()
+    said = card["question"]
+    assert said.startswith("Make it for up to $")
+    assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
+    job = db.get(Job, db.get(Ask, card["id"]).job_ids[0])
+    job.input = {**job.input, "price": float(job.input["price"]) + 50}  # its figure grew since
+    db.commit()
+    (after,) = [c for c in owner.get(f"/projects/{pid}/asks").json() if c["id"] == card["id"]]
+    assert after["question"] == said
+    approved = said.removeprefix("Make it for up to ").removesuffix("?")
+    assert after["money"]["since"].startswith("This run's price has since grown to up to $")
+    assert after["money"]["since"].endswith(
+        f"; anything past the {approved} approved asks you first."
+    )
+
+
 def test_a_start_card_waits_while_a_note_is_read_into_the_plan(app, db, owner, editor):
     """MAIN's run 276: a note sent while the first treatment was written was read into a new
     one right as the start card came, and Make it approved the plan from before the note. While
@@ -393,7 +415,19 @@ def test_a_start_card_waits_while_a_note_is_read_into_the_plan(app, db, owner, e
     (card,) = owner.get(f"/projects/{pid}/asks").json()
     assert card["money"]["updating"] and "make_it" not in card["can"]
     assert card["why"].startswith("I'm updating the plan for your note.")
-    turn.status = JobStatus.succeeded
+    # QA on #1447: the press itself is refused too (a card read earlier, another tab, Needs you)
+    press = owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"})
+    assert press.status_code == 409 and press.json()["detail"].startswith("I'm updating the plan")
+    turn.status = JobStatus.succeeded  # done, but no director turn has read it yet (the gap
+    db.commit()  # to the worker's next tick): still updating
+    assert "make_it" not in owner.get(f"/projects/{pid}/asks").json()[0]["can"]
+    assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 409
+    read = Job(workspace_id=last.workspace_id, project_id=pid, kind="write-claude",
+               provider="claude", status=JobStatus.running, credits=0,
+               created_by_id=last.created_by_id, input={"step": "director"})  # fmt: skip
+    db.add(read)  # the next turn reads it, then waits for Make it
+    db.commit()
+    read.status = JobStatus.succeeded
     db.commit()
     assert "make_it" in owner.get(f"/projects/{pid}/asks").json()[0]["can"]
 
