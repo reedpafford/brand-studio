@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, cast_roles, clip_prompts, locks, looks, merge_roles
+from app import advice, breakdown, cast_roles, clip_prompts, locks, looks, merge_roles, model_map
 from app.auth import current_user
 from app.credits import COUNTED, fits, price
 from app.db import get_db
@@ -600,8 +600,11 @@ def make_look_copy(
 
 def _copy(db: Session, user: User, project: Project, item: LibraryItem, auto=False) -> None:
     """A Cast & places character's look for this video, drawn in the video's look from its
-    approved sheet (who they are: face, build, outfit and signature items), else its photo."""
-    house = item.sheet_file_id if item.sheet_approved else None
+    approved sheet (who they are: face, build, outfit and signature items), else its photo.
+    A photoreal style (Movie, UGC) draws from the photo when there is one: a sheet is a
+    drawing."""
+    real = looks.base(project.look) in model_map.PHOTOREAL and item.source_photo_file_id
+    house = item.sheet_file_id if item.sheet_approved and not real else None
     new = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character, name=item.name,
                       notes=item.notes, source_photo_file_id=house or item.source_photo_file_id,
                       owner_project_id=project.id, sheet_look=project.look)  # fmt: skip
@@ -615,8 +618,8 @@ def missing_copies(db: Session, project: Project) -> list[LibraryItem]:
     """The Cast & places characters the newest shots show (cast or locked in a role, or named
     in a shot) with no sheet in this video's look and no look of their own here yet: make-
     missing makes each one (`_copy`), so a brand character with only a House sheet never
-    stops a video in another style. Made once, never again by itself (look_copies keeps it,
-    as does Not now)."""
+    stops a video in another style. Made once in each look, never again by itself (Not now
+    keeps it out); a copy made in another look before a style switch counts as none."""
     bd = _newest(db, project)
     if bd is None or (project.look or "house") == "house":
         return []
@@ -628,11 +631,19 @@ def missing_copies(db: Session, project: Project) -> list[LibraryItem]:
     out = []
     for item in (db.get(LibraryItem, i) for i in dict.fromkeys(i for i in ids if i)):
         if (item is not None and not item.archived and _other_look(project, item)
-                and str(item.id) not in (project.look_copies or {})
+                and not _copied(db, project, item)
                 and (item.sheet_approved and item.sheet_file_id or item.source_photo_file_id)
                 and not sheet_for(db, project, item)):  # fmt: skip
             out.append(item)
     return out
+
+
+def _copied(db: Session, project: Project, item: LibraryItem) -> bool:
+    """Not now was said to its look here, or its copy is a live one in this video's look."""
+    if (project.look_copies or {}).get(str(item.id), 0) is None:
+        return True
+    copy = look_copy(db, project, item)
+    return bool(copy and copy.sheet_look == project.look)
 
 
 class MadeOut(BaseModel):

@@ -90,3 +90,32 @@ def test_the_card_prices_it_and_not_now_or_a_made_copy_is_never_made_again(app, 
 def test_a_house_video_needs_no_copy(app, db, owner, editor):
     pid, _ = _locked(app, owner, editor, db, "house", text=SCRIPT, shots=True)
     assert missing_copies(db, db.get(Project, pid)) == []
+
+
+def test_a_style_switch_makes_the_look_again_in_the_new_style(app, db, owner, editor):
+    pid, mia = _locked(app, owner, editor, db, "claymation", text=SCRIPT, shots=True)
+    url = f"/projects/{pid}/assets"
+    assert editor.post(f"{url}/make-missing").status_code == 200
+    db.expire_all()
+    clay = db.get(Project, pid).look_copies[str(mia)]
+    assert db.get(LibraryItem, clay).sheet_look == "claymation"
+    db.get(Project, pid).look = "skeleton"  # the video switched style
+    db.commit()
+    assert [i.id for i in missing_copies(db, db.get(Project, pid))] == [mia]  # Claymation's isn't
+    assert editor.post(f"{url}/make-missing").status_code == 200
+    db.expire_all()
+    bones = db.get(LibraryItem, db.get(Project, pid).look_copies[str(mia)])
+    assert bones.id != clay and bones.sheet_look == "skeleton"
+    assert not missing_copies(db, db.get(Project, pid))
+
+
+def test_a_photoreal_style_draws_from_the_photo_not_the_house_drawing(app, db, owner, editor):
+    pid, mia = _locked(app, owner, editor, db, "claymation", text=SCRIPT, shots=True)
+    item = db.get(LibraryItem, mia)
+    photo = item.source_photo_file_id = upload(owner)  # a real photo, not her House sheet
+    db.get(Project, pid).look = "ugc"
+    db.commit()
+    assert editor.post(f"/projects/{pid}/assets/looks/{mia}/copy").status_code == 200
+    db.expire_all()
+    made = db.get(LibraryItem, db.get(Project, pid).look_copies[str(mia)])
+    assert made.source_photo_file_id == photo != db.get(LibraryItem, mia).sheet_file_id

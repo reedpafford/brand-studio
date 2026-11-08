@@ -4709,9 +4709,9 @@ export interface paths {
         /**
          * Make Look Copy
          * @description Make a {look} look for this video (flows ST2; paid from this video's budget): a Cast &
-         *     places character with no sheet in the video's look gets its own copy here, drawn in the
-         *     look from its photo or House sheet. Used in this video only, never saved to Cast & places
-         *     (rule 12); its library character and its locked roles stay as they are.
+         *     places character with no sheet in the video's look gets its own copy here (`_copy`). Used
+         *     in this video only, never saved to Cast & places (rule 12); its library character and its
+         *     locked roles stay as they are.
          */
         post: operations["make_look_copy_projects__project_id__assets_looks__item_id__copy_post"];
         delete?: never;
