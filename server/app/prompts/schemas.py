@@ -471,7 +471,7 @@ class PlanLine(BaseModel):
     )
     product: str | None = Field(
         description="★: the brand's product or screen id (product:N, screen:N) shown on this "
-        "line, label or logo to camera; null when it isn't a key product moment."
+        "line, label or logo readable; null when it isn't a key product moment."
     )
 
 

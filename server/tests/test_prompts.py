@@ -1934,3 +1934,23 @@ def test_a_pasted_screenplay_is_named_by_its_first_line_with_words_not_its_headi
     assert check.title_line("MAYA (20s, a hoodie) sits down.") == "MAYA sits down."
     assert check.title_line("Every morning starts the same.") == "Every morning starts the same."
     assert check.title_line("INT. KITCHEN - DAY") == "INT. KITCHEN - DAY"  # nothing else: as is
+
+
+def test_the_product_is_a_prop_in_the_story_its_label_shown_on_its_own_moments():
+    """Round 2 (261, 268, 271, 276: product handling scored lowest every time): the pack was
+    presented label to camera in shot after shot, and asked label to camera while tipped (268:
+    upside down). It's a prop the characters use; its label reads, upright and steady, on the
+    script's own product moments (★, which covers the end the script gives it, #1400)."""
+    plan, shots = prompts.system("plan"), prompts.system("breakdown")
+    clips, stills = prompts.system("clip_prompts"), prompts.system("storyboard")
+    assert "never held up to camera in shot after shot" in plan
+    assert "readable, upright and steady" in plan
+    assert "only on the script's own product moments (★);" in shots  # no payoff it doesn't have
+    assert "never placed into a shot just to keep it on screen" in shots
+    assert "never ask for a label to camera on a pack being tipped, poured or shaken" in clips
+    assert "front label to camera, steady" not in clips
+    assert 'adding "label facing the camera" on a product moment (★), with the pack' in stills
+    assert "On a product moment, show the whole bag" in stills
+    assert "never a fault or a redo" in prompts.system("take_watch")  # a prop's turned label
+    assert "the product way, label to camera" not in prompts.system("treatment")
+    assert "not held to camera in every shot" in prompts.system("treatment")  # rules.md
