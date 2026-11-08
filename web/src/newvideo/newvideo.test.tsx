@@ -6,6 +6,7 @@ import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { lookMedia } from "./Cards";
+import { counts } from "../scripts/ScriptFrame";
 
 const SCRIPT = "DR. PICKLE: Your gut after the weekend? A brewery with a pulse.";
 const at = new Date().toISOString();
@@ -277,4 +278,10 @@ test("MAIN's run (video 233): a sample the test site's stand-ins made never hide
   const made = look("disney-pixar", "Disney Pixar", { sample_clip_id: 9, sample_still_id: 8 });
   expect(lookMedia({ ...made, sample_stand_in: true } as never)).toEqual({ clip: "/api/looks/disney-pixar/test-sample.mp4", still: "/api/looks/disney-pixar/test-sample.jpg", tag: true });
   expect(lookMedia({ ...made, sample_stand_in: false } as never).clip).toMatch(/\/9\b/); // a real one: the owner's own
+});
+
+test("MAIN's Claymation run: a narrated script is read whole at a narrator's pace, not only its one NARRATOR: line", () => {
+  const clay = ["NARRATOR: Most owners think an itchy dog has a skin problem.", "It usually starts in the belly.", "The good guys in there need more than plain kibble to win.", "[Camera] Close on the paws.", "When they lose, the itch shows up in the paws."].join("\n");
+  expect(counts(clay, true)).toMatchObject({ words: 44, seconds: 15 }); // 38 read words at 2.6 a second; it said "about 2 s"
+  expect(counts(clay).seconds).toBe(2); // as dialogue only the NAME: line is spoken, as before
 });

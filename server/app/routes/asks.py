@@ -85,6 +85,7 @@ class MoneyCard(BaseModel):
     clips: list[HeldClip] = []
     sent_at: UtcTime
     held: str  # the hold's own words
+    since: str = ""  # an answered start card: how the run's figure has moved since the OK
     what: str = ""  # past the budget: what it makes, "Redo clips 9 and 12" (Needs you's title)
     over: str = "the budget"  # what it goes past: "the budget" (a first run, S3-07), or on a
     # later run (rule 34) "the $16.86 approved for this run" ("… · $1.54 past {over}")
@@ -250,6 +251,19 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
             card.why = ("The owner stopped the director. Carrying on goes on where it left "
                         "off, up to the rest of this run's approved price. Nothing is charged "
                         "while it waits.")  # fmt: skip
+        carries = held and held[0].input.get(asks.CARRIES)
+        ok = (ask.answer or {}).get("approved") if ask.state == "answered" and not carries else None
+        if ok is not None:  # answered: what was approved, never today's figure (MAIN's run)
+            now = money.up_to  # today's figure
+            mine = user.is_owner and ok.get("usd") is not None  # an editor's press kept no dollars
+            money.up_to = AskPrice(**ok) if mine else _price(user, Decimal(str(ok["credits"])))
+            approved = _said(money.up_to)
+            card.question = f"Make it? About {approved} (estimate)." if money.expected else (
+                f"Make it for up to {approved}?")  # fmt: skip
+            if now.credits > money.up_to.credits:
+                grown = "estimate has since grown to about" if money.expected else (
+                    "may now charge up to")  # fmt: skip
+                money.since = f"This run's {grown} {_said(now)}."
         may = asks.may_start(db, user, project)
         card.can = ["make_it"] if may else []
         card.can += ["decline"] if owner and project.created_by_id != user.id else []
@@ -433,7 +447,13 @@ def answer(ask_id: int, body: AnswerIn, request: Request, user: User = Depends(c
         locked_line.choose(db, user, ask, body.choice or "", request.app.state.storage,
                            body.option)  # fmt: skip
     else:
+        start = ask.kind == "start" and body.how in ("make_it", "approve")
+        shown = out(db, user, ask).money if start else None  # the figure the press approved
         asks.answer(db, user, ask, body.model_dump(), request.app.state.storage)
+        if shown is not None:
+            ask = db.get(Ask, ask_id)
+            ask.answer = {**(ask.answer or {}), "approved": shown.up_to.model_dump()}
+            db.commit()
     return out(db, user, db.get(Ask, ask_id))
 
 

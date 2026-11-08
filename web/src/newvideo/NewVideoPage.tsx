@@ -144,7 +144,7 @@ export function NewVideoPage() {
       <div className={box}>
         {rail && <div className="px-3 pt-2.5">{seg}</div>}
         <div className="px-4 pb-2 pt-3.5">
-          <Words text={text} setText={setText} go={go} rail={rail} />
+          <Words text={text} setText={setText} go={go} rail={rail} narrated={format?.engine === "narrated"} />
           <Attached files={files} />
         </div>
         {rail && (
@@ -203,7 +203,7 @@ export function NewVideoPage() {
           <div className="self-start">{seg}</div>
           {tab === "paste" ? (
             <div className="rounded-xl border border-border-strong bg-surface p-3">
-              <Words text={text} setText={setText} go={go} rail={false} />
+              <Words text={text} setText={setText} go={go} rail={false} narrated={format?.engine === "narrated"} />
               <Attached files={files} />
             </div>
           ) : (
@@ -250,10 +250,10 @@ export function NewVideoPage() {
 }
 
 /** The words box: the script font as you type; away from it, a long script folds to four lines and its length (S2-02). */
-function Words({ text, setText, go, rail }: { text: string; setText: (t: string) => void; go: () => void; rail: boolean }) {
+function Words({ text, setText, go, rail, narrated }: { text: string; setText: (t: string) => void; go: () => void; rail: boolean; narrated: boolean }) {
   const [editing, setEditing] = useState(false);
   const lines = text.split("\n").filter((l) => l.trim());
-  const c = counts(text);
+  const c = counts(text, narrated);
   const fold = !editing && lines.length > (rail ? 5 : 3);
   if (fold)
     return (

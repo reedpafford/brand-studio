@@ -34,6 +34,9 @@ const credits = (m: Money, upTo = false) => (upTo ? Math.ceil(m.credits - 1e-9) 
 export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): [string, string] {
   const owner = h.spent.usd != null;
   const spent = started; // before Make it: "No generation started" (Reed, 4 Nov: the treatment is a small planning spend, in Usage)
+  // While it plans before the OK (right after New video's Make it), "Working" beside "No generation started" read as a
+  // contradiction (MAIN's Claymation run): it says what it's doing, and still that nothing is generated.
+  const none = h.status.kind === "working" ? "Planning, no generation yet ·" : "No generation started ·";
   const top = h.up_to;
   if (h.actual) {
     // The owner's uncapped test site (Reed, 6 Nov): what the providers really charged, and the likely cost; no budget.
@@ -43,7 +46,7 @@ export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): 
     const going = ["working", "waiting", "needs_you"].includes(h.status.kind); // else the estimate is for the next run
     const about = h.expected ? `${going ? "this run" : "next run"} about ${dollars(h.expected)} (estimate)` : "estimating…";
     if (short) return ["", spent ? `${dollars(h.spent)} so far` : `About ${dollars(h.expected ?? h.spent)} (estimate)`];
-    return [spent ? `${real} ·` : "No generation started ·", about];
+    return [spent ? `${real} ·` : none, about];
   }
   // Past the budget mid-run (S3-06, S3-07); a start card waiting has spent nothing (S3-02). Never a "budget" below what's
   // spent (Flow-QA S7): then it's the whole video's spent against its "up to", as any other time.
@@ -52,11 +55,11 @@ export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): 
     const pct = h.budget.credits > 0 ? Math.round((100 * h.spent.credits) / h.budget.credits) : 0;
     return [`${credits(h.spent)} credits ·`, `${pct}% of the budget`];
   }
-  if (!top) return short ? ["", "estimating…"] : [spent ? (owner ? `${dollars(h.spent)} spent ·` : `${credits(h.spent)} credits used ·`) : "No generation started ·", "estimating…"];
+  if (!top) return short ? ["", "estimating…"] : [spent ? (owner ? `${dollars(h.spent)} spent ·` : `${credits(h.spent)} credits used ·`) : none, "estimating…"];
   const most = owner ? `up to ${dollars(top)}` : `up to ${credits(top, true)} credits`;
   if (h.status.kind === "delivered") return [owner ? `${dollars(h.spent)} of` : `${credits(h.spent)} of`, most];
   if (short) return ["", most];
-  return [spent ? (owner ? `${dollars(h.spent)} spent ·` : `${credits(h.spent)} credits used ·`) : "No generation started ·", most];
+  return [spent ? (owner ? `${dollars(h.spent)} spent ·` : `${credits(h.spent)} credits used ·`) : none, most];
 }
 
 /** The status in the header: the dot, the words and the reason (S-gaps-01). While it works the reason is where the run is
