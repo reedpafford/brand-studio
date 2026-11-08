@@ -138,7 +138,9 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
     for i, h in enumerate(heard):
         said, at = h["text"].strip(), _clock(h["start"])
         mute = f"It can be muted in the cut ({at}–{_clock(h['end'])})."
-        if i not in used and not any(_near(line["text"], said) >= SAID for line in lines):
+        part = _piece(i, heard, [line["text"] for line in lines])
+        if i not in used and not part and not any(_near(line["text"], said) >= SAID
+                                                  for line in lines):  # fmt: skip
             if voiced:
                 findings.append(
                     _finding(
@@ -161,6 +163,18 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                                          "be said wrong. Listen first: the transcript can "
                                          f"mishear.", f"Say {brand} as {said_as}."))  # fmt: skip
     return findings + sounds
+
+
+def _piece(i: int, heard: list[dict], lines: list[str]) -> bool:
+    """Heard line `i` is a piece of a script line heard apart from the rest of it, and heard
+    nowhere else (video 284: "Two of these every morning." then "Oil of oregano with black
+    seed oil.", one line in two, was called unscripted and muted: the line's only copy)."""
+    said = f" {_bare(heard[i]['text'])} "
+    return (
+        said.strip() != ""
+        and any(said in f" {_bare(x)} " for x in lines)
+        and not any(said in f" {_bare(h['text'])} " for j, h in enumerate(heard) if j != i)
+    )
 
 
 FILLERS = {"uh", "um", "ah", "oh", "hmm", "mm", "er"}  # a speech model's hesitations
