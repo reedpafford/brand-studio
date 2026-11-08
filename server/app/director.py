@@ -874,8 +874,7 @@ def _act(db: Session, job: Job, storage) -> None:
             return _record(db, job, run, f"Refused: {clip} was made again {MAX_REDOS} times.")
         if _only_a_doubt(db, project, clip, decision.get("why") or "", run["id"]):
             return _record(db, job, run, DOUBT.format(clip))
-        if _has_take(db, project, clip):
-            run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
+    redo = tool == "make_take" and decision.get("clip_id") and _has_take(db, project, clip)
     if tool == "wait":  # with nothing being made (it read the video before a step saved), the
         idle = not _waiting(db, project)  # next turn reads it again now (`wake`), once
         if idle and cast_gate.state(db, project)["asked"]:  # what's left waits for their OK
@@ -912,6 +911,8 @@ def _act(db: Session, job: Job, storage) -> None:
         return _end(job, result, result=DELIVERED)  # its card is the answer: no re-delivery
     if tool == "watch_cut" and not result.startswith("Refused"):
         run["watches"] = run.get("watches", 0) + 1
+    if redo and not result.startswith("Refused"):  # a try refused made nothing (video 271)
+        run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
     if replan and not result.startswith("Refused"):
         run["replans"] = run.get("replans", 0) + 1
     if tool == "redraw_still" and not result.startswith("Refused"):
@@ -1033,6 +1034,8 @@ def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
     same = before is not None and all((before.output or {}).get(k) == decision.get(k) for k in keys)
     if said == WATCHED_AGAIN or not (same and said.startswith("Refused: ")):
         return None
+    if "being rewritten to fit" in said:  # its prompt is rewritten since: its take may go
+        return None  # (video 271: its take never followed the rewrite)
     return said.removeprefix("Refused: ")
 
 
