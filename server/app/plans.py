@@ -514,15 +514,23 @@ def block(db: Session, project: Project, version: ScriptVersion) -> tuple[str, i
 
 
 def shots_checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
-    """The Director's check that the shots follow the approved plan (#892): fixes for a
-    breakdown scene that mixes plan scenes, or a ★ line whose shot doesn't show its product."""
-    plan = ScenePlan.model_validate(job_input["plan"])
-    return output, check.follows_plan(plan, Breakdown.model_validate(output))
+    """The Director's check on the shots: they follow the approved plan (#892: a breakdown
+    scene that mixes plan scenes, a ★ line whose shot doesn't show its product), and with
+    `timing` (a story video, critique 276) each line has room at the style's pace (free) and
+    the clips land within a tenth of the length asked for. Fixes, and Advice."""
+    bd = Breakdown.model_validate(output)
+    found = check.follows_plan(ScenePlan.model_validate(job_input["plan"]), bd) if (
+        job_input.get("plan")) else []  # fmt: skip
+    if t := job_input.get("timing"):
+        bd, grown = check.line_room(bd, t["fast"], t["pause"])
+        found += grown + check.planned_length(bd, t.get("target"), t["fast"], t["pause"])
+        output = bd.model_dump()
+    return output, found
 
 
 def shots_again(job_input: dict, fixes: list[str]) -> dict:
     said = "\n".join(f"- {f}" for f in fixes)
-    fix = f"<fix>\nYour shots don't follow the approved plan:\n{said}\nWrite them again.\n</fix>"
+    fix = f"<fix>\nYour shots need a change:\n{said}\nWrite them again.\n</fix>"
     return {**job_input, "prompt": f"{job_input['prompt']}\n{fix}"}
 
 

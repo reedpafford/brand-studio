@@ -137,17 +137,32 @@ def fill(text: str, style_id: str) -> str:
     return TOKEN.sub(lambda m: looks[m.group(1)], text)
 
 
-PACE = re.compile(r"(\d\.\d+)\s*[–-]\s*(\d\.\d+) words a second")
+PACE = re.compile(r"(\d+(?:\.\d+)?)\s*[–-]\s*(\d+(?:\.\d+)?) words a second")
+PAUSE = re.compile(r"pauses of about (\d+(?:\.\d+)?)")  # Movie: "pauses of about 0.6–0.7 s"
+
+
+def _measured(pattern: re.Pattern, style_id: str, format_id: str) -> re.Match | None:
+    """The first match in the style's guide, else in its format's."""
+    for sections in (style(style_id)["sections"], format_(format_id)["sections"]):
+        for _, text in guidance(sections):
+            if found := pattern.search(text):
+                return found
+    return None
 
 
 def pace(style_id: str, format_id: str) -> tuple[float, float] | None:
     """The words a second a narrator keeps, as the guide measured it ("3.3–3.5 words a second
-    while talking"): the style's own, else its format's; None when neither says."""
-    for sections in (style(style_id)["sections"], format_(format_id)["sections"]):
-        for _, text in guidance(sections):
-            if found := PACE.search(text):
-                return float(found[1]), float(found[2])
-    return None
+    while talking"; Movie's "2–3 words a second"): the style's own, else its format's; None
+    when neither says."""
+    found = _measured(PACE, style_id, format_id)
+    return (float(found[1]), float(found[2])) if found else None
+
+
+def pause(style_id: str, format_id: str) -> float | None:
+    """The pause after a sentence in dialogue, the shorter end of what the guide measured
+    ("pauses of about 0.6–0.7 s"): the style's own, else its format's; None when neither says."""
+    found = _measured(PAUSE, style_id, format_id)
+    return float(found[1]) if found else None
 
 
 def tokens(style_id: str) -> dict[str, str]:

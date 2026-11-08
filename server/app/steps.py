@@ -84,7 +84,7 @@ def recheck(job_input: dict, result, ask):
 
     if result.state != "succeeded":
         return result
-    if job_input.get("plan"):  # shots made from a plan (P2)
+    if job_input.get("plan") or job_input.get("timing"):  # shots from a plan (P2), or timed
         return _shots_follow(job_input, result, ask)
     still = sd.STILL
     if job_input.get("step") == sd.STEP:
@@ -113,23 +113,22 @@ def recheck(job_input: dict, result, ask):
 
 
 def _shots_follow(job_input: dict, result, ask):
-    """Shots made from an approved plan: the Director's follows_plan check, the one rewrite
-    inside the same job (charged once), and what it still finds is kept as Advice on the
-    breakdown, never a failed job (rule 22: the shots are there, with a free fix)."""
+    """Shots made from an approved plan or timed to a style's pace: the Director's check
+    (plans.shots_checked), the one rewrite inside the same job (charged once), and what it
+    still finds is kept as Advice on the breakdown, never a failed job (rule 22: the shots
+    are there, with a free fix)."""
     from app import plans
     from app.prompts.check import ADVICE
 
-    _, fixes = plans.shots_checked(job_input, result.output)
-    if fixes:
+    output, found = plans.shots_checked(job_input, result.output)
+    if fixes := [f for f in found if not f.startswith(ADVICE)]:
         second = ask(plans.shots_again(job_input, fixes))
         second.usage = [*result.usage, *second.usage]
+        result.usage = second.usage
         if second.state == "succeeded":
-            result.output, result.usage = second.output, second.usage
-            _, fixes = plans.shots_checked(job_input, result.output)
-        else:
-            result.usage = second.usage
-    if fixes:
-        result.output = {**result.output, "plan_advice": [f"{ADVICE}{f}" for f in fixes]}
+            output, found = plans.shots_checked(job_input, second.output)
+    advice = [f if f.startswith(ADVICE) else f"{ADVICE}{f}" for f in found]
+    result.output = {**output, "plan_advice": advice} if advice else output
     return result
 
 

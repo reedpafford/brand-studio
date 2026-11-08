@@ -32,7 +32,7 @@ Say what shows every fault (`evidence`). Only what you see in the frames, or cli
 
   In-world text the story calls for is fine when its words are right and readable: 3D numbers, a sign, a label, a phone or monitor screen. A brand screen's coin, numbers and chart may differ from the provided screen when they follow the story (a balance that climbs, an invented coin); only its UI, logo and layout must match.
 - **Lip-sync and voice** (only where <format> says this clip is planned to speak):
-  - Check, on the sampled frames, that the mouth moves with the words in <heard>.
+  - Check, on the sampled frames, that the mouth moves with the words in <heard>, and that it's the speaker's: each line is heard over its own speaker's face, and the listener's mouth stays closed. A line that runs on over the next shot's face is kind `lipsync`.
   - Check that the voice stays the character's own, steady through the take, and that nobody else speaks.
   - Lip-sync from samples, and a voice judged from the spectrogram, are kind `lipsync` or `voice`. They are never confirmed: say them as a doubt.
 - **Sound that works against the scene.** Breaths, gasps, room sound and sound effects are fine when they serve the scene; think about whether they do. These are faults:

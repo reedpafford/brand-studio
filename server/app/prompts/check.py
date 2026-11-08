@@ -4,6 +4,7 @@ answers. They check the rules a machine can see; whether a video is engaging sta
 
 `screens` maps screen id ('screen:12') to the moments it is required at."""
 
+import math
 import re
 from itertools import zip_longest
 
@@ -1589,6 +1590,51 @@ def follows_plan(plan: ScenePlan, bd: Breakdown) -> list[str]:
                 if n in star and star[n] not in shot.screen_ids:
                     problems.append(f"shot {shot.id}: line {n} is ★ {star[n]} in the plan; show it")
     return problems
+
+
+def line_seconds(line: str, fast: float, pause: float) -> float:
+    """The least time a line takes: its words at the style's fastest words a second, and its
+    pause after each sentence (Movie: "2–3 words a second … pauses of about 0.6–0.7 s")."""
+    from app.breakdown_fix import _sentences
+
+    return round(len(line.split()) / fast + pause * len(_sentences(line)), 1)
+
+
+def line_room(bd: Breakdown, fast: float, pause: float) -> tuple[Breakdown, list[str]]:
+    """Each shot with a line long enough for all of it (`line_seconds`), its clip with it, said
+    as Advice. A video model that voices the lines itself (Omni) cuts on the prompt's marks
+    but times the voices by its own delivery: 276's 2 s shots put Granny's line on Maya's face
+    and Maya's on Granny's. Free, and never shorter than the breakdown gave."""
+    bd, grown = bd.model_copy(deep=True), []
+    for shot in (s for scene in bd.scenes for s in scene.shots if s.line):
+        need = line_seconds(shot.line, fast, pause)
+        if shot.seconds < need - 0.05:
+            shot.seconds, grown = need, [*grown, shot.id]
+    if not grown:
+        return bd, []
+    seconds = {s.id: s.seconds for scene in bd.scenes for s in scene.shots}
+    for clip in bd.clips:
+        clip.seconds = max(clip.seconds, math.ceil(sum(seconds.get(i, 0) for i in clip.shot_ids)
+                                                   - 0.5))  # fmt: skip
+    return bd, [f"{ADVICE}Shots {', '.join(grown)} got more time so each line has room at this "
+                "style's pace."]  # fmt: skip
+
+
+def planned_length(bd: Breakdown, target: int | None, fast: float, pause: float) -> list[str]:
+    """Clips that run over the length asked for (the brief's or the script's) by more than a
+    tenth: a fix when the lines leave room to cut (wordless holds, inserts, the end hold),
+    else Advice. A short plan is never padded. 276 planned 35 s for a 30 s brief."""
+    total, high = sum(c.seconds for c in bd.clips), round((target or 0) * 1.1)
+    if not target or total <= high:
+        return []
+    said = round(sum(line_seconds(s.line, fast, pause)
+                     for scene in bd.scenes for s in scene.shots if s.line))  # fmt: skip
+    if said > high:
+        return [f"{ADVICE}The clips add up to {total} s, over the {target} s asked for: the "
+                f"lines alone need about {said} s at this pace, and every line stays."]  # fmt: skip
+    return [f"the clips add up to {total} s, over the {target} s asked for: bring them to "
+            f"{round(target * 0.9)}–{high} s by shortening or dropping wordless holds, inserts "
+            "and the end hold; every line and the room its shot needs stays"]  # fmt: skip
 
 
 def look_words(prompt: str, look_id: str) -> tuple[str, list[str], list[str]]:
