@@ -792,7 +792,10 @@ class AskMove(Strict):
 
 class StillFix(Strict):
     shot_id: str = Field(description="The still's shot, e.g. '3.1'.")
-    note: str = Field(description="What the beat needs in this frame, in plain words.")
+    note: str = Field(
+        description="What the beat needs in this frame, in plain words; at most 500 characters: "
+        "a longer one is refused, never cut."
+    )
 
 
 class LookMove(Strict):
