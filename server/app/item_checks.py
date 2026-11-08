@@ -236,6 +236,15 @@ def save(db: Session, job: Job) -> None:
     row.findings = [{"kind": f.kind, "role": f.who, "text": f.says, "change_note": f.note}
                     for f in answer.findings if cast or f.kind != "cast"]  # fmt: skip
     row.status = "done"
+    _host(db, row, job)
+
+
+def _host(db: Session, row: ItemCheck, job: Job) -> None:
+    """A talker's still checked before its take: the take (or a redraw) follows."""
+    from app import host_watch
+
+    if row.target == host_watch.STILL_CHECK:
+        host_watch.still_checked(db, row, job)
 
 
 def failed(db: Session, job: Job) -> None:
@@ -243,6 +252,7 @@ def failed(db: Session, job: Job) -> None:
     row = db.get(ItemCheck, job.input.get("item_check_id") or 0)
     if row:
         row.status = "failed"
+        _host(db, row, job)  # a check that couldn't look never holds the take
 
 
 def latest(db: Session, target: str, target_ids: list[int]) -> dict[int, ItemCheck]:
