@@ -39,15 +39,15 @@ ELEVENLABS = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 # woman (th-20s: of 4 older-woman voices the lowest, 186 Hz, with the widest range). Its own
 # controls: an emotion, pause marks <#0.4#> and sounds like (breath) in the text; no free-text
 # note. Speed 1.1 with emotion auto read at 3.2-3.4 words a second in the batch-b test (the UGC
-# references: 3.3-3.5).
+# references: 3.3-3.5), but that was a clone on speech-02-hd: each voice's differs (below).
 MINIMAX, MINIMAX_SPEED = "minimax-speech-2.8-hd", 1.1
 MINIMAX_VOICES = ("English_FriendlyPerson", "English_Trustworth_Man", "English_Upbeat_Woman",
                   "English_ConfidentWoman", "English_Graceful_Lady")  # fmt: skip
-# An emotion slows MiniMax down, so its speed rises with it to keep the style's pace. Measured
-# in th-20s (English_Graceful_Lady, the same lines): fearful read 2.4 words a second at 1.25 and
-# 3.4-3.6 at 1.5; sad 1.6 at 1.1 and 2.0 at 1.3 (with its marked pauses). The other emotions
-# aren't measured yet: they start at 1.1, and every narration's pace is measured once it's
-# timed (`pace`), so a remake corrects its speed from what was heard (`retimed`).
+# A voice's own start, where measured: English_FriendlyPerson read 4.9 words a second at 1.1, in
+# auto and calm alike (video 281, takes 1-2); its speed scales that, so 0.76 is about 3.4.
+VOICE_SPEEDS = {"English_FriendlyPerson": 0.76}
+# An emotion slows MiniMax, so its speed rises (th-20s, English_Graceful_Lady: fearful 2.4 words a
+# second at 1.25, 3.4-3.6 at 1.5; sad 1.6 at 1.1, 2.0 at 1.3), scaled to each voice's own start
 SPEEDS = {"fearful": 1.5, "sad": 1.3}
 FASTEST, SLOWEST_SPEED = 2.0, 0.5  # MiniMax's speed range
 VOICES = ELEVENLABS + MINIMAX_VOICES
@@ -59,13 +59,18 @@ SOUNDS = ("laughs", "chuckle", "coughs", "clear-throat", "groans", "breath", "pa
           "exhale", "gasps", "sniffs", "sighs", "snorts", "burps", "lip-smacking", "humming",
           "hissing", "emm", "sneezes")  # fmt: skip
 MARK = re.compile(r"<#(\d{1,2}(?:\.\d{1,2})?)#>|\((?:" + "|".join(SOUNDS) + r")\)")
-LONGEST_PAUSE = 0.6  # a marked pause the trim keeps, at most (UGC: none past about 0.5 s)
+# A reading's longest mark, and the most quiet the trim keeps for one: it keeps that at EVERY
+# gap, beside fades and a breath (281's 0.5 s marks: gaps near 0.8 s; the references: 0.5 s)
+LONGEST_PAUSE, MARKED_KEEP = 0.6, 0.3
 PAUSE = 0.25  # a gap between heard words longer than this isn't talking (`pace`)
 # The quiet kept where the trim cuts a pause: half after the last word, half before the next.
 # With each word's own fade (about 0.15-0.25 s above the quiet), sentences sit about 0.3 s
 # apart. Video 261 kept every 0.5-0.8 s pause: its trim was cut, then refused because two
 # Whisper reads of the same words differed (junk glued to a word), so it's now heard once.
 KEEP = 0.2
+# A blip this long inside a pause is the pause (`cuts`): MiniMax's gaps flicker around the quiet
+# line, so 281's 0.6-1.3 s gaps stayed whole (0.9 s cut of 24 s); bridged, they're 0.6 s or under
+BLIP = 0.05
 # A v3 delivery tag, at most this many words: a longer note is read aloud (F1, video 261: "[A
 # touch quicker and more animated, about 3.4 words a second…]" was spoken before the script)
 TAG_WORDS = 3
@@ -175,9 +180,11 @@ def tag(note: str) -> str:
     return said
 
 
-def speed_for(emotion: str | None) -> float:
-    """The speed an emotion starts at (`SPEEDS`; else 1.1)."""
-    return SPEEDS.get(emotion or "auto", MINIMAX_SPEED)
+def speed_for(emotion: str | None, voice: str = "") -> float:
+    """The speed a read starts at: its voice's own (`VOICE_SPEEDS`, else 1.1), raised as its
+    emotion's was on the voice it was measured on (`SPEEDS`, at 1.1)."""
+    own = VOICE_SPEEDS.get(voice, MINIMAX_SPEED)
+    return round(own * SPEEDS.get(emotion or "auto", MINIMAX_SPEED) / MINIMAX_SPEED, 2)
 
 
 def _minimax(text: str, voice: str, note: str, emotion: str, reading: str,
@@ -193,7 +200,7 @@ def _minimax(text: str, voice: str, note: str, emotion: str, reading: str,
         raise ValueError(NOT_THE_WORDS)
     return {"model": MINIMAX, "input": {
         "text": reading or text, "voice_id": voice, "emotion": emotion,
-        "speed": round(min(max(speed or speed_for(emotion), SLOWEST_SPEED), FASTEST), 2),
+        "speed": round(min(max(speed or speed_for(emotion, voice), SLOWEST_SPEED), FASTEST), 2),
         "language_boost": "English", "english_normalization": True, "sample_rate": 44100,
         "bitrate": 256000, "audio_format": "mp3"}}  # fmt: skip
 
@@ -239,19 +246,23 @@ def retimed(speed: float, heard: float, want: tuple[float, float]) -> float | No
 
 
 def kept_pause(job_input: dict) -> float:
-    """The longest quiet the trim keeps: the longest pause the reading marks, else KEEP."""
+    """The longest quiet the trim keeps: the longest pause the reading marks, up to
+    MARKED_KEEP, else KEEP."""
     said = (job_input.get("input") or {}).get("text") or ""
-    return max([KEEP, *(float(s) for s in MARK.findall(said) if s)])
+    return min(max([KEEP, *(float(s) for s in MARK.findall(said) if s)]), MARKED_KEEP)
 
 
 def cuts(levels: list[float], keep: float = KEEP, heard=()) -> list[tuple[float, float]]:
     """The stretches to cut, in seconds: the middle of every quiet run (song_timing.quiet:
     breath and room tone) longer than `keep`, leaving half of `keep` after the sound before it
     and half before the sound after it (only the sound's side at the ends), and never inside
-    a word Whisper heard, with that much to spare (`_words`: a soft or whispered word stays)."""
+    a word Whisper heard, with that much to spare (`_words`: a soft or whispered word stays).
+    A blip of sound up to BLIP long between quiet frames is part of the pause."""
     floor, step, found, start = song_timing.quiet(levels), song_timing.HOP, [], None
-    for k, level in enumerate([*levels, math.inf]):
-        if level < floor:
+    quiet = "".join("q" if level < floor else "x" for level in levels)
+    quiet = re.sub(rf"(?<=q)x{{1,{round(BLIP / step)}}}(?=q)", lambda m: "q" * len(m[0]), quiet)
+    for k, still in enumerate(f"{quiet}x"):
+        if still == "q":
             start = k if start is None else start
         elif start is not None:
             after = keep / 2 if start else 0.0  # the quiet kept after the word before
@@ -383,7 +394,7 @@ def measure(path: Path, text: str, hear=song_timing.words,
         "lines": song_timing.lines("\n".join(sentences(text)), heard, seconds,
                                    levels=_levels(use)),
         "extras": extras(text, heard),
-        "pace": pace(heard),  # words a second while speaking
+        "pace": pace(heard) if covered(text, said) >= COVERED else None,  # none: heard in part
         "peaks": song_timing.peaks(samples),
     }  # fmt: skip
     return timing, trimmed
