@@ -16,6 +16,9 @@ FIXED = {*TOKENS, *DATA, "lanes"}
 BRIEFED = {"treatment", "plan", "plan_scene", "breakdown", "song_breakdown", "narrated_breakdown",
            "storyboard", "clip_prompts", "song_clip_prompts", "narrated_clip_prompts",
            "review_stills", "watch_cut", "take_watch", "director"}  # fmt: skip
+# The steps after the plan: the story's words and shape are settled, so a guide's script
+# sections (`Script`, and any named "Script: …") would only add words (speed, Reed 8 Nov).
+AFTER_PLAN = BRIEFED - {"treatment", "plan", "plan_scene", "director"}
 KIND = {"": "dialogue", "story": "dialogue"}  # a script's kind names its format (song, narrated)
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
 
@@ -125,10 +128,17 @@ def video_format(kind: str, style_id: str, picked: str = "") -> str:
     return KIND.get(kind, kind)
 
 
-def guidance(sections: dict, only: tuple = ()) -> list[tuple[str, str]]:
-    """A guide's sections for a model: everything but the tokens and data (`only`: those)."""
-    return [(k, v) for k, v in sections.items()
-            if k not in FIXED and v and (not only or k in only)]  # fmt: skip
+def guidance(sections: dict, only: tuple = (), step: str = "") -> list[tuple[str, str]]:
+    """A guide's sections for a model: everything but the tokens and data (`only`: those);
+    for a `step` after the plan, none of its script sections."""
+    late = step in AFTER_PLAN
+    return [(k, v) for k, v in sections.items() if k not in FIXED and v
+            and (not only or k in only) and not (late and _script(k))]  # fmt: skip
+
+
+def _script(name: str) -> bool:
+    """A section on writing the script: `Script`, or one named "Script: …"."""
+    return name == "Script" or name.startswith("Script:")
 
 
 def fill(text: str, style_id: str) -> str:
@@ -217,7 +227,7 @@ def brief(format_id: str, style_id: str, step: str, broll: str = "") -> str:
         "people watch to the end: the why, the hook, something happening, review and "
         "rewatch.\n\n" + (ROOT / "craft.md").read_text()
     ]
-    if own := guidance(form["sections"]):
+    if own := guidance(form["sections"], step=step):
         parts.append(fill(_part(
             f"Format: {form['name']}",
             f"This video is a {form['name']} video in the {chosen['name']} style: how its script "
@@ -225,7 +235,7 @@ def brief(format_id: str, style_id: str, step: str, broll: str = "") -> str:
             "wins. Where this names a studio or a render style that isn't this video's look (a "
             "song guide's \"Pixar\" on a Claymation song), follow this video's look, and never "
             "write a studio's name.", own), style_id))  # fmt: skip
-    own = guidance(chosen["sections"])
+    own = guidance(chosen["sections"], step=step)
     if step == "plan" and chosen["sections"].get("lanes"):
         own.append(("lanes", chosen["sections"]["lanes"]))  # the plan picks this video's lane
     if own and not broll:
@@ -244,7 +254,7 @@ def brief(format_id: str, style_id: str, step: str, broll: str = "") -> str:
             "drawn in another look, below. Where this section and anything above (the worked "
             "example included) differ on the host or the cast, this section wins.",
             own))  # fmt: skip
-    if broll and (shots := guidance(style(broll)["sections"])):
+    if broll and (shots := guidance(style(broll)["sections"], step=step)):
         parts.append(_part(
             f"B-roll look: {style(broll)['name']}",
             f"Every B-roll shot of this video (every shot but the host) is drawn, lit and moves "

@@ -7,7 +7,7 @@
 - Key only from STUDIO_ANTHROPIC_KEY; always https://api.anthropic.com (ANTHROPIC_BASE_URL in
   the environment is ignored on purpose)."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
@@ -71,6 +71,7 @@ def ask[T: BaseModel](
     images: Sequence[str] = (),
     shared: str = "",
     cache_ttl: Literal["5m", "1h"] = "5m",
+    started: Callable[[], None] | None = None,
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
     the cache mark on the last part caches them all together. `images` (data URLs) go
@@ -78,7 +79,8 @@ def ask[T: BaseModel](
     assets) goes first and is cached too, so a run's later parts read it. `cache_ttl` "1h":
     the fixed parts stay cached an hour, for a step that comes back after more than 5 minutes
     (the director's turns while takes render): the same words, a dearer first write (2x
-    against 1.25x), and no re-write on each later call."""
+    against 1.25x), and no re-write on each later call. `started` is called once the answer
+    begins (its first streamed event): the cache it writes can be read from then on."""
     blocks = [{"type": "text", "text": text} for text in system]
     content = [_image(url) for url in images] + [{"type": "text", "text": prompt}]
     if shared:
@@ -100,6 +102,9 @@ def ask[T: BaseModel](
         fallbacks="default",
     ) as stream:
         try:
+            if started:
+                next(stream, None)  # the first event: the prompt is read and cached by now
+                started()
             response = stream.get_final_message()
         except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
             cut = any("EOF" in e["msg"] for e in exc.errors())  # the JSON stops mid-way

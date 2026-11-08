@@ -3,7 +3,8 @@ Run by `app.reel.transcribe` in a subprocess: `python -m app.whisper <video>`, o
 words by `app.song_timing.words`: `python -m app.whisper <song> --words <lyrics>`, or for a
 song ad's lines with their words by `app.song_study.hear`: `python -m app.whisper <video>
 --study`, or for a take's words with its gasps and breaths by `app.take_words`: `python -m
-app.whisper <take> --sounds`. The model is
+app.whisper <take> --sounds` (`--sounds --speech-first` for a take planned to be silent). The
+model is
 downloaded once into HF_HOME (a volume on the server, `models`) and read from there with no
 check against the hub. Each run says on stderr how long the model took to load and the read
 took (`{"whisper": {...}}`), which song_timing and reel log, so a slow read shows where its
@@ -31,6 +32,21 @@ def _words(segment) -> list[dict]:
         {"word": w.word.strip(), "start": round(w.start, 2), "end": round(w.end, 2)}
         for w in segment.words or []
     ]
+
+
+# A take planned to be silent (B-roll) is first checked for speech with the Silero VAD that
+# faster-whisper ships with: well under a second, and no whisper model to load. With none,
+# nothing is heard; with any, whisper reads it as ever. Set to hear a short or quiet word too
+# (a lower threshold than the VAD's 0.5): a false alarm only costs the usual read.
+SPEECH = {"threshold": 0.35, "min_speech_duration_ms": 0}
+
+
+def speech(path: str) -> bool:
+    """Whether anyone may be speaking anywhere in the file."""
+    from faster_whisper.audio import decode_audio
+    from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+    return bool(get_speech_timestamps(decode_audio(path), VadOptions(**SPEECH)))
 
 
 THREADS = "BS_WHISPER_THREADS"  # CPU threads for one read; else the CPUs this process may use
@@ -80,8 +96,15 @@ def load():
 
 
 def main(path: str, words_prompt: str | None = None, study: bool = False,
-         sounds: bool = False) -> None:  # fmt: skip
+         sounds: bool = False, first: bool = False) -> None:  # fmt: skip
     start = time.monotonic()
+    if first:  # `--speech-first`: a take planned to be silent
+        found = speech(path)
+        said(vad_s=round(time.monotonic() - start, 2), speech=found)
+        if not found:
+            json.dump([], sys.stdout)
+            return
+        start = time.monotonic()
     model, cached = load()
     said(load_s=round(time.monotonic() - start, 2), cached=cached, threads=threads())
     if path == "--warm":  # download and load it, nothing to transcribe
@@ -115,4 +138,5 @@ def main(path: str, words_prompt: str | None = None, study: bool = False,
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[3] if sys.argv[2:3] == ["--words"] else None,
-         study=sys.argv[2:3] == ["--study"], sounds=sys.argv[2:3] == ["--sounds"])  # fmt: skip
+         study=sys.argv[2:3] == ["--study"], sounds=sys.argv[2:3] == ["--sounds"],
+         first="--speech-first" in sys.argv[3:])  # fmt: skip
