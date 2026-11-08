@@ -1,6 +1,6 @@
 """Clip prompts always finish (stabilization, 2026-10-27, "Mom gave him three days"): every
 clip of a long video in one answer ran out of room and failed the whole run. Now Claude is
-asked one clip a part, all at once, in one job (priced per few clips), a clip whose answer
+asked one clip a part, all at once, in one job (priced per clip), a clip whose answer
 still runs out gets a free "Fix this clip's prompt", and a run that fails says why. Mocked:
 no paid calls."""
 
@@ -69,7 +69,7 @@ def test_a_long_video_finishes_and_the_clip_that_ran_out_gets_a_free_fix(app, db
     price = editor.get(f"{base}/clips/prompts/price").json()["credits"]
     job = editor.post(f"{base}/clips/prompts").json()
     shown = job["credits"]
-    assert price == shown == 9  # 3 credits a Claude call, 3 calls (QA-Live 6: undercharged)
+    assert price == shown == 12  # 3 credits a Claude call, a call a clip (never under its cost)
 
     writer = Writer(cut={"c2"})
     _run(app, db, writer)

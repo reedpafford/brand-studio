@@ -46,7 +46,7 @@ class ClaudeProvider:
     def run(self, kind: str, input: dict) -> Result:
         """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}, and for a
         check that looks at pictures, "files": {"reference_images": [file ids]}, sent as data
-        URLs. With "parts" (e.g. clip prompts, a few clips each), each part is asked on its
+        URLs. With "parts" (e.g. clip prompts, one clip each), each part is asked on its
         own after the shared prompt, so no answer runs out of room: the first goes alone until its
         answer begins (by then it has written the shared prompt's cache: a cache is readable
         once its answer starts streaming), then the rest, up to PARALLEL at once, read it (each
