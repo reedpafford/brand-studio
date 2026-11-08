@@ -89,7 +89,7 @@ class LocalProvider:
         return Result("succeeded", output={"timing": timing})
 
     def _time_narration(self, input: dict) -> Result:
-        """Pauses trimmed (kept if the trim would clip a word), then each sentence timed; a
+        """Pauses trimmed (in their quiet only), then each sentence timed; a
         UGC talker's (`room`) then sounds recorded in a room (app/room.py), its times kept."""
         folder = Path(tempfile.mkdtemp(dir=self.root))
         voice = folder / "narration.mp3"
@@ -99,7 +99,7 @@ class LocalProvider:
                 voice,
                 input["lyrics"],
                 hear=self.hear_voice,
-                longest=input.get("pause", narration.PAUSE),
+                longest=input.get("pause", narration.KEEP),
             )
             if input.get("room"):
                 trimmed = room.finish(trimmed or voice, folder / "room.mp3")

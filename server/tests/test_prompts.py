@@ -1758,7 +1758,7 @@ def test_the_director_splices_a_wrong_brand_word_or_redoes_with_a_note():
     director = prompts.system("director")
     for part in ("- `splice_word` (free, `clip_id`, `word`)", "can_splice:", "no_copy:",
                  "Never splice a sung line", "You never give or guess a time",
-                 "from the brand's notes", "said right in the same voice",
+                 "say <brand> as its notes say", "said right in the same voice",
                  "no clean copy in that voice anywhere in the video",
                  "make it again and watch it before delivering"):  # fmt: skip
         assert part in director, part
@@ -1772,7 +1772,7 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
     director makes the song or narration, judges the hook, the lyrics, the length and the mood
     without hearing it, and remakes once with a note in the music's words; never a lyric."""
     director = prompts.system("director")
-    for part in ("- `song` (paid, `note`)", "- `narration` (paid, `note`)", "songs_left",
+    for part in ("- `song` (paid, `note`)", "- `narration` (paid, `note`, `speed`)", "songs_left",
                  "never a character's voice", "a take with any speech in it is a fault",
                  "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
                  "never change a lyric (see", "With `take_id` and no `note` (free)",
@@ -1795,16 +1795,17 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
 
 def test_the_director_checks_the_brand_word_in_a_fresh_narration_before_the_plan():
     """Song-Producer's condition for leaving narration splicing for later (2 Nov): the brand's
-    name is judged right after the narration is made, and remade with a pronunciation note
-    before the plan, never spliced."""
+    name is judged right after the narration is made, and remade with the `say` tag before
+    the plan, never spliced. A remake's note is a short tag (F1: a long one is read aloud)."""
     director = prompts.system("director")
     for part in ("misheard: the brand's name heard wrong [{word, heard, at}]", "say: the "
-                 "pronunciation note", "as soon as the narration is timed, before the plan",
+                 "short tag", "a short delivery tag of 1 to 3 words with no numbers",
+                 "A take with `extras`", "as soon as the narration is timed, before the plan",
                  "with `say` as the note", "a narration is never spliced",
                  "`voice` is Sarah for the first", "`longest_gap`"):  # fmt: skip
         assert part in director, part
-    turn = schemas.DirectorTurn(tool="narration", note="Say fomo as FOH-moh.", why="misheard")
-    assert turn.note == "Say fomo as FOH-moh." and turn.voice is None  # Sarah first, else as is
+    turn = schemas.DirectorTurn(tool="narration", note="clearly", why="misheard")
+    assert turn.note == "clearly" and turn.voice is None  # Sarah first, else as is
     assert schemas.DirectorTurn(tool="narration", voice="Hope", why="the brief").voice == "Hope"
 
 

@@ -429,9 +429,10 @@ def _edit_cut_now(db: Session, project: Project, move: dict, request, me: dict, 
         return "Refused: say the edit's kind and its piece."
     made = max(out.edits, key=lambda e: e.id)
     run["edit_id"] = made.id
-    if (shows := (move.get("shows") or "").strip()) and made.said.startswith("Ending"):
-        row = db.get(CutEdit, made.id)  # what the ending was trimmed to show: the next watch
-        row.data = {**row.data, "shows": shows}  # checks the cut's last frames show it
+    row = db.get(CutEdit, made.id)
+    if (shows := (move.get("shows") or "").strip()) and (row.data or {}).get("ending"):
+        row.data = {**row.data, "shows": shows}  # what the ending was trimmed to show: the
+        # next watch checks the cut's last frames show it (a trim moved to keep a word too)
         db.commit()
     return f"{made.said}. Free; it shows in the next cut."
 

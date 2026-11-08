@@ -58,8 +58,9 @@ def test_a_cut_made_again_under_its_number_says_so(app, db, owner, editor):
         "2nd", "3rd", "4th", "11th", "12th", "21st", "22nd"]  # fmt: skip
 
 
-def test_a_trim_of_the_ending_says_what_it_ends_on_and_the_next_watch_checks_it(app, db, owner,
-                                                                               editor):  # fmt: skip
+def test_a_trim_of_the_ending_says_what_it_ends_on_and_the_next_watch_checks_it(
+    app, db, owner, editor, monkeypatch
+):
     """Video 271: the trim "about 0.7 s after 'two a day'" said it kept his satisfied look at
     the pouch, and cut it away: the cut ended mid-drink. A trim of the ending now says what its
     last frame shows, and the next watch of the cut is told it, to check the last frames."""
@@ -91,3 +92,16 @@ def test_a_trim_of_the_ending_says_what_it_ends_on_and_the_next_watch_checks_it(
     cut_edits.undo(db, project, edit.id)
     db.commit()
     assert watch_cut.ending_shows(db, SimpleNamespace(edit_ids=[edit.id])) == ""
+    # QA on #1448: a trim moved to keep a word is said "Clip N trimmed, keeping …", and it's
+    # still the ending's: what it ends on is kept and checked (its last frame moved)
+    piece = cut_edits.timeline(db, project)[0]["pieces"][-1]
+    end_at = piece["from"] + piece["end"] - piece["start"]  # the take's second at the cut's end
+    monkeypatch.setattr(cut_edits, "_speaks", lambda db, take: True)
+    monkeypatch.setattr(cut_edits, "_heard", lambda db, take: [
+        {"word": "day", "start": end_at - 0.45, "end": end_at - 0.35}])  # fmt: skip
+    move["edit"] = {**move["edit"], "end": last["end"] - 0.4}  # into "day"
+    said = director_tools.run(db, user, project, move, app.state.storage, run)
+    assert said.startswith(f"{cut_edits.label(last['piece'])} trimmed, keeping “day”"), said
+    moved = db.get(CutEdit, run["edit_id"])
+    assert moved.data["shows"] == shows and moved.data["ending"] is True
+    assert watch_cut.ending_shows(db, SimpleNamespace(edit_ids=[moved.id])) == shows

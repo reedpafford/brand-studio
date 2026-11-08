@@ -4,10 +4,10 @@ choice work as for a song; its lyrics are the words it reads and its style line 
 
 Made with one voice call (ElevenLabs v3, or MiniMax Speech 2.8 HD for its emotion and pause
 control, through Replicate, priced from the catalogue per 1,000 characters); then, free on our
-server: pauses are trimmed on real silence only, the trimmed narration is heard again and used
-only if it says the same letters, and each sentence's start and end are measured (the
-breakdown's clock, as a song's lines are). A UGC talker's narration then gets its room sound
-(app/room.py)."""
+server: every pause is cut down in its quiet middle only (never into a word), the trimmed
+narration is heard, and each sentence's start and end are measured (the breakdown's clock, as
+a song's lines are), with any words it says that the script doesn't have (`extras`: such a
+take is never used). A UGC talker's narration then gets its room sound (app/room.py)."""
 
 import math
 import re
@@ -23,8 +23,12 @@ MODEL = "elevenlabs-v3"
 VOICE = "Sarah"
 # Natural v3 voices (song-ad-workflow.md); the names are ElevenLabs v3's own (Replicate's enum).
 # Austin (deep, ~81 Hz) and Roger (relaxed, ~115 Hz) are male, from the presenter-1 test.
-# Words a second at our slowest voice (the paid test: 2.6; Reed's reference narrator reads 3.37)
+# Words a second at our slowest voice (the paid test: 2.6, at v3's own speed 1; Reed's reference
+# narrator reads 3.37)
 SLOWEST = 2.6
+# v3 does take a speed: Replicate's elevenlabs/v3 schema (recorded 29 Oct, fixtures) has
+# `speed`, 0.7 to 1.2, default 1. A remake may set it for pace (`job`); the first read is at 1.
+V3_SPEED = (0.7, 1.2)
 VOICED = 0.84  # the least of a narration the voice is on in the guides (84%: the rest pauses)
 ELEVENLABS = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 # MiniMax Speech 2.8 HD (replicate.com/minimax/speech-2.8-hd; platform.minimax.io's system
@@ -54,8 +58,21 @@ SOUNDS = ("laughs", "chuckle", "coughs", "clear-throat", "groans", "breath", "pa
           "hissing", "emm", "sneezes")  # fmt: skip
 MARK = re.compile(r"<#(\d{1,2}(?:\.\d{1,2})?)#>|\((?:" + "|".join(SOUNDS) + r")\)")
 LONGEST_PAUSE = 0.6  # a marked pause the trim keeps, at most (UGC: none past about 0.5 s)
-# Silence only: a quiet stretch (below -40 dB) longer than this is shortened to it
-PAUSE, QUIET = 0.25, "-40dB"
+PAUSE = 0.25  # a gap between heard words longer than this isn't talking (`pace`)
+# The quiet kept where the trim cuts a pause: half after the last word, half before the next.
+# With each word's own fade (about 0.15-0.25 s above the quiet), sentences sit about 0.3 s
+# apart. Video 261 kept every 0.5-0.8 s pause: its trim was cut, then refused because two
+# Whisper reads of the same words differed (junk glued to a word), so it's now heard once.
+KEEP = 0.2
+# A v3 delivery tag, at most this many words: a longer note is read aloud (F1, video 261: "[A
+# touch quicker and more animated, about 3.4 words a second…]" was spoken before the script)
+TAG_WORDS = 3
+# The tag a narration that said the brand's name wrong is read again with (`say`). v3 has no
+# documented way to steer one word's sound without changing the words (elevenlabs.io's v3
+# prompting guide: phoneme tags are Flash v2 only, and pronunciation dictionaries aren't among
+# Replicate's v3 inputs; a respelling would change the script's words), and a sentence in a
+# tag ("Say fomo as FOH-moh.") is read aloud.
+SAY = "clearly"
 
 
 def video_script(db, project):
@@ -108,7 +125,11 @@ def slowest(db, draft, video=None) -> float:
 NO_WORDS = "Write the words first: the narrator reads them as written."
 FAILED = "The narration didn't finish. Nothing was charged."
 MAKING = "A narration is being made. It's ready in a moment."
-KEPT_PAUSES = "Kept the pauses: trimming would have clipped a word."
+LONG_NOTE = (
+    f"A voice note is a short delivery tag of 1 to {TAG_WORDS} words with no numbers, "
+    "like “quickly” or “warm, upbeat”: a longer one is read aloud."
+)
+SAYS_MORE = "This narration says words the script doesn't have (“{}”): make it again."
 TIMING_FAILED = "We couldn't read this narration's timing. It's free to try again."
 TIMING_UNREADABLE = "This narration's file can't be read. Make the narration again."
 
@@ -124,8 +145,9 @@ NO_NOTE = "A MiniMax voice takes no note: give it an emotion, or pause marks in 
 
 def job(script: str, voice: str = VOICE, note: str = "", emotion: str | None = None,
         reading: str = "", speed: float | None = None) -> dict:  # fmt: skip
-    """The voice call. A remake's note ("Say fomo as FOH-moh.") goes in as a v3 delivery tag
-    on this request only, never into the version's words; the voice is the Director's pick. A
+    """The voice call. A remake's note ("quickly") goes in as a v3 delivery tag (`tag`) on
+    this request only, never into the version's words, and its `speed` (pace, within
+    V3_SPEED; None or 1 leaves v3's own); the voice is the Director's pick. A
     MiniMax voice reads `reading` when given (the words exactly, with pause marks and sounds
     added) in `emotion` (auto: its own choice), at `speed` (None: the emotion's own)."""
     text = check.narration_text(script)  # the Director's: what the narrator reads
@@ -135,8 +157,20 @@ def job(script: str, voice: str = VOICE, note: str = "", emotion: str | None = N
         raise ValueError(f"The narrator's voice is one of {', '.join(VOICES)}.")
     if voice in MINIMAX_VOICES:
         return _minimax(text, voice, note, emotion or "auto", (reading or "").strip(), speed)
-    tag = re.sub(r"[\[\]\s]+", " ", note).strip()
-    return {"model": MODEL, "input": {"prompt": f"[{tag}] {text}" if tag else text, "voice": voice}}
+    said, (low, high) = tag(note), V3_SPEED
+    pace = {"speed": round(min(max(speed, low), high), 2)} if speed and speed != 1 else {}
+    return {"model": MODEL, "input": {"prompt": f"[{said}] {text}" if said else text,
+                                      "voice": voice, **pace}}  # fmt: skip
+
+
+def tag(note: str) -> str:
+    """A remake's note as the v3 audio tag it's sent as: a short delivery cue ("quickly",
+    "warm, upbeat"), as ElevenLabs' examples are. A longer note, or one with a number, is
+    refused (LONG_NOTE): v3 reads it aloud."""
+    said = re.sub(r"[\[\]\s]+", " ", note).strip().rstrip(".")
+    if len(said.split()) > TAG_WORDS or re.search(r"\d", said):
+        raise ValueError(LONG_NOTE)
+    return said
 
 
 def speed_for(emotion: str | None) -> float:
@@ -203,17 +237,71 @@ def retimed(speed: float, heard: float, want: tuple[float, float]) -> float | No
 
 
 def kept_pause(job_input: dict) -> float:
-    """The longest silence the trim keeps: the longest pause the reading marks, else PAUSE."""
+    """The longest quiet the trim keeps: the longest pause the reading marks, else KEEP."""
     said = (job_input.get("input") or {}).get("text") or ""
-    return max([PAUSE, *(float(s) for s in MARK.findall(said) if s)])
+    return max([KEEP, *(float(s) for s in MARK.findall(said) if s)])
 
 
-def trim(path: Path, out: Path, longest: float = PAUSE) -> Path:
-    """Every silence longer than `longest` shortened to it; nothing with sound is cut."""
-    gate = f"threshold={QUIET}"
-    keep = (f"silenceremove=start_periods=1:start_silence={PAUSE}:start_{gate}:stop_periods=-1:"
-            f"stop_duration={longest}:stop_silence={longest}:stop_{gate}")  # fmt: skip
-    command = ["ffmpeg", "-v", "error", "-y", "-i", str(path), "-af", keep, str(out)]
+def cuts(levels: list[float], keep: float = KEEP, heard=()) -> list[tuple[float, float]]:
+    """The stretches to cut, in seconds: the middle of every quiet run (song_timing.quiet:
+    breath and room tone) longer than `keep`, leaving half of `keep` after the sound before it
+    and half before the sound after it (only the sound's side at the ends), and never inside
+    a word Whisper heard, with that much to spare (`_words`: a soft or whispered word stays)."""
+    floor, step, found, start = song_timing.quiet(levels), song_timing.HOP, [], None
+    for k, level in enumerate([*levels, math.inf]):
+        if level < floor:
+            start = k if start is None else start
+        elif start is not None:
+            after = keep / 2 if start else 0.0  # the quiet kept after the word before
+            before = keep / 2 if k < len(levels) else 0.0  # and before the word after
+            a, b = start * step + after, k * step - before
+            if b - a >= step:
+                found.append((round(a, 2), round(b, 2)))
+            start = None
+    for s, e in _words(heard, levels):  # what's left of each cut beside every heard word
+        found = [piece for a, b in found
+                 for piece in ((a, min(b, s - keep / 2)), (max(a, e + keep / 2), b))
+                 if piece[1] - piece[0] >= step]  # fmt: skip
+    return [(round(a, 2), round(b, 2)) for a, b in found]
+
+
+def _words(heard, levels: list[float]) -> list[tuple[float, float]]:
+    """Each heard word's span; one with junk glued on from where its sound starts (its glued
+    part spans the pause before it)."""
+    return [((song_timing.sounds_from(w["start"], w["end"], levels) or w["end"])
+             if song_timing.glued(w["word"]) else w["start"], w["end"]) for w in heard]  # fmt: skip
+
+
+def moved(heard: list[dict], found: list[tuple[float, float]]) -> list[dict]:
+    """The words' times in the trimmed narration: each moved back by what was cut before it."""
+
+    def at(t: float) -> float:
+        return round(t - sum(min(b, t) - a for a, b in found if a < t), 2)
+
+    return [{**w, "start": at(w["start"]), "end": at(w["end"])} for w in heard]
+
+
+def _levels(path: Path) -> list[float]:
+    return song_timing.levels(song_timing._samples(path, song_timing.CLEAR), song_timing.CLEAR)
+
+
+def trim(path: Path, out: Path, longest: float = KEEP, heard=()) -> Path | None:
+    """Every pause cut down to `longest` of quiet (`cuts`), nothing with sound or a heard word
+    touched; None when there's no pause to cut."""
+    return _cut(path, out, cuts(_levels(path), longest, heard))
+
+
+def _cut(path: Path, out: Path, found: list[tuple[float, float]]) -> Path | None:
+    if not found:
+        return None
+    spans = zip([0.0, *(b for _, b in found)], [*(f":end={a}" for a, _ in found), ""], strict=True)
+    n = len(found) + 1  # the pieces kept, cut sample-exact (atrim) and joined
+    graph = [f"[0:a]asplit={n}" + "".join(f"[s{k}]" for k in range(n)),
+             *(f"[s{k}]atrim=start={a}{end},asetpts=PTS-STARTPTS[k{k}]"
+               for k, (a, end) in enumerate(spans)),
+             "".join(f"[k{k}]" for k in range(n)) + f"concat=n={n}:v=0:a=1[out]"]  # fmt: skip
+    command = ["ffmpeg", "-v", "error", "-y", "-i", str(path), "-filter_complex",
+               ";".join(graph), "-map", "[out]", str(out)]  # fmt: skip
     done = subprocess.run(command, capture_output=True, timeout=song_timing.TIMEOUT)  # noqa: S603
     if done.returncode:
         raise ValueError("The narration's file can't be read.")
@@ -232,22 +320,57 @@ def letters(heard: list[dict]) -> str:
     return plain(" ".join(w["word"] for w in heard))
 
 
+# Heard but never an extra: the sounds a voice makes ("hmm" for MiniMax's "(laughs)" or
+# "emm"), and Whisper's own sign-off after the last word ("Thank you.")
+FILLER = {"hmm", "hm", "mm", "mmm", "uh", "um", "umm", "uhm", "ah", "ha", "haha", "oh", "emm",
+          "er", "erm", "huh"}  # fmt: skip
+SIGN_OFF = {"thankyou", "thanks", "thanksforwatching", "bye"}
+LONG_EXTRA = 0.4  # s: one stray word heard this long is said, not misheard
+
+
+def extras(text: str, heard: list[dict]) -> list[dict]:
+    """Words the narration says that the script doesn't have, in phrases [{text, start,
+    end}]: a note read aloud, an ad-lib. Only words heard with no script word in their place,
+    compared as `plain` letters, so a word heard another way ("5000 dollars" for "$5,000") or
+    split ("soft gels") isn't one. A phrase counts before the first script word (where a tag
+    read aloud lands), at two words or more, or as one word lasting LONG_EXTRA; never a filler
+    sound, the sign-off after the last word, or one word that came with junk glued on."""
+    found = []
+    for x in song_timing.extras("\n".join(sentences(text)), heard, norm=plain, added_only=True):
+        said = [w for w in x["text"].split() if plain(w) not in FILLER]
+        if not said or x["end"] >= heard[-1]["end"] and plain(" ".join(said)) in SIGN_OFF:
+            continue
+        one = x["end"] - x["start"] >= LONG_EXTRA and not song_timing.glued(said[0])
+        if x["start"] <= heard[0]["start"] or len(said) >= 2 or one:
+            found.append(x)
+    return found
+
+
+def says_more(take) -> str:
+    """The first words a timed narration (a SongTake) says that the script doesn't have; ""
+    for none, and for a song (its ad-libs are the director's call)."""
+    found = (take.timing or {}).get("extras") or [] if take.kind == KIND else []
+    return found[0]["text"] if found else ""
+
+
 def measure(path: Path, text: str, hear=song_timing.words,
-            longest: float = PAUSE) -> tuple[dict, Path | None]:  # fmt: skip
-    """The narration's timing, and the trimmed file (beside `path`) when it's the one to
-    use (None: keep the original, because the trim would have clipped a word). A pause up to
-    `longest` stays (the reading's own marks)."""
-    before = song_timing.length(path)
-    trimmed = trim(path, path.with_name("trimmed.mp3"), longest)
-    after, heard = hear(trimmed, text), hear(path, text)
-    same = letters(after) == letters(heard)
-    use, heard = (trimmed, after) if same else (path, heard)
-    seconds = song_timing.length(use)
+            longest: float = KEEP) -> tuple[dict, Path | None]:  # fmt: skip
+    """The narration's timing, and the trimmed file (beside `path`; None: there was no pause
+    to cut). It's heard once, as made; the trim then cuts only quiet outside every heard word
+    (`cuts`), and the words' times move with the cuts. A pause up to `longest` stays (the
+    reading's own marks)."""
+    before, said = song_timing.length(path), hear(path, text)
+    found = cuts(_levels(path), longest, said)
+    trimmed = _cut(path, path.with_name("trimmed.mp3"), found)
+    use, heard = trimmed or path, moved(said, found)
+    seconds, samples = song_timing.length(use), song_timing._samples(use)
     timing = {
-        "seconds": seconds, "untrimmed_seconds": before, "trimmed": same, "bpm": None,
-        "beats": [], "sections": [], "words": heard,
-        "lines": song_timing.lines("\n".join(sentences(text)), heard, seconds),
+        "seconds": seconds, "untrimmed_seconds": before, "trimmed": trimmed is not None,
+        "bpm": None, "beats": [], "sections": [], "words": heard,
+        "lines": song_timing.lines("\n".join(sentences(text)), heard, seconds,
+                                   levels=_levels(use)),
+        "extras": extras(text, heard),
         "pace": pace(heard),  # words a second while speaking
-        "peaks": song_timing.peaks(song_timing._samples(use)),
+        "peaks": song_timing.peaks(samples),
     }  # fmt: skip
-    return timing, trimmed if same else None
+    return timing, trimmed
