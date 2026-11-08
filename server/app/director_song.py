@@ -193,6 +193,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         if take is None:
             return f"Refused: take {chosen} isn't a finished {what} of this video."
         song_takes.use_in_video(db, project, take)
+        _follow(db, project, user)
         return f"Using take {take.number} for the {what}."
     if ready and not asked:
         if project.song_take_id in {t.id for t in ready}:
@@ -200,6 +201,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         best = next((t for t in ready if t.preferred), None) or min(
             ready, key=lambda t: _rank(_take(db, t, None), t.id))  # fmt: skip
         song_takes.use_in_video(db, project, best)
+        _follow(db, project, user)
         return f"Using take {best.number} for the {what}."
     if takes and not asked:
         if any(song_takes.state(db, t)[0] in ("making", "timing") for t in takes):
@@ -244,6 +246,15 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if takes:  # a remake; the first song's note is its style line, not a remake
         run[REMADE] = run.get(REMADE, 0) + 1
     return f"Making the {what}{f' ({note})' if note else ''}."
+
+
+def _follow(db: Session, project: Project, user: User) -> None:
+    """A plan made already moves to the take now in use, free, as a person's switch does
+    (routes/songs: the owner's changed line read again, line_change)."""
+    from app import song_breakdown
+
+    if song_breakdown.follow_take(db, project, user.id) is not None:
+        db.commit()
 
 
 def target(db: Session, project: Project) -> tuple[float, float] | None:

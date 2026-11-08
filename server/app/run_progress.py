@@ -557,7 +557,8 @@ def carry_left(db: Session, project: Project, whole: bool = False) -> Decimal | 
     approved price (rule 34, Reed 6 Nov: each run its own price; a run is one pass from its
     Make it to its delivery or Stop): that price, with its OKs at the director's own limit,
     less what the run has charged against it (`asks.approved_run`). None when the newest run
-    wasn't stopped (by a person, or by itself at a fault: video 240), had no Make it, or has
+    wasn't stopped (by a person, or by itself at a fault: video 240), had no Make it (the
+    owner's priced press is one: `director.priced`), or has
     nothing of its price left, or is at its own hard limit (MAX_TURNS, or its real-cost
     backstop `own_usd`). A delivered, declined or withdrawn run isn't carried on."""
     from app.credits import COUNTED
@@ -568,21 +569,22 @@ def carry_left(db: Session, project: Project, whole: bool = False) -> Decimal | 
                         or ending(rows)[0] == "needs_fix")  # fmt: skip
     if not stopped:
         return None
+    from app import director
+
+    priced = director.priced(db, project)  # its press was its OK: no card (line_change)
     card = db.scalar(select(Job).where(  # its own Make it, pressed: never an earlier run's OK
         Job.project_id == project.id, Job.input[asks.START].as_boolean(),
         Job.status.in_(COUNTED)).order_by(Job.id.desc()).limit(1))  # fmt: skip
-    if card is None or (card.input.get(RUN) or {}).get("id") != run_id:
+    if not priced and (card is None or (card.input.get(RUN) or {}).get("id") != run_id):
         return None  # stopped before its Make it (at its start card): a new run's own card
-    from app import director
-
     run = rows[-1].input[RUN]  # at its own hard limit it would end again at once (rule 22)
     if run["turn"] >= director.MAX_TURNS or director.spent(
             db, run_id, project.id) >= director.own_usd(db, run, project.id):  # fmt: skip
         return None  # so a new run, with its own start card
-    got = asks.approved_run(db, project)
+    got = asks.approved_run(db, project)  # a priced run's: its press's price (no card)
     left = got[0] - got[1] if got else Decimal(0)
-    if whole:  # the owner's uncapped site: the same run goes on, whatever it has used
-        return max(left, Decimal(0))
+    if whole and not priced:  # the owner's uncapped site: the same run goes on, whatever it
+        return max(left, Decimal(0))  # has used (a priced run's price holds there too)
     return left if left > 0 else None
 
 

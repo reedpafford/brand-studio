@@ -85,7 +85,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     }, {k: v for k, v in files.items() if v})  # fmt: skip
     take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
     if check:  # never a take its model refuses for its length (a 422, video 245)
-        fits_prompt(db, project, clip, model, take.get("prompt") or "")
+        fits_prompt(db, project, clip, model, take.get("prompt") or "", note)
         not_again(db, clip, model.id, take, sent)
     return {
         "step": "clip_take",
@@ -307,7 +307,10 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: d
 
 
 FIT = "fit"  # in a free fix's input: it shortens the prompt to its model's limit
-ROOM = 600  # characters left under the limit: the language line and a Redo note (500 at most)
+ROOM = 800  # characters a prompt is written under its limit: what a take adds (its language
+# line, a Redo note of 500 at most in its own words: about 700) and a little over (video 271:
+# 3,441 for "under 3,400"), so any Redo note fits
+SLACK = 100  # a rewrite runs a little long
 TOO_LONG_START = "The prompt is too long for "  # how its refusal starts (director_tools)
 FITTING = ("The prompt is too long for {model} ({n:,} of {most:,} characters), so it's being "
            "rewritten to fit, free. Make the take once it's rewritten. "
@@ -320,11 +323,14 @@ STILL_LONG = ("The prompt is still too long for {model} ({n:,} of {most:,} chara
               "longer prompts. Nothing was charged.")  # fmt: skip
 
 
-def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: str) -> None:
+def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: str,
+                note: str = "") -> None:  # fmt: skip
     """A prompt longer than its model takes (Seedance 2.0: 4000 characters) is never sent: the
     provider refuses it the same way every time. It's rewritten to fit, free, by the clip's
     own fix (clip_prompts.fix_job: its Keep, Shot and spoken lines kept), never cut short, and
-    the take is refused until then, saying so; after two rewrites, a person shortens it."""
+    the take is refused until then, saying so; after two rewrites, a person shortens it. The
+    rewrite leaves room for what the take adds, any Redo note included (video 271: a fit to
+    3,441 characters was still too long with the director's note, twice)."""
     from app.clip_prompts import fix_job, fixing
     from app.credits import lock
 
@@ -342,14 +348,16 @@ def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: s
     fits = db.scalars(select(Job).where(Job.project_id == project.id, Job.input[FIT].as_boolean()))
     if sum(j.input.get("clip_ids") == [clip.clip_id] for j in fits) >= 2:
         raise HTTPException(409, STILL_LONG.format(**said))
-    room = most - ROOM
+    added = len(sent) - len(clip.prompt or "") - _noted(note)  # its language line and such
+    fit = most - added - _noted("x" * NOTE_MAX)  # so it fits with any Redo note
+    room = fit - SLACK
     told = (f"Shorten this clip's prompt to under {room} characters ({model.name} takes at most "
             f"{most}; it's {len(sent)}): say each shot's description in fewer words. Keep every "
             "shot, in order, with its start as written (\"Shot N | a–b s.\"), every spoken or "
             "quoted line word for word, and the Keep: line as it is. Never drop a shot or a "
             "line someone says.")  # fmt: skip
     fix = fix_job(db, db.get(User, project.created_by_id), project, clip, [], told=told)
-    fix.input = {**fix.input, FIT: True, "fit_max": most}
+    fix.input = {**fix.input, FIT: True, "fit_max": fit}
     db.commit()  # the fix stands whatever the refusal below rolls back
     raise HTTPException(409, FITTING.format(**said))
 
@@ -649,6 +657,14 @@ def contradicts(prompt: str, note: str) -> bool:
     words = set(re.findall(r"[a-z-]+", shown.lower()))
     found = [w for m in TAKES_AWAY.finditer(note or "") if (w := m[1].lower()) not in NOT_A_THING]
     return any(w in words or w.removesuffix("s") in words or f"{w}s" in words for w in found)
+
+
+NOTE_MAX = 500  # a Redo note's characters at most (project_clips.TakeIn)
+
+
+def _noted(note: str) -> int:
+    """The characters a Redo note adds to a take's prompt."""
+    return len(_with_note("a\nb", note)) - 3
 
 
 def _with_note(prompt: str, note: str) -> str:

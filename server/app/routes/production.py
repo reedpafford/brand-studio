@@ -29,6 +29,7 @@ from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.models.storyboards import StoryboardFrame
 from app.schemas import UtcTime
+from app.script_library import letter as letter_of
 from app.worker import FAILED
 
 router = APIRouter(prefix="/production", tags=["production"])
@@ -200,7 +201,7 @@ def rows(db: Session, user: User, delivered: bool = False) -> list[ProductionRow
             project_id=pid,
             brand=Named(id=brand_id, name=brand_name),
             script=ScriptRef(id=script_id, title=title),
-            letter="ABC"[slot],
+            letter=letter_of(slot),
             editor=Named(id=project.created_by_id, name=editors.get(project.created_by_id, ""))
             if project.created_by_id
             else None,

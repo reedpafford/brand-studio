@@ -7,6 +7,7 @@ cast and picture helpers, so a split would only move code between files (Steward
 
 import json
 import logging
+import math
 import re
 from decimal import Decimal
 
@@ -969,26 +970,37 @@ def repair_shape(clip: ClipPrompt, bd: Breakdown) -> ClipPrompt:
 SHOT = re.compile(r"^(Shot \d+ \| )(\d+(?:\.\d+)?) ?[-–] ?(\d+(?:\.\d+)?) ?s\b\.?(.*)$")
 
 
+def edges(lengths: list[float], seconds: int) -> list[int]:
+    """Where each shot ends, in whole seconds from the clip's start: each edge rounded where it
+    falls (the lengths added up, squeezed in when they run over), never each length on its
+    own, whose errors add up and slide the later shots off their words (video 271's clip 2:
+    the yield shot 0.6 s off its line). Every shot at least 1 s; the last ends at `seconds`,
+    taking up any gap."""
+    total, ends, at = sum(lengths), [], 0.0
+    scale = seconds / total if total > seconds else 1.0
+    for n in lengths[:-1]:
+        at += n * scale
+        ends.append(max(math.floor(at + 0.5), ends[-1] + 1 if ends else 1))  # at least 1 s
+    ends.append(seconds)
+    for k in range(len(ends) - 2, -1, -1):  # room for the shots after it, 1 s each
+        ends[k] = min(ends[k], ends[k + 1] - 1)
+    return ends
+
+
 def _retime(lines: list[str], seconds: int) -> list[str]:
-    """Shots back to back from 0 to the clip's length in whole seconds, written "0-2 s.", each
-    keeping its length rounded (at least 1 s); the longest give a second each when they run
-    over, the last takes up any gap. Unchanged when the shots can't fit (more than seconds)."""
+    """Shots back to back from 0 to the clip's length in whole seconds, written "0-2 s.", on
+    their rounded edges (`edges`). Unchanged when the shots can't fit (more than seconds)."""
     at = [i for i, x in enumerate(lines) if x.startswith("Shot ")]
     found = [SHOT.match(lines[i]) for i in at]
-    if not at or not all(found):
+    if not at or not all(found) or len(at) > seconds:
         return lines
-    lengths = [max(round(float(m[3]) - float(m[2])), 1) for m in found]
-    while sum(lengths) > seconds and max(lengths) > 1:
-        lengths[lengths.index(max(lengths))] -= 1
-    if sum(lengths) > seconds:
-        return lines
-    lengths[-1] += seconds - sum(lengths)
+    ends = edges([max(float(m[3]) - float(m[2]), 0.0) for m in found], seconds)
     out, start = list(lines), 0
-    for i, m, n in zip(at, found, lengths, strict=True):
-        line = f"{m[1]}{start}-{start + n} s.{m[4]}"
-        if not re.match(rf"^Shot \d+ \| {start}[-–]{start + n} s\.", lines[i]):  # right: kept
+    for i, m, end in zip(at, found, ends, strict=True):
+        line = f"{m[1]}{start}-{end} s.{m[4]}"
+        if not re.match(rf"^Shot \d+ \| {start}[-–]{end} s\.", lines[i]):  # right: kept
             out[i] = line
-        start += n
+        start = end
     return out
 
 

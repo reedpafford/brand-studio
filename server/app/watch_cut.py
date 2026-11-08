@@ -11,6 +11,7 @@ covers a script word (rule 19), and is given in that clip's take seconds, ready 
 POST …/clips/{id}/mute; a pick names one of the clip's other takes. One that fails is dropped
 and logged."""
 
+import html
 import logging
 import re
 from decimal import Decimal
@@ -20,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.accounts import User
-from app.models.clips import ClipTake, FinalVideo, ProjectClip
+from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
@@ -142,12 +143,16 @@ def heard_cut(db: Session, job: Job) -> None:
     from app.director import treatment_block
 
     text = treatment_block(db, project) + text  # what the story is meant to be (the Director)
+    ending = ending_shows(db, db.get(FinalVideo, job.input.get("final_video_id")))
+    if ending:  # the director's trim of the ending said what it ends on: the look checks it
+        text += f"\n<ending>{html.escape(ending)}</ending>"
     data = {"step": STEP, "project_id": project.id, "final_video_id": job.input["final_video_id"],
             "system": [prompts.system(STEP, project.look or "house",
                                       broll=project.broll_look or "")], "prompt": text,
             "effort": "high", "max_tokens": 16000,
             "fit_images_to": 1024, "director_run": job.input.get("director_run"),
-            "cut": cut, "words": out.get("words", []), "script": version.text if version else "",
+            "cut": cut, "words": out.get("words", []), "ending": ending,
+            "script": version.text if version else "",
             "files": {"reference_images": out.get("file_ids", [])}}  # fmt: skip
     from app.credits import estimate, past_approved
     from app.director import GRANT, past_own
@@ -329,7 +334,19 @@ def state(db: Session, project: Project) -> dict:
         return {"state": "failed", **base}
     out = newest.output or {}
     return {"state": "done", **base, "lands": bool(out.get("lands")),
-            "summary": out.get("summary", ""), "findings": out.get("checked", [])}  # fmt: skip
+            "summary": out.get("summary", ""), "findings": out.get("checked", []),
+            "last_frame": out.get("last_frame", ""),
+            "ending": newest.input.get("ending", "")}  # fmt: skip
+
+
+def ending_shows(db: Session, video: FinalVideo | None) -> str:
+    """What the cut's newest trim of its ending said its last frame shows (the director's
+    `shows`), or "": video 271's trim said it kept "his satisfied look with the pouch" and
+    cut it away, ending mid-drink."""
+    edits = [db.get(CutEdit, i) for i in sorted(video.edit_ids or [])] if video else []
+    ends = [e for e in edits if e and e.kind == "trim" and e.undone_at is None
+            and (e.said.startswith("Ending") or "shows" in (e.data or {}))]  # fmt: skip
+    return (ends[-1].data or {}).get("shows", "") if ends else ""
 
 
 watch_state = state  # the name Next-Server's first wiring used

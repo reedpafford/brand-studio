@@ -9,7 +9,7 @@ blurb: One surprising thing explained as a cause-and-effect chain from the first
 
 ## Breakdown
 - Start mid-action: the first picture shows the thing already happening and the voice starts on the first frame. The lines are one cause-and-effect chain told in the order it physically happens; each clause gets one picture of the part doing the work (the style's camera follows it there). Time passing is shown inside the picture (the moon crossing a window, a flip calendar turning weeks).
-- A purely connective line ("Here's what actually happens") gets no scene of its own: it rides the camera move between its two neighbours. Every line has a shot; a shot may have no line. The video ends on the payoff and a small visual gag, about 0.7 s after the last word.
+- A purely connective line ("Here's what actually happens") gets no scene of its own: it rides the camera move between its two neighbours. Every line has a shot; a shot may have no line. The video ends on the payoff and one small visual gag (a sneeze, a drip landing on a nose, a deadpan look), never a routine of several actions: it lands within about a second of the last word, inside the last clip's shots, and the picture runs about 0.7 s past the last word.
 - The hook line gets the strongest picture. In `hook`, name the chosen opening and two other distinct opening pictures in a clause each (one subject, one scene, a clear change), so the editor can pick; an opening on the product itself has to earn its place.
 
 ## Script

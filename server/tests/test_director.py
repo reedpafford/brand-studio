@@ -120,6 +120,42 @@ def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor,
     assert results[len(made) :] and all("made again 2 times" in r for r in results[len(made) :])
 
 
+def test_a_redo_refused_before_any_take_is_made_never_counts_as_one(
+    app, db, owner, editor, monkeypatch
+):
+    """Video 271: its four redo tries were refused ("too long for its model, being rewritten")
+    before any take was made, yet counted, so it delivered with "remakes used up" and none
+    made. A refused try counts for nothing, and the same try once its prompt is rewritten
+    is never stopped as "refused again": the two redos are still there to make."""
+    from app import director_tools
+
+    monkeypatch.setattr(director, "MAX_TURNS", 18)
+    real, run = director.choose, director_tools.run
+    monkeypatch.setattr(director, "choose", lambda state: {
+        "tool": "make_take", "clip_id": "c1", "take_id": None, "note": "Again.",
+        "why": "Once more."} if state["clips"] and all(c["takes"] for c in state["clips"])
+        else real(state))  # fmt: skip
+    monkeypatch.setattr(director, "_only_a_doubt", lambda *a: False)
+    refusals = ["Refused: The prompt of c1 is too long for its model, so it's being rewritten "
+                "to fit (free); make its take once it's rewritten."] * 2  # fmt: skip
+
+    def tools(db, user, project, decision, storage, run_=None):
+        if decision.get("why") == "Once more." and refusals:
+            return refusals.pop()
+        return run(db, user, project, decision, storage, run_)
+
+    monkeypatch.setattr(director_tools, "run", tools)
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    results = [t["result"] for t in editor.get(f"/projects/{pid}/director").json()["turns"]
+               if t["why"] == "Once more."]  # fmt: skip
+    assert [r[:8] for r in results[:2]] == ["Refused:"] * 2
+    made = [r for r in results if r.startswith("Making")]
+    assert len(made) == director.MAX_REDOS, results  # both redos still made
+    assert all("made again 2 times" in r for r in results[2 + len(made) :]), results
+
+
 def test_past_the_budget_it_waits_for_the_owner_then_goes_on(app, db, owner, editor):
     pid = _made(app, owner, editor, db)
     project = db.get(Project, pid)
