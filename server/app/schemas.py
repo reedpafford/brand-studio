@@ -38,16 +38,22 @@ PromptText = Annotated[str, StringConstraints(max_length=20_000)]
 NOTE_LONGEST = 20_000  # a person's note to the director: no real one comes near it
 
 
-def _note(text: str) -> str:
-    """Never cut (Reed, 8 Nov): a note past the most is refused at send, in plain words."""
-    if len(text) > NOTE_LONGEST:
-        raise PydanticCustomError("note_too_long", f"This note is {len(text):,} characters; "
-                                  "the most is 20,000. Send it as two notes.")  # fmt: skip
-    return text
+def longest(most: int, then: str = "Say it shorter.") -> AfterValidator:
+    """A person's words are never cut (Reed, 8 Nov): past `most` they're refused at send, in
+    plain words (the boxes have no limit of their own to cut a paste)."""
+
+    def check(text: str) -> str:
+        if len(text) > most:
+            raise PydanticCustomError("too_long", f"This note is {len(text):,} characters; the "
+                                      f"most is {most:,}. {then}")  # fmt: skip
+        return text
+
+    return AfterValidator(check)
 
 
-# What a person tells the director, read whole (the box has no limit of its own to cut a paste)
-Note = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1), AfterValidator(_note)]
+# What a person tells the director, read whole; NoteText may be empty (a change's own check)
+NoteText = Annotated[str, longest(NOTE_LONGEST, "Send it as two notes.")]
+Note = Annotated[NoteText, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 def slugify(text: str) -> str:

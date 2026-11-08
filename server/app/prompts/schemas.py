@@ -964,5 +964,6 @@ class DirectorTurn(Strict):
         description="On a move that acts on a person's note ('Note N' in `why`): each part of "
         "that note that can't fit or can't be done, by name, and why ('Note 2: the pouch held "
         "still for a beat at the end: clip 7 is already 8 s, the most the model makes'); the "
-        "delivery note lists it for them. Empty when every part is carried out.",
+        "delivery note lists it for them. A later move on that note replaces it: say there "
+        "what's still left out. Empty when every part is carried out.",
     )

@@ -735,7 +735,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
               </button>
             </p>
           )}
-          <TextArea autoFocus label={boxes[box.kind][0]} rows={box.kind === "prompt" ? 6 : 2} maxLength={box.kind === "prompt" ? 8000 : 500} placeholder={boxes[box.kind][1]} value={box.text} onChange={(e) => setBox({ ...box, text: e.target.value })} />
+          <TextArea autoFocus label={boxes[box.kind][0]} rows={box.kind === "prompt" ? 6 : 2} maxLength={box.kind === "prompt" ? 8000 : box.kind === "sound" ? 300 : undefined} placeholder={boxes[box.kind][1]} value={box.text} onChange={(e) => setBox({ ...box, text: e.target.value })} />
           <div className="flex flex-wrap gap-2">
             <Priced type="submit" label={box.kind === "prompt" ? "Save the prompt" : box.kind === "sound" ? "Add" : "Change it"} price={boxPrice == null ? undefined : upTo(head, boxPrice)} busy={run.isPending} disabled={!box.text.trim()} />
             <Button variant="ghost" onClick={() => setBox(null)}>

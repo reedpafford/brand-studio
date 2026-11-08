@@ -492,7 +492,7 @@ function RoleCard({ a, c }: { a: Asset; c: Ctx }) {
         {a.look_fit && !a.locked && <p className="text-sm text-warning">{lookFitNote(a.look_fit)}</p>}
         {changing !== null ? (
           <div className="flex flex-col gap-2">
-            <TextArea label={`Change ${a.role || a.name}…`} rows={2} maxLength={500} placeholder="What should change?" value={changing} onChange={(e) => setChanging(e.target.value)} />
+            <TextArea label={`Change ${a.role || a.name}…`} rows={2} placeholder="What should change?" value={changing} onChange={(e) => setChanging(e.target.value)} />
             <div className="flex flex-wrap gap-2">
               {ownLook ? (
                 <Priced icon={WandSparkles} label="Change it" price={price} busy={run.isPending} disabled={!changing.trim()} reason={changing.trim() ? null : "Say what should change"} onClick={() => change(changing.trim())} />
@@ -651,7 +651,7 @@ function PlaceCard({ a, c }: { a: Asset; c: Ctx }) {
         </div>
         {changing !== null ? (
           <div className="flex flex-col gap-2">
-            <TextArea label={`Change ${a.name}…`} rows={2} maxLength={500} placeholder="What should change?" value={changing} onChange={(e) => setChanging(e.target.value)} />
+            <TextArea label={`Change ${a.name}…`} rows={2} placeholder="What should change?" value={changing} onChange={(e) => setChanging(e.target.value)} />
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" icon={MessageSquare} busy={run.isPending} disabled={!changing.trim()} reason={changing.trim() ? "Asking is free. The director shows any price before it makes a new look." : "Say what should change"} onClick={() => note(changing.trim())}>
                 Ask the director

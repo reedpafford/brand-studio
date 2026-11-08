@@ -161,7 +161,7 @@ function SceneCard({ scene, si, count, cast, advice, change, rewrite }: { scene:
       </div>
       {rewrite && asked !== null && (
         <div className="space-y-2">
-          <TextArea label={`What should change in scene ${n}?`} rows={2} maxLength={500} placeholder="Make it funnier: he's a drama queen" value={asked} onChange={(e) => setAsked(e.target.value)} />
+          <TextArea label={`What should change in scene ${n}?`} rows={2} placeholder="Make it funnier: he's a drama queen" value={asked} onChange={(e) => setAsked(e.target.value)} />
           <p className="text-sm text-muted">Its lines stay; only what we see changes. This plan is kept under Earlier plans.</p>
           <div className="flex flex-wrap gap-2">
             <Button charge="estimate" price={rewrite.credits} disabled={!asked.trim() || !!rewrite.stop} reason={!asked.trim() ? "Say what to change in this scene" : rewrite.stop} busy={rewrite.busy} onClick={() => rewrite.run(scene.id, asked.trim(), () => setAsked(null))}>Change this scene</Button>
@@ -389,7 +389,7 @@ export function Scenes({ home, onApproved }: { home: PlanHome; onApproved: () =>
         <details className="rounded-lg border border-border bg-surface px-4">
           <summary className="flex min-h-11 cursor-pointer items-center py-2 font-medium">Make a new plan{price !== null && <span className="whitespace-pre font-normal tabular-nums text-muted">{" · "}{pressLabel(price, "estimate")}</span>}</summary>
           <div className="space-y-2 pb-4">
-            <TextArea label="What to change (optional)" rows={2} maxLength={500} placeholder="Make it funnier: he's a drama queen" value={note} onChange={(e) => setNote(e.target.value)} />
+            <TextArea label="What to change (optional)" rows={2} placeholder="Make it funnier: he's a drama queen" value={note} onChange={(e) => setNote(e.target.value)} />
             {makeButton("Make a new plan")}
             <p className="text-sm text-muted">The new plan takes this one's place.</p>
           </div>

@@ -1,8 +1,10 @@
 """Add sound effects to a clip's picked take, and Remove them (app/take_sound.py). Adding is
 one MMAudio run at its real cost, priced first; removing is free and the take is as it was."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app import take_sound
@@ -13,13 +15,14 @@ from app.models.clips import ClipTake
 from app.routes.clips import generation_on
 from app.routes.project_clips import ProjectClipOut, _clip, _newest_breakdown, _out
 from app.routes.projects import video_writer
+from app.schemas import longest
 
 router = APIRouter(prefix="/projects/{project_id}/clips/{clip_id}/sound",
                    tags=["project clips"], dependencies=[Depends(video_writer)])  # fmt: skip
 
 
 class SoundIn(BaseModel):
-    asked: str = Field("", max_length=take_sound.LONGEST)  # "slight footsteps"; empty: what fits
+    asked: Annotated[str, longest(take_sound.LONGEST)] = ""  # "slight footsteps"; empty: fits
 
 
 @router.post("", response_model=ProjectClipOut, status_code=201,

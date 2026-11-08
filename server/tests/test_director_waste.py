@@ -243,18 +243,36 @@ def test_every_instruction_of_a_note_is_kept_in_the_redo_or_named_as_left_out(ap
     job = db.query(Job).order_by(Job.id.desc()).first()
     assert all(a in job.input["note"] for a in asked), job.input["note"]
     turns = director.turns(db, project)
-    deliver, made = turns[-1], turns[-2]
-    refused = {**redo, "left_out": "Note 1: the whole note: too long."}
-    made.output, made.input = redo, {**made.input, "result": "Making 1 take."}
-    turns[-3].output, turns[-3].input = refused, {**turns[-3].input, "result": "Refused: long"}
-    for t in turns[-3:-1]:
+    deliver = turns[-1]
+    moves = [({**redo, "left_out": "Note 1: the hold: no room."}, "Making 1 take."),  # done later
+             ({**redo, "left_out": "Note 1: the whole note: too long."}, "Refused: long"),
+             (redo, "Making 1 take.")]  # fmt: skip
+    for t, (move, result) in zip(turns[-4:-1], moves, strict=True):
+        t.output, t.input = move, {**t.input, "result": result}
         flag_modified(t, "output")
         flag_modified(t, "input")
     db.commit()
     turn = DirectorTurn(tool="deliver", why="Note 1: done.", made="Clip 1 made again.")
     note = delivery.note(db, project, deliver, turn.model_dump())
     assert "Note 1: a 20-second clip 1: the model makes 8 s at most." in note["open"]
-    assert not any("too long" in x for x in note["open"])  # a refused move's: never made
+    assert not any("too long" in x or "no room" in x for x in note["open"])  # refused; redone
     said = turn.model_copy(update={"needs": "Note 1: a 20-second clip 1: the model makes 8 s "
                                             "at most."}).model_dump()  # fmt: skip
     assert not any("20-second" in x for x in delivery.note(db, project, deliver, said)["open"])
+
+
+def test_a_change_box_takes_a_whole_note_and_a_short_one_refuses_plainly(app, db, owner, editor):
+    """F16 (Reed, 8 Nov): Change this… on a clip read a pasted note cut at 500; it's read whole
+    (its prompt is rewritten in its own words). A look's change goes into the picture's own
+    words, so past 500 it's refused at send, plainly, never cut."""
+    pid = _done(app, db, owner, editor)
+    row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
+    long = "Warmer light in the kitchen, and she smiles only at the end. " * 30  # ~1,800
+    said = owner.post(f"/projects/{pid}/clips/{row.id}/change", json={"note": long})
+    assert said.status_code != 422, said.text
+    no = owner.post(f"/projects/{pid}/plan/scenes/1/change", json={"note": "x" * 20_001})
+    assert no.status_code == 422 and "Send it as two notes." in no.json()["detail"][0]["msg"]
+    item = owner.post("/library/character", json={"name": "Ana", "image_file_ids": [upload(owner)]})
+    no = owner.post(f"/library/character/{item.json()['id']}/sheet", json={"change": "y" * 501})
+    assert no.status_code == 422 and no.json()["detail"][0]["msg"] == (
+        "This note is 501 characters; the most is 500. Say it shorter.")  # fmt: skip

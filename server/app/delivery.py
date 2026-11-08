@@ -52,18 +52,27 @@ def note(db: Session, project: Project, job: Job, decision: dict) -> dict:
             "until": utcnow().isoformat()}  # fmt: skip
 
 
+PASSING = ("wait", "deliver", "stop", "ask", "watch_cut", "final_cut")  # make nothing asked
+
+
 def left_out(turns: list[Job], decision: dict) -> list[str]:
-    """Each part of a person's note the run's moves said they couldn't fit or do (`left_out`),
-    so the note always names it (Reed, 8 Nov: never dropped), but those its words already say."""
+    """What the run's moves said they couldn't fit or do of a person's note (`left_out`), so
+    the note always names it (Reed, 8 Nov: never dropped): for each note, the newest move on it
+    says what's still left out (a later one that did the part leaves nothing), but never what
+    the director's own words already say."""
+    from app.director import NOTE
+
     told = said(" ".join(decision.get(k) or "" for k in ("needs", "unsure", "made"))).lower()
-    out = []
+    by: dict[str, str] = {}
     for j in turns:
-        if (j.input.get("result") or "").startswith("Refused"):
-            continue  # the move wasn't made: its next try says what it leaves out
-        line = said(((j.output or {}).get("left_out") or "").strip())
-        if line and line.lower().rstrip(".") not in told and line not in out:
-            out.append(line)
-    return out
+        move = j.output or {}
+        if move.get("tool") in PASSING or (j.input.get("result") or "").startswith("Refused"):
+            continue  # a refused move wasn't made: its next try says what it leaves out
+        line = said((move.get("left_out") or "").strip())
+        for n in NOTE.findall(move.get("why") or "") or NOTE.findall(line) or [line]:
+            by[n] = line
+    out = [x for x in by.values() if x and x.lower().rstrip(".") not in told]
+    return list(dict.fromkeys(out))
 
 
 def run_cost(db: Session, project_id: int, note: dict):
