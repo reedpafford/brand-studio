@@ -494,6 +494,21 @@ def _kept(prompt: str, people: list[str], ids: list[str], pics: dict) -> str:
     return prompt
 
 
+WEARS = re.compile(r"\bwears: (.+?) \(this video\)")  # its cast line's own outfit (enhance.wears)
+
+
+def _worn(prompt: str, people: list[str], known: dict, pics: dict) -> str:
+    """This video's outfit for each attached person in the Keep line, in its own words (284:
+    "this video's champagne satin dress" drew a new neckline in each clip; one wording, with
+    its cut and fabric, repeated in every clip). Free; doing it again changes nothing."""
+    for r in people:
+        worn = WEARS.search(known.get(r, ("",))[0])
+        keep = next((ln for ln in prompt.splitlines() if ln.startswith("Keep: ")), None)
+        if worn and keep is not None and worn[1].lower() not in keep.lower():
+            prompt = _add(prompt, "Keep: ", f"{_name(pics, r)} in this video's {worn[1]}.")
+    return prompt
+
+
 def with_cast(
     db: Session,
     project: Project,
@@ -563,8 +578,10 @@ def with_cast(
         want = [product, *want]
     new += [Reference(kind="image", id=s, role=f"{_name(pics, s)} screen") for s in want]
     was = [r for r in clip.references if r.kind == "image"]
+    worn = [r.id for r in new if r.id.startswith(CHAR)]  # their outfit, word for word
     if new == was:
-        return clip
+        prompt = _worn(clip.prompt, worn, known, pics)
+        return clip if prompt == clip.prompt else clip.model_copy(update={"prompt": prompt})
     ids, before = [r.id for r in new], [r.id for r in was]
     moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
     dropped = {i + 1: _name(pics, r.id) for i, r in enumerate(was) if before[i] not in ids}
@@ -590,6 +607,7 @@ def with_cast(
             continue
         prompt = _add(prompt, "References: ", f"{tag} is {who}.")
         prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
+    prompt = _worn(prompt, worn, known, pics)
     return clip.model_copy(update={"prompt": prompt, "references": new + others})
 
 

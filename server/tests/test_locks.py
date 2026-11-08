@@ -67,3 +67,24 @@ def test_with_an_outfit_the_sheet_line_never_says_not_to_describe_clothes(owner,
     line, _ = assets(db, project)[f"char:{kid}"]
     assert "coat," not in line and "except for what they wear" in line
     assert line.endswith("wears: a yellow raincoat (this video)")
+
+
+def test_every_clip_keeps_the_videos_outfit_in_its_own_words(owner, editor, db):
+    """284: the Keep line said "this video's champagne satin dress" and each clip drew a new
+    neckline. The outfit, with its cut and fabric as set, goes into every clip's Keep line
+    word for word (free, once)."""
+    from app.clip_prompts import _pictures, _worn
+    from app.clip_prompts import assets as clip_assets
+
+    pid, mia, kid = _video(owner, editor, db)
+    worn = "a sleeveless champagne satin sheath, high round neck"
+    editor.put(f"/projects/{pid}/locks", json={"outfits": {f"char:{kid}": worn}})
+    project = db.get(Project, pid)
+    db.refresh(project)
+    known = clip_assets(db, project)
+    prompt = (
+        "Audio: x.\nShot 1 | 0-3 s. She waits.\nKeep: her as in [Image2], a satin dress.\nAudio: x."
+    )
+    kept = _worn(prompt, [f"char:{kid}", f"char:{mia}"], known, _pictures(known))
+    assert kept.splitlines()[2].endswith(f"in this video's {worn}.")
+    assert kept.count(worn) == 1 and _worn(kept, [f"char:{kid}"], known, _pictures(known)) == kept
