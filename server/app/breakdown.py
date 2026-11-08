@@ -580,6 +580,8 @@ def _complete_cast(db: Session, project: Project, locked: bool) -> list[str]:
         project.slot_merged = {**(project.slot_merged or {}), str(slot.id): into.id}
         merged.append(f"Advice: {short(slot.role) or slot.role} is {short(into.role) or into.role}"
                       ", one role in this video.")  # fmt: skip
+    named = _named_extras(db, project, bd)  # before show_roles puts them in their shots
+    out += [f"{script.title}: added {name} to the cast" for name in named]
     if not (added := show_roles(db, project, bd, words.text)) and not merged:
         return out
     counts: dict[str, int] = {}
@@ -692,12 +694,46 @@ def _person(db: Session, project: Project, slots: list, name: str):
 
 def _proper(name: str, text: str) -> bool:
     """A person's own name in the script: capitalised after a lowercase word ("hands Grant
-    the ring"), or a speaker's label ("GRANT:")."""
+    the ring"), a speaker's label ("GRANT:"), or someone a line speaks to ("MARCUS: Danny,
+    you were right.")."""
     if not name[:1].isupper():
         return False
     word = re.escape(name.strip())
     mid = re.search(rf"\b[a-z][\w']*[,;]? +{word}\b", text)
-    return bool(mid or re.search(rf"^\s*{word.upper()}\s*(?:\([^)]*\))?:", text, re.M))
+    told = re.search(rf"^\s*[A-Z][A-Z .'-]*(?:\([^)]*\))?:\s*{word},", text, re.M)
+    return bool(mid or told or re.search(rf"^\s*{word.upper()}\s*(?:\([^)]*\))?:", text, re.M))
+
+
+CALENDAR = re.compile(r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|"
+                      r"February|March|April|May|June|July|August|September|October|November|"
+                      r"December|Thanksgiving|Christmas|Easter|Halloween|Hanukkah|Diwali|Eid|"
+                      r"Ramadan|Valentine)$")  # fmt: skip
+
+
+def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
+    """A person the script names who the shots' actions show in two or more clips is a role,
+    so they get a look and the cast and places OK covers them (video 281: Danny, Marcus's
+    brother-in-law, in four B-roll clips, was no role and drifted from clip to clip). Named
+    in one clip only, they're a one-off: drawn as part of the scene, never a paid look. Only a
+    proper name: capitalised mid-sentence in an action and named as a person in the script
+    (`_proper`), never a day or a holiday. The names added."""
+    from app.cast_roles import all_slots, same, video_slots
+
+    clip_of = {s: c.id for c in bd.clips for s in c.shot_ids}
+    seen: dict[str, set[str]] = {}
+    for shot in (s for scene in bd.scenes for s in scene.shots):
+        for found in re.finditer(r"(?<=[a-z,] )([A-Z][a-z]{2,})\b", shot.action):
+            seen.setdefault(found[1], set()).add(clip_of.get(shot.id, shot.id))
+    from app.storyboard import cast_looks
+
+    slots, out = video_slots(db, project), []
+    known = [s.role for s in all_slots(db, project)] + [i.name for i in cast_looks(db, project)]
+    for name, clips in seen.items():
+        if len(clips) < 2 or CALENDAR.match(name) or any(same(name, k) for k in known):
+            continue  # a one-off, a day, or someone already in the cast
+        if _person(db, project, slots, name):
+            out.append(name)
+    return out
 
 
 def unknown_names(db: Session, project: Project, bd: Breakdown, known=None) -> dict[str, str]:
