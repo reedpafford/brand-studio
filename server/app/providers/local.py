@@ -34,8 +34,8 @@ class LocalProvider:
         storage,
         transcribe: Callable[[Path], list[dict]] = reel.transcribe,
         fetch_link: Callable[[str, Path], Path] = reel.fetch,
-        hear_song: Callable[[Path, str], list[dict]] = song_timing.words,
-        hear_voice: Callable[[Path, str], list[dict]] = song_timing.words,
+        hear_song: Callable[..., list[dict]] = song_timing.words,  # (path, words, prompted=)
+        hear_voice: Callable[..., list[dict]] = song_timing.words,
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
         hear_take: Callable[[Path, dict], list[dict]] = lambda path, _: _heard(path, True),
@@ -84,7 +84,9 @@ class LocalProvider:
         with tempfile.TemporaryDirectory(dir=self.root) as folder:
             song = Path(folder) / "song.mp3"
             song.write_bytes(self.storage.get(input["song_key"]))
-            hear = (lambda path, lyrics: []) if input.get("spread") else self.hear_song
+            hear = (
+                (lambda path, lyrics, prompted=True: []) if input.get("spread") else self.hear_song
+            )
             timing = song_timing.measure(song, input["lyrics"], hear=hear)
         return Result("succeeded", output={"timing": timing})
 

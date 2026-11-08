@@ -33,6 +33,14 @@ LONG_NOTE = ("Refused: a {what} note is at most {most} characters (this one is {
              "shorter, keeping everything it asks.")  # fmt: skip  # never cut (261: its end lost)
 NOTES = {"make_take": "redo", "redraw_still": "redraw", "plan": "plan", "change_look": "change",
          "host": "motion"}  # fmt: skip  # the tools whose note goes on as written
+REDRAW = " Use redraw_still on one of its shots, with the note."
+
+
+def _redraw(said) -> str:
+    """The one way to change a talker's picture, named where it's refused (video 281)."""
+    from app import host, talker
+
+    return REDRAW if said in (host.MADE, talker.SAID) else ""
 
 
 STEP_BROKE = (
@@ -284,13 +292,17 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
 
             return still_review.start(db, user, project, run)
         if tool == "redraw_still":  # a still the review found off-story: Change it…, priced
-            from app import still_review
+            from app import host, still_review, talker
 
             sid = decision.get("shot_id")
+            note = (decision.get("note") or "").strip()
+            if talker.shot(db, project, sid or ""):  # the talker's still: their take follows it
+                if not note:
+                    return "Refused: say what the talker's still should change (a note)."
+                return host.redraw(db, user, project, note)
             frame = next((f for f in still_review.frames(db, project) if f.shot_id == sid), None)
             if frame is None:
                 return f"Refused: there's no drawn still for shot {sid}."
-            note = (decision.get("note") or "").strip()
             if no := still_review.no_sheet(db, project, sid, note):
                 return no
             storyboard.change_frame(frame_id=frame.id, body=storyboard.ChangeIn(note=note), **me)
@@ -351,7 +363,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             return f"Making Cut {n}{_again(db, pid, n)}."
     except HTTPException as no:
         db.rollback()
-        return f"Refused: {no.detail}"
+        return f"Refused: {no.detail}{_redraw(no.detail)}"
     except ValidationError as no:  # A4: a value past a field's limit, said as it is
         db.rollback()
         e = no.errors()[0]

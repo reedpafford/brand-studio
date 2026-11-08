@@ -155,6 +155,6 @@ def test_a_narrator_label_on_one_line_of_prose_is_never_read_or_checked():
     assert narration.job(script)["input"]["prompt"] == words
     heard = [{"word": w, "start": 0.0, "end": 0.1} for w in words.split()]
     take = SongTake(kind=narration.KIND, lyrics=script, timing={"words": heard})
-    old = [{"text": "NARRATOR: They dump wild oregano into a steel tank."}]  # timed before
+    old = [{"text": "NARRATOR: They dump wild oregano into a steel tank.", "heard": 0.89}]  # timed
     assert director_song._missing(take, old) == []
     assert narration.extras(words, heard) == []
