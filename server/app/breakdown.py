@@ -66,7 +66,7 @@ def timing(db: Session, project: Project) -> dict:
     """How long a line takes in this video (critique 276): the style's fastest words a second
     and its pause after a sentence (its guide's, else its format's; else 4.8 and PAUSE), and
     the length to land near: the brief's planned length (a library script's target too), else
-    the newest length of 10 s or more a note of this run asks for ("about 30 s")."""
+    the newest length a note of this run asks for ("about 30 s"; never "at 12 s" or "cut 5 s")."""
     from app.director import run_notes
     from app.narration import video_script
     from app.script_library import WORDS_PER_SECOND, format_id
@@ -78,7 +78,7 @@ def timing(db: Session, project: Project) -> dict:
         pause = guides.pause(look, fmt) or PAUSE
     except ValueError:  # a style or format since taken out of the guides
         fast, pause = WORDS_PER_SECOND, PAUSE
-    asked = [n for _, text in run_notes(db, project) if (n := check.asked_seconds(text) or 0) >= 10]
+    asked = [n for _, text in run_notes(db, project) if (n := check.asked_length(text))]
     return {"fast": fast, "pause": pause, "target": project.planned_seconds or next(
         reversed(asked), None)}  # fmt: skip
 

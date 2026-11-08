@@ -84,7 +84,7 @@ def recheck(job_input: dict, result, ask):
 
     if result.state != "succeeded":
         return result
-    if job_input.get("plan") or job_input.get("timing"):  # shots from a plan (P2), or timed
+    if job_input.get("plan") or job_input.get("step") == "breakdown":  # from a plan (P2), timed
         return _shots_follow(job_input, result, ask)
     still = sd.STILL
     if job_input.get("step") == sd.STEP:

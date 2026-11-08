@@ -1314,6 +1314,37 @@ def test_shot_times_round_their_edges_not_their_lengths():
     assert "never each shot's length on its own" in (HERE / "clip_prompts.md").read_text()
 
 
+def test_a_shot_with_a_line_is_never_rounded_shorter():
+    """Critique 276 (QA on #1454): nearest-second edges gave a 3.5 s line 3 s, so its end
+    landed on the next face. A speaking shot's end goes up, taken from the wordless shot after
+    it; a voiceover or a clip of wordless shots keeps the nearest edges."""
+    from app.clip_prompts import _retime, edges
+
+    assert edges([0.6, 3.5, 2.9], 7) == [1, 4, 7]
+    assert edges([0.6, 3.5, 2.9], 7, {1}) == [1, 5, 7]
+    assert edges([3.5, 1.2, 2.3], 7, {0, 1}) == [4, 6, 7]  # each line its seconds, rounded up
+    talk = 'Dad (in English, warm): "Hello there, son."'
+    lines = ["Audio: only the spoken lines and room tone.", "Shot 1 | 0-0.6 s. A door. No one "
+             "speaks.", f"Shot 2 | 0.6-4.1 s. Dad at the door. {talk}", "Shot 3 | 4.1-7 s. Theo "
+             "looks up. No one speaks.", "Keep: Dad."]  # fmt: skip
+    assert [x[:15] for x in _retime(lines, 7)[1:4]] == [
+        "Shot 1 | 0-1 s.", "Shot 2 | 1-5 s.", "Shot 3 | 5-7 s."]  # fmt: skip
+    over = [x.replace('Dad (in English, warm): "', 'Voiceover (Dad, warm): "') for x in lines]
+    assert _retime(over, 7)[2].startswith("Shot 2 | 1-4 s.")
+
+
+def test_a_note_asks_a_length_only_in_length_words():
+    """QA on #1454: a moment ("at 12 s"), a change ("cut 15 seconds", "15 s shorter") or a
+    hold is never the video's length; "about 30 s", "0:30" and "a 30-second video" are."""
+    asked = {"Brief: one scene, about 30 s.": 30, "keep it 0:30": 30, "a 30-second video": 30,
+             "make it 45 seconds": 45, "an 0:45 ad": 45, "about 1.5 minutes": 90,
+             "keep it under 45 s, and at 12 s hold": 45, "cut it down to about 20 s": 20,
+             "at 12 s the dog sneezes": None, "cut 15 seconds": None, "at 0:12 she laughs": None,
+             "make it 15 s shorter": None, "trim it by about 5 s": None,
+             "hold her face 3 s": None, "make it about 20 seconds longer": None}  # fmt: skip
+    assert {note: check.asked_length(note) for note in asked} == asked
+
+
 def test_the_free_fix_never_drops_a_lip_sync_note():
     """Reed's c4: Fix this clip's prompt dropped "nobody on screen lip-syncs it", which
     invites lip-sync. It's put back before the Keep line."""

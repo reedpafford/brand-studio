@@ -682,6 +682,32 @@ def asked_seconds(note: str) -> int | None:
     return round(float(m[1]) * (60 if m[3] else 1))
 
 
+AMOUNT = r"(?:(\d+(?:\.\d+)?)\s*-?\s*(s|secs?|seconds?|mins?|minutes?)\b|(\d+):([0-5]\d)\b)"
+ASKED_LENGTH = re.compile(  # "about 30 s", "keep it under 45 seconds", "a 30-second video"
+    rf"(?:\b(?:about|around|roughly|approximately|under|below|at most|no more than|up to|"
+    rf"max(?:imum)?|keep it(?: to| at| under)?|make it|aim for|target(?: of)?|length(?: of)?)"
+    rf"\s+(?:an?\s+)?{AMOUNT}|~\s*{AMOUNT}|{AMOUNT}(?=\s+(?:long|video|ad|cut|spot|clip|short|"
+    rf"reel|version|total|in all)\b))"
+    rf"(?!\s*(?:longer|shorter|more|less|extra|off|earlier|later)\b)",
+    re.I,
+)
+
+
+def asked_length(note: str) -> int | None:
+    """The length a person's note asks the video to run, in seconds ("about 30 s", "an
+    0:30 ad", "a 30-second video"), the last it names; never a moment in it ("at 12 s the dog
+    sneezes") or a change to it ("cut 15 seconds", "make it 15 s shorter"). None without one."""
+    found = None
+    for m in ASKED_LENGTH.finditer(note):
+        if re.search(r"\b(?:at|from|by|until|after|before)\s+(?:an?\s+)?$", note[:m.start()],
+                     re.I):  # fmt: skip
+            continue  # a moment in the video, or a change by that much
+        n, unit, mins, secs = next(g for g in (m.groups()[k : k + 4] for k in (0, 4, 8)) if any(g))
+        found = round(float(n) * (60 if unit[0].lower() == "m" else 1)) if n else (
+            int(mins) * 60 + int(secs))  # fmt: skip
+    return found
+
+
 def variations(
     original: str,
     result: Variations,
@@ -1615,7 +1641,7 @@ def line_room(bd: Breakdown, fast: float, pause: float) -> tuple[Breakdown, list
     seconds = {s.id: s.seconds for scene in bd.scenes for s in scene.shots}
     for clip in bd.clips:
         clip.seconds = max(clip.seconds, math.ceil(sum(seconds.get(i, 0) for i in clip.shot_ids)
-                                                   - 0.5))  # fmt: skip
+                                                   - 0.01))  # fmt: skip
     return bd, [f"{ADVICE}Shots {', '.join(grown)} got more time so each line has room at this "
                 "style's pace."]  # fmt: skip
 

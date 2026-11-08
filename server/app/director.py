@@ -67,9 +67,9 @@ GAP, PER_RUN = timedelta(seconds=3), 30  # one note a person every 3 s; notes a 
 TOO_MANY = "Too many messages; wait a moment."
 IDLE = "Waiting, with nothing being made: it reads the video again."
 WATCHED_AGAIN = "Refused: it already watched this cut; fix something or deliver."
-REDO_NEEDS = ("needs a reason: a flagged take, a watch of this cut that saw it (a doubt both "
-              "watches saw counts), or a person's note")  # fmt: skip
-SAME_FAULT = {"timing": "lipsync"}  # a take's line run onto the next face: the cut's lip-sync
+REDO_NEEDS = ("needs a reason: a flagged take, a watch of this cut that saw it (a lip-sync "
+              "doubt both watches saw counts), or a person's note")  # fmt: skip
+ON_FACE = ("lipsync", "timing")  # a take's line on the wrong face, or run onto the next one
 DOUBT = "Refused: {} has only a doubt, which is the owner's to judge; say so in the delivery note."
 TURN_FAILED = "A turn failed; nothing more was done. Start it again to go on."
 START = asks.START  # in its held first paid turn: the start card (S3-02)
@@ -401,7 +401,7 @@ def _only_a_doubt(db: Session, project: Project, clip_id: str, why: str,
     """A redo with no confirmed reason behind it: the owner's to judge, never paid for (Reed,
     4 Nov). It goes ahead on a person's note, a take its watch confirmed a fault in (flagged),
     a take made from another prompt than the clip's now, or a redo the current watch of the
-    cut saw in the frames or saw as its take's watch did (`_seen_twice`)."""
+    cut saw in the frames or, for lip-sync, saw as its take's watch did (`_seen_twice`)."""
     clip = next((c for c in video_state(db, project)["clips"] if c["clip_id"] == clip_id), None)
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run_id), default=0) if run_id else 0  # fmt: skip
@@ -414,7 +414,7 @@ def _only_a_doubt(db: Session, project: Project, clip_id: str, why: str,
 def _confirmed(db: Session, project: Project, clip: dict, watch: dict) -> bool:
     """A redo of this clip (as the director reads it) has a confirmed reason: its last take's
     watch flagged a fault, the clip is stale or was made from another prompt, or the current
-    watch of the cut saw it in the frames, or saw again a doubt its take's watch had."""
+    watch of the cut saw it in the frames, or saw again a lip-sync doubt its take's watch had."""
     last = clip["takes"][-1]
     row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
                                               ProjectClip.clip_id == clip["clip_id"]))  # fmt: skip
@@ -432,15 +432,15 @@ def _confirmed(db: Session, project: Project, clip: dict, watch: dict) -> bool:
 
 
 def _seen_twice(db: Session, clip: dict, watch: dict) -> bool:
-    """A doubt its take's own watch had that the current watch of the cut saw again on the
-    same take and would have remade (the same kind of fault): two watches agreeing is a
-    fault, not a doubt (276: both saw lines on the listener's face; the remake was refused)."""
+    """A lip-sync doubt its take's own watch had (a line on the wrong face) that the current
+    watch of the cut saw again on the same take and would have remade: two watches agreeing
+    is a fault (276: both saw lines on the listener's face; the remake was refused). Only
+    lip-sync: a voice, sound or words doubt stays the owner's (Reed, 4 Nov; MAIN, 8 Nov)."""
     take = db.get(ClipTake, clip["picked_take_id"]) if clip.get("picked_take_id") else None
-    doubted = {SAME_FAULT.get(f.get("kind"), f.get("kind"))
-               for f in ((take.watch if take else None) or {}).get("faults") or []
-               if not f.get("verified", True)}  # fmt: skip
+    doubted = any(f.get("kind") in ON_FACE and not f.get("verified", True)
+                  for f in ((take.watch if take else None) or {}).get("faults") or [])  # fmt: skip
     return bool(doubted and watch.get("current") and any(
-        f.get("doubt") and f.get("clip_id") == clip["clip_id"] and f.get("kind") in doubted
+        f.get("doubt") and f.get("clip_id") == clip["clip_id"] and f.get("kind") == "lipsync"
         for f in watch.get("findings") or []))  # fmt: skip
 
 
