@@ -215,7 +215,7 @@ export function NewScriptPage() {
           </Menu>
         )}
       </SettingsRow>
-      {picking && looks.data && <LookPicker current={look} looks={looks.data} busy={make.isPending ? look : null} error={null} onPick={(l) => { setPicking(false); start("", { look: l.id }); }} onClose={() => setPicking(false)} />}
+      {picking && looks.data && <LookPicker current={look} looks={looks.data} busy={make.isPending ? look : null} error={null} onPick={(l) => { setPicking(false); start("", { look: l.id }); }} onClose={() => setPicking(false)} format={format.id} />}
       <div className="p-4 sm:p-8">
         {kind === "song" ? (
           // A song's first box stays the Song step's own, so the swap between them can't be seen (Song takes are a separate board).

@@ -2,7 +2,9 @@
 Each style has its own video model (Reed, 6 Nov: "keep seedance for the animated and
 expression-full ones for now. Omni is more for the realistic stuff"; "1.2 replaces 1.1"): Seedance
 2.5 for House and Disney Pixar (and songs), Seedance 2.0 for Skeleton, Claymation, Zack D and Dr.
-Pickle, and Gemini Omni 1.2 for the realistic one, UGC. In UGC, how the presenter appears
+Pickle, and Gemini Omni 1.2 for the realistic ones, UGC and Movie (#1394: every Movie clip,
+talking, wordless or an insert, in Omni's own voices; Reed, 7 Nov: "make it work on the site").
+In UGC, how the presenter appears
 (host.how) decides the talker: one who stays in one spot the whole time (talks, or in a corner) is
 one HeyGen Avatar IV take from a still, lip-synced to our own voice track (a talker's is the
 MiniMax voice), and Omni 1.2 makes only the B-roll around them; one who moves around in the story
@@ -22,7 +24,7 @@ import re
 
 from app import looks
 
-PHOTOREAL = ("ugc",)  # styles whose people are photoreal (a real person filmed on a phone)
+PHOTOREAL = ("ugc", "movie")  # styles whose people are photoreal, made on Omni 1.2
 
 
 def unsent(look: str | None, model_id: str, shots: list[dict]) -> tuple[str, ...]:
@@ -46,6 +48,9 @@ SAYS_IT = (
 REAL = ("Refused: in UGC every clip that isn't the HeyGen talker is made on Omni 1.2, the B-roll "
         "and a talker who moves around in the story (Reed, 6 Nov: \"Omni is more for the "
         "realistic stuff\").")  # fmt: skip
+ALL_OMNI = ("Refused: in {style} every clip is made on Omni 1.2, the talking, the wordless "
+            "and the inserts, in Omni's own voices (Reed: \"Omni is more for the realistic "
+            "stuff\").")  # fmt: skip
 NO_REASON = ("Refused: say in `why` what this shot needs from Omni 1.2; it's shown on the clip "
              "(Reed, 6 Nov: \"with its reason shown\").")  # fmt: skip
 WHOLE = ("Refused: {style}'s videos are made on {model} (Reed, 6 Nov: \"keep seedance for the "
@@ -64,6 +69,9 @@ SILENT = ("Sound: no one speaks in this shot (no voices, narration or dialogue),
 SPOKEN = "Sound: only the spoken lines, each from the person who says it, and {room}. No music."
 PLACE = "the sounds of the place"
 ONE_SHOT = "One continuous shot, no scene cuts."
+# a take made at Omni's nearest shape is cropped to the video's in the cut (`nearest`)
+FRAMED = ("Framing: this shot is cropped to {shape} in the edit, so keep the action and faces "
+          "inside the centre {area}.")  # fmt: skip
 AUDIO = re.compile(r"^Audio:.*(?:\n|$)", re.M)  # Seedance's audio line, first and last
 ROOM = re.compile(r"\bonly (?:the spoken lines and )?(.+?)\. No music", re.I)
 FIRST = re.compile(r"\[Image(\d+)\] is the first frame\b")
@@ -213,7 +221,7 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
     model map, with its new price said first and its reason shown. It never changes the video's
     own model. A talker in one spot stays on HeyGen and the rest of UGC on Omni 1.2 (Reed,
     6 Nov); in an animated style Omni may make a realistic shot."""
-    from app import talker
+    from app import guides, talker
     from app.clip_takes import take_credits
 
     was = of_clip(project, clip)
@@ -230,13 +238,18 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
         return SAYS_IT
     if who := _persons(db, project):
         return PERSONS.format(who=who, model=_model(project.video_model).name)
-    if found.id != OMNI and looks.base(looks.drawn(project)) in PHOTOREAL:
-        return REAL
+    if found.id != OMNI and (real := looks.base(looks.drawn(project))) in PHOTOREAL:
+        from app.settings_move import ASKED
+
+        if real == "ugc":
+            return REAL
+        if not ASKED.search(reason or ""):  # a person's note may ask for one clip off Omni
+            return ALL_OMNI.format(style=guides.style(real)["name"])
     if found.id == OMNI and not reason.strip():
         return NO_REASON
     if (clip.song_slice or {}).get("sung_shots") and not found.lip_sync:
         return SUNG
-    if project.aspect_ratio not in found.aspect_ratios:
+    if project.aspect_ratio not in found.aspect_ratios and found.id != OMNI:  # Omni: cropped
         return SHAPE.format(model=found.name, shapes=" or ".join(found.aspect_ratios),
                             shape=project.aspect_ratio)  # fmt: skip
     most = found.duration.max
@@ -273,10 +286,30 @@ def fit(model, input: dict, files: dict) -> tuple[dict, dict]:
         prompt += "\n" + SILENT.format(room=room)
     elif audio:
         prompt += "\n" + SPOKEN.format(room=room)
+    if (shape := nearest(input["aspect_ratio"], model.aspect_ratios)) != input["aspect_ratio"]:
+        area = "square" if input["aspect_ratio"] == "1:1" else f"{input['aspect_ratio']} area"
+        prompt += "\n" + FRAMED.format(shape=input["aspect_ratio"], area=area)
     shaped = {"prompt": prompt, "duration": max(model.duration.min, min(input["duration"],
               model.duration.max)), "resolution": resolution(model),
-              "aspect_ratio": input["aspect_ratio"]}  # fmt: skip
+              "aspect_ratio": shape}  # fmt: skip
     return shaped, {"reference_images": pictures} if pictures else {}
+
+
+def nearest(shape: str, shapes: list[str]) -> str:
+    """The shape a model makes for the video's `shape`: its own when the model has it, else
+    the nearest one it does, 9:16 on a tie (Omni 1.2 makes only 9:16 and 16:9: a 1:1 Movie
+    or UGC video's takes are made 9:16 and the cut crops them to 1:1, QA on #1440)."""
+    import math
+
+    def ratio(s: str) -> float:
+        w, _, h = s.partition(":")
+        return float(w) / float(h)
+
+    given = [s for s in shapes if re.fullmatch(r"\d+:\d+", s)]
+    if shape in shapes or not given or not re.fullmatch(r"\d+:\d+", shape or ""):
+        return shape
+    return min(given, key=lambda s: (round(abs(math.log(ratio(s) / ratio(shape))), 6),
+                                     s != "9:16"))  # fmt: skip
 
 
 def unsent_people(model_id: str, images: list[str]) -> tuple[str, ...]:

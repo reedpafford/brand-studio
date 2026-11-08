@@ -20,7 +20,7 @@ def test_the_cards_are_looks_only_house_first_and_on(editor):
     cards = editor.get("/looks").json()
     assert cards[0]["id"] == "house" and cards[0]["on"]
     assert [c["id"] for c in cards[1:4]] == ["disney-pixar", "zack-d", "skeleton"]  # Reed's order
-    assert not any(c["on"] for c in cards[1:])
+    assert [c["id"] for c in cards[1:] if c["on"]] == ["movie"]  # Reed, 7 Nov: on the site
     assert {"song"}.isdisjoint(c["id"] for c in cards)  # formats aren't looks
 
 

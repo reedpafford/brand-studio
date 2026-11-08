@@ -151,7 +151,7 @@ export function ScriptFlowPage() {
   ) : (
     <>
       <FormatSetting script={s} />
-      <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} />
+      <LookSetting value={s.look} scriptId={s.id} queryKey={["script-lib", s.id]} readOnly={published} format={s.format} />
       {(mine || me?.role === "owner") && <ProjectPicker pick brandId={s.brand_id} kind="script" id={s.id} folderId={s.folder_id} />}
       {step === "script" && <ShapeChip />}
     </>

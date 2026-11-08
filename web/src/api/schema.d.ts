@@ -9252,6 +9252,16 @@ export interface components {
              * @default false
              */
             sample_stand_in: boolean;
+            /**
+             * Formats
+             * @default []
+             */
+            formats: string[];
+            /**
+             * Formats Why
+             * @default
+             */
+            formats_why: string;
         };
         /** LookSheetOut */
         LookSheetOut: {
