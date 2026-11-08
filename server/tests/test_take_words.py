@@ -254,3 +254,37 @@ def test_a_stand_in_dialogue_cut_trims_undoes_and_redoes_without_losing_a_word(
     assert editor.get(f"{base}/cut").json()["can_redo"]
     assert editor.post(f"{base}/cut/redo").status_code in (200, 201)
     assert editor.get(f"{base}/cut").json()["changes"] == 1  # the trim, back
+
+
+def test_a_short_line_heard_run_together_with_another_counts_as_said():
+    """Movie video 287 (Omni's own voices): "Oh." and "Hey." were flagged as not heard, and
+    "Hey, Granny means well." as unscripted (to mute), though both were said: Whisper ran each
+    into a neighbouring line. A line's words inside one heard line count as said, a one-word
+    line within its shot's window, and a heard line made of pieces of lines is no extra. The
+    words are 287's takes as the site heard them; take 2 of clip 1 really has no "Oh."."""
+    import json
+    from pathlib import Path
+
+    heard = json.loads((Path(__file__).parent / "fixtures/take_words_287.json").read_text())
+
+    def lines(*shots):  # (who, line, start, end), as the clip's shots time them
+        return [{"who": w, "text": t, "start": a, "end": b} for w, t, a, b in shots]
+
+    c1 = lines(("Granny", "Oh honey, congratulations! When are you due?", 0, 4),
+               ("Maya", "I'm not pregnant.", 4, 6), ("Granny", "Oh.", 6, 7))  # fmt: skip
+    c2 = lines(("Jess", "Hey.", 0, 1),
+               ("Jess", "Granny means well. That's not fat, Maya. That's bloat.", 1, 6),
+               ("Jess", "Your gut's backed up.", 6, 8),
+               ("Jess", "Mine was too.", 8, 10))  # fmt: skip
+    pouch = "Two of these every morning. Oil of oregano with black seed oil."
+    c3 = lines(("Jess", pouch, 0, 6),
+               ("Maya", "Resilia?", 6, 8),
+               ("Jess", "Thirty days. Now Granny asks me how I stay so flat.", 8, 13))  # fmt: skip
+
+    def found(said, take):
+        return [(f["kind"], f["text"]) for f in compare(said, heard[take], "Resilia", "", [])]
+
+    assert found(c1, "c1_take1") == []
+    assert found(c1, "c1_take2") == [("missing", "Not heard: Granny: “Oh.”")]  # said nowhere
+    assert found(c2, "c2_take1") == [] and found(c2, "c2_take2") == []
+    assert found(c3, "c3_take1") == []  # "30 days." is the start of its line, not an extra
