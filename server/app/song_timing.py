@@ -392,7 +392,9 @@ def measure(path: Path, lyrics: str, hear=words) -> dict:
     samples = _samples(path)
     bpm, beat_times = beats(samples, seconds)
     heard = hear(path, lyrics.strip())
-    if heard and covered(lyrics, heard) < COVERED:  # the lyrics as Whisper's prompt can lose
+    if (
+        covered(lyrics, heard) < COVERED
+    ):  # an empty read too (lyrics with no words: 1.0)  # the lyrics as Whisper's prompt can lose
         again = hear(path, lyrics.strip(), prompted=False)  # most of a read: hear it plainly
         heard = again if covered(lyrics, again) > covered(lyrics, heard) else heard
     sung = lines(

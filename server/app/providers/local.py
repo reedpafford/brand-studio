@@ -84,7 +84,9 @@ class LocalProvider:
         with tempfile.TemporaryDirectory(dir=self.root) as folder:
             song = Path(folder) / "song.mp3"
             song.write_bytes(self.storage.get(input["song_key"]))
-            hear = (lambda path, lyrics: []) if input.get("spread") else self.hear_song
+            hear = (
+                (lambda path, lyrics, prompted=True: []) if input.get("spread") else self.hear_song
+            )
             timing = song_timing.measure(song, input["lyrics"], hear=hear)
         return Result("succeeded", output={"timing": timing})
 

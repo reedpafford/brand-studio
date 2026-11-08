@@ -244,12 +244,13 @@ def test_a_song_read_that_lost_most_of_its_words_is_heard_again_without_the_prom
     so its lines would be judged missing and a paid song remade."""
     path = tmp_path / "song.mp3"
     path.write_bytes(song())
-    asked = []
+    for keep in (3, 0):  # a prompted read with only its end, or with nothing at all
+        asked = []
 
-    def hear(file, lyrics, prompted=True):
-        asked.append(prompted)
-        heard = hear_song(file, lyrics)
-        return heard if not prompted else heard[-3:]  # the prompted read kept only its end
+        def hear(file, lyrics, prompted=True, keep=keep, asked=asked):
+            asked.append(prompted)
+            heard = hear_song(file, lyrics)
+            return heard if not prompted else heard[len(heard) - keep :]
 
-    timing = song_timing.measure(path, LYRICS, hear=hear)
-    assert asked == [True, False] and len(timing["words"]) == len(hear_song(path, LYRICS))
+        timing = song_timing.measure(path, LYRICS, hear=hear)
+        assert asked == [True, False] and len(timing["words"]) == len(hear_song(path, LYRICS))
