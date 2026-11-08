@@ -495,16 +495,17 @@ def replanning(db: Session, project: Project) -> bool:
     run 276 approved the plan from before the note): a director turn, treatment or plan queued
     or running, or one finished that no director turn has read yet (the worker's next tick
     takes the next turn, so the chain has a gap between its steps). The card comes after its
-    plan, so neither happens on a card's own way in."""
+    plan, so neither happens on a card's own way in. Only the director's own steps wait to be
+    read: a plan a person made (Make a new plan) wakes no turn, so it never holds the card."""
     step = Job.input["step"].as_string()
     mine = (Job.project_id == project.id, step.in_(REPLANS))
     if db.scalar(select(Job.id).where(*mine, Job.status.in_((JobStatus.queued, JobStatus.running)))
                  .limit(1)) is not None:  # fmt: skip
         return True
-    made = db.scalar(select(func.max(Job.id)).where(*mine, step != "director",
-                                                    Job.status == JobStatus.succeeded))  # fmt: skip
-    read = db.scalar(select(func.max(Job.id)).where(*mine, step == "director"))
-    return made is not None and (read is None or made > read)
+    read = db.scalar(select(func.max(Job.id)).where(*mine, step == "director")) or 0
+    done = db.scalars(select(Job).where(*mine, step != "director", Job.id > read,
+                                        Job.status == JobStatus.succeeded)).all()  # fmt: skip
+    return any(j.input.get("director_run") or j.input.get("by_director") for j in done)
 
 
 def _money(db: Session, user: User, ask: Ask, project: Project, how: str) -> None:
