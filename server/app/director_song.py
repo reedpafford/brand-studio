@@ -82,11 +82,12 @@ def misheard(timing: dict | None, brand: str, script: str = "") -> list[dict] | 
 def _missing(take: SongTake, lines: list[dict]) -> list[str]:
     """Lines not heard as written. A song's: under HEARD of its words. A narration's: any word
     lost, by its letters against everything heard, as `letters` compares (one dropped
-    "probiotics" is a miss)."""
+    "probiotics" is a miss), its speaker label left out ("NARRATOR:", video 271)."""
     if take.kind != narration.KIND:
         return [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
     heard = narration.letters((take.timing or {}).get("words") or [])
-    return [x["text"] for x in lines if narration.letters([{"word": x["text"]}]) not in heard]
+    said = [(x["text"], check.narration_text(x["text"])) for x in lines]  # never a label
+    return [text for text, words in said if narration.letters([{"word": words}]) not in heard]
 
 
 def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dict:

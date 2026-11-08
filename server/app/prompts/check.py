@@ -1495,6 +1495,8 @@ def item_check(result: ItemCheck, ref_ids: list[str]) -> ItemCheck:
 
 
 VO = re.compile(r"V\.?\s?O\.?", re.I)  # "(V.O.)", "(VO)"
+# The narrator's own label, never read: "NARRATOR:", "VO:", "Voice-over (V.O.):"
+NARRATOR = re.compile(r"^(?:NARRATOR|VOICE[- ]?OVER|V\.?\s?O\.?)\s*(?:\([^)]*\))?:\s*", re.I)
 
 
 def narration_text(script: str) -> str:
@@ -1503,7 +1505,8 @@ def narration_text(script: str) -> str:
     scene headings, ★ brand lines, [tag] lines or directions ("CTA:", "SUPER:"), and never
     action lines when the script has speaker lines. Speaker lines count only in a script with
     scene headings, a V.O. label, or speakers on at least half its lines, so a prose line
-    that opens "Iron Paws: …" is read whole (Flow-QA on #858)."""
+    that opens "Iron Paws: …" is read whole (Flow-QA on #858); a narrator's own label
+    ("NARRATOR:") is never read, even on one line of prose (Zack D video 271)."""
     lines = [x.strip() for x in script.splitlines()]
     heads = any(x.startswith(("SCENE", "INT.", "EXT.")) for x in lines)
     lines = [x for x in lines if x and not x.startswith(("SCENE", "INT.", "EXT.", SCREEN_LINE))]
@@ -1512,7 +1515,7 @@ def narration_text(script: str) -> str:
     said = [(m, x) for x in lines if (m := LABEL.match(x))]
     vo = any(VO.fullmatch((m[3] or "").strip()) for m, _ in said)
     if not said or not (heads or vo or 2 * len(said) >= len(lines)):
-        return "\n".join(lines)
+        return "\n".join(NARRATOR.sub("", x) for x in lines)
     return "\n".join(x[m.end() :].strip() for m, x in said)
 
 

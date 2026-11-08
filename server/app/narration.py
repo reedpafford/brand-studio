@@ -264,9 +264,14 @@ def trim(path: Path, out: Path, longest: float = KEEP) -> Path | None:
     found = cuts(_levels(path), longest)
     if not found:
         return None
-    gone = "+".join(f"between(t,{a},{b})" for a, b in found)
-    keep = f"aselect='not({gone})',asetpts=N/SR/TB"
-    command = ["ffmpeg", "-v", "error", "-y", "-i", str(path), "-af", keep, str(out)]
+    spans = zip([0.0, *(b for _, b in found)], [*(f":end={a}" for a, _ in found), ""], strict=True)
+    n = len(found) + 1  # the pieces kept, cut sample-exact (atrim) and joined
+    graph = [f"[0:a]asplit={n}" + "".join(f"[s{k}]" for k in range(n)),
+             *(f"[s{k}]atrim=start={a}{end},asetpts=PTS-STARTPTS[k{k}]"
+               for k, (a, end) in enumerate(spans)),
+             "".join(f"[k{k}]" for k in range(n)) + f"concat=n={n}:v=0:a=1[out]"]  # fmt: skip
+    command = ["ffmpeg", "-v", "error", "-y", "-i", str(path), "-filter_complex",
+               ";".join(graph), "-map", "[out]", str(out)]  # fmt: skip
     done = subprocess.run(command, capture_output=True, timeout=song_timing.TIMEOUT)  # noqa: S603
     if done.returncode:
         raise ValueError("The narration's file can't be read.")
