@@ -111,8 +111,13 @@ def test_omni_reads_its_own_prompt_words_and_two_people(owner):
     assert model_map.ONE_SHOT not in spoken
     assert spoken.endswith(model_map.SPOKEN.format(room="kitchen sounds"))
     cast = ["frame:1", "char:1", "char:15", "char:150", "screen:2"]
-    assert model_map.unsent_people(model_map.OMNI, cast) == ("char:150",)
-    assert model_map.unsent_people("seedance-2.5", cast) == ()
+    assert model_map.unsent_pictures(model_map.OMNI, cast) == ("char:150",)
+    assert model_map.unsent_pictures("seedance-2.5", cast) == ()
+    # Past Omni's six pictures, a place, then the opening still, never a product (video 284)
+    full = ["frame:1", "char:1", "char:2", "char:3", "place:3", "screen:2", "screen:7", "prop:5"]
+    assert model_map.unsent_pictures(model_map.OMNI, full) == ("char:3", "place:3")
+    screens = ["frame:1", "char:1", "char:2", "screen:1", "screen:2", "screen:3", "screen:4"]
+    assert model_map.unsent_pictures(model_map.OMNI, screens) == ("frame:1",)
     assert not _out("char:15", ("char:150",)) and _out("char:150", ("char:",))
 
 

@@ -126,8 +126,8 @@ def _out(ref: str, drop: tuple[str, ...]) -> bool:
 def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...],
               known: dict) -> str:  # fmt: skip
     """A clip prompt with its dropped pictures said in words: a character's [ImageN] becomes
-    their name and sheet description, the opening still "the opening shot"; the pictures it
-    keeps are numbered again in order."""
+    their name and sheet description, a place its name, the opening still "the opening shot";
+    the pictures it keeps are numbered again in order."""
     from app.clip_prompts import TAGS_N
 
     kept = [i for i in images if not _out(i, drop)]
@@ -145,6 +145,8 @@ def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...]
             told = (item.notes or item.short_description or "").strip() if item else ""
             who = said.get(ref) or (item.name if item else "the character")
             return f"{who} ({told.rstrip('.')})" if told else who
+        if ref.startswith("place:"):
+            return said.get(ref) or "the place"
         return "the opening shot"
 
     return TAGS_N.sub(word, prompt)

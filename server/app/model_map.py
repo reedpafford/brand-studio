@@ -79,6 +79,7 @@ IMAGE = re.compile(r"\[Image(\d+)\]")
 SHOT = re.compile(r"^Shot \d+ \|", re.M)
 ORDINAL = ("first", "second", "third", "fourth", "fifth", "sixth")
 PEOPLE = 2  # Omni: 2 people a clip, 3 pictures each (§6); each sends one sheet
+PICTURES = 6  # Omni's reference pictures at most (the catalogue's max_reference_images)
 
 
 def _model(model_id: str):
@@ -347,14 +348,24 @@ def nearest(shape: str, shapes: list[str]) -> str:
 def left_out(look: str | None, model_id: str, shots: list[dict], images: list[str]
              ) -> tuple[str, ...]:  # fmt: skip
     """Every reference a take on this model leaves out and says in words instead."""
-    return unsent(look, model_id, shots) + unsent_people(model_id, images)
+    return unsent(look, model_id, shots) + unsent_pictures(model_id, images)
 
 
-def unsent_people(model_id: str, images: list[str]) -> tuple[str, ...]:
+def unsent_pictures(model_id: str, images: list[str]) -> tuple[str, ...]:
     """On Omni, the characters past its first two people (each has one sheet, within its 3 a
-    person): left out of the pictures and described in words instead (clip_takes._in_words)."""
-    people = [i for i in images if i.startswith("char:")]
-    return tuple(people[PEOPLE:]) if model_id == OMNI else ()
+    person), then, while the pictures still pass its six, the places and the opening still:
+    left out and said in words instead (clip_takes._in_words), so a product or a screen is
+    never the picture its limit cuts (video 284: the real pouch must reach the clip)."""
+    if model_id != OMNI:
+        return ()
+    out = [i for i in images if i.startswith("char:")][PEOPLE:]
+    over = len(images) - len(out) - PICTURES
+    for kind in ("place:", "frame:"):
+        for i in images:
+            if over > 0 and i.startswith(kind):
+                out.append(i)
+                over -= 1
+    return tuple(out)
 
 
 def _guide(m: re.Match, prompt: str, sent: int) -> str:
