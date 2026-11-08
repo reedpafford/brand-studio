@@ -174,6 +174,26 @@ def test_two_refusals_that_point_at_each_other_stop_the_run(app, db, owner, edit
     assert "no drawn still for shot 9.9" in out["ended"] and "no clip 9" in out["ended"]
 
 
+def test_refusals_that_wait_on_something_being_made_never_stop_the_run(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1457: "The host is being made" refused, then another step, then the first
+    again would go: while anything of the video is being made, it's never a loop."""
+    monkeypatch.setattr(director, "MAX_TURNS", 16)
+    real, steps = director.choose, iter(range(10**6))
+    ping = {"tool": "redraw_still", "shot_id": "9.9", "note": "Alone.", "why": "Ping."}
+    pong = {"tool": "make_take", "clip_id": "c9", "take_id": None, "note": "", "why": "Pong."}
+    monkeypatch.setattr(director, "choose", lambda state: (ping, pong)[next(steps) % 2]
+                        if state["clips"] and all(c["takes"] for c in state["clips"])
+                        else real(state))  # fmt: skip
+    monkeypatch.setattr(director, "_moved", lambda *a: True)  # as while a take is made
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["ended"] == "It stopped after 16 turns."  # never "refused again"
+
+
 def test_past_the_budget_it_waits_for_the_owner_then_goes_on(app, db, owner, editor):
     pid = _made(app, owner, editor, db)
     project = db.get(Project, pid)

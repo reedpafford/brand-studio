@@ -183,7 +183,7 @@ def to_finish(db: Session, project: Project) -> Decimal:
     stills, clips = out_of_date(db, project)
     left = sum(Decimal(str(s.credits)) for s in _stages(db, project))
     redo = len(stills) * storyboard.still_price(db, project)
-    redo += sum((clip_takes.take_credits(db, project, c) for c in clips), Decimal(0))
+    redo += clip_takes.takes_price(db, project, clips)
     return (left + redo).quantize(Decimal("0.01"))
 
 

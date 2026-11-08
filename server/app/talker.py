@@ -37,21 +37,22 @@ STILL_PROMPT = (
     "parted. Nothing covers the face: no sunglasses, no hat brim, no hand near the mouth. They "
     "are {where}, in focus behind them, lit by soft daylight from the front. A real vertical "
     "phone photo, unretouched: natural skin with pores, no studio light, no shallow-focus blur, "
-    "only this one person in it, nobody else in the frame or behind them."
+    "only this one person in it, alone in the frame."
 )  # HeyGen: a clear, front-facing, evenly lit portrait, the whole head in frame, one person
 ROOM = "in their own real, lived-in room that says who they are"  # with no plan to say where
 EXPRESSIVENESS = "high"  # HeyGen: high, medium or low ("energy and range of movement")
 MOTION = (
     "They stay where they are and talk straight into the phone lens like a real selfie video: "
     "small natural head nods and tilts, blinks, eyebrows and mouth that move with the feeling "
-    "of the words. The phone is locked off: no camera movement."
+    "of the words. The camera stays locked off the whole time."
 )  # when the director writes none (Make the host pressed by a person)
-ALONE = ("Nobody else appears: no one steps in, leans in or stands behind them, and the place "
-         "stays as the picture shows it.")  # fmt: skip  # every talker take (host._piece)
+ALONE = ("They are alone in the frame the whole time; the place behind them stays exactly as "
+         "the picture shows it, still and empty.")  # fmt: skip  # every talker take: said as what
+# is there, never as what isn't (#1392's HeyGen notes: a negative can suggest it; 281's strangers)
 LONGEST_MOTION = 600  # characters: a motion note is a few sentences
 SAID = ("The talker says this clip: its picture is cut from the talker's take. To change how "
-        "the talker looks or where they are, draw the talker's still again with a note: their "
-        "take is made again from it.")  # fmt: skip
+        "the talker looks or where they are, press Make it again on the presenter in the "
+        "Cast tab: their still is drawn again and their take made from it.")  # fmt: skip
 NO_SHOTS = ("The plan has no talker shots, so the talker would never be seen. Plan again with "
             "the talker on screen for the hook, the turns and the close.")  # fmt: skip
 TOO_LONG = "The narration runs past HeyGen's 10 minutes. Shorten the script to make the talker."

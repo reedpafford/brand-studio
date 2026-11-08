@@ -120,8 +120,7 @@ def redo_credits(db: Session, project) -> float:
     frames = db.scalars(select(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
     clips = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id))
     stills = sum(frame_other(project, f) for f in frames) * storyboard.still_price(db, project)
-    takes = sum(clip_takes.take_credits(db, project, c) for c in clips
-                if take_other(db, project, c))  # fmt: skip
+    takes = clip_takes.takes_price(db, project, [c for c in clips if take_other(db, project, c)])
     return float(stills + takes)
 
 

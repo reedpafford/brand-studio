@@ -53,7 +53,10 @@ def _now():
 # --- The director's move --------------------------------------------------------------------
 
 
-PAID = re.compile(r"\b(?:paid|costs?|charged?|credits?|price[ds]?|pay)\b|\$\d", re.I)
+PAID = re.compile(  # a choice that makes something (paid), never a story about money (rule 37:
+    # "End on his balance at $418,260", "It costs him the girlfriend", QA on #1457)
+    r"\b(?:paid|costs?\s+more|extra\s+cost|credits|remake|redo|redraw|another\s+(?:try|take)"
+    r"|make\s+(?:\w+\s+){0,4}again)\b", re.I)  # fmt: skip
 PAID_CHOICE = ("Refused: a story choice goes with your pick at its time, so it's never one that "
                "costs (a spending OK never decides itself). Make that step with its own tool: "
                "its card shows its \"up to\" and waits for the owner's OK. A talker's picture: "

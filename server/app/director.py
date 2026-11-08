@@ -956,9 +956,10 @@ def _act(db: Session, job: Job, storage) -> None:
     if tool == "redraw_still":  # the review's redraws: twice a still, a run
         from app.still_review import REDRAWS
 
-        sid = decision.get("shot_id") or ""
+        sid = _still_key(db, project, decision)
         if run.get("redraws", {}).get(sid, 0) >= REDRAWS:
-            return _record(db, job, run, f"Refused: shot {sid} was drawn again {REDRAWS} times.")
+            what = "the talker's still" if sid == TALKER else f"shot {sid}"
+            return _record(db, job, run, f"Refused: {what} was drawn again {REDRAWS} times.")
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
@@ -982,9 +983,21 @@ def _act(db: Session, job: Job, storage) -> None:
     if replan and not result.startswith("Refused"):
         run["replans"] = run.get("replans", 0) + 1
     if tool == "redraw_still" and not result.startswith("Refused"):
-        sid = decision.get("shot_id") or ""
+        sid = _still_key(db, project, decision)
         run["redraws"] = {**run.get("redraws", {}), sid: run.get("redraws", {}).get(sid, 0) + 1}
     _record(db, job, run, result)
+
+
+TALKER = "talker"  # a run's redraws of the talker's one still, whichever of their shots asked
+
+
+def _still_key(db: Session, project: Project, decision: dict) -> str:
+    """What a redraw counts against: its shot's still, or for any of a talker's shots their one
+    still, which makes a whole HeyGen take again each time (QA on #1457: twice a run in all)."""
+    from app import talker
+
+    sid = decision.get("shot_id") or ""
+    return TALKER if sid and talker.shot(db, project, sid) else sid
 
 
 def _answered_at_once(db: Session, project: Project, run: dict, job: Job, result: str) -> bool:
@@ -1091,11 +1104,12 @@ def _over_others(text: str, span: list[float], said: list[dict]) -> bool:
 
 def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
     """The same tool, as it was, right after it was refused, or after one other refused step
-    in between (video 281: redraw_still and host, each refused pointing at the other): the
-    refusal (else None). Nothing changed, so it would be refused again; the run stops and says
-    why. Asking to watch the same cut again never stops it: it's told to fix something or
-    deliver (QA on #1145)."""
-    rows = [j for j in turns(db, db.get(Project, job.project_id)) if j.id < job.id]
+    in between (video 281: redraw_still and host, each refused pointing at the other), with
+    nothing of the video being made or done since: the refusal (else None). Nothing changed,
+    so it would be refused again; the run stops and says why. Asking to watch the same cut
+    again never stops it: it's told to fix something or deliver (QA on #1145)."""
+    project = db.get(Project, job.project_id)
+    rows = [j for j in turns(db, project) if j.id < job.id]
     keys = ("tool", "clip_id", "take_id", "note", "edit")
     said = []
     for before in rows[-2:][::-1]:  # the last turn, then the one before it
@@ -1104,10 +1118,21 @@ def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
             return None  # something went between: not a loop
         said.append(result.removeprefix("Refused: "))
         if all((before.output or {}).get(k) == decision.get(k) for k in keys):
-            if "being rewritten to fit" in result:  # its prompt is rewritten since: its take
-                return None  # may go (video 271: its take never followed the rewrite)
+            if "being rewritten to fit" in result or _moved(db, project, before):
+                return None  # (video 271: its take never followed the rewrite)
             return " Then: ".join(reversed(said))
     return None
+
+
+def _moved(db: Session, project: Project, since: Job) -> bool:
+    """Something of the video is being made, or was made or asked for, since `since` (a
+    refused turn): a refusal that waited ("The host is being made") may go now (QA on #1457)."""
+    if _waiting(db, project):
+        return True
+    step = Job.input["step"].as_string()
+    return bool(db.scalar(select(Job.id).where(
+        Job.project_id == project.id, or_(step.is_(None), step != STEP),
+        or_(Job.id > since.id, Job.finished_at >= since.created_at)).limit(1)))  # fmt: skip
 
 
 def _record(db: Session, job: Job, run: dict, result: str) -> None:

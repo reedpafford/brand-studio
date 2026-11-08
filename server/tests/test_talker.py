@@ -12,6 +12,7 @@ import httpx2 as httpx
 import pytest
 
 from app import (
+    director,
     director_song,
     director_tools,
     guides,
@@ -114,6 +115,8 @@ def test_the_directors_motion_note_makes_the_talker_and_a_remake_keeps_it(app, d
         f"{note} {talker.ALONE}"
     )  # nobody else in it, whatever the note (video 281)
     assert talker.motion(" ") == talker.MOTION and len(talker.motion("x" * 900)) == 600
+    for said in (talker.ALONE, talker.MOTION):  # said as what's there (#1392: no negatives)
+        assert not re.search(r"\b(?:no|nobody|never|not)\b", said, re.I), said
     heard = db.get(SongTake, video.song_take_id).timing["pace"]  # measured, then set from it
     want = director_song.target(db, video)
     assert want == (3.3, 3.5) and director_song.state(db, video)["pace_wanted"] == want
@@ -281,6 +284,11 @@ def test_a_talker_with_the_wrong_picture_is_redrawn_with_a_note_and_its_take_fol
     picked = db.get(ClipTake, row.picked_take_id)
     assert picked.made_with["model"] == talker.MODEL  # "Made on HeyGen", never Omni
     assert take_credits(db, video, row) == host.price(db, video, 1)  # the talker's take
+    from app.clip_takes import takes_price
+
+    every = db.query(ProjectClip).filter_by(project_id=video.id).all()
+    broll = sum(take_credits(db, video, c) for c in every if c.clip_id not in mine)
+    assert takes_price(db, video, every) == broll + host.price(db, video, 1)  # once, together
     shot = next(c["shot_ids"][0] for c in newest(db, video).data["clips"] if c["id"] == mine[0])
     note = "Alone in the driver's seat of his parked car, nobody behind him."
     marked = DIRECTOR_TOOL.set(True)
@@ -292,6 +300,12 @@ def test_a_talker_with_the_wrong_picture_is_redrawn_with_a_note_and_its_take_fol
     assert said.startswith("Drawing the host's still again"), said
     redrawn = _steps(db, video, host.STILL)[-1]
     assert f"Change from the last still: {note}" in redrawn.input["input"]["prompt"]
+    plan = newest(db, video).data  # QA on #1457: each redraw makes a whole HeyGen take again,
+    talks = [s for c in plan["clips"] if c["id"] in mine for s in c["shot_ids"]]  # so all
+    broll = next(s for c in plan["clips"] if c["id"] not in mine for s in c["shot_ids"])
+    keys = {director._still_key(db, video, {"shot_id": s}) for s in talks}  # their shots
+    assert keys == {director.TALKER} and director._still_key(db, video, {"shot_id": broll}) == (
+        broll)  # share one count (twice a run); a B-roll still keeps its own  # fmt: skip
     _run(app, db, ticks=20)
     db.expire_all()
     still = host.rows(db, video)[0]

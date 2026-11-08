@@ -165,6 +165,13 @@ def test_a_story_choice_shows_its_pick_and_goes_with_it_after_its_time(app, db, 
     assert asks.asked(db, db.get(Project, pid), None, {**move, "choices": paid}) == (
         asks.PAID_CHOICE
     )  # a spending OK never decides itself: never a story choice
+    for story in ("End on his balance at $418,260", "The coin price crashes first",
+                  "Danny has to pay up", "It costs him the girlfriend",
+                  "Skip the credit card gag"):  # fmt: skip  # fomo's endings: about money, asked
+        assert not asks.PAID.search(story), story
+    for paid in ("Remake clip 2", "Another take of the hook", "Make his confession again",
+                 "Redraw the still", "It costs more", "Up to 12 credits"):  # fmt: skip
+        assert asks.PAID.search(paid), paid
     ask = _ask(db, pid, move)
     card = _card(owner, ask)
     assert card["pick"] == "A" and card["choices"][0]["why"] == "Clear before and after."

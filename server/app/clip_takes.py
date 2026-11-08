@@ -706,6 +706,17 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
     return take + take_watch.rides(db, project, clip)
 
 
+def takes_price(db: Session, project: Project, clips) -> Decimal:
+    """One more take of each clip, the talker's clips once together: one HeyGen take of the
+    whole narration makes them all (QA on #1457)."""
+    from app import talker
+
+    rows = list(clips)
+    said = [c for c in rows if talker.says(db, project, c)]
+    each = sum((take_credits(db, project, c) for c in rows if c not in said), Decimal(0))
+    return each + (take_credits(db, project, said[0]) if said else Decimal(0))
+
+
 def save_take(db: Session, job: Job) -> None:
     """A new take: numbered, and picked (the newest take is picked when it arrives)."""
     clip = db.get(ProjectClip, job.input["project_clip_id"])
