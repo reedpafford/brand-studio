@@ -214,9 +214,20 @@ def refusal(problems: list[str] | None, before: str, after: str) -> list[str]:
 
 # asset id -> (line for the prompt, kind for Seedance, its file ids)
 Assets = dict[str, tuple[str, str, list[int]]]
-# One call writes at most this many clips or shots: every clip of a long video in one answer
-# ran out of room (the output limit, thinking included) and failed the whole run.
-BATCH_CLIPS, BATCH_SHOTS = 3, 12
+# Each clip is asked on its own, all at once (speed, Reed 8 Nov): every clip of a long video in
+# one answer once ran out of room, and a few at a time were written one call after another.
+PART_TOKENS = 16000  # one clip's answer, its thinking included
+# A clip's part is priced at half a Claude call: a one-clip answer reading the cached prompt
+# (261–284's runs cost $0.45–0.57 for their clips, about $0.07–0.10 a clip, plus up to a quarter
+# for asking each on its own); a run is never priced under one call (its cache is written once).
+PART_CALLS = Decimal("0.5")
+
+
+def priced(clips: int) -> Decimal:
+    """A run of this many clips' prompts, in Claude calls, as its price counts them."""
+    return max(PART_CALLS * clips, Decimal(1))
+
+
 UNWRITTEN = "This clip's prompt wasn't written"
 
 
@@ -242,21 +253,9 @@ def assets(db: Session, project: Project) -> Assets:
     return out
 
 
-def batches(bd: Breakdown, clip_ids: list[str] | None = None) -> list[list[str]]:
-    """The clips in calls of a few clips each (BATCH_CLIPS clips or BATCH_SHOTS shots at
-    most); a long montage clip gets a call of its own."""
-    out: list[list[str]] = []
-    shots = 0
-    for clip in bd.clips:
-        if clip_ids is not None and clip.id not in clip_ids:
-            continue
-        n = len(clip.shot_ids)
-        if not out or len(out[-1]) >= BATCH_CLIPS or shots + n > BATCH_SHOTS:
-            out.append([])
-            shots = 0
-        out[-1].append(clip.id)
-        shots += n
-    return out
+def written(bd: Breakdown, clip_ids: list[str] | None = None) -> list[str]:
+    """The clips a run writes, in order: one Claude call (a part) and one price each."""
+    return [c.id for c in bd.clips if clip_ids is None or c.id in clip_ids]
 
 
 def _prompts_step(db: Session, project: Project) -> str:
@@ -271,10 +270,11 @@ def _prompts_step(db: Session, project: Project) -> str:
 def job_input(
     db: Session, project: Project, bd: BreakdownVersion, clip_ids: list[str] | None = None
 ) -> dict:
-    """One job, one price: Claude is asked a few clips at a time (`parts`), so no answer runs
-    out of room."""
+    """One job, one price: Claude is asked one clip a part (`parts`), all at once after the
+    first has begun (providers/claude), each reading the same cached breakdown, so the run
+    takes about as long as its slowest clip."""
     system, _ = project_context(db, project, _prompts_step(db, project))
-    groups = batches(Breakdown.model_validate(bd.data), clip_ids)
+    ids = written(Breakdown.model_validate(bd.data), clip_ids)
     lines = "\n".join(dict.fromkeys(line for line, _, _ in assets(db, project).values()))
     prompt = "\n".join(
         [
@@ -287,7 +287,7 @@ def job_input(
 
     if told := treatment_block(db, project):  # the story it serves (the director's treatment)
         prompt = f"{prompt}\n{told.rstrip()}"
-    if limits := prompt_limits(db, project, [c for g in groups for c in g]):
+    if limits := prompt_limits(db, project, ids):
         prompt = f"{prompt}\n{limits}"
     return {
         "step": "clip_prompts",
@@ -295,37 +295,43 @@ def job_input(
         "breakdown_id": bd.id,
         "system": system,
         "prompt": prompt,
-        "max_tokens": 32000,
-        "batches": groups,
+        "max_tokens": PART_TOKENS,
+        "batches": [[c] for c in ids],  # each part's clips, for a part that fails
         "parts": [
-            f'<write clips="{", ".join(g)}">Write the prompts for these clips only: '
-            f"{', '.join(g)}. The other clips are written separately.</write>"
-            for g in groups
+            f'<write clips="{c}">Write the prompt for this clip only: {c}. The other clips are '
+            "written separately, from the same breakdown.</write>"
+            for c in ids
         ],
     }
 
 
 def prompt_limits(db: Session, project: Project, clip_ids: list[str]) -> str:
-    """The longest prompt each clip's model takes, as the writer is told it (Seedance 2.0:
-    4000 characters; 245's were written for 2.5 at 4038–4780 and refused): one line a model,
-    naming its clips, with room left for the language line and a Redo note. "" when none has a
-    limit."""
+    """How long each clip's prompt is written, as the writer is told it: one line a model,
+    naming its clips, with the length its prompts aim for (well under any limit: concise
+    prompts follow the official guides and are written faster) and, where the model has one,
+    the longest it takes with room left for the language line and a Redo note (Seedance 2.0:
+    4000 characters; 245's were written for 2.5 at 4038–4780 and refused). "" when no model
+    says either."""
     from app.clip_takes import ROOM
     from app.model_map import of_clip
 
     rows = {r.clip_id: r for r in db.scalars(select(ProjectClip).where(
         ProjectClip.project_id == project.id, ProjectClip.clip_id.in_(clip_ids)))}  # fmt: skip
-    capped: dict[tuple[str, int], list[str]] = {}
+    said: dict[tuple[str, int, int], list[str]] = {}
     for c in clip_ids:
         m = of_clip(project, rows.get(c))
-        if m.prompt_max:
-            capped.setdefault((m.name, m.prompt_max), []).append(c)
-    return "\n".join(
-        f"<limit>{', '.join(ids)} {'is' if len(ids) == 1 else 'are'} made on {name}, which takes a "
-        f"prompt of at most {most} characters: write {'its' if len(ids) == 1 else 'each'} prompt "
-        f"in under {most - ROOM} characters.</limit>"
-        for (name, most), ids in capped.items()
-    )
+        if m.prompt_target or m.prompt_max:
+            said.setdefault((m.name, m.prompt_target, m.prompt_max), []).append(c)
+    out = []
+    for (name, target, most), ids in said.items():
+        one = len(ids) == 1
+        about = f" in about {target:,} characters" if target else ""
+        cap = f", never over {most - ROOM:,} (it takes at most {most:,})" if most else ""
+        out.append(
+            f"<limit>{', '.join(ids)} {'is' if one else 'are'} made on {name}: write "
+            f"{'its' if one else 'each'} prompt{about}{cap}.</limit>"
+        )
+    return "\n".join(out)
 
 
 def cause(error: str, detail: str = "") -> str:
@@ -1227,10 +1233,10 @@ def to_rewrite(db: Session, project: Project, clip_id: str | None = None) -> lis
     return [i for i in ids if i in stale or i not in have] if rows else []
 
 
-def calls(db: Session, project: Project, clip_ids: list[str] | None = None) -> int:
-    """How many Claude calls writing these clips' prompts takes (a few clips each)."""
+def calls(db: Session, project: Project, clip_ids: list[str] | None = None) -> Decimal:
+    """Writing these clips' prompts, in Claude calls as priced (`priced`)."""
     bd = newest(db, project)
-    return max(len(batches(Breakdown.model_validate(bd.data), clip_ids)) if bd else 0, 1)
+    return priced(len(written(Breakdown.model_validate(bd.data), clip_ids)) if bd else 0)
 
 
 def rewrite_price(db: Session, project: Project, clip_ids: list[str] | None = None) -> Decimal:
@@ -1238,7 +1244,7 @@ def rewrite_price(db: Session, project: Project, clip_ids: list[str] | None = No
     3-credit price). The charge is the real cost, never above this (worker)."""
     from app.credits import estimate
 
-    return estimate(db, project.workspace_id, "write-claude", Decimal(calls(db, project, clip_ids)))
+    return estimate(db, project.workspace_id, "write-claude", calls(db, project, clip_ids))
 
 
 def _waiting(db: Session, project: Project) -> set[str]:
@@ -1263,7 +1269,7 @@ def queue_rewrite(
     if "clip_prompts" in waiting:
         raise HTTPException(409, "Clip prompts are already being written for this project.")
     data = {**job_input(db, project, bd, clip_ids), "clip_ids": clip_ids, **(extra or {})}
-    units = max(len(data["batches"]), 1)  # one price per Claude call
+    units = calls(db, project, clip_ids)  # half a Claude call a clip
     return enqueue(db, user, "write-claude", data, units=units, project=project,
                    provider="claude", prepaid=prepaid)  # fmt: skip
 

@@ -15,7 +15,7 @@ def brand_for(db: Session, project: Project | None, input: dict) -> int | None:
         return project.brand_id
     if input.get("brand_id"):
         return input["brand_id"]
-    script_id = input.get("script_id")
+    script_id = input.get("script_id") or input.get("on_script")  # a script's song or narration
     if script_id is None and input.get("script_draft_id"):
         script_id = db.scalar(
             select(ScriptDraft.script_id).where(ScriptDraft.id == input["script_draft_id"])

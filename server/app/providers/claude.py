@@ -3,6 +3,7 @@
 errors are safe to retry; a dropped connection is treated as "unsure", like other paid work."""
 
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 
@@ -12,7 +13,7 @@ from app.claude import ClaudeError, ask, make_client
 from app.prompts import SCHEMAS
 from app.providers import NetworkError, NoKey, NotStarted, Result, UsageItem
 
-PARALLEL = 4  # parts asked at once (a clip prompt run's parts were asked one after another)
+PARALLEL = 8  # parts asked at once: a clip prompt run is one part a clip
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")  # all but tab, newline, return
 
 
@@ -45,26 +46,32 @@ class ClaudeProvider:
     def run(self, kind: str, input: dict) -> Result:
         """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}, and for a
         check that looks at pictures, "files": {"reference_images": [file ids]}, sent as data
-        URLs. With "parts" (e.g. clip prompts, a few clips each), each part is asked on its
-        own after the shared prompt, so no answer runs out of room: the first alone (it writes
-        the shared prompt's cache), then the rest up to PARALLEL at once, reading it (each sees
-        only the shared prompt, never another part's answer), and their lists are
+        URLs. With "parts" (e.g. clip prompts, one clip each), each part is asked on its
+        own after the shared prompt, so no answer runs out of room: the first goes alone until its
+        answer begins (by then it has written the shared prompt's cache: a cache is readable
+        once its answer starts streaming), then the rest, up to PARALLEL at once, read it (each
+        sees only the shared prompt, never another part's answer), and their lists are
         joined in part order; a part that fails is listed in "failed_parts" ({part, error}) and
         the rest are kept. All of them failing fails the job."""
         parts = input.get("parts") or [""]
+        begun = threading.Event()
 
-        def one(part: str):
+        def one(part: str, first: bool = False):
             try:
                 if not part:
                     return self._ask(input, input["prompt"])
-                return self._ask(input, part, shared=input["prompt"])
+                return self._ask(input, part, shared=input["prompt"],
+                                 started=begun.set if first else None)  # fmt: skip
             except (ClaudeError, NotStarted, NetworkError) as exc:
                 return exc
+            finally:
+                begun.set()  # never leave the rest waiting on a part that failed early
 
-        answers = [one(parts[0])]  # alone first: it writes the shared prompt's cache
-        if rest := parts[1:]:
-            with ThreadPoolExecutor(max_workers=min(PARALLEL, len(rest))) as pool:
-                answers += pool.map(one, rest)  # in part order, whichever finished first
+        with ThreadPoolExecutor(max_workers=min(PARALLEL, len(parts))) as pool:
+            first = pool.submit(one, parts[0], True)
+            begun.wait()  # its answer has begun: the shared prompt is cached for the rest
+            rest = [pool.submit(one, part) for part in parts[1:]]
+            answers = [first.result(), *(f.result() for f in rest)]  # in part order
         output: dict = {}
         failed, cost, unasked, tokens = [], Decimal(0), [], {}
         for i, answer in enumerate(answers):
@@ -89,7 +96,7 @@ class ClaudeProvider:
             output["failed_parts"] = failed
         return Result("succeeded", output=output, usage=usage)
 
-    def _ask(self, input: dict, prompt: str, shared: str = ""):
+    def _ask(self, input: dict, prompt: str, shared: str = "", started=None):
         if not self._key:
             raise NoKey("Claude")
         client = self._client or make_client(self._key)
@@ -103,6 +110,7 @@ class ClaudeProvider:
                 images=(input.get("input") or {}).get("reference_images", []),
                 shared=shared,
                 cache_ttl=LONG_CACHE.get(input["step"], "5m"),
+                started=started,
                 **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
         except (

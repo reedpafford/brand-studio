@@ -232,6 +232,9 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
                           and song_takes.reread_once(db, t)), None):  # fmt: skip
             song_takes.reread(db, again, user)
             return f"Reading take {again.number}'s timing again: free."
+        if fetched := next((t for t in takes if song_takes.fetch_again(db, t, once=True)), None):
+            song_takes.try_again(db, user, fetched)  # made and paid for, only not saved
+            return f"Fetching the {what} again: it was made, only saving it failed. Free."
         failed = takes
         reason = song_takes.state(db, failed[0])[1] or ""
         if reason in REFUSED or run.get("song_retries", 0) >= 1:  # the same would fail again

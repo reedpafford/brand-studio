@@ -134,6 +134,15 @@ def test_a_shared_prompt_is_cached_before_the_part():
     assert [b.get("cache_control") for b in content] == [{"type": "ephemeral"}, None]
 
 
+def test_started_is_said_once_the_answer_begins_and_the_answer_is_whole():
+    """A run's other parts start once the first part's answer begins (its cache is then
+    readable): reading the first event never loses any of the answer."""
+    calls = []
+    answer = ask(_client(_reply(), []), system=["Rules."], prompt="p", schema=EnhanceResult,
+                 started=lambda: calls.append(1))  # fmt: skip
+    assert calls == [1] and answer.parsed.suggestions[0].kind == "brand_screen"
+
+
 def test_a_step_that_comes_back_after_5_minutes_caches_its_rules_for_an_hour():
     """Cost analysis A1: the director's turns (and take watches) come back after more than 5
     minutes while takes render, and each time the 5-minute cache had expired: its ~30k tokens

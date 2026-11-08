@@ -179,3 +179,32 @@ def test_a_delivered_revisions_turn_input_reads_its_last_actions(app, db, owner,
     shown = director.turn_input(db, project, run)["prompt"]
     assert "<last_actions>" in shown and '"revision": true' in shown
     assert director.NOT_MADE in shown and director.START_FIRST not in shown
+
+
+def test_an_owners_long_note_reaches_the_director_whole_and_is_never_cut(app, db, owner,
+                                                                         editor):  # fmt: skip
+    """F16 (Reed, 8 Nov: "a revision note is never silently cut"). A note past the chat box's
+    old 2,000 is read whole in <chat>; past 20,000 it's refused at send, in plain words. The
+    stand-in can't say a long note shorter, so it makes nothing for it and names it."""
+    import json
+
+    pid = _delivered(app, db, owner, editor)
+    first = db.query(Job).order_by(Job.id.desc()).first().id
+    sent = f"/projects/{pid}/director/messages"
+    no = owner.post(sent, json={"text": "x" * 20_001})
+    assert no.status_code == 422 and no.json()["detail"][0]["msg"] == (
+        "This note is 20,001 characters; the most is 20,000. Send it as two notes.")  # fmt: skip
+    note = ("Clip 1 needs four things. Warmer light, like late sun through the window. She "
+            "smiles only at the very end. One mug on the counter, hers. "
+            + "Why: the brand wants a calm, honest morning. " * 45
+            + "And end on the pouch held still for a beat.")  # fmt: skip
+    assert len(note) > 2000
+    assert owner.post(sent, json={"text": note}).status_code == 201
+    _run(app, db, ticks=4, start=False)
+    project = db.get(Project, pid)
+    run = director.turns(db, project)[-1].input[director.RUN]
+    assert json.dumps(note) in director.turn_input(db, project, run)["prompt"]  # whole
+    _run(app, db)
+    assert not _since(db, pid, first, "clip_take")  # never made from a cut note
+    said = owner.get(f"/projects/{pid}/director").json()["thread"][-1]["text"]
+    assert "Note 1: it's longer than one redo note carries (500 characters)" in said, said

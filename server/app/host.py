@@ -298,7 +298,7 @@ def still_input(db: Session, project: Project, row: HostPiece, note: str = "") -
     where = (f"exactly where {shown} shows them, its place and light, alone" if place
              else talker.where(db, project))  # fmt: skip
     said = (talker.STILL_PROMPT if talks else STILL_PROMPT).format(who=who, where=where)
-    said += f" Change from the last still: {note.strip()[:500]}" if note.strip() else ""
+    said += f" Change from the last still: {note.strip()}" if note.strip() else ""
     pictures = [*sheet, *([place] if place else [])]
     job = drawn(image_model(project), said, project.aspect_ratio, pictures)
     return {**job, "step": STILL, "project_id": project.id, "host_piece_id": row.id,

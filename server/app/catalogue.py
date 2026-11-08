@@ -47,6 +47,9 @@ class CatalogueModel(BaseModel):
     audio: Literal["switch", "always"] | None = None
     lip_sync: bool = False  # video models: a song slice sets the mouth (Sung shots, VS1)
     prompt_max: int = 0  # the longest prompt it takes, in characters (0: none stated)
+    # about how long a clip prompt for it is written, in characters, well under any limit:
+    # BytePlus keeps Seedance prompts under 600 words; Omni fills in detail itself (0: none)
+    prompt_target: int = 0
     price: Price
     price_source: str
 

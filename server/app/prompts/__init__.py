@@ -138,6 +138,27 @@ def _picked(title: str, intro: str, sections: dict, step: str) -> str:
     return f"## {title}\n{intro}\n\n" + "\n\n".join(v for _, v in found) if found else ""
 
 
+LEAVES = re.compile(r"^<!-- Leaves out of the step above[^:]*: (.*?) -->\n", re.M)
+TITLE = re.compile(r"\*\*[^*]+\*\*")
+
+
+def _leaves_out(text: str) -> tuple[str, list[str]]:
+    """A step that extends another (EXTENDS) may leave out some of its paragraphs, named by
+    their bold titles on a "Leaves out of the step above" line (a narrated video's steps
+    leave out the ones for spoken lines): the text without that line, and the titles."""
+    found = LEAVES.search(text)
+    return (LEAVES.sub("", text), TITLE.findall(found[1])) if found else (text, [])
+
+
+def _without(text: str, titles: list[str]) -> str:
+    """The text without the paragraphs that open with these bold titles."""
+    paragraphs = text.split("\n\n")
+    kept = [p for p in paragraphs if not any(p.startswith(t) for t in titles)]
+    if len(paragraphs) - len(kept) != len(titles):
+        raise ValueError(f"a paragraph to leave out isn't there: {titles}")
+    return "\n\n".join(kept)
+
+
 @cache
 def system(step: str, style_id: str = "house", fmt: str = "", picked: str = "",
            broll: str = "") -> str:  # fmt: skip
@@ -151,8 +172,10 @@ def system(step: str, style_id: str = "house", fmt: str = "", picked: str = "",
     broll = broll if step in guides.BRIEFED and broll != style_id else ""
     shots = broll or style_id  # the look the step's shots are drawn in
     parts = [] if step in NO_RULES else [(HERE / "rules.md").read_text()]
-    for name in filter(None, [EXTENDS.get(step), step]):
-        parts.append(guides.fill((HERE / f"{name}.md").read_text(), shots))
+    own, gone = _leaves_out((HERE / f"{step}.md").read_text())
+    if base := EXTENDS.get(step):
+        parts.append(guides.fill(_without((HERE / f"{base}.md").read_text(), gone), shots))
+    parts.append(guides.fill(own, shots))
     if ex := guides.example(form["id"], step):
         ex = _in_look(ex, shots)
         parts.append(

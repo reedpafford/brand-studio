@@ -16,12 +16,17 @@ from app.providers import Result
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".png": "image/png"}
 
 
-def _heard(path: Path, sounds: bool = False, words: bool = False) -> list[dict]:
+def _heard(path: Path, sounds: bool = False, words: bool = False,
+           first: bool = False) -> list[dict]:  # fmt: skip
     """Whisper's words for a take or a cut; nothing to hear in a file with no audio track (a
-    silent take: Seedance 1 Lite, or nobody speaking), where whisper would crash."""
+    silent take: Seedance 1 Lite, or nobody speaking), where whisper would crash. `first`: a
+    take planned to be silent (B-roll) is read only when a quick check hears speech in it
+    (app/whisper.speech: 281's nine takes took 10.7 minutes of whisper, mostly B-roll)."""
     from app import deep_watch
 
-    return reel.transcribe(path, sounds, words=words) if deep_watch.probe(path)["audio"] else []
+    if not deep_watch.probe(path)["audio"]:
+        return []
+    return reel.transcribe(path, sounds, words=words, first=first)
 
 
 class LocalProvider:
@@ -38,7 +43,9 @@ class LocalProvider:
         hear_voice: Callable[..., list[dict]] = song_timing.words,
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
-        hear_take: Callable[[Path, dict], list[dict]] = lambda path, _: _heard(path, True),
+        hear_take: Callable[[Path, dict], list[dict]] = lambda path, input: _heard(
+            path, True, first=bool(input.get("silent"))
+        ),
         hear_cut: Callable[[Path, dict], list[dict]] = lambda path, _: _heard(path, words=True),
     ):
         self.storage, self.transcribe, self.fetch_link = storage, transcribe, fetch_link

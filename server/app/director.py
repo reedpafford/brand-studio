@@ -32,6 +32,7 @@ from app import (
     take_sound,
     word_splice,
 )
+from app.clip_takes import NOTE_MAX
 from app.credits import COUNTED, FREE_LANES, FREESTYLE, lock, uncapped
 from app.db import utcnow
 from app.models.accounts import User
@@ -54,7 +55,7 @@ OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted 
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
 UNWATCHED = "Refused: watch the cut first."
 REBUILD = "Refused: make the cut again first: it isn't up to date."
-CITE_WORDS = {"why", "made", "unsure", "needs", "ask"}  # a move's words people read
+CITE_WORDS = {"why", "made", "unsure", "needs", "ask", "left_out"}  # words people read
 OLD_TAKE = (
     "Refused: clip {c}'s picked take holds the cut out of date however often it's made "
     "again ({why}). Make another take of clip {c}, or pick one that's current."
@@ -1886,14 +1887,14 @@ def choose(state: dict) -> dict:
     if state.get("started") is False and state.get("revision"):  # after a delivery: the story
         m = next((m for m in notes if not m.get("answered") and STORY.search(m["text"])), None)
         if m is not None:  # stands unless a note asks to change it; else what it asks, below
-            return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"][:500])
+            return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"])
         if "treatment" in state.get("done", []):  # its story changed: all of it, after Make it
             return go("wait", "The new treatment is ready: it waits for Make it.")
     elif state.get("started") is False:  # before Make it: a note changes the treatment only
         m = next((m for m in notes if not m.get("answered")), None)
         if m is None:
             return go("wait", "The treatment is ready: it waits for Make it.")
-        return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"][:500])
+        return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"])
     if audio := _audio_move(state, go):  # a song or narrated video: its audio is the clock
         return audio
     if state["shots"] == "none":
@@ -2117,18 +2118,19 @@ def _asked(state: dict) -> dict | None:
                 continue  # tried this run (a refusal is said in the delivery note), or no takes
             return {"tool": "add_sound", "why": f"Note {m['note']}: you asked: {m['text']}"[:300],
                     "clip_id": clip if clip in clips else None, "take_id": None,
-                    "note": m["text"][:300]}  # fmt: skip
+                    "note": m["text"]}  # fmt: skip
         if (
             m.get("answered")
             or WORDS.search(m["text"])
             or clip not in clips
             or clips[clip]["stale"]
+            or len(m["text"]) > NOTE_MAX  # never cut: the delivery note names it (`_answers`)
         ):
             continue
         if used.get(clip, 0) >= MAX_REDOS:
             continue  # it can't be made again: the delivery note says so
         return {"tool": "make_take", "why": f"Note {m['note']}: you asked: {m['text']}"[:300],
-                "clip_id": clip, "take_id": None, "note": m["text"][:500]}  # fmt: skip
+                "clip_id": clip, "take_id": None, "note": m["text"]}  # fmt: skip
     return None
 
 
@@ -2162,8 +2164,10 @@ def _cut_move(state: dict, m: dict) -> dict | None:
                       if x["id"] != p["take_id"]), None)  # fmt: skip
         if other:
             return go(kind="swap", piece=p["piece"], take_id=other["id"])
+        if len(text) > NOTE_MAX:
+            return None  # never cut: the delivery note names it (`_answers`)
         return {"tool": "make_take", "why": why, "clip_id": p["clip_id"], "take_id": None,
-                "note": text[:500]}  # fmt: skip
+                "note": text}  # fmt: skip
     if SHORTER_END.search(text):
         return go(kind="retime", piece=pieces[-1]["piece"])
     if TIGHTEN.search(text):
@@ -2196,6 +2200,9 @@ def _answers(state: dict) -> str:
         elif used.get(clip, 0) >= MAX_REDOS:
             out.append(f"Note {n}: clip {clip[1:]} was already made again {MAX_REDOS} times, "
                        "the most a run may.")  # fmt: skip
+        elif len(m["text"]) > NOTE_MAX:  # the stand-in can't say it shorter; it never cuts it
+            out.append(f"Note {n}: it's longer than one redo note carries ({NOTE_MAX} characters),"
+                       f" so clip {clip[1:]} wasn't made again. Send it shorter.")  # fmt: skip
         else:
             out.append(f"Note {n}: not made yet.")
     return " ".join(out)
