@@ -1504,9 +1504,24 @@ def _ready(db: Session, project: Project, run: dict, last: Job) -> bool:
         Job.project_id == project.id, Job.input[RUN]["id"].as_string() == run["id"],
         Job.input[asks.PLAN_OK].as_boolean(),
         Job.input[DECLINE].as_boolean()))  # fmt: skip
-    seen = max(at, kept) if kept else at
     notes = [m["at"] for m in project.director_chat or [] if m.get("run") == run["id"]]
-    return not notes or max(notes) <= seen.isoformat()
+    if not notes or kept and max(notes) <= kept.isoformat():
+        return True
+    # every note was given to a turn before the treatment was asked (run 287: the brief sent
+    # while the first turn was being answered was never read, and the card showed the plan
+    # from before it)
+    asked = db.scalar(select(func.max(Job.id)).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == "treatment",
+        Job.input[RUN]["id"].as_string() == run["id"]))  # fmt: skip
+    given = max(
+        (
+            t.input.get(READ, 0)
+            for t in turns(db, project)
+            if t.input[RUN]["id"] == run["id"] and asked and t.id < asked
+        ),
+        default=0,
+    )
+    return given >= len(notes) and max(notes) <= at.isoformat()
 
 
 def keep_plan(db: Session, project: Project, job: Job) -> None:

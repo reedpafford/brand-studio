@@ -213,6 +213,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             if sid in (row.real_images or {}) and not (row.real_images or {}).get(mark):
                 return (f"Refused: a person set shot {sid} of clip {n} themselves; it stays "
                         "as they left it unless a person asks.")  # fmt: skip
+            if not off and (no := _pack_mid_scene(db, project, row, sid)):
+                return no
             body = project_clips.InsertIn(use_real_image=not off)
             project_clips.set_insert(clip_id=row.id, shot_id=sid, body=body, **me)
             row.real_images = {**(row.real_images or {}), mark: True}  # the director's
@@ -496,6 +498,34 @@ def _cast_in_shots(db: Session, project: Project, me: dict) -> None:
 
     if complete_cast(db, project):  # every speaker a role, as opening Cast does: a role with
         db.commit()  # no look is then made by make_looks
+
+
+PACK_AT_CLOSE = ("Refused: in this style the product's real picture goes only on the close, "
+                 "never as a flat insert mid-scene. Here the pack stays in the scene: make clip "
+                 "{n} again with a note on its label (its pack is in the clip's reference), "
+                 "within its redos; a label that only looks soft is a doubt for the delivery "
+                 "note.")  # fmt: skip
+
+
+def _pack_mid_scene(db: Session, project: Project, row: ProjectClip, shot_id: str) -> str:
+    """Run 287: a smeared label's remake was refused as a doubt, so the director cut the brand's
+    real pouch in full frame mid-scene. A style whose guide keeps the product to the very end
+    ("never a studio packshot", Movie) takes the real product picture only in the last clip."""
+    from app import cut_in, guides
+    from app.clip_prompts import newest
+    from app.models.brands import BrandScreen
+
+    try:
+        said = " ".join(guides.style(project.look or "house")["sections"].values())
+    except ValueError:
+        return ""
+    insert = next((i for i in cut_in.inserts(db, project, row) if i.shot_id == shot_id), None)
+    screen = db.get(BrandScreen, int(insert.asset_id.split(":")[1])) if insert else None
+    clips = (newest(db, project).data.get("clips") or [{}]) if screen else [{}]
+    if (screen is None or not screen.product_id or "never a studio packshot" not in said.lower()
+            or clips[-1].get("id") == row.clip_id):  # fmt: skip
+        return ""
+    return PACK_AT_CLOSE.format(n=row.clip_id.removeprefix("c"))
 
 
 def missing_looks(db: Session, project: Project) -> list[str]:

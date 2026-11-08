@@ -240,3 +240,36 @@ def test_a_watch_still_going_is_not_a_watched_cut(app, db, owner, editor, monkey
     _run(app, db, ticks=40)
     results = [t["result"] for t in editor.get(f"/projects/{pid}/director").json()["turns"]]
     assert director.UNWATCHED in results
+
+
+def test_a_note_sent_while_the_first_turn_is_answered_is_read_before_the_start_card(
+    app, db, owner, editor, monkeypatch
+):
+    """Run 287: the owner's brief landed while the first turn was being answered (after it had
+    read the chat); the treatment it asked for never read it and the start card showed the
+    plan from before the brief. The card now waits until a turn has read every note."""
+    real, sent = director.refresh, []
+    brief = "Make her a nurse coming off a night shift."
+
+    def late(db_, job):  # the note lands just after the first turn read the chat
+        out = real(db_, job)
+        if not sent:
+            sent.append(editor.post(f"/projects/{pid}/director/messages", json={"text": brief}))
+        return out
+
+    monkeypatch.setattr(director, "refresh", late)
+    monkeypatch.setattr("app.worker.director.refresh", late)
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    for _ in range(3):
+        _run(app, db, ticks=10, start=False)
+        for held in db.query(Job).filter(Job.project_id == pid,
+                                         Job.status == JobStatus.needs_owner_approval,
+                                         Job.input["step"].as_string() == "treatment"):  # fmt: skip
+            owner.post(f"/jobs/{held.id}/approve")  # past the planning allowance: the owner's OK
+    assert sent and sent[0].status_code == 201, sent
+    turns = director.turns(db, db.get(Project, pid))
+    (card,) = [t for t in turns if t.input.get(director.START)]
+    written = db.query(Job).filter(Job.project_id == pid,
+                                   Job.input["step"].as_string() == "treatment").all()  # fmt: skip
+    assert any(j.input.get("note") == brief and j.id < card.id for j in written)

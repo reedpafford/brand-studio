@@ -308,6 +308,30 @@ def directors(db: Session, project: Project, clip_id: str) -> int:
     return int((newest.input[RUN].get("redos") or {}).get(clip_id, 0)) if newest else 0
 
 
+def _for(job: Job, clip: ProjectClip) -> bool:
+    """A job making this clip's next take: the take itself, or a Change it… rewriting its
+    prompt first (its take follows)."""
+    return job.input.get("project_clip_id") == clip.id or (
+        job.input.get("target") == "clip" and job.input.get("target_id") == clip.id
+    )
+
+
+def _redone_since(db: Session, project: Project, clip: ProjectClip, take: ClipTake) -> bool:
+    """The director remade this clip since this take was made: only its newest take is judged,
+    so the watch never remakes the older one too (run 287's clip 3: two remakes, +$1.54)."""
+    from sqlalchemy import or_
+
+    from app.director import STEP as TURN
+
+    turns = db.scalars(select(Job).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == TURN,
+        or_(Job.created_at >= take.created_at, Job.finished_at >= take.created_at)))  # fmt: skip
+    return any((j.output or {}).get("tool") == "make_take"
+               and (j.output or {}).get("clip_id") == clip.clip_id
+               and not (j.input.get("result") or "Refused").startswith("Refused")
+               for j in turns)  # fmt: skip
+
+
 def act(db: Session, take: ClipTake, note: str,
         prompt: str) -> tuple[str, str, Job | None, Decimal | None]:  # fmt: skip
     """A weak take remade, or why not: (what it did, the action, the remake's job, its "up
@@ -328,7 +352,8 @@ def act(db: Session, take: ClipTake, note: str,
     name = f"clip {clip.clip_id.removeprefix('c')}"
     newest = db.scalar(select(func.max(ClipTake.number)).where(ClipTake.clip_id == clip.id))
     pending = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
-    if take.number != newest or any(j.input.get("project_clip_id") == clip.id for j in pending):
+    if (take.number != newest or any(_for(j, clip) for j in pending)
+            or _redone_since(db, project, clip, take)):  # fmt: skip
         return SUPERSEDED, "superseded", None, None
     if remakes(db, clip) + directors(db, project, clip.clip_id) >= REMAKES:
         return (f"Flagged for you: {name} was remade {REMAKES} times already, the most a run "
