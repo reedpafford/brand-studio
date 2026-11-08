@@ -1726,12 +1726,13 @@ def test_the_director_leads_through_a_treatment_with_reeds_skills_loaded():
     director = prompts.system("director")
     for part in ("**You lead through the treatment.**", "**Story and engagement are yours.**",
                  "names the beat it serves", "- `treatment` (paid", "- `review_stills` (paid",
-                 "- `redraw_still` (paid, `shot_id`", "re-plan those beats once"):  # fmt: skip
+                 "- `redraw_still` (paid, `redraws`", "re-plan those beats once"):  # fmt: skip
         assert part in director, part
     assert "Re-plan:" in prompts.system("watch_cut")
     assert "is the hook there by 2 seconds" in director
-    turn = schemas.DirectorTurn(tool="redraw_still", shot_id="3.1", note="x", why="b3: x")
-    assert turn.shot_id == "3.1"
+    turn = schemas.DirectorTurn(tool="redraw_still", redraws=[{"shot_id": "3.1", "note": "x"}],
+                                why="b3: x")  # fmt: skip
+    assert turn.redraws[0].shot_id == "3.1"
 
 
 def test_the_treatment_never_varies_from_the_script():

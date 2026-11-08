@@ -698,10 +698,10 @@ def _second_turn(app, db, owner, editor, monkeypatch, when: str):
     providers = get_providers(app.state.settings, app.state.storage)
     real_input, real_run = director.turn_input, providers["claude"].run
 
-    def building(db, project, run, job_id=None):  # QA-7: Stop lands while the prompt is being built
-        if when == "before" and run["turn"] == 2 and calls:
+    def building(db, project, run, job_id=None, seen=None):  # QA-7: Stop lands while the
+        if when == "before" and run["turn"] == 2 and calls:  # prompt is being built
             editor.post(f"/projects/{pid}/director/stop")
-        return real_input(db, project, run, job_id)
+        return real_input(db, project, run, job_id, seen)
 
     def asked(kind, input):
         out = real_run(kind, input)
@@ -959,7 +959,9 @@ def test_each_note_is_new_to_exactly_one_turn_and_one_paid_redo(app, db, owner, 
     assert editor.get(url).json()["status"] == "delivered"
     steps = sorted((j for j in db.query(Job).filter_by(project_id=pid)
                     if j.input.get("step") == director.STEP), key=lambda j: j.id)  # fmt: skip
-    chats = [json.loads(_tag(j.input["prompt"], "chat") or "[]") for j in steps]
+    chats = [
+        json.loads(_tag(j.input["prompt"], "chat") or "[]") for j in steps if "prompt" in j.input
+    ]  # its Claude turns (the server's own steps read no note)
     new = [c for c in chats if any(m["new"] for m in c)]
     note = {"note": 1, "text": "Make clip 1 brighter."}
     assert len(new) == 1 and new[0][0] | {"answered": False} == {

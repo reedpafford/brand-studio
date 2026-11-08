@@ -19,7 +19,7 @@ def test_uncapped_the_owners_run_never_waits_at_its_own_limit_nor_stops_at_its_c
     """Reed, 6 Nov (BS_OWNER_UNCAPPED, his test site): the owner's own run has no own limit and
     no real-cost backstop; <allowed> says there's none. Off, both hold (the tests below)."""
     monkeypatch.setattr(get_settings(), "owner_uncapped", True)
-    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))  # a run's own is about 61
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(15))  # a run's own is about 24
     monkeypatch.setattr(director, "spent", lambda db, run_id, pid: director.MAX_USD * 3)
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
@@ -35,7 +35,7 @@ def test_uncapped_the_owners_run_never_waits_at_its_own_limit_nor_stops_at_its_c
 def test_uncapped_an_editors_run_still_waits_at_its_own_limit(app, db, owner, editor,
                                                              monkeypatch):  # fmt: skip
     monkeypatch.setattr(get_settings(), "owner_uncapped", True)
-    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(15))
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
     _run(app, db)
@@ -62,14 +62,14 @@ def _turns(db, pid) -> int:
 def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
     app, db, owner, editor, monkeypatch
 ):
-    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))  # this run's own is about 61
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(15))  # this run's own is about 24
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")  # the owner's own run waits too
     _run(app, db)
     (held,) = _held(db, pid)
     limit = director.own_limit()
     assert held.input["held"] == ("Waiting for the owner's OK: the director has used its own "
-                                  "limit of 35 credits.")  # fmt: skip
+                                  "limit of 15 credits.")  # fmt: skip
     charged, oks = _own(db, pid)
     assert (charged <= limit, oks) == (True, 0)  # never past it without an OK
     assert [j["id"] for j in owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
@@ -89,14 +89,14 @@ def test_a_run_at_its_limit_waits_and_the_owners_ok_lets_it_finish(
 
 
 def test_an_ok_grants_a_limits_worth_then_it_waits_again(app, db, owner, editor, monkeypatch):
-    monkeypatch.setattr(director, "own_limit", lambda: Decimal(9))  # 3 steps: the run needs 4+ OKs
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(6))  # the run needs 4 OKs
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
-    for oks in range(3):
+    for oks in range(2):
         _run(app, db)
         (held,) = _held(db, pid)
         charged, given = _own(db, pid)
-        assert given == oks and charged <= 9 * (1 + oks), (charged, oks)
+        assert given == oks and charged <= 6 * (1 + oks), (charged, oks)
         before = _turns(db, pid)
         assert owner.post(f"/jobs/{held.id}/approve").status_code == 200
         _run(app, db)
@@ -128,7 +128,7 @@ def test_a_sends_director_waits_at_its_own_limit(app, owner, editor, db, monkeyp
 def test_the_real_cost_backstop_grows_with_each_ok(app, db, owner, editor, monkeypatch):
     """Audit 6 Nov: MAX_USD of its own time didn't grow with the owner's OKs, so a run he let go
     on still stopped at "$5 of its own time". Each OK at its limit grants as much again."""
-    monkeypatch.setattr(director, "own_limit", lambda: Decimal(35))
+    monkeypatch.setattr(director, "own_limit", lambda: Decimal(15))
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     _run(app, db)

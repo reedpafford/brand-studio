@@ -86,6 +86,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             breakdown.make(**me)
             return "Making the shots."
         if tool == "make_looks":
+            _cast_in_shots(db, project, me)  # every role the shots need, drawn together
             if no := locks.refusal(project, "cast"):  # the cast and its looks are fixed
                 return f"{no} {CAST_LOCKED}"  # what to do (rule 22), said again when it stops
             look = decision.get("look") or {}
@@ -99,14 +100,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                     "name, and in `description` what they are and look like from the plan "
                     "(person or animal, age, build, what they wear).")  # fmt: skip
         if tool == "storyboard":
-            try:  # the right cast in each shot first, free (Reed's item 9: the director's job)
-                breakdown.fix_cast(**me)
-            except HTTPException:
-                pass  # every shot already has it
-            from app.breakdown import complete_cast
-
-            if complete_cast(db, project):  # every speaker a role, as opening Cast does: a
-                db.commit()  # role with no look is then made by make_looks
+            _cast_in_shots(db, project, me)
             storyboard.make(body=storyboard.StoryboardIn(), **me)  # the looks: the person's OK
             return "Making the storyboard."
         if tool == "stills":
@@ -333,6 +327,9 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             return cast.dress(db, project, (look.get("name") or "").strip(),
                               look.get("description") or "")  # fmt: skip
         if tool == "ask_cast_ok":  # the card: the person approves the whole set at once
+            _cast_in_shots(db, project, me)  # asked once, with everyone (261: places, then
+            if missing := missing_looks(db, project):  # again with the skeleton)
+                return f"Refused: make the missing looks first ({', '.join(missing)})."
             return cast_gate.ask(db, project, (run or {}).get("id"))
         if tool == "treatment":  # the story first (the Director's step), on its own limit
             from app.director import write_treatment
@@ -449,6 +446,39 @@ def _edit_cut_now(db: Session, project: Project, move: dict, request, me: dict, 
     return f"{made.said}. Free; it shows in the next cut."
 
 
+def _cast_in_shots(db: Session, project: Project, me: dict) -> None:
+    """Before the storyboard (no still yet): the right cast in each shot and every speaker a
+    role, free (Reed's item 9: the director's job), so the looks are made and the cast and
+    places OK asked once, with everyone in it."""
+    from app.clip_prompts import newest
+    from app.routes import breakdown
+
+    bd = newest(db, project)
+    if bd is None or db.scalar(
+        select(StoryboardFrame.id)
+        .where(StoryboardFrame.breakdown_id == bd.id, StoryboardFrame.file_id.is_not(None))
+        .limit(1)
+    ):
+        return  # fmt: skip
+    try:
+        breakdown.fix_cast(**me)
+    except HTTPException:
+        pass  # every shot already has it
+    from app.breakdown import complete_cast
+
+    if complete_cast(db, project):  # every speaker a role, as opening Cast does: a role with
+        db.commit()  # no look is then made by make_looks
+
+
+def missing_looks(db: Session, project: Project) -> list[str]:
+    """The roles, brand characters and places the shots need that have no look yet."""
+    from app.routes.project_assets import _missing, missing_copies, missing_places
+
+    return [*(s.role for s in _missing(db, project)),
+            *(c.name for c in missing_copies(db, project)),
+            *(p.name for p in missing_places(db, project))]  # fmt: skip
+
+
 def _split(db: Session, project: Project, clip: str, me: dict) -> str:
     """A clip longer than the video model makes, split between its shots and at its sentence
     breaks, as the breakdown's Split the clip does (free; the words don't change)."""
@@ -491,11 +521,14 @@ def _clips(db: Session, project_id: int, clip_id: str | None) -> list[ProjectCli
 
 
 def _rewritten(db: Session, row: ProjectClip, note: str) -> bool:
-    """This clip's prompt was already rewritten with this note (Change it…)."""
-    from app.models.jobs import Job
+    """This clip's prompt was already rewritten with this note (Change it…); a rewrite that
+    failed or was cancelled never ran, so it isn't one."""
+    from app.models.jobs import Job, JobStatus
 
     asked = select(Job).where(Job.project_id == row.project_id,
-                              Job.input["step"].as_string() == "change")  # fmt: skip
+                              Job.input["step"].as_string() == "change",
+                              Job.status.not_in((JobStatus.failed,
+                                                 JobStatus.cancelled)))  # fmt: skip
     said = note.strip()[:500]
     return any(j.input.get("target") == "clip" and j.input.get("target_id") == row.id
                and j.input.get("note") == said for j in db.scalars(asked))  # fmt: skip
