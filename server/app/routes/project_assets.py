@@ -518,26 +518,30 @@ def _make_look(
 
 
 def role_words(db: Session, project: Project, slot: ScriptCastSlot) -> str:
-    """What a role looks like, for its sheet and its fit check: the script's description; else
-    what the brief, the script or a note says of them in brackets ("Maya (30s, heavy-set,
-    satin dress)": video 284, whose Maya was drawn average-build in a hoodie from a shot's
-    action); else the newest shots' sentences that show and name them and nobody else (268:
-    "Bruno, a stocky tan clay dog"; 284: one sentence about Granny and Maya became both their
-    words), up to 300 characters; else its script name when it says more than a name ("Kel, a
-    30-year-old trader") or an age the script or a note states ("Jay is 19": video 245). ""
-    when nothing says anything."""
+    """What a role looks like, for its sheet and its fit check, from the first of these that
+    says it (video 284: Maya was drawn average-build in a hoodie from a shot's action, though
+    the brief and the treatment said heavy-set in a satin dress):
+    - the script's description of the role;
+    - the brief's or a note's brackets after their name ("Maya (30s, heavy-set, satin dress)"),
+      never a speaker's cue ("MAYA (quietly): …");
+    - a "Maya, 30s, heavy-set, …" or "Maya is …" phrase in the brief, a note or the treatment;
+    - the newest shots' sentences that show them (268: "Bruno, a stocky tan clay dog");
+    - its script name when it says more than a name ("Kel, a 30-year-old trader"), or an age
+      the script or a note states ("Jay is 19": video 245).
+    Only sentences that name this role and no other one (284: one sentence about Granny and
+    Maya became both their words); up to 300 characters. "" when nothing says anything."""
     if (slot.description or "").strip():
         return slot.description
-    name, told = cast_roles.short(slot.role) or slot.role, _told(db, project)
-    if said := _bracketed(name, told):
-        return f"{slot.role.rstrip('. ')}, {said}"
+    name = cast_roles.short(slot.role) or slot.role
     others = [s.role for s in _slots(db, project) if s.id != slot.id]
+    brief = [*reversed([m.get("text") or "" for m in project.director_chat or []]),
+             project.goal or ""]  # fmt: skip
+    if said := _bracketed(name, brief) or _described(name, others, [*brief, *_story(db, project)]):
+        return f"{slot.role.rstrip('. ')}, {said}"
     bd, refs = _newest(db, project), {f"slot:{slot.id}", f"char:{cast_roles.picked(project, slot)}"}
     said = [s for sc in (bd.data["scenes"] if bd else []) for shot in sc["shots"]
             if refs & set(shot["character_ids"])
-            for s in re.split(r"(?<=[.!?])\s+", shot.get("action") or "")
-            if cast_roles.named(slot.role, s)
-            and not any(cast_roles.named(o, s) for o in others)]  # fmt: skip
+            for s in _sentences(shot.get("action") or "") if _only(name, others, s)]  # fmt: skip
     out = ""
     for s in dict.fromkeys(said):
         if len(out) + len(s) >= 300:
@@ -545,23 +549,62 @@ def role_words(db: Session, project: Project, slot: ScriptCastSlot) -> str:
         out = f"{out} {s}".strip()
     if out or slot.role.partition(",")[2].strip():
         return out or slot.role
-    age = cast_roles.stated_age(name, told)
+    age = cast_roles.stated_age(name, _told(db, project))
     return f"{slot.role.rstrip('. ')}, {age}" if age else ""
 
 
-CUE = re.compile(r"(?i)^(v\.?o\.?|o\.?s\.?|o\.?c\.?|cont'?d|continued|off|on screen)$")
+LOOKS = re.compile(  # words that say what someone looks like, not what they do
+    r"(?i)\b(\d+s?|teen\w*|elderly|old|young|heavy-set|stocky|slim|thin|tall|short|curvy|fit|"
+    r"toned|muscular|plump|build|\w*hair\w*|bald|beard\w*|dress|suit|shirt|hoodie|jacket|coat|"
+    r"jeans|sweater|uniform|wearing|glasses|skin|freckled|blonde?|brunette|redhead)\b"
+)
+
+
+def _sentences(text: str) -> list[str]:
+    return re.split(r"(?<=[.!?])\s+", text or "")
+
+
+def _only(name: str, others: list[str], sentence: str) -> bool:
+    """The sentence names this role and no other one."""
+    return cast_roles.named(name, sentence) and not any(cast_roles.named(o, sentence)
+                                                       for o in others)  # fmt: skip
 
 
 def _bracketed(name: str, texts: list[str]) -> str:
-    """What these words say of a person in brackets after their name, newest words first
-    ("Maya (30s, heavy-set, satin dress)", a script's "MAYA (30s, nervous)"), never a cue
-    like "(V.O.)"."""
+    """What the brief or a note says of someone in brackets after their name, in order
+    ("Maya (30s, heavy-set, satin dress)"), never a speaker's cue: the name starting a line,
+    its brackets then ending it or followed by ":" ("MAYA (quietly): I'm not pregnant.")."""
+    cue = rf"(?im)^\s*{re.escape(name)}\s*\(([^()]*)\)\s*(:|$)"
     pattern = re.compile(rf"(?<!\w){re.escape(name)}\s*\(([^()]{{2,200}})\)", re.I)
-    for text in reversed(texts):
+    for text in texts:
+        cues = {m.start(1) for m in re.finditer(cue, text or "")}
         for found in pattern.finditer(text or ""):
-            if not CUE.match(said := found.group(1).strip()):
-                return said
+            if found.start(1) not in cues:
+                return found.group(1).strip()
     return ""
+
+
+def _described(name: str, others: list[str], texts: list[str]) -> str:
+    """A "Maya, 30s, heavy-set, champagne-coloured satin dress: …" or "Maya is in her 30s,
+    heavy-set" phrase that says how they look, in a sentence about them alone, in order."""
+    phrase = re.compile(rf"(?<!\w){re.escape(name)}(?:,| is| was)\s+([^:;.!?]{{2,200}})", re.I)
+    for text in texts:
+        for sentence in _sentences(text):
+            if not _only(name, others, sentence):
+                continue
+            for found in phrase.finditer(sentence):
+                if LOOKS.search(said := found.group(1).strip()):  # "is 19": "aged 19" (245)
+                    return re.sub(r"^(\d+)(?=,|$)", r"aged \1", said)
+    return ""
+
+
+def _story(db: Session, project: Project) -> list[str]:
+    """The treatment's words, as the director wrote them: its hook, logline and beats."""
+    from app.director import treatment
+
+    t = treatment(db, project) or {}
+    beats = [b.get("picture") or "" for b in t.get("beats") or []]
+    return [t.get("hook") or "", t.get("logline") or "", *beats, t.get("ending") or ""]
 
 
 def _told(db: Session, project: Project) -> list[str]:
