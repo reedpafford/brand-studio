@@ -54,8 +54,8 @@ def test_a_prompt_too_long_for_its_model_is_rewritten_to_fit_never_sent(
     (fix,) = [j for j in jobs if j.input.get(clip_takes.FIT)]
     assert fix.input["clip_ids"] == [row.clip_id] and fix.credits == 0  # free
     told = fix.input["prompt"]  # its own instruction: shorten all else, keep these lines
-    assert f"under {fix.input['fit_max'] - clip_takes.SLACK} characters" in told
-    assert fix.input["fit_max"] < 3400  # room for any Redo note (video 271)
+    asked = fix.input["fit_max"] - clip_takes._noted("x" * clip_takes.NOTE_MAX) - clip_takes.SLACK
+    assert f"under {asked} characters" in told and asked < 3400  # room for any Redo note (271)
     assert "each shot's description in fewer words" in told
     assert '"Shot N | a–b s."' in told and "every spoken or quoted line word for word" in told
     assert "the Keep: line" in told and "Change only the lines" not in told
@@ -190,8 +190,46 @@ def test_a_redo_note_that_takes_it_past_the_limit_is_fitted_with_room_for_the_no
     take = [j for j in db.query(Job) if j.input.get("step") == "clip_take"][-1]
     assert note.strip() in take.input["input"]["prompt"]
     assert len(take.input["input"]["prompt"]) <= 4000
+    asked = int(re.search(r"under (\d+) characters", fix.input["prompt"])[1])
     longest = clip_takes._noted("x" * clip_takes.NOTE_MAX) - clip_takes._noted(note)
-    assert len(take.input["input"]["prompt"]) + longest <= 4000  # any other note fits too
+    assert asked + longest + clip_takes.SLACK <= fit  # what it asks for leaves room for any note
+
+
+def test_a_fit_that_rewrote_its_keep_line_gets_it_back_and_the_take_goes(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+    clip,  # noqa: F811
+):
+    """Video 268's c3 (Seedance 2.0): both fits came back short enough (3,114 and 3,296
+    characters) but rewrote the Keep: line, so neither was saved and the take was refused
+    three times; the director then moved the clip to Seedance 2.5 (dearer) by itself. The Keep
+    line is put back as it was and the fit is saved; a move for the length is refused."""
+    from app import model_map
+
+    base = f"/projects/{setup['project']}"
+    row = _on_two(db, clip)
+    short = row.prompt.splitlines()
+    assert any(x.startswith("Keep: ") for x in short)
+    row.prompt = "\n".join(f"{x[:16]}{PAD * 25}{x[16:]}" if x.startswith("Shot ") else x
+                           for x in short)  # fmt: skip
+    db.commit()
+    video = db.get(Project, setup["project"])
+    moved = model_map.choose(db, video, row, "seedance-2.5", "Its prompt is too long for 2.0.")
+    assert moved.startswith("Refused: clip") and "never to get past that" in moved
+    assert row.model["id"] == "seedance-2.0"  # it stays
+    editor.post(f"{base}/clips/{row.id}/generate")
+    (fix,) = [j for j in db.query(Job) if j.input.get(clip_takes.FIT)]
+    keep = next(x for x in short if x.startswith("Keep: "))
+    fit = [f"{x[:16]}{PAD * 2}{x[16:]}" if x.startswith("Shot ") else x for x in short]
+    _land(db, fix, row.clip_id, "\n".join("Keep: as the sheets." if x == keep else x
+                                          for x in fit), row.references)  # fmt: skip
+    db.refresh(row)
+    assert (row.change or {}).get("status") != "failed" and keep in row.prompt.splitlines()
+    assert editor.post(f"{base}/clips/{row.id}/generate").status_code == 201
+    said = model_map.choose(db, video, row, "seedance-2.5", "Note 1: the owner asked for 2.5.")
+    assert not said.startswith("Refused")  # a person's note may move it
 
 
 def _land(db, fix, clip_id, prompt, references):

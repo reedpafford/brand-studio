@@ -234,6 +234,8 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
         return NOT_VIDEO.format(model_id)
     if found.id == talker.MODEL:
         return WHOLE_TAKE
+    if found.id != was.id and _too_long(db, clip, was, reason):
+        return LENGTH.format(n=clip.clip_id.removeprefix("c"), model=was.name)
     if talker.says(db, project, clip):
         return SAYS_IT
     if who := _persons(db, project):
@@ -262,6 +264,24 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
         f"Clip {clip.clip_id.removeprefix('c')} is made on {found.name} now: up to "
         f"{now:.1f} credits a take (was {then:.1f} on {was.name}). Why: {reason.strip()}"
     )
+
+
+LENGTH = ("Refused: clip {n}'s prompt is too long for {model}, and a clip moves to another "
+          "model only for what its shots need or a person's note (name it), never to get past "
+          "that: its prompt is rewritten to fit, free. Make its take once it's rewritten, or "
+          "ask.")  # fmt: skip
+
+
+def _too_long(db, clip, was, reason: str) -> bool:
+    """The move's reason is its prompt's length (video 268: c3 moved to Seedance 2.5, dearer,
+    after its prompt was refused): too long for its model now, or being rewritten to fit."""
+    from app.clip_prompts import fixing
+    from app.clip_takes import ENGLISH
+    from app.settings_move import ASKED
+
+    if ASKED.search(reason or "") or not was.prompt_max:
+        return False
+    return len(clip.prompt or "") + len(ENGLISH) > was.prompt_max or fixing(db, clip)
 
 
 def fit(model, input: dict, files: dict) -> tuple[dict, dict]:
@@ -310,6 +330,12 @@ def nearest(shape: str, shapes: list[str]) -> str:
         return shape
     return min(given, key=lambda s: (round(abs(math.log(ratio(s) / ratio(shape))), 6),
                                      s != "9:16"))  # fmt: skip
+
+
+def left_out(look: str | None, model_id: str, shots: list[dict], images: list[str]
+             ) -> tuple[str, ...]:  # fmt: skip
+    """Every reference a take on this model leaves out and says in words instead."""
+    return unsent(look, model_id, shots) + unsent_people(model_id, images)
 
 
 def unsent_people(model_id: str, images: list[str]) -> tuple[str, ...]:

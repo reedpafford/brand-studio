@@ -154,8 +154,28 @@ def older_take(
     it was made from isn't known."""
     if not (sent := _sent(db, row, take)):
         return []
-    refs = [r["id"] for r in row.references or [] if r["kind"] == "image"]
+    refs = [r for r in _images(row) if r not in _left_out(db, row, take)]
     return drawn_from_older(known, refs, sent | _asked(db, _take(db, row, take)))
+
+
+def _images(row: ProjectClip) -> list[str]:
+    return [r["id"] for r in row.references or [] if r["kind"] == "image"]
+
+
+def _left_out(db: Session, row: ProjectClip, take: ClipTake | None) -> list[str]:
+    """The clip's pictures its take's model left out on purpose and said in words instead
+    (Omni's third person, photoreal Seedance's sheets): never sent, so never "older" (video
+    276: every take of c5 was "made from an older look of Granny", Omni's third person)."""
+    from app.clip_takes import _out, _shots
+    from app.model_map import left_out
+
+    job = db.get(Job, _take(db, row, take).job_id)
+    bd = db.get(BreakdownVersion, row.breakdown_id).data
+    ids = next((c["shot_ids"] for c in bd.get("clips", []) if c["id"] == row.clip_id), [])
+    look = looks.drawn(db.get(Project, row.project_id))
+    gone = left_out(look, (job.input if job else {}).get("model") or "", _shots(bd, ids),
+                    _images(row))  # fmt: skip
+    return [r for r in _images(row) if _out(r, gone)]
 
 
 def older_still(db: Session, known: dict, row: ProjectClip, take: ClipTake | None = None) -> bool:
@@ -163,6 +183,8 @@ def older_still(db: Session, known: dict, row: ProjectClip, take: ClipTake | Non
     (OR3: Use this still, or a storyboard gone back to). Picking that still back clears it."""
     key = f"frame:{row.clip_id}"
     if not any(r["id"] == key for r in row.references or []) or not (sent := _sent(db, row, take)):
+        return False
+    if key in _left_out(db, row, take):
         return False
     now = known.get(key, ("", "", []))[-1][:1]
     return bool(now) and now[0] not in sent | _asked(db, _take(db, row, take))
@@ -765,6 +787,8 @@ def save_clip_prompts(db: Session, job: Job) -> None:
             c = repair_shape(with_cast(db, project, c, bd, known), bd)  # free, at once
             if job.input.get("fix"):  # the free fix never drops who isn't lip-syncing (c4)
                 c = _kept_voiceover(c, job.input.get("before") or "")
+            if job.input.get("fit"):  # clip_takes.FIT: nor its Keep: line (268's c3: both
+                c = _kept_line(c, job.input.get("before") or "")  # its fits rewrote it)
             if (lost := fit_lost(job, c.prompt)) and (row := rows.get(c.clip_id)):
                 row.change = {"note": FIT_NOTE, "status": "failed", "job_id": job.id,
                               "error": f"{lost} The prompt stays as it was."}  # fmt: skip
@@ -884,6 +908,17 @@ def _kept_voiceover(clip: ClipPrompt, before: str) -> ClipPrompt:
         return clip
     at = _line(lines, "Keep: ")
     lines[at if at >= 0 else len(lines) - 1 : at if at >= 0 else len(lines) - 1] = lost
+    return clip.model_copy(update={"prompt": "\n".join(lines)})
+
+
+def _kept_line(clip: ClipPrompt, before: str) -> ClipPrompt:
+    """A fit's Keep: line put back word for word, as the earlier prompt had it."""
+    keep = next((x for x in before.splitlines() if x.startswith("Keep: ")), None)
+    lines = clip.prompt.splitlines()
+    at = _line(lines, "Keep: ")
+    if keep is None or at < 0:
+        return clip
+    lines[at] = keep
     return clip.model_copy(update={"prompt": "\n".join(lines)})
 
 

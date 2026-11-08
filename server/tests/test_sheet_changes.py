@@ -148,3 +148,51 @@ def test_a_changed_place_or_sheet_marks_its_still_and_take_out_of_date(app, db, 
     assert kept.status_code == 200 and kept.json()["take_stale"] is False  # Keep anyway
     db.expire_all()
     assert out_of_date(db, [db.get(Project, pid)]) == set()
+
+
+def test_a_person_omni_says_in_words_never_makes_its_take_older(app, db, editor, setup):  # noqa: F811
+    """Video 276: Omni takes two people's sheets and says the third in words, so Granny's
+    sheet was never sent and every take of c5 was "made from an older look of Granny": the
+    director spent both remakes and couldn't deliver. A person left out on purpose isn't
+    older; one whose sent sheet changed still is."""
+    from app import model_map
+    from app.models.clips import ClipTake
+    from app.models.projects import Project
+    from tests.helpers import with_sheet
+
+    bd, nate, mom = _people(app, db, editor, setup)
+    made = editor.post(
+        "/library/character", json={"name": "Gran", "image_file_ids": [upload(editor)]}
+    )
+    with_sheet(db, made.json()["id"])
+    gran, pid = f"char:{made.json()['id']}", setup["project"]
+    take_file, new_mom = upload(editor), upload(editor)  # uploaded first: one writer at a time
+    cast = [int(r[5:]) for r in (nate, mom, gran)]
+    editor.patch(f"/projects/{pid}", json={"cast_ids": cast})
+    sheet = {r: db.get(LibraryItem, int(r[5:])).sheet_file_id for r in (nate, mom, gran)}
+    refs = [{"kind": "image", "id": i, "role": "x"} for i in (mom, nate, gran)]
+    clip = ProjectClip(project_id=pid, breakdown_id=bd.id, clip_id="c1", seconds=5,
+                       prompt=PROMPT, references=refs, approved=True)  # fmt: skip
+    db.add(clip)
+    db.flush()
+    assert model_map.unsent_people(model_map.OMNI, [r["id"] for r in refs]) == (gran,)
+    job = Job(workspace_id=1, kind="video", provider="fake", project_id=pid, status="succeeded",
+              input={"project_clip_id": clip.id, "model": model_map.OMNI,
+                     "files": {"reference_images": [sheet[mom], sheet[nate]]}})  # fmt: skip
+    db.add(job)
+    db.flush()
+    take = ClipTake(clip_id=clip.id, number=1, job_id=job.id, file_id=take_file)
+    db.add(take)
+    db.flush()
+    clip.picked_take_id = take.id
+    db.commit()
+    project = db.get(Project, pid)
+    known = clip_prompts.assets(db, project)
+    assert clip_prompts.older_take(db, known, clip) == []  # Gran was said in words
+    job.input = {**job.input, "model": "seedance-2.5"}  # a model that takes all three: missed
+    db.commit()
+    assert clip_prompts.older_take(db, known, clip) == ["Gran"]
+    job.input = {**job.input, "model": model_map.OMNI}
+    db.get(LibraryItem, int(mom[5:])).sheet_file_id = new_mom  # Mom's sheet changes
+    db.commit()
+    assert clip_prompts.older_take(db, clip_prompts.assets(db, project), clip) == ["Mom"]

@@ -200,7 +200,7 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
       )}
       {now.video.outOfDate && !live?.making && ( // while the next cut is made it says so beside the switch (S3-12)
         <Banner tone="warning" title="Out of date." action={live?.failed ? undefined /* the failed cut's own fixes come first */ : <Button variant="secondary" busy={remake.isPending} disabled={!!held} reason={held} onClick={() => remake.mutate()}>Make it again</Button>}>
-          {left === 0 && !video.out_of_date && olderLook > 0 ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.` : songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads.{live?.failed ? "" : " Making it again is free."}
+          {left === 0 && !video.out_of_date && olderLook > 0 ? `${olderLook === 1 ? "A clip's take shows" : `${olderLook} clips' takes show`} an older look from Cast & places.` : songChanged && left === 0 ? `The ${songChanged} changed since this video was made.` : "Clips changed since this video was made."} This MP4 still downloads.{live?.failed || held ? "" : " Making it again is free."}
         </Banner>
       )}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
