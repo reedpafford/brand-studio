@@ -29,6 +29,10 @@ TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_tak
          "change_look", "ask_cast_ok", "split_clip", "outfit", "real_screen",
          "locked_line")  # fmt: skip
 WAITING = "{} for the cast and places OK."
+LONG_NOTE = ("Refused: a {what} note is at most {most} characters (this one is {n}); say it "
+             "shorter, keeping everything it asks.")  # fmt: skip  # never cut (261: its end lost)
+NOTES = {"make_take": "redo", "redraw_still": "redraw", "plan": "plan", "change_look": "change",
+         "host": "motion"}  # fmt: skip  # the tools whose note goes on as written
 
 
 STEP_BROKE = (
@@ -56,6 +60,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
     from app.routes import plan as plan_route
 
     tool, pid = decision["tool"], project.id
+    if tool in NOTES and len(written := (decision.get("note") or "").strip()) > _most(tool):
+        return LONG_NOTE.format(what=NOTES[tool], most=_most(tool), n=len(written))
     me = {"project_id": pid, "user": user, "db": db}
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(storage=storage)))
     try:
@@ -67,7 +73,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 return "Planning the whole video again."
             status = plans.status(db, project)
             if (note := (decision.get("note") or "").strip()) and status != "none":
-                plan_route.make(body=plan_route.NoteIn(note=note[:500]), **me)  # Make a new plan
+                plan_route.make(body=plan_route.NoteIn(note=note), **me)  # Make a new plan
                 return f"Planning again: {note}"  # the watch's "Re-plan:" (once a run)
             if status == "none":
                 plan_route.make(body=None, **me)
@@ -150,13 +156,13 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 # 226's clip 4: a first take's note takes away what its prompt shows ("no
                 # phone"): the note rewrites the prompt first (Change it…), its take after; a
                 # redo's is A7's below
-                body = storyboard.ChangeIn(note=asked_note[:500])
+                body = storyboard.ChangeIn(note=asked_note)
                 project_clips.change_clip(clip_id=first[0].id, body=body, **me)
                 return (f"Rewriting clip {first[0].clip_id.removeprefix('c')}'s prompt with the "
                         "note first; make its take once it's written.")  # fmt: skip
             for row in rows:
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
-                note = project_clips.TakeIn(note=asked_note[:500])
+                note = project_clips.TakeIn(note=asked_note)
                 try:
                     if row.picked_take_id and contradicts(row.prompt, note.note):
                         # A7: "no phone" under a prompt with the phone: appended, both stay and
@@ -187,9 +193,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             said += f" {fit}" if fitting else ""
             said += (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
                      "is rewritten with it first." if rewritten else "")  # fmt: skip
-            said += f" {_against(waits)}" if waits else ""
-            return said + (" The note was cut to its first 500 characters."
-                           if len(asked_note) > 500 else "")  # fmt: skip
+            return said + (f" {_against(waits)}" if waits else "")
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))
             was = row.picked_take_id
@@ -286,7 +290,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             frame = next((f for f in still_review.frames(db, project) if f.shot_id == sid), None)
             if frame is None:
                 return f"Refused: there's no drawn still for shot {sid}."
-            note = (decision.get("note") or "").strip()[:500]
+            note = (decision.get("note") or "").strip()
             if no := still_review.no_sheet(db, project, sid, note):
                 return no
             storyboard.change_frame(frame_id=frame.id, body=storyboard.ChangeIn(note=note), **me)
@@ -478,13 +482,21 @@ def _clips(db: Session, project_id: int, clip_id: str | None) -> list[ProjectCli
     return [r for r in rows if r.picked_take_id is None]
 
 
+def _most(tool: str) -> int:
+    """The longest note a tool takes: a redo's (a take's Redo note), else a motion note's."""
+    from app import talker
+    from app.clip_takes import NOTE_MAX
+
+    return talker.LONGEST_MOTION if tool == "host" else NOTE_MAX
+
+
 def _rewritten(db: Session, row: ProjectClip, note: str) -> bool:
     """This clip's prompt was already rewritten with this note (Change it…)."""
     from app.models.jobs import Job
 
     asked = select(Job).where(Job.project_id == row.project_id,
                               Job.input["step"].as_string() == "change")  # fmt: skip
-    said = note.strip()[:500]
+    said = note.strip()
     return any(j.input.get("target") == "clip" and j.input.get("target_id") == row.id
                and j.input.get("note") == said for j in db.scalars(asked))  # fmt: skip
 

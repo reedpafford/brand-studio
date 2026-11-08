@@ -269,9 +269,11 @@ def describe(db: Session, user: User, brand_id: int, text: str, name: str = "",
     whoever it's for), with that voice's free sample. As a clone's are: a saved voice with the
     same words, or the same name, read in that same app voice is the one used again (a new
     name with the same words renames it); a removed one is never brought back silently."""
-    said = " ".join(text.split())[:500]
+    said = " ".join(text.split())
     if not said:
         raise HTTPException(422, NO_DESCRIPTION)
+    if len(said) > 500:  # never cut short: its end may be what it sounds like
+        raise HTTPException(422, "Describe the voice in 500 characters or fewer.")
     named_as, key = name.strip()[:120], closest(said, about)
     rows = db.scalars(select(Voice).where(
         Voice.workspace_id == user.workspace_id, Voice.brand_id == brand_id,

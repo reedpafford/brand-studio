@@ -102,9 +102,10 @@ def test_the_still_review_sees_the_sheets_and_a_sheet_redraw_needs_one(app, db, 
 def test_a_long_note_is_trimmed_and_one_that_takes_away_what_the_prompt_shows_rewrites_it(
     app, db, owner, editor
 ):
-    """A4: a 543-character note was refused as "name one clip"; it's cut to 500, as a still's
-    is. A7: "no phone" under a prompt with the phone was appended, both stood, and the $0.82
-    take raised the phone; now the prompt is rewritten with the note (Change it…) first."""
+    """A4: a 543-character note was refused as "name one clip"; now a note past 500 is refused
+    in plain words, never cut short (F16: 261's ended "on the pouch held still"). A7: "no
+    phone" under a prompt with the phone was appended, both stood, and the $0.82 take raised
+    the phone; now the prompt is rewritten with the note (Change it…) first."""
     assert contradicts("His phone lights up in his limp hand.", "No phone in this one.")
     assert contradicts("Two phones glow on the desk.", "without the phone")
     assert not contradicts("A warm kitchen at night.", "No phone, warmer light.")
@@ -120,12 +121,17 @@ def test_a_long_note_is_trimmed_and_one_that_takes_away_what_the_prompt_shows_re
     project = db.get(Project, pid)
     user = db.get(User, project.created_by_id)
     row = db.query(ProjectClip).filter_by(project_id=pid, clip_id="c1").one()
-    long = "Warmer light in the kitchen. " * 20  # 580 characters
+    jobs = db.query(Job).count()
+    long = "Warmer light in the kitchen. " * 19 + "End on the pouch held still."  # ~580
     note = {"tool": "make_take", "clip_id": "c1", "note": long}
     said = director_tools.run(db, user, project, note, app.state.storage, {"id": "r"})
-    assert said == "Making 1 take. The note was cut to its first 500 characters.", said
+    assert said == director_tools.LONG_NOTE.format(what="redo", most=500, n=len(long.strip()))
+    assert db.query(Job).count() == jobs  # refused, never cut: 261 lost its note's end (F16)
+    note = {**note, "note": long[-200:]}  # said shorter, all of it
+    said = director_tools.run(db, user, project, note, app.state.storage, {"id": "r"})
+    assert said == "Making 1 take.", said
     job = db.query(Job).order_by(Job.id.desc()).first()
-    assert job.kind == "video" and job.input["note"] == long[:500].strip()
+    assert job.kind == "video" and job.input["note"].endswith("End on the pouch held still.")
     db.delete(job)  # as if it were made: the next take may start
     row.prompt = f"{row.prompt}\nHis phone lights up in his limp hand."
     db.commit()
@@ -184,3 +190,32 @@ def test_a_doubt_both_watches_saw_is_a_fault_the_director_may_remake(app, db, ow
     clip = next(c for c in director.video_state(db, project)["clips"] if c["clip_id"] == "c1")
     assert "redo" not in clip
     assert not director._only_a_doubt(db, project, "c1", "Lines on the wrong faces.")
+
+
+def test_no_note_is_cut_short_anywhere_the_director_writes_one(app, db, owner, editor):
+    """F16: every note the director writes goes on as written or is refused with its length:
+    a still's redraw, a plan, a talker's motion, a card's question, a voice's description."""
+    import pytest
+    from fastapi import HTTPException
+
+    from app import asks, talker, voices
+
+    pid = _done(app, db, owner, editor)
+    project = db.get(Project, pid)
+    user = db.get(User, project.created_by_id)
+    long, jobs = "x " * 300, db.query(Job).count()
+    for tool, what in (("redraw_still", "redraw"), ("plan", "plan"), ("change_look", "change")):
+        said = director_tools.run(db, user, project, {"tool": tool, "shot_id": "1.1",
+                                                      "note": long}, app.state.storage)  # fmt: skip
+        assert said.startswith(f"Refused: a {what} note is at most 500 characters"), said
+    motion = "y " * (talker.LONGEST_MOTION // 2 + 5)
+    said = director_tools.run(db, user, project, {"tool": "host", "note": motion},
+                              app.state.storage)  # fmt: skip
+    assert said.startswith("Refused: a motion note is at most 600 characters"), said
+    assert db.query(Job).count() == jobs  # nothing made, nothing charged
+    move = {"kind": "story", "question": "How should it end? " * 30,
+            "choices": [{"title": "A"}, {"title": "B"}], "pick": "A"}  # fmt: skip
+    assert asks.asked(db, project, None, move).startswith("Refused: an ask's question is at most")
+    with pytest.raises(HTTPException) as no:
+        voices.describe(db, user, project.brand_id, "A warm low voice. " * 40)
+    assert "500 characters or fewer" in no.value.detail

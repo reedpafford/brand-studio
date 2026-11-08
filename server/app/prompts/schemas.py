@@ -929,7 +929,8 @@ class DirectorTurn(Strict):
         "and hands do and what's in front of them, never a gesture the place can't hold ('close "
         "to tears, fighting it: chin trembles, lips pressed between phrases, a glance down and "
         "back; both hands stay on the steering wheel'); for add_sound, the sounds "
-        "asked for and how much, in the person's words ('slight sound effects'); else empty.",
+        "asked for and how much, in the person's words ('slight sound effects'); else empty. "
+        "At most 500 characters (a talker's motion 600): a longer one is refused, never cut.",
     )
     edit: CutMove | None = Field(
         default=None, description="For edit_cut: the one edit (free). Else null."
