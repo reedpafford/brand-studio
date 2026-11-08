@@ -878,12 +878,9 @@ class DirectorTurn(Strict):
         "as the script has them, with only pause marks between words, e.g. <#0.2#> (0.1-0.3 s, "
         "never two in a row), and a few sounds a person makes, e.g. (breath), (chuckle), "
         "(sighs), (emm), where they'd really happen; a changed word is refused. A talker is "
-        "someone filming themselves, not a narrator: the voice already stops at every full "
-        "stop, so never put a mark after one (a mark is kept at every gap, and the references "
-        "have no pause past about 0.5 s); put one or two short marks inside a phrase where a "
-        "person would catch themselves or let a beat land, a (breath) before a new thought "
-        "every few sentences, and at most one (chuckle), (sighs) or (emm) where the feeling "
-        "calls for it. Else empty.",
+        "someone filming themselves, not a narrator: short marks only where a person would "
+        "catch themselves (the voice already stops at full stops), and a breath or a small "
+        "sound where it would really happen. Else empty.",
     )
     model: Name = Field(
         default=None,

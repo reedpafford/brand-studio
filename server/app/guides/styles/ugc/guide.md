@@ -102,7 +102,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 
 ## Sound and delivery
 - One voice from the first frame to the last, as if recorded close on a phone in a real room: the room's ambience under it and real emotion in the inflection (Reed, 3 Nov: "a much more realistic voice, with room ambience and emotion influction").
-- A person talking to their phone, not a narrator reading: the words keep moving at an even pace and sentences run into each other, with short breaths, never a dead stop after every full stop. In the voice's reading: no pause mark after a full stop (the voice stops there already), a short mark only inside a phrase, a breath before a new thought now and then, at most one chuckle, sigh or "emm", and the emotion left to the voice (auto) unless the whole read is one clear mood. The site sets the pace and trims the gaps; the words stay exactly the script's.
+- A person talking to their phone, not a narrator reading: the words keep moving and sentences run into each other, with breaths, not a dead stop after every full stop. In the voice's reading, short marks (0.1–0.3 s) only where a person would catch themselves (the voice already stops at full stops), and a breath or a small sound where it would really happen; the emotion is the voice's own (auto) unless the read is one clear mood. The site sets the pace and trims the gaps; the words stay exactly the script's.
 - Pitch variability 3.6–5.8 semitones: warm and calm to lively; urgency shows as rising peaks.
 - No music by default. When asked for: a quiet bed 21–24 dB under the voice that can change as the video turns to the offer. Effects only on editor transitions (a whoosh on a flash, one low impact).
 

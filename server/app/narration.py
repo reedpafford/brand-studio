@@ -46,9 +46,8 @@ MINIMAX_VOICES = ("English_FriendlyPerson", "English_Trustworth_Man", "English_U
 # A voice's own start, where measured: English_FriendlyPerson read 4.9 words a second at 1.1, in
 # auto and calm alike (video 281, takes 1-2); its speed scales that, so 0.76 is about 3.4.
 VOICE_SPEEDS = {"English_FriendlyPerson": 0.76}
-# An emotion slows MiniMax, so its speed rises with it (th-20s, English_Graceful_Lady: fearful
-# 2.4 words a second at 1.25, 3.4-3.6 at 1.5; sad 1.6 at 1.1, 2.0 at 1.3). Others start at the
-# voice's own; a remake corrects its speed from the measured pace (`pace`, `retimed`).
+# An emotion slows MiniMax, so its speed rises (th-20s, English_Graceful_Lady: fearful 2.4 words a
+# second at 1.25, 3.4-3.6 at 1.5; sad 1.6 at 1.1, 2.0 at 1.3), scaled to each voice's own start
 SPEEDS = {"fearful": 1.5, "sad": 1.3}
 FASTEST, SLOWEST_SPEED = 2.0, 0.5  # MiniMax's speed range
 VOICES = ELEVENLABS + MINIMAX_VOICES
@@ -182,9 +181,10 @@ def tag(note: str) -> str:
 
 
 def speed_for(emotion: str | None, voice: str = "") -> float:
-    """The speed a read starts at: its emotion's (`SPEEDS`), else its voice's own
-    (`VOICE_SPEEDS`), else 1.1."""
-    return SPEEDS.get(emotion or "auto") or VOICE_SPEEDS.get(voice, MINIMAX_SPEED)
+    """The speed a read starts at: its voice's own (`VOICE_SPEEDS`, else 1.1), raised as its
+    emotion's was on the voice it was measured on (`SPEEDS`, at 1.1)."""
+    own = VOICE_SPEEDS.get(voice, MINIMAX_SPEED)
+    return round(own * SPEEDS.get(emotion or "auto", MINIMAX_SPEED) / MINIMAX_SPEED, 2)
 
 
 def _minimax(text: str, voice: str, note: str, emotion: str, reading: str,

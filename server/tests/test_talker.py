@@ -136,6 +136,8 @@ def test_an_emotion_speeds_minimax_up_and_a_remake_is_set_from_the_measured_pace
     assert speed == {"fearful": 1.5, "sad": 1.3, "auto": 1.1, "calm": 1.1}  # th-20s, measured
     friendly = narration.job(words, "English_FriendlyPerson", emotion="calm")["input"]["speed"]
     assert friendly == 0.76  # video 281: 4.9 words a second at 1.1, in auto and calm alike
+    scared = narration.job(words, "English_FriendlyPerson", emotion="fearful")["input"]["speed"]
+    assert scared == round(0.76 * 1.5 / 1.1, 2)  # the emotion's rise, from the voice's own start
     assert narration.job(words, "English_Graceful_Lady", speed=2.6)["input"]["speed"] == 2.0
     heard = [{"word": "a", "start": 0.0, "end": 0.4}, {"word": "b", "start": 0.45, "end": 1.0},
              {"word": "c", "start": 2.0, "end": 2.5}]  # a 1 s pause, left out  # fmt: skip
