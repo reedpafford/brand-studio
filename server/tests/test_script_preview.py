@@ -90,7 +90,8 @@ def test_a_version_shows_its_estimate_clips_planner_and_original(owner, db):
     assert (first["variation_of"], second["variation_of"]) == (None, "A")
     assert (first["clips"], first["planned_by"]) == (0, None)
     # Every step, not only its 40 s of video (QA-Live, video #17: "About 55", 99 charged).
-    assert 1.2 * 40 < first["estimate_credits"] < 1.6 * 40
+    # Its 5 guessed clips' prompts are half a Claude call each, asked one a clip (speed, 8 Nov).
+    assert 1.2 * 40 < first["estimate_credits"] < 1.65 * 40
     owner.put(f"{base}/drafts/0/breakdown", json=BREAKDOWN)
     first = owner.get(base).json()["versions"][0]
     assert first["clips"] == len(BREAKDOWN["clips"]) and first["planned_by"]["name"] == "Reed"

@@ -19,13 +19,23 @@ def test_the_cast_read_signal_finds_a_script_that_is_all_one_narrator():
     assert check.narrator("BISCUIT (V.O.): Day one.\nCTA: Get Iron Paws.") == "Biscuit"
 
 
+SPOKEN = {  # a narrated step leaves out its story step's paragraphs for spoken lines (speed)
+    "narrated_breakdown": ["A line comes early in its shot.", "Silence is a choice.", "Length.",
+                           "Voiceover.", "The hook is the inciting moment."],
+    "narrated_clip_prompts": ["Opening.", "Spoken lines."],
+}  # fmt: skip
+
+
 def test_narrated_steps_are_the_story_steps_plus_their_own_part():
     for step, story, part in (
         ("narrated_breakdown", "breakdown", "**The narration is the clock.**"),
         ("narrated_clip_prompts", "clip_prompts", "**Narrated.**"),
     ):
         text, base = prompts.system(step), prompts.system(story)
-        assert text.startswith(base.split("## Worked example")[0].strip()), step
+        story_part = base.split("## Worked example")[0].strip().split("\n\n")
+        left = [p.split("**")[1] for p in story_part if p not in text]
+        assert left == SPOKEN[step], step  # every other paragraph, as written
+        assert "Leaves out" not in text, step
         assert part in text and part not in base, step
         assert "## Worked example" not in text, step  # the story example would teach dialogue
     assert "moves their lips" in prompts.system("narrated_clip_prompts")

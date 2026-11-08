@@ -1,7 +1,8 @@
 """Clip prompts always finish (stabilization, 2026-10-27, "Mom gave him three days"): every
 clip of a long video in one answer ran out of room and failed the whole run. Now Claude is
-asked a few clips at a time in one job (one price), a clip whose answer still runs out gets a
-free "Fix this clip's prompt", and a run that fails says why. Mocked: no paid calls."""
+asked one clip a part, all at once, in one job (priced per clip), a clip whose answer
+still runs out gets a free "Fix this clip's prompt", and a run that fails says why. Mocked:
+no paid calls."""
 
 import copy
 import json
@@ -68,12 +69,12 @@ def test_a_long_video_finishes_and_the_clip_that_ran_out_gets_a_free_fix(app, db
     price = editor.get(f"{base}/clips/prompts/price").json()["credits"]
     job = editor.post(f"{base}/clips/prompts").json()
     shown = job["credits"]
-    assert price == shown == 9  # 3 credits a Claude call, 3 calls (QA-Live 6: undercharged)
+    assert price == shown == 6  # 3 credits a Claude call, half a call a clip (one answer each)
 
     writer = Writer(cut={"c2"})
     _run(app, db, writer)
-    # the montage gets a call of its own; parts are asked at once, so they arrive in any order
-    assert sorted(writer.asked) == [["c1"], ["c2"], ["c3", "c4"]]
+    # each clip is asked on its own, all at once, so they arrive in any order
+    assert sorted(writer.asked) == [["c1"], ["c2"], ["c3"], ["c4"]]
     done = db.get(Job, job["id"])
     spent = sum(u.cost_usd for u in db.query(Usage).filter_by(job_id=job["id"]))
     assert done.status == "succeeded" and done.credits == usd_to_credits(spent)  # what it cost
