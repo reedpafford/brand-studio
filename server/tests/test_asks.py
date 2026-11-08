@@ -677,6 +677,41 @@ def test_a_product_shot_answer_picks_that_product_for_the_video(app, db, owner, 
     assert db.get(Project, pid).product_variants == {"bag": "Peanut butter"}  # set, free
 
 
+def test_an_app_with_no_picture_of_its_own_is_shown_by_its_screens_or_the_one_picked(
+    app, db, owner, editor
+):
+    """Video 293: "fomo app" had no picture, so clip 5 was refused five times ("has no
+    picture yet") though the brand had ten screens of it and the owner picked its Home screen
+    on the director's card. A product's own screens are its picture (rule 13)."""
+    from app import storyboard
+    from app.models.brands import BrandScreen
+
+    pid, _ = _video(app, owner, editor, db)
+    project = db.get(Project, pid)
+    fomo = product(db, project.brand_id, "fomo app")
+    db.commit()
+    shots = {}
+    for name, default in (("Chart", []), ("Home", ["app-open"]), ("Rich home", [])):
+        shots[name] = BrandScreen(brand_id=project.brand_id, name=name, product_id=fomo,
+                                  file_id=upload(owner), default_for=default)  # fmt: skip
+        db.add(shots[name])
+    db.commit()
+
+    def shown() -> list[int]:
+        db.expire_all()
+        return storyboard.assets(db, db.get(Project, pid))[f"prop:{fomo}"][1]
+
+    assert shown() == [shots["Home"].file_id]  # its "app-open" screen, by default
+    ask = _ask(db, pid, {"kind": "brand_item", "topic": "The fomo app",
+                         "question": "Can you add a picture of the fomo app?"})  # fmt: skip
+    rich = f"screen:{shots['Rich home'].id}"
+    assert (
+        editor.post(f"/asks/{ask.id}/answer", json={"how": "saved", "option": rich}).status_code
+        == 200
+    )
+    assert shown() == [shots["Rich home"].file_id]  # the one picked on the card
+
+
 def test_planning_before_make_it_has_an_allowance_that_a_restart_never_resets(
     app, db, owner, editor, monkeypatch
 ):
