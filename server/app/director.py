@@ -1421,6 +1421,9 @@ def _auto(db: Session, project: Project, run: dict, seen: dict, last: Job) -> di
     step = director_auto.move({**seen, "questions": questions, "tried": _tried(db, project, run)})
     if step and step["tool"] in ("make_take", "final_cut") and STORE.get() is None:
         return None
+    if step and last.input.get(director_auto.SAID) and (last.output or {}).get("tool") == step[
+            "tool"]:  # fmt: skip
+        return None  # its own step again (a clip prompt's part that failed): the director's
     if step and step["tool"] == "make_take" and run.get(PRICED):
         return None  # a priced run makes only its own clips' takes, named by the director
     return step
