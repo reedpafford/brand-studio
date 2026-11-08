@@ -163,7 +163,7 @@ class LocalProvider:
         words = [{**w, "clip_id": watch_cut.clip_at(spans, w["start"])}
                  for line in self.hear_cut(cut, input) for w in line.get("words", [])]  # fmt: skip
         facts, made = deep_watch.look(cut, folder, words, watch_cut.count_for(length),
-                                      watch_cut.DENSE, wide=1400)  # fmt: skip
+                                      watch_cut.DENSE, wide=1400, ending=True)  # fmt: skip
         cut.unlink()
         strips = [{k: m[k] for k in ("what", "start", "end")} for m in made]
         output = {"spans": spans, "words": words, "strips": strips,
