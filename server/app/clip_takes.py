@@ -44,9 +44,8 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     require_cast_sheets(db, breakdown, shots, known)
     require_looks(would_show(db, project, breakdown, shots), known)
     model = model_map.of_clip(project, clip)  # its own (the director's), else the video's
-    unsent = model_map.unsent(looks.drawn(project), model.id, _shots(breakdown, shots))
     images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
-    unsent += model_map.unsent_people(model.id, images)  # Omni: 2 people, the rest in words
+    unsent = model_map.left_out(looks.drawn(project), model.id, _shots(breakdown, shots), images)
     drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
@@ -89,6 +88,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         not_again(db, clip, model.id, take, sent)
     return {
         "step": "clip_take",
+        UNSENT: list(unsent),  # said in words, never sent (`clip_prompts.older_take`)
         "project_id": project.id,
         "project_clip_id": clip.id,
         "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
@@ -307,6 +307,7 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: d
 
 
 FIT = "fit"  # in a free fix's input: it shortens the prompt to its model's limit
+UNSENT = "unsent"  # in a take's input: the references its model was never sent
 ROOM = 800  # characters a prompt is written under its limit: what a take adds (its language
 # line, a Redo note of 500 at most in its own words: about 700) and a little over (video 271:
 # 3,441 for "under 3,400"), so any Redo note fits
@@ -323,12 +324,24 @@ STILL_LONG = ("The prompt is still too long for {model} ({n:,} of {most:,} chara
               "longer prompts. Nothing was charged.")  # fmt: skip
 
 
+FITTED = "fitted"  # in a fit's input once its shorter prompt is saved
+
+
+def failed_fits(db: Session, clip: ProjectClip) -> int:
+    """The clip's rewrites to fit that were done but never saved (QA on #1453: one saved for a
+    first take, then too long with a remake's note, never spends a try)."""
+    fits = db.scalars(select(Job).where(Job.project_id == clip.project_id,
+                                        Job.input[FIT].as_boolean()))  # fmt: skip
+    return sum(j.input.get("clip_ids") == [clip.clip_id] and j.status not in WAITING
+               and not j.input.get(FITTED) for j in fits)  # fmt: skip
+
+
 def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: str,
                 note: str = "") -> None:  # fmt: skip
     """A prompt longer than its model takes (Seedance 2.0: 4000 characters) is never sent: the
     provider refuses it the same way every time. It's rewritten to fit, free, by the clip's
     own fix (clip_prompts.fix_job: its Keep, Shot and spoken lines kept), never cut short, and
-    the take is refused until then, saying so; after two rewrites, a person shortens it. The
+    the take is refused until then, saying so; after two that failed, a person shortens it. The
     rewrite leaves room for what the take adds, any Redo note included (video 271: a fit to
     3,441 characters was still too long with the director's note, twice)."""
     from app.clip_prompts import fix_job, fixing
@@ -345,19 +358,19 @@ def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: s
     writing = ("clip_prompts", "narrated_clip_prompts")  # a rewrite of every clip: after it
     if any(j.input.get("step") in writing and not j.input.get("fix") for j in jobs):
         raise HTTPException(409, WRITING.format(**said))
-    fits = db.scalars(select(Job).where(Job.project_id == project.id, Job.input[FIT].as_boolean()))
-    if sum(j.input.get("clip_ids") == [clip.clip_id] for j in fits) >= 2:
+    if failed_fits(db, clip) >= 2:
         raise HTTPException(409, STILL_LONG.format(**said))
     added = len(sent) - len(clip.prompt or "") - _noted(note)  # its language line and such
-    fit = most - added - _noted("x" * NOTE_MAX)  # so it fits with any Redo note
-    room = fit - SLACK
+    room = most - added - _noted("x" * NOTE_MAX) - SLACK  # asked: room for any Redo note
+    keep = next((x for x in (clip.prompt or "").splitlines() if x.startswith("Keep: ")), "")
     told = (f"Shorten this clip's prompt to under {room} characters ({model.name} takes at most "
             f"{most}; it's {len(sent)}): say each shot's description in fewer words. Keep every "
             "shot, in order, with its start as written (\"Shot N | a–b s.\"), every spoken or "
-            "quoted line word for word, and the Keep: line as it is. Never drop a shot or a "
-            "line someone says.")  # fmt: skip
+            f"quoted line word for word, and the Keep: line as it is ({len(keep)} of those "
+            "characters: it's put back as it is if changed). Never drop a shot or a line "
+            "someone says.")  # fmt: skip
     fix = fix_job(db, db.get(User, project.created_by_id), project, clip, [], told=told)
-    fix.input = {**fix.input, FIT: True, "fit_max": fit}
+    fix.input = {**fix.input, FIT: True, "fit_max": most - added - _noted(note)}  # this take
     db.commit()  # the fix stands whatever the refusal below rolls back
     raise HTTPException(409, FITTING.format(**said))
 

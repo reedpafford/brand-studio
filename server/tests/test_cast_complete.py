@@ -114,6 +114,22 @@ def test_a_role_joins_the_shots_naming_it_but_not_its_off_screen_lines(owner, ed
     assert breakdown.show_roles(db, project, plan, off) == {"1.2": ["Nate"]}
 
 
+def test_a_role_named_only_as_an_owner_where_it_never_is_stays_out(owner, editor, db):
+    """Video 276: "an echo of Granny's pats" in the truck lot put Granny in the ending's clip,
+    though the plan has her only in the barn; her look went into it and Omni drew her there."""
+    _, pid, _ = _video(owner, editor)
+    _fill(db)
+    project = db.get(Project, pid)
+    plan = Breakdown.model_validate(editor.get(f"/projects/{pid}/breakdown").json()["breakdown"])
+    one, two = plan.scenes[0].shots
+    one.character_ids, one.place_id, one.action = [], "place:1", "Nate paces the barn."
+    two.place_id, two.action = "place:2", "In the lot the bride does an echo of Nate's shrug."
+    off = TEXT.replace("NATE: Will", "NATE (O.S.): Will")
+    assert breakdown.show_roles(db, project, plan, off) == {"1.1": ["Nate"]}  # not 1.2
+    two.place_id = "place:1"  # where he is: his shrug is his
+    assert breakdown.show_roles(db, project, plan, off) == {"1.2": ["Nate"]}
+
+
 def test_a_label_naming_a_role_already_there_never_makes_a_second_one(owner, editor, db):
     """One person is never two roles: "GROOM:" is "Nate, the teen groom"."""
     made = _make(owner, title="Altar", text="INT. CHURCH — DAY\nGROOM: Will you marry me?")

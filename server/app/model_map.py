@@ -234,6 +234,11 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
         return NOT_VIDEO.format(model_id)
     if found.id == talker.MODEL:
         return WHOLE_TAKE
+    if found.id != was.id and _too_long(db, project, clip, was, reason):
+        from app.clip_takes import failed_fits
+
+        then = ASK_OWNER if failed_fits(db, clip) >= 2 else REWRITTEN
+        return LENGTH.format(n=clip.clip_id.removeprefix("c"), model=was.name, then=then)
     if talker.says(db, project, clip):
         return SAYS_IT
     if who := _persons(db, project):
@@ -262,6 +267,33 @@ def choose(db, project, clip, model_id: str | None, reason: str) -> str:
         f"Clip {clip.clip_id.removeprefix('c')} is made on {found.name} now: up to "
         f"{now:.1f} credits a take (was {then:.1f} on {was.name}). Why: {reason.strip()}"
     )
+
+
+LENGTH = ("Refused: clip {n}'s prompt is too long for {model}, and a clip moves to another "
+          "model only for what its shots need or a person's note (name it), never to get past "
+          "that: {then}")  # fmt: skip
+REWRITTEN = "its prompt is rewritten to fit, free. Make its take once it's rewritten."
+ASK_OWNER = ("both rewrites to fit are used, so ask the owner: they can shorten it with Edit "
+             "(free) or move it to another model.")  # fmt: skip
+
+
+def _too_long(db, project, clip, was, reason: str) -> bool:
+    """The move's reason is its prompt's length (video 268: c3 moved to Seedance 2.5, dearer,
+    after its prompt was refused): too long for its model as a take sends it (its people said
+    in words too), or being rewritten to fit."""
+    from fastapi import HTTPException
+
+    from app.clip_prompts import fixing
+    from app.clip_takes import take_input
+    from app.settings_move import ASKED
+
+    if ASKED.search(reason or "") or not was.prompt_max:
+        return False
+    try:
+        sent = take_input(db, project, clip, check=False)["input"].get("prompt") or ""
+    except HTTPException:  # it can't be sent yet (a look missing): its prompt as written
+        sent = clip.prompt or ""
+    return len(sent) > was.prompt_max or bool(fixing(db, clip))
 
 
 def fit(model, input: dict, files: dict) -> tuple[dict, dict]:
@@ -310,6 +342,12 @@ def nearest(shape: str, shapes: list[str]) -> str:
         return shape
     return min(given, key=lambda s: (round(abs(math.log(ratio(s) / ratio(shape))), 6),
                                      s != "9:16"))  # fmt: skip
+
+
+def left_out(look: str | None, model_id: str, shots: list[dict], images: list[str]
+             ) -> tuple[str, ...]:  # fmt: skip
+    """Every reference a take on this model leaves out and says in words instead."""
+    return unsent(look, model_id, shots) + unsent_people(model_id, images)
 
 
 def unsent_people(model_id: str, images: list[str]) -> tuple[str, ...]:
