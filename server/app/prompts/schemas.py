@@ -868,7 +868,9 @@ class DirectorTurn(Strict):
         default=None,
         description="For settings with setting look, aspect_ratio or presenter: the new value "
         "(a style id, '9:16', or talks / corner / acts); empty for the style's own. For "
-        "real_screen: 'off' puts the generated screen back. Else empty.",
+        "real_screen: 'off' puts the generated screen back. For locked_line: the words the "
+        "note asks for instead, when it says them (the owner's card offers to change the line "
+        "to them). Else empty.",
     )
     look: LookMove | None = Field(
         default=None,

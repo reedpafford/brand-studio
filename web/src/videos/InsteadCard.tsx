@@ -1,8 +1,8 @@
-import { Check, Clock, Film, LoaderCircle, Mic } from "lucide-react";
+import { Check, Clock, Film, LoaderCircle, Mic, PenLine } from "lucide-react";
 import { Button } from "../components";
 import { said, useAskActions, type Ask } from "./AskCard";
 
-const ICON = { softer: Mic, cut_away: Film, pause: Clock } as const;
+const ICON = { change_line: PenLine, softer: Mic, cut_away: Film, pause: Clock } as const; // change_line: the owner's (rule 31, Reed 7 Nov)
 
 /** What the director can change instead of a locked line (S3-14): the script's words are set, so its reply offers each
  *  thing this video can really make instead, priced as its press charges ("up to"; free when it is). A press makes it at

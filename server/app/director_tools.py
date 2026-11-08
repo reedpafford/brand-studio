@@ -259,8 +259,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             from app import locked_line
 
             return locked_line.for_director(db, user, project, decision.get("word"),
-                                            decision.get("why") or "",
-                                            (run or {}).get("id"))  # fmt: skip
+                                            decision.get("why") or "", (run or {}).get("id"),
+                                            decision.get("value"))  # fmt: skip
         if tool == "host":  # a presenter's host, as Make the host
             from app import host
 

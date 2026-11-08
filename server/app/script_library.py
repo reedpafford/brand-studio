@@ -80,6 +80,12 @@ def offered_flavours(db: Session, brand_id: int, draft: ScriptDraft) -> dict[str
     return {p: v for p, v in (draft.flavours or {}).items() if v in offered.get(p, set())}
 
 
+def letter(slot: int) -> str:
+    """A version's name: A, B, C… (a changed line makes more than three: rule 31's owner
+    exception), then a number past Z."""
+    return chr(65 + slot) if 0 <= slot < 26 else str(slot + 1)
+
+
 def drafts(db: Session, script: Script) -> list[ScriptDraft]:
     query = select(ScriptDraft).where(ScriptDraft.script_id == script.id)
     return list(db.scalars(query.order_by(ScriptDraft.slot)))

@@ -86,6 +86,12 @@ def _in(words: str, text: str) -> bool:
 def asked(text: str, script: str) -> tuple[str, bool] | None:
     """The script's words a note asks to replace or reword, and whether that's all the note
     asks; None when it doesn't ask that."""
+    found = asked_for(text, script)
+    return (found[0], found[2]) if found else None
+
+
+def asked_for(text: str, script: str) -> tuple[str, str | None, bool] | None:
+    """As `asked`, with the words it asks for instead (None: "reword it", no new words)."""
     quotes = [(m.group(0), (m.group(1) or m.group(2)).strip()) for m in QUOTE.finditer(text)]
     for raw, words in quotes:
         if not words or not _in(words, script):
@@ -93,9 +99,11 @@ def asked(text: str, script: str) -> tuple[str, bool] | None:
         new = [re.escape(r) for r, w in quotes if w != words and not _in(w, script)]
         repl = f"(?:{'|'.join(new)})" if new else r"(?!x)x"
         for pattern in ASKS:
-            found = re.search(pattern.replace("Q", re.escape(raw)).replace("R", repl), text, re.I)
+            found = re.search(pattern.replace("Q", re.escape(raw)).replace("R", f"(?P<r>{repl})"),
+                              text, re.I)  # fmt: skip
             if found:
-                return words, _only(text[: found.start()] + " " + text[found.end() :])
+                new = (found.groupdict().get("r") or "").strip("“”\"'‘’ ") or None
+                return words, new, _only(text[: found.start()] + " " + text[found.end() :])
     for found in UNSAID.finditer(text):  # "say R, not Q": Q the speaker's words, R new ones
         new = found["r"].strip()
         if HOW.match(new):  # "say it slower, not fast": a delivery note, the director's
@@ -107,7 +115,7 @@ def asked(text: str, script: str) -> tuple[str, bool] | None:
                       if len(w.split()) >= least and len(w) > 2 and _in(w, said)),
                      None)  # fmt: skip
         if words and not _in(new, script):
-            return words, _only(text[: found.start()] + " " + text[found.end() :])
+            return words, new, _only(text[: found.start()] + " " + text[found.end() :])
     return None
 
 
@@ -154,19 +162,24 @@ def offer(db: Session, user: User, project: Project, text: str) -> tuple[Ask, bo
     version = plans.script(db, project)
     if not project.script_draft_id or version is None:
         return None
-    found = asked(text, version.text)
+    found = asked_for(text, version.text)
     if found is None:
         return None
-    words, only = found
-    choices = _choices(db, user, project, words)
+    words, new, only = found
+    choices = _choices(db, user, project, words, new)
     if not choices and not only:
         return None  # nothing to offer, and it asks more: the director reads all of it
-    return card(db, project, words, choices), only
+    return card(db, project, words, choices, owner=user.is_owner), only
 
 
-def _choices(db: Session, user: User, project: Project, words: str) -> list[dict]:
+def _choices(db: Session, user: User, project: Project, words: str,
+             new: str | None = None) -> list[dict]:  # fmt: skip
+    """What can change instead, and for the owner first "Change the line" (Reed, 7 Nov)."""
+    from app import line_change
+
     shot = _said_in(db, project, words)
-    return [c for c in (_softer(db, project, shot), _safely(_cut_away, db, user, project, words),
+    return [c for c in (line_change.choice(db, user, project, words, new),
+                        _softer(db, project, shot), _safely(_cut_away, db, user, project, words),
                         _safely(_pause, db, user, project, words)) if c]  # fmt: skip
 
 
@@ -177,7 +190,7 @@ NOT_SCRIPT = ("Refused: “{}” isn't in the published script. Give the script'
 
 
 def for_director(db: Session, user: User, project: Project, words: str | None, why: str,
-                 run_id: str | None) -> str:  # fmt: skip
+                 run_id: str | None, new: str | None = None) -> str:  # fmt: skip
     """The director's `locked_line` (free): S3-14's card for a person's note that asks to change
     the published script's words and that no card answered as it came (QA on #1429: "Ray should
     say sure, not okay" started a run that re-delivered with the refusal buried). The notes its
@@ -190,7 +203,8 @@ def for_director(db: Session, user: User, project: Project, words: str | None, w
     if not project.script_draft_id or version is None or not words or not _in(
             words, version.text):  # fmt: skip
         return NOT_SCRIPT.format(words)
-    ask = card(db, project, words, _choices(db, user, project, words))
+    ask = card(db, project, words, _choices(db, user, project, words, new),
+               owner=user.is_owner)  # fmt: skip
     mine = [n for n, m in enumerate(project.director_chat or []) if m.get("run") == run_id]
     chat = list(project.director_chat or [])
     for n in {int(x) for x in NOTE.findall(why)}:
@@ -201,10 +215,19 @@ def for_director(db: Session, user: User, project: Project, words: str | None, w
     return POSTED
 
 
-def card(db: Session, project: Project, words: str, choices: list[dict]) -> Ask:
-    """S3-14's card: the words are set, and what can change instead (or nothing to offer)."""
+OWNS = "You can change “{}” in a new version of the script, or change how it plays instead:"
+
+
+def card(db: Session, project: Project, words: str, choices: list[dict],
+         owner: bool = False) -> Ask:  # fmt: skip
+    """S3-14's card: the words are set, and what can change instead (or nothing to offer); the
+    owner's offers "Change the line" first (rule 31's owner exception, Reed 7 Nov)."""
+    from app import line_change
+
+    mine = owner and any(c.get("do") == line_change.DO for c in choices)
+    said = OWNS if mine else SET if choices else SET_ONLY
     ask = Ask(workspace_id=project.workspace_id, project_id=project.id, kind=KIND,
-              subject=words[:120], question=(SET if choices else SET_ONLY).format(words),
+              subject=words[:120], question=said.format(words),
               state=OFFERED,
               choices=[{"key": chr(65 + n), **c} for n, c in enumerate(choices)])  # fmt: skip
     db.add(ask)
@@ -389,12 +412,17 @@ def _row(db: Session, project: Project, clip: str) -> ProjectClip | None:
 # --- A choice on the card: whether it can be made, its price, its press, what happened -------
 
 
-def cannot(db: Session, project: Project, choice: dict, words: str = "") -> str:
+def cannot(db: Session, project: Project, choice: dict, words: str = "",
+           user: User | None = None) -> str:  # fmt: skip
     """Why this choice can't be made now ("" when it can), checked when shown and pressed."""
     from app import director
 
     if director.active(db, project):
         return RUNNING
+    if choice.get("do") == "change_line":
+        from app import line_change
+
+        return line_change.cannot(db, project, choice, words, user)
     if choice.get("do") == "softer":
         row = _row(db, project, choice.get("clip") or "")
         n = (choice.get("clip") or "").removeprefix("c")
@@ -463,6 +491,10 @@ def price(db: Session, project: Project, choice: dict) -> Decimal | None:
         return take_credits(db, project, row) if row is not None else None
     if choice.get("do") in ("cut_away", "pause"):
         return Decimal(0)  # an edit and the cut made again: free
+    if choice.get("do") == "change_line":
+        from app import line_change
+
+        return line_change.price(db, project, choice)
     return None
 
 
@@ -475,6 +507,10 @@ def made(db: Session, ask: Ask, key: str) -> tuple[str, str, int | None]:
     mine = ((ask.answer or {}).get("chosen") or {}).get(key)
     if not mine:
         return "", "", None
+    if mine.get("run"):  # "Change the line": its run's own state
+        from app import line_change
+
+        return (*line_change.made(db, mine), None)
     if mine.get("edit"):
         from app.models.clips import CutEdit
 
@@ -573,8 +609,8 @@ def choose(db: Session, user: User, ask: Ask, key: str, storage, option=None) ->
         raise HTTPException(409, "That's already being made.")
     if state == "done":
         raise HTTPException(409, "That's made already.")
-    if why := cannot(db, project, found, ask.subject):
-        raise HTTPException(409, why)
+    if why := cannot(db, project, found, ask.subject, user):
+        raise HTTPException(403 if why == _owner_only() else 409, why)
     if state:  # made already (done, or kept with what happened): say that, not "being made"
         raise HTTPException(409, GONE if said == GONE else "That's made already.")
     done = DOES[found["do"]](db, user, project, ask, found, storage)
@@ -640,7 +676,21 @@ def _make_cut(db: Session, project: Project, user: User, storage) -> tuple[str, 
     return f"Making Cut {made.making.number if made.making else made.number} with it.", True
 
 
-DOES = {"softer": _say_softer, "cut_away": _edit_the_cut, "pause": _edit_the_cut}  # its press
+def _change_line(db: Session, user: User, project: Project, ask: Ask, choice: dict,
+                 storage) -> dict:  # fmt: skip
+    from app import line_change
+
+    return line_change.press(db, user, project, ask, choice, storage)
+
+
+def _owner_only() -> str:
+    from app import line_change
+
+    return line_change.OWNER_ONLY
+
+
+DOES = {"softer": _say_softer, "cut_away": _edit_the_cut, "pause": _edit_the_cut,
+        "change_line": _change_line}  # its press  # fmt: skip
 
 
 def after(db: Session, job: Job, storage) -> None:

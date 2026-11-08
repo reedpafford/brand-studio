@@ -208,9 +208,14 @@ def _instead(db: Session, user: User, ask: Ask, project: Project, card: AskOut,
         elif raw.get("do") in ("cut_away", "pause") and not locked_line.director_going(db, project):
             c.why, c.cannot = locked_line.now(db, project, raw, ask.subject)  # as it is now
         else:
-            c.cannot = locked_line.cannot(db, project, raw, ask.subject)
+            c.cannot = locked_line.cannot(db, project, raw, ask.subject, user)
         credits = None if c.cannot else locked_line.price(db, project, raw)
         c.price = _price(user, credits) if credits else None
+    if not user.is_owner:  # "Change the line" is the owner's (rule 31): an editor's card is S3-14's
+        card.choices = [c for c in card.choices if c.do != "change_line"]
+        if card.question == locked_line.OWNS.format(ask.subject):
+            card.question = (locked_line.SET if card.choices else locked_line.SET_ONLY).format(
+                ask.subject)  # fmt: skip
     card.can = ["instead"] if mine and any(not (c.made or c.cannot) or c.then
                                            for c in card.choices) else []  # fmt: skip
     return card
@@ -276,7 +281,7 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         later = False
         if run and any(j.input.get(asks.PAST_PRICE) for j in held):  # past its Make it's price
             top, spent = run  # the run's own price and what it charged against it (rule 34)
-            later = asks.runs_made(db, project) > 1  # after a delivery or a stop: the run's words
+            later = asks.runs_made(db, project) > 1 or bool(director.priced(db, project))
         money.spent, money.budget = _price(user, spent), _price(user, top)
         money.past = _past(money.spent, money.up_to, money.budget, spent + more - top)
         money.clips, money.what = _clips(db, project, held), _what(db, held)
@@ -428,8 +433,9 @@ def answer(ask_id: int, body: AnswerIn, request: Request, user: User = Depends(c
         if body.how != locked_line.KIND:
             raise HTTPException(422, "That isn't a way to answer this card.")
         picked = next((c for c in ask.choices if c["key"] == body.choice), {})
-        if body.option != "use" and picked.get("do") == "softer":  # a paid take, as Make a
-            generation_on(request)  # take's own route checks it (an edit and a cut are free)
+        paid = picked.get("do") in ("softer", "change_line")  # a take (or more), as Make a
+        if body.option != "use" and paid:  # take's own route checks it (an edit, a cut: free)
+            generation_on(request)
         locked_line.choose(db, user, ask, body.choice or "", request.app.state.storage,
                            body.option)  # fmt: skip
     else:

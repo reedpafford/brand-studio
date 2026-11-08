@@ -447,17 +447,36 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
     db.add(again)
     db.flush()
     cast_roles.carry_frames(db, project, row, again)
-    _current_clips(db, project, again)
+    _current_clips(db, project, again, _changed(db, old, new), row.id)
     return again
 
 
-def _current_clips(db: Session, project: Project, row: BreakdownVersion) -> None:
+def _changed(db: Session, old: SongTake, new: SongTake) -> set[int]:
+    """The script lines the owner changed between the takes' versions (line_change: a new
+    version whose `changed_lines` says which), else none."""
+    from app.models.script_library import ScriptDraft
+
+    if old.draft_id == new.draft_id:
+        return set()
+    draft = db.get(ScriptDraft, new.draft_id)
+    said = set(draft.changed_lines or []) if draft else set()
+    if not said:
+        return set()
+    return {n for n, line in enumerate(draft.text.splitlines(), 1) if line in said}
+
+
+def _current_clips(db: Session, project: Project, row: BreakdownVersion,
+                   changed: set[int] = frozenset(), before: int | None = None) -> None:  # fmt: skip
     """The clips made for exactly these song times move to `row` (current): those whose
     shots didn't move (B-roll only: a Sung clip lip-syncs its own take's singing), and, after
-    an Undo, those made for the take before. Any other clip
-    stays on the row it was made from, out of date (it holds the old take's slice)."""
+    an Undo, those made for the take before. After the owner changed a line (`changed`), a
+    B-roll clip of the plan before (`before`) whose shots don't carry it moves too, on its new
+    times: it shows what it showed (line_change). Any other clip stays on the row it was made
+    from, out of date (it holds the old take's slice)."""
     from app.models.clips import ProjectClip
 
+    lines = {s["id"]: set(s.get("script_lines") or []) for sc in row.data.get("scenes", [])
+             for s in sc.get("shots", [])}  # fmt: skip
     now = {c.id: c.shot_ids for c in Breakdown.model_validate(row.data).clips}
     times = row.data["song"]["shots"]
     for clip in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)):
@@ -474,6 +493,18 @@ def _current_clips(db: Session, project: Project, row: BreakdownVersion) -> None
             and all(was.get(s) == times.get(s) for s in shots)
         ):
             clip.breakdown_id = row.id
+        elif (changed and shots and not sung and clip.breakdown_id == before
+              and then.get(clip.clip_id) == shots
+              and not any(changed & lines.get(s, set()) for s in shots)
+              and _fits(row.data, clip)):  # fmt: skip
+            clip.breakdown_id = row.id  # not the changed line's: kept on its new times
+
+
+def _fits(data: dict, clip) -> bool:
+    """The clip's take still covers its piece on the new times (QA on #1437: never padded with
+    a held frame); a piece that grew past it is made again."""
+    piece = slice_of(data, clip.clip_id)
+    return piece is not None and piece["end"] - piece["start"] <= (clip.seconds or 0) + 0.01
 
 
 def guessed(bd: Breakdown, text: str, timing: dict) -> set[str]:

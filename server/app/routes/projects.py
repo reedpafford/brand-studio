@@ -31,6 +31,7 @@ from app.routes.jobs import stop_jobs
 from app.routes.library import pick_item
 from app.routes.production import progress
 from app.schemas import LongText, Name, ShortText, UtcTime
+from app.script_library import letter as letter_of
 
 router = APIRouter(prefix="/projects", tags=["credits"])
 
@@ -354,7 +355,7 @@ def restore_project(
     draft = db.get(ScriptDraft, project.released_draft_id) if project.released_draft_id else None
     again = draft and db.scalar(select(Project).where(Project.script_draft_id == draft.id))
     if again:
-        who, letter = user_name(db, again.created_by_id) or "Someone", "ABC"[draft.slot]
+        who, letter = user_name(db, again.created_by_id) or "Someone", letter_of(draft.slot)
         raise HTTPException(
             409, f"{who} started version {letter} again, so this video can't come back."
         )
