@@ -123,15 +123,30 @@ def _out(ref: str, drop: tuple[str, ...]) -> bool:
     return any(ref == d or (d.endswith(":") and ref.startswith(d)) for d in drop)
 
 
+# A picture's own sentence in a clip prompt's References line (clip_prompts.md): the opening
+# still's two ("[Image1] is the first frame. It sets…"), a place's one ("[Image4] is the lot.")
+SAYS_WHAT = re.compile(
+    r"\[Image(\d+)\] is (?:the first frame\.(?:\s*It sets[^.]*\.)?|[^.\[]*\.)\s*"
+)
+
+
 def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...],
               known: dict) -> str:  # fmt: skip
     """A clip prompt with its dropped pictures said in words: a character's [ImageN] becomes
-    their name and sheet description, a place its name, the opening still "the opening shot";
-    the pictures it keeps are numbered again in order."""
+    their name and sheet description; a dropped opening still's or place's own sentences
+    ("[Image1] is the first frame. It sets…", "[Image4] is the lot.") go, and any other mention
+    is the place's name or "the opening shot"; the pictures it keeps are numbered again."""
     from app.clip_prompts import TAGS_N
 
     kept = [i for i in images if not _out(i, drop)]
     said = names(known)
+
+    def unsaid(m: re.Match) -> str:
+        n = int(m.group(1))
+        gone = 1 <= n <= len(images) and images[n - 1] not in kept
+        return "" if gone and images[n - 1].startswith(("frame:", "place:")) else m.group(0)
+
+    prompt = SAYS_WHAT.sub(unsaid, prompt)
 
     def word(m: re.Match) -> str:
         n = int(m.group(1))

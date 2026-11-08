@@ -638,3 +638,20 @@ def test_the_director_never_switches_how_the_presenter_appears_unasked(app, db, 
     assert other == settings_move.PRESENTER  # note 2 isn't there: only note 1 is
     db.refresh(ugc)
     assert host.how(ugc) == "talks"  # nothing switched
+
+
+def test_a_dropped_still_and_place_are_said_in_words_without_the_first_frame_line():
+    """QA on #1461: a dropped opening still takes its "[Image1] is the first frame. It sets…"
+    sentences with it, and a dropped place is said by its name."""
+    from app.clip_takes import _in_words
+
+    known = {"frame:c3": ("frame:c3 | still", "image", [1]),
+             "place:41": ("place:41 | place | The truck lot", "image", [2]),
+             "screen:13": ("screen:13 | product | Oil of Oregano pouch", "image", [3])}  # fmt: skip
+    prompt = ("References: [Image1] is the first frame. It sets the opening composition only; "
+              "the sheets override the first frame where they differ. [Image2] is the truck lot. "
+              "[Image3] is the pouch.\n"
+              "Shot 1 | 0-3 s. In [Image2], she holds [Image3].")  # fmt: skip
+    said = _in_words(None, prompt, list(known), ("frame:", "place:41"), known)
+    assert said == ("References: [Image1] is the pouch.\n"
+                    "Shot 1 | 0-3 s. In The truck lot, she holds [Image1].")  # fmt: skip
