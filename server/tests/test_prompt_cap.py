@@ -181,8 +181,14 @@ def test_a_redo_note_that_takes_it_past_the_limit_is_fitted_with_room_for_the_no
     assert len(row.prompt) > 3500 and row.change["status"] == "failed"  # never saved
     editor.post(f"{base}/clips/{row.id}/generate", json={"note": note})  # its second fit
     fix2 = [j for j in db.query(Job) if j.input.get(clip_takes.FIT)][-1]
-    _land(db, fix2, row.clip_id, next(padded(n) for n in range(60, 0, -1)
-                                      if len(padded(n)) <= fit), row.references)  # fmt: skip
+    asked = int(re.search(r"under (\d+) characters", fix2.input["prompt"])[1])
+    _land(
+        db,
+        fix2,
+        row.clip_id,
+        next(padded(n) for n in range(60, 0, -1) if len(padded(n)) <= asked),
+        row.references,
+    )  # as asked
     db.refresh(row)
     assert len(row.prompt) <= fit and (row.change or {}).get("status") != "failed"
     again = editor.post(f"{base}/clips/{row.id}/generate", json={"note": note})
@@ -190,9 +196,54 @@ def test_a_redo_note_that_takes_it_past_the_limit_is_fitted_with_room_for_the_no
     take = [j for j in db.query(Job) if j.input.get("step") == "clip_take"][-1]
     assert note.strip() in take.input["input"]["prompt"]
     assert len(take.input["input"]["prompt"]) <= 4000
-    asked = int(re.search(r"under (\d+) characters", fix.input["prompt"])[1])
     longest = clip_takes._noted("x" * clip_takes.NOTE_MAX) - clip_takes._noted(note)
-    assert asked + longest + clip_takes.SLACK <= fit  # what it asks for leaves room for any note
+    assert len(take.input["input"]["prompt"]) + longest <= 4000  # any other note fits too
+
+
+def test_a_fit_saved_for_one_take_never_spends_a_try_when_a_later_note_is_too_long(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+    clip,  # noqa: F811
+):
+    """QA on #1453: a fit saved for a first take (no note) can be too long once a remake adds
+    its note. That asks for a new rewrite, free, never "still too long": only rewrites that
+    weren't saved count toward the two."""
+    base = f"/projects/{setup['project']}"
+    row = _on_two(db, clip)
+    short = row.prompt.splitlines()
+
+    def padded(n: int) -> str:
+        return "\n".join(f"{x[:16]}{PAD * n}{x[16:]}" if x.startswith("Shot ") else x
+                         for x in short)  # fmt: skip
+
+    row.prompt = padded(60)
+    db.commit()
+    editor.post(f"{base}/clips/{row.id}/generate")
+    (fix,) = [j for j in db.query(Job) if j.input.get(clip_takes.FIT)]
+    dropped = "\n".join(x for x in short if not x.startswith("Shot 2 "))
+    _land(db, fix, row.clip_id, dropped, row.references)  # a shot dropped: not saved
+    db.refresh(row)
+    assert row.change["status"] == "failed"
+    editor.post(f"{base}/clips/{row.id}/generate")  # a second rewrite: one failed so far
+    fix2 = [j for j in db.query(Job) if j.input.get(clip_takes.FIT)][-1]
+    _land(
+        db,
+        fix2,
+        row.clip_id,
+        next(padded(n) for n in range(60, 0, -1) if len(padded(n)) <= fix2.input["fit_max"]),
+        row.references,
+    )
+    assert editor.post(f"{base}/clips/{row.id}/generate").status_code == 201  # its first take
+    for made in db.query(Job).filter(Job.kind == "video"):
+        made.status = JobStatus.succeeded  # made: a remake may be asked for
+    db.commit()
+    note = "Slower push in on the bowl, and hold the last beat. " * 9  # a remake's note
+    later = editor.post(f"{base}/clips/{row.id}/generate", json={"note": note})
+    assert later.status_code == 409, later.text  # too long with the note
+    assert "rewritten to fit, free" in later.json()["detail"]  # again, free: not "still"
+    assert clip_takes.failed_fits(db, row) == 1  # the saved one never counted
 
 
 def test_a_fit_that_rewrote_its_keep_line_gets_it_back_and_the_take_goes(
@@ -230,6 +281,34 @@ def test_a_fit_that_rewrote_its_keep_line_gets_it_back_and_the_take_goes(
     assert editor.post(f"{base}/clips/{row.id}/generate").status_code == 201
     said = model_map.choose(db, video, row, "seedance-2.5", "Note 1: the owner asked for 2.5.")
     assert not said.startswith("Refused")  # a person's note may move it
+
+
+def test_a_move_for_length_measures_the_prompt_as_sent_and_says_ask_once_rewrites_are_used(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+    clip,  # noqa: F811
+    monkeypatch,
+):
+    """QA on #1453: the length is the prompt a take sends, its people said in words too; and
+    once both rewrites failed, the refusal says to ask the owner, not that it's rewritten."""
+    from app import model_map
+
+    row, video = _on_two(db, clip), db.get(Project, setup["project"])
+    assert len(row.prompt) < 4000
+    sent = clip_takes.take_input(db, video, row, check=False)
+    words = {**sent, "input": {**sent["input"], "prompt": "Gran, said in words. " * 200}}
+    monkeypatch.setattr(clip_takes, "take_input", lambda *a, **k: words)  # as a take sends it
+    said = model_map.choose(db, video, row, "seedance-2.5", "It won't fit.")
+    assert said.startswith("Refused: clip") and "rewritten to fit, free" in said
+    for _ in range(2):  # both rewrites done and never saved
+        db.add(Job(workspace_id=video.workspace_id, kind="write-claude", provider="claude",
+                   project_id=video.id, status=JobStatus.succeeded,
+                   input={clip_takes.FIT: True, "clip_ids": [row.clip_id]}))  # fmt: skip
+    db.commit()
+    said = model_map.choose(db, video, row, "seedance-2.5", "It won't fit.")
+    assert "ask the owner" in said and "rewritten to fit" not in said
 
 
 def _land(db, fix, clip_id, prompt, references):

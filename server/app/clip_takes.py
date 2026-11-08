@@ -88,6 +88,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         not_again(db, clip, model.id, take, sent)
     return {
         "step": "clip_take",
+        UNSENT: list(unsent),  # said in words, never sent (`clip_prompts.older_take`)
         "project_id": project.id,
         "project_clip_id": clip.id,
         "clip_prompt": clip.prompt,  # kept with the take, so picking it back restores it
@@ -306,6 +307,7 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: d
 
 
 FIT = "fit"  # in a free fix's input: it shortens the prompt to its model's limit
+UNSENT = "unsent"  # in a take's input: the references its model was never sent
 ROOM = 800  # characters a prompt is written under its limit: what a take adds (its language
 # line, a Redo note of 500 at most in its own words: about 700) and a little over (video 271:
 # 3,441 for "under 3,400"), so any Redo note fits
@@ -322,12 +324,24 @@ STILL_LONG = ("The prompt is still too long for {model} ({n:,} of {most:,} chara
               "longer prompts. Nothing was charged.")  # fmt: skip
 
 
+FITTED = "fitted"  # in a fit's input once its shorter prompt is saved
+
+
+def failed_fits(db: Session, clip: ProjectClip) -> int:
+    """The clip's rewrites to fit that were done but never saved (QA on #1453: one saved for a
+    first take, then too long with a remake's note, never spends a try)."""
+    fits = db.scalars(select(Job).where(Job.project_id == clip.project_id,
+                                        Job.input[FIT].as_boolean()))  # fmt: skip
+    return sum(j.input.get("clip_ids") == [clip.clip_id] and j.status not in WAITING
+               and not j.input.get(FITTED) for j in fits)  # fmt: skip
+
+
 def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: str,
                 note: str = "") -> None:  # fmt: skip
     """A prompt longer than its model takes (Seedance 2.0: 4000 characters) is never sent: the
     provider refuses it the same way every time. It's rewritten to fit, free, by the clip's
     own fix (clip_prompts.fix_job: its Keep, Shot and spoken lines kept), never cut short, and
-    the take is refused until then, saying so; after two rewrites, a person shortens it. The
+    the take is refused until then, saying so; after two that failed, a person shortens it. The
     rewrite leaves room for what the take adds, any Redo note included (video 271: a fit to
     3,441 characters was still too long with the director's note, twice)."""
     from app.clip_prompts import fix_job, fixing
@@ -344,8 +358,7 @@ def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: s
     writing = ("clip_prompts", "narrated_clip_prompts")  # a rewrite of every clip: after it
     if any(j.input.get("step") in writing and not j.input.get("fix") for j in jobs):
         raise HTTPException(409, WRITING.format(**said))
-    fits = db.scalars(select(Job).where(Job.project_id == project.id, Job.input[FIT].as_boolean()))
-    if sum(j.input.get("clip_ids") == [clip.clip_id] for j in fits) >= 2:
+    if failed_fits(db, clip) >= 2:
         raise HTTPException(409, STILL_LONG.format(**said))
     added = len(sent) - len(clip.prompt or "") - _noted(note)  # its language line and such
     room = most - added - _noted("x" * NOTE_MAX) - SLACK  # asked: room for any Redo note

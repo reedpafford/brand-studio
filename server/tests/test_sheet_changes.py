@@ -196,3 +196,14 @@ def test_a_person_omni_says_in_words_never_makes_its_take_older(app, db, editor,
     db.get(LibraryItem, int(mom[5:])).sheet_file_id = new_mom  # Mom's sheet changes
     db.commit()
     assert clip_prompts.older_take(db, clip_prompts.assets(db, project), clip) == ["Mom"]
+
+    from app import clip_takes  # QA on #1453: who was left out is the take's, as it was made
+
+    clip.model = {"id": model_map.OMNI, "why": "x", "by": "director"}
+    db.commit()
+    made = clip_takes.take_input(db, project, clip, check=False)
+    assert made[clip_takes.UNSENT] == [gran]  # saved on the take's job
+    job.input = {**job.input, clip_takes.UNSENT: made[clip_takes.UNSENT]}
+    clip.references = [refs[2], refs[0], refs[1]]  # Gran first now: Nate would be the third
+    db.commit()
+    assert clip_prompts.older_take(db, clip_prompts.assets(db, project), clip) == ["Mom"]

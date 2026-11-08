@@ -165,11 +165,14 @@ def _images(row: ProjectClip) -> list[str]:
 def _left_out(db: Session, row: ProjectClip, take: ClipTake | None) -> list[str]:
     """The clip's pictures its take's model left out on purpose and said in words instead
     (Omni's third person, photoreal Seedance's sheets): never sent, so never "older" (video
-    276: every take of c5 was "made from an older look of Granny", Omni's third person)."""
-    from app.clip_takes import _out, _shots
+    276: every take of c5 was "made from an older look of Granny", Omni's third person), as
+    its job saved them; a take made before that, worked out from the clip now."""
+    from app.clip_takes import UNSENT, _out, _shots
     from app.model_map import left_out
 
     job = db.get(Job, _take(db, row, take).job_id)
+    if job is not None and UNSENT in job.input:  # as the take was made (QA on #1453)
+        return [r for r in _images(row) if _out(r, tuple(job.input[UNSENT]))]
     bd = db.get(BreakdownVersion, row.breakdown_id).data
     ids = next((c["shot_ids"] for c in bd.get("clips", []) if c["id"] == row.clip_id), [])
     look = looks.drawn(db.get(Project, row.project_id))
@@ -793,6 +796,8 @@ def save_clip_prompts(db: Session, job: Job) -> None:
                 row.change = {"note": FIT_NOTE, "status": "failed", "job_id": job.id,
                               "error": f"{lost} The prompt stays as it was."}  # fmt: skip
                 continue  # the old prompt stays; it counts as one of its two tries
+            if job.input.get("fit"):  # saved: never one of them (clip_takes.FITTED)
+                job.input = {**job.input, "fitted": True}
             written_as = c.prompt
             words = reword(c.prompt, looks.drawn(project))
             c = c.model_copy(update={"prompt": words[0]})
