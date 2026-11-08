@@ -4,7 +4,7 @@ plan; approving it also makes the shots (the breakdown), at the breakdown's pric
 import re
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import AfterValidator, BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -217,10 +217,11 @@ def _working(db: Session, user: User, project_id: int):
 
 @router.get("", response_model=PlanOut)
 def read(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """The plan, or 404 when there's none and none is being made (E)."""
+    """The plan, or 204 (no content) when there's none and none is being made (E). Not a 404:
+    the video page polls this while planning, and each 404 is a console error."""
     out = _out(db, user, get_project(db, user, project_id))
     if out is None:
-        raise HTTPException(404, "This video has no plan yet.")
+        return Response(status_code=204)
     return out
 
 

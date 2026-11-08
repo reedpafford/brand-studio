@@ -188,10 +188,10 @@ export function NewScriptPage() {
           </Button>
         )}
         {folders.data && me && (
-          <Menu title="Project" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label="Project: none" disabled={make.isPending} {...t}><PickLabel label="Project">None</PickLabel></Button>}>
+          <Menu title="Folder" trigger={(t) => <Button variant="ghost" dense trailing={ChevronDown} className={pickClass} aria-label="Folder: Unsorted" disabled={make.isPending} {...t}><PickLabel label="Folder">Unsorted</PickLabel></Button>}>
             {(close) =>
               folders.data!.length === 0 ? (
-                <p className="p-3 text-sm text-muted">No projects yet. Make one on the Scripts page.</p>
+                <p className="p-3 text-sm text-muted">No folders yet. Make one on the Scripts page.</p>
               ) : (
                 folders.data!.map((f) => (
                   <MenuItem key={f.id} onClick={() => { close(); start("", { folder: f.id }); }}>

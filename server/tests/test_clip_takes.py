@@ -164,7 +164,7 @@ def test_clip_with_problems_and_other_workspace(app, editor, outsider, setup, cl
         assert editor.post(f"{url}/generate").status_code == 503
     finally:
         app.state.settings.generation_enabled = True
-    assert editor.get(f"{base}/video").status_code == 404
+    assert editor.get(f"{base}/video").status_code == 204  # none yet: no content, not an error
 
 
 def test_stale_and_replaced_clips(app, db, editor, setup, clip):  # noqa: F811

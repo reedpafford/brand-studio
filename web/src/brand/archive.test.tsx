@@ -35,7 +35,7 @@ test("Archive brand asks first, moves to the other brand, and Undo brings the br
   expect(calls.some((c) => c.key === "DELETE /brands/1")).toBe(false);
   await userEvent.click(within(dialog).getByRole("button", { name: "Archive" }));
   expect(await screen.findByText("Archived fomo.")).toBeInTheDocument();
-  expect(await screen.findByRole("heading", { name: "Scripts", level: 1 })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument(); // the other brand's home
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/restore")).toBe(true));
 });

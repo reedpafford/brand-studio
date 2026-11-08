@@ -28,10 +28,10 @@ const pickBrand = async (name: string) => {
   await userEvent.click(await screen.findByRole("menuitemradio", { name }));
 };
 
-test("the first brand opens on its Scripts, and the switcher menu changes brand and keeps the section", async () => {
+test("the switcher menu changes brand and keeps the section", async () => {
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /library/character": [200, []] });
-  renderAt("/");
+  renderAt("/b/1/scripts");
   expect(await screen.findByRole("heading", { name: "Scripts" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Brand: fomo" }));
@@ -51,7 +51,7 @@ test("the first brand opens on its Scripts, and the switcher menu changes brand 
 
 test("the brand's colour is applied, and cleared for a brand without one", async () => {
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
-  renderAt("/b/1");
+  renderAt("/b/1/scripts");
   await screen.findByRole("heading", { name: "Scripts" });
   expect(document.documentElement.style.getPropertyValue("--brand")).toBe("#ff5500");
   await pickBrand("Iron Paws");
@@ -72,7 +72,7 @@ test("the last brand you used opens next time", async () => {
   localStorage.setItem("bs.lastBrand", "2");
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []] });
   renderAt("/");
-  expect(await screen.findByText("No scripts for Iron Paws yet.")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument(); // its open folder (S1)
 });
 
 test("an editor sees the team but cannot invite or remove", async () => {

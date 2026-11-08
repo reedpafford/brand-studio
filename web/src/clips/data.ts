@@ -93,7 +93,7 @@ export function scenesOf(bd: Breakdown | null | undefined, clips: Clip[], frames
       found: cell?.found ?? c?.takes?.some((t) => ACTED.includes(t.watch?.action ?? "")) ?? false,
       id: c?.id ?? null,
       words: its.map((s) => s.line).filter(Boolean).join(" "),
-      said: its.filter((s) => s.line).map((s) => (s.speaker ? `${s.speaker}: “${s.line}”` : `“${s.line}”`)).join(" "),
+      said: its.filter((s) => s.line).map((s) => (s.speaker ? `${s.speaker}: “${s.line}”` : `“${s.line}”`)).join("\n"), // a line each speaker (polish)
       broll: its.length > 0 && its.every((s) => !s.speaker),
     };
     scene.rows.push(row);
