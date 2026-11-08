@@ -6,6 +6,7 @@ import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
 import { lookMedia } from "./Cards";
+import { counts } from "../scripts/ScriptFrame";
 
 const SCRIPT = "DR. PICKLE: Your gut after the weekend? A brewery with a pulse.";
 const at = new Date().toISOString();
@@ -273,6 +274,18 @@ test("uncapped (Reed, 6 Nov): the owner's press says about what it will cost, an
   expect(screen.queryByText(/up to|Most it can charge/)).toBeNull();
 });
 
+test("MAIN's run 276: a style with no sample says so, never a blank box, and the styles wrap at 1440 instead of running off the edge", async () => {
+  setViewport(1440);
+  const movie = look("movie", "Movie", { test_clip: false, test_still: false });
+  server(owner, { "GET /looks": [200, [...LOOKS, movie]] });
+  renderApp("/b/1/videos/new");
+  const styles = await screen.findByRole("radiogroup", { name: "Style" });
+  const card = (await within(styles).findByRole("radio", { name: /^Movie/ })).parentElement!;
+  expect(within(card).getByText("No sample yet")).toBeInTheDocument();
+  expect(styles).toHaveClass("flex-wrap");
+  expect(styles).not.toHaveClass("overflow-x-auto");
+});
+
 test("MAIN's run (video 233): a sample the test site's stand-ins made never hides the real test sample on a style's card", () => {
   const made = look("disney-pixar", "Disney Pixar", { sample_clip_id: 9, sample_still_id: 8 });
   expect(lookMedia({ ...made, sample_stand_in: true } as never)).toEqual({ clip: "/api/looks/disney-pixar/test-sample.mp4", still: "/api/looks/disney-pixar/test-sample.jpg", tag: true });
@@ -297,4 +310,10 @@ test("QA on #1440: a style made only as Dialogue (Movie) isn't offered for Prese
   expect(within(styles).getByText("Movie is made only as Dialogue: its people say the script's lines on camera.")).toBeInTheDocument();
   expect(within(styles).getByRole("radio", { name: /^House/ })).toHaveAttribute("aria-checked", "true");
   expect(screen.getByText("Movie is made only as Dialogue: its people say the script's lines on camera. The style is House for now.")).toBeInTheDocument();
+});
+
+test("MAIN's Claymation run: a narrated script is read whole at a narrator's pace, not only its one NARRATOR: line", () => {
+  const clay = ["NARRATOR: Most owners think an itchy dog has a skin problem.", "It usually starts in the belly.", "The good guys in there need more than plain kibble to win.", "[Camera] Close on the paws.", "When they lose, the itch shows up in the paws."].join("\n");
+  expect(counts(clay, true)).toMatchObject({ words: 44, seconds: 15 }); // 38 read words at 2.6 a second; it said "about 2 s"
+  expect(counts(clay).seconds).toBe(2); // as dialogue only the NAME: line is spoken, as before
 });

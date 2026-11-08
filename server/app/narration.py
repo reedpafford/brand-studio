@@ -29,6 +29,8 @@ SLOWEST = 2.6
 # v3 does take a speed: Replicate's elevenlabs/v3 schema (recorded 29 Oct, fixtures) has
 # `speed`, 0.7 to 1.2, default 1. A remake may set it for pace (`job`); the first read is at 1.
 V3_SPEED = (0.7, 1.2)
+FINAL_HOLD = 1.5  # seconds the last shot may hold past the last word, planned and kept
+# (CRITIQUE-268: "And so do you" got 0.87 s and the video ended 0.06 s after it)
 VOICED = 0.84  # the least of a narration the voice is on in the guides (84%: the rest pauses)
 ELEVENLABS = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 # MiniMax Speech 2.8 HD (replicate.com/minimax/speech-2.8-hd; platform.minimax.io's system

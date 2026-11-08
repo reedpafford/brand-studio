@@ -205,7 +205,7 @@ class ProgressOut(BaseModel):
     counts: ClipCountsOut
     minutes_left: int | None  # "about 2 h 10 min left"
     steps: list[RunStepOut]
-    spent: float  # credits the whole video has charged, as its header says (S3-12)
+    spent: float  # credits the whole video's finished work has charged: it only grows (S3-12)
     up_to: float  # the video's "up to", in credits, never below `spent`
     spent_usd: float | None  # the owner only: `spent` in dollars, at the header's rate
     # The owner's uncapped test site (Reed, 6 Nov): this run's own provider charges, whether

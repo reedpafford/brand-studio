@@ -110,7 +110,7 @@ function Frame() {
     return () => void root.removeProperty("--brand");
   }, [brand]);
 
-  const waiting = owner ? (needsYou?.total ?? 0) : null;
+  const waiting = owner ? (needsYou?.total ?? null) : null; // no count until it's read: never a 0 that isn't so
   const work = (
     <div className="min-w-0 flex-1" style={rail || onVideo ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
       {!online && !onVideo && (
@@ -298,7 +298,7 @@ function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[
           ? group(
               "Studio",
               <>
-                {row("/approvals", "Needs you", Inbox, count(waiting ?? 0, "need"))}
+                {row("/approvals", "Needs you", Inbox, waiting !== null && count(waiting, "need"))}
                 {STUDIO.map(([to, label, Icon]) => row(to, label, Icon))}
               </>,
             )

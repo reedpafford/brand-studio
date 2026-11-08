@@ -247,6 +247,9 @@ def test_a_stand_in_sample_never_hides_the_real_test_sample_on_new_videos_card(a
     assert pixar()["sample_clip_id"] and pixar()["sample_stand_in"] and pixar()["test_still"]
     assert not {x["id"]: x for x in owner.get("/looks").json()}["claymation"]["sample_stand_in"]
     clip = db.query(Job).filter(Job.input["step"].as_string() == look_samples.CLIP).one()
+    clip.provider_ref = "local-3"  # the stand-in's ref before 3 Nov (the test site's first samples)
+    db.commit()
+    assert pixar()["sample_stand_in"]
     clip.provider_ref = "r8-real-prediction"  # a real model made it
     db.commit()
     assert not pixar()["sample_stand_in"]

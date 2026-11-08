@@ -14,6 +14,7 @@ import re
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
+from app import narration
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.projects import Project
@@ -401,11 +402,15 @@ def _move(t: float, anchors: list[tuple[float, float]]) -> float:
     return y0 + (t - x0) / (x1 - x0) * (y1 - y0) if x1 > x0 else y0
 
 
-def reflow(song: dict, old: dict, new: dict, take_id: int) -> dict:
+def reflow(song: dict, old: dict, new: dict, take_id: int, hold: float = 0.0) -> dict:
     """The song part moved from the old take's timing to the new one's by the measured line
-    times (the line clock, so no shot newly cuts a line), back to back to the new end."""
+    times (the line clock, so no shot newly cuts a line), back to back to the new end. A
+    narration's (`hold`) last B-roll shot keeps its hold past the end, up to `hold` (QA on
+    #1450: a remade narration lost it)."""
     order = sorted(song["shots"].items(), key=lambda kv: kv[1]["start"])
     anchors, end = _anchors(old, new), new["seconds"]
+    if order and not order[-1][1].get("sung") and old.get("seconds") is not None:
+        end += min(max(0.0, order[-1][1]["end"] - old["seconds"]), hold)
     starts = []
     for _, timed in order:
         starts.append(max(_move(timed["start"], anchors), starts[-1] if starts else 0.0))
@@ -432,7 +437,8 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
     old, new = db.get(SongTake, song["take_id"]) if song else None, take_for(db, project)
     if not old or not new or old.id == new.id:
         return None
-    moved = reflow(song, old.timing or {}, new.timing or {}, new.id)
+    hold = narration.FINAL_HOLD if new.kind == narration.KIND else 0.0
+    moved = reflow(song, old.timing or {}, new.timing or {}, new.id, hold)
     plan = Breakdown.model_validate(row.data)
     text = db.scalar(
         select(ScriptVersion.text).where(ScriptVersion.project_id == project.id,

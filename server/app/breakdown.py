@@ -8,7 +8,7 @@ from inspect import signature
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, object_session
 
-from app import guides, looks, prompts, song_breakdown
+from app import guides, looks, narration, prompts, song_breakdown
 from app.catalogue import CatalogueModel, catalogue
 from app.enhance import escape, escape_block, project_context, project_screens
 from app.models.brands import Brand
@@ -205,8 +205,10 @@ def problems(
     take = db.get(SongTake, song["take_id"]) if song else None
     if take:
         timed, timing = song_breakdown.joined(bd, song), take.timing or {}
+        hold = narration.FINAL_HOLD if take.kind == narration.KIND else 0.0  # its last shot's
         found = check.song_breakdown(script, timed, timing, screens, m.duration.min,
-                                     m.duration.max, written=written, **extra)  # fmt: skip
+                                     m.duration.max, written=written, hold=hold,
+                                     **extra)  # fmt: skip
     else:
         found = check.breakdown(script, bd, screens, m.duration.min, m.duration.max, **extra)
     from app.advice import names, plain
@@ -408,17 +410,23 @@ def carry_kept(kept: list[str], problems: list[str]) -> list[str]:
             or (p.startswith(CAST) and (m := shot.search(p)) and m[1] in cast)]  # fmt: skip
 
 
-def shows(role: str, shot, roles: list[str], off: bool = False) -> bool:
+POSSESSIVE = re.compile(r"[\w-]+['’]s\b")  # "Granny's pats": hers, not her
+
+
+def shows(role: str, shot, roles: list[str], off: bool = False, here: bool = True) -> bool:
     """This role is in the shot: it speaks there on screen (`off`: the script's label says
     V.O. or O.S.; not in a reaction shot of someone else among `roles`), or the action names
-    it."""
+    it; named only as an owner ("Nate's ring") unless the plan shows the role only at other
+    places (`here` false: video 276's "an echo of Granny's pats" in the truck lot, Granny
+    only ever in the barn)."""
     from app.cast_roles import labels, named
 
     seen = f"{shot.action} {shot.reaction or ''}"
     reacting = [r for r in roles if r != role and named(r, seen)]
     speaks = bool(shot.speaker) and labels(shot.speaker, role) and not off
     speaks = speaks and not (reacting and not named(role, seen))  # a reaction shot
-    return speaks or named(role, shot.action)
+    action = shot.action if here else POSSESSIVE.sub("", shot.action)
+    return speaks or named(role, action)
 
 
 def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[str, list[str]]:
@@ -430,7 +438,8 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
 
     slots = [s for s in video_slots(db, project) if short(s.role)]
     lines, added = text.splitlines(), {}
-    for shot in (s for scene in bd.scenes for s in scene.shots):
+    shots = [s for scene in bd.scenes for s in scene.shots]
+    for shot in shots:
         said = [check.SPEAKER.match(lines[n - 1]) for n in shot.script_lines
                 if 0 < n <= len(lines)]  # fmt: skip
         off = any(m and OFF_SCREEN.search(m[0]) for m in said)
@@ -439,7 +448,8 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
             who = ref(db, project, slot)
             if {who, f"slot:{slot.id}"} & set(shot.character_ids):
                 continue
-            if shows(slot.role, shot, roles, off):
+            seen = {s.place_id for s in shots if {who, f"slot:{slot.id}"} & set(s.character_ids)}
+            if shows(slot.role, shot, roles, off, not seen or shot.place_id in seen):
                 shot.character_ids = [*shot.character_ids, who]
                 added.setdefault(shot.id, []).append(short(slot.role))
     _hero_in_montage(db, project, bd, added)

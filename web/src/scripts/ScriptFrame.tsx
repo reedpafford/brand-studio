@@ -54,14 +54,17 @@ export function PickLabel({ label, children }: { label: string; children: ReactN
 }
 
 /** The script's words, counted the way the server counts them (script_library.spoken_seconds): the spoken part of each
- *  "NAME:" line at 4.8 words a second, or every word when there is no dialogue. */
-export function counts(text: string) {
+ *  "NAME:" line at 4.8 words a second, or every word when there is no dialogue. A narrated script is read whole, NAME: or
+ *  not (only scene headings and [directions] are silent), at 2.6 words a second, the server's slowest narrator
+ *  (narration.SLOWEST): one "NARRATOR:" line over seven read lines once made 70 words "about 2 s". */
+export function counts(text: string, narrated = false) {
   const lines = text.split("\n");
   const said = lines.map((l) => /^([A-Z][A-Z .'()-]*):(.*)$/.exec(l)).filter((m): m is RegExpExecArray => m !== null);
   const wordsIn = (t: string) => t.split(/\s+/).filter(Boolean).length;
   const words = wordsIn(text);
-  const spoken = said.reduce((n, m) => n + wordsIn(m[2]), 0) || words;
-  return { speakers: new Set(said.map((m) => m[1].trim())).size, lines: said.length, words, seconds: Math.round(spoken / 4.8) };
+  const read = lines.filter((l) => !/^\s*(\[|\(|(INT|EXT)\.|SCENE\b)/i.test(l)).map((l) => l.replace(/^[A-Z][A-Z .'()-]*:/, ""));
+  const spoken = narrated ? wordsIn(read.join(" ")) : said.reduce((n, m) => n + wordsIn(m[2]), 0) || words;
+  return { speakers: new Set(said.map((m) => m[1].trim())).size, lines: said.length, words, seconds: Math.round(spoken / (narrated ? 2.6 : 4.8)) };
 }
 
 /** "68 words · about 14 s" under the box; "0 words · 0 s" when it's empty. */

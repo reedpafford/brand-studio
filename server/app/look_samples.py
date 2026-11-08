@@ -29,6 +29,7 @@ from app.storyboard import image_model
 log = logging.getLogger(__name__)
 
 STILL, CLIP = "look_sample", "look_sample_clip"
+OLD_STAND_IN = "local-"  # the stand-in's refs before 3 Nov (#1288); no real provider's start so
 SECONDS, ASPECT = 5, "9:16"
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
 NOT_THEIRS = "That character isn't one of this brand's."
@@ -127,12 +128,14 @@ def stand_in(db: Session, ws: int, look_id: str) -> bool:
     its clip's provider ref says so, the same test real spend uses (credits.real_spent), so it
     holds on the test site whatever its providers are and never on live. New video's card then
     shows the real test sample shipped with the site (MAIN's run: grey Disney Pixar, Claymation
-    and Dr. Pickle cards)."""
+    and Dr. Pickle cards). Samples made before 3 Nov have the stand-in's older refs ("local-N",
+    before every stand-in ref began "stand-in-"): the test site's first Disney Pixar, Claymation
+    and Dr. Pickle samples (MAIN's Claymation run, still grey)."""
     rows = db.scalars(select(Job).where(Job.workspace_id == ws, Job.status == JobStatus.succeeded,
                                         Job.input["step"].as_string() == CLIP)
                       .order_by(Job.id.desc()))  # fmt: skip
     made = next((j for j in rows if j.input.get("look_id") == look_id), None)
-    return made is not None and (made.provider_ref or "").startswith(STAND_IN)
+    return made is not None and (made.provider_ref or "").startswith((STAND_IN, OLD_STAND_IN))
 
 
 def state(db: Session, ws: int, look_id: str) -> tuple[str, str | None]:
