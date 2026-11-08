@@ -355,18 +355,12 @@ def says_more(take) -> str:
     return found[0]["text"] if found else ""
 
 
-# The share of the script's words a read must have, in order, to count as all heard: Whisper
-# writes a few another way ("10" for "ten", "Everything's giving" for "Every Thanksgiving")
-COVERED = 0.9
+COVERED = song_timing.COVERED
 
 
 def covered(text: str, heard: list[dict]) -> float:
-    """The share of the script's words heard, in order (junk glued on taken off)."""
-    out = [{"words": text.split()}]
-    ours, _, _, matcher = song_timing._matcher(out, heard, norm=plain)
-    said = sum(1 for _, w in ours if w)
-    found = sum(1 for b in matcher.get_matching_blocks() for k in range(b.size) if ours[b.a + k][1])
-    return round(min(found / said, 1.0), 3) if said else 1.0
+    """The share of the script's words heard, in order, compared as `plain` letters."""
+    return song_timing.covered("\n".join(sentences(text)), heard, norm=plain)
 
 
 def measure(path: Path, text: str, hear=song_timing.words,

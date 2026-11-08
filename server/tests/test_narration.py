@@ -577,12 +577,23 @@ def test_a_read_that_says_every_line_is_never_judged_missing_lines(tmp_path):
     timing, _ = narration.measure(path, check.narration_text(SCRIPT_281), hear=hear)
     assert asked == [True, False]  # the site's read lost 9 of 11 lines: heard plainly too
     assert all(ln["heard"] >= 0.6 for ln in timing["lines"]) and timing["extras"] == []
-    sentences = [{"text": t} for t in narration.sentences(check.narration_text(SCRIPT_281))]
-    take = SongTake(kind=narration.KIND, lyrics=SCRIPT_281, timing={"words": _read(PLAIN_281)})
-    assert narration.covered(check.narration_text(SCRIPT_281), _read(PLAIN_281)) >= 0.9
-    assert director_song._missing(take, sentences) == []  # "10", "Everything's giving"
-    take.timing = {"words": _read(SITE_281)}
-    assert len(director_song._missing(take, sentences)) == 9  # what the site's read had
+    said = check.narration_text(SCRIPT_281)
+
+    def missing(heard):  # as the director reads a timed take
+        take = SongTake(kind=narration.KIND, lyrics=SCRIPT_281, timing={"words": heard})
+        timed = song_timing.lines("\n".join(narration.sentences(said)), heard, 24.05)
+        return director_song._missing(take, timed, "fomo")
+
+    assert narration.covered(said, _read(PLAIN_281)) >= 0.9
+    assert missing(_read(PLAIN_281)) == []  # "10", "Everything's giving"
+    assert len(missing(_read(SITE_281))) == 9  # what the site's read had
+    # A close read that truly drops a line, or the brand's name, still misses it (QA)
+    perfect = [{"word": w, "start": n * 0.3, "end": n * 0.3 + 0.2}
+               for n, w in enumerate(said.split())]  # fmt: skip
+    no_cta = perfect[:-4]
+    assert narration.covered(said, no_cta) >= 0.9 and missing(no_cta) == ["Link's in my bio."]
+    no_brand = [w for w in perfect if w["word"] != "fomo,"]
+    assert missing(no_brand) == ["Small trades on fomo, ten minutes a day."]
     danny = song_timing.lines("Danny, you were right.", _read(SITE_281), 23.18)[0]
     assert (danny["start"], danny["heard"]) == (19.38, 1.0)  # "iPhDanny," is Danny
 

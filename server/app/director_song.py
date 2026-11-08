@@ -81,18 +81,23 @@ def misheard(timing: dict | None, brand: str, script: str = "") -> list[dict] | 
     return found
 
 
-def _missing(take: SongTake, lines: list[dict]) -> list[str]:
+def _missing(take: SongTake, lines: list[dict], brand: str = "") -> list[str]:
     """Lines not heard as written. A song's: under HEARD of its words. A narration's: any word
     lost, by its letters against everything heard, as `letters` compares (one dropped
-    "probiotics" is a miss), its speaker label left out ("NARRATOR:", video 271); none when
-    the read has the script's words in order but for a few written another way (COVERED)."""
+    "probiotics" is a miss), its speaker label left out ("NARRATOR:", video 271). On a read
+    with the script's words in order but for a few written another way (COVERED: "10" for
+    "ten"), only a line with half its words or more lost, or with the `brand`'s name when
+    nothing heard says it."""
     if take.kind != narration.KIND:
         return [x["text"] for x in lines if (x.get("heard") or 0) < HEARD]
     words = (take.timing or {}).get("words") or []
     script = " ".join(check.narration_text(x["text"]) for x in lines)
-    if narration.covered(script, words) >= narration.COVERED:
-        return []
     heard = narration.letters(words)
+    if narration.covered(script, words) >= narration.COVERED:
+        name = narration.plain(brand)
+        unsaid = bool(name) and name not in heard  # a dropped brand is a small share
+        return [x["text"] for x in lines if (x.get("heard") or 0) <= 0.5
+                or unsaid and name in narration.plain(x["text"])]  # fmt: skip
     said = [(x["text"], check.narration_text(x["text"])) for x in lines]  # never a label
     return [text for text, words in said if narration.letters([{"word": words}]) not in heard]
 
@@ -114,7 +119,7 @@ def _take(db: Session, take: SongTake, used: int | None, brand: str = "") -> dic
             "hook_at": sung[0]["start"] if sung else None,
             "longest_gap": round(max(gaps), 2) if gaps else None,  # an instrumental break
             "tail": round(timing["seconds"] - sung[-1]["end"], 2) if sung else None,  # outro
-            "missing": _missing(take, lines) if take.timing is not None else None,
+            "missing": _missing(take, lines, brand) if take.timing is not None else None,
             "pace": timing.get("pace"),  # words a second while speaking, as measured
             **({"misheard": misheard(take.timing, brand, take.lyrics)}
                if take.kind == narration.KIND else {}),

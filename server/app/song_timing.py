@@ -373,12 +373,28 @@ def sections(sung: list[dict], beat_times: list[float], heard: list[dict], secon
     return [p for p in parts if p["end"] > p["start"]]
 
 
+# The share of the words a read must have, in order, to count as all heard: Whisper writes a
+# few another way ("10" for "ten", "Everything's giving" for "Every Thanksgiving", video 281)
+COVERED = 0.9
+
+
+def covered(lyrics: str, heard: list[dict], norm=_norm) -> float:
+    """The share of the lyrics' words heard, in order (junk glued on taken off)."""
+    ours, _, _, matcher = _matcher(_written(lyrics), heard, norm)
+    said = sum(1 for _, w in ours if w)
+    found = sum(1 for b in matcher.get_matching_blocks() for k in range(b.size) if ours[b.a + k][1])
+    return round(min(found / said, 1.0), 3) if said else 1.0
+
+
 def measure(path: Path, lyrics: str, hear=words) -> dict:
     """Everything the breakdown needs about one take. Free (all on our server)."""
     seconds = length(path)
     samples = _samples(path)
     bpm, beat_times = beats(samples, seconds)
     heard = hear(path, lyrics.strip())
+    if heard and covered(lyrics, heard) < COVERED:  # the lyrics as Whisper's prompt can lose
+        again = hear(path, lyrics.strip(), prompted=False)  # most of a read: hear it plainly
+        heard = again if covered(lyrics, again) > covered(lyrics, heard) else heard
     sung = lines(
         lyrics, heard, seconds, start=beat_times[0] if beat_times else 0.0, levels=levels(samples)
     )

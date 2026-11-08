@@ -237,3 +237,19 @@ def test_lip_sync_marks_never_reach_suno():
     assert [(ln["section"], ln["text"]) for ln in sung] == [
         ("Chorus", "Gut so happy, tail so high"), ("Chorus", "Iron Paws")
     ]  # fmt: skip
+
+
+def test_a_song_read_that_lost_most_of_its_words_is_heard_again_without_the_prompt(tmp_path):
+    """Video 281's cause, for songs: the lyrics as Whisper's prompt can lose most of a read,
+    so its lines would be judged missing and a paid song remade."""
+    path = tmp_path / "song.mp3"
+    path.write_bytes(song())
+    asked = []
+
+    def hear(file, lyrics, prompted=True):
+        asked.append(prompted)
+        heard = hear_song(file, lyrics)
+        return heard if not prompted else heard[-3:]  # the prompted read kept only its end
+
+    timing = song_timing.measure(path, LYRICS, hear=hear)
+    assert asked == [True, False] and len(timing["words"]) == len(hear_song(path, LYRICS))
