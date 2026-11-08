@@ -1515,7 +1515,7 @@ def item_check(result: ItemCheck, ref_ids: list[str]) -> ItemCheck:
     screens = any(r.startswith("screen:") for r in ref_ids)
 
     def given(f) -> bool:
-        if f.kind in ("eyes", "cast"):
+        if f.kind in ("eyes", "cast", "place"):
             return True
         if f.kind == "screen":
             return screens

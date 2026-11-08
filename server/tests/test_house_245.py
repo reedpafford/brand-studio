@@ -167,9 +167,9 @@ def test_a_roles_look_is_drawn_and_checked_at_its_stated_age(app, db, owner, edi
     _make_look(db, db.get(User, project.created_by_id), project, slot)
     look = (db.query(LibraryItem).filter_by(owner_project_id=pid)
             .order_by(LibraryItem.id.desc()).first())  # fmt: skip
-    assert look.notes == "Nate, aged 19"
+    assert look.notes == "Nate, aged 19, plain and likeable"  # the note's words (video 284)
     assert "The character: Nate, aged 19" in prompts.sheet_prompt("character", look.notes)
-    assert "<character>Nate, aged 19</character>" in prompts.look_fit_input(look.notes)
+    assert "<character>Nate, aged 19, plain" in prompts.look_fit_input(look.notes)
     fit = prompts.system("look_fit")
     assert "a 19-year-old drawn as someone about 30" in fit
 

@@ -718,13 +718,16 @@ def item_check_input(
     cast: list[str] | None = None,
     screens: list[tuple[str, str]] | None = None,
     screen_rules: list[str] | None = None,
+    place: str = "",
 ) -> str:
     """The user message for item_check (a still); the images go before it, in this order: the
     still, each sheet in `sheets` ((id, "Mia: ...")), then the product's image when the shot
     shows it ((id, "Iron Paws peanut butter bag")). `shot` is what the still should show (its
-    action and who's in it); `cast`, `screens` and `screen_rules` as `references` says."""
+    action and who's in it); `cast`, `screens` and `screen_rules` as `references` says;
+    `place`: where it must be, nobody else in it (a talker's still)."""
     told = references(1, sheets, product, cast, screens, screen_rules)
-    return f"<item>Image 1 is the still.</item>\n<shot>{shot.strip()}</shot>\n{told}"
+    where = f"\n<place>{escape(place.strip())}</place>" if place.strip() else ""
+    return f"<item>Image 1 is the still.</item>\n<shot>{shot.strip()}</shot>{where}\n{told}"
 
 
 def references(

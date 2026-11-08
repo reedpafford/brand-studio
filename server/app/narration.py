@@ -355,6 +355,14 @@ def says_more(take) -> str:
     return found[0]["text"] if found else ""
 
 
+COVERED = song_timing.COVERED
+
+
+def covered(text: str, heard: list[dict]) -> float:
+    """The share of the script's words heard, in order, compared as `plain` letters."""
+    return song_timing.covered("\n".join(sentences(text)), heard, norm=plain)
+
+
 def measure(path: Path, text: str, hear=song_timing.words,
             longest: float = KEEP) -> tuple[dict, Path | None]:  # fmt: skip
     """The narration's timing, and the trimmed file (beside `path`; None: there was no pause
@@ -362,6 +370,9 @@ def measure(path: Path, text: str, hear=song_timing.words,
     (`cuts`), and the words' times move with the cuts. A pause up to `longest` stays (the
     reading's own marks)."""
     before, said = song_timing.length(path), hear(path, text)
+    if covered(text, said) < COVERED:  # the script as Whisper's prompt can lose most of a
+        again = hear(path, text, prompted=False)  # read (video 281): hear it plainly too
+        said = again if covered(text, again) > covered(text, said) else said
     found = cuts(_levels(path), longest, said)
     trimmed = _cut(path, path.with_name("trimmed.mp3"), found)
     use, heard = trimmed or path, moved(said, found)

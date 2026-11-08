@@ -301,7 +301,7 @@ def _update(db: Session, project: Project, items: list[dict]) -> dict:
     """The stills and takes already made with an earlier version of an item (`made_with`'s
     cast): kept as they are, never made again by themselves; what remaking them costs, up
     to (rule 36), so the person sees the price first; and those the person said to keep."""
-    from app.clip_takes import take_credits
+    from app.clip_takes import takes_price
     from app.credits import price
     from app.storyboard import image_model, still_credits
 
@@ -309,7 +309,7 @@ def _update(db: Session, project: Project, items: list[dict]) -> dict:
     frames, clips = _made(db, project)
     stills = [f.shot_id for f in frames if _old(f.made_with, now)]
     takes = [r for r, take in clips if take is not None and _old(take.made_with, now)]
-    remakes = sum((take_credits(db, project, r) for r in takes), Decimal(0))
+    remakes = takes_price(db, project, takes)  # a talker's clips: their one take, once
     total = still_credits(db, project.workspace_id, image_model(project)) * len(stills) + remakes
     marks = [("still", f.shot_id, f.made_with) for f in frames]
     marks += [("clip", r.clip_id, take.made_with) for r, take in clips if take is not None]

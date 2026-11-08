@@ -509,7 +509,7 @@ class ScenePlan(BaseModel):
 
 
 class Finding(BaseModel):
-    kind: Literal["face", "outfit", "product", "eyes", "screen", "cast"]
+    kind: Literal["face", "outfit", "product", "eyes", "screen", "cast", "place"]
     who: str = Field(
         description="The reference's id from <references>: char:N or product:N. For eyes, the "
         "character's char:N, or '' if unclear; for screen, 'screen'; for cast, the missing "

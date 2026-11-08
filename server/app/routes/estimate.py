@@ -220,7 +220,10 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     # each made clip at its own model with its watch; the planned clips still to write at the
     # video model (a UGC talker who acts is on it too: Omni 1.2, Reed, 6 Nov)
     rest = sum(c["seconds"] for c in fresh) if clips else seconds_left
-    made = sum((take_credits(db, project, c) for c in clips if not c.picked_take_id), Decimal(0))
+    from app import talker  # a talker's clips are the host's one take, priced as its own step
+
+    made = sum((take_credits(db, project, c) for c in clips if not c.picked_take_id
+                and not talker.says(db, project, c)), Decimal(0))  # fmt: skip
     takes = made + _video(db, ws, rest, project) + take_watch.per_take(db, ws) * len(fresh)
     rewrite = clip_prompts.to_rewrite(db, project) if clips else []
     rows = [

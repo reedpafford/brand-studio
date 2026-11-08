@@ -132,7 +132,8 @@ def affected(price: dict) -> str:
         )
         if n
     ]
-    told = f"{' and '.join(parts)} go out of date; " if parts else ""
+    one = len(parts) == 1 and parts[0].startswith("1 ")
+    told = f"{' and '.join(parts)} go{'es' if one else ''} out of date; " if parts else ""
     if roles := price.get("roles_needing_look"):
         told += (
             f"{', '.join(roles)} need{'s' if len(roles) == 1 else ''} a new look approved "

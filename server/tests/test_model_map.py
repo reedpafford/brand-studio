@@ -283,7 +283,7 @@ def test_a_persons_setting_wins_and_the_directors_switch_says_its_price(app, db,
     said = _move(app, db, ugc, **lite, why="Note 1: asked in the chat.")
     assert said.startswith(
         "Switched the video model to Seedance 1 Lite. The switch is free; "
-        "3 clips go out of date; making what's left costs up to"
+        "1 clip goes out of date; making what's left costs up to"  # the talker's are HeyGen's
     ), said
     assert "Undo puts back Auto" in said
     clips = owner.get(f"/projects/{ugc.id}/clips").json()

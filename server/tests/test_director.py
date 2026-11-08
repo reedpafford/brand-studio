@@ -156,6 +156,44 @@ def test_a_redo_refused_before_any_take_is_made_never_counts_as_one(
     assert all("made again 2 times" in r for r in results[2 + len(made) :]), results
 
 
+def test_two_refusals_that_point_at_each_other_stop_the_run(app, db, owner, editor, monkeypatch):
+    """Video 281: redraw_still and host were each refused, pointing at the other, turn after
+    turn. The same refused step after one other refused step stops the run, saying both."""
+    real, steps = director.choose, iter(range(10**6))
+    ping = {"tool": "redraw_still", "shot_id": "9.9", "note": "Alone.", "why": "Ping."}
+    pong = {"tool": "make_take", "clip_id": "c9", "take_id": None, "note": "", "why": "Pong."}
+    monkeypatch.setattr(director, "choose", lambda state: (ping, pong)[next(steps) % 2]
+                        if state["clips"] and all(c["takes"] for c in state["clips"])
+                        else real(state))  # fmt: skip
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    looped = [t for t in out["turns"] if t["why"] in ("Ping.", "Pong.")]
+    assert len(looped) == 3 and out["status"] == "ended", [t["result"] for t in looped]
+    assert "no drawn still for shot 9.9" in out["ended"] and "no clip 9" in out["ended"]
+
+
+def test_refusals_that_wait_on_something_being_made_never_stop_the_run(
+    app, db, owner, editor, monkeypatch
+):
+    """QA on #1457: "The host is being made" refused, then another step, then the first
+    again would go: while anything of the video is being made, it's never a loop."""
+    monkeypatch.setattr(director, "MAX_TURNS", 16)
+    real, steps = director.choose, iter(range(10**6))
+    ping = {"tool": "redraw_still", "shot_id": "9.9", "note": "Alone.", "why": "Ping."}
+    pong = {"tool": "make_take", "clip_id": "c9", "take_id": None, "note": "", "why": "Pong."}
+    monkeypatch.setattr(director, "choose", lambda state: (ping, pong)[next(steps) % 2]
+                        if state["clips"] and all(c["takes"] for c in state["clips"])
+                        else real(state))  # fmt: skip
+    monkeypatch.setattr(director, "_moved", lambda *a: True)  # as while a take is made
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db)
+    out = editor.get(f"/projects/{pid}/director").json()
+    assert out["ended"] == "It stopped after 16 turns."  # never "refused again"
+
+
 def test_past_the_budget_it_waits_for_the_owner_then_goes_on(app, db, owner, editor):
     pid = _made(app, owner, editor, db)
     project = db.get(Project, pid)
