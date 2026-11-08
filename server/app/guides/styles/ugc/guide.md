@@ -41,7 +41,10 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
   - In one spot the whole time (talking to camera, or in a corner over the B-roll): HeyGen Avatar IV from one still, in one take, lip-synced to the video's own voice-over in the MiniMax voice (unless a person picks another or the presenter has their own saved voice), so the voice keeps its real inflection (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."). Omni 1.2 makes only the B-roll shown over or between their take.
   - Moving around or acting in the story (not in one spot): there's no HeyGen take; their shots are made on Omni 1.2 like the B-roll, which keeps their face from their picture (Reed, 6 Nov: "Omni is more for the realistic stuff").
 - A talker shot is one continuous take: the camera locked off or nearly (no push-ins, no pans on the talker), the speaker talking into the lens with small natural head movement, blinks and hand gestures at the bottom of the frame.
+- A talker in one spot only talks: HeyGen animates one still, so nothing is picked up, held up to the lens, unwrapped or pointed at, and nothing new comes into the frame. A moment where they do something with a prop is a B-roll shot of them on Omni 1.2 (video 281: the close planned Marcus peeling foil off a plate and holding a roll up like a white flag; the HeyGen take only talks, so the gag never happened).
 - B-roll shots move gently: a slow push-in, a still frame with movement inside it, or a phone's handheld drift. A list of things gets one short shot per item. Neighbouring B-roll pictures share one generated clip, a shot each, never past the video model's longest clip (past about 13 s, a natural beat is a good place to start the next); a picture shorter than its shortest clip runs with its neighbours rather than as a clip of its own (Reed, 7 Nov, revising 3 Nov's separate clips spliced together). B-roll is always made with Omni 1.2 (Reed, 6 Nov: "Omni is more for the realistic stuff"): realistic phone footage with the place's own sound and no one speaking, so the narration runs over it.
+- B-roll sound is the place's own quiet sound and the action's small sounds (cutlery, a door, a car's hum). Never laughter, cheering, chatter, a crowd or murmur: Omni makes a crowd as garbled half-words, heard under the voice as an AI fault (video 281: the roaring table came out with clipped laughter and garbled words). Never a loud hit or thump.
+- Keep B-roll actions simple and slow enough to read: one clear thing per shot. Nothing thrown or flying, and no fast physical gag: the video model smears a moving object into a blob (video 281: the thrown dinner roll). Stage what the line says; a laugh at someone is a laugh, not a stunt.
 - The talker's voice runs across the B-roll: it never stops for a cutaway.
 
 ## Breakdown
@@ -94,10 +97,12 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - B-roll keeps its source colour; renders are saturated (salmon and amber organs, cyan or green glows, saturation 40–66).
 
 ## Edit devices
+- Never written into a still or a clip prompt: the editor adds them after (video 281: "White flash." opened two clip prompts and Omni drew a washed-out flash at the start of each, wasting the first second).
 - Optional, all added in the edit: picture-in-picture photos over the talker's chest for a named object; designed offer cards (the product, arrows or a seal) in the last third; split screens of the problem in the hook; a white or coloured flash, a whip or zoom blur, or a light-leak flash as a transition.
 
 ## Sound and delivery
 - One voice from the first frame to the last, as if recorded close on a phone in a real room: the room's ambience under it and real emotion in the inflection (Reed, 3 Nov: "a much more realistic voice, with room ambience and emotion influction").
+- A person talking to their phone, not a narrator reading: the words keep moving at an even pace and sentences run into each other, with short breaths, never a dead stop after every full stop. In the voice's reading: no pause mark after a full stop (the voice stops there already), a short mark only inside a phrase, a breath before a new thought now and then, at most one chuckle, sigh or "emm", and the emotion left to the voice (auto) unless the whole read is one clear mood. The site sets the pace and trims the gaps; the words stay exactly the script's.
 - Pitch variability 3.6–5.8 semitones: warm and calm to lively; urgency shows as rising peaks.
 - No music by default. When asked for: a quiet bed 21–24 dB under the voice that can change as the video turns to the offer. Effects only on editor transitions (a whoosh on a flash, one low impact).
 

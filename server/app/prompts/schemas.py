@@ -858,10 +858,13 @@ class DirectorTurn(Strict):
     ) = Field(
         default=None,
         description="For narration in an English_ voice (MiniMax): the delivery's emotion; empty "
-        "or 'auto' lets the voice choose from the words. Its speed follows: an emotion reads "
-        "slower, so the speed rises to keep the style's pace, and a remake in the same emotion "
-        "is set from the last read's measured pace (the take's 'pace' against 'pace_wanted'). "
-        "Else empty.",
+        "or 'auto' lets the voice choose from the words, as MiniMax's docs advise ('manual "
+        "specification is only recommended when explicitly needed'): keep auto for a talker "
+        "unless the whole read is one clear mood (fearful, sad). An emotion is never the way to "
+        "change the pace: calm read as fast as auto (video 281). The speed follows: fearful and "
+        "sad start faster, and a remake in the same emotion is set from the last read's "
+        "measured pace (the take's 'pace' against 'pace_wanted'; none when its words weren't "
+        "heard). Else empty.",
     )  # fmt: skip
     speed: Number = Field(
         default=None,
@@ -872,9 +875,15 @@ class DirectorTurn(Strict):
     reading: str = Field(
         default="",
         description="For narration in an English_ voice, optional: the narration's words exactly "
-        "as the script has them, with only pause marks between words, e.g. <#0.3#> (0.2-0.5 s, "
+        "as the script has them, with only pause marks between words, e.g. <#0.2#> (0.1-0.3 s, "
         "never two in a row), and a few sounds a person makes, e.g. (breath), (chuckle), "
-        "(sighs), where they'd really happen; a changed word is refused. Else empty.",
+        "(sighs), (emm), where they'd really happen; a changed word is refused. A talker is "
+        "someone filming themselves, not a narrator: the voice already stops at every full "
+        "stop, so never put a mark after one (a mark is kept at every gap, and the references "
+        "have no pause past about 0.5 s); put one or two short marks inside a phrase where a "
+        "person would catch themselves or let a beat land, a (breath) before a new thought "
+        "every few sentences, and at most one (chuckle), (sighs) or (emm) where the feeling "
+        "calls for it. Else empty.",
     )
     model: Name = Field(
         default=None,
