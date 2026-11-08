@@ -53,6 +53,7 @@ from app.routes.estimate import run_price
 from app.routes.files import get_file
 from app.routes.jobs import CHANGE, DECLINE, PRICE, SAID, WITHDRAWN, enqueue, stop_jobs
 from app.routes.looks import off_reason
+from app.schemas import Note
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
 ONE_CLIP = "one_clip"  # the other types are the formats on GET /formats
@@ -61,7 +62,6 @@ OLD_NO_BRAND = "This older freestyle has no brand, so it can't be changed. Start
 Shape = Literal["9:16", "1:1", "16:9"]
 Status = Literal["waiting", "working", "delivered", "declined", "stopped", "withdrawn", "failed"]
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=5000)]
-Change = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 ONE_SOURCE = "Paste a script, or pick one: not both."
 NO_LOOK = "Pick a style."
@@ -99,7 +99,7 @@ class FreestyleIn(BaseModel):
 
 
 class MessageIn(BaseModel):
-    text: Change
+    text: Note  # read whole, never cut (as the video's chat)
 
 
 class TitleIn(BaseModel):

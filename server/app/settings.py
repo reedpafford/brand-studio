@@ -50,9 +50,11 @@ class Settings(BaseSettings):
     kie_api_key: SecretStr = Field(SecretStr(""), validation_alias="KIE_API_KEY")
     kie_delivery_hosts: list[str] = []  # set with the switch, from a real song link
     # Real songs stop before their spend would pass this (0: none). Each request counts at
-    # this price until KIE's real one is known (music.py A4).
+    # KIE's real price: 12 KIE credits (2 songs) at $0.005 a credit (kie.ai/pricing; every
+    # request in ops/SPEND.md). Usage records what KIE says it took (`creditsConsumed`).
     kie_budget_usd: float = 0.0
-    kie_usd_per_request: float = 0.1028
+    kie_usd_per_request: float = 0.06
+    kie_usd_per_credit: float = 0.005
     # HeyGen (app/providers/heygen.py): the UGC talker. Key from HEYGEN_API_KEY only (never in
     # code or logs); videos download only over https from HeyGen's file hosts.
     heygen_base_url: str = "https://api.heygen.com"

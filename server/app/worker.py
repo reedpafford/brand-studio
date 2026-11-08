@@ -33,6 +33,7 @@ from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import (
     STAND_IN,
+    UNSAVED,
     NetworkError,
     NotStarted,
     Provider,
@@ -151,17 +152,17 @@ def _actual_credits(job: Job, result: Result) -> Decimal:
     return min(job.credits, usd_to_credits(sum((i.cost_usd for i in result.usage), Decimal(0))))
 
 
-def _usage(job: Job, provider: Provider, result: Result) -> list[Usage]:
+def _usage(job: Job, provider: Provider, result: Result, made: bool = False) -> list[Usage]:
     """What the job cost, for Usage. A paid job whose provider didn't say (image and video
     models, the reel watch) is recorded from its credits, marked estimated, so every charge
-    is listed."""
+    is listed. `made`: the provider finished it, though saving it failed (it was paid)."""
     items = [
         Usage(workspace_id=job.workspace_id, job_id=job.id, provider=job.provider, kind=job.kind,
               units=i.units, unit=i.unit, cost_usd=i.cost_usd, estimated=i.estimated,
               **_tokens(i.tokens))
         for i in result.usage
     ]  # fmt: skip
-    if not items and provider.paid and job.credits and result.state == "succeeded":
+    if not items and provider.paid and job.credits and (made or result.state == "succeeded"):
         items.append(
             Usage(workspace_id=job.workspace_id, job_id=job.id, provider=job.provider,
                   kind=job.kind, units=Decimal(1), unit="job",
@@ -233,7 +234,8 @@ def _finish(
         db.commit()
         return True
     files: list[StoredFile] = []
-    if result.state == "succeeded" and result.files:
+    made = result.state == "succeeded"  # by the provider (paid), whether or not we save it
+    if made and result.files:
         try:
             files = _download(job, provider, result.files, storage)
         except NetworkError as exc:
@@ -250,7 +252,9 @@ def _finish(
         JobStatus.running,
         new,
         credits=_actual_credits(job, result) if new == JobStatus.succeeded else job.credits,
-        output=result.output,
+        output={**(result.output or {}), UNSAVED: True}
+        if made and new != JobStatus.succeeded
+        else result.output,
         error=_plain(job, result.error) if new == JobStatus.failed else "",
         error_detail=result.error[:2000],
         finished_at=utcnow(),
@@ -263,7 +267,7 @@ def _finish(
             db.flush()
             output = {**(result.output or {}), "file_ids": [f.id for f in files]}
             db.execute(update(Job).where(Job.id == job.id).values(output=output))
-        db.add_all(_usage(job, provider, result))
+        db.add_all(_usage(job, provider, result, made))
         if new == JobStatus.succeeded and job.input.get("step"):
             db.refresh(job)
             save_step_result(db, job)

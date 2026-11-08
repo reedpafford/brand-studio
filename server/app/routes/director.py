@@ -3,10 +3,10 @@ published script, read what it did (its log), stop it. Whoever may change the vi
 it; every action it takes is checked as that person's own press (app/director_tools)."""
 
 import logging
-from typing import Annotated, Literal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
 from app import asks, director, run_progress
@@ -17,7 +17,7 @@ from app.models.accounts import User
 from app.models.projects import Project
 from app.routes.clips import generation_on
 from app.routes.projects import _mine, get_project, video_writer
-from app.schemas import UtcTime
+from app.schemas import Note, UtcTime
 
 log = logging.getLogger(__name__)
 router = APIRouter(
@@ -242,7 +242,7 @@ class SeenIn(BaseModel):
 
 
 class DirectorNoteIn(BaseModel):
-    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+    text: Note  # read whole, never cut: past 20,000 characters refused in plain words
     files: list[int] | None = Field(default=None, max_length=6)  # pictures or clips with it
 
 

@@ -24,6 +24,8 @@ from app.models.script_library import Script, ScriptDraft
 from app.models.songs import SongTake
 from app.prompts import check
 from app.prompts.check import sung_lines
+from app.providers import UNSAVED
+from app.providers.kie import AGAIN
 
 log = logging.getLogger(__name__)
 WAITING = (JobStatus.queued, JobStatus.running)
@@ -77,12 +79,14 @@ def _request(
     note: str = "",
     voice: str = narration.VOICE,
     delivery: dict | None = None,
+    task: str = "",
 ) -> Job:
     """One request for 2 songs of the version's words as they are now. One that can't be
     made says why (422); past an allowance or budget, enqueue declines with the reason.
     `free`: a request already paid for (it gave back fewer songs than asked). `kie`: the price
     a real song through KIE counts at (0: not a real one). `delivery`: a MiniMax voice's
-    emotion and reading (narration.job)."""
+    emotion and reading (narration.job). `task`: no new request, the KIE task whose songs
+    were made but not saved, read again (free; `fetch_again`)."""
     from app.routes.jobs import enqueue
 
     if narrated(db, draft):  # one voice call (flows N1)
@@ -106,12 +110,17 @@ def _request(
         job_input = music.job(draft.text, style)  # a director's remake note: this request only
     except music.NotReady as no:
         raise HTTPException(422, str(no)) from None
-    job_input = {**job_input, "step": "song_take", "on_script": draft.script_id,
-                 **({"free_retry": True} if free else {}),
-                 **({"kie": True} if kie else {})}  # fmt: skip
+    job_input = {
+        **job_input,
+        "step": "song_take",
+        "on_script": draft.script_id,
+        **({"free_retry": True} if free else {}),
+        **({"kie": True} if kie or task else {}),
+        **({AGAIN: task} if task else {}),
+    }
     job = enqueue(db, user, "music", job_input, project=project,
-                  provider=music.PROVIDER, units=0 if free else 1)  # fmt: skip
-    if kie:  # each real song, for ops/SPEND.md (CLAUDE.md: every paid call is logged)
+                  provider=music.PROVIDER, units=0 if free or task else 1)  # fmt: skip
+    if kie and not task:  # each real song, for ops/SPEND.md (CLAUDE.md: every paid call is logged)
         made = sum(1 for j in _real_jobs(db))
         log.warning("Real song request: job %s, about $%.2f, %s so far (about $%.2f)", job.id,
                  kie, made, made * kie)  # fmt: skip
@@ -365,10 +374,24 @@ def _free_retry(old: Job) -> bool:
     return old.status == JobStatus.succeeded and not old.input.get("free_retry")
 
 
+def fetch_again(db: Session, take: SongTake, once: bool = False) -> str:
+    """The KIE task of a take whose songs KIE made (and was paid for) but we didn't save (a
+    download refused or given up): Try again reads that task again, free, as its song links
+    last 14 days, never a second paid request. "" otherwise. `once`: not if this was
+    already a read again (the director's; a person may press again)."""
+    old = db.get(Job, take.job_id)
+    if (old.kind != "music" or old.status != JobStatus.failed
+            or not (old.output or {}).get(UNSAVED) or (once and old.input.get(AGAIN))):  # fmt: skip
+        return ""
+    task = old.input.get(AGAIN) or old.provider_ref or ""
+    return "" if task.startswith("stand-in") else task  # a stand-in's has nothing to read
+
+
 def retry_credits(db: Session, take: SongTake) -> Decimal:
-    """What Try again on this take costs: nothing for a timing or for a request that came
-    back short (already paid), else a new request."""
-    if state(db, take)[0] != "failed" or _free_retry(db.get(Job, take.job_id)):
+    """What Try again on this take costs: nothing for a timing, for a request that came
+    back short (already paid) or for songs made but not saved, else a new request."""
+    if (state(db, take)[0] != "failed" or _free_retry(db.get(Job, take.job_id))
+            or fetch_again(db, take)):  # fmt: skip
         return Decimal(0)
     draft = db.get(ScriptDraft, take.draft_id)
     return price(db, db.get(Script, draft.script_id).workspace_id, draft)
@@ -378,7 +401,8 @@ def try_again(db: Session, user: User, take: SongTake, kie: float = 0.0) -> None
     """A failed request is made again for its takes, with the version's lyrics and style
     line as they are now (a refusal says to change them first); charged only if it's made.
     A request that came back with only one song keeps that one and asks again for the other,
-    free (it was paid for both). A failed timing is read again (free)."""
+    free (it was paid for both); songs made but not saved are fetched again (free, no new
+    request: `fetch_again`). A failed timing is read again (free)."""
     status, _, helps = state(db, take)
     if status == "timing_failed" and helps:
         _time(db, take, user)
@@ -390,13 +414,15 @@ def try_again(db: Session, user: User, take: SongTake, kie: float = 0.0) -> None
     old = db.get(Job, take.job_id)
     short = old.status == JobStatus.succeeded  # it gave fewer songs than asked
     voice = take.voice or narration.VOICE  # a narration keeps its voice and delivery
+    task = fetch_again(db, take)
     job = _request(db, user, draft, project, free=_free_retry(old), kie=kie, voice=voice,
-                   delivery=narration.delivery(old.input))  # fmt: skip
+                   delivery=narration.delivery(old.input), task=task)  # fmt: skip
     for pair in _by_job(db, SongTake.job_id, old):
         if short and pair.file_id is not None:  # a song that did arrive is kept as it is
             continue
         pair.job_id, pair.file_id = job.id, None
-        pair.lyrics, pair.style_line = _sings(draft).values()
+        if not task:  # the same songs fetched again sing what they were made with
+            pair.lyrics, pair.style_line = _sings(draft).values()
     db.commit()
 
 
@@ -433,7 +459,7 @@ def _real_jobs(db: Session) -> list[Job]:
     to it after (a video put away mid-song is still paid for); only one cancelled before it
     was sent doesn't."""
     jobs = db.scalars(select(Job).where(Job.provider == music.PROVIDER, Job.kind == "music"))
-    return [j for j in jobs if j.input.get("kie")
+    return [j for j in jobs if j.input.get("kie") and not j.input.get(AGAIN)  # a read again
             and (j.status != JobStatus.cancelled or j.provider_ref is not None)]  # fmt: skip
 
 

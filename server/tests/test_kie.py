@@ -1,13 +1,14 @@
 """Suno through KIE (app/providers/kie.py), against a mock of KIE's API: no paid call."""
 
 import json
+from decimal import Decimal
 
 import httpx2 as httpx
 import pytest
 
 from app import music
 from app.providers import NotStarted, get_providers, kie_on
-from app.providers.kie import KieSuno
+from app.providers.kie import AGAIN, KieSuno
 from app.settings import Settings
 
 BASE = "https://api.kie.ai/api/v1"
@@ -54,13 +55,13 @@ def test_the_style_lines_voice_goes_to_kie_only_when_set(gender):
     job["input"]["vocal_gender"] = gender  # prompts.song_request reads it from the style line
     kie.submit("music", job)
     sent = json.loads(seen[0].content)["input"]
-    assert sent.get("vocalGender") == (gender or None)
+    assert sent.get("vocal_gender") == (gender or None) and "vocalGender" not in sent
 
 
 def test_a_female_vocal_in_the_style_line_reaches_kie():
     kie, seen = _kie(lambda r: _ok({"taskId": "t1"}))
     kie.submit("music", _real(music.job("Iron Paws, bowl is bright", "pop, warm female vocal")))
-    assert json.loads(seen[0].content)["input"]["vocalGender"] == "f"
+    assert json.loads(seen[0].content)["input"]["vocal_gender"] == "f"
 
 
 def test_poll_waits_then_gives_both_songs():
@@ -210,3 +211,77 @@ def test_off_the_test_site_real_songs_past_the_budget_stop_plainly(db):
     with pytest.raises(HTTPException) as no:
         song_takes.real_songs(db, settings)
     assert no.value.detail == song_takes.NO_MORE_REAL
+
+
+def test_poll_reports_what_kie_took_for_the_request():
+    done = {"state": "success", "creditsConsumed": 12, "response": {"data": [{"audio_url": SONG}]}}
+    kie, _ = _kie(lambda r: _ok(done))
+    (cost,) = kie.poll("t1").usage
+    assert (cost.cost_usd, cost.estimated) == (Decimal("0.06"), False)  # 12 credits at $0.005
+    kie, _ = _kie(lambda r: _ok({**done, "creditsConsumed": None}))
+    (cost,) = kie.poll("t1").usage  # not said: its usual price, marked estimated
+    assert (cost.cost_usd, cost.estimated) == (Decimal("0.06"), True)
+    kie, _ = _kie(lambda r: _ok({"state": "fail", "failCode": "500", "failMsg": "internal"}))
+    assert kie.poll("t1").usage == []  # a failure KIE didn't charge costs nothing
+    kie, seen = _kie(lambda r: _ok(done))
+    again = kie.submit("music", {**_real(music.job("Iron Paws", "pop")), AGAIN: "t1"})
+    assert again == "again:t1" and seen == []  # no new request
+    read = kie.poll(again)
+    assert read.files == [SONG] and read.usage == []  # paid once, by the first request
+    assert seen[0].url.params["taskId"] == "t1"
+
+
+def test_songs_made_but_not_saved_are_fetched_again_free_never_paid_twice(app, db, owner):
+    from app import song_takes
+    from app.models.jobs import Job, Usage
+    from app.models.songs import SongTake
+    from app.providers.fake_local import FakeSuno
+    from app.worker import run_once
+    from tests.test_song_takes import _style
+
+    settings = app.state.settings
+    settings.fake_providers, settings.kie_suno, settings.kie_budget_usd = True, True, 1.0
+    calls = []
+
+    def kie_api(r):
+        calls.append(r)
+        if r.url.path.endswith("/jobs/createTask"):
+            return _ok({"taskId": "t1"})
+        if r.url.path.endswith("/jobs/recordInfo"):
+            return _ok(
+                {
+                    "state": "success",
+                    "creditsConsumed": 12,
+                    "response": {"data": [{"audio_url": SONG}, {"audio_url": SONG}]},
+                }
+            )
+        return httpx.Response(200, content=b"ID3" + bytes(64), headers={
+            "content-type": "audio/mpeg"})  # fmt: skip
+
+    client = httpx.Client(transport=httpx.MockTransport(kie_api))
+    kie = KieSuno(BASE, "test-key", (), client=client, stand_in=FakeSuno())  # no hosts yet
+    providers = {**get_providers(settings, app.state.storage), "suno": kie}
+    brand = owner.get("/brands").json()[0]["id"]
+    body = {"brand_id": brand, "title": "Paws", "kind": "song", "text": "Iron Paws\nLink below"}
+    url = f"/scripts/{owner.post('/scripts', json=body).json()['id']}/drafts/0"
+    _style(owner, url, "pop")
+    owner.post(f"{url}/songs", json={})
+    for _ in range(2):
+        run_once(db, providers, app.state.storage)
+    first = db.query(Job).filter_by(kind="music").one()
+    assert first.status == "failed" and first.output.get("unsaved")  # made, not saved
+    (paid,) = db.query(Usage).filter_by(job_id=first.id).all()  # KIE was paid: listed
+    assert (paid.cost_usd, paid.estimated) == (Decimal("0.06"), False)
+    take = db.query(SongTake).order_by(SongTake.id).first()
+    assert song_takes.retry_credits(db, take) == 0
+
+    assert owner.post(f"/songs/{take.id}/try-again").status_code == 200
+    kie.delivery_hosts = ("example-cdn.com",)
+    for _ in range(2):
+        run_once(db, providers, app.state.storage)
+    again = db.query(Job).filter(Job.kind == "music", Job.id != first.id).one()
+    assert again.input[AGAIN] == "t1" and again.credits == 0 and again.status == "succeeded"
+    assert db.query(Usage).filter_by(job_id=again.id).count() == 0  # nothing paid again
+    assert sum(r.url.path.endswith("/createTask") for r in calls) == 1  # one KIE request
+    assert len(song_takes._real_jobs(db)) == 1  # the read again isn't a request
+    assert all(t.file_id for t in db.query(SongTake).all())

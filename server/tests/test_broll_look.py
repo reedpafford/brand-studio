@@ -30,9 +30,9 @@ def test_the_brief_carries_both_guides_and_the_shots_are_drawn_in_the_b_roll_loo
     assert "## Style: House\n" in plain and "B-roll look" not in plain
     assert "## Style: House (the host, the voice and the cast)" in both
     assert "## B-roll look: Skeleton" in both
-    for _, text in guides.guidance(guides.style("skeleton")["sections"]):
-        assert text in both  # Skeleton's guide as Reed wrote it
-    for _, text in guides.guidance(guides.style("house")["sections"]):
+    for _, text in guides.guidance(guides.style("skeleton")["sections"], step="storyboard"):
+        assert text in both  # Skeleton's guide as Reed wrote it (its script parts stop at the plan)
+    for _, text in guides.guidance(guides.style("house")["sections"], step="storyboard"):
         assert text in both  # and House's, for the host and what it must keep
     shots = prompts.system("storyboard", "house", "narrated", "presenter", "skeleton")
     assert guides.tokens("skeleton")["still_look"] in shots

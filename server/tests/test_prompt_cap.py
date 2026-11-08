@@ -32,6 +32,9 @@ def test_every_video_models_prompt_limit_is_known():
     assert get_model("seedance-2.0").prompt_max == 4000
     for other in ("seedance-2.5", "seedance-1-lite", "gemini-omni-1.2"):
         assert get_model(other).prompt_max == 0, other  # their schemas state none
+    for model in ("seedance-2.0", "seedance-2.5", "gemini-omni-1.2"):  # a length to aim for,
+        target = get_model(model).prompt_target  # well under any limit (speed, Reed 8 Nov)
+        assert 0 < target <= (get_model(model).prompt_max or 4000) - clip_takes.ROOM - 600
 
 
 def test_a_prompt_too_long_for_its_model_is_rewritten_to_fit_never_sent(
@@ -78,12 +81,14 @@ def test_a_prompt_too_long_for_its_model_is_rewritten_to_fit_never_sent(
 def test_the_writer_is_told_each_clips_model_limit(db, setup, clip):  # noqa: F811
     video = db.get(Project, setup["project"])
     row = db.get(ProjectClip, clip["id"])
-    assert clip_prompts.prompt_limits(db, video, [row.clip_id]) == ""  # 2.5: no limit
+    assert clip_prompts.prompt_limits(db, video, [row.clip_id]) == (  # 2.5: no limit
+        f"<limit>{row.clip_id} is made on Seedance 2.5: write its prompt in about 2,500 "
+        "characters.</limit>")  # well under BytePlus's 600 words  # fmt: skip
     _on_two(db, clip)
     said = clip_prompts.prompt_limits(db, video, [row.clip_id])
-    assert said == (f"<limit>{row.clip_id} is made on Seedance 2.0, which takes a prompt of "
-                    "at most 4000 characters: write its prompt in under 3200 "
-                    "characters.</limit>")  # fmt: skip
+    assert said == (f"<limit>{row.clip_id} is made on Seedance 2.0: write its prompt in about "
+                    "2,500 characters, never over 3,200 (it takes at most "
+                    "4,000).</limit>")  # fmt: skip
     data = clip_prompts.job_input(db, video, clip_prompts.newest(db, video), [row.clip_id])
     assert said in data["prompt"]
 

@@ -8,6 +8,7 @@ import re
 from decimal import Decimal
 
 from app import director, director_auto
+from app.db import utcnow
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
@@ -149,3 +150,21 @@ def test_work_that_never_ran_is_never_counted_as_used(app, db, owner, editor):
     cut.status = JobStatus.failed
     db.commit()
     assert director._refund(db, project, run)["watches"] == 1
+
+
+def test_the_server_never_takes_its_own_step_twice_running(app, db, owner, editor, monkeypatch):
+    """A clip prompt whose part failed (#1467: one clip a part) leaves its clip stale: the
+    server doesn't write the prompts again on its own; the director decides."""
+    from tests.test_director import _made
+
+    pid = _made(app, owner, editor, db)
+    project = db.get(Project, pid)
+    monkeypatch.setattr(director_auto, "move", lambda state: {"tool": "clip_prompts"})
+    now = utcnow()
+    mine = Job(input={director_auto.SAID: True, "result": "Writing the clip prompts."},
+               output={"tool": "clip_prompts"}, created_at=now)  # fmt: skip
+    theirs = Job(input={"result": "Approved the plan; making the shots."}, output={"tool": "plan"},
+                 created_at=now)  # fmt: skip
+    run = {"id": "r"}
+    assert director._auto(db, project, run, {}, mine) is None
+    assert director._auto(db, project, run, {}, theirs) == {"tool": "clip_prompts"}

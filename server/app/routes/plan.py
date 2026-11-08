@@ -19,7 +19,7 @@ from app.routes.breakdown import queue as queue_shots
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project, video_writer
-from app.schemas import UtcTime
+from app.schemas import NoteText, UtcTime
 
 router = APIRouter(
     prefix="/projects/{project_id}/plan", tags=["plan"], dependencies=[Depends(video_writer)]
@@ -97,7 +97,7 @@ class PlanOut(BaseModel):
 
 
 class NoteIn(BaseModel):
-    note: str = Field("", max_length=500)
+    note: NoteText = ""  # read whole, said in the plan's own words (never cut)
 
 
 class LineIn(BaseModel):

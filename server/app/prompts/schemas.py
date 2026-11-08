@@ -941,7 +941,10 @@ class DirectorTurn(Strict):
         "and hands do and what's in front of them, never a gesture the place can't hold ('close "
         "to tears, fighting it: chin trembles, lips pressed between phrases, a glance down and "
         "back; both hands stay on the steering wheel'); for add_sound, the sounds "
-        "asked for and how much, in the person's words ('slight sound effects'); else empty.",
+        "asked for and how much, in the person's words ('slight sound effects'); else empty. "
+        "Made from a person's note, it keeps every instruction the note gives, in your own "
+        "concise words. At most 500 characters (a talker's motion 600, add_sound 300): a "
+        "longer one is refused, never cut.",
     )
     edit: CutMove | None = Field(
         default=None, description="For edit_cut: the one edit (free). Else null."
@@ -967,4 +970,12 @@ class DirectorTurn(Strict):
         default="",
         description="On 'deliver' only: 'What I need from you': what the owner must decide or "
         "approve; empty only when nothing is open.",
+    )
+    left_out: str = Field(
+        default="",
+        description="On a move that acts on a person's note ('Note N' in `why`): each part of "
+        "that note that can't fit or can't be done, by name, and why ('Note 2: the pouch held "
+        "still for a beat at the end: clip 7 is already 8 s, the most the model makes'); the "
+        "delivery note lists it for them. A later move on that note replaces it: say there "
+        "what's still left out. Empty when every part is carried out.",
     )
