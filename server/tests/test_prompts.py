@@ -1345,6 +1345,17 @@ def test_a_note_asks_a_length_only_in_length_words():
     assert {note: check.asked_length(note) for note in asked} == asked
 
 
+def test_the_prompts_write_the_face_not_a_hidden_feeling_and_give_a_short_line_its_beat():
+    """276 and 284: "Humiliated…, her smile frozen" came out as tears both times (the named
+    feeling won), and "Hey." glued to a longer line was dropped both times."""
+    clip, still = (HERE / "clip_prompts.md").read_text(), (HERE / "storyboard.md").read_text()
+    assert 'never "humiliated" or "mortified"' in clip and "A feeling the character hides" in clip
+    assert "A reaction names the feeling and its reason" in clip  # rule 17 for a shown feeling
+    assert "never a feeling the character hides" in still
+    assert '"saying Hey on its own, then a beat"' in clip
+    assert "cut, colour and fabric" in clip
+
+
 def test_the_free_fix_never_drops_a_lip_sync_note():
     """Reed's c4: Fix this clip's prompt dropped "nobody on screen lip-syncs it", which
     invites lip-sync. It's put back before the Keep line."""
@@ -1985,3 +1996,14 @@ def test_the_product_is_a_prop_in_the_story_its_label_shown_on_its_own_moments()
     assert "never a fault or a redo" in prompts.system("take_watch")  # a prop's turned label
     assert "the product way, label to camera" not in prompts.system("treatment")
     assert "not held to camera in every shot" in prompts.system("treatment")  # rules.md
+
+
+def test_the_real_pack_is_judged_against_its_own_picture_never_the_stills_copy():
+    """Movie video 284: the pouch reached every product clip as its real picture, but the
+    storyboard still drew it small with a close-but-wrong label, the take followed the still,
+    and the take watch compared the pack with the still. Now a product moment's still must
+    show the label readably, and the take is judged against the product's own picture."""
+    assert "never as the still copied it" in prompts.system("take_watch")
+    stills = prompts.system("review_stills")
+    assert "**The product on its own moments:**" in stills
+    assert "the take starts from this still" in stills
