@@ -1349,7 +1349,8 @@ def test_the_prompts_write_the_face_not_a_hidden_feeling_and_give_a_short_line_i
     """276 and 284: "Humiliated…, her smile frozen" came out as tears both times (the named
     feeling won), and "Hey." glued to a longer line was dropped both times."""
     clip, still = (HERE / "clip_prompts.md").read_text(), (HERE / "storyboard.md").read_text()
-    assert 'never "humiliated" or "mortified"' in clip and "never one the character hides" in clip
+    assert 'never "humiliated" or "mortified"' in clip and "A feeling the character hides" in clip
+    assert "A reaction names the feeling and its reason" in clip  # rule 17 for a shown feeling
     assert "never a feeling the character hides" in still
     assert '"saying Hey on its own, then a beat"' in clip
     assert "cut, colour and fabric" in clip

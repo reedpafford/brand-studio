@@ -96,7 +96,7 @@ Measured over the three studied films (6–9 min each; a short video keeps the s
 - Photoreal, TV-scale people: real skin with pores and shine, tears that look wet, hair with flyaways, no retouching.
 - Cast by type so a role reads at a glance (the worn-down hero, the fit mentor, the loud mocker, the offhand doctor), each in one outfit that stays identical in every shot.
 - Acting is naturalistic: faces carry the turns (a frozen smile, tears, shock, a quiet smirk); side reactions can be broader, but still human.
-- Write the face, not the feeling: Omni acts out an emotion word over the face it's given. A held-composure beat is "a polite smile held still, eyes gone flat, a tight swallow, no tears", never "humiliated", which came out as tears twice. A public sting gets one onlooker reacting on the line (a snort into a napkin, a whisper behind a hand), not only a glance.
+- For a feeling the character hides, write the face, not the feeling: Omni acts out an emotion word over the face it's given. A held-composure beat is "a polite smile held still, eyes gone flat, a tight swallow, no tears", never "humiliated", which came out as tears twice. A public sting gets one onlooker reacting on the line (a snort into a napkin, a whisper behind a hand), not only a glance.
 
 ## Sound and delivery
 - Location sound under every line, well below the voice: room tone, the crowd, engines, doors, footsteps. Sound hits punctuate (a door slam, a whoosh into the 3D insert, a low boom on a key insert).

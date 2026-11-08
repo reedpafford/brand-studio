@@ -412,6 +412,13 @@ def _words(bd: Breakdown, clip: ClipPrompt, note: str = "") -> str:
     return " ".join([*said, clip.prompt, note])
 
 
+def _acts(bd: Breakdown, clip: ClipPrompt) -> str:
+    """What the clip's shots show happening, from the breakdown."""
+    planned = next((c for c in bd.clips if c.id == clip.clip_id), None)
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    return " ".join(shots[i].action for i in (planned.shot_ids if planned else []) if i in shots)
+
+
 def _sheet_words(prompt: str, n: int, who: str) -> str:
     """After a sheet change (QA-Live, video #17: Goth GF 2's removed streak came back): the
     person's References sentence and Keep clause as the code writes them, and no look words in
@@ -497,15 +504,35 @@ def _kept(prompt: str, people: list[str], ids: list[str], pics: dict) -> str:
 WEARS = re.compile(r"\bwears: (.+?) \(this video\)")  # its cast line's own outfit (enhance.wears)
 
 
-def _worn(prompt: str, people: list[str], known: dict, pics: dict) -> str:
+CHANGES = re.compile(  # the script changes their clothes in this clip: no outfit pinned there
+    r"\b(?:changes? into|changed into|now (?:in|wears|wearing)|puts? on|slips? into|takes? off|"
+    r"strips? off|dressed in (?:a |her |his |their )?new)\b",
+    re.I,
+)
+
+
+def _worn(prompt: str, people: list[str], known: dict, pics: dict, said: str = "") -> str:
     """This video's outfit for each attached person in the Keep line, in its own words (284:
     "this video's champagne satin dress" drew a new neckline in each clip; one wording, with
-    its cut and fabric, repeated in every clip). Free; doing it again changes nothing."""
+    its cut and fabric, repeated in every clip): kept when a clause names them with it, an
+    older "in this video's …" of theirs replaced, else said once. Never in a clip whose shots
+    (`said`) change that person's clothes. Free; doing it again changes nothing."""
     for r in people:
-        worn = WEARS.search(known.get(r, ("",))[0])
+        found, who = WEARS.search(known.get(r, ("",))[0]), _name(pics, r)
         keep = next((ln for ln in prompt.splitlines() if ln.startswith("Keep: ")), None)
-        if worn and keep is not None and worn[1].lower() not in keep.lower():
-            prompt = _add(prompt, "Keep: ", f"{_name(pics, r)} in this video's {worn[1]}.")
+        if not found or keep is None or any(who in x and CHANGES.search(x) for x in
+                                             re.split(r"(?<=[.!?])\s+", said)):  # fmt: skip
+            continue
+        worn = re.sub(r"^(?:a|an|the)\s+", "", found[1].strip(), flags=re.I)
+        clauses = re.split(r"(?<=[;.])\s+", keep.removeprefix("Keep: "))
+        if any(who in c and worn.lower() in c.lower() for c in clauses):
+            continue
+        if old := next((c for c in clauses if who in c and "in this video's " in c), None):
+            line = keep.replace(old, re.sub(r"in this video's [^;.]*", f"in this video's {worn}",
+                                            old, count=1), 1)  # fmt: skip
+        else:
+            line = f"{keep.rstrip()} {who} in this video's {worn}."
+        prompt = prompt.replace(keep, line, 1)
     return prompt
 
 
@@ -580,7 +607,7 @@ def with_cast(
     was = [r for r in clip.references if r.kind == "image"]
     worn = [r.id for r in new if r.id.startswith(CHAR)]  # their outfit, word for word
     if new == was:
-        prompt = _worn(clip.prompt, worn, known, pics)
+        prompt = _worn(clip.prompt, worn, known, pics, _acts(bd, clip))
         return clip if prompt == clip.prompt else clip.model_copy(update={"prompt": prompt})
     ids, before = [r.id for r in new], [r.id for r in was]
     moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
@@ -607,7 +634,7 @@ def with_cast(
             continue
         prompt = _add(prompt, "References: ", f"{tag} is {who}.")
         prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
-    prompt = _worn(prompt, worn, known, pics)
+    prompt = _worn(prompt, worn, known, pics, _acts(bd, clip))
     return clip.model_copy(update={"prompt": prompt, "references": new + others})
 
 

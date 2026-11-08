@@ -71,20 +71,34 @@ def test_with_an_outfit_the_sheet_line_never_says_not_to_describe_clothes(owner,
 
 def test_every_clip_keeps_the_videos_outfit_in_its_own_words(owner, editor, db):
     """284: the Keep line said "this video's champagne satin dress" and each clip drew a new
-    neckline. The outfit, with its cut and fabric as set, goes into every clip's Keep line
-    word for word (free, once)."""
+    neckline. Each person's outfit as set, with its cut and fabric, is in every clip's Keep
+    line once (free): kept when a clause names them with it (the article dropped or not), an
+    older one of theirs replaced, never in a clip whose shots change their clothes."""
     from app.clip_prompts import _pictures, _worn
     from app.clip_prompts import assets as clip_assets
 
     pid, mia, kid = _video(owner, editor, db)
     worn = "a sleeveless champagne satin sheath, high round neck"
-    editor.put(f"/projects/{pid}/locks", json={"outfits": {f"char:{kid}": worn}})
+    editor.put(f"/projects/{pid}/locks",
+               json={"outfits": {f"char:{kid}": worn, f"char:{mia}": worn}})  # fmt: skip
     project = db.get(Project, pid)
     db.refresh(project)
     known = clip_assets(db, project)
-    prompt = (
-        "Audio: x.\nShot 1 | 0-3 s. She waits.\nKeep: her as in [Image2], a satin dress.\nAudio: x."
-    )
-    kept = _worn(prompt, [f"char:{kid}", f"char:{mia}"], known, _pictures(known))
-    assert kept.splitlines()[2].endswith(f"in this video's {worn}.")
-    assert kept.count(worn) == 1 and _worn(kept, [f"char:{kid}"], known, _pictures(known)) == kept
+    pics, both = _pictures(known), [f"char:{kid}", f"char:{mia}"]
+    bare = worn.removeprefix("a ")
+
+    def keep(text: str, said: str = "", who=both) -> str:
+        return _worn(f"Audio: x.\nShot 1 | 0-3 s. They wait.\nKeep: {text}\nAudio: x.", who,
+                     known, pics, said).splitlines()[2]  # fmt: skip
+
+    added = keep("Kid as in [Image2], the same look as on their sheet.", who=[f"char:{kid}"])
+    assert added.endswith(f"Kid in this video's {bare}.") and "'s a " not in added
+    assert keep(added.removeprefix("Keep: "), who=[f"char:{kid}"]) == added  # again: the same
+    said = f"Kid as in [Image2], in this video's {bare}."  # the writer's own words, kept
+    assert keep(said, who=[f"char:{kid}"]) == f"Keep: {said}"
+    assert keep(said).endswith(f"Mia in this video's {bare}.")  # each person, by name
+    older = keep("Kid as in [Image2], in this video's green dress.", who=[f"char:{kid}"])
+    assert older == f"Keep: Kid as in [Image2], in this video's {bare}."  # replaced, not twice
+    assert keep("Kid as in [Image2].", "Kid changes into pyjamas.", [f"char:{kid}"]) == (
+        "Keep: Kid as in [Image2]."
+    )  # the script changes it here
