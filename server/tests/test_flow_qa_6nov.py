@@ -116,3 +116,8 @@ def test_s7_a_run_waiting_on_the_cast_ok_says_so(app, db, owner, editor):
     inbox = owner.get("/needs-you").json()
     assert [c["video"]["id"] for c in inbox["cast"]] == [pid] and inbox["total"] >= 1
     assert editor.get("/needs-you").json()["cast"][0]["video"]["id"] == pid  # their own video
+    # MAIN's Claymation run: the run's record says it too, not "Drawing the stills"
+    record = owner.get(f"/projects/{pid}/director/progress").json()
+    assert (record["status"], record["title"], record["tone"]) == (
+        "waiting", "Waiting for the cast and places OK", "wait")  # fmt: skip
+    assert any(s["state"] == "wait" for s in record["steps"])

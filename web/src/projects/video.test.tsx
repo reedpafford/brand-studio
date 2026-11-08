@@ -191,7 +191,7 @@ test("Downloads agrees with the lists: a take from an older look marks the finis
   expect(await screen.findByRole("link", { name: "Download MP4" })).toHaveAttribute("href", expect.stringContaining("/files/60"));
   expect(screen.getByText("Out of date.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Make it again" })).toHaveAccessibleDescription("Make another take on Clips, or keep the older look (1 left)");
-  expect(screen.getByText("A clip's take shows an older look from Cast & places. This MP4 still downloads. Making it again is free.")).toBeInTheDocument();
+  expect(screen.getByText("A clip's take shows an older look from Cast & places. This MP4 still downloads.")).toBeInTheDocument(); // never "free" beside a button that waits
   expect(screen.queryByText(/Clips changed since/)).toBeNull();
 });
 

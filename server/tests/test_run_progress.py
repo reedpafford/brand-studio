@@ -81,6 +81,22 @@ def test_there_is_no_record_before_a_run(app, db, owner, editor):
     assert owner.get(f"/projects/{pid}/director/progress").json() is None
 
 
+def test_spent_counts_finished_work_so_it_never_goes_down(app, db, owner, editor):
+    """MAIN's Claymation run: spent_usd read 2.41, then 2.20. It held work still queued or
+    running at its price, which dropped out when that work failed. Only finished work counts."""
+    pid = _done(app, db, owner, editor)
+    before = _progress(owner, pid)["spent"]
+    project = db.get(Project, pid)
+    job = Job(workspace_id=project.workspace_id, project_id=pid, kind="image", provider="replicate",
+              status=JobStatus.running, credits=Decimal(25), input={"step": "frame"})  # fmt: skip
+    db.add(job)
+    db.commit()
+    assert _progress(owner, pid)["spent"] == before  # not charged until it's done
+    job.status = JobStatus.failed  # nothing charged: still the same, never less
+    db.commit()
+    assert _progress(owner, pid)["spent"] == before > 0
+
+
 def test_a_delivered_run_reads_as_made_with_every_step_done_and_its_note(app, db, owner, editor):
     pid = _done(app, db, owner, editor)
     p = _progress(owner, pid)

@@ -7,7 +7,7 @@ from datetime import timedelta
 
 import pytest
 
-from app import cut, cut_edits, cut_render, director
+from app import cut, cut_edits, cut_render, director, narration
 from app.models.clips import ClipTake, FinalVideo
 from app.models.files import StoredFile
 from app.models.projects import Project
@@ -497,13 +497,17 @@ def test_a_song_cut_must_reach_its_last_good_line_not_every_word_heard():
     pieces = [_piece(1, 0, 10.0), _piece(2, 10.0, 20.0)]  # a shorter end: its last good line
     words = [{"word": "go", "start": 18.5, "end": 19.0}, *tl["words"]]
     ended = cut_edits._retime(None, {**tl, "pieces": pieces, "words": words}, 1)
-    assert ended["end"] == round(19.0 + cut.TAIL, 2)  # never on to the ad-lib at 24 s
+    assert ended["end"] == 20.0  # its hold after the last line stays (CRITIQUE-268)
+    pieces[-1]["end"] = 25.0  # a long tail: tightened to the hold, never on to the ad-lib
+    ended = cut_edits._retime(None, {**tl, "pieces": pieces, "words": words}, 1)
+    assert ended["end"] == 19.0 + narration.FINAL_HOLD
 
 
 def test_the_end_fades_only_after_the_last_word():
     assert cut_render.fade_out(10.0, 0) == "st=8.50:d=1.50"  # the usual 1.5 s
     assert cut_render.fade_out(7.29, 6.99) == "st=6.99:d=0.30"  # a shorter end: after the word
     assert cut_render.fade_out(7.0, 7.0) == "st=7.00:d=0.05"
+    assert cut_render.fade_out(8.2, 7.0) == "st=7.70:d=0.50"  # a held end: only its last 0.5 s
 
 
 def _redo_after_undo_all_brings_the_oldest_edit_back_first(owner, presenter):

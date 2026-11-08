@@ -202,6 +202,26 @@ def test_a_treatment_that_varies_from_the_script_is_made_again_once_with_its_pro
     assert len(told) == 1 and told[0]["text"].startswith("The treatment:")  # the kept one
 
 
+def test_a_treatments_one_redo_keeps_the_persons_note(app, db, owner, editor):
+    """MAIN's run 276: the note's treatment ("a barn wedding at night") failed its check, and
+    the redo was told only what to fix, so the treatment kept went back to the first one's
+    kitchen. The redo gets the note with its fix, and keeps it for a redo of its own."""
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=4, start=False)
+    first = db.query(Job).filter(Job.project_id == pid,
+                                 Job.input["step"].as_string() == "treatment").first()  # fmt: skip
+    note = "A barn wedding at night."
+    first.input = {**first.input, "note": note}
+    first.output = {**(first.output or {}), "beats": []}  # every line left out: it fails
+    db.commit()
+    assert director._treatment_checked(db, first)
+    redo = db.query(Job).filter(Job.input["step"].as_string() == "treatment",
+                                Job.input["redo"].as_boolean()).one()  # fmt: skip
+    assert note in redo.input["prompt"] and "Fix:" in redo.input["prompt"]
+    assert redo.input["note"] == note
+
+
 def test_a_watch_still_going_is_not_a_watched_cut(app, db, owner, editor, monkeypatch):
     real = director.choose
 

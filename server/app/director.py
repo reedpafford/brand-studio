@@ -793,8 +793,11 @@ def _treatment_checked(db: Session, job: Job) -> bool:
         db.commit()
         return False
     job.input = {**job.input, "redone": True}  # the thread shows the one it kept
-    write_treatment(db, db.get(User, job.created_by_id), project, job.input.get(RUN),
-                    "Fix: " + " ".join(problems), redo=True)  # fmt: skip
+    # The person's note stays with its fix (MAIN's run 276: the redo dropped "a barn wedding at
+    # night", and the treatment kept went back to the first one's kitchen)
+    fix = "\n".join(x for x in (job.input.get("note", ""), "Fix: " + " ".join(problems)) if x)
+    write_treatment(db, db.get(User, job.created_by_id), project, job.input.get(RUN), fix,
+                    redo=True, kept=job.input.get("note", ""))  # fmt: skip
     return True
 
 
@@ -1506,8 +1509,8 @@ def treatment(db: Session, project: Project) -> dict | None:
     return (job.output or None) if job else None
 
 
-def write_treatment(db: Session, user: User, project: Project, run: dict | None,
-                    note: str = "", redo: bool = False) -> str:  # fmt: skip
+def write_treatment(db: Session, user: User, project: Project, run: dict | None, note: str = "",
+                    redo: bool = False, kept: str | None = None) -> str:  # fmt: skip
     """Queue the treatment (the Director's step: hook, logline, why it holds, beats, ending),
     on the director's own limit like a watch; its words in plain lines."""
     from app import plans, prompts
@@ -1518,8 +1521,10 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     version = plans.script(db, project)
     system, context = project_context(db, project, "treatment")  # its look's skill and craft
     text = f"{context}\n{prompts.treatment_input(version.text, note)}"
+    said = note.strip() if kept is None else kept  # the person's own note, for a check's redo
     data = {"step": "treatment", "project_id": project.id, RUN: run, "system": system,
-            "prompt": text, "max_tokens": 6000, **({"redo": True} if redo else {})}  # fmt: skip
+            "prompt": text, "max_tokens": 6000, **({"redo": True} if redo else {}),
+            **({"note": said} if said else {})}  # fmt: skip
     again = treatment(db, project) is not None
     before = not (run or {}).get("ok", True)  # before Make it: on the planning allowance
     price = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)

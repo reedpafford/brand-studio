@@ -289,7 +289,8 @@ def _retime(db: Session, tl: dict, i: int) -> dict:
         data["end"] = onto(p["end"])
     else:
         last = tl.get("last_word") or max(w["end"] for w in tl["words"])  # a song's last good line
-        data["end"] = round(last + TAIL, 2)
+        held = min(p["end"], last + narration.FINAL_HOLD)  # the last shot's planned hold stays
+        data["end"] = round(max(held, last + TAIL), 2)
     return data
 
 

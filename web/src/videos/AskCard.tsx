@@ -26,7 +26,7 @@ export function useAsks(projectId: number, live: boolean, wanted: number[] = [])
     refetchInterval: (q) => {
       const have = q.state.data ?? [];
       const missing = wanted.some((id) => !have.some((a) => a.id === id));
-      return live || missing || have.some((a) => ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? ""))) ? 4_000 : false;
+      return live || missing || have.some((a) => a.money?.updating || ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? ""))) ? 4_000 : false;
     },
     queryFn: () => polled(api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } }), []),
   });
@@ -155,7 +155,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
           <Icon size={14} strokeWidth={1.75} aria-hidden />
           {gone ? "No longer needed" : a.by_owner ? "Answered by the owner" : "Answered"}
           {!gone && !money && a.can.length > 0 && (
-            <button type="button" onClick={() => setChanging("answer")} className="ml-auto font-medium text-muted hover:text-text max-lg:min-h-control">
+            <button type="button" aria-label={`Change your answer: ${a.topic || a.question}`} onClick={() => setChanging("answer")} className="ml-auto font-medium text-muted hover:text-text max-lg:min-h-control">
               Change
             </button>
           )}
@@ -171,6 +171,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
               <>
                 <span className="block font-medium">{money ? `${a.question} ${what}` : `${a.topic ? `${a.topic}: ` : ""}${what}`}</span>
                 {who && <span className="block text-xs text-muted">{who}</span>}
+                {a.money?.since && <span className="block text-xs text-muted">{a.money.since}</span>}
                 {ans?.unused && <span className="block text-xs text-warning">{ans.unused}</span>}
               </>
             )}
@@ -182,7 +183,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
 
   const held = a.state === "held" || (money && a.state === "open" && !owner && !can("make_it"));
   const [cls, Icon] = HEAD[held ? "wait" : "ask"];
-  const label = held ? (owner ? "Waiting for your OK" : "Waiting for the owner’s OK") : a.kind === "start" ? "Ready to start" : money ? `${a.kind === "budget" ? (a.money?.over && a.money.over !== "the budget" ? "Past this run’s price" : "Past the budget") : a.kind === "own" ? "My own limit" : "Planning"} · needs your OK` : "The director needs you";
+  const label = held ? (owner ? "Waiting for your OK" : "Waiting for the owner’s OK") : a.kind === "start" ? (a.money?.updating ? "Updating the plan for your note…" : "Ready to start") : money ? `${a.kind === "budget" ? (a.money?.over && a.money.over !== "the budget" ? "Past this run’s price" : "Past the budget") : a.kind === "own" ? "My own limit" : "Planning"} · needs your OK` : "The director needs you";
   const saved = a.saved ?? [];
   const made = a.options ?? [];
   const chosen = pick ?? (a.state === "ready" ? (made.find((o) => o.file_id != null)?.index ?? null) : a.pick); // ready: the first option, as drawn
@@ -473,7 +474,13 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
       {input}
       <p className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold ${cls}`}>
         <Icon size={14} strokeWidth={1.75} aria-hidden />
-        {label}
+        {changing === "answer" ? "Changing your answer · nothing changes until you pick" : label}
+        {changing === "answer" && (
+          // Change only opens it here (MAIN's Claymation run): the answer stands until another is picked.
+          <button type="button" onClick={() => setChanging("")} className="ml-auto font-medium text-muted hover:text-text max-lg:min-h-control">
+            Keep my answer
+          </button>
+        )}
       </p>
       <div className="flex flex-col gap-3 px-3.5 pb-3.5 pt-3 max-lg:px-3">
         <div className="flex flex-col gap-1">
@@ -519,7 +526,7 @@ export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }:
     id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is; no generation starts until they say yes." : "The owner has been asked. No generation starts until they say yes.",
-    money: { up_to: price, clips: [], sent_at: sentAt, held: "", what: "", over: "the budget", expected: false },
+    money: { up_to: price, clips: [], sent_at: sentAt, held: "", since: "", updating: false, what: "", over: "the budget", expected: false },
   };
   return <AskCard ask={ask} owner={owner} onWithdraw={onWithdraw} />;
 }

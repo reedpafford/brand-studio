@@ -379,6 +379,14 @@ class LookFit(BaseModel):
         "(species, breed, colouring, hair, age range, gender): the whole text rewritten to "
         "match the sheet, changing only what contradicts it. Empty otherwise.",
     )
+    anchors: str = Field(
+        default="",
+        description="What the sheet shows that pins the character down, in a few words read off "
+        "the sheet: an animal's species and breed, coat colour and one distinctive marking "
+        "('stocky tan terrier, white chest blaze, one folded ear'); a person's hair, build and "
+        "skin tone, never clothes ('short dark curls, slim build, light brown skin'); under 100 "
+        "characters.",
+    )
 
 
 # --- Reel watch: Gemini reads an imported reel (reel import, Reed #270). Not a Claude step:

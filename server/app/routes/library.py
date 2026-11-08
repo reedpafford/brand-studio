@@ -709,7 +709,10 @@ def restore_version(
     place = db.get(LibraryItem, snapshot.get("place_id") or 0)
     if snapshot.get("place_id") and (place is None or place.archived):
         snapshot["place_id"] = None  # a place archived since: left out, as a brand is
+    words = snapshot.pop("short_description", None) if kind == Kind.character else None
     _save_version(db, user, item)
     _apply(db, user, item, snapshot)
+    if words is not None:  # a character's are its sheet's, read by its check: they come back
+        item.short_description = words  # with that version's sheet
     db.commit()
     return _out(item)

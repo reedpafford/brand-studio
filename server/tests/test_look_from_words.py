@@ -137,3 +137,64 @@ def test_approve_asks_again_while_the_check_says_a_look_is_wrong(owner, editor, 
     )
     done = editor.post(f"/projects/{pid}/cast/approve", json={"seen": seen, "anyway": True})
     assert done.status_code == 200 and done.json()["state"] == "approved", done.text
+
+
+def test_the_check_reads_the_sheets_look_into_the_words_the_clips_keep(app, owner, editor, db):
+    """CRITIQUE-268 cause 2: Bruno was three different dogs. His Keep line could name no breed,
+    coat or marking: nothing held them. The check now reads them off the sheet, and the cast
+    line gives them; a new sheet drops the old words until its check reads it."""
+    from app import prompts, storyboard
+    from tests.test_enhance import FakeClaude, _run
+
+    assert "on all fours" in prompts.sheet_prompt("character", "a stocky tan clay dog")
+    pid, slot = _bruno(owner, editor, DOG)
+    _make_looks(db, pid)
+    look = _look(db, pid, slot)
+    sheet = next(j for j in db.query(Job).all() if j.input.get("step") == "sheet")
+    sheet.output, sheet.status = {"file_ids": [upload(editor)]}, "succeeded"
+    save_sheet(db, sheet)
+    db.commit()
+    anchors = "stocky tan pitbull, white chest blaze, one folded ear"
+    _run(app, db, FakeClaude({"fits": True, "seen": "tan dog", "problem": "", "anchors": anchors}))
+    db.expire_all()
+    assert _look(db, pid, slot).short_description == anchors
+    line = storyboard.assets(db, db.get(Project, pid))[f"char:{look.id}"][0]
+    assert f"in these words only: {anchors} (in the Keep line too)" in line
+    redo = Job(workspace_id=1, created_by_id=sheet.created_by_id, kind="image", provider="fake",
+               status="succeeded", input={"library_item_id": look.id, "changed": True},
+               output={"file_ids": [upload(editor)]})  # fmt: skip
+    db.add(redo)
+    db.commit()
+    save_sheet(db, redo)
+    db.commit()
+    assert _look(db, pid, slot).short_description == ""  # until its own check reads it
+
+
+def test_a_sheets_words_go_with_that_sheet_when_it_comes_back(db, owner):
+    """QA on #1451: Use this sheet, or restoring a version, brings back that sheet's own words
+    (never the newer sheet's "tan" under a brown dog), and restoring never 422s on them."""
+    from app.routes.library import _save_version
+    from app.routes.sheets import said_short
+    from tests.helpers import with_sheet
+
+    made = {"name": "Rex", "notes": "a dog", "image_file_ids": [upload(owner)]}
+    rex = owner.post("/library/character", json=made).json()["id"]
+    with_sheet(db, rex)
+    item, me = db.get(LibraryItem, rex), db.query(User).filter_by(role="owner").one()
+    first, item.short_description = item.sheet_file_id, "brown terrier, heavy brow"
+    db.commit()
+    _save_version(db, me, item)  # a new sheet, read by its check
+    item.sheet_file_id, item.short_description = upload(owner), "tan terrier, white chest blaze"
+    db.commit()
+    url = f"/library/character/{rex}"
+    back = owner.post(f"{url}/sheet/preferred", json={"file_id": first})
+    assert back.status_code == 200, back.text
+    db.expire_all()
+    assert db.get(LibraryItem, rex).short_description == "brown terrier, heavy brow"
+    versions = owner.get(f"{url}/versions").json()
+    newer = max(v["version"] for v in versions)  # the tan sheet, saved by the press
+    restored = owner.post(f"{url}/versions/{newer}/restore")
+    assert restored.status_code == 200, restored.text
+    db.expire_all()
+    assert db.get(LibraryItem, rex).short_description == "tan terrier, white chest blaze"
+    assert said_short("a" * 60 + ", " + "b" * 60) == "a" * 60  # cut at a comma for the clips
