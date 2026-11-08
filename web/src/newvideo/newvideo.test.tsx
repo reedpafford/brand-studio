@@ -274,6 +274,18 @@ test("uncapped (Reed, 6 Nov): the owner's press says about what it will cost, an
   expect(screen.queryByText(/up to|Most it can charge/)).toBeNull();
 });
 
+test("MAIN's run 276: a style with no sample says so, never a blank box, and the styles wrap at 1440 instead of running off the edge", async () => {
+  setViewport(1440);
+  const movie = look("movie", "Movie", { test_clip: false, test_still: false });
+  server(owner, { "GET /looks": [200, [...LOOKS, movie]] });
+  renderApp("/b/1/videos/new");
+  const styles = await screen.findByRole("radiogroup", { name: "Style" });
+  const card = (await within(styles).findByRole("radio", { name: /^Movie/ })).parentElement!;
+  expect(within(card).getByText("No sample yet")).toBeInTheDocument();
+  expect(styles).toHaveClass("flex-wrap");
+  expect(styles).not.toHaveClass("overflow-x-auto");
+});
+
 test("MAIN's run (video 233): a sample the test site's stand-ins made never hides the real test sample on a style's card", () => {
   const made = look("disney-pixar", "Disney Pixar", { sample_clip_id: 9, sample_still_id: 8 });
   expect(lookMedia({ ...made, sample_stand_in: true } as never)).toEqual({ clip: "/api/looks/disney-pixar/test-sample.mp4", still: "/api/looks/disney-pixar/test-sample.jpg", tag: true });

@@ -9611,6 +9611,11 @@ export interface components {
              */
             since: string;
             /**
+             * Updating
+             * @default false
+             */
+            updating: boolean;
+            /**
              * What
              * @default
              */

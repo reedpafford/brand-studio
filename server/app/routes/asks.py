@@ -86,6 +86,7 @@ class MoneyCard(BaseModel):
     sent_at: UtcTime
     held: str  # the hold's own words
     since: str = ""  # an answered start card: how the run's figure has moved since the OK
+    updating: bool = False  # a start card while the director rewrites the plan for a note
     what: str = ""  # past the budget: what it makes, "Redo clips 9 and 12" (Needs you's title)
     over: str = "the budget"  # what it goes past: "the budget" (a first run, S3-07), or on a
     # later run (rule 34) "the $16.86 approved for this run" ("… · $1.54 past {over}")
@@ -267,6 +268,11 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         may = asks.may_start(db, user, project)
         card.can = ["make_it"] if may else []
         card.can += ["decline"] if owner and project.created_by_id != user.id else []
+        # MAIN's run 276: never Make it on a plan a note is still changing
+        if ask.state == "open" and _replanning(db, project):
+            money.updating, card.can = True, [c for c in card.can if c != "make_it"]
+            card.why = ("I'm updating the plan for your note. Make it comes back here with the "
+                        "new plan and its price.")  # fmt: skip
     elif ask.kind == "plan":  # planning before Make it past its allowance (Reed, 4 Nov)
         from app.settings import get_settings
 
@@ -319,6 +325,17 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         card.can = []
     card.money = money
     return card
+
+
+REPLANS = (director.STEP, "treatment", "plan")  # a director turn, its treatment, its plan
+
+
+def _replanning(db: Session, project: Project) -> bool:
+    """A director turn, treatment or plan queued or running while its start card waits: the card
+    holds the run still, so it is a note being read in (run 276's came as the card did)."""
+    return db.scalar(select(Job.id).where(
+        Job.project_id == project.id, Job.input["step"].as_string().in_(REPLANS),
+        Job.status.in_((JobStatus.queued, JobStatus.running))).limit(1)) is not None  # fmt: skip
 
 
 def _expected(db: Session, project: Project) -> Decimal:

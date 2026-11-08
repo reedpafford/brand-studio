@@ -373,6 +373,31 @@ def test_the_start_card_waits_for_make_it_and_change_the_plan_first_keeps_it_wai
     assert out["status"] == "delivered" and out["started"] and out["spent"] > 0, out["ended"]
 
 
+def test_a_start_card_waits_while_a_note_is_read_into_the_plan(app, db, owner, editor):
+    """MAIN's run 276: a note sent while the first treatment was written was read into a new
+    one right as the start card came, and Make it approved the plan from before the note. While
+    a treatment (or a turn, or a plan) runs, the card says it's updating the plan and Make it
+    waits for it."""
+    pid, _ = _video(app, owner, editor, db)
+    url = f"/projects/{pid}/director"
+    editor.post(url)
+    _run(app, db, ticks=4, start=False)
+    (card,) = owner.get(f"/projects/{pid}/asks").json()
+    assert "make_it" in card["can"] and not card["money"]["updating"]
+    last = db.query(Job).filter(Job.project_id == pid).order_by(Job.id.desc()).first()
+    turn = Job(workspace_id=last.workspace_id, project_id=pid, kind="write-claude",
+               provider="claude", status=JobStatus.running, credits=0,
+               created_by_id=last.created_by_id, input={"step": "treatment"})  # fmt: skip
+    db.add(turn)
+    db.commit()
+    (card,) = owner.get(f"/projects/{pid}/asks").json()
+    assert card["money"]["updating"] and "make_it" not in card["can"]
+    assert card["why"].startswith("I'm updating the plan for your note.")
+    turn.status = JobStatus.succeeded
+    db.commit()
+    assert "make_it" in owner.get(f"/projects/{pid}/asks").json()[0]["can"]
+
+
 def test_an_editors_pasted_script_waits_for_the_owner_and_may_withdraw(app, db, owner, editor):
     """S4-02: an editor's send from pasted words is held for the owner after its treatment:
     "Waiting for the owner's OK" with Withdraw, in Needs you too; never Make it."""

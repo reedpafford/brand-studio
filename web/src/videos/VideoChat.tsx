@@ -355,6 +355,11 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const named = items.flatMap((t) => (t.kind === "ask" && t.ask_id != null ? [t.ask_id] : []));
   const asksRead = useAsks(id, running || (run?.waiting?.length ?? 0) > 0, named);
   const cards = asksRead.data ?? [];
+  // A start card waits while a note is read into the plan (MAIN's run 276); once it's in, the plan panel reads it again.
+  const updating = cards.some((a) => a.money?.updating);
+  useEffect(() => {
+    if (!updating) for (const queryKey of [["plan", p?.id], ["breakdown", p?.id], ["idea", p?.id]]) void queryClient.invalidateQueries({ queryKey });
+  }, [updating, p?.id, queryClient]);
   // A card the chat names that the cards don't have yet (made after they were read: a start card after a note, video 233)
   // is read at once, not on the next poll.
   const unreadIds = named.filter((n) => !cards.some((a) => a.id === n)).join(",");

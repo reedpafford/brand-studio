@@ -1070,6 +1070,16 @@ test("S3-12: the director making Cut 1 again before it delivers adds no second C
   expect(within(panel).queryByText(/stays watchable/)).toBeNull();
 });
 
+test("MAIN's run 276: a start card says it's updating the plan for a note, with no Make it until the new plan is in", async () => {
+  setViewport(1440);
+  const start = ask({ kind: "start", question: "Make it? About $8.82 (estimate).", why: "I'm updating the plan for your note. Make it comes back here with the new plan and its price.", saved: [], money: { ...held$(), expected: true, updating: true }, state: "open", can: [] });
+  server(owner, null, run({ thread: [asked()] }), cards(start));
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it? About $8.82 (estimate)." });
+  expect(within(card).getByText("Updating the plan for your note…")).toBeInTheDocument();
+  expect(within(card).queryByRole("button", { name: /^Make it/ })).toBeNull();
+});
+
 test("an answered money card says who approved it and when, never picked by", async () => {
   setViewport(1440);
   const start = ask({ kind: "start", question: "Make it for up to $14.73?", saved: [], money: { ...held$(), since: "This run may now charge up to $15.10." }, state: "answered", answer: { how: "make_it" }, answered_by: "Reed", answered_at: later, can: [] });
