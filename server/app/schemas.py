@@ -52,8 +52,9 @@ def longest(most: int, then: str = "Say it shorter.") -> AfterValidator:
 
 
 # What a person tells the director, read whole; NoteText may be empty (a change's own check)
-NoteText = Annotated[str, longest(NOTE_LONGEST, "Send it as two notes.")]
-Note = Annotated[NoteText, StringConstraints(strip_whitespace=True, min_length=1)]
+WHOLE = longest(NOTE_LONGEST, "Send it as two notes.")
+NoteText = Annotated[str, WHOLE]
+Note = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1), WHOLE]
 
 
 def slugify(text: str) -> str:
