@@ -1097,9 +1097,7 @@ def _refund(db: Session, project: Project, run: dict) -> dict:
             ran = None if w.get("for_cut") == s["cut"] and w["state"] == "watching" else not (
                 w.get("for_cut") == s["cut"] and w["state"] == "failed")  # fmt: skip
         else:
-            states = {db.get(Job, i).status for i in s["jobs"]}
-            gone = states <= {JobStatus.failed, JobStatus.cancelled}
-            ran = True if JobStatus.succeeded in states else False if gone else None
+            ran = _ran(db, s["jobs"])
         if ran is None:
             keep.append(s)
         elif not ran:
@@ -1111,6 +1109,23 @@ def _refund(db: Session, project: Project, run: dict) -> dict:
                     run[name] = max(0, run.get(name, 0) - n)
     run[SPENDS] = keep
     return run
+
+
+def _ran(db: Session, ids: list[int]) -> bool | None:
+    """Whether a move's work ran (QA on #1468): True once any of its jobs, or their automatic
+    retries (`retry_of_id`), succeeded or was billed by its provider; None while one is still
+    queued, running or held; False when every one failed or was cancelled, unbilled."""
+    states, seen, todo = set(), set(), list(ids)
+    while todo:
+        if (i := todo.pop()) in seen or (job := db.get(Job, i)) is None:
+            continue
+        seen.add(i)
+        billed = db.scalar(select(Usage.id).where(Usage.job_id == i, Usage.cost_usd > 0).limit(1))
+        states.add(JobStatus.succeeded if billed else job.status)
+        todo += db.scalars(select(Job.id).where(Job.retry_of_id == i)).all()
+    if JobStatus.succeeded in states:
+        return True
+    return False if states <= {JobStatus.failed, JobStatus.cancelled} else None
 
 
 TALKER = "talker"  # a run's redraws of the talker's one still, whichever of their shots asked
@@ -1405,6 +1420,8 @@ def _auto(db: Session, project: Project, run: dict, seen: dict, last: Job) -> di
     step = director_auto.move({**seen, "questions": questions, "tried": _tried(db, project, run)})
     if step and step["tool"] in ("make_take", "final_cut") and STORE.get() is None:
         return None
+    if step and step["tool"] == "make_take" and run.get(PRICED):
+        return None  # a priced run makes only its own clips' takes, named by the director
     return step
 
 
@@ -1435,6 +1452,8 @@ def _by_server(db: Session, user: User, project: Project, run: dict, step: dict,
               status=JobStatus.succeeded, started_at=now, finished_at=now)  # fmt: skip
     db.add(job)
     db.commit()
+    if _stopped(db, job) or over(db, run["id"], project.id):  # Stop landed meanwhile
+        return job
     _act(db, job, STORE.get())
     return job
 

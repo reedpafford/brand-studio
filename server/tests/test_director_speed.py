@@ -5,10 +5,11 @@ stand-ins."""
 
 import copy
 import re
+from decimal import Decimal
 
 from app import director, director_auto
 from app.models.freestyles import Freestyle
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import Job, JobStatus, Usage
 from app.models.projects import Project
 from tests.test_breakdown import BREAKDOWN
 from tests.test_director import _run
@@ -101,6 +102,38 @@ def test_work_that_never_ran_is_never_counted_as_used(app, db, owner, editor):
         {"used": {"redos/c1": 1}, "jobs": [take.id]}]}  # fmt: skip
     assert director._refund(db, project, run)["redos"] == {"c1": 2}  # it ran: spent
     take.status = JobStatus.failed
+    retry = Job(
+        workspace_id=take.workspace_id,
+        created_by_id=take.created_by_id,
+        kind="video",
+        provider=take.provider,
+        project_id=pid,
+        input=take.input,
+        retry_of_id=take.id,
+        auto=True,
+        status=JobStatus.queued,
+    )  # its automatic retry (clip_takes._again)
+    db.add(retry)
+    db.commit()
+    assert director._refund(db, project, run) == run  # still going: kept
+    retry.status = JobStatus.succeeded
+    db.commit()
+    assert director._refund(db, project, run)["redos"] == {"c1": 2}  # the retry ran: spent
+    retry.status = JobStatus.failed
+    db.add(
+        Usage(
+            workspace_id=take.workspace_id,
+            job_id=retry.id,
+            provider=take.provider,
+            kind="video",
+            units=1,
+            unit="second",
+            cost_usd=Decimal("0.4"),
+        )
+    )
+    db.commit()
+    assert director._refund(db, project, run)["redos"] == {"c1": 2}  # billed anyway: spent
+    db.query(Usage).filter(Usage.job_id == retry.id).delete()
     db.commit()
     given = director._refund(db, project, run)
     assert given["redos"] == {"c1": 1} and given[director.SPENDS] == []
