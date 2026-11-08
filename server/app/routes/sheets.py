@@ -247,6 +247,8 @@ def save_sheet(db: Session, job: Job) -> None:
                                                                "approved": False}}  # fmt: skip
         return
     item.sheet_file_id, item.look_fit = file_ids[0], None
+    if is_checked(item):  # the last sheet's words: its check says this one's
+        item.short_description = ""
     item.sheet_approved = bool(item.owner_project_id)
     if is_checked(item):
         after = Decimal(job.input.get("after_check", "0"))
@@ -315,6 +317,7 @@ def save_fit(db: Session, job: Job) -> None:
     if not item or item.archived:
         return
     fit = LookFit.model_validate(job.output)
+    item.short_description = fit.anchors.strip()[:300]  # its look in words, for the clips
     if read := job.input.get("text_for"):
         item.text_fit = {**read, "seen": fit.seen, **text_to(read, fit)}
     if fit.fits:

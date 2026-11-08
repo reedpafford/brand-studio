@@ -137,3 +137,34 @@ def test_approve_asks_again_while_the_check_says_a_look_is_wrong(owner, editor, 
     )
     done = editor.post(f"/projects/{pid}/cast/approve", json={"seen": seen, "anyway": True})
     assert done.status_code == 200 and done.json()["state"] == "approved", done.text
+
+
+def test_the_check_reads_the_sheets_look_into_the_words_the_clips_keep(app, owner, editor, db):
+    """CRITIQUE-268 cause 2: Bruno was three different dogs. His Keep line could name no breed,
+    coat or marking: nothing held them. The check now reads them off the sheet, and the cast
+    line gives them; a new sheet drops the old words until its check reads it."""
+    from app import prompts, storyboard
+    from tests.test_enhance import FakeClaude, _run
+
+    assert "on all fours" in prompts.sheet_prompt("character", "a stocky tan clay dog")
+    pid, slot = _bruno(owner, editor, DOG)
+    _make_looks(db, pid)
+    look = _look(db, pid, slot)
+    sheet = next(j for j in db.query(Job).all() if j.input.get("step") == "sheet")
+    sheet.output, sheet.status = {"file_ids": [upload(editor)]}, "succeeded"
+    save_sheet(db, sheet)
+    db.commit()
+    anchors = "stocky tan pitbull, white chest blaze, one folded ear"
+    _run(app, db, FakeClaude({"fits": True, "seen": "tan dog", "problem": "", "anchors": anchors}))
+    db.expire_all()
+    assert _look(db, pid, slot).short_description == anchors
+    line = storyboard.assets(db, db.get(Project, pid))[f"char:{look.id}"][0]
+    assert f"in these words only: {anchors} (in the Keep line too)" in line
+    redo = Job(workspace_id=1, created_by_id=sheet.created_by_id, kind="image", provider="fake",
+               status="succeeded", input={"library_item_id": look.id, "changed": True},
+               output={"file_ids": [upload(editor)]})  # fmt: skip
+    db.add(redo)
+    db.commit()
+    save_sheet(db, redo)
+    db.commit()
+    assert _look(db, pid, slot).short_description == ""  # until its own check reads it
