@@ -58,3 +58,15 @@ def test_skeleton_repairs_keep_a_noun():
         assert ("gore", "glow") in prompts.look_banned(look), look
         assert check.look_words("Bones, no gore.", look)[0] == "Bones, no gore."  # a safeguard
         assert check.look_words("Blood and gore.", look)[0] == "Glow and glow.", look
+
+
+def test_the_pack_enters_once_and_the_plan_and_shots_follow_the_style():
+    """Video 261 (CRITIQUE-261 cause 3): the pack was label to camera for the first 10.6 s,
+    because plan.md's ★ marks and breakdown.md's "in frame at all" overrode the guide's "bring
+    the product in on one clean turn". The plan and the shots now defer to the style."""
+    for step in ("plan", "breakdown", "narrated_breakdown"):
+        text = prompts.system(step, "skeleton")
+        assert "The pack enters once, on the turn or at the payoff" in text, step
+    assert "that wins over the ★ marks above" in prompts.system("plan", "skeleton")
+    shots = prompts.system("narrated_breakdown", "skeleton")
+    assert "the pack and its label stay out of every shot before then" in shots

@@ -380,7 +380,7 @@ Reed's narrated Iron Paws ads (docs/next/song-ad-workflow.md, "Narrated ads" and
 | E | "One voice reads the whole script, with music under it." Voice: **Sarah** (ElevenLabs v3); choosing the voice and the music comes later. The pace line ("about 3.4 words a second · about 2:20"). | **Make the narration and music · N credits** (one voice call and one music call, catalogue prices, rule 2). |
 | Q/R | "Making the narration…", then "Making the music…", with a timer. | Cancel (before it starts). |
 | Done | The player with the music under it, its length, and each sentence's start time (measured free, one line per sentence). "Pauses trimmed: 2:26 → 2:19." | **Use this narration** (like Preferred). **Make another** keeps this one until the new one is used. |
-| Trim didn't match | The trimmed narration, read again, didn't match the words letter for letter, so the untrimmed one is kept: "Kept the pauses: trimming would have clipped a word." Advice only. | — |
+| Says more than the script | It says words the script doesn't have (a voice note read aloud): "This narration says words the script doesn't have (“…”): make it again." It can't be used. | **Make another**. |
 | Music failed | The narration is kept: "The music didn't finish. Nothing was charged for it." | **Try the music again**. |
 | Words changed | "Reads older words": it can't be used, and stays playable. | **Make the narration** again. |
 | F | "The narration didn't finish. Nothing was charged." | **Try again**. |
