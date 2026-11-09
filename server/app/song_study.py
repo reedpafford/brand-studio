@@ -30,7 +30,7 @@ from pydantic import BaseModel
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app import reel, song_timing
+from app import live, reel, song_timing
 from app.advice import SaidText
 from app.db import utcnow
 from app.models.files import StoredFile
@@ -399,6 +399,7 @@ def stop(db: Session, storage, draft: ScriptDraft) -> None:
     if done.rowcount != 1:  # the worker finished it first (its save is one transaction)
         db.rollback()
         raise HTTPException(409, JUST_DONE)
+    live.note(db, job.project_id, JobStatus.cancelled)
     db.commit()
     if running:
         storage.put(stop_key(job.id), b"")

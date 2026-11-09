@@ -297,6 +297,7 @@ def _plan_first(db: Session, project: Project, held: Job) -> None:
                       .values(status=JobStatus.cancelled, finished_at=utcnow()))  # fmt: skip
     if done.rowcount != 1:
         return
+    live.note(db, held.project_id, JobStatus.cancelled)
     db.refresh(held)
     run = {**held.input[RUN], "ok": False}
     held.input = {**held.input, "result": PLAN_FIRST}
@@ -629,6 +630,7 @@ def stop(db: Session, project: Project, by: int) -> None:
             Job.input[RUN]["id"].as_string() == last.input[RUN]["id"])
             .values(status=JobStatus.cancelled, finished_at=utcnow())
             .execution_options(synchronize_session=False))  # fmt: skip
+        live.note(db, project.id, JobStatus.cancelled)
         db.refresh(last)
         _end(last, STOPPED)
         last.input = {**last.input, "stopped_by": by, "stopped_at": utcnow().isoformat()}
@@ -1367,7 +1369,7 @@ def _write(db: Session, job: Job, data: dict) -> bool:
                                         Job.input["ended"].as_string().is_(None))
                       .values(input=data).execution_options(synchronize_session=False))  # fmt: skip
     if done.rowcount == 1:
-        live.note(db, job)  # its open page reads the turn's words at once
+        live.note(db, job.project_id)  # its open page reads the turn's words at once
     return done.rowcount == 1
 
 

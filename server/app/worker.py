@@ -75,7 +75,7 @@ def _move(db: Session, job: Job, old: JobStatus, new: JobStatus, **values) -> bo
         update(Job).where(Job.id == job.id, Job.status == old).values(status=new, **values)
     )
     if done.rowcount == 1:
-        live.note(db, job, new)
+        live.note(db, job.project_id, new)
     return done.rowcount == 1
 
 
@@ -92,7 +92,7 @@ def _stop(db: Session, job: Job) -> bool:
         .values(status=JobStatus.cancelled, finished_at=utcnow())
     )
     if done.rowcount == 1:
-        live.note(db, job, JobStatus.cancelled)
+        live.note(db, job.project_id, JobStatus.cancelled)
     return done.rowcount == 1
 
 

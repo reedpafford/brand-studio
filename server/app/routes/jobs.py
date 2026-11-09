@@ -9,7 +9,7 @@ from pydantic import BaseModel, model_validator
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session, object_session
 
-from app import folders, hidden
+from app import folders, hidden, live
 from app.advice import SaidText
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
@@ -472,6 +472,7 @@ def approve_job(job_id: int, owner: User = Depends(owner_only), db: Session = De
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job isn't waiting for approval.")
+    live.note(db, job.project_id, JobStatus.queued)
     db.refresh(job)
     if job.input.get("freeze"):  # an editor's director-first video: real from its OK
         from app.routes.freestyles import freeze
@@ -513,6 +514,7 @@ def decline_job(
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job isn't waiting for approval.")
+    live.note(db, job.project_id, JobStatus.cancelled)
     db.refresh(job)
     job.input = {**job.input, DECLINE: True}  # not a withdrawal: the editor sees it was a no
     _release(db, job)
@@ -545,6 +547,7 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This job has already started.")
+    live.note(db, job.project_id, JobStatus.cancelled)
     if FREESTYLE in job.input and held:  # taken back before the OK: its thread says Withdrawn
         db.refresh(job)
         job.input = {**job.input, WITHDRAWN: True}
@@ -564,10 +567,11 @@ def stop_jobs(db: Session, *where) -> None:
     made), and marked to be discarded: the worker still waits for it to land, saves nothing
     from it and records its dollars once. Credits held for the steps after a stopped job go
     with it, so nothing has to be given back."""
+    waiting = Job.status.in_((JobStatus.queued, JobStatus.needs_owner_approval))
+    for project in db.scalars(select(Job.project_id).where(*where, waiting).distinct()):
+        live.note(db, project, JobStatus.cancelled)
     db.execute(  # conditional, so it can't race the worker picking a job up
-        update(Job)
-        .where(*where, Job.status.in_((JobStatus.queued, JobStatus.needs_owner_approval)))
-        .values(status=JobStatus.cancelled, finished_at=utcnow())
+        update(Job).where(*where, waiting).values(status=JobStatus.cancelled, finished_at=utcnow())
     )
     for job in db.scalars(select(Job).where(*where, Job.status == JobStatus.running)):
         job.input = {**job.input, "discard": True}

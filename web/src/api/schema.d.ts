@@ -6190,6 +6190,7 @@ export interface paths {
          * Live
          * @description Whoever may read the video hears, as each change lands, which part of it changed: `data:
          *     jobs | made | cards | video` (app/live.py). Never the change itself: the page reads it.
+         *     `event: still` every 15 s while nothing changes; `event: bye` when the stream ends.
          */
         get: operations["live_projects__project_id__live_get"];
         put?: never;

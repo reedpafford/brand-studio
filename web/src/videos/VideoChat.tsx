@@ -78,9 +78,9 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   useEffect(() => {
     if (side === "chat") previewSide.current?.querySelectorAll("video").forEach((v) => v.pause()); // P-04: the cut stops when you go back to the chat
   }, [side]);
-  useLive(id); // each change on this video, the moment it lands
   const project = useVideoProject(id);
   const p = project.data ?? null;
+  useLive(p ? id : 0); // each change on this video, the moment it lands (once it's theirs to read)
   const fsId = p?.freestyle_id ?? freestyleId ?? null;
   const fsQuery = useFreestyle(fsId, !p); // an editor's send before the owner's OK: its video isn't theirs to hear yet
   const fs = fsQuery.data;
