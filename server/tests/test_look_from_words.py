@@ -281,3 +281,66 @@ def test_a_named_person_in_two_clips_gets_a_role_and_a_look_a_one_off_doesnt(own
     assert danny.notes.startswith("At the table, quiet Danny in a grey sweater")  # #1458's words
     shown = editor.get(f"/projects/{pid}/cast").json()
     assert "Danny" in [i["name"] for i in shown["items"]]  # in the cast and places OK
+
+
+def test_a_song_videos_dog_and_owner_named_in_the_brief_get_roles_and_looks(owner, editor, db):
+    """Video 294 (a song from Bruno's point of view): nobody has a speaker's label, so Bruno,
+    in every shot, failed make_looks three times ("no role to draw from"), and Maya, in eight
+    shots, never got a look and became another woman in the hallway. A being the brief names
+    whom the shots show in two clips gets a role and a look from the brief's words; an app it
+    names ("Robinhood") never does."""
+    lyrics = "Mama pours the same old crumbs\nThen the golden scoop comes"
+    base = f"/scripts/{_make(owner, text=lyrics)['id']}"
+    bd = copy.deepcopy(BREAKDOWN)
+    first, second = bd["scenes"][0]["shots"]
+    first["speaker"] = second["speaker"] = first["line"] = second["line"] = None
+    things = (
+        " Robinhood flashes red on her phone. Out the window, Brooklyn glows and Brooklyn's "
+        "rooftops shine. Tesla's doors open; Tesla gleams. Nike's logo shines; Nike shines."
+    )
+    first["action"] = "At the bed, Bruno gnaws his paw while Maya sleeps." + things
+    second["action"] = "Maya's hand tips kibble into Bruno's bowl." + things
+    first["script_lines"], second["script_lines"] = [1], [2]
+    bd["clips"] = [{"id": "c1", "shot_ids": ["1.1"], "seconds": 3, "seam": "Cut."},
+                   {"id": "c2", "shot_ids": ["1.2"], "seconds": 2, "seam": "End."}]  # fmt: skip
+    owner.put(f"{base}/drafts/0/breakdown", json=bd)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    project = db.get(Project, pid)
+    project.director_chat = [{"run": "r", "text": "Brief: a song from Bruno's point of view (a "
+                              "young pitbull with a white chest blaze and a red collar; his "
+                              "owner Maya, 30s). She checks Robinhood by the Brooklyn window; "
+                              "a Tesla, Nike sneakers."}]  # fmt: skip
+    db.commit()
+    missing = editor.get(f"/projects/{pid}/assets/missing-looks").json()
+    assert sorted(missing["roles"]) == ["Bruno", "Maya"]  # never Robinhood, Brooklyn, Tesla, Nike
+    assert _make_looks(db, pid) == "Making the missing looks."
+    rows = {r["role"]: r for r in editor.get(f"/projects/{pid}/assets").json()}
+    bruno, maya = (_look(db, pid, rows[n]["slot_id"]) for n in ("Bruno", "Maya"))
+    assert bruno.notes == "Bruno, a young pitbull with a white chest blaze and a red collar"
+    assert maya.notes == "Maya, 30s"
+
+
+def test_a_look_picked_from_options_takes_the_cards_words_or_is_taken_as_it_is(owner, editor, db):
+    """QA on #1473: a picked option on a role nothing describes was checked against its name
+    alone and shown as wrong at the cast OK. Its words are the card's own (what the options
+    were drawn from), then checked once; with none, the person's pick is the truth."""
+    from app import asks
+    from app.models.asks import Ask
+
+    for describe in ("a stocky tan clay dog", ""):
+        pid, slot = _bruno(owner, editor, "They argue.")
+        project = db.get(Project, pid)
+        ask = Ask(workspace_id=project.workspace_id, project_id=pid, kind="cast", subject="Bruno",
+                  question="Who plays Bruno?", describe=describe, state="answered",
+                  answer={"how": "option", "option": 0, "file_id": upload(editor)})  # fmt: skip
+        db.add(ask)
+        db.commit()
+        asks._effect(db, db.query(User).filter_by(email="ed@example.com").one(), project, ask)
+        db.commit()
+        look = _look(db, pid, slot)
+        checks = [j for j in db.query(Job).all() if j.input.get("step") == "look_fit"
+                  and j.input.get("library_item_id") == look.id]  # fmt: skip
+        wanted = (describe or "Bruno", 1 if describe else 0, None)
+        assert (look.notes, len(checks), look.look_fit) == wanted, describe

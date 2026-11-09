@@ -515,6 +515,15 @@ def test_ask_answers_for_looks_and_places_land_in_cast(owner, editor, db):
     db.commit()
     asks._effect(db, editor_user(db), project, ask)
     db.commit()
+    from app.routes.sheets import save_fit
+
+    (check,) = [j for j in db.query(Job).all() if j.input.get("step") == "look_fit"]
+    check.status, check.output = (
+        JobStatus.succeeded,
+        {"fits": True, "seen": "teen boy", "problem": "", "anchors": "dark hair"},
+    )
+    save_fit(db, check)  # its words read off it, as off any drawn sheet (video 294)
+    db.commit()
     shown = editor.get(f"/projects/{pid}/cast").json()
     assert shown["state"] == "ready" and shown["items"][0]["readiness"] == "ready"
 

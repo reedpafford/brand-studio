@@ -92,6 +92,26 @@ SHEET_SETS_BUT_WEARS = (  # this video's outfit (below) is the one thing said: n
 )
 
 
+def product_files(db: Session, project: Project, item: LibraryItem) -> list[int]:
+    """A product with no picture of its own is shown by its own screens, as given (rule 13):
+    the one a card on this video picked, else the app's "app-open" one, else its first (video
+    293: "fomo app" had none, so clip 5 was refused five times while its ten screens, and the
+    Home screen the owner picked on the card, were never used). [] when it has none."""
+    from app.models.asks import Ask
+
+    mine = sorted((s for s in project_screens(db, project) if s.product_id == item.id),
+                  key=lambda s: s.id)  # fmt: skip
+    if not mine:
+        return []
+    picked = [str((a.answer or {}).get("option", "")) for a in db.scalars(
+        select(Ask).where(Ask.project_id == project.id, Ask.state == "answered")
+        .order_by(Ask.answered_at.desc()))]  # fmt: skip
+    ids = [int(o.split(":")[1]) for o in picked if re.fullmatch(r"screen:\d+", o)]
+    best = (next((s for i in ids for s in mine if s.id == i), None)
+            or next((s for s in mine if "app-open" in (s.default_for or [])), mine[0]))  # fmt: skip
+    return [best.file_id]
+
+
 def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     """Every picture a frame may use: asset id -> (its line for the prompt, its file ids).
     The cast (each look with the roles it plays), the script's cast slots (a filled slot:N is
@@ -118,6 +138,8 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         key = f"{PREFIX[item.kind]}:{item.id}"
         parts = (key, item.kind, item.name, plays(roles.get(item.id, [])), item.notes)
         files = sheet_for(db, project, item)  # in the video's look (ST2)
+        if item.kind == Kind.prop and not files:  # a product's pictures are its screens
+            files = product_files(db, project, item)
         if item.kind == Kind.character and files:  # rule 10: the sheet wins
             them = "; ".join(f"plays {short(s.role)}" for s in roles.get(item.id, []))
             sets = SHEET_SETS_BUT_WEARS if wears(project, item.id) else SHEET_SETS

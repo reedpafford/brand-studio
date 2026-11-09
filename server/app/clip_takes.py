@@ -63,7 +63,9 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
             require_sheet(db.get(LibraryItem, int(ref["id"].split(":")[1])))
         if not file_ids:
             name = names(known).get(ref["id"], "A picture on this clip")
-            raise HTTPException(422, f"{name} has no picture yet. Add one in Cast & places.")
+            where = ("the brand's library, under Products (a photo, or the app's screens)"
+                     if ref["id"].startswith("prop:") else "Cast & places")  # fmt: skip
+            raise HTTPException(422, f"{name} has no picture yet. Add one in {where}.")
         files[KEYS[kind]].append(file_ids[0])
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy

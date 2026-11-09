@@ -572,24 +572,28 @@ def _only(name: str, others: list[str], sentence: str) -> bool:
 
 def _bracketed(name: str, texts: list[str]) -> str:
     """What the brief or a note says of someone in brackets after their name, in order
-    ("Maya (30s, heavy-set, satin dress)"), never a speaker's cue: the name starting a line,
+    ("Maya (30s, heavy-set, satin dress)", "from Bruno's point of view (a young pitbull…; his
+    owner Maya, 30s)": up to the first ";"), never a speaker's cue: the name starting a line,
     its brackets then ending it or followed by ":" ("MAYA (quietly): I'm not pregnant.")."""
     cue = rf"(?im)^\s*{re.escape(name)}\s*\(([^()]*)\)\s*(:|$)"
-    pattern = re.compile(rf"(?<!\w){re.escape(name)}\s*\(([^()]{{2,200}})\)", re.I)
+    pattern = re.compile(
+        rf"(?<!\w){re.escape(name)}(?:'s\b[^().;:]{{0,30}}?)?\s*\(([^()]{{2,200}})\)", re.I
+    )
     for text in texts:
         cues = {m.start(1) for m in re.finditer(cue, text or "")}
         for found in pattern.finditer(text or ""):
             if found.start(1) not in cues:
-                return found.group(1).strip()
+                return found.group(1).split(";")[0].strip()
     return ""
 
 
 def _described(name: str, others: list[str], texts: list[str]) -> str:
     """A "Maya, 30s, heavy-set, champagne-coloured satin dress: …" or "Maya is in her 30s,
-    heavy-set" phrase that says how they look, in a sentence about them alone, in order."""
+    heavy-set" phrase that says how they look, in a sentence or clause about them alone ("his
+    owner Maya, 30s" inside a bracket about Bruno), in order."""
     phrase = re.compile(rf"(?<!\w){re.escape(name)}(?:,| is| was)\s+([^:;.!?]{{2,200}})", re.I)
     for text in texts:
-        for sentence in _sentences(text):
+        for sentence in re.split(r"(?<=[.!?])\s+|[;()]", text or ""):
             if not _only(name, others, sentence):
                 continue
             for found in phrase.finditer(sentence):
