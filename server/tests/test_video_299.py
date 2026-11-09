@@ -67,3 +67,11 @@ def test_screen_faults_are_the_directors(app, db, editor, setup, clip, monkeypat
     again = _land(app, db, editor, setup, clip, press=False)
     assert again["takes"][2]["watch"]["did"] == take_watch.HANDED_BACK  # then the director's
     assert db.query(Job).filter(Job.kind == "video").count() == 3
+
+
+def test_a_generated_screen_is_judged_by_its_brand_name_and_logo():
+    from app import prompts
+
+    said = prompts.system("take_watch")
+    assert "a generated brand screen passes when its brand name and logo read" in said
+    assert "a wrong brand or logo is still a fault" in said
