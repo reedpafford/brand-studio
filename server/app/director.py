@@ -941,15 +941,18 @@ def _unlooked(db: Session, project: Project, run: dict) -> str:
     """Before the direction card: why it can't come yet, or "". Every person and place the
     shots need is cast (free, as the storyboard would) and has a drawn look, unless a question
     to the person about them waits (QA on #1482: grey boxes on the card, then the cast stop
-    again after Make it)."""
+    again after Make it). A look that didn't draw is missing until it's drawn again once
+    (make_looks); after that, or for a role nothing describes, the card comes with it marked
+    as not drawn."""
     if asks.waiting(db, project):
         return ""
     me = {"project_id": project.id, "user": db.get(User, run["by"]), "db": db}
     director_tools._cast_in_shots(db, project, me)
     if missing := director_tools.missing_looks(db, project):
         return f"Refused: make the missing looks first ({', '.join(missing)}), then the card."
-    if unready := cast_gate.state(db, project)["not_ready"]:
-        return f"Refused: {unready[0]['why']}; wait for it, then the card."
+    items = cast_gate.current(db, project)
+    if busy := [i for i in items if i["readiness"] in ("drawing", "waiting_for_owner")]:
+        return f"Refused: {cast_gate.WHY[busy[0]['readiness']].format(busy[0]['name'])}; wait."
     return ""
 
 
@@ -976,6 +979,10 @@ def _act(db: Session, job: Job, storage) -> None:
     if not run.get("ok", True) and not free and not _before_ok(db, project, run, tool):
         written = _written(db, run, project.id)  # nothing made before Make it but the plan
         if written and _planning(run) and (why := _unlooked(db, project, run)):
+            last = next((t for t in reversed(turns(db, project)) if t.id < job.id), None)
+            if last is not None and last.input.get("result") == why:  # the same, again: stop
+                no = why.removeprefix("Refused: ")
+                return _end(job, f"It stopped: {no}", result=f"Refused again: {no}")
             return _record(db, job, run, why)  # the card shows drawn looks, never grey boxes
         return _record(db, job, run, START_FIRST if written else TREATMENT_FIRST)
     unpick_old_takes(db, project, run)  # "Start the plan again": its new shots are made

@@ -13,7 +13,7 @@ import json
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import utcnow
@@ -481,6 +481,25 @@ def approve(db: Session, user: User, project: Project, seen: dict[str, str],
     project.cast_ok = {"items": {**kept, **now}, "by": user.id, "at": utcnow().isoformat()}
     db.commit()
     director.wake(db, project)  # a run waiting on this point goes on
+
+
+SHEET_TRIES = 2  # a look that didn't draw is drawn again once; then the card shows it undrawn
+
+
+def redrawable(db: Session, project: Project, items: list[dict]) -> list[LibraryItem]:
+    """The looks of `items` that didn't draw (no picture, nothing drawing, a sheet failed)
+    and may be drawn again: the director's make_looks does, once (QA on #1482)."""
+    out = []
+    for i in items:
+        if i["readiness"] != "needs_look" or not i["library_item_id"]:
+            continue
+        failed = db.scalar(select(func.count(Job.id)).where(
+            Job.workspace_id == project.workspace_id, Job.status == JobStatus.failed,
+            Job.input["step"].as_string() == "sheet",
+            Job.input["library_item_id"].as_integer() == i["library_item_id"])) or 0  # fmt: skip
+        if 0 < failed < SHEET_TRIES:
+            out.append(db.get(LibraryItem, i["library_item_id"]))
+    return out
 
 
 def go(db: Session, user: User, project: Project) -> None:

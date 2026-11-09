@@ -94,6 +94,12 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             _cast_in_shots(db, project, me)  # every role the shots need, drawn together
             if no := locks.refusal(project, "cast"):  # the cast and its looks are fixed
                 return f"{no} {CAST_LOCKED}"  # what to do (rule 22), said again when it stops
+            if again := cast_gate.redrawable(db, project, cast_gate.current(db, project)):
+                from app.routes.sheets import SheetIn, queue_sheet  # a look that didn't draw:
+
+                for item in again:  # drawn again, once (QA on #1482), before anything new
+                    queue_sheet(db, user, item, SheetIn(), auto=True)
+                return f"Drawing again what didn't draw: {', '.join(i.name for i in again)}."
             from app import told_look
 
             look = decision.get("look") or {}
@@ -516,9 +522,10 @@ def missing_looks(db: Session, project: Project) -> list[str]:
     """The roles, brand characters and places the shots need that have no look yet."""
     from app.routes.project_assets import _missing, missing_copies, missing_places
 
+    again = cast_gate.redrawable(db, project, cast_gate.current(db, project))  # didn't draw
     return [*(s.role for s in _missing(db, project)),
             *(c.name for c in missing_copies(db, project)),
-            *(p.name for p in missing_places(db, project))]  # fmt: skip
+            *(p.name for p in missing_places(db, project)), *(i.name for i in again)]  # fmt: skip
 
 
 def _split(db: Session, project: Project, clip: str, me: dict) -> str:

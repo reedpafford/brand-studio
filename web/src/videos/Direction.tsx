@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { lookFitNote } from "../library/sheets";
 import { useBreakdown } from "../projects/BreakdownPane";
@@ -59,6 +60,12 @@ export function Direction({ projectId }: { projectId: number }) {
                 {i.preview_file_id ? <img src={fileUrl(i.preview_file_id)} alt={i.name} className="aspect-square w-full rounded-md object-cover" /> : <div aria-hidden className="aspect-square w-full rounded-md bg-surface-3" />}
                 <p className="truncate text-xs">{i.name}</p>
                 {i.look_fit && i.approval !== "approved" && <p className="text-xs text-warning">{lookFitNote(i.look_fit)}</p>}
+                {i.readiness === "needs_look" && (
+                  // It didn't draw (tried twice) or nothing describes it: Cast's Redo is its fix; Make it still goes
+                  <Link to="?tab=cast" className="inline-flex min-h-control items-center text-xs text-warning underline-offset-2 hover:underline lg:min-h-0">
+                    Didn't draw · redo in Cast
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

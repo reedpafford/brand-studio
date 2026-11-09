@@ -4,6 +4,9 @@ expensive starts until I say go." The start card and the cast and places OK are 
 
 from app import director
 from app.models.jobs import Job
+from app.providers import get_providers
+from app.worker import run_once
+from tests.helpers import ok_when_asked
 from tests.test_asks import _video
 from tests.test_director import _run
 
@@ -108,3 +111,34 @@ def test_the_step_after_make_it_is_the_servers_with_no_claude_call(app, db, owne
     _run(app, db, ticks=2, start=False)
     (go,) = db.query(Job).filter(Job.project_id == pid, Job.input["start_run"].as_boolean())
     assert (go.kind, go.output["tool"], go.credits) == ("director_step", "storyboard", 0)
+
+
+def test_a_look_that_will_not_draw_is_drawn_again_once_then_the_card_marks_it(
+    app, db, owner, editor
+):
+    """QA on #1482: a look that failed before the card left every move refused ("Nate needs a
+    look; wait for it") with nothing drawing, 22 turns. It's drawn again once; then the card
+    comes with it undrawn (Cast's Redo is its fix), and Make it still goes."""
+    pid, _ = _video(app, owner, editor, db)
+    providers = get_providers(app.state.settings, app.state.storage)
+    real = providers["replicate"].submit
+
+    def no_sheets(kind, input):
+        if input.get("step") == "sheet":
+            raise RuntimeError("the picture service refused it")
+        return real(kind, input)
+
+    providers["replicate"].submit = no_sheets
+    owner.post(f"/projects/{pid}/director")
+    for _ in range(20):
+        run_once(db, providers, app.state.storage)
+        ok_when_asked(db)
+        db.expire_all()
+    out = owner.get(f"/projects/{pid}/director").json()
+    said = [t["result"] for t in out["turns"]]
+    assert sum(r.startswith("Drawing again what didn't draw: Nate") for r in said) == 1, said
+    assert len(said) <= 6 and not out["ended"], said  # no run of refused turns
+    items = owner.get(f"/projects/{pid}/cast").json()["items"]
+    assert [i["readiness"] for i in items if i["name"] == "Nate"] == ["needs_look"]  # undrawn
+    card = _card(owner, pid)  # the card came anyway
+    assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).is_success
