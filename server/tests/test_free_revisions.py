@@ -6,19 +6,30 @@ at once, with no start card; only what makes something new (a clip's take) waits
 and only that clip is made again. A note that asks to change the story still gets its
 treatment, then waits for Make it. Stand-ins only."""
 
+import pytest
+
 from app import asks, director
 from app.models.asks import Ask
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from tests.conftest import saved
 from tests.test_director import _made, _run
+
+pytestmark = pytest.mark.xdist_group(__name__)  # its delivered video is made once (saved)
 
 
 def _delivered(app, db, owner, editor) -> int:
-    pid = _made(app, owner, editor, db)
-    owner.post(f"/projects/{pid}/director")
-    _run(app, db)
-    assert owner.get(f"/projects/{pid}/director").json()["status"] == "delivered"
-    return pid
+    """A video the director delivered: made once per test process, then copied (`saved`)."""
+    app.state.settings.fake_providers = True  # as _made sets it, for the copies too
+
+    def make():
+        pid = _made(app, owner, editor, db)
+        owner.post(f"/projects/{pid}/director")
+        _run(app, db)
+        assert owner.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+        return pid
+
+    return saved(app, db, __name__, make, owner, editor)
 
 
 def _since(db, pid, first: int, step: str) -> list[Job]:

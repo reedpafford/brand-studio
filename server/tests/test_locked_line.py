@@ -16,8 +16,10 @@ from app.models.projects import Project
 from app.providers import get_providers
 from app.providers.local import LocalProvider
 from app.worker import run_once
-from tests.conftest import PASSWORD
+from tests.conftest import PASSWORD, saved
 from tests.test_director import _made, _run
+
+pytestmark = pytest.mark.xdist_group(__name__)  # its delivered video is made once (saved)
 
 ASK = "Can we change “bought the dip” to “bought the top”? It feels a bit harsh."
 
@@ -28,11 +30,17 @@ def checks_on(monkeypatch):
 
 
 def _delivered(app, db, owner, editor) -> int:
-    pid = _made(app, owner, editor, db)
-    editor.post(f"/projects/{pid}/director")
-    _run(app, db)
-    assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
-    return pid
+    """A video the director delivered: made once per test process, then copied (`saved`)."""
+    app.state.settings.fake_providers = True  # as _made sets it, for the copies too
+
+    def make():
+        pid = _made(app, owner, editor, db)
+        editor.post(f"/projects/{pid}/director")
+        _run(app, db)
+        assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+        return pid
+
+    return saved(app, db, __name__, make, owner, editor)
 
 
 def _cut(db, pid: int) -> FinalVideo:

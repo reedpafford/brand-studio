@@ -1,7 +1,13 @@
+import atexit
 import io
 import ipaddress
 import os
+import shutil
 import socket
+import sqlite3
+import tempfile
+from contextlib import closing
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
@@ -34,6 +40,11 @@ def pytest_configure(config):
     from app import auth
 
     auth._hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
+    # The stand-ins' grey pictures and clips at half size: the same code runs on them, with a
+    # quarter of the pixels for every cut to encode (most of a long test's time is ffmpeg).
+    from app.providers import fake_local
+
+    fake_local.SIZES = {shape: (w // 2, h // 2) for shape, (w, h) in fake_local.SIZES.items()}
     # An empty key isn't enough on its own: with no token the Replicate provider sends its
     # request bare, and a sandbox's network proxy adds real credentials. So no test may open
     # a connection off this machine at all; tests talk to fakes or local servers only.
@@ -89,6 +100,57 @@ def app(tmp_path):
     application = create_app(settings)
     Base.metadata.create_all(application.state.sessionmaker.kw["bind"])
     return application
+
+
+_SAVED: dict[str, tuple] = {}
+
+
+def saved(app, db, module: str, make, *clients):
+    """A slow setup (a whole director run, say) made once per test process, then copied. The
+    first test to ask runs `make()` and keeps the database, the files and `clients`' sign-ins as
+    they stand after it; each later one starting from the same rows gets a copy of them, and
+    `make`'s answer (plain data, such as an id), instead. Only for a setup whose whole effect is
+    in the database, the files and those sign-ins (no patching or settings changes inside), and
+    only in `module`, the one that checked its tests for that: a test elsewhere, or one that
+    added rows first (a second setup, say), is made for real. The module is one xdist_group, so
+    a test process makes it once (`--dist loadgroup`)."""
+    path = app.state.sessionmaker.kw["bind"].url.database
+    files = Path(app.state.settings.storage_dir)
+    here = os.environ["PYTEST_CURRENT_TEST"].split("::")[0] == module.replace(".", "/") + ".py"
+    if not here or (module in _SAVED and _SAVED[module][0] != _rows(path)):
+        return make()
+    if module not in _SAVED:
+        before = _rows(path)
+        answer = make()
+        keep = Path(tempfile.mkdtemp(prefix="bs-saved-"))
+        atexit.register(shutil.rmtree, keep, True)
+        _copy_db(path, str(keep / "test.db"))
+        files.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(files, keep / "files")
+        _SAVED[module] = (before, keep, [list(c.cookies.jar) for c in clients], answer)
+        return answer
+    _, keep, jars, answer = _SAVED[module]
+    db.close()
+    _copy_db(str(keep / "test.db"), path)
+    shutil.rmtree(files, ignore_errors=True)
+    shutil.copytree(keep / "files", files)
+    for c, jar in zip(clients, jars, strict=True):
+        c.cookies.jar.clear()
+        for cookie in jar:
+            c.cookies.jar.set_cookie(cookie)
+    return answer
+
+
+def _rows(path: str) -> dict[str, int]:
+    """How many rows each table holds."""
+    with closing(sqlite3.connect(path)) as c:
+        tables = [t for (t,) in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'")]
+        return {t: c.execute(f'SELECT count(*) FROM "{t}"').fetchone()[0] for t in tables}  # noqa: S608
+
+
+def _copy_db(src: str, dst: str) -> None:
+    with closing(sqlite3.connect(src)) as a, closing(sqlite3.connect(dst)) as b:
+        a.backup(b)
 
 
 @pytest.fixture
