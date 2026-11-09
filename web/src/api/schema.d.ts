@@ -4008,8 +4008,9 @@ export interface paths {
         get?: never;
         /**
          * Set Insert
-         * @description Switch "Use the real image" for one insert shot. Free: it applies when the video is
-         *     made, so the take and its approval stay.
+         * @description Switch off a real image an older cut cuts in over one insert shot. Free: it applies
+         *     when the video is made, so the take and its approval stay. A real product or screen is the
+         *     clip's reference, never a flat cut-in (Reed, 8 Nov: rule 13), so none is switched on.
          */
         put: operations["set_insert_projects__project_id__clips__clip_id__inserts__shot_id__put"];
         post?: never;

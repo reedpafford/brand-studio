@@ -274,15 +274,17 @@ test("rule 22: a clip whose prompt has a problem says so, with its free one-clic
   await vi.waitFor(() => expect(calls.find((x) => x.key === "PUT /projects/50/clips/3")?.body).toEqual({ prompt: "the old prompt", references: [] }));
 });
 
-test("rule 13: a brand screen in the clip can use the real image, free", async () => {
+test("rule 13: a real image is the clip's reference: none is cut in, and an older cut-in can be switched off", async () => {
   setViewport(1440);
   const v = video(24);
-  const withScreen = { ...v.clips[2], inserts: [{ shot_id: "1.3", asset_id: "screen:4", name: "fomo home", start: 1, end: 2.5, use_real_image: false }] };
-  const calls = server(owner, 24, { "GET /projects/50/clips": [200, v.clips.map((c, i) => (i === 2 ? withScreen : c))], "PUT /projects/50/clips/3/inserts/1.3": [200, {}] });
+  const insert = { shot_id: "1.3", asset_id: "screen:4", name: "fomo home", start: 1, end: 2.5 };
+  const clips = (on: boolean) => v.clips.map((c, i) => (i === 2 ? { ...c, inserts: [{ ...insert, use_real_image: on }] } : i === 1 ? { ...c, inserts: [{ ...insert, shot_id: "1.2", use_real_image: false }] } : c));
+  const calls = server(owner, 24, { "GET /projects/50/clips": [200, clips(true)], "PUT /projects/50/clips/3/inserts/1.3": [200, {}] });
   open("&clip=c3");
   const c = await screen.findByRole("region", { name: "Clip 3" });
-  await userEvent.click(within(c).getByRole("checkbox", { name: /Use the real image: fomo home/ }));
-  await vi.waitFor(() => expect(calls.find((x) => x.key === "PUT /projects/50/clips/3/inserts/1.3")?.body).toEqual({ use_real_image: true }));
+  await userEvent.click(within(c).getByRole("checkbox", { name: /Cut in the real image: fomo home/ }));
+  await vi.waitFor(() => expect(calls.find((x) => x.key === "PUT /projects/50/clips/3/inserts/1.3")?.body).toEqual({ use_real_image: false }));
+  expect(screen.queryByText(/Use the real image/)).not.toBeInTheDocument();
 });
 
 test("QA: a change that stopped says why with Try again; a clip made for an older plan rewrites its prompt first; a Review link's ?to= opens its clip", async () => {
