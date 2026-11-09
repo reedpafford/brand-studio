@@ -78,7 +78,7 @@ def who(db: Session, project: Project) -> str:
 
 def line(db: Session, project: Project) -> str:
     """What every candidate reads: the opening of exactly what the narration will say
-    (song_takes.words: the approved words, a UGC talker's spoken version once approved),
+    (song_takes.words: the script's own words),
     whole sentences to about SECONDS (the first one however long). A UGC talker's are run
     together as they'd say them, a comma for each full stop between them (the listening test,
     9 Nov: that reading is half of why Reed preferred Trustworthy Man)."""

@@ -965,12 +965,13 @@ class DirectorTurn(Strict):
     reading: str = Field(
         default="",
         description="For narration in an English_ voice, optional: the narration's words exactly "
-        "as the script has them, never its notes in brackets, with only pause marks between "
-        "words, e.g. <#0.2#> (0.1-0.3 s, never two in a row), and a few sounds a person makes, "
-        "e.g. (breath), (chuckle), (sighs), (emm), where they'd really happen; a changed word is "
-        "refused. A talker is someone filming themselves, not a narrator: short marks only where "
-        "a person would catch themselves (the voice already stops at full stops), and a breath "
-        "or a small sound where it would really happen. Else empty.",
+        "and in order as the script has them, never its notes in brackets; only the "
+        "punctuation may differ, with pause marks between words, e.g. <#0.2#> (0.1-0.3 s, "
+        "never two in a row), and a few sounds a person makes, e.g. (breath), (chuckle), "
+        "(sighs), (emm), where they'd really happen; a changed word is refused. A UGC talker "
+        "always gets one, run together as they'd say it: commas or dashes in place of most "
+        "full stops, a full stop only where a person would really stop, and no pause marks or "
+        "sounds (they only add stops; the server trims every gap to a breath). Else empty.",
     )
     model: Name = Field(
         default=None,
@@ -1020,10 +1021,13 @@ class DirectorTurn(Strict):
         "guitar, sunny, modern polished'); for song made again, the music's change ('vocals "
         "start immediately, no instrumental intro'); for narration "
         "made again, the voice's change ('slower and warmer'); for host with a UGC talker, the "
-        "talker's motion, written for this narration's emotion and lines: what the face, head "
-        "and hands do and what's in front of them, never a gesture the place can't hold ('close "
-        "to tears, fighting it: chin trembles, lips pressed between phrases, a glance down and "
-        "back; both hands stay on the steering wheel'); for add_sound, the sounds "
+        "talker's motion, written for this narration's emotion and lines: what the head, "
+        "shoulders and hands do (a real phone talker nods, tilts and brings a hand up at chest "
+        "height on key words) and what's in front of them, never a gesture the place can't "
+        "hold; the feeling goes in the mouth and the head while the eyes stay open on the lens "
+        "(the server adds that to every take), all said as what happens ('close to tears, "
+        "fighting it: chin trembles, lips pressed between phrases, a glance down and back; "
+        "both hands stay on the steering wheel'); for add_sound, the sounds "
         "asked for and how much, in the person's words ('slight sound effects'); else empty. "
         "Made from a person's note, it keeps every instruction the note gives, in your own "
         "concise words. At most 500 characters (a talker's motion 600, add_sound 300): a "
