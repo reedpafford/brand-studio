@@ -376,6 +376,7 @@ def list_jobs(
     folder: str | None = None,  # OR1: a project's id, or "none" for No project
     mine: bool = False,  # only the caller's own; an editor never gets others' Quick clips anyway
     freestyle: bool = False,  # include Freestyle takes (they live on Freestyle and Media)
+    project_id: int | None = None,  # one video's own (its page polls these, not all 200)
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -391,6 +392,8 @@ def list_jobs(
         query = query.where(Job.input[FREESTYLE].as_integer().is_(None))
     if status:
         query = query.where(Job.status == status)
+    if project_id is not None:
+        query = query.where(Job.project_id == project_id)
     if (filed := folders.where(Job.folder_id, folder)) is not None:
         query = query.where(filed)
     if not q.strip():

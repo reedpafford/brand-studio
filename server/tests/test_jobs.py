@@ -142,6 +142,22 @@ def test_history_mine_lists_only_the_callers_own_and_everyones_lists_all(owner, 
     assert owner.get("/jobs", params={"mine": True, "q": "nothing like it"}).json() == []
 
 
+def test_a_videos_page_reads_only_its_own_jobs(owner, db):
+    """Speed: a video's page polls its own jobs while they run, not the workspace's newest 200."""
+    from app.models.projects import Project
+
+    boss = db.query(User).one()
+    one, two = (Project(workspace_id=boss.workspace_id, brand_id=1, name=n, created_by_id=boss.id)
+                for n in ("One", "Two"))  # fmt: skip
+    db.add_all([one, two])
+    db.flush()
+    mine = enqueue(db, boss, "video-480p", {"step": "clip_take"}, project=one)
+    enqueue(db, boss, "video-480p", {"step": "clip_take"}, project=two)
+    enqueue(db, boss, "video-480p", {})  # a Quick clip, no video
+    assert [j["id"] for j in owner.get("/jobs", params={"project_id": one.id}).json()] == [mine.id]
+    assert len(owner.get("/jobs").json()) == 3
+
+
 def test_another_editors_quick_clip_is_not_found_by_id_but_the_owner_still_can(
     app, owner, editor, db
 ):

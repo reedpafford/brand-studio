@@ -105,6 +105,26 @@ def test_the_owners_video_page_reads_no_more_for_more_finished_videos(app, db, o
     assert many - few <= 4, (few, many)  # it no longer grows with the workspace
 
 
+def test_a_request_reads_a_row_once_though_nothing_else_holds_it(app, db):
+    """Speed: the session let go of a row nothing held, so `db.get` read the same script again
+    and again within one request (a clip list read its script, draft and looks 30 times)."""
+    import gc
+    from types import SimpleNamespace
+
+    from app.db import get_db
+
+    script = Script(workspace_id=1, brand_id=1, title="S", kind="story", created_by_id=1)
+    db.add(script)
+    db.commit()
+    request = get_db(SimpleNamespace(app=app))
+    session = next(request)
+    _, first = _count(session, lambda: session.get(Script, script.id) and None)
+    gc.collect()
+    _, again = _count(session, lambda: session.get(Script, script.id) and None)
+    assert (first, again) == (1, 0)
+    request.close()
+
+
 def test_a_runs_answered_notes_are_the_same_read_from_its_own_video(app, db, owner, editor):
     pid = _made(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useOnChange } from "../useOnChange";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { blocking } from "./problems";
 import { api, errorText, polled } from "../api/client";
@@ -55,12 +55,8 @@ export function useCut(projectId: number) {
       return c && (c.making || c.director.editing || c.timeline.sfx.some((s) => s.state === "making")) ? 2000 : false;
     },
   });
-  const number = cut.data?.number;
-  const seen = useRef(number);
-  useEffect(() => {
-    if (seen.current !== number) void queryClient.invalidateQueries({ queryKey: ["project-video", projectId] });
-    seen.current = number;
-  }, [number, projectId, queryClient]);
+  // A new cut number: the stitched video is read again (not when the page first reads it: it has just read it).
+  useOnChange(cut.isPending ? undefined : (cut.data?.number ?? null), () => void queryClient.invalidateQueries({ queryKey: ["project-video", projectId] }));
   return cut;
 }
 

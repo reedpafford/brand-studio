@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, polled } from "../api/client";
+import { SHARED_FOR } from "../api/queryClient";
 import { serverTime } from "../time";
 
 // Job clocks and the caller's jobs, shared by the video and script steps (Freestyle replaced Quick clip and its History).
@@ -8,11 +9,12 @@ import { serverTime } from "../time";
 /** A job still going: waiting, running, or held for the owner's OK. */
 export const GOING = ["queued", "running", "needs_owner_approval"];
 
-/** The caller's jobs. Polls while anything is still going. */
-export function useJobs() {
+/** The caller's jobs, or one video's (its page polls only its own, not the newest 200). Polls while anything is still going. */
+export function useJobs(projectId?: number) {
   return useQuery({
-    queryKey: ["jobs"],
-    queryFn: () => polled(api.GET("/jobs"), []),
+    queryKey: projectId ? ["jobs", projectId] : ["jobs"],
+    queryFn: () => polled(api.GET("/jobs", projectId ? { params: { query: { project_id: projectId } } } : {}), []),
+    ...(projectId ? { staleTime: SHARED_FOR } : {}), // a video page's own, shared as its other reads are
     refetchInterval: (q) => (q.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
 }

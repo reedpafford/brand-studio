@@ -1320,3 +1320,85 @@ test("MAIN's run (video 233): before a scene has clips the phone's run card name
   expect(screen.getByText("The way out")).toBeInTheDocument();
   expect(screen.queryByText("0/0")).not.toBeInTheDocument();
 });
+
+// Speed (v6 quick UI): each read once when a video opens, the panel's reads not waiting for the video's, live moves with
+// the live card, and no polling of what can't change by itself.
+const reads = (calls: { key: string }[], key: string) => calls.filter((c) => c.key === key).length;
+
+test("opening a video asks the server for each of its own things once", async () => {
+  setViewport(1440);
+  const tree = { folders: [], unsorted: { id: null, parent_id: null, name: "Unsorted", count: 0, can_manage: false, ideas: [], more: 0, folders: [] } };
+  const calls = server(owner, null, run({ status: "delivered", thread: [card] }), {
+    "GET /projects/50/director/progress": [200, record({ status: "delivered" })],
+    "GET /brands/1/tree": [200, tree],
+    "GET /needs-you": [200, { total: 0, brands: [], questions: [], money: [], sends: [], stuck: [] }],
+  });
+  renderApp("/b/1/videos/50");
+  await ready();
+  await new Promise((r) => setTimeout(r, 300)); // every part of the page has opened and read what it needs
+  const asked = calls.filter((c) => c.key.startsWith("GET /projects/50") || c.url.includes("project_id=50")).map((c) => c.url); // the shell's own (brands) are read as any screen's
+  expect(asked.filter((u, i) => asked.indexOf(u) !== i)).toEqual([]);
+});
+
+test("the header, the live card and the panel are asked for with the video, not after it", async () => {
+  setViewport(1440);
+  const calls = server(owner, null, run());
+  const answered = globalThis.fetch;
+  vi.stubGlobal("fetch", (input: Request) => (new URL(input.url).pathname === "/api/projects/50" ? new Promise(() => {}) : answered(input)));
+  renderApp("/b/1/videos/50");
+  await vi.waitFor(() => expect(reads(calls, "GET /projects/50/idea")).toBe(1));
+  for (const key of ["GET /projects/50/director/progress", "GET /projects/50/clips", "GET /projects/50/storyboard", "GET /projects/50/assets"]) expect(reads(calls, key)).toBe(1);
+});
+
+test("a change on the run's live card brings the director's moves at once, not at the director's own next read", async () => {
+  setViewport(1440);
+  const live = record();
+  const calls = server(owner, null, run({ thread: [card] }), { "GET /projects/50/director/progress": [200, live] });
+  renderApp("/b/1/videos/50");
+  await ready();
+  expect(reads(calls, "GET /projects/50/director")).toBe(1);
+  Object.assign(live, { made: 4, sub: "4 of 4 · scene 2 of 2" }); // what its next read (3 s on) finds
+  await vi.waitFor(() => expect(reads(calls, "GET /projects/50/director")).toBe(2), { timeout: 4_000 }); // the director's own is 5 s
+}, 10_000);
+
+test("a note shows in the thread the moment it's sent, through a read of the run; a refused one leaves, its words back in the box", async () => {
+  setViewport(1440);
+  let answer: (r: Response) => void = () => {};
+  const calls = server(owner, null, run({ thread: [card] }));
+  const answered = globalThis.fetch;
+  vi.stubGlobal("fetch", (input: Request) => (input.method === "POST" ? new Promise<Response>((r) => (answer = r)) : answered(input)));
+  renderApp("/b/1/videos/50");
+  await userEvent.type(await ready(), "Warmer light.{Enter}");
+  const thread = screen.getByRole("list", { name: "Conversation with the director" });
+  expect(within(thread).getByText("Warmer light.")).toBeInTheDocument(); // before the server answers
+  expect(within(thread).getByText(/· Sending…/)).toBeInTheDocument();
+  expect(screen.getByLabelText("Tell the director what to change")).toHaveValue("");
+  await vi.waitFor(() => expect(reads(calls, "GET /projects/50/director")).toBe(2), { timeout: 6_000 }); // its 5 s read lands mid-send
+  expect(within(thread).getByText(/· Sending…/)).toBeInTheDocument();
+  act(() => answer(new Response(JSON.stringify({ detail: "One note every 3 s." }), { status: 429, headers: { "content-type": "application/json" } })));
+  expect(await screen.findByText("One note every 3 s.")).toBeInTheDocument();
+  expect(within(thread).queryByText("Warmer light.")).toBeNull();
+  expect(screen.getByLabelText("Tell the director what to change")).toHaveValue("Warmer light.");
+}, 12_000);
+
+test("the chat's Approve cast & places, refused as changed since, reads the cast again so it shows what's there now", async () => {
+  setViewport(1440);
+  const shown = { state: "ready", approved_by: null, approved_at: null, asked: true, can_approve: true, items: [{ ref: "char:5", kind: "character", name: "Marcus", library_item_id: 5, version: 1, source: "library", preview_file_id: null, readiness: "ready", approval: "new", sig: "a", clip_ids: [], changes: [] }], waiting: ["Marcus"], not_ready: [] };
+  const calls = server(owner, null, run({ status: "delivered" }), {
+    "GET /projects/50/cast": [200, shown],
+    "POST /projects/50/cast/approve": [409, { detail: "Marcus changed since you opened Cast. Look at it again." }],
+  });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve cast & places" }));
+  await vi.waitFor(() => expect(reads(calls, "GET /projects/50/cast")).toBe(2));
+});
+
+test("Cast & places is read again only while its looks are being drawn", async () => {
+  setViewport(1440);
+  const approved = { state: "approved", approved_by: "Reed", approved_at: at, asked: false, can_approve: true, items: [], waiting: [], not_ready: [] };
+  const calls = server(owner, null, run({ status: "delivered" }), { "GET /projects/50/cast": [200, approved] });
+  renderApp("/b/1/videos/50");
+  await ready();
+  await new Promise((r) => setTimeout(r, 4_500)); // it was read every 4 s, whatever its state
+  expect(reads(calls, "GET /projects/50/cast")).toBe(1);
+}, 10_000);

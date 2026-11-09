@@ -402,8 +402,7 @@ function ScriptTabPane({ p, lines, pickLine }: PaneProps) {
 export const PANES: Record<TabId, (props: PaneProps) => ReactNode> = { cut: CutPane, clips: ClipsTab, cast: CastPane, plan: PlanTab, script: ScriptTabPane };
 
 /** The video's progress as the panes read it, with the cast's count. */
-export function usePanelFacts(p: Project | null) {
-  const id = p?.id ?? 0;
+export function usePanelFacts(id: number) {
   const { progress, loading } = useProgress(id);
   const assets = useAssets(id);
   // The Cast tab's roles and places (S-gaps-07 A); a role no shot uses is not counted.

@@ -13,10 +13,10 @@ export type Head = components["schemas"]["Head"];
 type Money = components["schemas"]["Money"];
 
 /** One video's header (S3, P-04), read from the server: its status with the reason, used, up to, budget, folder. */
-export function useHead(projectId: number, enabled = true) {
+export function useHead(projectId: number) {
   return useQuery({
     queryKey: ["idea", projectId],
-    enabled,
+    enabled: projectId > 0,
     refetchInterval: (q) => (q.state.data?.status.kind === "working" ? 10_000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/idea", { params: { path: { project_id: projectId } } }), null),
   });

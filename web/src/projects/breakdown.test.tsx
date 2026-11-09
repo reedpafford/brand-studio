@@ -73,7 +73,7 @@ test("the breakdown shows scenes, clips and shots with names, the spoken line an
   const second = within(clip).getByLabelText("Shot 1.2");
   expect(within(second).getByText("MIA: “Wait… it dipped?”")).toBeInTheDocument();
   expect(within(second).getByText("Reaction: eyes snap wide")).toBeInTheDocument();
-  expect(within(second).getByText("Chart down")).toBeInTheDocument();
+  expect(await within(second).findByText("Chart down")).toBeInTheDocument(); // the brand's screens arrive after the plan
   expect(within(clip).getAllByText("Mia")).toHaveLength(2);
   expect(within(clip).getAllByText("Kitchen")).toHaveLength(2);
 });

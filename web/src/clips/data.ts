@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import type { components } from "../api/schema";
 import { clipNo } from "../projects/names";
 
@@ -20,22 +19,6 @@ export type Progress = { status: string; clips: number; made: number; scenes: { 
 export type Row = Cell & { id: number | null; words: string; broll: boolean; said: string };
 export type Scene = { id: number; name: string; rows: Row[]; done: number };
 export type Filter = "all" | "needs" | "flagged" | "redone";
-
-/** The newest run's record, read every 3 s while it works. Null before any run (a video made by hand), or on a server
- *  without it yet: the list then works itself out from the clips. */
-export function useRunProgress(projectId: number) {
-  return useQuery({
-    queryKey: ["run-progress", projectId],
-    retry: false,
-    refetchInterval: (q) => (["working", "revising", "waiting"].includes(q.state.data?.status ?? "") ? 3000 : false),
-    queryFn: async (): Promise<Progress | null> => {
-      const r = await fetch(`/api/projects/${projectId}/director/progress`, { credentials: "same-origin" });
-      if (r.status === 404) return null;
-      if (!r.ok) throw new Error("The run's progress didn't load."); // polling goes on with what it showed (a deploy's 502)
-      return (await r.json()) as Progress | null;
-    },
-  });
-}
 
 /** This person watched these takes: a clip the director changed stops being outlined for them (S3-09). */
 export const markWatched = (projectId: number, takeIds: number[]) =>

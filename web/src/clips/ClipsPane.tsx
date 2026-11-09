@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, Play, Search } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
@@ -6,12 +6,14 @@ import { fileUrl } from "../api/upload";
 import { GOING, useJobs } from "../clip/History";
 import { Banner, Button, Skeleton } from "../components";
 import { useProjectClips } from "../projects/useProgress";
+import { useRunProgress } from "../videos/RunCard";
 import { useMedia } from "../useMedia";
+import { useOnChange } from "../useOnChange";
 import { Empty, SOON } from "../videos/Empty";
 import type { PaneProps } from "../videos/Preview";
 import { ClipOpen } from "./ClipOpen";
 import { RowStatus } from "./RowStatus";
-import { needsYou, passes, redone, scenesOf, useRunProgress, useStoryboard, type Filter, type Row, type Scene } from "./data";
+import { needsYou, passes, redone, scenesOf, useStoryboard, type Filter, type Row, type Scene } from "./data";
 import { useBreakdownOf } from "./useBreakdownOf";
 import { useCast, type Cast } from "../cast/gate";
 
@@ -129,11 +131,11 @@ export function ClipsPane({ p, head, progress, go }: PaneProps) {
   const queryClient = useQueryClient();
   const clips = useProjectClips(p.id);
   // Takes, stills and rewrites land later: whenever this video's going jobs change, the clips and stills are read again.
-  const jobs = useJobs();
-  const going = (jobs.data ?? []).filter((j) => j.project_id === p.id && GOING.includes(j.status)).map((j) => j.id).join(",");
-  useEffect(() => {
+  const jobs = useJobs(p.id);
+  const going = jobs.data?.filter((j) => GOING.includes(j.status)).map((j) => j.id).join(",");
+  useOnChange(going, () => {
     for (const queryKey of [["project-clips", p.id], ["storyboard", p.id], ["run-progress", p.id]]) void queryClient.invalidateQueries({ queryKey });
-  }, [going, p.id, queryClient]);
+  });
   const frames = useStoryboard(p.id);
   const breakdown = useBreakdownOf(p.id);
   const run = useRunProgress(p.id);

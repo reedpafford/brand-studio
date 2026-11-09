@@ -33,7 +33,28 @@ def make_sessionmaker(url: str) -> sessionmaker[Session]:
 
 def get_db(request: Request) -> Iterator[Session]:
     with request.app.state.sessionmaker() as session:
+        _hold_rows(session)
         yield session
+
+
+def _hold_rows(session: Session) -> None:
+    """A request's session keeps hold of every row it reads until the request ends. The session
+    alone lets go of a row nothing else holds, so `db.get` read the same script, draft or rate
+    again and again (a video's clip list read them 30 times over). Rows still refresh as before
+    when expired; the worker's long-lived sessions don't use this."""
+    held: dict[int, object] = {}
+
+    def keep(_s, row):
+        held[id(row)] = row
+
+    def drop(_s, row):
+        held.pop(id(row), None)
+
+    for name in ("loaded_as_persistent", "pending_to_persistent", "detached_to_persistent",
+                 "deleted_to_persistent"):  # fmt: skip
+        event.listen(session, name, keep)
+    for name in ("persistent_to_detached", "persistent_to_deleted", "persistent_to_transient"):
+        event.listen(session, name, drop)
 
 
 def utcnow() -> datetime:

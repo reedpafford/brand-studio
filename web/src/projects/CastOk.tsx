@@ -15,7 +15,8 @@ export function CastOk({ projectId }: { projectId: number }) {
   const cast = useQuery({
     queryKey: ["cast", projectId],
     queryFn: () => polled(api.GET("/projects/{project_id}/cast", { params: { path: { project_id: projectId } } }), null),
-    refetchInterval: 4000,
+    // Read again while looks are being drawn; any other change comes with the director's moves or this person's presses.
+    refetchInterval: (q) => (q.state.data?.state === "not_ready" ? 4000 : false),
   });
   const approve = useMutation({
     mutationFn: async ({ seen, anyway }: { seen: Record<string, string>; anyway: boolean }) => {
@@ -28,6 +29,7 @@ export function CastOk({ projectId }: { projectId: number }) {
       void queryClient.invalidateQueries({ queryKey: ["director", projectId] });
       return refreshJobs(queryClient);
     },
+    onError: () => queryClient.invalidateQueries({ queryKey: ["cast", projectId] }), // refused as changed: show what it is now
   });
   const shown = cast.data;
   // Whenever the set is ready and this person may approve it, not only once the director asked: a video with no run, or a

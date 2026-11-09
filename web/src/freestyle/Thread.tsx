@@ -97,6 +97,7 @@ export function Item({ t, words, why, owner, children, first, excerpt, earlier, 
           <span className="text-xs font-normal text-muted tabular-nums">
             {clock(t.at)}
             {t.status === "refused" && " · couldn't do it"}
+            {!director && t.status === "queued" && " · Sending…"}
             {t.answered === true && " · Answered"}
             {t.answered === false && " · Open"}
           </span>
