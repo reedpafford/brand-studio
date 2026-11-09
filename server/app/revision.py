@@ -32,16 +32,19 @@ def revision(db: Session, video, ended: bool = False) -> tuple[list[ProjectClip]
     again, those its notes name ("clips 3, 5 and 6"), else those showing someone whose look
     it changes, as Cast lists them; those its moves ask for (made, or waiting for Make it), out
     of date or with no take yet; and how many looks, those its moves make and each role still
-    without one. Its song, plan and the clips it keeps are made already. None for any other
-    run, or with none yet; once it ended, unless `ended` (its own record): Make it again
-    starts a new run (QA on #1481: a stopped revision's button said its $2.38, the run it
-    started $6.08)."""
-    from app import director
+    without one. Its song, plan and the clips it keeps are made already. A variation's first
+    run is one before it starts (its start's hold says the same price as its card, QA on
+    #1491). None for any other run, or with none yet; once it ended, unless `ended` (its own
+    record): Make it again starts a new run (QA on #1481: a stopped revision's button said its
+    $2.38, the run it started $6.08)."""
+    from app import director, video_variations
     from app.sheets import roles_needing_look, roles_without_a_look
     from app.video_settings import out_of_date
 
     rows = director.all_turns(db, video.id) if video is not None and video.id else []
     run = (rows[-1].input.get(director.RUN) or {}) if rows else {}
+    if not rows and video is not None and video_variations.source(db, video):
+        run = {"id": "", director.REVISION: True}  # a variation's first run, about to start
     if not run.get(director.REVISION) or director._own_story(db, run, video.id):
         return None
     if not ended and director.over(db, run["id"], video.id):
@@ -62,10 +65,14 @@ def revision(db: Session, video, ended: bool = False) -> tuple[list[ProjectClip]
             for r in m.get("redraws") or [m]}  # fmt: skip
     stale = {c.id for c in out_of_date(db, video)[1]}
     plan = bd.id if bd else None
-    rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == video.id,
-                                                ProjectClip.breakdown_id == plan))  # fmt: skip
+    rows = list(db.scalars(select(ProjectClip).where(
+        ProjectClip.project_id == video.id, ProjectClip.breakdown_id == plan)))  # fmt: skip
     clips = [c for c in rows if c.clip_id in ids or c.id in stale or not c.picked_take_id]
-    return clips, len(looks)
+    left = {c["id"] for c in (bd.data.get("clips", []) if bd else [])} - {c.clip_id for c in rows}
+    behind = {c.clip_id: c for c in db.scalars(select(ProjectClip).where(  # a clip left on an
+        ProjectClip.project_id == video.id, ProjectClip.clip_id.in_(left or {""}))  # older plan
+        .order_by(ProjectClip.id))}  # (a changed line's): its prompt and take again  # fmt: skip
+    return [*clips, *behind.values()], len(looks)
 
 
 def edited(db: Session, video, clips: list[ProjectClip]) -> list[ProjectClip]:

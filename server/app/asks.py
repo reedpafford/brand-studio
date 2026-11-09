@@ -643,11 +643,18 @@ CARRIES = "carries"  # in a start card for carrying a stopped run on: that run's
 
 def start_hold(db: Session, user: User, project: Project) -> str:
     """Why an editor's run on a published script waits for the owner at its start card: its
-    whole "up to" is past what's left of the video's budget (Reed, 4 Nov); "" when it fits."""
+    whole "up to" is past what's left of the video's budget (Reed, 4 Nov); "" when it fits. A
+    variation of a Freestyle video waits as any Freestyle send does (`freestyles.held_for`)."""
+    from app import video_variations
     from app.credits import budget_used, price
 
     if user.is_owner:
         return ""
+    if video_variations.source(db, project):
+        from app.routes.freestyles import held_for
+
+        if why := held_for(db, user, project):
+            return why
     left = project.budget_credits - budget_used(db, project)
     up_to = run_price(db, project)
     if up_to <= left:

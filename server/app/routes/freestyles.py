@@ -301,6 +301,21 @@ def hold(db: Session, user: User, script: Script | None, draft, project: Project
     return "" if up_to <= most else PAST_BUDGET.format(whole(up_to), whole(most))
 
 
+def held_for(db: Session, user: User, project: Project) -> str:
+    """An editor's press on a Freestyle video made from pasted words, or on a variation of one
+    (Make variations, its runs), waits for the owner as any Freestyle send does (rule 5);
+    "" for the owner, or any other video (its budget alone decides)."""
+    from app.video_variations import own_ids
+
+    if user.is_owner:
+        return ""
+    fs = db.scalar(select(Freestyle).where(Freestyle.project_id.in_(own_ids(db, project)))
+                   .order_by(Freestyle.id).limit(1))  # fmt: skip
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    script = db.get(Script, draft.script_id) if draft else None
+    return HELD if fs and script and script.created_at >= fs.created_at else ""
+
+
 def freeze(db: Session, what: dict, owner: User) -> None:
     """A director-first video becomes real when its run starts (the owner's at once, an
     editor's on the owner's OK; Next-Lead): its version frozen, approved and the script

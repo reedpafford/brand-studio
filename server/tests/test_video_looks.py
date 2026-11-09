@@ -126,9 +126,8 @@ def test_a_videos_own_look_can_be_removed_once_no_role_uses_it_and_brought_back(
     look = _row(editor, pid, nate)["own_look_id"]
     url = f"/library/character/{look}"
     in_use = editor.delete(url)
-    assert (in_use.status_code, in_use.json()["detail"]) == (
-        409, "Swap the role to another look first."
-    )  # fmt: skip
+    assert in_use.status_code == 409
+    assert in_use.json()["detail"].startswith("Swap the role to another look first: “")
     kid = editor.post(
         "/library/character", json={"name": "Kid", "image_file_ids": [upload(editor)]}
     )

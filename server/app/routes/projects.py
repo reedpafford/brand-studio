@@ -339,7 +339,10 @@ def release_project(
         raise HTTPException(409, "This video is done, so its version can't be released.")
     archive(db, project)
     project.script_draft_id, project.released_draft_id = None, draft.id
-    draft.reserved_by_id = None
+    db.flush()
+    if not db.scalar(select(Project.id).where(Project.script_draft_id == draft.id,
+                                              Project.archived_at.is_(None)).limit(1)):  # fmt: skip
+        draft.reserved_by_id = None  # a variation (or Make another) shares it: it stays held
     db.commit()
     return _out(db, project, user)
 
@@ -353,7 +356,8 @@ def restore_project(
     started that version again it can't come back (one video per version)."""
     project = _mine(db, user, project_id)
     draft = db.get(ScriptDraft, project.released_draft_id) if project.released_draft_id else None
-    again = draft and db.scalar(select(Project).where(Project.script_draft_id == draft.id))
+    again = draft and db.scalar(select(Project).where(  # started since: one sharing it before
+        Project.script_draft_id == draft.id, Project.created_at > project.archived_at))  # fmt: skip
     if again:
         who, letter = user_name(db, again.created_by_id) or "Someone", letter_of(draft.slot)
         raise HTTPException(
@@ -362,7 +366,7 @@ def restore_project(
     project.archived_at = None
     if draft is not None:
         project.script_draft_id, project.released_draft_id = draft.id, None
-        draft.reserved_by_id = project.created_by_id
+        draft.reserved_by_id = draft.reserved_by_id or project.created_by_id  # shared: kept
     db.commit()
     return _out(db, project, user)
 

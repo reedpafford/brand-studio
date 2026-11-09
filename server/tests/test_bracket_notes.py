@@ -83,7 +83,7 @@ def test_a_shot_line_drops_its_note_and_still_matches_the_script():
     assert "3| NATE: I bought [quietly] the dip." in number_lines(script)  # what the steps read
     assert check.redo_note('Say "I bought [quietly] the dip." slower.', plan, "c1") == []
     assert check.redo_note('Say "I bought the chips." instead.', plan, "c1")  # still refused
-    edited = line_change._with_line(bd, {"line": 3, "old": "the dip", "new": "the chips [beat]"})
+    edited = line_change.with_line(bd, {"line": 3, "old": "the dip", "new": "the chips [beat]"})
     stored = edited["scenes"][0]["shots"][1]["line"]  # the owner's line change, as saved
     assert (
         stored == "I bought the chips." == Breakdown.model_validate(edited).scenes[0].shots[1].line

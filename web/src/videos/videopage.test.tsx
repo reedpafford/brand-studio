@@ -154,6 +154,42 @@ test("S3-09: delivered, the cut plays in the Cut tab with its downloads and what
   expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
 });
 
+test("Runway #2: on a phone, a delivered video's ⋯ Make variations… asks for 2 or 3, the hook or the ending and a note, then links each new video", async () => {
+  setViewport(390);
+  const done = fs({ status: "delivered", file_id: 8 });
+  const delivered = run({ status: "delivered", turns: [{ turn: 3, tool: "deliver", why: "", result: "Delivered.", status: "succeeded", created_at: later }] });
+  const made = { state: "done", blocked: "", videos: [{ id: 61, title: "Beer gut doctor rant · variation A" }, { id: 62, title: "Beer gut doctor rant · variation B" }] };
+  const calls = server(owner, done, delivered, { "GET /projects/50/idea": [200, head({ status: status("delivered", "Delivered") })], "GET /projects/50/variations": [200, made], "POST /projects/50/variations": [201, made] });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "More for Beer gut doctor rant" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Make variations…" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "Make variations" });
+  for (const r of within(dialog).getAllByRole("radio")) expect(r).toHaveClass("h-control"); // 44 px on a phone
+  await userEvent.click(within(dialog).getByRole("radio", { name: "2 variations" }));
+  await userEvent.click(within(dialog).getByRole("radio", { name: "The ending" }));
+  await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "End on the empty bowl");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make variations" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/50/variations")?.body).toEqual({ count: 2, part: "ending", note: "End on the empty bowl" }));
+  const out = await screen.findByRole("alertdialog", { name: "Variations" });
+  expect(await within(out).findByRole("link", { name: "Beer gut doctor rant · variation B" })).toHaveAttribute("href", "/b/1/videos/62");
+});
+
+test("Runway #2: variations held for the owner say so, and a declined one says nothing was charged", async () => {
+  setViewport(1440);
+  const done = fs({ status: "delivered", file_id: 8 });
+  const delivered = run({ status: "delivered", turns: [{ turn: 3, tool: "deliver", why: "", result: "Delivered.", status: "succeeded", created_at: later }] });
+  for (const [state, words] of [["held", "Waiting for the owner's OK to write the ideas."], ["declined", "The owner said no, or it was withdrawn, so nothing was written or charged."]]) {
+    const read = { state, blocked: "", videos: [] };
+    server(owner, done, delivered, { "GET /projects/50/idea": [200, head({ status: status("delivered", "Delivered") })], "GET /projects/50/variations": [200, read], "POST /projects/50/variations": [201, read] });
+    const { unmount } = renderApp("/b/1/videos/50");
+    await userEvent.click(await screen.findByRole("button", { name: "More for Beer gut doctor rant" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Make variations…" }));
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Make variations" })).getByRole("button", { name: "Make variations" }));
+    expect(await within(await screen.findByRole("alertdialog", { name: "Variations" })).findByText(words, { exact: false })).toBeInTheDocument();
+    unmount();
+  }
+});
+
 test("the owner's note after a delivery starts the next run by talking; there's no Make it again press under the note (S3-12)", async () => {
   setViewport(1440);
   const done = fs({ status: "delivered", file_id: 8, thread: [item("m1", "message", "Reed", SCRIPT), item("t2", "move", "Director", "Every take checked clean.", "done", later)] });
