@@ -127,7 +127,11 @@ class AskOut(BaseModel):
     options_spent: AskPrice | None = None  # "$0.18 spent"
     audition: list[Audition] = []  # a presenter's voices, each reading the opening
     audition_spent: AskPrice | None = None  # what their reads cost
-    voice: str | None = None  # the audition's pick, once made ("stock:<key>")
+    voice: str | None = None  # the audition's pick, once made ("stock:<key>", "voice:<id>")
+    voice_name: str = ""  # its name
+    voice_saved: bool = False  # saved on the presenter in the library, for their next video
+    audition_failed: bool = False  # every voice failed to read: Read them again, or pick unheard
+    other_voices: list[SavedOption] = []  # then: every voice this brand may use
     answer: dict | None = None  # {how, option, name, file_id, text, choice, reused}
     answered_by: str = ""  # a name; "" for the director's own pick or a saved item reused
     answered_at: UtcTime | None = None
@@ -203,11 +207,19 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
                          for s in heard]  # fmt: skip
         made = [s["credits"] for s in heard if s["state"] == str(JobStatus.succeeded)]
         card.audition_spent = _price(user, sum(made, Decimal(0)))
-        card.voice = project.voice if project.voice in {s["id"] for s in heard} else None
+        chosen = project.voice if not audition.needed(db, project) else None
+        card.voice = chosen if chosen and audition.auditioned(db, project) else None
+        card.voice_name = audition.others(db, project).get(card.voice or "", "")
+        card.voice_saved = bool(card.voice) and audition.saved_on(db, project)
+        card.audition_failed = audition.failed(db, ask)
+        if card.audition_failed and not card.voice and ask.kind != "voice":  # its own ways on:
+            card.other_voices = [SavedOption(**o) for o in  # any voice, unheard
+                                 ask_options.saved(db, project, "voice")]  # fmt: skip
         card.subject = ask.subject  # whose voice it is, as the card says it
     if mine and state != "not_needed":
         card.can = ["describe" if ask.kind == "voice" else "reply"]  # a voice: Describe it
         card.can += ["voice"] if card.audition and not card.voice else []  # the audition's pick
+        card.can += ["again"] if card.audition_failed and not card.voice else []
         card.can += ["saved"] if card.saved else []
         card.can += ["upload"] if ask.kind in asks.UPLOADS else []
         card.can += ["choice"] if ask.kind == "story" else []

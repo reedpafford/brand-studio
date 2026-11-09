@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from app import narration, voices
 from app.models.accounts import User
 from app.models.asks import Ask
-from app.models.jobs import Job
+from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
 
@@ -43,6 +43,10 @@ WAITS = ("Refused: {who}'s voice is being auditioned on question {ask}. Nothing 
          "starts until the person picks one; keep doing what's free, or `wait`.")  # fmt: skip
 NOT_ONE = "Pick one of the voices that read for this card."
 NOT_MADE = "That voice hasn't read yet. Play it once it's ready."
+NOT_FAILED = "These voices are reading or have read: play them, then pick one."
+CHOSEN = "The voice is chosen already."
+PICK_FIRST = ("Pick {who}'s voice first: the director puts voices for them on its card in the "
+              "chat, and the narration is read in the one you pick.")  # fmt: skip
 
 
 def needed(db: Session, project: Project) -> bool:
@@ -99,12 +103,20 @@ def jobs(db: Session, ask: Ask) -> list[Job]:
         Job.input[ASK].as_integer() == ask.id).order_by(Job.id)))  # fmt: skip
 
 
+def failed(db: Session, ask: Ask) -> bool:
+    """Every voice on the card ended without reading (nothing was charged for any)."""
+    made = jobs(db, ask)
+    return bool(made) and all(j.status in (JobStatus.failed, JobStatus.cancelled) for j in made)
+
+
 def card(db: Session, project: Project) -> Ask | None:
-    """The video's newest card with an audition that's still needed."""
+    """The video's audition: its newest card with one that's still needed and not failed
+    (every read failed: the director auditions again, and the card offers its own ways on)."""
     ids = db.scalars(select(Job.input[ASK].as_integer()).where(
         Job.project_id == project.id, Job.input["step"].as_string() == STEP))  # fmt: skip
-    return db.scalar(select(Ask).where(Ask.id.in_(set(ids) or {0}), Ask.state != "not_needed")
-                     .order_by(Ask.id.desc()).limit(1))  # fmt: skip
+    rows = db.scalars(select(Ask).where(Ask.id.in_(set(ids) or {0}), Ask.state != "not_needed")
+                      .order_by(Ask.id.desc()))  # fmt: skip
+    return next((a for a in rows if not failed(db, a)), None)
 
 
 def checked(keys) -> list[str] | None:
@@ -118,15 +130,26 @@ def start(db: Session, user: User, project: Project, ask: Ask, keys, before: boo
     """The director's candidates read the opening, one voice call each, priced like the
     narration. Before Make it they count on the video's planning allowance, as the treatment
     does. What happened, in plain words for its log ("" when no audition is needed)."""
-    from app import asks
-    from app.credits import estimate
-    from app.routes.jobs import enqueue
-
     if not needed(db, project):
         return ""
+    if (open_ := card(db, project)) is not None:  # one audition at a time: never paid twice
+        return f" The audition is already on question {open_.id}."
     keys = checked(keys)
     if keys is None:
         raise HTTPException(422, TOO_FEW)
+    _read(db, user, project, ask, keys, before)
+    names = ", ".join(voices.ABOUT[k][0] for k in keys)
+    return f" {names} each read the opening for the person to pick from."
+
+
+def _read(db: Session, user: User, project: Project, ask: Ask, keys, before: bool) -> None:
+    """One voice call a voice. Before Make it, on the video's planning allowance as the
+    treatment is: past it, the owner's OK on a planning card first (never for an uncapped
+    owner's own run)."""
+    from app import asks
+    from app.credits import estimate, uncapped
+    from app.routes.jobs import enqueue
+
     said = line(db, project)
     for key in keys:
         data = {**narration.job(said, key), "step": STEP, ASK: ask.id, "voice": key}
@@ -135,17 +158,29 @@ def start(db: Session, user: User, project: Project, ask: Ask, keys, before: boo
         if before:
             data = {**data, asks.BEFORE: True}
             price = estimate(db, project.workspace_id, "speech", units, data)
-            wait = asks.PLANNING if asks.past_planning(db, project, price, plan=False) else ""
+            if not uncapped(user) and asks.past_planning(db, project, price, plan=False):
+                data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
         enqueue(db, user, "speech", data, project=project, provider="replicate", units=units,
                 prepaid=before and not wait, wait=wait)  # fmt: skip
-    names = ", ".join(voices.ABOUT[k][0] for k in keys)
-    return f" {names} each read the opening for the person to pick from."
+
+
+def again(db: Session, user: User, ask: Ask) -> None:
+    """Read them again, once every read on the card failed (nothing was charged for those)."""
+    if not failed(db, ask):
+        raise HTTPException(409, NOT_FAILED)
+    project = db.get(Project, ask.project_id)
+    if not needed(db, project):
+        raise HTTPException(409, CHOSEN)
+    keys = list(dict.fromkeys(j.input["voice"] for j in jobs(db, ask)))
+    _read(db, user, project, ask, keys, before=False)
 
 
 def samples(db: Session, ask: Ask) -> list[dict]:
-    """The card's candidates, each {id ("stock:<key>"), name, note, sample_file_id, state}."""
+    """The card's candidates, each {id ("stock:<key>"), name, note, sample_file_id, state}:
+    each voice's newest read (Read them again makes another)."""
     out = []
-    for job in jobs(db, ask):
+    newest = {j.input["voice"]: j for j in jobs(db, ask)}
+    for job in newest.values():
         key = job.input["voice"]
         files = (job.output or {}).get("file_ids") or []
         name, about = voices.ABOUT.get(key, (key, ""))
@@ -157,31 +192,67 @@ def samples(db: Session, ask: Ask) -> list[dict]:
 
 def pick(db: Session, user: User, ask: Ask, option: str) -> str:
     """The person's pick: this video's voice (logged as theirs, so a revision keeps it), and
-    saved on the presenter when they have no voice yet (`keep`). Its name."""
+    saved on the presenter when they have no voice yet (`keep`). Its name. Once every read
+    failed, any voice this brand may use is a pick too, unheard (rule 22: never stuck)."""
     from app import asks
 
     made = {s["id"]: s for s in samples(db, ask)}
-    if option not in made:
-        raise HTTPException(422, NOT_ONE)
-    if made[option]["sample_file_id"] is None:
-        raise HTTPException(409, NOT_MADE)
     project = db.get(Project, ask.project_id)
-    asks._voice(db, user, project, option)
+    if option in made and made[option]["sample_file_id"] is None and not failed(db, ask):
+        raise HTTPException(409, NOT_MADE)
+    if option not in made and not (failed(db, ask) and option in others(db, project)):
+        raise HTTPException(422, NOT_ONE)
+    asks._voice(db, user, project, voices.checked(db, project, option))
     keep(db, project)
-    return made[option]["name"]
+    return made[option]["name"] if option in made else others(db, project)[option]
+
+
+def others(db: Session, project: Project) -> dict[str, str]:
+    """Every voice this brand may use, by its ref ("stock:<key>", "voice:<id>"): its name."""
+    from app import ask_options
+    from app.models.brands import Brand
+
+    found = ask_options._voices(db, db.get(Brand, project.brand_id))
+    return {o["id"]: o["name"] for o in found}
+
+
+def library_item(db: Session, project: Project) -> LibraryItem | None:
+    """The presenter as a saved character of the brand (never a look made for one video or
+    script: those aren't used again)."""
+    from app import host
+
+    item = host.host_look(db, project) if host.presents(db, project) else None
+    saved = item is not None and not item.owner_project_id and not item.owner_script_id
+    return item if saved else None
 
 
 def keep(db: Session, project: Project) -> None:
-    """The video's picked app voice, saved on its presenter when they have none, so their next
-    video skips the audition (Reed: "it might be easier to maintain consistency")."""
-    from app import host
-
-    item: LibraryItem | None = host.host_look(db, project) if host.presents(db, project) else None
-    key = voices.from_ref(project.voice)
-    if item is None or item.voice_id or item.voice_stock_key or key not in narration.VOICES:
+    """The video's picked app voice, saved on its presenter when they're a saved character
+    with no voice yet, so their next video skips the audition (Reed: "it might be easier to
+    maintain consistency")."""
+    item, key = library_item(db, project), voices.from_ref(project.voice)
+    if item is None or item.voice_id or item.voice_stock_key or not key:
         return
-    if card(db, project) is not None:  # only a pick from an audition, never a stray setting
+    if not auditioned(db, project):  # only a pick from an audition, never a stray setting
+        return
+    if key in narration.VOICES:
         item.voice_stock_key = key
+    elif (saved := voices.named(db, project.workspace_id, key, project.brand_id)) is not None:
+        item.voice_id = saved.id  # one of the brand's own voices
+
+
+def auditioned(db: Session, project: Project) -> bool:
+    return db.scalar(select(Job.id).where(Job.project_id == project.id,
+                                          Job.input["step"].as_string() == STEP)
+                     .limit(1)) is not None  # fmt: skip
+
+
+def saved_on(db: Session, project: Project) -> bool:
+    """The video's voice is saved on its presenter in the library (the card says so)."""
+    item = library_item(db, project)
+    key = voices.from_ref(project.voice)
+    own = f"{voices.PREFIX}{item.voice_id}" if item is not None and item.voice_id else None
+    return item is not None and bool(key) and key in (item.voice_stock_key, own)
 
 
 def status(db: Session, project: Project) -> dict | None:

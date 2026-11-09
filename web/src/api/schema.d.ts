@@ -5289,7 +5289,8 @@ export interface paths {
         put?: never;
         /**
          * Make Video Songs
-         * @description More takes for this video only, charged to its budget (or the editor's week).
+         * @description More takes for this video only, charged to its budget (or the editor's week). A
+         *     narration is read in the video's own voice; a presenter's waits for their audition.
          */
         post: operations["make_video_songs_projects__project_id__songs_post"];
         delete?: never;
@@ -6421,6 +6422,26 @@ export interface components {
             audition_spent?: components["schemas"]["AskPrice"] | null;
             /** Voice */
             voice?: string | null;
+            /**
+             * Voice Name
+             * @default
+             */
+            voice_name: string;
+            /**
+             * Voice Saved
+             * @default false
+             */
+            voice_saved: boolean;
+            /**
+             * Audition Failed
+             * @default false
+             */
+            audition_failed: boolean;
+            /**
+             * Other Voices
+             * @default []
+             */
+            other_voices: components["schemas"]["SavedOption"][];
             /** Answer */
             answer?: {
                 [key: string]: unknown;

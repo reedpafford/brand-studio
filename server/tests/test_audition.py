@@ -65,6 +65,8 @@ def test_nothing_is_timed_to_a_presenters_voice_until_the_person_picks_it(app, d
     for tool in audition.HELD:
         said = director_tools.run(db, user, video, {"tool": tool}, app.state.storage)
         assert said.startswith("Refused: ") and "being auditioned" in said, tool
+    pressed = owner.post(f"/projects/{video.id}/songs")  # a person's own narration press too
+    assert pressed.status_code == 409 and pressed.json()["detail"].startswith("Pick ")
     ask = audition.card(db, video)
     card = owner.get(f"/projects/{video.id}/asks").json()
     shown = next(c for c in card if c["id"] == ask.id)
@@ -155,3 +157,43 @@ def test_the_director_names_three_or_four_app_voices_on_the_card_that_casts_them
     ask = db.query(Ask).order_by(Ask.id.desc()).first()
     assert (ask.kind, [j.input["voice"] for j in audition.jobs(db, ask)]) == (
         "presenter", ["Roger", "English_Jovialman", "English_Trustworth_Man"])  # fmt: skip
+
+
+def test_an_empty_voices_list_is_no_audition_and_an_open_one_is_never_paid_twice(app, db, owner):
+    """QA on #1486: the model sends every field, `voices: []` when it has none. Another cast
+    question goes on as asked; voices sent on another card while an audition is open read
+    nothing again and leave the audition where it is."""
+    video = _video(app, db, owner)
+    open_, reads = audition.card(db, video), len(_samples(db, video))
+    danny = {"kind": "cast", "subject": "Danny", "question": "Who plays Danny?", "voices": []}
+    assert asks.asked(db, video, None, danny) == "Asked: Who plays Danny?"
+    again = {**danny, "question": "Who plays Danny now?", "voices": list(director.STAND_IN_VOICES)}
+    said = asks.asked(db, video, None, again)
+    assert said == f"Asked: Who plays Danny now? The audition is already on question {open_.id}."
+    assert len(_samples(db, video)) == reads and audition.card(db, video).id == open_.id
+
+
+def test_when_every_voice_fails_to_read_the_card_never_leaves_the_video_stuck(app, db, owner):
+    """Rule 22 (QA on #1486): every read failed, nothing charged. The card offers Read them
+    again and any voice the brand may use, unheard; the director may audition again."""
+    from app.models.jobs import JobStatus
+
+    video = _video(app, db, owner)
+    ask = audition.card(db, video)
+    for job in _samples(db, video):
+        job.status = JobStatus.failed
+    db.commit()
+    assert audition.status(db, video)["state"] == "none"  # the director may ask again
+    url = f"/asks/{ask.id}/answer"
+    card = next(c for c in owner.get(f"/projects/{video.id}/asks").json() if c["id"] == ask.id)
+    assert card["audition_failed"] and {"again", "voice"} <= set(card["can"])
+    assert "stock:Roger" in {o["id"] for o in card["saved"]}  # a voice card: the brand's voices
+    assert owner.post(url, json={"how": "again"}).status_code == 200
+    assert len(_samples(db, video)) == 6 and audition.card(db, video).id == ask.id
+    for job in _samples(db, video):
+        job.status = JobStatus.failed
+    db.commit()
+    picked = owner.post(url, json={"how": "voice", "option": "stock:Roger"})  # unheard
+    assert picked.status_code == 200 and picked.json()["voice_name"] == "Roger"
+    db.expire_all()
+    assert db.get(Project, video.id, execution_options={"see_hidden": True}).voice == "stock:Roger"

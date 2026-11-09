@@ -928,6 +928,7 @@ test("Voice audition: the cast card plays each voice reading the script, and Use
   const heard = [
     { id: "stock:English_DecentYoungMan", name: "Decent Young Man", note: "Everyday younger man", state: "succeeded", sample_file_id: 81 },
     { id: "stock:English_Jovialman", name: "Jovial Man", note: "Cheerful, chatty man", state: "running", sample_file_id: null },
+    { id: "stock:Roger", name: "Roger", note: "Relaxed man", state: "needs_owner_approval", sample_file_id: null },
   ];
   const card = ask({ subject: "Marcus", question: "Who plays Marcus?", audition: heard, audition_spent: price(0.1, 0.01), can: ["reply", "saved", "upload", "generate", "voice"] });
   const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(card), "POST /asks/7/answer": [200, { ...card, voice: heard[0].id, can: ["reply"] }] });
@@ -938,8 +939,26 @@ test("Voice audition: the cast card plays each voice reading the script, and Use
   expect(within(voices).getByRole("button", { name: "Play Decent Young Man reading your script" })).toBeEnabled();
   expect(within(voices).getByText("Reading your script…")).toBeInTheDocument(); // Jovial Man isn't read yet: no Use
   expect(within(voices).queryByRole("button", { name: "Use Jovial Man" })).toBeNull();
+  expect(within(voices).getByText("Waiting for your OK")).toBeInTheDocument(); // Roger's read waits for the owner
   await userEvent.click(within(voices).getByRole("button", { name: "Use Decent Young Man" }));
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "voice", option: "stock:English_DecentYoungMan" }));
+});
+
+test("Voice audition: when no voice reads, the card offers Read them again and any voice unheard (rule 22)", async () => {
+  setViewport(390);
+  const heard = [{ id: "stock:English_Jovialman", name: "Jovial Man", note: "Cheerful, chatty man", state: "failed", sample_file_id: null }];
+  const other = [{ id: "stock:Roger", name: "Roger", note: "Relaxed man", file_id: null, used_in: 0, sample_file_id: null, sample_url: "/voices/samples/Roger.mp3" }];
+  const card = ask({ subject: "the presenter", question: "Who plays Marcus?", audition: heard, audition_failed: true, other_voices: other, can: ["reply", "voice", "again"] });
+  const calls = server(owner, null, run({ thread: [asked()] }), { ...cards(card), "POST /asks/7/answer": [200, card] });
+  renderApp("/b/1/videos/50");
+  const found = await screen.findByRole("region", { name: "Who plays Marcus?" });
+  const voices = within(found).getByRole("group", { name: "The presenter’s voice" });
+  expect(within(voices).getByText("None of them read. Nothing was charged.")).toBeInTheDocument();
+  await userEvent.click(within(voices).getByRole("button", { name: "Read them again" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/7/answer")?.body).toEqual({ how: "again" }));
+  expect(within(voices).getByRole("button", { name: "Play Roger" })).toBeEnabled(); // its free sample
+  await userEvent.click(within(voices).getByRole("button", { name: "Use Roger" }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /asks/7/answer").map((c) => c.body)).toContainEqual({ how: "voice", option: "stock:Roger" }));
 });
 
 test("S4-01: Describe it saves a voice to the brand from words, read free in the nearest app voice", async () => {

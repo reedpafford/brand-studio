@@ -28,7 +28,7 @@ export function useAsks(projectId: number, live: boolean, wanted: number[] = [])
     refetchInterval: (q) => {
       const have = q.state.data ?? [];
       const missing = wanted.some((id) => !have.some((a) => a.id === id));
-      return live || missing || have.some((a) => a.money?.updating || ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? "")) || a.audition.some((v) => ["queued", "running"].includes(v.state))) ? 4_000 : false;
+      return live || missing || have.some((a) => a.money?.updating || ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? "")) || a.audition.some((v) => ["queued", "running", "needs_owner_approval"].includes(v.state))) ? 4_000 : false;
     },
     queryFn: () => polled(api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } }), []),
   });
@@ -142,7 +142,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const [failedUpload, setFailedUpload] = useState("");
   const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setVoiceName(""), setChanging(""), setFailedUpload(""), onDone?.()) });
   const error = act.isError || failedUpload ? <p role="alert" className="text-sm text-danger">{failedUpload || act.error?.message}</p> : null;
-  const audition = <VoiceAudition ask={a} who={a.subject || "the presenter"} busy={act.isPending} onPick={(option) => go({ how: "voice", option })} />;
+  const audition = <VoiceAudition ask={a} who={a.subject || "the presenter"} owner={owner} busy={act.isPending} onPick={(option) => go({ how: "voice", option })} onAgain={() => go({ how: "again" })} />;
 
   // Folded: answered (by you or the owner), or no longer needed (S4-03).
   if ((a.state === "answered" || a.state === "not_needed") && changing !== "answer") {
@@ -310,6 +310,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
     const shown = made.length > 0 && changing !== "options" && a.state !== "failed"; // a failed round shows nothing made
     body = (
       <>
+        {voice && audition /* a voice card: its audition first, the brand's voices after */}
         {a.kind === "story" ? (
           <div className="flex gap-2 max-lg:flex-col">
             {a.choices.map((c) => {
@@ -333,7 +334,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             </div>
           </div>
         ) : (
-          saved.length > 0 && (a.state !== "failed" || voice) && !(voice && a.audition.length) && (
+          saved.length > 0 && (a.state !== "failed" || voice) && (
             <div className="flex flex-col gap-2">
               <p className="text-xs font-semibold text-muted">{a.saved_in}</p>
               {a.kind === "voice" ? (
@@ -357,7 +358,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             </div>
           )
         )}
-        {audition}
+        {!voice && audition /* a cast card: who plays them first, then their voice */}
         {a.state === "failed" && (
           <p className="flex items-center gap-2 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
             <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
@@ -533,7 +534,7 @@ export const isOpen = (a: Ask) => OPEN.includes(a.state);
 export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }: { projectId: number; change: boolean; upTo: number | null | undefined; sentAt: string; owner: boolean; onWithdraw: () => void }) {
   const price = { credits: upTo ?? 0, usd: null };
   const ask: Ask = {
-    id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [], audition: [],
+    id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [], audition: [], voice_name: "", voice_saved: false, audition_failed: false, other_voices: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is; no generation starts until they say yes." : "The owner has been asked. No generation starts until they say yes.",
     money: { up_to: price, clips: [], sent_at: sentAt, held: "", since: "", updating: false, carry: false, what: "", over: "the budget", expected: false },

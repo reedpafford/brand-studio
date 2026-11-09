@@ -100,8 +100,12 @@ def asked(db: Session, project: Project, run_id: str | None, move: dict,
     role = _slot(db, project, subject) if kind in ("cast", "presenter") else None
     if role is not None and locked(project, role):
         return f"Refused: {role.role} is locked in this video; use that look."
-    hear = move.get("voices") if kind in AUDITIONS and audition.needed(db, project) else None
-    if hear is not None and audition.checked(hear) is None:
+    # an empty list is no audition on this card (the model sends every field, QA on #1486);
+    # with one open already, the card's own question goes on and nothing is read again
+    hear = (
+        move.get("voices") or None if kind in AUDITIONS and audition.needed(db, project) else None
+    )
+    if hear and audition.card(db, project) is None and audition.checked(hear) is None:
         return audition.TOO_FEW
     who = user or db.get(User, project.created_by_id)
 
@@ -202,6 +206,12 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
     how = body.get("how")
     if ask.kind in MONEY:
         return _money(db, user, ask, project, how)
+    if how == "again":  # every voice failed to read: read them again (app/audition.py)
+        from app import audition
+
+        audition.again(db, user, ask)
+        db.commit()
+        return
     if how == "voice":  # a voice the audition read (app/audition.py), with or without a look
         from app import audition
 
@@ -329,7 +339,10 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
     data = ask.answer or {}
     option = str(data.get("option", ""))
     if ask.kind == "voice" and option.startswith(("stock:", "voice:")):  # the video's narrator
+        from app import audition
+
         _voice(db, user, project, option)
+        audition.keep(db, project)  # an auditioned presenter's, saved on them too
         return
     if ask.kind == "product" and data.get("how") == "saved" and option.startswith("screen:"):
         shot = db.get(BrandScreen, int(option.split(":")[1]))
