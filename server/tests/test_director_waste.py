@@ -150,9 +150,11 @@ def test_a_long_note_is_trimmed_and_one_that_takes_away_what_the_prompt_shows_re
     assert db.get(ClipTake, was).watch["remake_job_id"] == made != job.id  # the take, its number
 
 
-def test_a_cut_being_made_and_a_redo_that_is_only_a_doubt_read_as_such(app, db, owner, editor):
+def test_a_cut_being_made_and_a_redo_the_server_would_refuse_read_as_such(app, db, owner,
+                                                                         editor):  # fmt: skip
     """A6: a cut being made read "out of date" (226 asked for it again), and a redo the rule
-    refuses as only a doubt was tried, paid turn and all (233 c3). The state says both."""
+    refuses (only a doubt, or no reason at all) was tried, paid turn and all (233 c3, 301 T16,
+    294's two). The state says both."""
     pid = _done(app, db, owner, editor)
     project = db.get(Project, pid)
     user = db.get(User, project.created_by_id)
@@ -164,6 +166,10 @@ def test_a_cut_being_made_and_a_redo_that_is_only_a_doubt_read_as_such(app, db, 
     db.commit()
     clip = next(c for c in director.video_state(db, project)["clips"] if c["clip_id"] == "c1")
     assert clip["redo"] == director.REDO_NEEDS
+    job.output = {**job.output, "checked": []}  # 301 T16: nothing found, a remake refused
+    db.commit()
+    clip = next(c for c in director.video_state(db, project)["clips"] if c["clip_id"] == "c1")
+    assert clip["redo"] == director.REDO_NEEDS  # said before the turn, as for a doubt
     assert director_tools.run(db, user, project, {"tool": "final_cut"}, app.state.storage, {})
     db.commit()
     assert director.video_state(db, project)["cut"] == "being made"

@@ -1772,6 +1772,19 @@ def test_the_treatment_never_varies_from_the_script():
     )
 
 
+def test_the_treatment_check_never_redoes_a_treatment_for_blank_lines_or_a_quotes_comma():
+    """301 and 293 paid for a second treatment the first didn't need: its beats ran over the
+    script's blank lines ("lines 2–6"), and a quote kept the comma where the speech went on."""
+    script = ("INT. KITCHEN - NIGHT\n\nMAYA\nI just copied one trader... and I'm up!\n\n"
+              "MARCUS: He was the crypto guy. Not anymore.")  # fmt: skip
+    beats = [{"id": "b1", "lines": [1, 2, 3, 4, 5], "purpose": "hook", "picture": "x"},
+             {"id": "b2", "lines": [6], "purpose": "payoff",
+              "picture": 'He says "the crypto guy," and grins.'}]  # fmt: skip
+    made = {"hook": "x", "logline": "x", "why_it_holds": "x", "ending": "x", "beats": beats}
+    assert check.treatment(made, script) == []
+    assert check.treatment({**made, "beats": beats[1:]}, script)  # a line left out still is
+
+
 def test_reeds_batch_4_craft_notes_reach_the_steps():
     """FOMO-Producer's batch 4 (Reed, 2 Nov): "scenes don't make sense… we are missing little
     actions that connect clips", and the screen line didn't show the coin. As craft, never story

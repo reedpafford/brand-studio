@@ -168,3 +168,53 @@ def test_the_server_never_takes_its_own_step_twice_running(app, db, owner, edito
     run = {"id": "r"}
     assert director._auto(db, project, run, {}, mine) is None
     assert director._auto(db, project, run, {}, theirs) == {"tool": "clip_prompts"}
+
+
+def _steps(db, pid, since: int = 0) -> list[tuple[str, bool]]:
+    """Each turn's tool, and whether the server took it (no Claude call)."""
+    return [((t.output or {}).get("tool"), bool(t.input.get(director_auto.SAID)))
+            for t in _turns(db, pid) if t.id > since]  # fmt: skip
+
+
+def test_the_cut_is_made_again_by_the_server_once_each_fault_has_its_fix(app, db, owner, editor,
+                                                                         monkeypatch):  # fmt: skip
+    """301 (T18, T21): a turn paid only to make the cut again after the director's own fix.
+    The first watch finds two faults (remake clip 1, mute a sound in clip 2), the next only
+    the sound: after the kept remake the sound has no fix, so the cut is the director's call;
+    after the mute every fault has its fix and the server cuts."""
+    from app.providers.fake_local import FakeWriter
+
+    real, seen = FakeWriter._watch_cut, []
+
+    def watch(self, prompt):
+        out = real(self, prompt)
+        seen.append(out)
+        return out if len(seen) == 1 else {**out, "findings": out["findings"][1:]}
+
+    monkeypatch.setattr(FakeWriter, "_watch_cut", watch)
+    monkeypatch.setattr("app.item_checks.verdict", lambda checks: "clean")  # each take kept
+    pid = _two_clips(app, owner, editor)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db)
+    assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+    steps = _steps(db, pid)
+    redo, mute = steps.index(("make_take", False)), steps.index(("mute", False))
+    assert steps[redo + 1] == ("final_cut", False), steps  # a fault still open: its call
+    assert steps[mute + 1] == ("final_cut", True), steps
+
+
+def test_a_one_clip_revision_costs_the_director_two_calls(app, db, owner, editor, monkeypatch):
+    """Video 294's revision: 72% of its Claude was director turns. The take it asked for before
+    Make it is made once Make it is pressed, with no second ask, and with its note answered
+    the new cut and its watch are the server's: the director asks and delivers, nothing else."""
+    from tests.test_free_revisions import _delivered
+
+    monkeypatch.setattr("app.item_checks.verdict", lambda checks: "clean")  # each take kept
+    pid = _delivered(app, db, owner, editor)
+    first = _turns(db, pid)[-1].id
+    owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 brighter."})
+    _run(app, db)
+    assert owner.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+    assert _steps(db, pid, first) == [("make_take", False), ("make_take", True),
+                                      ("final_cut", True), ("watch_cut", True),
+                                      ("deliver", False)]  # fmt: skip
