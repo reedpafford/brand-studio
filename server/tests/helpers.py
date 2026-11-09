@@ -191,14 +191,34 @@ def approve_cast(client, project) -> dict:
     return done.json()
 
 
+def pick_voice_when_asked(db) -> None:
+    """A presenter's voice audition (app/audition.py) gets its first voice from the video's
+    maker, once every voice has read, as they would after listening."""
+    from app import asks, audition
+    from app.models.accounts import User
+    from app.models.jobs import Job
+    from app.models.projects import Project
+
+    step = Job.input["step"].as_string()
+    for pid in {j.project_id for j in db.query(Job).filter(step == audition.STEP)}:
+        project = db.get(Project, pid)
+        card = audition.card(db, project) if audition.needed(db, project) else None
+        heard = audition.samples(db, card) if card else []
+        if heard and all(s["sample_file_id"] for s in heard):
+            maker = db.get(User, project.created_by_id)
+            asks.answer(db, maker, card, {"how": "voice", "option": heard[0]["id"]})
+
+
 def ok_when_asked(db) -> None:
     """The person a director run belongs to approves its cast and places once it waits on
-    them (director.CAST_WAIT), as they would in Cast after looking: the whole set as shown."""
+    them (director.CAST_WAIT), as they would in Cast after looking: the whole set as shown;
+    and picks a presenter's voice at its audition."""
     from app import cast_gate, director
     from app.models.accounts import User
     from app.models.jobs import Job
     from app.models.projects import Project
 
+    pick_voice_when_asked(db)
     step = Job.input["step"].as_string()
     waiting: dict[int, Job] = {}  # each video once, by its first turn waiting on it (reading
     for job in db.query(Job).filter(step == director.STEP).order_by(Job.id).all():  # is slow)

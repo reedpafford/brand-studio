@@ -5289,7 +5289,8 @@ export interface paths {
         put?: never;
         /**
          * Make Video Songs
-         * @description More takes for this video only, charged to its budget (or the editor's week).
+         * @description More takes for this video only, charged to its budget (or the editor's week). A
+         *     narration is read in the video's own voice; a presenter's waits for their audition.
          */
         post: operations["make_video_songs_projects__project_id__songs_post"];
         delete?: never;
@@ -6413,6 +6414,34 @@ export interface components {
              */
             options: components["schemas"]["MadeOption"][];
             options_spent?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Audition
+             * @default []
+             */
+            audition: components["schemas"]["Audition"][];
+            audition_spent?: components["schemas"]["AskPrice"] | null;
+            /** Voice */
+            voice?: string | null;
+            /**
+             * Voice Name
+             * @default
+             */
+            voice_name: string;
+            /**
+             * Voice Saved
+             * @default false
+             */
+            voice_saved: boolean;
+            /**
+             * Audition Failed
+             * @default false
+             */
+            audition_failed: boolean;
+            /**
+             * Other Voices
+             * @default []
+             */
+            other_voices: components["schemas"]["SavedOption"][];
             /** Answer */
             answer?: {
                 [key: string]: unknown;
@@ -6525,6 +6554,25 @@ export interface components {
              * @default false
              */
             script_unlock: boolean;
+        };
+        /**
+         * Audition
+         * @description A voice the director put up for a presenter, reading the script's opening (app/audition).
+         */
+        Audition: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** State */
+            state: string;
+            /** Sample File Id */
+            sample_file_id?: number | null;
         };
         /** AutoFixOut */
         AutoFixOut: {

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import ask_options, asks, director, hidden, locked_line
+from app import ask_options, asks, audition, director, hidden, locked_line
 from app.auth import current_user
 from app.credits import USD_PER_CREDIT, budget, budget_used, price, uncapped
 from app.db import get_db
@@ -41,6 +41,16 @@ class SavedOption(BaseModel):
 class AskPrice(BaseModel):
     credits: float
     usd: float | None = None  # the owner only
+
+
+class Audition(BaseModel):
+    """A voice the director put up for a presenter, reading the script's opening (app/audition)."""
+
+    id: str  # "stock:English_Jovialman": the answer's `option` with how "voice"
+    name: str
+    note: str = ""  # what it sounds like
+    state: str  # its read's job: queued, running, succeeded, failed, needs_owner_approval
+    sample_file_id: int | None = None  # once read
 
 
 class StoryChoice(BaseModel):
@@ -115,6 +125,13 @@ class AskOut(BaseModel):
     )
     options: list[MadeOption] = []
     options_spent: AskPrice | None = None  # "$0.18 spent"
+    audition: list[Audition] = []  # a presenter's voices, each reading the opening
+    audition_spent: AskPrice | None = None  # what their reads cost
+    voice: str | None = None  # the audition's pick, once made ("stock:<key>", "voice:<id>")
+    voice_name: str = ""  # its name
+    voice_saved: bool = False  # saved on the presenter in the library, for their next video
+    audition_failed: bool = False  # every voice failed to read: Read them again, or pick unheard
+    other_voices: list[SavedOption] = []  # then: every voice this brand may use
     answer: dict | None = None  # {how, option, name, file_id, text, choice, reused}
     answered_by: str = ""  # a name; "" for the director's own pick or a saved item reused
     answered_at: UtcTime | None = None
@@ -125,7 +142,8 @@ class AskOut(BaseModel):
 
 
 class AnswerIn(BaseModel):
-    how: str  # saved, upload, reply, option, choice, clone, describe; make_it, approve, keep,
+    how: str  # saved, upload, reply, option, choice, clone, describe, voice (an audition's
+    # pick: `option` "stock:<key>"); make_it, approve, keep,
     # decline, withdraw (clone: `file_id` an audio sample, `text` the voice's name; describe:
     # `text` what the voice sounds like, `name` the brand's name for it)
     option: str | int | None = None  # a saved id, or a generated option's index
@@ -184,8 +202,25 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
 
         card.clone = _price(user, voices.clone_credits(db, project.workspace_id))
         card.clone_to = f"Saved to {db.get(Brand, project.brand_id).name}'s voices"
+    if heard := audition.samples(db, ask):
+        card.audition = [Audition(**{k: v for k, v in s.items() if k != "credits"})
+                         for s in heard]  # fmt: skip
+        made = [s["credits"] for s in heard if s["state"] == str(JobStatus.succeeded)]
+        card.audition_spent = _price(user, sum(made, Decimal(0)))
+        chosen = project.voice if not audition.needed(db, project) else None
+        card.voice = chosen if chosen and audition.auditioned(db, project) else None
+        card.voice_name = audition.others(db, project).get(card.voice or "", "")
+        card.voice_saved = bool(card.voice) and audition.saved_on(db, project)
+        card.audition_failed = audition.failed(db, ask)
+        if card.audition_failed and not card.voice and ask.kind != "voice":  # its own ways on:
+            card.other_voices = [SavedOption(**o) for o in  # any voice, unheard
+                                 ask_options.saved(db, project, "voice")]  # fmt: skip
+        card.subject = ask.subject  # whose voice it is, as the card says it
     if mine and state != "not_needed":
         card.can = ["describe" if ask.kind == "voice" else "reply"]  # a voice: Describe it
+        card.can += ["voice"] if card.audition and not card.voice else []  # the audition's pick
+        again = card.audition_failed and not card.voice and audition.card(db, project) is None
+        card.can += ["again"] if again else []  # not once the director auditions again
         card.can += ["saved"] if card.saved else []
         card.can += ["upload"] if ask.kind in asks.UPLOADS else []
         card.can += ["choice"] if ask.kind == "story" else []

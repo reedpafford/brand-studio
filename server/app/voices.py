@@ -52,14 +52,21 @@ ABOUT = {
     "Alexandra": ("Alexandra", "Natural woman's voice"),
     "Hope": ("Hope", "Natural woman's voice"),
     "Jane": ("Jane", "Natural woman's voice"),
-    "Austin": ("Austin", "Deep man, about 81 Hz"),
-    "Roger": ("Roger", "Relaxed man, about 115 Hz"),
-    "English_FriendlyPerson": ("Friendly Guy", "Friendly man, a UGC talker's default"),
+    "Austin": ("Austin", "Deep man"),
+    "Roger": ("Roger", "Relaxed man"),
+    "English_FriendlyPerson": ("Friendly Guy", "Deep, polished man"),
     "English_Trustworth_Man": ("Trustworthy Man", "Steady, trustworthy man"),
     "English_Upbeat_Woman": ("Upbeat Woman", "Upbeat woman"),
     "English_ConfidentWoman": ("Confident Woman", "Confident woman"),
-    "English_Graceful_Lady": ("Graceful Lady", "Older woman, low and warm, about 186 Hz"),
+    "English_Graceful_Lady": ("Graceful Lady", "Older woman, low and warm"),
+    "English_DecentYoungMan": ("Decent Young Man", "Everyday younger man"),
+    "English_Jovialman": ("Jovial Man", "Cheerful, chatty man"),
+    "English_Diligent_Man": ("Diligent Man", "Earnest, everyday man"),
 }
+# Each voice's speaking pitch in Hz, where a test measured it (presenter-1, th-20s, and the UGC
+# diagnosis' listening test, 9 Nov): for the director's choice only; cards say it in words
+PITCH = {"Austin": 81, "English_FriendlyPerson": 89, "English_Trustworth_Man": 101,
+         "Roger": 115, "English_Graceful_Lady": 186}  # fmt: skip
 # What each app voice sounds like, as a description can name it (ABOUT's own words; no app
 # voice's accent is known, so none is claimed): its gender, "older" where that's known, tones.
 TRAITS = {
@@ -74,6 +81,9 @@ TRAITS = {
     "English_Upbeat_Woman": ("woman", "", {"upbeat"}),
     "English_ConfidentWoman": ("woman", "", {"confident"}),
     "English_Graceful_Lady": ("woman", "older", {"deep", "warm"}),
+    "English_DecentYoungMan": ("man", "", {"natural"}),
+    "English_Jovialman": ("man", "", {"friendly", "upbeat"}),
+    "English_Diligent_Man": ("man", "", {"steady"}),
 }
 WORDS = {  # a description's words, as those tones
     "warm": ("warm", "cozy", "kind", "gentle", "soft", "motherly", "caring", "sweet"),

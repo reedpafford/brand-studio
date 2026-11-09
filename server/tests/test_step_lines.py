@@ -80,9 +80,10 @@ def test_a_presenters_cast_line_names_the_presenter_and_the_voice(app, db, owner
         said
         == f"Cast: Dr. Pickle, Mom and Nate, all saved in {brand.name}; read in the Roger voice"
     )
-    project.voice = None  # no voice of its own and no style voice: the narrator's default
+    project.voice = None  # no voice of its own and no style voice: none until its audition
     db.commit()
-    assert _step(owner, pid, "cast")["text"].endswith("; read in the Sarah voice")
+    assert _step(owner, pid, "cast")["text"] == f"Cast: Dr. Pickle, Mom and Nate, all saved in {
+        brand.name}"  # fmt: skip
     job = db.query(Job).filter_by(project_id=pid).first()
     take = SongTake(draft_id=project.script_draft_id, project_id=pid, number=1, kind="narration",
                     voice="Roger", job_id=job.id, lyrics="", style_line="")  # fmt: skip

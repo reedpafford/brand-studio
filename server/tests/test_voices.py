@@ -81,7 +81,8 @@ def test_every_app_voice_is_listed_with_a_free_sample_where_a_test_made_one(owne
     assert listed["Roger"]["provider"] == "elevenlabs"
     assert listed["Roger"]["sample_url"] == "/voices/samples/Roger.mp3"
     assert listed["English_FriendlyPerson"]["provider"] == "minimax"
-    assert all(v["sample_url"] for v in listed.values())  # every app voice has its free sample
+    unheard = {"English_DecentYoungMan", "English_Jovialman", "English_Diligent_Man"}  # 9 Nov:
+    assert {k for k, v in listed.items() if not v["sample_url"]} == unheard  # heard at auditions
     assert _list(editor, brand, all=True)["voices"] == _list(editor, brand)["voices"]
     assert _list(editor, brand)["clone_usd"] is None  # editors never see dollars
     assert editor.get("/voices/samples/..%2Fvoices.mp3").status_code == 404
@@ -420,7 +421,7 @@ def test_a_description_picks_the_nearest_app_voice_the_same_way_every_time():
         "deep male voice": "Austin",
         "tired dad in his 50s": "Roger",  # a man, relaxed; no older man to prefer
         "calm man, serious": "English_Trustworth_Man",
-        "young guy, chatty": "English_FriendlyPerson",
+        "young guy, chatty": "English_Jovialman",  # chatty and young, not a deep narrator
         "confident woman": "English_ConfidentWoman",
         "a 25 year old woman, warm": "Sarah",  # young: never the older lady
         "a 35 year old woman, warm": "Sarah",  # "year old" is an age, not "older"

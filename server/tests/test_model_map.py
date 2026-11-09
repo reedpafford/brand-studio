@@ -222,36 +222,6 @@ def test_a_ugc_talker_in_one_spot_is_heygen_one_who_moves_and_the_broll_are_omni
     assert move(talking, "seedance-2.0") == model_map.REAL
 
 
-def test_a_ugc_presenter_in_one_spot_reads_in_the_minimax_voice_unless_one_is_chosen(
-    app, db, owner, ugc, monkeypatch
-):
-    """Reed, 6 Nov: a talker in one spot the whole time is HeyGen with the MiniMax voice, so a
-    UGC presenter in a corner gets the same default as one talking to camera, and the director
-    is told (`minimax` in its `host`). A person's pick or the presenter's own saved voice still
-    wins; a presenter who acts, or one in another style, keeps narration's default."""
-    from app import director, director_song, narration
-
-    for way in ("talks", "corner"):
-        ugc.presenter = way
-        db.flush()
-        assert director_song._voice(db, ugc) == talker.VOICE, way
-        assert director.video_state(db, ugc)["host"]["minimax"] is True, way
-    ugc.presenter = "acts"
-    db.flush()
-    assert director_song._voice(db, ugc) == narration.VOICE
-    ugc.presenter, ugc.look = "corner", "house"
-    db.flush()
-    assert director_song._voice(db, ugc) == narration.VOICE
-    assert "minimax" not in director.video_state(db, ugc)["host"]
-    ugc.look = "ugc"
-    own = type("Presenter", (), {"id": 1, "voice_id": None, "voice_stock_key": "Roger"})()
-    monkeypatch.setattr(host, "host_look", lambda db, p: own)  # their own saved voice
-    assert director_song._voice(db, ugc) == "Roger"
-    ugc.voice = "stock:English_Graceful_Lady"  # a person's pick, as the settings save it
-    db.flush()
-    assert director_song._voice(db, ugc) == "English_Graceful_Lady"
-
-
 def test_the_animated_styles_clips_stay_on_seedance(app, db, owner, ugc):
     """Reed, 6 Nov: "keep seedance for the animated and expression-full ones for now": House
     and Disney Pixar on Seedance 2.5, Skeleton on 2.0. There the director may still put a
