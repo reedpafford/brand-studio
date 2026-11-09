@@ -37,6 +37,7 @@ from app.models.songs import SongTake
 
 STEP = "cut_make"
 MIN = 0.5  # seconds: the shortest piece
+GONE = 0.05  # seconds: an ending trimmed this short drops its last piece
 LEAD, TAIL = 0.15, 0.3  # re-timed to the words: a breath before the first word and after
 SNAP = 0.5  # Snap to words: an edge this near a word's edge lands on it
 HOLD = 3.0  # seconds a narrated cut may run past its last word
@@ -280,7 +281,11 @@ def _one(tl: dict, e: CutEdit) -> None:
         if any(synced(q) and q["from"] + q["end"] - q["start"] > q["picture"] + 0.02
                for q in pieces):  # fmt: skip
             raise Refused(SYNCED_LONG)  # slowed to fill, its lips would fall behind
-        if any(q["end"] - q["start"] < MIN - 0.01 for q in pieces):
+        ending = d.get("ending") and p is pieces[-1]  # the ending's trim: its tail may all go
+        if ending and p["end"] - p["start"] < GONE:
+            pieces.pop()  # nothing worth keeping is left: the cut ends on the piece before
+        stay = pieces[:-1] if ending else pieces  # MIN is for pieces that stay (video 293)
+        if any(q["end"] - q["start"] < MIN - 0.01 for q in stay) or not pieces:
             raise Refused(TOO_SHORT)
         _place(tl)
         return
