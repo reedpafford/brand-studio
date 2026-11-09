@@ -20,7 +20,7 @@
       "image": {"type": "string", "format": "uri", "description": "Starting image to animate; the first frame with last_frame."},
       "last_frame": {"type": "string", "format": "uri", "description": "With image, the model fills in the motion between them (up to 10 s)."},
       "reference_images": {"type": "array", "items": {"type": "string", "format": "uri"}, "description": "Pass up to 6 reference images of a character, product or style; they keep the subject consistent, not literal frames. Can't be combined with image or last_frame."},
-      "video": {"type": "string", "format": "uri", "description": "Edit an existing video of up to 15 seconds. Can't be combined with any image input."}
+      "video": {"type": "string", "format": "uri", "description": "Edit an existing video of up to 15 seconds. Can't be combined with any image input. The output keeps the length and framing of the source video, so duration and aspect_ratio don't apply (README, read 9 Nov)."}
     }
   }
 }

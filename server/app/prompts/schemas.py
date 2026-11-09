@@ -965,6 +965,17 @@ class DirectorTurn(Strict):
         "concise words. At most 500 characters (a talker's motion 600, add_sound 300): a "
         "longer one is refused, never cut.",
     )
+    edit_take: bool = Field(
+        default=False,
+        description="For make_take as a redo of a clip whose take is on Gemini Omni 1.2: true "
+        "edits that take with the note (Omni's edit, the same price a second as a take: only "
+        "what the note says changes, and the acting, timing and voice stay) instead of making "
+        "a new one. Your judgment, not a rule: worth it when the take is nearly right and its "
+        "fault is small and visual (the light, a prop, a wardrobe detail, something in the "
+        "background); a wrong word, delivery or timing, or a take that's weak overall, needs a "
+        "new take. A note that changes what's said or the timing is made a new take anyway, "
+        "and the result says why. Else false.",
+    )
     edit: CutMove | None = Field(
         default=None, description="For edit_cut: the one edit (free). Else null."
     )

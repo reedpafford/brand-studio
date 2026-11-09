@@ -24,6 +24,14 @@ class Price(BaseModel):
     gpu_usd_per_second: Decimal | None = None  # billed by GPU time: the real cost is its run time
 
 
+class Edit(BaseModel):
+    """A model that edits a clip it's given (Omni 1.2's `video`): how long, and its price."""
+
+    max_seconds: int
+    price: Price
+    price_source: str
+
+
 class CatalogueModel(BaseModel):
     id: str
     name: str
@@ -52,6 +60,7 @@ class CatalogueModel(BaseModel):
     prompt_target: int = 0
     price: Price
     price_source: str
+    edit: Edit | None = None
 
     @property
     def take_resolution(self) -> str:
@@ -61,16 +70,16 @@ class CatalogueModel(BaseModel):
             return "480p"
         return min(self.resolutions, key=lambda r: int(r[:-1]) * (1000 if r.endswith("k") else 1))
 
-    def usd_per_unit(self, resolution: str | None = None) -> Decimal:
-        usd = self.price.usd
+    def usd_per_unit(self, resolution: str | None = None, edit: bool = False) -> Decimal:
+        usd = (self.edit.price if edit and self.edit else self.price).usd
         if "any" in usd:
             return usd["any"]
         if resolution not in usd:
             raise ValueError(f"{self.name} has no {resolution!r} resolution.")
         return usd[resolution]
 
-    def credits_per_unit(self, resolution: str | None = None) -> Decimal:
-        credits = self.usd_per_unit(resolution) / USD_PER_CREDIT
+    def credits_per_unit(self, resolution: str | None = None, edit: bool = False) -> Decimal:
+        credits = self.usd_per_unit(resolution, edit) / USD_PER_CREDIT
         return credits.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 

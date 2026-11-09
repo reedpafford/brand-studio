@@ -709,9 +709,10 @@ def _with_note(prompt: str, note: str) -> str:
     return "\n".join([*lines[:-1], f"Change from the last take: {note} {keep}", lines[-1]])
 
 
-def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
+def take_credits(db: Session, project: Project, clip: ProjectClip, edit: bool = False) -> Decimal:
     """What one more take costs: the estimate `enqueue` charges, and the director's watch of
-    it that rides along while watches are on (`take_watch.rides`)."""
+    it that rides along while watches are on (`take_watch.rides`). `edit`: an edit of its take
+    (Omni's, `change.editable`), at the edit's price on the same seconds."""
     from app import take_watch, talker
 
     if talker.says(db, project, clip):  # cut from the talker's one HeyGen take (video 281)
@@ -719,7 +720,7 @@ def take_credits(db: Session, project: Project, clip: ProjectClip) -> Decimal:
 
         return host.price(db, project, 1)
     m = model_map.of_clip(project, clip)
-    job = {"model": m.id, "input": {"resolution": model_map.resolution(m)}}
+    job = {"model": m.id, "edit": edit, "input": {"resolution": model_map.resolution(m)}}
     seconds = model_map.billed(m, clip.seconds)  # as it's asked for on its own model
     take = estimate(db, project.workspace_id, "video", Decimal(seconds), job)
     return take + take_watch.rides(db, project, clip)

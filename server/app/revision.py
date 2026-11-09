@@ -68,6 +68,18 @@ def revision(db: Session, video, ended: bool = False) -> tuple[list[ProjectClip]
     return clips, len(looks)
 
 
+def edited(db: Session, video, clips: list[ProjectClip]) -> list[ProjectClip]:
+    """The clips of a revision an Omni edit changes rather than makes again (`change.editable`
+    on its notes: a take on Omni, notes about what's seen, never the words or timing): no
+    still is drawn for them, and each costs an edit."""
+    from app import change, director
+
+    rows = director.all_turns(db, video.id)
+    run = (rows[-1].input.get(director.RUN) or {}) if rows else {}
+    said = " ".join(m["text"] for m in director.chat(video, run.get("id")))
+    return [c for c in clips if change.editable(db, video, c, said)[0]]
+
+
 def _showing(db: Session, video: Project, bd, names: set) -> set[str]:
     """The clips whose shots show these people, as the Cast tab lists them (their role, its
     look, or a look of that name)."""

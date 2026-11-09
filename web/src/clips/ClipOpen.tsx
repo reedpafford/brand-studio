@@ -169,10 +169,13 @@ function Inserts({ p, clip, onDone }: { p: Project; clip: Clip; onDone: () => Pr
 /** The last Change this… (or a still change's take) as it stands: being made, made nothing, or stopped and why, with the
  *  press that tries again (rule 22). */
 function ChangeLine({ clip, busy, onAgain }: { clip: Clip; busy: boolean; onAgain: (note: string) => void }) {
-  const c = clip.change as { status?: string; note?: string; error?: string } | null;
+  const c = clip.change as { status?: string; note?: string; error?: string; how?: string } | null;
   if (!c?.status) return null;
-  if (c.status === "changing") return <p role="status" className="rounded-lg bg-surface-2 px-3 py-2 text-sm">Changing it: “{c.note}”…</p>;
+  // how: an Omni edit of the take, or why it's a new take instead (Reed, 9 Nov)
+  const how = c.how ? <span className="block text-muted">{c.how}</span> : null;
+  if (c.status === "changing") return <p role="status" className="rounded-lg bg-surface-2 px-3 py-2 text-sm">Changing it: “{c.note}”…{how}</p>;
   if (c.status === "unchanged") return <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm text-muted">Your note “{c.note}” left the prompt as it was, so nothing was made or charged.</p>;
+  if (c.status === "done" && how) return <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm">{how}</p>;
   if (c.status !== "failed") return null;
   return (
     <div className="flex flex-col items-start gap-2 rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger">

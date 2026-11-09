@@ -27,7 +27,10 @@ Our catalogue still has Omni **1.1** (`gemini-omni-1.1`, fixed 10 s, talker-only
 - **Not available:** an audio input (it can't lip-sync to our voice track), a seed, a negative-prompt field, a
   sound on/off switch [Rep][API]. Sound is always made; control it in the prompt words.
 - **Edits and extensions** (Google API; check Replicate's schema for which it exposes) [API]:
-  - Edit a clip up to 15 s; edits keep the source's length and shape.
+  - Edit a clip up to 15 s; edits keep the source's length and shape. Replicate exposes it as `video`
+    (its README, read 9 Nov: `duration` and `aspect_ratio` don't apply to an edit; no image input with it).
+    No separate edit price on Replicate's page or Google's (billed by output), so we price it as a take
+    a second (catalogue `edit`).
   - Extend from the last 10 s of a clip, 3–10 s per turn, 30 s total. Speech can continue when extending a
     clip Omni made, not an uploaded one.
 - **Price on Replicate: $0.11 a second at 720p**, what we use (the model page, read by Reed 6 Nov): $1.10 for
@@ -116,7 +119,7 @@ Our catalogue still has Omni **1.1** (`gemini-omni-1.1`, fixed 10 s, talker-only
 | 4 | At most 3 images a person, 2 people | `reference_images[: max_reference_images]` cuts the list without regard to people | Cap per person and per clip; a shot with 3+ cast needs another plan (wide, or Seedance) | must |
 | 5 | Sound always made; say "no music" / "no dialogue" in words | Seedance's audio line ("No music, background music, BGM…") | Short Omni audio line; quoted speech with the speaker named | should |
 | 6 | Multi-shot by default | Seedance shot list (fine), but single-shot clips don't say "one continuous shot" | Add it when a clip is one shot | should |
-| 7 | Edit a made clip with `video` + "keep everything else the same" | "Change this…" on a take always makes a new take from the prompt | Use an Omni edit for a small change to a take that's nearly right (a wardrobe colour, a prop, the light, night instead of day, a background), keeping the acting, timing and voice. Billed like a take (inference: per second of output). The person still sees the price first (rule 24) and the old take stays | should (Reed, 6 Nov: "It might even help with editing") |
+| 7 | Edit a made clip with `video` + "keep everything else the same" | "Change this…" on a take always makes a new take from the prompt | Use an Omni edit for a small change to a take that's nearly right (a wardrobe colour, a prop, the light, night instead of day, a background), keeping the acting, timing and voice. Billed like a take (inference: per second of output). The person still sees the price first (rule 24) and the old take stays | **built** (Reed, 9 Nov: `change.editable`; the director's `edit_take`) |
 | 8 | No voice input or cross-clip voice control | — | Movie: write each character's voice the same way in every clip; test whether it holds (Movie spec test 2) | must for Movie |
 
 Reed's 6 Nov plan (in the style-verification session): Omni 1.2 for B-roll overlay clips, Movie, and anything

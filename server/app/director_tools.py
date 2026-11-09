@@ -164,7 +164,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             from app.director import against_notes, chat
 
             held, asked = 0, watch_cut.redo_findings(db, project, run)  # what the cut's watch found
-            rewritten, asked_note = [], (decision.get("note") or "").strip()
+            rewritten, hows, asked_note = [], [], (decision.get("note") or "").strip()
             fitting: list[str] = []  # prompts too long for their model, rewritten first
             notes = list(enumerate((m["text"] for m in chat(project, (run or {}).get("id"))), 1))
             first = [r for r in rows if not r.picked_take_id]
@@ -195,12 +195,16 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=asked_note)
                 try:
-                    if row.picked_take_id and contradicts(row.prompt, note.note):
+                    edit = decision.get("edit_take") and note.note
+                    if row.picked_take_id and (edit or contradicts(row.prompt, note.note)):
                         # A7: "no phone" under a prompt with the phone: appended, both stay and
-                        # the take can't win; Change it… rewrites the prompt, then the take
+                        # the take can't win; Change it… rewrites the prompt, then the take.
+                        # An Omni edit goes the same way (`change.editable`), saying how.
                         body = storyboard.ChangeIn(note=note.note)
                         job = project_clips.change_clip(clip_id=row.id, body=body, **me)
                         rewritten.append(row.clip_id)
+                        if how := (row.change or {}).get("how"):
+                            hows.append(f"{row.clip_id}: {how}")
                     else:
                         job = project_clips.generate(clip_id=row.id, request=request, body=note,
                                                      **me)  # fmt: skip
@@ -228,6 +232,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             said += f" {fit}" if fitting else ""
             said += (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
                      "is rewritten with it first." if rewritten else "")  # fmt: skip
+            said += "".join(f" {h}" for h in hows)  # an Omni edit, or why a new take instead
             return said + (f" {_against(waits)}" if waits else "")
         if tool == "pick_take":
             (row,) = _clips(db, pid, decision.get("clip_id"))

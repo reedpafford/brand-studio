@@ -131,7 +131,7 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     from app import director, narration, take_watch
 
     if change := revision(db, video):  # its clips made again, never the whole video's (F15)
-        return (_work(db, video, change) + director.own_limit()
+        return (_work(db, video, change, edits=False) + director.own_limit()
                 + director.MAX_REDOS * clip_takes.takes_price(db, video, change[0]))  # fmt: skip
     script = db.get(Script, draft.script_id)
     ws = script.workspace_id
@@ -212,14 +212,24 @@ def turn_price(db: Session, ws: int) -> Decimal:
     return usd_to_credits(usd) if n >= MEASURED else rate
 
 
-def _work(db: Session, video: Project, change: tuple[list[ProjectClip], int]) -> Decimal:
-    """A revision's own work: its looks, its clips' stills drawn again, a take of each."""
+def _work(db: Session, video: Project, change: tuple[list[ProjectClip], int],
+          edits: bool = True) -> Decimal:  # fmt: skip
+    """A revision's own work: its looks, its clips' stills drawn again, a take of each; a
+    clip its notes edit (`revision.edited`, unless `edits` is off: the run's "up to") costs an
+    edit, with no still."""
+    from app.revision import edited
     from app.sheets import look_price
 
     clips, looks = change
     ws = video.workspace_id
-    return (looks * look_price(db, ws) + _shots(db, video, clips) * _still(db, ws, video)
-            + clip_takes.takes_price(db, video, clips))  # fmt: skip
+    edit = edited(db, video, clips) if edits else []
+    made = [c for c in clips if c not in edit]
+    return (
+        looks * look_price(db, ws)
+        + _shots(db, video, made) * _still(db, ws, video)
+        + clip_takes.takes_price(db, video, made)
+        + sum((clip_takes.take_credits(db, video, c, edit=True) for c in edit), Decimal(0))
+    )
 
 
 def _shots(db: Session, video: Project, clips: list[ProjectClip]) -> int:
