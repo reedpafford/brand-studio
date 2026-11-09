@@ -238,9 +238,15 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
 
 
 def _with_line(data: dict, found: dict) -> dict:
-    """The plan with the changed line's words in its shots (a spoken shot's `line`)."""
+    """The plan with the changed line's words in its shots (a spoken shot's `line`), never a
+    note in brackets, as `Shot.line` reads it."""
+    from app.prompts import without_notes
+
+    def new(line: str) -> str:
+        return without_notes(_replaced(line, found["old"], found["new"]))
+
     n = found["line"]
-    scenes = [{**sc, "shots": [{**s, "line": _replaced(s["line"], found["old"], found["new"])}
+    scenes = [{**sc, "shots": [{**s, "line": new(s["line"])}
                                if n in (s.get("script_lines") or []) and s.get("line") else s
                                for s in sc["shots"]]} for sc in data.get("scenes", [])]  # fmt: skip
     return {**data, "scenes": scenes}

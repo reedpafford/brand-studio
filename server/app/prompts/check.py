@@ -957,7 +957,7 @@ def redo_note(note: str, bd: Breakdown, clip_id: str) -> list[str]:
     known = {_first(shot.speaker) for shot in shots.values() if shot.speaker}
     problems = []
     for quote in QUOTED.findall(note):
-        if _exact(quote) not in lines:
+        if _exact(without_notes(quote)) not in lines:  # quoted with its note: still the line
             problems.append(
                 f"The note quotes “{quote}”, which nobody says in this clip. A note can change "
                 "how a line is said, never its words."

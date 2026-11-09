@@ -4,12 +4,22 @@
 
 import copy
 import json
+from types import SimpleNamespace
 
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 
-from app import breakdown_fix, director_song, locked_line, narration, take_words, watch_cut
+from app import (
+    audition,
+    breakdown_fix,
+    director_song,
+    line_change,
+    locked_line,
+    narration,
+    take_words,
+    watch_cut,
+)
 from app.models.songs import SongTake
 from app.prompts import check, number_lines, spoken_words
 from app.prompts.schemas import (
@@ -30,9 +40,13 @@ PROSE = (
 SAID = "My gut was a mess.\nI said no.\nThen came the greens."
 
 
-def test_the_narrator_never_reads_a_note():
+def test_the_narrator_never_reads_a_note(monkeypatch):
     assert check.narration_text(PROSE) == SAID
     assert narration.job(PROSE)["input"]["prompt"] == SAID  # the talker's take says the same
+    monkeypatch.setattr("app.song_takes.words", lambda db, draft, project: PROSE)
+    monkeypatch.setattr("app.talker.minimax", lambda db, project: False)
+    drafts = SimpleNamespace(get=lambda model, n: object())  # the voice audition reads it too
+    assert audition.line(drafts, SimpleNamespace(script_draft_id=1)) == " ".join(SAID.split("\n"))
     vo = "SCENE 1\nBISCUIT (V.O.): Day one.\n[cut to the bowl]\nBISCUIT (V.O.): Nope [beat] gone."
     assert check.narration_text(vo) == "Day one.\nNope gone."
 
@@ -67,6 +81,13 @@ def test_a_shot_line_drops_its_note_and_still_matches_the_script():
     assert "line differs" not in " ".join(check.breakdown(script, plan, {}, 4, 15))
     assert breakdown_fix._said("NATE: I bought [quietly] the dip.") == "I bought the dip."
     assert "3| NATE: I bought [quietly] the dip." in number_lines(script)  # what the steps read
+    assert check.redo_note('Say "I bought [quietly] the dip." slower.', plan, "c1") == []
+    assert check.redo_note('Say "I bought the chips." instead.', plan, "c1")  # still refused
+    edited = line_change._with_line(bd, {"line": 3, "old": "the dip", "new": "the chips [beat]"})
+    stored = edited["scenes"][0]["shots"][1]["line"]  # the owner's line change, as saved
+    assert (
+        stored == "I bought the chips." == Breakdown.model_validate(edited).scenes[0].shots[1].line
+    )
 
 
 def test_a_note_under_a_screenplay_speaker_stays_direction():
