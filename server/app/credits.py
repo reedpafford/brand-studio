@@ -80,11 +80,11 @@ def estimate(
         return Decimal(0)
     model = get_model((input or {}).get("model", ""))
     if model:
-        resolution = (input.get("input") or {}).get("resolution")
-        try:
-            return Decimal(units) * model.credits_per_unit(resolution)
+        resolution, edit = (input.get("input") or {}).get("resolution"), bool(input.get("edit"))
+        try:  # an edit of a take (Omni's `video`) at its own price
+            return Decimal(units) * model.credits_per_unit(resolution, edit)
         except ValueError:  # resolution left to the model: assume the dearest
-            return Decimal(units) * max(model.credits_per_unit(r) for r in model.price.usd)
+            return Decimal(units) * max(model.credits_per_unit(r, edit) for r in model.price.usd)
     rate = get_rate(db, workspace_id, kind)
     if not rate:
         log.warning("No credit rate for %s; estimating %s credit per unit.", kind, FALLBACK_RATE)

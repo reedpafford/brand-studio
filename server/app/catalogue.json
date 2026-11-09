@@ -198,6 +198,11 @@
    "first_frame": true,
    "audio": "always",
    "price": {"unit": "second", "usd": {"720p": 0.11, "1080p": 0.23, "4k": 0.45}},
+   "edit": {
+    "max_seconds": 15,
+    "price": {"unit": "second", "usd": {"720p": 0.11, "1080p": 0.23, "4k": 0.45}},
+    "price_source": "An edit of a take (its `video` input, up to 15 s, no pictures with it) keeps the take's length and shape (Replicate README, read 9 Nov), so it's billed on the same seconds. Google bills Omni by its output (aistudio.google.com/docs/pricing, read 9 Nov: no separate edit price), and Replicate's page shows one rate, so an edit is priced at a take's rate a second until a real edit's bill says otherwise"
+   },
    "price_source": "Reed, 6 Nov: Omni 1.2 replaces 1.1 and makes the realistic style, UGC (\"Omni is more for the realistic stuff\"), at $0.11 a second at 720p on Replicate (Reed, from its page, 6 Nov). 1080p and 4k aren't used; they keep 1.1's Replicate rates (read 2026-11-03) as a ceiling. Takes at 720p (its 360p draft mode left out). Native audio on every clip, no audio input. Up to 6 reference images, 3 a person, 2 people (docs/prompting/omni-1.2.md). Called on Replicate's official-model endpoint, so no version"
   },
   {
