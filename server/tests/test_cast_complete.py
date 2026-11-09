@@ -129,8 +129,10 @@ def test_a_role_named_only_as_an_owner_where_it_never_is_stays_out(owner, editor
     two.character_ids = []  # an older plan with no cast lists: the words say who
     off = TEXT.replace("NATE: Will", "NATE (O.S.): Will")
     assert breakdown.show_roles(db, project, plan, off) == {"1.1": ["Nate"], "1.2": ["Bride"]}
-    two.place_id, two.character_ids = "place:1", []  # where he is: his shrug is his
-    assert breakdown.show_roles(db, project, plan, off) == {"1.2": ["Bride", "Nate"]}
+    one.character_ids = two.character_ids = []  # again, with no lists
+    two.place_id = "place:1"  # where he is: his shrug is his
+    assert breakdown.show_roles(db, project, plan, off) == {"1.1": ["Nate"],
+                                                            "1.2": ["Bride", "Nate"]}  # fmt: skip
 
 
 def test_a_label_naming_a_role_already_there_never_makes_a_second_one(owner, editor, db):

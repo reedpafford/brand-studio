@@ -6,12 +6,14 @@ list them. No paid calls: the stand-ins only."""
 
 import json
 
-from app import clip_prompts
+from app import breakdown, clip_prompts
+from app.cast_roles import all_slots
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
+from app.prompts.schemas import Breakdown
 from tests.helpers import approve_cast
 from tests.test_cast_gate import _drawn
 from tests.test_script_library import _make
@@ -55,15 +57,18 @@ def _shot(sid, lines, action, who):
             "screen_ids": []}  # fmt: skip
 
 
-def _video(owner, editor, broll=False, hands=False) -> tuple[int, int]:
+def _video(owner, editor, broll=False, hands=False, inserts=False) -> tuple[int, int]:
     """315's video from a published script: its id and Marcus's role. `broll`: 293's B-roll
-    of Danny; `hands`: in shot 4.1 Danny hands him the phone, and the plan lists him there."""
+    of Danny; `hands`: in shot 4.1 Danny hands him the phone, and the plan lists him there;
+    `inserts`: two phone inserts that list nobody, "a text from Danny", in clips 2 and 3."""
     base = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
     marcus = owner.post(f"{base}/cast", json={"role": "Marcus"}).json()[-1]["id"]
     shots = [(sid, clip, _shot(sid, lines, action, [f"slot:{marcus}"]))
              for sid, clip, lines, action in TALKER]  # fmt: skip
     shots += [(sid, clip, _shot(sid, [], action, ["person:Danny"]))
               for sid, clip, action in BROLL if broll]  # fmt: skip
+    shots += [(sid, clip, _shot(sid, [], "Insert: the phone shows a text from Danny.", []))
+              for sid, clip in (("2.2", "c2"), ("3.2", "c3")) if inserts]  # fmt: skip
     if hands:
         shots[4][2].update(action=HANDS, character_ids=[f"slot:{marcus}", "person:Danny"])
     shots.sort()
@@ -217,3 +222,46 @@ def test_a_person_the_plan_lists_gets_his_sheet_and_stays_out_once_taken_out(own
     assert "Danny as in" not in row.prompt and "is Danny" not in row.prompt
     editor.get(f"/projects/{pid}/assets")  # opening Assets never puts him back
     assert _plan(db, pid)[1]["4.1"] == [cast["Marcus"][0]]
+
+
+def test_an_insert_that_lists_nobody_never_pulls_in_who_its_words_name(owner, editor, db):
+    """In a plan that lists who each shot shows, an empty list shows nobody: "a text from
+    Danny" on the phone, in two clips, makes Danny no role and puts him in no shot."""
+    pid, _ = _video(owner, editor, inserts=True)
+    assert editor.get(f"/projects/{pid}/assets/missing-looks").json()["roles"] == ["Marcus"]
+    _, shows = _plan(db, pid)
+    assert shows["2.2"] == shows["3.2"] == []
+
+
+def _land(owner, editor, db, brief: str, who: list[str]) -> tuple[list[str], list[str], list]:
+    """315's video with `brief`, its shot 2.1 listing `who` too, landed as a plan is saved:
+    the video's roles, what shot 2.1 shows, and the notes."""
+    pid, _ = _video(owner, editor)
+    project = db.get(Project, pid)
+    project.goal = brief
+    db.commit()
+    plan = Breakdown.model_validate(_plan(db, pid)[0].data)
+    plan.scenes[0].shots[2].character_ids += who
+    plan, notes = breakdown.land(db, project, plan)
+    roles = [s.role for s in all_slots(db, project)]
+    return roles, plan.scenes[0].shots[2].character_ids, notes
+
+
+def test_an_extra_the_brief_describes_is_never_a_paid_role(owner, editor, db):
+    """QA on #1496 (#1405, rule 7): "A woman, 30s, in a red dress" and "the bartender, 40s"
+    listed as person:Woman and person:Bartender stay extras, drawn as part of the scene."""
+    brief = "A woman, 30s, in a red dress walks past. The bartender, 40s, bald, pours."
+    roles, shown, notes = _land(owner, editor, db, brief, ["person:Woman", "person:Bartender"])
+    assert roles == ["Marcus"] and len(shown) == 1
+    assert "Advice: Woman is on screen with no role." in notes
+    assert "Advice: Bartender is on screen with no role." in notes
+
+
+def test_someone_the_plan_lists_and_the_brief_names_and_describes_is_a_role(owner, editor, db):
+    """Video 294: the plan lists person:Maya, whom the script never names, and the brief says
+    "his owner Maya, 30s": she's a role in that shot, so she gets a look."""
+    brief = ("A song from Bruno's point of view (a young pitbull with a white chest blaze and a "
+             "red collar; his owner Maya, 30s).")  # fmt: skip
+    roles, shown, _ = _land(owner, editor, db, brief, ["person:Maya"])
+    assert roles == ["Marcus", "Maya"]
+    assert len(shown) == 2 and shown[-1].startswith("slot:")  # her role, in the shot
