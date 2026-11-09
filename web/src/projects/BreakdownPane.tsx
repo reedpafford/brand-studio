@@ -29,7 +29,7 @@ export function BreakdownPane(props: { projectId: number; brandId: number; scrip
   const queryClient = useQueryClient();
   const { pieces } = useBrandPieces(brandId);
   const current = useBreakdown(projectId, scriptVersion);
-  const jobs = useJobs();
+  const jobs = useJobs(projectId);
 
   // The video's shots are the director's to make (S8: no Make the breakdown or Redo here; the owner's script plan keeps
   // its own). The run making them: any job the server says is a breakdown (a song or narrated video's is song_breakdown /

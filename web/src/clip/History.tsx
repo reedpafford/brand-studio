@@ -8,11 +8,11 @@ import { serverTime } from "../time";
 /** A job still going: waiting, running, or held for the owner's OK. */
 export const GOING = ["queued", "running", "needs_owner_approval"];
 
-/** The caller's jobs. Polls while anything is still going. */
-export function useJobs() {
+/** The caller's jobs, or one video's (its page polls only its own, not the newest 200). Polls while anything is still going. */
+export function useJobs(projectId?: number) {
   return useQuery({
-    queryKey: ["jobs"],
-    queryFn: () => polled(api.GET("/jobs"), []),
+    queryKey: projectId ? ["jobs", projectId] : ["jobs"],
+    queryFn: () => polled(api.GET("/jobs", projectId ? { params: { query: { project_id: projectId } } } : {}), []),
     refetchInterval: (q) => (q.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
 }

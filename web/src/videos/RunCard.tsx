@@ -21,10 +21,10 @@ const clock = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2
 const making = (r: Progress) => r.scenes.some((s) => s.clips.some((c) => c.state === "making"));
 
 /** The newest run's live record (v6 piece C), read again every 3 s while it works, revises or waits, or a clip is made. */
-export function useRunProgress(projectId: number, enabled = true) {
+export function useRunProgress(projectId: number) {
   return useQuery({
     queryKey: ["run-progress", projectId],
-    enabled: enabled && projectId > 0,
+    enabled: projectId > 0,
     refetchInterval: (q) => (q.state.data && (LIVE.includes(q.state.data.status) || making(q.state.data)) ? 3_000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/director/progress", { params: { path: { project_id: projectId } } }), null),
   });

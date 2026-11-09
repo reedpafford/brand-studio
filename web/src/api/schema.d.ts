@@ -15940,6 +15940,7 @@ export interface operations {
                 folder?: string | null;
                 mine?: boolean;
                 freestyle?: boolean;
+                project_id?: number | null;
             };
             header?: never;
             path?: never;

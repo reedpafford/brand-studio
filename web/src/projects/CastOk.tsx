@@ -15,7 +15,8 @@ export function CastOk({ projectId }: { projectId: number }) {
   const cast = useQuery({
     queryKey: ["cast", projectId],
     queryFn: () => polled(api.GET("/projects/{project_id}/cast", { params: { path: { project_id: projectId } } }), null),
-    refetchInterval: 4000,
+    // Read again while looks are being drawn; any other change comes with the director's moves or this person's presses.
+    refetchInterval: (q) => (q.state.data?.state === "not_ready" ? 4000 : false),
   });
   const approve = useMutation({
     mutationFn: async ({ seen, anyway }: { seen: Record<string, string>; anyway: boolean }) => {

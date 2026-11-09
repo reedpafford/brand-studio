@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { useOnChange } from "../useOnChange";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, ChevronLeft, CircleStop, FileText, Paperclip, Upload, WifiOff, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -87,19 +88,22 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const run = runQuery.data;
   const clips = useProjectClips(id).data ?? [];
   const cut = useProjectVideo(id).data;
-  const head = useHead(id, !!p);
-  const liveRun = useRunProgress(id, !!p).data;
-  const facts = usePanelFacts(p);
+  const head = useHead(id); // the header, its live card and the panel are read with the video, not after it
+  const liveRun = useRunProgress(id).data;
+  const facts = usePanelFacts(id);
   const mayManage = useMayManageVideo();
   const brands = useBrands().data;
   const actions = useFreestyleActions(fsId);
   const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`));
-  useMovesRefresh(id, (fs?.thread.length ?? 0) + (run?.turns.length ?? 0), `${fs?.status}:${run?.status}`);
+  const runRead = !runQuery.isPending && !(fsId && fsQuery.isPending);
+  useMovesRefresh(id, runRead ? `${(fs?.thread.length ?? 0) + (run?.turns.length ?? 0)}:${fs?.status}:${run?.status}` : undefined);
   useRunEnd(id, liveRun?.status, run?.status);
   // When this video starts or stops needing you, the rail's Needs you count is read again at once, not at its next 30 s
   // poll (MAIN's Claymation run: the count was behind while a question waited on this very video).
-  const needs = `${head.data?.status.kind}:${run?.waiting?.length ?? 0}:${run?.make_it ?? ""}`;
-  useEffect(() => void queryClient.invalidateQueries({ queryKey: ["needs-you"] }), [needs, queryClient]);
+  useOnChange(runRead && !head.isPending ? `${head.data?.status.kind}:${run?.waiting?.length ?? 0}:${run?.make_it ?? ""}` : undefined, () => void queryClient.invalidateQueries({ queryKey: ["needs-you"] }));
+  // A change on the run's live card (a still or take made, a step done) brings the director's moves with it, not at the
+  // director's own next read (up to 5 s later).
+  useOnChange(liveRun, () => void queryClient.invalidateQueries({ queryKey: ["director", id] }));
   const stop = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director/stop", { params: { path: { project_id: id } } });
@@ -137,11 +141,12 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const fallback: Status = { kind: "waiting", words: owner ? "Waiting for your OK" : "Waiting for the owner", made: 0, total: 0 };
   const where = running ? (liveRun?.status === "revising" || (turns.some((t) => t.tool) && cutFile) ? "revising" : turns.some((t) => t.tool) ? null : "starting") : null;
   // A run that's going is Working, even between two of its moves (when no job is queued the server reads the last state).
-  const read = head.data?.status ?? fallback;
+  const shownHead = p ? head.data : null; // read with the video; before its owner's OK it isn't theirs to read
+  const read = shownHead?.status ?? fallback;
   // "Needs you · Start it" while the first move still runs (no start card open yet) is the server's read lagging: Working.
   const lagging = read.kind === "needs_you" && read.reason === "Start it" && (fs?.make_it ?? run?.make_it) == null;
   const status = headStatus(running && ((read.kind !== "waiting" && read.kind !== "needs_you") || lagging) ? { ...read, kind: "working", words: "Working" } : read, where);
-  const title = head.data?.title ?? fs?.title ?? p?.name ?? "";
+  const title = shownHead?.title ?? fs?.title ?? p?.name ?? "";
   // With no tab picked, it opens where the work is and stays there while it fills in (no jumping under the reader).
   if (!opened && !facts.loading && p) setOpened(firstTab(facts.progress));
   // …except when the cut first lands: that's the moment to see it (S3-09), once.
@@ -173,15 +178,15 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       onArchive={target && maker && !archived && (finished || (!releasable && !running)) ? () => video.archive(target) : undefined}
     />
   );
-  const header = head.data ? (
-    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={head.data} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={run?.started} />
+  const header = shownHead ? (
+    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={shownHead} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={run?.started} />
   ) : (
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
   const chat = (
-    <Chat head={head.data ?? undefined} p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
+    <Chat head={shownHead ?? undefined} p={p} fs={fs ?? null} run={run ?? null} clips={clips} owner={owner} maker={maker} state={state} running={running} online={online} archived={archived} lookOnly={lookOnly} onRestore={target ? () => void video.restore(target) : undefined} onWatch={() => pick("cut")} onSettings={() => pick("plan")} phone={!rail} progress={liveRun ?? null} />
   );
-  const preview = <Preview onEditor={setEditing} p={p} head={head.data ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
+  const preview = <Preview onEditor={setEditing} p={p} head={shownHead ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
     <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
       {rail ? (
@@ -211,7 +216,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       )}
       {video.dialog}
       {renaming && p && <RenameDialog projectId={id} freestyleId={fs?.id ?? null} title={title} onClose={() => setRenaming(false)} />}
-      {moving && p && <MoveDialog brandId={brandId} projectId={id} title={title} now={head.data?.folder?.id ?? p.folder_id ?? null} onClose={() => setMoving(false)} />}
+      {moving && p && <MoveDialog brandId={brandId} projectId={id} title={title} now={shownHead?.folder?.id ?? p.folder_id ?? null} onClose={() => setMoving(false)} />}
       {stopping && (
         <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending || actions.stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => (fs ? actions.stop.mutate(undefined, { onSettled: () => setStopping(false) }) : stop.mutate())}>
           <p>It makes no more moves. What it already started still finishes, and nothing is undone.</p>
@@ -357,9 +362,9 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const cards = asksRead.data ?? [];
   // A start card waits while a note is read into the plan (MAIN's run 276); once it's in, the plan panel reads it again.
   const updating = cards.some((a) => a.money?.updating);
-  useEffect(() => {
+  useOnChange(asksRead.isPending ? undefined : updating, () => {
     if (!updating) for (const queryKey of [["plan", p?.id], ["breakdown", p?.id], ["idea", p?.id]]) void queryClient.invalidateQueries({ queryKey });
-  }, [updating, p?.id, queryClient]);
+  });
   // A card the chat names that the cards don't have yet (made after they were read: a start card after a note, video 233)
   // is read at once, not on the next poll.
   const unreadIds = named.filter((n) => !cards.some((a) => a.id === n)).join(",");
@@ -385,13 +390,8 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   // The pinned bar reads the run's waiting questions: a card answered or closed anywhere (here, in Needs you, by the
   // director's own pick) leaves it at once, and the run is read again so a new question joins it.
   const asked = (run?.waiting ?? []).filter((w) => { const c = cards.find((a) => a.id === w.id); return !c || isOpen(c); });
-  const states = cards.map((a) => `${a.id}:${a.state}`).join(",");
-  const lastStates = useRef(states);
-  useEffect(() => {
-    if (lastStates.current === states) return;
-    lastStates.current = states;
-    void queryClient.invalidateQueries({ queryKey: ["director", id] });
-  }, [states, id, queryClient]);
+  const states = asksRead.isPending ? undefined : cards.map((a) => `${a.id}:${a.state}`).join(",");
+  useOnChange(states, () => void queryClient.invalidateQueries({ queryKey: ["director", id] }));
   const newest = `${items.length}:${items.at(-1)?.id}:${progress?.run}:${progress?.status}:${progress?.failed ? 1 : 0}:${cards.length}`; // a card's own changes don't pull the chat down
   useEffect(() => {
     scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
@@ -480,6 +480,17 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       if (!data) throw new Error(errorText(error));
       return data;
     },
+    // The note shows in the thread at once, "Sending…", and leaves it again if it's refused (its words go back in the box).
+    onMutate: async ({ text, files }) => {
+      await queryClient.cancelQueries({ queryKey: ["director", id] });
+      const before = queryClient.getQueryData<Run | null>(["director", id]);
+      const sending: Said = { id: `sending-${Date.now()}`, kind: "message", at: new Date().toISOString(), who: me?.name ?? "", text, status: "queued", why: "", files: files.length ? files : null };
+      if (before) queryClient.setQueryData<Run>(["director", id], { ...before, thread: [...before.thread, sending] });
+      return { before };
+    },
+    onError: (_error, _note, sent) => {
+      if (sent?.before) queryClient.setQueryData(["director", id], sent.before);
+    },
     onSuccess: (data) => {
       queryClient.setQueryData(["director", id], data);
       if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
@@ -491,9 +502,9 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   // note (any while it runs, the owner's after it) is the director's own, with pictures or clips if any.
   const viaFreestyle = !!fs && !running && !owner;
   const send = viaFreestyle ? actions.change : saveNote;
-  const go = (text: string, files: number[], done: () => void) => {
+  const go = (text: string, files: number[], done: () => void, refused: () => void) => {
     if (!online) return (setQueued((q) => [...q, { text, files }]), done());
-    const after = { onSuccess: done };
+    const after = { onSuccess: done, onError: refused };
     return viaFreestyle ? actions.change.mutate(text, after) : saveNote.mutate({ text, files }, after);
   };
   // Typed while offline: it sends once the page is back (S3-16).
@@ -675,7 +686,7 @@ function ScriptCard({ fs, script, pid, brandId }: { fs: Freestyle; script: NonNu
 
 /** The message box (S3): "Tell the director what to change", the upload and the send. Enter sends, Shift+Enter is a new
  *  line. Pictures or clips sent with a note are for this video only (rule 12). `closed`: why it can't be used now. */
-function Composer({ placeholder, closed, note, error, busy, upload, disabled, onSend }: { placeholder: string; closed?: string | null; note?: string | null; error?: string | null; busy?: boolean; upload?: boolean; disabled?: boolean; onSend: (text: string, files: number[], done: () => void) => void }) {
+function Composer({ placeholder, closed, note, error, busy, upload, disabled, onSend }: { placeholder: string; closed?: string | null; note?: string | null; error?: string | null; busy?: boolean; upload?: boolean; disabled?: boolean; onSend: (text: string, files: number[], done: () => void, refused: () => void) => void }) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<{ id: number; name: string }[]>([]);
   const [adding, setAdding] = useState(false);
@@ -690,7 +701,11 @@ function Composer({ placeholder, closed, note, error, busy, upload, disabled, on
   const go = () => {
     if (!ready || sending.current) return;
     sending.current = true;
-    onSend(text.trim(), files.map((f) => f.id), () => ((sending.current = false), setText(""), setFiles([])));
+    // The box empties at once; a refused note's words and files come back to it.
+    const [was, wasFiles] = [text, files];
+    setText("");
+    setFiles([]);
+    onSend(was.trim(), wasFiles.map((f) => f.id), () => (sending.current = false), () => ((sending.current = false), setText(was), setFiles(wasFiles)));
   };
   const add = async (list: FileList | null) => {
     setProblem(null);

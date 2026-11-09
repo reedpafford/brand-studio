@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useOnChange } from "../useOnChange";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, polled } from "../api/client";
 import type { components } from "../api/schema";
@@ -32,12 +32,12 @@ export function useDirectorRun(projectId: number, enabled = true) {
   });
 }
 
-/** When a move finishes, the panel has new work: refresh it (and the header), and the waiting lists for a held move. */
-export function useMovesRefresh(projectId: number, moves: number, status: string) {
+/** When a move finishes, the panel has new work: refresh it (and the header), and the waiting lists for a held move.
+ *  `moves`: the run's moves and status, undefined until read (opening the page never reads everything twice). */
+export function useMovesRefresh(projectId: number, moves: string | undefined) {
   const queryClient = useQueryClient();
-  useEffect(() => {
-    if (!moves) return;
+  useOnChange(moves, () => {
     void queryClient.invalidateQueries({ predicate: (q) => !["director", "freestyle"].includes(String(q.queryKey[0])) && q.queryKey.includes(projectId) });
     void refreshJobs(queryClient);
-  }, [moves, status, projectId, queryClient]);
+  });
 }
