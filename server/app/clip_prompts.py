@@ -399,17 +399,19 @@ def _cast(bd: Breakdown, clip_id: str, pics: dict, lead: str | None = None) -> l
 
 def _shown(bd: Breakdown, clip_id: str, pics: dict, refs: list[str]) -> list[str]:
     """Those of `refs` the clip shows any sign of though its shots' lists miss them: they speak
-    one of its lines (V.O. too) or its action names them (the Producer, #1116: only someone
-    with no sign at all is dropped). The same matching as `breakdown.shows`, which Assets' cast
+    one of its lines (V.O. too) or, in a plan with no cast lists, its action names them (the
+    Producer, #1116: only someone with no sign at all is dropped; a plan with lists shows only
+    them, video 315). The same matching as `breakdown.shows`, which Assets' cast
     completion uses; a breakdown saved by Claude or by hand doesn't run it."""
-    from app.breakdown import shows
+    from app.breakdown import listed, shows
 
     clip = next((c for c in bd.clips if c.id == clip_id), None)
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
-    names = {r: _name(pics, r) for r in refs}
-    out = []
+    names, lists, out = {r: _name(pics, r) for r in refs}, listed(bd), []
     for shot in (shots[i] for i in (clip.shot_ids if clip else []) if i in shots):
-        out += [r for r, n in names.items() if n and shows(n, shot, [])]
+        bare = not shot.character_ids  # "Maya's hand" in a shot that lists nobody
+        out += [r for r, n in names.items() if n and r not in shot.taken_out
+                and shows(n, shot, [], lists=lists, bare=bare)]  # fmt: skip
     return list(dict.fromkeys(out))
 
 

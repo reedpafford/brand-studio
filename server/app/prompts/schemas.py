@@ -8,6 +8,7 @@ Asset ids are strings with a kind prefix, as listed in the brand block and the u
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, WithJsonSchema
+from pydantic.json_schema import SkipJsonSchema
 
 # --- Enhance: suggestions anchored to the editor's script ---
 
@@ -193,9 +194,12 @@ class Shot(BaseModel):
         "reactions and inserts: 0.5–1.5."
     )
     character_ids: list[str] = Field(
-        description="Cast ids on screen in this shot. Someone the script names on screen who "
-        "has no id (they never speak, say): 'person:<Name>', as the script names them, never "
-        "another's id."
+        description="Cast ids on screen in this shot: this list is who the shot shows, and "
+        "only their sheets go with its clip. Someone the script names on screen who has no id "
+        "(they never speak, say): 'person:<Name>', as the script names them, never another's "
+        "id. Someone seen only in part (their hands, arm, back or feet) is on screen: list "
+        "them. Never someone only talked about, quoted, remembered or imitated: a man alone in "
+        "his car doing an impression of Danny lists only himself."
     )
     place_id: str | None = Field(description="Place id from the user message, or null.")
     moment: str | None = Field(
@@ -212,6 +216,9 @@ class Shot(BaseModel):
         "for the first screen in screen_ids; the server draws it onto that screen. Each winning "
         "beat's figure is bigger than the last; a loss is signed '-'. Null otherwise.",
     )
+    # Who a person took out of this shot (remove-ref): nothing puts them back by itself.
+    # The server's own, never the writer's (no schema).
+    taken_out: SkipJsonSchema[list[str]] = Field(default_factory=list)
 
 
 class Scene(BaseModel):

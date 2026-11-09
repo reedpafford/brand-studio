@@ -480,8 +480,8 @@ def remove_ref(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Take a character, place or screen out of one shot (free; the action stays as written).
-    Undo saves the old breakdown back with PUT."""
+    """Take a character, place or screen out of one shot (free; the action stays as written,
+    and a character stays out: `Shot.taken_out`). Undo saves the old breakdown back with PUT."""
     project, version = _working(db, user, project_id)
     row = _newest(db, project)
     bd = Breakdown.model_validate(row.data)
@@ -502,6 +502,9 @@ def remove_ref(
     if ref is None:
         raise HTTPException(409, f"Shot {shot_id} doesn't have {body.name} any more.")
     fixed = breakdown_fix.remove_ref(bd, shot_id, ref)
+    if body.kind == "character":  # it stays out: nothing puts them back by itself (QA, #1496)
+        gone = next(s for scene in fixed.scenes for s in scene.shots if s.id == shot_id)
+        gone.taken_out = list(dict.fromkeys([*gone.taken_out, ref]))
     out = _out(new_version(db, user, project, row, version.text, fixed), version.version)
     out.fixed = [f"Removed {body.name} from shot {shot_id}."]
     return out

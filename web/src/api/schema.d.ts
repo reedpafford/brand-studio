@@ -6238,8 +6238,8 @@ export interface paths {
         put?: never;
         /**
          * Remove Ref
-         * @description Take a character, place or screen out of one shot (free; the action stays as written).
-         *     Undo saves the old breakdown back with PUT.
+         * @description Take a character, place or screen out of one shot (free; the action stays as written,
+         *     and a character stays out: `Shot.taken_out`). Undo saves the old breakdown back with PUT.
          */
         post: operations["remove_ref_projects__project_id__shots__shot_id__remove_ref_post"];
         delete?: never;
@@ -11787,7 +11787,7 @@ export interface components {
             seconds: number;
             /**
              * Character Ids
-             * @description Cast ids on screen in this shot. Someone the script names on screen who has no id (they never speak, say): 'person:<Name>', as the script names them, never another's id.
+             * @description Cast ids on screen in this shot: this list is who the shot shows, and only their sheets go with its clip. Someone the script names on screen who has no id (they never speak, say): 'person:<Name>', as the script names them, never another's id. Someone seen only in part (their hands, arm, back or feet) is on screen: list them. Never someone only talked about, quoted, remembered or imitated: a man alone in his car doing an impression of Danny lists only himself.
              */
             character_ids: string[];
             /**
