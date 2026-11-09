@@ -244,10 +244,11 @@ def own_sound(db: Session, project: Project, clip: ProjectClip) -> bool:
     then made silent, so its last 14 s were digital silence). A story's cut plays its takes'
     own sound, so a silent take is a silent stretch. The clip prompt writes that sound from the
     style's guide, and "only silence" where the guide wants the shot silent; a narrated or song
-    video's B-roll stays silent under its voice (sound effects there are `add_sound`'s)."""
-    from app import plans
+    video's B-roll stays silent under its voice (sound effects there are `add_sound`'s), as
+    does an Omni talker's, laid over their picture while they talk (talker.cutaways)."""
+    from app import plans, talker
 
-    if clip.song_slice or plans.fmt(db, project) != "dialogue":
+    if clip.song_slice or plans.fmt(db, project) != "dialogue" or talker.omni(db, project):
         return False
     return not QUIET.match((clip.prompt or "").lstrip())
 

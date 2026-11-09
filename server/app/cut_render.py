@@ -94,7 +94,7 @@ def _reshaped(db: Session, project: Project, tl: dict) -> str | None:
 
 def recipe(db: Session, project: Project, tl: dict) -> dict:
     """What `render` makes, as files and numbers."""
-    from app.cut import song
+    from app.cut import laid_over, song
 
     voice = song(db, project)
     music = tl["music"] if tl["music"] and not tl["music"]["removed"] else None
@@ -108,7 +108,9 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
            "music": {**{k: music[k] for k in ("quieter_db", "gaps", "loop")},
                      "key": _key(db, music["file_id"]),
                      "lines": tl.get("lines") or []} if music else None,
-           "host": None}  # fmt: skip
+           "host": None,
+           "over": [{"key": _key(db, db.get(ClipTake, o["take_id"]).file_id), "start": o["start"],
+                     "length": o["length"]} for o in laid_over(tl)]}  # fmt: skip
     if talker.on(db, project):  # the talker's room carries the video
         out["takes"] = [TAKES if out["sources"][str(p["take_id"])]["sound"] else UNDER_TALKER
                         for p in tl["pieces"]]  # fmt: skip
@@ -155,6 +157,9 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     elif r["mode"] == "takes":
         data = joined(videos, [(p["from"], None if p["whole"] else p["length"]) for p in pieces],
                       shape)  # fmt: skip
+    if r.get("over"):  # an Omni talker's B-roll, over their picture while they talk
+        data = cut_away([(storage.get(o["key"]), o["start"], o["length"]) for o in r["over"]],
+                        data)  # fmt: skip
     music = r["music"]
     bed = storage.get(music["key"]) if music else None
     if music and not music["loop"] and (have := seconds(bed)) < r["length"] - 0.5:
@@ -311,6 +316,28 @@ def stitch(videos: list[bytes]) -> bytes | None:
         done = subprocess.run([*copy, "out.mp4"], cwd=folder, capture_output=True,  # noqa: S603
                               timeout=600)  # fmt: skip
         return (folder / "out.mp4").read_bytes() if done.returncode == 0 else None
+
+
+def cut_away(over: list[tuple[bytes, float, float]], data: bytes) -> bytes:
+    """`data` with each B-roll take laid over its picture from `start` for `length` seconds,
+    filling the frame; picture only, so the sound under it (the talker's voice) runs on."""
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "0.mp4").write_bytes(data)
+        w, h = (_probe(folder, "0.mp4", "v:0", "width,height") or "720x1280").split("x")[:2]
+        graph, under = [], "0:v"
+        for n, (video, start, length) in enumerate(over, 1):
+            (folder / f"{n}.mp4").write_bytes(video)
+            graph += [f"[{n}:v]trim=duration={length},setpts=PTS-STARTPTS+{start}/TB,"
+                      f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},"
+                      f"setsar=1[b{n}]",
+                      f"[{under}][b{n}]overlay=eof_action=pass:"
+                      f"enable='between(t,{start},{start + length})'[o{n}]"]  # fmt: skip
+            under = f"o{n}"
+        inputs = [arg for n in range(len(over) + 1) for arg in ("-i", f"{n}.mp4")]
+        return _run(folder, [*inputs, "-filter_complex", ";".join(graph), "-map", f"[{under}]",
+                             "-map", "0:a?", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a",
+                             "copy", "-movflags", "+faststart"])  # fmt: skip
 
 
 def _ratio(shape: str) -> float:

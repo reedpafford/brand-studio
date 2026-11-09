@@ -21,6 +21,9 @@ OPENING = ("Okay so I owe my brother-in-law a public apology. Every Thanksgiving
 LINES = f"{OPENING}\nAnd this year he finally shows me what he's doing, and I'm like, oh."
 
 
+pytestmark = pytest.mark.usefixtures("heygen_talker")  # the HeyGen talker, as outside UGC
+
+
 @pytest.fixture(autouse=True)
 def songs_on(monkeypatch):
     monkeypatch.setattr("app.director_song._on", lambda db, draft: True)

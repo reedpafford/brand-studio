@@ -214,7 +214,7 @@ test("a presenter's video has a Presenter chip after the B-roll model: Auto (the
   const panel = await screen.findByRole("dialog", { name: "Presenter" });
   const ways = within(panel).getAllByRole("button", { pressed: false }).concat(within(panel).getAllByRole("button", { pressed: true }));
   expect(within(panel).getByRole("button", { name: /^Auto \(Talks to camera\)/ })).toHaveAttribute("aria-pressed", "true"); // the style's start
-  expect(ways.map((b) => b.textContent)).toEqual(expect.arrayContaining(["Talks to camera· HeyGen from one still, with B-roll laid over parts", "In a corner over the B-roll· HeyGen, keyed over the B-roll", "Acts in the story· Omni: moves and acts in the scenes"]));
+  expect(ways.map((b) => b.textContent)).toEqual(expect.arrayContaining(["Talks to camera· Omni in UGC (HeyGen in other styles), with B-roll laid over parts", "In a corner over the B-roll· HeyGen, keyed over the B-roll", "Acts in the story· Omni: moves and acts in the scenes"]));
   await userEvent.click(within(panel).getByRole("button", { name: /^In a corner over the B-roll/ }));
   const ask = await screen.findByRole("alertdialog", { name: "Switch to In a corner over the B-roll?" });
   await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /projects/9/settings/preview")?.body).toEqual({ presenter: "corner" }));

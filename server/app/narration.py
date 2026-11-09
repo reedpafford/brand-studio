@@ -100,8 +100,14 @@ def video_script(db, project):
 
 def video_kind(db, project) -> str:
     """A video's type is its script's kind: story, song or narrated (the engine of its format).
-    A video with no script is a story. Its look is a setting apart (Song in any look)."""
+    A video with no script is a story, and so is a UGC presenter's who talks to camera full
+    screen: they say the lines on camera, on Omni (app/talker.omni). Its look is a setting apart
+    (Song in any look)."""
+    from app import talker
+
     script = video_script(db, project)
+    if script and script.kind == "narrated" and talker.omni(db, project):
+        return "story"
     return script.kind if script else "story"
 
 

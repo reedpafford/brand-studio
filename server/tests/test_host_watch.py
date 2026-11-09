@@ -14,6 +14,8 @@ from tests.test_freestyle_song import NARRATION, _sent
 from tests.test_host import _jobs, _video
 from tests.test_talker import LINES
 
+pytestmark = pytest.mark.usefixtures("heygen_talker")  # the HeyGen talker, as outside UGC
+
 
 @pytest.fixture(autouse=True)
 def songs_on(monkeypatch):

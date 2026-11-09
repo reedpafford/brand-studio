@@ -252,7 +252,7 @@ test("S5-02 / S-gaps-05 L3: the presenter's face and voice, and how they appear 
   expect(within(pres).getByText("Voices play here free. A new clone costs up to $3.00, once.")).toBeInTheDocument();
   const ways = within(pres).getByRole("radiogroup", { name: "How the presenter appears" });
   expect(within(ways).getAllByRole("radio").map((r) => r.textContent)).toEqual([
-    "Talks to cameraHeyGen from one still, with B-roll laid over parts",
+    "Talks to cameraOmni in UGC (HeyGen in other styles), with B-roll laid over parts",
     "In a corner over the B-rollHeyGen, keyed over the B-roll",
     "Acts in the storyOmni: moves, acts, talks to others",
   ]);

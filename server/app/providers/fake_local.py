@@ -305,6 +305,10 @@ def _spoken(text: str) -> dict:
     return {"speaker": speaker.title(), "line": line.strip()}
 
 
+def _talks(who: str, text: str) -> dict:
+    return {"speaker": who, "line": _spoken(text)["line"] or text.strip()}
+
+
 def _clip(clip: dict, shots: dict, framed: bool) -> dict:
     """A clip prompt in the house shape (check._shape): audio line first and last, Summary,
     whole-second shots from 0, Keep; each spoken line quoted once, word for word."""
@@ -609,18 +613,20 @@ class FakeWriter:
             hits = [c for key, c in plays.items() if re.search(rf"\b{re.escape(key)}\b", name)]
             return hits[:1] or cast[:1]
 
+        # An Omni talker (talker.PIECE) says every line on camera, a line with no label too
+        talks = re.match(r"(.+?) is the presenter", _tag(prompt, "talker"))
         shots = [
             {
                 "id": f"1.{i}",
                 "script_lines": [int(n)],
-                **_spoken(text),
+                **(_talks(talks[1], text) if talks else _spoken(text)),
                 # Not the script's words: an action that reads like speech fails #135's check.
                 "action": f"A plain test shot for script line {n}.",
                 "reaction": None,
                 "camera": "Medium shot, static",
                 "seconds": max(1.5, round(len(text.split()) / 4.8, 1)),  # spoken pace
                 # A speaker is the first cast member; a ★ line shows the brand's first screen.
-                "character_ids": who(text) if DIALOGUE.match(text) else [],
+                "character_ids": cast[:1] if talks else who(text) if DIALOGUE.match(text) else [],
                 "place_id": None,
                 "moment": None,
                 "screen_ids": [screen] if "★" in text and screen else [],
@@ -632,6 +638,12 @@ class FakeWriter:
             if not groups or sum(x["seconds"] for x in groups[-1]) + shot["seconds"] > high:
                 groups.append([])
             groups[-1].append(shot)
+        if talks:  # after each of their pieces, one B-roll shot of its first line, laid over it
+            broll = {"speaker": None, "line": None, "character_ids": [], "seconds": float(low),
+                     "action": "B-roll of what it says."}  # fmt: skip
+            groups = [g for k, group in enumerate(groups, 1)
+                      for g in (group, [{**group[0], **broll, "id": f"1.b{k}"}])]  # fmt: skip
+            shots = [s for group in groups for s in group]
         clips = [
             {
                 "id": f"c{k}",

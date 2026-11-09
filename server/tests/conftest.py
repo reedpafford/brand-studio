@@ -202,6 +202,14 @@ def own_look(monkeypatch):
     monkeypatch.setattr("app.looks.script_style", lambda db, project: None)
 
 
+@pytest.fixture
+def heygen_talker(monkeypatch):
+    """A presenter who talks to camera on HeyGen, in their own room over our voice track (as
+    one does outside UGC): the UGC look's stand-in plans talker shots for it, but a UGC talker
+    on camera is filmed on Omni now (app/talker.omni, tests/test_omni_talker.py)."""
+    monkeypatch.setattr("app.talker.full_screen", lambda look, presenter: False)
+
+
 def make_cut(app, db, client, base: str):
     """Make the cut (POST /projects/N/cut) and run the local lane once, as the worker would:
     GET …/video after, or POST's own answer when it was refused."""

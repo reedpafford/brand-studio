@@ -49,7 +49,7 @@ export const languageName = (code: string) => {
 /** How the presenter appears, in L3's words (S-gaps-05): the style picks first (Auto); a person or the director can switch it.
  *  `short` is the chip's value. "Acts" leaves out L3's "talks to others": narrated videos keep their narration (Reed, 5 Nov). */
 const HOW = {
-  talks: { label: "Talks to camera", short: "Talks to camera", how: "HeyGen from one still, with B-roll laid over parts" },
+  talks: { label: "Talks to camera", short: "Talks to camera", how: "Omni in UGC (HeyGen in other styles), with B-roll laid over parts" },
   corner: { label: "In a corner over the B-roll", short: "In a corner", how: "HeyGen, keyed over the B-roll" },
   acts: { label: "Acts in the story", short: "Acts in the story", how: "Omni: moves and acts in the scenes" },
 } as const;
