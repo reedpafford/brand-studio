@@ -53,7 +53,7 @@ class LocalProvider:
         self.fetch_study = fetch_study  # a song-ad study's link (the stand-ins give a clip)
         self.hear_take = hear_take  # a take's words, for its words check (app/take_words.py)
         self.hear_cut = hear_cut  # a cut's words and when, for its watch (app/watch_cut.py)
-        self.root = Path(tempfile.mkdtemp(prefix="bs-local-"))
+        self.root = Path(tempfile.mkdtemp(prefix="bs-local-")).resolve()  # macOS /var link
 
     def run(self, kind: str, input: dict) -> Result:
         if kind == "song_timing":
