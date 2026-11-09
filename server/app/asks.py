@@ -546,6 +546,10 @@ def _money(db: Session, user: User, ask: Ask, project: Project, how: str) -> Non
             held[-1].input = {**held[-1].input, HOLD: why, "held": why}  # the budget moved: to the
             db.commit()  # owner, saying why (rule 36: never less than it can charge)
             raise HTTPException(409, why)
+        if ask.kind == "start" and not held[-1].input.get(CARRIES):  # the direction card: its
+            from app import cast_gate  # go is the OK on the cast and places it showed too
+
+            cast_gate.go(db, user, project)
         for job in held:
             routes.approve_job(job.id, user, db)
     elif how in ("keep", "decline"):

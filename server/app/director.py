@@ -83,6 +83,12 @@ NOT_MADE = "Not made yet: it waits for Make it, and is made once it's pressed." 
 TREATMENT_FIRST = "Refused: the treatment comes first, before Make it."
 PLAN_FIRST = "Changing the plan first."  # a note while the start card waited
 PRE_OK = ("treatment", "ask", "wait", "stop", "locked_line")  # before Make it: nothing made
+# The direction card (Reed, 8 Nov: "before any paid stills or takes, the director presents one
+# card: concept, beats, the look, the clip plan and the estimate"): on a first run not held for
+# the owner, the director plans up to its cast and places OK before Make it, and the card comes
+# when it asks for that OK or reaches a still or a take. Make it is then the go and the OK.
+PLANNING = ("song", "narration", "plan", "split_clip", "make_looks", "add_place", "change_look",
+            "outfit", "ask_cast_ok", "settings", "clip_model")  # fmt: skip
 # A revision (a run on a video that has delivered): its free changes to the cut it has, and the
 # watch and delivery they lead to, need no Make it (Reed: a revision charges only the affected
 # work). Anything that makes something new still waits on its start card.
@@ -910,6 +916,27 @@ def _names_reed(db: Session, project: Project) -> bool:
     return advice.names_reed(version.text if version else "", brand.name if brand else "", *looks)
 
 
+def _planning(run: dict) -> bool:
+    """A run that plans up to its direction card before Make it: not one held for the owner
+    (an editor's send waits for Reed before anything is made, rule 33) nor a revision."""
+    return not run.get("hold") and not run.get(REVISION)
+
+
+def _own_plan(db: Session, run: dict, project: Project, seen: dict) -> bool:
+    """Its story written, a run planning up to its card is on its own limit; a turn that
+    first reads a person's note (refining it in the chat) stays on the planning allowance."""
+    reads = any(m.get("new") for m in seen.get("chat") or [])
+    return _planning(run) and not reads and _written(db, run, project.id)
+
+
+def _before_ok(db: Session, project: Project, run: dict, tool: str | None) -> bool:
+    """Whether a move runs before Make it. A wait with nothing being made and no question
+    open is the plan done: the direction card comes instead."""
+    if tool == "wait" and _planning(run) and _written(db, run, project.id):
+        return bool(_waiting(db, project) or asks.waiting(db, project))
+    return tool in PRE_OK or tool in PLANNING and _planning(run)
+
+
 def _act(db: Session, job: Job, storage) -> None:
     project = db.get(Project, job.project_id)
     decision = dict(job.output or {})
@@ -922,8 +949,8 @@ def _act(db: Session, job: Job, storage) -> None:
     run = _refund(db, project, dict(job.input[RUN]))
     tool = decision.get("tool")
     free = tool in REVISE_FREE and _free_revision(db, run, project.id)
-    if not run.get("ok", True) and tool not in PRE_OK and not free:  # nothing made before Make it
-        written = _written(db, run, project.id)
+    if not run.get("ok", True) and not free and not _before_ok(db, project, run, tool):
+        written = _written(db, run, project.id)  # nothing made before Make it but the plan
         return _record(db, job, run, START_FIRST if written else TREATMENT_FIRST)
     unpick_old_takes(db, project, run)  # "Start the plan again": its new shots are made
     if tool == "pick_take" and (aside := _aside(db, project, run, decision)):
@@ -1347,7 +1374,7 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
     seen: dict = {}
     prompt = turn_input(db, project, run, seen=seen)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
-    if (not (card or carry or before) and last is not None
+    if (not (card or carry) and (not before or _planning(run)) and last is not None
             and last.input[RUN]["id"] == run["id"]
             and (step := _auto(db, project, run, seen, last))):  # fmt: skip
         return _by_server(db, user, project, run, step, after)
@@ -1364,9 +1391,10 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         data = {**data, START: True, asks.HOLD: carry[0], PRICE: str(carry[1]),
                 CARRIES: str(price)}  # fmt: skip
         wait = carry[0]
-    elif before and not _free_revision(db, run, project.id):  # its plan: charged
-        # as it costs; past the allowance, the owner's OK first. A revision's free changes to
-        # its cut aren't planning: its turns are the director's own, on its own limit, below
+    elif before and not (_free_revision(db, run, project.id) or _own_plan(db, run, project, seen)):
+        # its plan: charged as it costs; past the allowance, the owner's OK first. A
+        # revision's free changes to its cut aren't planning: its turns are the director's
+        # own, on its own limit, below
         from app.credits import estimate
 
         turn = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
@@ -1507,22 +1535,29 @@ def _treatment_at(db: Session, run: dict, project_id: int | None):
 
 
 def _ready(db: Session, project: Project, run: dict, last: Job) -> bool:
-    """Before Make it, the start card comes once the treatment is written and every note
-    sent before Make it was read into it, or the director moved past it, or the owner kept
-    the plan as it is on a planning card past its allowance."""
+    """Before Make it, the start card (the direction card) comes once the director moved
+    past what may run before it (a still, a take, or nothing left to plan), or asked for the
+    cast and places OK; on a run held for the owner, once the treatment is written and every
+    note sent before Make it was read into it; or when the owner kept the plan as it is on a
+    planning card past its allowance."""
     from app.routes.jobs import DECLINE
 
     at = _treatment_at(db, run, project.id)
     if at is None:
         return False
-    if last.input.get("result") == START_FIRST:
+    said = last.input.get("result") or ""
+    if said == START_FIRST or said.startswith(cast_gate.ASKED):
         return True
     kept = db.scalar(select(func.max(Job.finished_at)).where(
         Job.project_id == project.id, Job.input[RUN]["id"].as_string() == run["id"],
         Job.input[asks.PLAN_OK].as_boolean(),
         Job.input[DECLINE].as_boolean()))  # fmt: skip
     notes = [m["at"] for m in project.director_chat or [] if m.get("run") == run["id"]]
-    if not notes or kept and max(notes) <= kept.isoformat():
+    if kept and (not notes or max(notes) <= kept.isoformat()):
+        return True
+    if _planning(run):  # it plans on, up to the cast and places OK
+        return False
+    if not notes:
         return True
     # every note was given to a turn (run 287: a brief sent while the first turn was being
     # answered was never read, and the card showed the plan from before it), and a treatment
@@ -2119,11 +2154,10 @@ def choose(state: dict) -> dict:
             return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"])
         if "treatment" in state.get("done", []):  # its story changed: all of it, after Make it
             return go("wait", "The new treatment is ready: it waits for Make it.")
-    elif state.get("started") is False:  # before Make it: a note changes the treatment only
-        m = next((m for m in notes if not m.get("answered")), None)
-        if m is None:
-            return go("wait", "The treatment is ready: it waits for Make it.")
-        return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"])
+    elif state.get("started") is False:  # before Make it: a note changes the treatment, then
+        m = next((m for m in notes if not m.get("answered")), None)  # it plans up to its card
+        if m is not None:
+            return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"])
     if audio := _audio_move(state, go):  # a song or narrated video: its audio is the clock
         return audio
     if state["shots"] == "none":

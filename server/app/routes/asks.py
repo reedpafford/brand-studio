@@ -87,6 +87,7 @@ class MoneyCard(BaseModel):
     held: str  # the hold's own words
     since: str = ""  # an answered start card: how the run's figure has moved since the OK
     updating: bool = False  # a start card while the director rewrites the plan for a note
+    carry: bool = False  # a start card that carries a stopped run on (no direction shown)
     what: str = ""  # past the budget: what it makes, "Redo clips 9 and 12" (Needs you's title)
     over: str = "the budget"  # what it goes past: "the budget" (a first run, S3-07), or on a
     # later run (rule 34) "the $16.86 approved for this run" ("… · $1.54 past {over}")
@@ -252,7 +253,7 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
                         "checks, my usual time and a watch of the cut. Nothing stops it at a "
                         "limit here; what it really spends shows as it goes.")  # fmt: skip
         if held and held[0].input.get(asks.CARRIES):  # carrying on after the owner's Stop
-            money.usual = None
+            money.usual, money.carry = None, True
             card.question = f"Carry on for up to {_said(money.up_to)} more?"
             card.why = ("The owner stopped the director. Carrying on goes on where it left "
                         "off, up to the rest of this run's approved price. Nothing is charged "

@@ -17,14 +17,15 @@ def move(state: dict) -> dict | None:
     def go(tool: str, why: str) -> dict:
         return {"tool": tool, "why": why, "clip_id": None, "take_id": None, "note": ""}
 
-    if (not state.get("started") or state["being_made"] or state["held_for_owner"]
+    if (state["being_made"] or state["held_for_owner"]
             or state["failed_since_last_turn"] or state.get("questions")):  # fmt: skip
         return None  # a question, an answer or a failure is read by the director
     notes = state.get("chat") or []
     if any(not m.get("answered") for m in notes):
         return None
     clips, watch, cast = state["clips"], state.get("watch") or {}, state.get("cast_ok") or {}
-    if (state["cut"] == "made" and not (state.get("timeline") or {}).get("changes")
+    started = state.get("started")  # before Make it, only approving its written plan
+    if (started and state["cut"] == "made" and not (state.get("timeline") or {}).get("changes")
             and not state.get("cut_failed") and not watch.get("current")
             and state["allowed"].get("watches_left", 0) > 0):  # fmt: skip
         return go("watch_cut", "all: the cut is made, so it's watched as a viewer meets it.")
@@ -32,7 +33,7 @@ def move(state: dict) -> dict | None:
         return None
     if state.get("plan") == "ready":
         return go("plan", "all: the plan is written; approving it makes the shots.")
-    if state["shots"] != "ready" or state.get("too_long") or state["missing_looks"]:
+    if not started or state["shots"] != "ready" or state.get("too_long") or state["missing_looks"]:
         return None
     if cast.get("state") in ("ready", "not_ready") and not cast.get("asked"):
         return None  # the director assembles the cast and places and asks for the OK

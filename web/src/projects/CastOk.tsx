@@ -8,16 +8,21 @@ import { lookFitNote } from "../library/sheets";
 
 const FROM = { library: "From the brand's library", uploaded: "Uploaded for this video", video: "Made for this video", script: "Made for this script" } as const;
 
-/** The director's "Cast & places waiting for your OK" in the chat (S-gaps-07 B): the whole set with its previews, and the
- *  one press. The Cast tab (screen 9) shows the same set with its own press; both call the same route. */
-export function CastOk({ projectId }: { projectId: number }) {
-  const queryClient = useQueryClient();
-  const cast = useQuery({
+/** The video's cast and places as the checkpoint reads them (its items, previews and state), read again every 4 s. */
+export function useCast(projectId: number) {
+  return useQuery({
     queryKey: ["cast", projectId],
     queryFn: () => polled(api.GET("/projects/{project_id}/cast", { params: { path: { project_id: projectId } } }), null),
     // Read again while looks are being drawn; any other change comes with the director's moves or this person's presses.
     refetchInterval: (q) => (q.state.data?.state === "not_ready" ? 4000 : false),
   });
+}
+
+/** The director's "Cast & places waiting for your OK" in the chat (S-gaps-07 B): the whole set with its previews, and the
+ *  one press. The Cast tab (screen 9) shows the same set with its own press; both call the same route. */
+export function CastOk({ projectId }: { projectId: number }) {
+  const queryClient = useQueryClient();
+  const cast = useCast(projectId);
   const approve = useMutation({
     mutationFn: async ({ seen, anyway }: { seen: Record<string, string>; anyway: boolean }) => {
       const { data, error } = await api.POST("/projects/{project_id}/cast/approve", { params: { path: { project_id: projectId } }, body: { seen, anyway } });
