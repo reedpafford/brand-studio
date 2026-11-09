@@ -196,7 +196,8 @@ class Shot(BaseModel):
         description="Cast ids on screen in this shot: this list is who the shot shows, and "
         "only their sheets go with its clip. Someone the script names on screen who has no id "
         "(they never speak, say): 'person:<Name>', as the script names them, never another's "
-        "id. Never someone only talked about, quoted, remembered or imitated: a man alone in "
+        "id. Someone seen only in part (their hands, arm, back or feet) is on screen: list "
+        "them. Never someone only talked about, quoted, remembered or imitated: a man alone in "
         "his car doing an impression of Danny lists only himself."
     )
     place_id: str | None = Field(description="Place id from the user message, or null.")

@@ -57,10 +57,12 @@ def _shot(sid, lines, action, who):
             "screen_ids": []}  # fmt: skip
 
 
-def _video(owner, editor, broll=False, hands=False, inserts=False) -> tuple[int, int]:
+def _video(owner, editor, broll=False, hands=False, inserts=False, part=False):
     """315's video from a published script: its id and Marcus's role. `broll`: 293's B-roll
     of Danny; `hands`: in shot 4.1 Danny hands him the phone, and the plan lists him there;
-    `inserts`: two phone inserts that list nobody, "a text from Danny", in clips 2 and 3."""
+    `inserts`: two phone inserts that list nobody, "a text from Danny", in clips 2 and 3;
+    `part`: an insert in clip 4 of Danny's hand, listing nobody (a plan from before it was
+    asked to list someone seen only in part)."""
     base = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
     marcus = owner.post(f"{base}/cast", json={"role": "Marcus"}).json()[-1]["id"]
     shots = [(sid, clip, _shot(sid, lines, action, [f"slot:{marcus}"]))
@@ -69,6 +71,8 @@ def _video(owner, editor, broll=False, hands=False, inserts=False) -> tuple[int,
               for sid, clip, action in BROLL if broll]  # fmt: skip
     shots += [(sid, clip, _shot(sid, [], "Insert: the phone shows a text from Danny.", []))
               for sid, clip in (("2.2", "c2"), ("3.2", "c3")) if inserts]  # fmt: skip
+    hand = "Danny's hand slides his phone across the table, the FOMO balance on it."
+    shots += [("4.2", "c4", _shot("4.2", [], hand, []))] if part else []
     if hands:
         shots[4][2].update(action=HANDS, character_ids=[f"slot:{marcus}", "person:Danny"])
     shots.sort()
@@ -265,3 +269,26 @@ def test_someone_the_plan_lists_and_the_brief_names_and_describes_is_a_role(owne
     roles, shown, _ = _land(owner, editor, db, brief, ["person:Maya"])
     assert roles == ["Marcus", "Maya"]
     assert len(shown) == 2 and shown[-1].startswith("slot:")  # her role, in the shot
+
+
+def test_a_brief_that_opens_on_the_names_makes_them_roles(owner, editor, db):
+    """QA on #1496: a brief introduces people at the start of a sentence ("Bruno, a young
+    pitbull…", "Maya, 30s, …"); listed as person:Bruno and person:Maya, both are roles."""
+    brief = ("Brief: Bruno, a young pitbull with a red collar, chews his paw at night. Maya, "
+             "30s, heavy-set, opens the bag.")  # fmt: skip
+    roles, shown, _ = _land(owner, editor, db, brief, ["person:Bruno", "person:Maya"])
+    assert roles == ["Marcus", "Bruno", "Maya"]
+    assert len(shown) == 3 and all(r.startswith("slot:") for r in shown)
+
+
+def test_a_shot_listing_nobody_that_shows_a_roles_hand_gets_that_role(owner, editor, db):
+    """A plan written before it was asked to list someone seen only in part: "Danny's hand
+    slides his phone across the table" lists nobody, so Danny, a role from his B-roll, joins
+    that shot only, and his sheet goes with its clip."""
+    pid, _ = _video(owner, editor, broll=True, part=True)
+    cast = _cast(editor, db, pid)
+    _, shows = _plan(db, pid)
+    assert shows["4.2"] == [cast["Danny"][0]] and shows["4.1"] == [cast["Marcus"][0]]
+    assert shows["2.1"] == shows["3.1"] == [cast["Marcus"][0]]
+    row = _write(db, pid, cast, "c4", ["Marcus"])
+    assert [r["id"] for r in row.references] == [cast["Marcus"][0], cast["Danny"][0]]

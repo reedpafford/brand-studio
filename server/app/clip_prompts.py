@@ -409,7 +409,8 @@ def _shown(bd: Breakdown, clip_id: str, pics: dict, refs: list[str]) -> list[str
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
     names, lists, out = {r: _name(pics, r) for r in refs}, listed(bd), []
     for shot in (shots[i] for i in (clip.shot_ids if clip else []) if i in shots):
-        out += [r for r, n in names.items() if n and shows(n, shot, [], lists=lists)]
+        bare = not shot.character_ids  # "Maya's hand" in a shot that lists nobody
+        out += [r for r, n in names.items() if n and shows(n, shot, [], lists=lists, bare=bare)]
     return list(dict.fromkeys(out))
 
 

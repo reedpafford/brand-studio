@@ -462,23 +462,30 @@ def listed(bd: Breakdown) -> bool:
     return any(s.character_ids for scene in bd.scenes for s in scene.shots)
 
 
+PART = r"(?:hands?|arms?|fingers?|thumbs?|feet|foot|legs?|back|shoulders?)"  # a body part
+
+
 def shows(role: str, shot, roles: list[str], off: bool = False, here: bool = True,
-          lists: bool = False) -> bool:  # fmt: skip
+          lists: bool = False, bare: bool = False) -> bool:  # fmt: skip
     """This role is in the shot: it speaks there on screen (`off`: the script's label says
     V.O. or O.S.; not in a reaction shot of someone else among `roles`), or, in a plan that
     `lists` no one (`listed`: an older plan), the action names it; named only as an owner
     ("Nate's ring") unless the plan shows the role only at other places (`here` false: video
     276's "an echo of Granny's pats" in the truck lot, Granny only ever in the barn). In a
     plan with cast lists, a shot shows its list: nobody joins it from its words (video 315:
-    Danny, only talked about in Marcus's car, was put in three shots, drawn and attached)."""
-    from app.cast_roles import labels, named
+    Danny, only talked about in Marcus's car, was put in three shots, drawn and attached),
+    except a shot that lists nobody (`bare`) showing this role's body part ("Maya's hand
+    tips the bag", "Sam's hands": a plan written before it was asked to list them)."""
+    from app.cast_roles import labels, named, short
 
     seen = f"{shot.action} {shot.reaction or ''}"
     reacting = [r for r in roles if r != role and named(r, seen)]
     speaks = bool(shot.speaker) and labels(shot.speaker, role) and not off
     speaks = speaks and not (reacting and not named(role, seen))  # a reaction shot
     if lists:
-        return speaks
+        who = re.escape(short(role) or role)
+        part = re.search(rf"(?<![\w-]){who}['’]s (?:[\w-]+ )?{PART}\b", shot.action)
+        return speaks or (bare and bool(part))
     action = shot.action if here else POSSESSIVE.sub("", shot.action)
     return speaks or named(role, action)
 
@@ -498,13 +505,14 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
         said = [check.SPEAKER.match(lines[n - 1]) for n in shot.script_lines
                 if 0 < n <= len(lines)]  # fmt: skip
         off = any(m and OFF_SCREEN.search(m[0]) for m in said)
-        roles = [s.role for s in slots]
+        roles, bare = [s.role for s in slots], not shot.character_ids
         for slot in slots:
             who = ref(db, project, slot)
             if {who, f"slot:{slot.id}"} & set(shot.character_ids):
                 continue
             seen = {s.place_id for s in shots if {who, f"slot:{slot.id}"} & set(s.character_ids)}
-            if shows(slot.role, shot, roles, off, not seen or shot.place_id in seen, lists):
+            here = not seen or shot.place_id in seen
+            if shows(slot.role, shot, roles, off, here, lists, bare):
                 shot.character_ids = [*shot.character_ids, who]
                 added.setdefault(shot.id, []).append(short(slot.role))
     _hero_in_montage(db, project, bd, added)
@@ -727,15 +735,19 @@ CALENDAR = re.compile(r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sund
 
 
 def _a_being(db: Session, project: Project, name: str, others: list[str]) -> bool:
-    """The brief, a note or the treatment names them as a person (`_proper`: "his owner
-    Maya", never "A woman" or "The bartender": QA on #1496, extras are never paid roles) and
-    says what they look like ("Bruno (a young pitbull…)", "Maya, 30s"), in words about them
-    alone (none of `others`)."""
+    """The brief, a note or the treatment writes their name as a name (capitalised, as it is,
+    never right after "a", "an" or "the": "Bruno, a young pitbull…", "his owner Maya", never
+    "A woman, 30s" or "The bartender": QA on #1496, extras are never paid roles) and says
+    what they look like ("Bruno (a young pitbull…)", "Maya, 30s"), in words about them alone
+    (none of `others`)."""
     from app.routes.project_assets import LOOKS, _bracketed, _described, _story
 
     told = [project.goal or "", *(m.get("text") or "" for m in project.director_chat or []),
             *_story(db, project)]  # fmt: skip
-    if not _proper(name, "\n".join(told)):
+    text = "\n".join(told)
+    if not name[:1].isupper() or not any(
+            not re.search(r"(?i)\b(?:a|an|the)\s+$", text[: m.start()])
+            for m in re.finditer(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text)):  # fmt: skip
         return False
     return bool(LOOKS.search(_bracketed(name, told)) or _described(name, others, told))
 
