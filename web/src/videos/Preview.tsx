@@ -73,7 +73,7 @@ function CutPane(props: PaneProps) {
   if (viewOnly) return <CutWatch {...props} />;
   return (
     <div className="space-y-4">
-      <div role="radiogroup" aria-label="Cut view" className={`${segTrack} ml-auto flex w-fit`}>
+      <div role="radiogroup" aria-label="Cut view" className={segTrack}>
         {(["watch", "edit"] as const).map((m) => (
           <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={segItem(mode === m)}>
             {m === "edit" && <Scissors size={14} strokeWidth={1.75} aria-hidden />}
