@@ -662,13 +662,31 @@ def music_prompt(result: schemas.NarrationMusic) -> str:
     )
 
 
+TAG = re.compile(r"^\[[A-Za-z ]+\] ")  # accepted Enhance lines: "[Camera] …", "[Brand screen] ★ …"
+NOTE = re.compile(r"\s*\[[^\[\]]*\]")  # a note in brackets: "[she sighs]", "[quietly]"
+
+
+def without_notes(text: str) -> str:
+    """Words with their notes in brackets taken out: "I said [quietly] no" is "I said no"."""
+    return NOTE.sub("", text).strip()
+
+
+def unnoted(line: str) -> str:
+    """A script line as it can be heard, for every reader of spoken words (narration, timing,
+    the word checks): a [tag] line ("[Camera] slow push in") or a line that is only a note in
+    brackets ("[she looks at the camera and sighs]", "[cut to the app]") is direction and
+    says nothing; a note inside a line is never said. The breakdown, the plan and the director
+    read the script as written, notes and all, so they still see the direction."""
+    return "" if TAG.match(line.strip()) else without_notes(line)
+
+
 def spoken_words(script: str) -> int:
     """Words that are heard: `NAME: words` lines in a dialogue script; in pure voiceover prose,
-    every line that isn't a heading, a ★ brand line or a [tag] line."""
-    lines = [line.strip() for line in script.splitlines() if line.strip()]
+    every line that isn't a heading or a ★ brand line (`unnoted`: never a note)."""
+    lines = [x for line in script.splitlines() if (x := unnoted(line))]
     said = [m.group(1) for line in lines if (m := re.match(r"^[A-Z][A-Z .'()-]*:\s*(.*)$", line))]
     if not said:
-        said = [x for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★", "["))]
+        said = [x for x in lines if not x.startswith(("SCENE", "INT.", "EXT.", "★"))]
     return len(" ".join(said).split())
 
 

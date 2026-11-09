@@ -6,6 +6,7 @@ to the shots again, and a name the video doesn't have is taken out of a shot."""
 import math
 import re
 
+from app.prompts import without_notes
 from app.prompts.check import DIALOGUE, TAG, _words
 from app.prompts.schemas import Breakdown
 
@@ -61,8 +62,9 @@ def fixes(problems: list[str], data: dict | None = None, script: str = "") -> li
 
 
 def _said(text: str) -> str:
-    """A script line's spoken words ("MOM: Nate, where…" -> "Nate, where…")."""
-    return DIALOGUE.sub("", TAG.sub("", text)).strip()
+    """A script line's words ("MOM: Nate, where…" -> "Nate, where…"), never a note in
+    brackets ("[she sighs]", "[quietly]"); a [tag] line's words stay, to time a split by."""
+    return DIALOGUE.sub("", without_notes(TAG.sub("", text))).strip()
 
 
 def repair(script: str, bd: Breakdown, problems: list[str], min_s: int, max_s: int, cast=None):
@@ -95,7 +97,7 @@ def repair(script: str, bd: Breakdown, problems: list[str], min_s: int, max_s: i
             source = [lines[n - 1] for n in (shot.script_lines if shot else [])
                       if 0 < n <= len(lines)]  # fmt: skip
             spoken = [x for x in source if DIALOGUE.match(TAG.sub("", x))] or source
-            words = " ".join(_said(x) for x in spoken)
+            words = " ".join(w for x in spoken if (w := _said(x)))
             said = _words(shot.line or "") if shot else ""
             n = next((i for i, x in enumerate(lines, 1) if said and _words(_said(x)) == said), 0)
             if shot and not shot.script_lines and n:  # the words are there: link the line

@@ -15,7 +15,7 @@ import subprocess
 from pathlib import Path
 
 from app import song_timing
-from app.prompts import check
+from app.prompts import check, without_notes
 
 KIND = "narration"
 TIMED = ("song", "narrated")  # script kinds whose videos are timed to a take
@@ -160,14 +160,15 @@ def job(script: str, voice: str = VOICE, note: str = "", emotion: str | None = N
     this request only, never into the version's words, and its `speed` (pace, within
     V3_SPEED; None or 1 leaves v3's own); the voice is the Director's pick. A
     MiniMax voice reads `reading` when given (the words exactly, with pause marks and sounds
-    added) in `emotion` (auto: its own choice), at `speed` (None: the emotion's own)."""
+    added; a note in brackets copied from the script is taken out, as from `text`) in
+    `emotion` (auto: its own choice), at `speed` (None: the emotion's own)."""
     text = check.narration_text(script)  # the Director's: what the narrator reads
     if not text:
         raise ValueError(NO_WORDS)
     if voice not in VOICES:
         raise ValueError(f"The narrator's voice is one of {', '.join(VOICES)}.")
     if voice in MINIMAX_VOICES:
-        return _minimax(text, voice, note, emotion or "auto", (reading or "").strip(), speed)
+        return _minimax(text, voice, note, emotion or "auto", without_notes(reading or ""), speed)
     said, (low, high) = tag(note), V3_SPEED
     pace = {"speed": round(min(max(speed, low), high), 2)} if speed and speed != 1 else {}
     return {"model": MODEL, "input": {"prompt": f"[{said}] {text}" if said else text,
