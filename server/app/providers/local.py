@@ -110,8 +110,12 @@ class LocalProvider:
                 hear=self.hear_voice,
                 longest=input.get("pause", narration.KEEP),
             )
-            if input.get("room"):
-                trimmed = room.finish(trimmed or voice, folder / "room.mp3")
+            if place := input.get("room"):  # True: a room (made before a car was told)
+                trimmed = room.finish(
+                    trimmed or voice,
+                    folder / "room.mp3",
+                    place if isinstance(place, str) else "room",
+                )
         except Exception:
             shutil.rmtree(folder, ignore_errors=True)
             raise

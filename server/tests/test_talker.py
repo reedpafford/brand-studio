@@ -62,7 +62,7 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
     assert (voice.input["model"], voice.input["input"]["voice_id"]) == (
         narration.MINIMAX, talker.VOICE)  # a MiniMax voice by default  # fmt: skip
     (timing,) = db.query(Job).filter(Job.kind == "narration_timing").all()
-    assert timing.input["room"] is True  # in a room
+    assert timing.input["room"] == talker.place(db, video) in room.PLACES  # its room's sound
     (still,) = _steps(db, video, host.STILL)
     said = still.input["input"]["prompt"]  # where their clip's still has them (video 281)
     assert "where [Image1] (the opening still of their clip) shows them" in said
@@ -90,6 +90,10 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
     assert timed["pace"] == narration.pace(timed["words"])  # its pace, measured
     final = db.query(FinalVideo).filter_by(project_id=video.id).order_by(FinalVideo.id).all()[-1]
     assert len(final.take_ids) == len(rows)
+    from app import cut, cut_render
+
+    tl, _ = cut.timeline(db, video)  # the B-roll's own sound far under the talker (293)
+    assert set(cut_render.recipe(db, video, tl)["takes"]) == {cut_render.UNDER_TALKER}
     director = prompts.system("director")
     assert "where its guide measures its own talker rhythm" in director  # the style's swaps first
 
@@ -135,14 +139,15 @@ def test_an_emotion_speeds_minimax_up_and_a_remake_is_set_from_the_measured_pace
              for e in ("fearful", "sad", "auto", "calm")}  # fmt: skip
     assert speed == {"fearful": 1.5, "sad": 1.3, "auto": 1.1, "calm": 1.1}  # th-20s, measured
     friendly = narration.job(words, "English_FriendlyPerson", emotion="calm")["input"]["speed"]
-    assert friendly == 0.76  # video 281: 4.9 words a second at 1.1, in auto and calm alike
+    assert friendly == 0.85  # 281 and 293: 4.9, 3.7 and 2.9 words a second at 1.1, 0.9, 0.76
     scared = narration.job(words, "English_FriendlyPerson", emotion="fearful")["input"]["speed"]
-    assert scared == round(0.76 * 1.5 / 1.1, 2)  # the emotion's rise, from the voice's own start
+    assert scared == round(0.85 * 1.5 / 1.1, 2)  # the emotion's rise, from the voice's own start
     assert narration.job(words, "English_Graceful_Lady", speed=2.6)["input"]["speed"] == 2.0
     heard = [{"word": "a", "start": 0.0, "end": 0.4}, {"word": "b", "start": 0.45, "end": 1.0},
              {"word": "c", "start": 2.0, "end": 2.5}]  # a 1 s pause, left out  # fmt: skip
     assert narration.pace(heard) == round(3 / 1.5, 2) and narration.pace(heard[:1]) is None
-    assert narration.retimed(1.25, 2.4, (3.3, 3.5)) == round(1.25 * 3.4 / 2.4, 2)  # faster
+    assert narration.retimed(0.76, 2.88, (3.3, 3.5)) == 0.85  # 293's take 1, to the middle
+    assert narration.retimed(1.1, 4.9, (3.3, 3.5)) == 0.85  # 281's take 1: the same 0.85
     assert narration.retimed(1.5, 3.4, (3.3, 3.5)) is None  # inside the style's range
     assert guides.pace("ugc", "presenter") == (3.3, 3.5)  # "3.3–3.5 words a second"
     assert guides.pace("dr-pickle", "presenter") == (3.1, 4.3)
@@ -196,9 +201,12 @@ def _length(path: Path) -> float:
     return float(subprocess.run([*probe, str(path)], capture_output=True, text=True).stdout)  # noqa: S603
 
 
-def test_the_room_keeps_the_voices_length_fills_its_gaps_and_sets_its_loudness(tmp_path):
+@pytest.mark.parametrize("place", ["room", "car"])
+def test_the_room_keeps_the_voices_length_fills_its_gaps_and_sets_its_loudness(tmp_path, place):
     dry = _tone(tmp_path / "dry.mp3", "between(t,0,1.5)+between(t,2,3.5)", 4)  # dead gaps
-    wet = room.finish(dry, tmp_path / "wet.mp3")
+    wet = room.finish(dry, tmp_path / "wet.mp3", place)
+    assert room.graph("car") != room.graph() and talker.CAR.search("his parked car, seatbelt on")
+    assert not talker.CAR.search("at her kitchen table, cards on the counter")  # a room
     assert abs(_length(wet) - _length(dry)) < 0.06
     gaps = _ff("ffmpeg", "-i", str(wet), "-af", "silencedetect=n=-70dB:d=0.2", "-f", "null", "-")
     assert "silence_start" not in gaps  # room tone under every gap
