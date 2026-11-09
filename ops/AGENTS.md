@@ -1,5 +1,5 @@
 # Agent team
-**How it actually runs now (8 Nov 2026):** one lead chat (sanaa workspace) holds state, merges as Reed and runs paid tests, and spawns builder, QA, critic and runner subagents per task. A babysitter chat (georgetown) sweeps PRs hourly and reports to Reed only. Reed critiques each style in its own desk chat and asks general questions in short Ask chats; decisions from those go into files the lead reads, never only into a chat. The roles below are the long-term design; most are played by the lead's subagents today.
+**How it actually runs now (8 Nov 2026):** one lead chat (sanaa workspace) holds state, merges as Reed and runs paid tests, and spawns builder, QA, critic and runner subagents per task. A babysitter chat (georgetown) sweeps PRs hourly and reports to Reed only. Reed critiques each style in its own desk chat and asks general questions in short Ask chats; decisions from those go into files the lead reads, never only into a chat. How desks work: ops/DESKS.md (`/desk <style>` starts one). The roles below are the long-term design; most are played by the lead's subagents today.
 
 Each agent is its own Claude Code session on this repo. Work is tracked as GitHub issues (labels: `agent:<name>`). Reed talks to the Producer, and directly to the Writer for scripts.
 
