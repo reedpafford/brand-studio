@@ -283,7 +283,8 @@ def _one(tl: dict, e: CutEdit) -> None:
             raise Refused(SYNCED_LONG)  # slowed to fill, its lips would fall behind
         ending = d.get("ending") and p is pieces[-1]  # the ending's trim: its tail may all go
         if ending and p["end"] - p["start"] < GONE:
-            pieces.pop()  # nothing worth keeping is left: the cut ends on the piece before
+            pieces.pop()  # nothing worth keeping is left: the cut ends on the piece before,
+            tl.setdefault("dropped", []).append(p)  # its words still checked (QA on #1476)
         stay = pieces[:-1] if ending else pieces  # MIN is for pieces that stay (video 293)
         if any(q["end"] - q["start"] < MIN - 0.01 for q in stay) or not pieces:
             raise Refused(TOO_SHORT)

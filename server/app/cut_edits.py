@@ -239,6 +239,8 @@ def keeps_every_word(db: Session, tl: dict) -> None:
     for p in tl["pieces"]:
         end = float("inf") if p["whole"] else p["from"] + p["end"] - p["start"]
         groups.setdefault((p["id"].split(".")[0], p["take_id"]), []).append((p["from"], end))
+    for p in tl.get("dropped", []):  # an ending trim's dropped piece plays nothing
+        groups.setdefault((p["id"].split(".")[0], p["take_id"]), [])
     for (slot, take_id), plays in groups.items():
         take = db.get(ClipTake, take_id) if take_id else None
         if not _speaks(db, take) or (0.0, float("inf")) in plays:

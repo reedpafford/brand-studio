@@ -388,31 +388,65 @@ def _piece(i: int, start: float, end: float) -> dict:
 
 
 def test_an_ending_trim_may_drop_the_last_piece_never_a_word():
-    """Video 293: the cut's last piece (24.93–26.23 s) was a different Marcus after "bio" (ends
-    24.9 s). Trimming the ending to 24.93 was refused, "A piece can't be shorter than 0.5 s",
-    so the director cut 0.8 s and the stranger stayed as the last frame. The minimum is for
-    pieces that stay: an ending trim may shorten the last piece below it, or drop it."""
+    """Video 293: the cut's last piece, clip 7 (24.87–25.37 s, after a 0.8 s trim), was a
+    different Marcus after "bio" (ends 24.87 s). Trimming the rest away was refused, "A piece
+    can't be shorter than 0.5 s", so the stranger stayed as the last frame. The minimum is
+    for pieces that stay: an ending trim may shorten the last piece below it, or drop it."""
     from app.models.clips import CutEdit
 
-    words = [{"word": "bio.", "start": 24.6, "end": 24.9}]
-    pieces = [_piece(8, 20.0, 24.93), _piece(9, 24.93, 26.23)]
-    tl = {"mode": "narrated", "length": 26.23, "music": None, "words": words, "presenter": None,
-          "last_word": 24.9, "pieces": pieces}  # fmt: skip
+    words = [{"word": "bio.", "start": 24.5, "end": 24.87}]
+    pieces = [_piece(6, 22.49, 24.87), _piece(7, 24.87, 25.37)]
+    tl = {"mode": "narrated", "length": 25.37, "music": None, "words": words, "presenter": None,
+          "last_word": 24.87, "pieces": pieces}  # fmt: skip
 
     def ending(end: float, n: int = 1) -> CutEdit:
         return CutEdit(id=n, kind="trim", director=True,
-                       data={"piece": "c9", "end": end, "ending": True})  # fmt: skip
+                       data={"piece": "c7", "end": end, "ending": True})  # fmt: skip
 
-    got, lost = cut.replay(tl, [ending(24.93)])
-    assert not lost and [p["id"] for p in got["pieces"]] == ["c8"] and got["length"] == 24.93
+    got, lost = cut.replay(tl, [ending(24.87)])
+    assert not lost and [p["id"] for p in got["pieces"]] == ["c6"] and got["length"] == 24.87
     cut_edits._fits(got)  # it still runs to the last word
-    short, lost = cut.replay(tl, [ending(25.2)])
-    assert not lost and short["pieces"][-1]["end"] == 25.2  # 0.27 s of it stays: allowed
-    plain = CutEdit(id=2, kind="trim", director=True, data={"piece": "c9", "end": 25.2})
+    short, lost = cut.replay(tl, [ending(25.0)])
+    assert not lost and short["pieces"][-1]["end"] == 25.0  # 0.13 s of it stays: allowed
+    plain = CutEdit(id=2, kind="trim", director=True, data={"piece": "c7", "end": 25.0})
     assert cut.replay(tl, [plain])[1] == {2}  # not the ending's: a piece that stays, refused
-    early = {**tl, "pieces": [_piece(8, 20.0, 24.5), _piece(9, 24.5, 26.23)]}  # "bio" in c9
+    early = {**tl, "pieces": [_piece(6, 22.49, 24.4), _piece(7, 24.4, 25.37)]}  # "bio" in c7
     with pytest.raises(cut_edits.LosesWord):  # dropping it would cut the last word
-        cut_edits._fits(cut.replay(early, [ending(24.5)])[0])
+        cut_edits._fits(cut.replay(early, [ending(24.4)])[0])
+
+
+def test_dropping_a_speaking_clips_only_piece_is_cutting_its_words(monkeypatch):
+    """QA on #1476: in a story cut, an ending trim to 0.02 s dropped clip 2, which says "Bye",
+    and the word check only looked at the pieces left. A dropped piece's words are still
+    checked: the trim is refused for "Bye", then moved out just past it."""
+    from types import SimpleNamespace
+
+    from app.models.clips import CutEdit
+
+    bye = {"word": "Bye.", "start": 0.4, "end": 0.7}
+    monkeypatch.setattr(cut_edits, "_speaks", lambda db, take: True)
+    monkeypatch.setattr(cut_edits, "_heard", lambda db, take: [bye] if take.id == 2 else [])
+    monkeypatch.setattr("app.item_checks.latest", lambda db, target, ids: {
+        i: SimpleNamespace(status="done") for i in ids})  # fmt: skip
+    from app.models.jobs import Job
+
+    def get(model, i):  # a take asked of the model at 2 s
+        return (SimpleNamespace(input={"input": {"duration": 2}}) if model is Job
+                else SimpleNamespace(id=i, job_id=50 + i))  # fmt: skip
+
+    db = SimpleNamespace(get=get)
+    tl = {"mode": "takes", "length": 6.0, "music": None, "words": [], "presenter": None,
+          "pieces": [{**_piece(1, 0.0, 4.0), "whole": True}, _piece(2, 4.0, 6.0)]}  # fmt: skip
+    row = CutEdit(id=3, kind="trim", director=True,
+                  data={"piece": "c2", "from": 0.0, "length": 0.02, "ending": True})  # fmt: skip
+    after = cut.replay(tl, [row])[0]
+    assert [p["id"] for p in after["pieces"]] == ["c1"]
+    with pytest.raises(cut_edits.LosesWord) as lost:
+        cut_edits.keeps_every_word(db, after)
+    moved = cut_edits._keeping(db, tl, row, lost.value)
+    assert moved == {**row.data, "from": 0.0, "length": round(0.7 + cut.TAIL, 2)}
+    kept = cut.replay(tl, [CutEdit(id=3, kind="trim", director=True, data=moved)])[0]
+    cut_edits.keeps_every_word(db, kept)  # "Bye" plays, so the trim stands, moved
 
 
 def test_edits_replay_in_order_and_skip_what_no_longer_applies():
