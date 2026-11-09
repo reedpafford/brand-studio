@@ -157,7 +157,8 @@ def _actual_credits(job: Job, result: Result) -> Decimal:
 def _seconds(job: Job, item: UsageItem) -> UsageItem:
     """An Omni edit sends no length (it keeps its take's): when the provider reports none,
     it's its source take's `seconds`, never the model's longest (QA on #1488)."""
-    seconds = job.input.get("seconds") if job.input.get("edit") else None
+    asked = job.input or {}
+    seconds = asked.get("seconds") if asked.get("edit") else None
     if not (seconds and item.estimated and item.unit == "second" and item.units):
         return item
     each = item.cost_usd / item.units
