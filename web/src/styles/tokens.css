@@ -109,6 +109,7 @@
   --tabbar-h: 64px;        /* phone bottom tabs (+ safe area) */
   --actionbar-h: 68px;     /* phone action bar above the tabs */
   --content-max: 1280px;
+  --pane-max: 960px;       /* a video's preview tabs: past this, the pane centres instead of stretching (wide screens) */
 
   /* Motion: quick and smooth. Enter decelerates, exit accelerates and is ~70% as long. */
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
@@ -221,4 +222,5 @@
   --spacing-tabbar: var(--tabbar-h);
   --spacing-actionbar: var(--actionbar-h);
   --container-content: var(--content-max);
+  --container-pane: var(--pane-max);
 }

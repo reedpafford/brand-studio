@@ -305,10 +305,10 @@ function Review({ p, head, clip, fixPrice, fixError, onNote, onTake, takeBlock, 
   const muted = (span: number[]) => (picked.mutes ?? []).some((m) => Math.abs(m[0] - span[0]) < 0.05 && Math.abs(m[1] - span[1]) < 0.05);
   const fix = fixPrice == null ? null : upTo(head, fixPrice);
   return (
-    <section aria-label="Review" className="flex flex-col gap-2">
-      <h4 className="text-xs font-semibold text-muted">Review of take {picked.number}</h4>
+    <section aria-label="Review" className="flex flex-col gap-1.5 border-t border-border pt-5">
+      <h4 className="mb-1 text-sm font-semibold">Review of take {picked.number}</h4>
       {lines.map((l) => (
-        <p key={l} className="text-sm text-muted">
+        <p key={l} className="text-sm">
           {l}
         </p>
       ))}
@@ -629,7 +629,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
   const boxes = { change: ["Change this…", "What should change in this clip?"], still: ["Change the still…", "What should change in the still?"], sound: ["Add sound effects", "Slight footsteps, wind…"], prompt: ["The director’s prompt", ""] } as const;
   const boxPrice = box?.kind === "change" ? changePrice.data : box?.kind === "still" ? stillPrice.data : box?.kind === "sound" ? clip.sound?.credits : undefined;
   return (
-    <section aria-label={`Clip ${row.number}`} className="flex flex-col gap-4">
+    <section aria-label={`Clip ${row.number}`} className="flex flex-col gap-6">
       {!phone && (
         <div className="flex flex-wrap items-baseline gap-x-2">
           <h3 className="text-lg font-semibold">Clip {row.number}</h3>
@@ -750,7 +750,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       ) : (
         <>
           {!phone && (
-            <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1.5 text-sm">
+            <dl className="grid grid-cols-[112px_1fr] gap-x-4 gap-y-2.5 border-t border-border pt-5 text-sm">
               {kv.map(([k, v]) => (
                 <div key={k} className="contents">
                   <dt className="text-muted">{k}</dt>
@@ -760,23 +760,42 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
             </dl>
           )}
           {!phone && (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted">The director’s prompt</span>
-                {!viewOnly && (
-                  <button type="button" onClick={() => setBox({ kind: "prompt", text: clip.prompt })} className="text-xs font-medium text-accent-text hover:underline">
-                    Edit
-                  </button>
-                )}
-              </div>
-              <p className="rounded-md bg-surface-2 px-3 py-2.5 font-mono text-xs leading-[1.6] whitespace-pre-wrap text-text/80">{clip.prompt}</p>
-            </div>
+            <Prompt text={clip.prompt} onEdit={viewOnly ? undefined : () => setBox({ kind: "prompt", text: clip.prompt })} />
           )}
           {presses}
           {swapBox}
         </>
       )}
     </section>
+  );
+}
+
+/** The director's prompt, in full: a long one opens at its first lines with the rest a press away (it is always there to
+ *  read and change, rule 21; it just doesn't push the clip's own picture and review off the screen). */
+function Prompt({ text, onEdit }: { text: string; onEdit?: () => void }) {
+  const [all, setAll] = useState(false);
+  const lines = text.split("\n").length;
+  const long = lines > 8;
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-5">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold">The director’s prompt</h4>
+        {onEdit && (
+          <Button variant="ghost" dense icon={Pencil} onClick={onEdit}>
+            Edit
+          </Button>
+        )}
+      </div>
+      <div className="relative">
+        <p className={`overflow-hidden whitespace-pre-wrap rounded-lg border border-border bg-surface-2/60 px-3.5 py-3 font-mono text-xs leading-[1.6] text-text/80 ${long && !all ? "max-h-44" : ""}`}>{text}</p>
+        {long && !all && <span aria-hidden className="pointer-events-none absolute inset-x-px bottom-px h-16 rounded-b-lg bg-linear-to-t from-surface-2 to-transparent" />}
+      </div>
+      {long && (
+        <button type="button" aria-expanded={all} onClick={() => setAll(!all)} className="self-start text-sm font-medium text-accent-text underline-offset-2 hover:underline max-lg:min-h-control">
+          {all ? "Show less" : `Show all ${lines} lines`}
+        </button>
+      )}
+    </div>
   );
 }
 

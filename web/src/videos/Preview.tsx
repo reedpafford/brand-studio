@@ -73,9 +73,9 @@ function CutPane(props: PaneProps) {
   if (viewOnly) return <CutWatch {...props} />;
   return (
     <div className="space-y-4">
-      <div role="radiogroup" aria-label="Cut view" className="ml-auto flex w-fit gap-0.5 rounded-md bg-surface-2 p-0.5">
+      <div role="radiogroup" aria-label="Cut view" className={`${segTrack} ml-auto flex w-fit`}>
         {(["watch", "edit"] as const).map((m) => (
-          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`flex min-h-control items-center gap-1 rounded-sm px-3 text-sm lg:min-h-control-dense ${mode === m ? "bg-surface text-text shadow-raised" : "text-muted"}`}>
+          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={segItem(mode === m)}>
             {m === "edit" && <Scissors size={14} strokeWidth={1.75} aria-hidden />}
             {m === "watch" ? "Watch" : "Edit"}
           </button>
@@ -205,7 +205,7 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
       )}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <video ref={player} controls src={fileUrl(file)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 sm:max-w-80">
           {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={pick} />}
           <div className="flex flex-col gap-1 max-sm:hidden">
             {!(live && (live.versions.length > 1 || nextCut(live))) && <h2 className="text-lg font-semibold">{revising ? "Current cut" : "Final cut"}</h2>}
@@ -257,15 +257,15 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="flex justify-between text-xs">
-              <span className="font-semibold text-muted">The video, scene by scene</span>
-              <span className="text-muted">Click a frame to jump there</span>
+            <p className="flex items-baseline gap-2 text-sm">
+              <span className="font-semibold">The video, scene by scene</span>
+              <span className="text-xs text-muted">Click a frame to jump there</span>
             </p>
             <Filmstrip scenes={run.scenes} big onPick={(c) => jump(c.clip_id, c.take_id)} />
           </div>
         ))}
       {/* The song or narration under the cut, and the owner's score: no board draws them, and nothing else carries them. */}
-      <div className="space-y-3 border-t border-border pt-4 empty:hidden">
+      <div className="space-y-4 border-t border-border pt-5 empty:hidden">
         <FinalSong projectId={p.id} madeWith={video.song_take_id} narration={video.narration} />
         <Scorecard projectId={p.id} />
       </div>
@@ -452,6 +452,7 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
           <PanelSkeleton />
         ) : (
           <ViewOnly on={!!lookOnly}>
+            <div className="mx-auto flex w-full max-w-pane flex-col gap-4">
             <PaneBoundary tab={tab}>
               <Pane
               p={p}
@@ -468,6 +469,7 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
               onEditor={onEditor}
             />
             </PaneBoundary>
+            </div>
           </ViewOnly>
         )}
       </div>
