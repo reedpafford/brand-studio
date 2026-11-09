@@ -33,10 +33,10 @@ const credits = (m: Money, upTo = false) => (upTo ? Math.ceil(m.credits - 1e-9) 
  *  phone's line (P-04), the most only. */
 export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): [string, string] {
   const owner = h.spent.usd != null;
-  const spent = started; // before Make it: "No generation started" (Reed, 4 Nov: the treatment is a small planning spend, in Usage)
+  const spent = started; // before Make it: "No stills or clips yet" (its plan and looks are a small spend, in Usage)
   // While it plans before the OK (right after New video's Make it), "Working" beside "No generation started" read as a
   // contradiction (MAIN's Claymation run): it says what it's doing, and still that nothing is generated.
-  const none = h.status.kind === "working" ? "Planning, no generation yet ·" : "No generation started ·";
+  const none = h.status.kind === "working" ? "Planning, no stills or clips yet ·" : "No stills or clips yet ·";
   const top = h.up_to;
   if (h.actual) {
     // The owner's uncapped test site (Reed, 6 Nov): what the providers really charged, and the likely cost; no budget.

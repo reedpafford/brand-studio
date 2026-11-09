@@ -695,7 +695,12 @@ def approved_total(db: Session, project: Project) -> Decimal | None:
 
 def past_run(db: Session, project: Project, credits: Decimal) -> bool:
     """Whether a run's step of `credits` would take it past the price its Make it approved:
-    then it waits for the owner, the owner's own run too (Reed, 4 Nov)."""
+    then it waits for the owner, the owner's own run too (Reed, 4 Nov). A new run planning
+    before its own Make it is never held to an earlier run's price: its own card prices it."""
+    from app.director import planning_now
+
+    if planning_now(db, project):
+        return False
     got = approved_run(db, project)
     return got is not None and got[1] + credits > got[0]
 

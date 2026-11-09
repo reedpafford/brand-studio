@@ -35,15 +35,64 @@ def test_a_run_held_for_the_owner_draws_nothing_before_the_owners_ok(app, db, ow
     assert _card(owner, pid)["state"] == "open"
 
 
-def test_a_wait_with_nothing_left_to_plan_brings_the_card(app, db, owner, editor, monkeypatch):
-    real = director.choose
-    monkeypatch.setattr(director, "choose", lambda state: real(state) if state.get(
-        "treatment") == "none" else {**real(state), "tool": "wait"})  # fmt: skip
+def test_a_plan_first_video_shows_drawn_looks_on_its_card_and_no_cast_stop_after(
+    app, db, owner, editor
+):
+    """QA on #1482: a script whose people weren't cast makes its plan first; the card waited
+    for nobody's look (grey boxes), and the cast stop came back after Make it."""
+    from tests.test_script_library import SCRIPT, _make
+
+    app.state.settings.fake_providers = True
+    base = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = owner.post(f"{base}/drafts/0/produce").json()["project_id"]
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=20, start=False)
+    cast = owner.get(f"/projects/{pid}/cast").json()
+    assert cast["state"] == "ready" and all(i["preview_file_id"] for i in cast["items"]), cast
+    assert {i["name"] for i in cast["items"]} >= {"Mom", "Nate"}  # drawn before the card
+    card = _card(owner, pid)
+    assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).is_success
+    _run(app, db, ticks=60, start=False)  # nobody approves Cast: none is needed
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert director.CAST_WAIT not in [t["result"] for t in out["turns"]]
+    assert out["status"] == "delivered", out["ended"]
+
+
+def test_a_new_run_plans_on_its_own_not_the_last_runs_price(app, db, owner, editor):
+    """QA on #1482: Start the plan again on a video whose last run used its price was held
+    on a budget card before its own direction card."""
+    from tests.test_asks import _priced_down
+
     pid, _ = _video(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=8, start=False)
+    _run(app, db, ticks=80)  # delivered, Make it pressed
+    assert owner.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+    _priced_down(db, pid, "20")  # as if it used almost all of its "up to"
+    assert owner.post(f"/projects/{pid}/director/plan-again").status_code == 201
+    _run(app, db, ticks=20, start=False)
+    open_ = [c["kind"] for c in owner.get(f"/projects/{pid}/asks").json() if c["state"] == "open"]
+    assert open_ == ["start"]  # its own direction card, no budget card before it
+
+
+def test_a_wait_with_nothing_left_to_plan_brings_the_card(app, db, owner, editor, monkeypatch):
+    real = director.choose
+    monkeypatch.setattr(
+        director,
+        "choose",
+        lambda state: (
+            real(state)
+            if state.get("treatment") == "none" or state["missing_looks"]
+            else {**real(state), "tool": "wait"}
+        ),
+    )
+    pid, _ = _video(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=12, start=False)
     out = owner.get(f"/projects/{pid}/director").json()
-    assert out["turns"][1]["result"] == director.START_FIRST  # never an idle stop before Make it
+    said = [t["result"] for t in out["turns"]]
+    assert said[-2] == director.START_FIRST, said  # its looks drawn: never an idle stop
     assert _card(owner, pid)["state"] == "open"
 
 

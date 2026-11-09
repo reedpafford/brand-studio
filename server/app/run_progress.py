@@ -738,7 +738,7 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         and viewer
         and asks.may_start(db, viewer, project)
     ):  # its start card, theirs to press (S3-02)
-        first = "No generation started: press Make it"
+        first = "No stills or clips yet: press Make it"
         sub = f"{stays} until you press Make it" if stays else first
         head = ("waiting", "Ready to make", sub, "wait")
     elif holds is not None:

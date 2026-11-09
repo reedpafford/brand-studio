@@ -252,7 +252,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             Decline
           </Button>
         )}
-        <span className="ml-auto min-w-[120px] flex-1 text-right text-xs text-muted">No generation starts until you press.</span>
+        <span className="ml-auto min-w-[120px] flex-1 text-right text-xs text-muted">No stills or clips are made until you press.</span>
       </>
     ) : (
       <>

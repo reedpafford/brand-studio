@@ -929,6 +929,30 @@ def _own_plan(db: Session, run: dict, project: Project, seen: dict) -> bool:
     return _planning(run) and not reads and _written(db, run, project.id)
 
 
+def planning_now(db: Session, project: Project) -> bool:
+    """The video's newest run plans before its own Make it: nothing it spends is held to an
+    earlier run's price (its own card prices it, `asks.past_run`)."""
+    last = next(reversed(turns(db, project)), None)
+    return last is not None and not last.input[RUN].get("ok", True) and _planning(
+        last.input[RUN])  # fmt: skip
+
+
+def _unlooked(db: Session, project: Project, run: dict) -> str:
+    """Before the direction card: why it can't come yet, or "". Every person and place the
+    shots need is cast (free, as the storyboard would) and has a drawn look, unless a question
+    to the person about them waits (QA on #1482: grey boxes on the card, then the cast stop
+    again after Make it)."""
+    if asks.waiting(db, project):
+        return ""
+    me = {"project_id": project.id, "user": db.get(User, run["by"]), "db": db}
+    director_tools._cast_in_shots(db, project, me)
+    if missing := director_tools.missing_looks(db, project):
+        return f"Refused: make the missing looks first ({', '.join(missing)}), then the card."
+    if unready := cast_gate.state(db, project)["not_ready"]:
+        return f"Refused: {unready[0]['why']}; wait for it, then the card."
+    return ""
+
+
 def _before_ok(db: Session, project: Project, run: dict, tool: str | None) -> bool:
     """Whether a move runs before Make it. A wait with nothing being made and no question
     open is the plan done: the direction card comes instead."""
@@ -951,6 +975,8 @@ def _act(db: Session, job: Job, storage) -> None:
     free = tool in REVISE_FREE and _free_revision(db, run, project.id)
     if not run.get("ok", True) and not free and not _before_ok(db, project, run, tool):
         written = _written(db, run, project.id)  # nothing made before Make it but the plan
+        if written and _planning(run) and (why := _unlooked(db, project, run)):
+            return _record(db, job, run, why)  # the card shows drawn looks, never grey boxes
         return _record(db, job, run, START_FIRST if written else TREATMENT_FIRST)
     unpick_old_takes(db, project, run)  # "Start the plan again": its new shots are made
     if tool == "pick_take" and (aside := _aside(db, project, run, decision)):
@@ -1379,7 +1405,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
             and (step := _auto(db, project, run, {**seen, "started": True}, last))):  # fmt: skip
         if not before or step["tool"] in PLANNING:  # approving its written plan, say
             return _by_server(db, user, project, run, step, after)
-        card, run = True, {**run, "ok": True}  # the plan is done: the direction card, no call
+        if not _unlooked(db, project, run):  # the plan is done and every look drawn: the
+            card, run = True, {**run, "ok": True}  # direction card, with no call to reach it
     data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
     wait = ""
     if card:  # the start card: its first generating turn, held for Make it (S3-02)

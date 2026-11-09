@@ -73,12 +73,12 @@ test("S3-01: the header says where it is, its status and reason, the money, and 
   expect(screen.getByPlaceholderText("Add anything the director should know")).toBeInTheDocument();
 });
 
-test("before Make it the header says No generation started, even after the treatment's small planning spend (Reed, 4 Nov)", async () => {
+test("before Make it the header says No stills or clips yet, even after its planning spend (the plan and the looks)", async () => {
   setViewport(1440);
   server(owner, fs(), run({ started: false }), { "GET /projects/50/idea": [200, head({ status: status("needs_you", "Needs you", "Make it?") })] });
   renderApp("/b/1/videos/50");
   const top = await screen.findByRole("banner");
-  expect(await within(top).findByText("No generation started ·", { exact: false })).toBeInTheDocument();
+  expect(await within(top).findByText("No stills or clips yet ·", { exact: false })).toBeInTheDocument();
   expect(within(top).getByText("up to $16.86")).toBeInTheDocument();
   expect(top.textContent).not.toMatch(/Nothing spent/);
 });
@@ -88,8 +88,8 @@ test("MAIN's Claymation run: planning right after New video's Make it says Plann
   server(owner, fs(), run({ started: false }));
   renderApp("/b/1/videos/50");
   const top = await screen.findByRole("banner");
-  expect(await within(top).findByText("Planning, no generation yet ·", { exact: false })).toBeInTheDocument();
-  expect(top.textContent).not.toMatch(/No generation started/);
+  expect(await within(top).findByText("Planning, no stills or clips yet ·", { exact: false })).toBeInTheDocument();
+  expect(top.textContent).not.toMatch(/No stills or clips yet/);
 });
 
 test("an editor sees credits and the budget, never dollars (rule 4)", async () => {
@@ -735,7 +735,7 @@ test("S3-02: the start-of-run card: Make it · up to its price, Change the plan 
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to $14.40?" });
   expect(within(card).getByText("Ready to start")).toBeInTheDocument();
-  expect(within(card).getByText("No generation starts until you press.")).toBeInTheDocument();
+  expect(within(card).getByText("No stills or clips are made until you press.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull();
   await userEvent.click(within(card).getByRole("button", { name: "Change the plan first" }));
   expect(screen.getByLabelText("Tell the director what to change")).toHaveFocus();

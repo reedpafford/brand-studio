@@ -940,10 +940,11 @@ def test_the_progress_card_reads_ready_for_its_editor_and_ignores_an_options_hol
     editor.post(url)
     _run(app, db, ticks=12, start=False)
     mine = editor.get(f"{url}/progress").json()
-    assert (mine["title"], mine["sub"]) == ("Ready to make", "No generation started: press Make it")
+    sub = "No stills or clips yet: press Make it"
+    assert (mine["title"], mine["sub"]) == ("Ready to make", sub)
     for who in (editor, owner):  # the chat's line for the run says the same to each of them
         (line,) = [m for m in who.get(url).json()["thread"] if m.get("run")]
-        assert line["text"] == "Ready to make · No generation started: press Make it"
+        assert line["text"] == "Ready to make · No stills or clips yet: press Make it"
     assert owner.get(f"{url}/progress").json()["title"] == "Ready to make"  # the owner's too
     make_it(db)
     project = db.get(Project, pid)
@@ -1313,7 +1314,7 @@ def test_a_revision_never_says_no_generation_started(app, db, owner, editor):
     assert owner.get(url).json()["started"] is False  # the first start card waits
     first = owner.get(f"{url}/progress").json()
     assert first["title"] == "Ready to make"
-    assert first["sub"] == "No generation started: press Make it"
+    assert first["sub"] == "No stills or clips yet: press Make it"
     _make_it(app, db, owner, pid)
     assert owner.get(url).json()["started"] is True
     cut = [t["note"]["cut"] for t in owner.get(url).json()["thread"] if t.get("note")][-1]
