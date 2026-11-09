@@ -158,13 +158,21 @@ class ScreenFigure(BaseModel):
     )
 
 
+def _unnoted(line):
+    """A shot's words never keep a note in brackets ("I said [quietly] no"): it's direction,
+    and the video model would say it (prompts.without_notes)."""
+    from app.prompts import without_notes
+
+    return without_notes(line) if isinstance(line, str) else line
+
+
 class Shot(BaseModel):
     id: str = Field(description="'<scene>.<shot>', e.g. '1.1', '1.2', '2.1'.")
     script_lines: list[int] = Field(description="Numbered script lines this shot covers.")
     speaker: str | None = Field(description="Who speaks in this shot (cast name), or null.")
-    line: str | None = Field(
-        description="The exact spoken words from the script, unchanged; null if nobody speaks. "
-        "One speaker's line per shot."
+    line: Annotated[str | None, BeforeValidator(_unnoted)] = Field(
+        description="The exact spoken words from the script, unchanged, without its notes in "
+        "brackets ('[quietly]'); null if nobody speaks. One speaker's line per shot."
     )
     action: str = Field(
         description="What we see happen, concretely, in one sentence. In a shot nobody speaks "
@@ -923,12 +931,12 @@ class DirectorTurn(Strict):
     reading: str = Field(
         default="",
         description="For narration in an English_ voice, optional: the narration's words exactly "
-        "as the script has them, with only pause marks between words, e.g. <#0.2#> (0.1-0.3 s, "
-        "never two in a row), and a few sounds a person makes, e.g. (breath), (chuckle), "
-        "(sighs), (emm), where they'd really happen; a changed word is refused. A talker is "
-        "someone filming themselves, not a narrator: short marks only where a person would "
-        "catch themselves (the voice already stops at full stops), and a breath or a small "
-        "sound where it would really happen. Else empty.",
+        "as the script has them, never its notes in brackets, with only pause marks between "
+        "words, e.g. <#0.2#> (0.1-0.3 s, never two in a row), and a few sounds a person makes, "
+        "e.g. (breath), (chuckle), (sighs), (emm), where they'd really happen; a changed word is "
+        "refused. A talker is someone filming themselves, not a narrator: short marks only where "
+        "a person would catch themselves (the voice already stops at full stops), and a breath "
+        "or a small sound where it would really happen. Else empty.",
     )
     model: Name = Field(
         default=None,

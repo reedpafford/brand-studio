@@ -8,7 +8,7 @@ import math
 import re
 from itertools import zip_longest
 
-from app.prompts import SECTION, SUNG_RATE, plan_lines, spoken_words
+from app.prompts import SECTION, SUNG_RATE, TAG, plan_lines, spoken_words, unnoted, without_notes
 from app.prompts.schemas import (
     Breakdown,
     CastSlots,
@@ -33,7 +33,6 @@ ADVICE = "Advice: "  # a problem that never blocks a step; the editor can keep i
 HIS = re.compile(
     r"\b[A-Z][\w-]*'s (hands?|fingers?|thumbs?|phone|laptop|monitors?|screen|keys|car|desk)\b"
 )
-TAG = re.compile(r"^\[[A-Za-z ]+\] ")  # accepted Enhance lines: "[Camera] …", "[Brand screen] ★ …"
 SILENT = "Audio: no one speaks (no voices, narration or dialogue), only "
 AUDIO_LINE = re.compile(
     r"^Audio: (only the spoken lines? and|only the song from|no one speaks \(no voices, "
@@ -156,7 +155,7 @@ def breakdown(
         elif TAG.sub("", text).startswith(SCREEN_LINE) and n not in shown:
             problems.append(f"line {n} is a ★ screen line but no shot shows a screen")
     for shot in shots:
-        source = [lines[n - 1] for n in shot.script_lines if 0 < n <= len(lines)]
+        source = [without_notes(lines[n - 1]) for n in shot.script_lines if 0 < n <= len(lines)]
         if shot.line and _words(shot.line) not in _words(" ".join(source)):
             problems.append(f"shot {shot.id}: line differs from the script")
         for sid in shot.screen_ids:
@@ -557,7 +556,7 @@ SPEAKER = re.compile(r"^\s*[A-Z][A-Z .'-]*(?:\([^)]*\))?:")  # "NATE:" or "NATE 
 CUE = re.compile(
     r"([A-Z][A-Z .'-]{0,29}?)\s*(\((?:V\.?\s?O|O\.?\s?[SC])\.?\))?\s*(?:\(CONT['’]?D\))?"
 )
-DIRECTION = re.compile(r"\([^)]*\)")  # "(quietly)": how it's said, never words
+DIRECTION = re.compile(r"\([^)]*\)|\[[^\]]*\]")  # "(quietly)", "[she sighs]": never words
 HEADING = re.compile(r"(?:INT|EXT|I/E)\b|SCENE\b")  # "INT. KITCHEN - NIGHT", "SCENE 2"
 NOT_CUES = set(  # headings, transitions, camera and song words: never a speaker's name
     "INT EXT I/E CUT FADE DISSOLVE SMASH MATCH CLOSE WIDE ANGLE INSERT POV ON TO IN OUT BACK "
@@ -1295,7 +1294,7 @@ def narrator(script: str) -> str | None:
     """The narrator's name when every spoken line of a Story script is their voiceover and
     nobody speaks on camera (flows N1: "Narration" shows), else None. Every labelled line is
     one speaker's V.O.; a script of plain prose, with no labels, is one narrator too."""
-    lines = [TAG.sub("", x).strip() for x in script.splitlines()]
+    lines = [unnoted(x) for x in script.splitlines()]
     heads = [x for x in lines if x.startswith(("SCENE", "INT.", "EXT."))]
     said = [x for x in lines if x and x not in heads and not x.startswith(SCREEN_LINE)]
     labels = [m for x in said if (m := LABEL.match(x)) and m[1].upper() not in NOT_SPEAKERS]
@@ -1333,9 +1332,11 @@ WORDS_A_SECOND = {"dialogue": 4.8, "narrated": 3.4, "song": sum(SUNG_RATE) / 2}
 
 def _said(line: str, labelled: bool) -> str:
     """The words heard on a script line: after a speaker's label; in a script with labels, an
-    unlabelled line is action and is heard as nothing; in plain prose, the whole line."""
-    m = LABEL.match(line.strip())
-    return line.strip()[m.end() :] if m else ("" if labelled else line)
+    unlabelled line is action and is heard as nothing; in plain prose, the whole line. Never
+    a note in brackets (`unnoted`)."""
+    line = unnoted(line)
+    m = LABEL.match(line)
+    return line[m.end() :] if m else ("" if labelled else line)
 
 
 def _lines(ns: list[int], many: str = "are", one: str = "is") -> str:
@@ -1547,20 +1548,20 @@ NARRATOR = re.compile(r"^(?:NARRATOR|VOICE[- ]?OVER|V\.?\s?O\.?)\s*(?:\([^)]*\))
 def narration_text(script: str) -> str:
     """What the narrator reads (flows N1), line by line as written: the voiced
     words of each speaker line, label taken off; in a script of plain prose, every line. Never
-    scene headings, ★ brand lines, [tag] lines or directions ("CTA:", "SUPER:"), and never
+    scene headings, ★ brand lines, notes in brackets (`unnoted`: "[Camera] …", a line that is
+    only "[she sighs]", "[quietly]" inside a line) or directions ("CTA:", "SUPER:"), and never
     action lines when the script has speaker lines. Speaker lines count only in a script with
     scene headings, a V.O. label, or speakers on at least half its lines, so a prose line
     that opens "Iron Paws: …" is read whole (Flow-QA on #858); a narrator's own label
     ("NARRATOR:") is never read, even on one line of prose (Zack D video 271)."""
-    lines = [x.strip() for x in script.splitlines()]
+    lines = [unnoted(x) for x in script.splitlines()]
     heads = any(x.startswith(("SCENE", "INT.", "EXT.")) for x in lines)
     lines = [x for x in lines if x and not x.startswith(("SCENE", "INT.", "EXT.", SCREEN_LINE))]
-    lines = [x for x in lines if not TAG.match(x)]
     lines = [x for x in lines if not ((m := LABEL.match(x)) and m[1].upper() in NOT_SPEAKERS)]
     said = [(m, x) for x in lines if (m := LABEL.match(x))]
     vo = any(VO.fullmatch((m[3] or "").strip()) for m, _ in said)
     if not said or not (heads or vo or 2 * len(said) >= len(lines)):
-        return "\n".join(NARRATOR.sub("", x) for x in lines)
+        return "\n".join(y for x in lines if (y := NARRATOR.sub("", x)))
     return "\n".join(x[m.end() :].strip() for m, x in said)
 
 

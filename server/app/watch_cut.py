@@ -25,6 +25,7 @@ from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
 from app.models.files import StoredFile
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
+from app.prompts import unnoted
 
 log = logging.getLogger(__name__)
 
@@ -227,8 +228,9 @@ def _holds_script(line: list[dict], said: set[str]) -> bool:
 
 
 def _script_words(script: str) -> set[str]:
-    """The script's spoken words, without its speaker labels ("MOM:")."""
-    lines = [re.sub(r"^\s*[A-Z][A-Z .'-]*?(?: \([^)]*\))?:", "", ln) for ln in script.splitlines()]
+    """The script's spoken words, without its speaker labels ("MOM:") or notes (`unnoted`)."""
+    lines = [re.sub(r"^\s*[A-Z][A-Z .'-]*?(?: \([^)]*\))?:", "", unnoted(ln))
+             for ln in script.splitlines()]  # fmt: skip
     return set(_bare(" ".join(lines)))
 
 

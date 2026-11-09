@@ -11709,7 +11709,7 @@ export interface components {
             speaker: string | null;
             /**
              * Line
-             * @description The exact spoken words from the script, unchanged; null if nobody speaks. One speaker's line per shot.
+             * @description The exact spoken words from the script, unchanged, without its notes in brackets ('[quietly]'); null if nobody speaks. One speaker's line per shot.
              */
             line: string | null;
             /**

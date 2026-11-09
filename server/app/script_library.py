@@ -5,8 +5,6 @@
 - A version's words change only while it is a draft; once approved they never change.
 - A published script is final: its versions can't change (duplicate it to change it)."""
 
-import re
-
 from fastapi import HTTPException
 from sqlalchemy import delete, event, inspect, or_, select
 from sqlalchemy.orm import Session, object_session
@@ -18,6 +16,7 @@ from app.models.jobs import WAITING, Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
+from app.prompts import spoken_words
 
 MAX_SLOT = 2  # the original (0) plus up to two variations
 WORDS_PER_SECOND = 4.8
@@ -113,13 +112,6 @@ def reel_name(breakdown: dict) -> str:
     return breakdown.get("logline", "").split(",")[0].strip()[:80] or "Imported reel"
 
 
-def spoken_seconds(text: str) -> int:
-    """A rough length before any breakdown: spoken words at 4.8 a second."""
-    said = [ln.split(":", 1)[1] for ln in text.splitlines() if re.match(r"^[A-Z][A-Z .'()-]*:", ln)]
-    words = sum(len(s.split()) for s in said) or len(text.split())
-    return round(words / WORDS_PER_SECOND)
-
-
 def seconds(draft: ScriptDraft) -> int:
     """The version's length: its video's breakdown once it has one (LW9: the library said
     "about 11 s" while Breakdown said 22 s), else its own breakdown's, else the owner's target,
@@ -132,7 +124,8 @@ def seconds(draft: ScriptDraft) -> int:
         return videos[0]
     if draft.breakdown:
         return sum(c["seconds"] for c in draft.breakdown.get("clips", []))
-    return draft.target_seconds or max(spoken_seconds(draft.text), reel_seconds(draft))
+    talk = round(spoken_words(draft.text) / WORDS_PER_SECOND)
+    return draft.target_seconds or max(talk, reel_seconds(draft))
 
 
 def reel_seconds(draft: ScriptDraft) -> int:
