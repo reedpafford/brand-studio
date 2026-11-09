@@ -36,7 +36,6 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
   const [text, setText] = useState("");
   const q = useDebounced(text.trim());
   const [limit, setLimit] = useState(PAGE);
-  useEffect(() => setLimit(PAGE), [q]);
   const found = useScripts(brandId, owner, q, limit);
   const rows = { ...found, data: found.data?.rows };
   const looks = useLooks().data;
@@ -85,7 +84,7 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
     <label className={`flex h-11 lg:h-[30px] items-center gap-2 rounded-md border border-border-strong bg-surface px-2.5 text-sm text-muted focus-within:border-focus ${rail ? "w-[260px]" : "w-full"}`}>
       <Search size={14} aria-hidden />
       <span className="sr-only">Search scripts</span>
-      <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search scripts" className="min-w-0 flex-1 bg-transparent text-text outline-none! placeholder:text-muted" />
+      <input type="search" value={text} onChange={(e) => (setText(e.target.value), setLimit(PAGE))} placeholder="Search scripts" className="min-w-0 flex-1 bg-transparent text-text outline-none! placeholder:text-muted" />
     </label>
   );
   const press = <Press owner={owner} est={est} busy={sent.isPending} disabled={!send || !!had} onClick={() => go()} wide={!rail} />;

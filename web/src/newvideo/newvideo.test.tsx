@@ -189,6 +189,14 @@ test("saved scripts: a full page offers Show more scripts, which asks for a long
   await vi.waitFor(() => expect(calls.some((c) => new URL(c.url).searchParams.get("limit") === "100")).toBe(true));
 });
 
+test("saved scripts: when the longer page brings nothing new, Show more goes away", async () => {
+  setViewport(1440);
+  server(owner, { "GET /scripts": [200, Array.from({ length: 50 }, (_, i) => scriptRow(200 + i, `Script ${i}`))] }); // exactly one full page, no more
+  renderApp("/b/1/videos/new?from=script");
+  await userEvent.click(await screen.findByRole("button", { name: "Show more scripts" }));
+  await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Show more scripts" })).toBeNull());
+});
+
 test("saved scripts: a short page has no Show more", async () => {
   setViewport(1440);
   server(owner, { "GET /scripts": [200, [scriptRow(7, "Beer gut doctor rant")]] });
