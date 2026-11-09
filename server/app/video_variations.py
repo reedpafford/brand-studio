@@ -37,7 +37,6 @@ NOTE = (
     "treatment already says it and stands, so don't write it again. Make {clips} again "
     "for it: {note} Keep every other clip and take, then make the cut and watch it."
 )
-WORDS = " Line {n} of this video's script has the owner's new words for it."
 FRESH = ("created_at", "name", "finished_at", "archived_at", "released_draft_id",
          "created_by_id", "director_chat", "forecast_credits", "forecast_basis", "score",
          "score_note", "hidden", "plan_history", "storyboard_history", "settings_log",
@@ -171,6 +170,7 @@ def made(db: Session, project: Project) -> dict:
 
 def _make(db: Session, user: User, source_: Project, option: VideoVariation, clips: list[str],
           asked: dict) -> Project:  # fmt: skip
+    from app import line_change
     from app.ideas import titles
 
     taken = db.scalar(select(func.count(Job.id)).where(
@@ -195,7 +195,7 @@ def _make(db: Session, user: User, source_: Project, option: VideoVariation, cli
                        part="opening" if asked["part"] == "hook" else "ending",
                        clips=f"clip{'s' if len(clips) > 1 else ''} {which}",
                        note=option.note.rstrip(".") + ".")  # fmt: skip
-    note += WORDS.format(n=line) if line else ""
+    note += f" {line_change.WROTE.format(n=line)}" if line else ""  # as Change the line says it
     video.director_chat = [{"text": note, "by": user.id, "at": utcnow().isoformat()}]
     db.commit()
     return video
@@ -278,6 +278,7 @@ def _new_words(db: Session, user: User, video: Project, option: VideoVariation,
     from app.clip_prompts import newest
     from app.locked_line import QUOTE
     from app.narration import video_kind
+    from app.prompts import without_notes
 
     words, n = option.words.strip(), option.line
     quoted = {(a or b).strip() for a, b in QUOTE.findall(note)}  # only words it puts in quotes
@@ -287,8 +288,11 @@ def _new_words(db: Session, user: User, video: Project, option: VideoVariation,
     if not saying or not set(saying) <= set(clips):  # every clip that says it is made again
         return None
     line = plans.script(db, video).text.splitlines()[n - 1]
-    found = {"line": n, "old": line.split(":", 1)[-1].strip(), "new": words}
-    _, version = line_change.new_version(db, user, video, found)
+    said = line.split(":", 1)[-1].strip()
+    heard = without_notes(said)  # as the shot's line reads it (#1490): "[quietly] Nate…"
+    found = {"line": n, "old": heard if heard in line else said, "new": words}
+    _, version = line_change.new_version(db, user, video, found)  # a note before it stays
     plan = newest(db, video)
-    plan.data, plan.script_version = line_change.with_line(plan.data, found), version.version
+    plan.data = line_change.with_line(plan.data, {**found, "old": heard})
+    plan.script_version = version.version
     return n

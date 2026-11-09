@@ -25,10 +25,9 @@ DO = "change_line"
 TITLE = "Change the line"
 OWNER_ONLY = "Only the owner can change the script's words."
 MOVED = "That line has changed since. Ask again in the chat."
-NOTE = (  # never quoting the words or "change … line" (a take's note can't: check.redo_note)
-    "The owner wrote line {n} of the script again, in a new version. {what}; keep every other "
-    "clip and take, then make the cut and watch it."
-)
+# never quoting the words or "change … line" (a take's note can't: check.redo_note)
+WROTE = "The owner wrote line {n} of the script again, in a new version."  # variations' too
+NOTE = WROTE + " {what}; keep every other clip and take, then make the cut and watch it."
 
 
 def _replaced(line: str, old: str, new: str) -> str:

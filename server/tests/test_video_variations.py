@@ -118,6 +118,30 @@ def test_an_idea_that_remakes_every_clip_or_misses_its_end_is_never_made(app, db
     assert _picked(db, made[0].id)["c1"] is None
 
 
+def test_a_variation_in_the_owners_words_reaches_its_shot_and_delivers(app, db, owner, editor,
+                                                                      monkeypatch):  # fmt: skip
+    """QA on #1491: a line with a note in brackets (#1490) gets the owner's words in its shot
+    too, the note kept in the script, and the run says it as Change the line does, so its
+    take's note passes the words check and it delivers."""
+    from app.clip_prompts import newest
+
+    pid = _delivered(app, db, owner, editor, monkeypatch)
+    words = db.query(ScriptVersion).filter_by(project_id=pid).order_by(
+        ScriptVersion.version.desc()).first()  # fmt: skip
+    words.text = words.text.replace("MOM: Nate,", "MOM: [quietly] Nate,")
+    db.commit()
+    video = _variations(app, db, owner, pid, count=2, part="hook",
+                        note="Open on “Nate, show me the money!”")[0]  # fmt: skip
+    text = db.query(ScriptVersion).filter_by(project_id=video.id).order_by(
+        ScriptVersion.version.desc()).first().text  # fmt: skip
+    assert "MOM: [quietly] Nate, show me the money!" in text
+    shots = [s for sc in newest(db, video).data["scenes"] for s in sc["shots"]]
+    assert shots[0]["line"] == "Nate, show me the money!"
+    _run(app, db, ticks=80)
+    out = owner.get(f"/projects/{video.id}/director").json()
+    assert out["status"] == "delivered", (out["ended"], [t["result"] for t in out["turns"]])
+
+
 def test_the_owners_quoted_words_are_a_new_version_for_that_variation_only(
         app, db, owner, editor, monkeypatch):  # fmt: skip
     """Rule 31's owner exception: a hook in the owner's own quoted words is a new version of
@@ -145,7 +169,7 @@ def test_the_owners_quoted_words_are_a_new_version_for_that_variation_only(
         source.script_draft_id)  # fmt: skip
     assert "Nate, where is all your money?" in db.get(ScriptDraft, source.script_draft_id).text
     assert second.script_draft_id == source.script_draft_id  # its idea kept the words
-    assert "Line 2 of this video's script" in first.director_chat[0]["text"]
+    assert "The owner wrote line 2 of the script again" in first.director_chat[0]["text"]
 
 
 def test_a_place_made_for_the_first_video_is_every_later_variations_too(
