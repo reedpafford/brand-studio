@@ -22,13 +22,19 @@ class Base(DeclarativeBase):
 
 
 def make_sessionmaker(url: str) -> sessionmaker[Session]:
+    """Every session tells open video pages what its commits changed (app/live.py)."""
+    from app import live
+
     if not url.startswith("sqlite"):
-        return sessionmaker(create_engine(url), expire_on_commit=False)
-    # SQLite (dev and the browser tests only): the API and worker share one file, so wait up to
-    # 30 s for a lock instead of 5, and use WAL so reading never waits on the worker's writes.
-    engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
-    event.listen(engine, "connect", lambda conn, _: conn.execute("PRAGMA journal_mode=WAL"))
-    return sessionmaker(engine, expire_on_commit=False)
+        engine = create_engine(url)
+    else:
+        # SQLite (dev and the browser tests only): the API and worker share one file, so wait up
+        # to 30 s for a lock instead of 5, and use WAL so reading never waits on worker writes.
+        engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
+        event.listen(engine, "connect", lambda conn, _: conn.execute("PRAGMA journal_mode=WAL"))
+    maker = sessionmaker(engine, expire_on_commit=False)
+    live.watch(maker, url)
+    return maker
 
 
 def get_db(request: Request) -> Iterator[Session]:

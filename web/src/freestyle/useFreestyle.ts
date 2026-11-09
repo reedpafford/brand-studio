@@ -75,14 +75,15 @@ export function useFreestyles(everyone: boolean) {
   });
 }
 
-/** One freestyle, asked again every 4 s while it waits for Reed or is being made; a new status refreshes the list. */
-export function useFreestyle(id: number | null) {
+/** One freestyle, asked again every 4 s while it waits for Reed or is being made (`poll`: on its video's page the server
+ *  says when it changes instead, videos/live.ts); a new status refreshes the list. */
+export function useFreestyle(id: number | null, poll = true) {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["freestyle", id],
     enabled: id !== null,
     queryFn: () => call(api.GET("/freestyles/{freestyle_id}", { params: { path: { freestyle_id: id! } } })),
-    refetchInterval: (q) => (busy(q.state.data?.status) ? 4_000 : false),
+    refetchInterval: (q) => (poll && busy(q.state.data?.status) ? 4_000 : false),
   });
   const status = query.data?.status;
   useEffect(() => {

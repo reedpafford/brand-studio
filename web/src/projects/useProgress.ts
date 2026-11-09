@@ -2,19 +2,15 @@ import { useOnChange } from "../useOnChange";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { blocking } from "./problems";
 import { api, errorText, polled } from "../api/client";
-import type { components } from "../api/schema";
 import { useBreakdown } from "./BreakdownPane";
 import type { Progress } from "./steps";
 import { useLatestScript } from "./ScriptTab";
 
-type Frame = components["schemas"]["FrameOut"];
-
-/** The video's storyboard stills, read again every 3 s while `poll` says so. */
-export function useFrames(projectId: number, poll?: (frames: Frame[] | undefined) => boolean) {
+/** The video's storyboard stills. */
+export function useFrames(projectId: number) {
   return useQuery({
     queryKey: ["storyboard", projectId],
     enabled: projectId > 0, // no video yet (the page before it loads): never /projects/0
-    refetchInterval: (q) => (poll?.(q.state.data) ? 3000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/storyboard", { params: { path: { project_id: projectId } } }), []),
   });
 }

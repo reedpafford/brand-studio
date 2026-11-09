@@ -19,5 +19,8 @@ COPY server/app ./app
 RUN useradd --uid 1000 --create-home app && mkdir -p /data/storage /data/models && chown -R app /data
 USER app
 EXPOSE 8000
+# An open video page holds a live stream (app/live.py) that never ends by itself: a restart cuts
+# them after 3 s instead of waiting out Docker's 10 s; each page opens its stream again a second
+# later (Caddy holds it while the API starts) and reads what it missed.
 CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", \
-     "--proxy-headers", "--forwarded-allow-ips", "*"]
+     "--proxy-headers", "--forwarded-allow-ips", "*", "--timeout-graceful-shutdown", "3"]

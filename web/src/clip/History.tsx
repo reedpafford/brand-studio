@@ -9,13 +9,14 @@ import { serverTime } from "../time";
 /** A job still going: waiting, running, or held for the owner's OK. */
 export const GOING = ["queued", "running", "needs_owner_approval"];
 
-/** The caller's jobs, or one video's (its page polls only its own, not the newest 200). Polls while anything is still going. */
+/** The caller's jobs, polled while anything is still going; or one video's, read again when the server says one moved
+ *  (videos/live.ts). */
 export function useJobs(projectId?: number) {
   return useQuery({
     queryKey: projectId ? ["jobs", projectId] : ["jobs"],
     queryFn: () => polled(api.GET("/jobs", projectId ? { params: { query: { project_id: projectId } } } : {}), []),
-    ...(projectId ? { staleTime: SHARED_FOR } : {}), // a video page's own, shared as its other reads are
-    refetchInterval: (q) => (q.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
+    staleTime: projectId ? SHARED_FOR : 0, // a video page's own, shared as its other reads are
+    refetchInterval: (q) => (!projectId && q.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
 }
 

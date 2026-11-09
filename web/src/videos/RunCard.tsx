@@ -20,12 +20,13 @@ const clock = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2
 /** A clip is being made though the run has ended (Try again on a failed clip). */
 const making = (r: Progress) => r.scenes.some((s) => s.clips.some((c) => c.state === "making"));
 
-/** The newest run's live record (v6 piece C), read again every 3 s while it works, revises or waits, or a clip is made. */
+/** The newest run's live record (v6 piece C), read again the moment one of its jobs moves (./live.ts). While it works,
+ *  revises or waits, or a clip is made, also every 30 s: its "about 2 min" and a clip's bar go by the clock, not a change. */
 export function useRunProgress(projectId: number) {
   return useQuery({
     queryKey: ["run-progress", projectId],
     enabled: projectId > 0,
-    refetchInterval: (q) => (q.state.data && (LIVE.includes(q.state.data.status) || making(q.state.data)) ? 3_000 : false),
+    refetchInterval: (q) => (q.state.data && (LIVE.includes(q.state.data.status) || making(q.state.data)) ? 30_000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/director/progress", { params: { path: { project_id: projectId } } }), null),
   });
 }

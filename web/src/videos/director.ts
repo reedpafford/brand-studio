@@ -1,8 +1,6 @@
-import { useOnChange } from "../useOnChange";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, polled } from "../api/client";
 import type { components } from "../api/schema";
-import { refreshJobs } from "../jobs/refresh";
 
 type Clip = components["schemas"]["ProjectClipOut"];
 
@@ -22,22 +20,11 @@ export function plain(line: string, clips: Clip[]): string {
   return NOT_PLAIN.test(out) ? "" : out;
 }
 
-/** The video's director run (its moves, price and notes), asked again every 5 s while it runs. */
+/** The video's director run (its moves, price and notes), read again when the server says it changed (./live.ts). */
 export function useDirectorRun(projectId: number, enabled = true) {
   return useQuery({
     queryKey: ["director", projectId],
     enabled,
     queryFn: () => polled(api.GET("/projects/{project_id}/director", { params: { path: { project_id: projectId } } }), null),
-    refetchInterval: (q) => (q.state.data?.status === "running" ? 5_000 : false),
-  });
-}
-
-/** When a move finishes, the panel has new work: refresh it (and the header), and the waiting lists for a held move.
- *  `moves`: the run's moves and status, undefined until read (opening the page never reads everything twice). */
-export function useMovesRefresh(projectId: number, moves: string | undefined) {
-  const queryClient = useQueryClient();
-  useOnChange(moves, () => {
-    void queryClient.invalidateQueries({ predicate: (q) => !["director", "freestyle"].includes(String(q.queryKey[0])) && q.queryKey.includes(projectId) });
-    void refreshJobs(queryClient);
   });
 }

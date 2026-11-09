@@ -15,7 +15,6 @@ import { ReelBlock } from "../scripts/ReelImport";
 import { useFreestyle, useFreestyleActions, type Freestyle } from "../freestyle/useFreestyle";
 import { refreshJobs } from "../jobs/refresh";
 import { useMayManageVideo, useVideoActions } from "../projects/ReleaseVideo";
-import { useFreshProject } from "../projects/useFreshProject";
 import { useProjectClips, useProjectVideo } from "../projects/useProgress";
 import { CastOk } from "../projects/CastOk";
 import { letterOf } from "../scripts/status";
@@ -23,7 +22,8 @@ import { useScript } from "../scripts/useScript";
 import { serverTime } from "../time";
 import { useBrands } from "../shell/useBrands";
 import { useOnline, useRail } from "../useMedia";
-import { plain, useDirectorRun, useMovesRefresh } from "./director";
+import { plain, useDirectorRun } from "./director";
+import { useLive } from "./live";
 import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview";
 import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
 import { InsteadCard } from "./InsteadCard";
@@ -78,11 +78,11 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   useEffect(() => {
     if (side === "chat") previewSide.current?.querySelectorAll("video").forEach((v) => v.pause()); // P-04: the cut stops when you go back to the chat
   }, [side]);
-  useFreshProject(id);
+  useLive(id); // each change on this video, the moment it lands
   const project = useVideoProject(id);
   const p = project.data ?? null;
   const fsId = p?.freestyle_id ?? freestyleId ?? null;
-  const fsQuery = useFreestyle(fsId);
+  const fsQuery = useFreestyle(fsId, !p); // an editor's send before the owner's OK: its video isn't theirs to hear yet
   const fs = fsQuery.data;
   const runQuery = useDirectorRun(id);
   const run = runQuery.data;
@@ -96,14 +96,10 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const actions = useFreestyleActions(fsId);
   const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`));
   const runRead = !runQuery.isPending && !(fsId && fsQuery.isPending);
-  useMovesRefresh(id, runRead ? `${(fs?.thread.length ?? 0) + (run?.turns.length ?? 0)}:${fs?.status}:${run?.status}` : undefined);
   useRunEnd(id, liveRun?.status, run?.status);
   // When this video starts or stops needing you, the rail's Needs you count is read again at once, not at its next 30 s
   // poll (MAIN's Claymation run: the count was behind while a question waited on this very video).
   useOnChange(runRead && !head.isPending ? `${head.data?.status.kind}:${run?.waiting?.length ?? 0}:${run?.make_it ?? ""}` : undefined, () => void queryClient.invalidateQueries({ queryKey: ["needs-you"] }));
-  // A change on the run's live card (a still or take made, a step done) brings the director's moves with it, not at the
-  // director's own next read (up to 5 s later).
-  useOnChange(liveRun, () => void queryClient.invalidateQueries({ queryKey: ["director", id] }));
   const stop = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/projects/{project_id}/director/stop", { params: { path: { project_id: id } } });
@@ -358,7 +354,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const heldMove = [...items].reverse().find((t) => t.kind === "move" && t.status === "held")?.id;
   const refreshAsks = useAskRefresh(id);
   const named = items.flatMap((t) => (t.kind === "ask" && t.ask_id != null ? [t.ask_id] : []));
-  const asksRead = useAsks(id, running || (run?.waiting?.length ?? 0) > 0, named);
+  const asksRead = useAsks(id);
   const cards = asksRead.data ?? [];
   // A start card waits while a note is read into the plan (MAIN's run 276); once it's in, the plan panel reads it again.
   const updating = cards.some((a) => a.money?.updating);
@@ -655,7 +651,6 @@ function useHeldChange(fs: Freestyle | null | undefined, on: boolean) {
   const held = useQuery({
     queryKey: ["held-jobs"],
     enabled: !!fs && on,
-    refetchInterval: 15_000,
     queryFn: () => polled(api.GET("/jobs", { params: { query: { status: "needs_owner_approval" } } }), []),
   });
   return held.data?.find((j) => j.status === "needs_owner_approval" && j.freestyle?.id === fs?.id && j.freestyle?.change)?.freestyle?.up_to;

@@ -360,7 +360,7 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
 function ScriptTabPane({ p, lines, pickLine }: PaneProps) {
   const script = useLatestScript(p.id);
   // The words someone asked to change, marked where they're said (S3-14): the newest such ask's.
-  const asked = (useAsks(p.id, false).data ?? []).filter((a) => a.kind === "instead").at(-1)?.subject;
+  const asked = (useAsks(p.id).data ?? []).filter((a) => a.kind === "instead").at(-1)?.subject;
   // The notes saved on the script (the old page's script panel showed them): kept here, read only, by line.
   const notes = useQuery({ queryKey: ["script-notes", p.id, script.data?.version], enabled: !!script.data, retry: false, queryFn: async () => (await api.GET("/projects/{project_id}/script/notes", { params: { path: { project_id: p.id } } })).data ?? [] });
   if (script.isPending) return <Skeleton className="h-64" />;

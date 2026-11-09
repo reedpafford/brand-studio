@@ -23,7 +23,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import cast_gate, director, hidden, locked_line, music, screen_figures
+from app import cast_gate, director, hidden, live, locked_line, music, screen_figures
 from app.clip_takes import still_wanted
 from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
@@ -74,6 +74,8 @@ def _move(db: Session, job: Job, old: JobStatus, new: JobStatus, **values) -> bo
     done = db.execute(
         update(Job).where(Job.id == job.id, Job.status == old).values(status=new, **values)
     )
+    if done.rowcount == 1:
+        live.note(db, job, new)
     return done.rowcount == 1
 
 
@@ -89,6 +91,8 @@ def _stop(db: Session, job: Job) -> bool:
         )
         .values(status=JobStatus.cancelled, finished_at=utcnow())
     )
+    if done.rowcount == 1:
+        live.note(db, job, JobStatus.cancelled)
     return done.rowcount == 1
 
 

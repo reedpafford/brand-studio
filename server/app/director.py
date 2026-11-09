@@ -28,6 +28,7 @@ from app import (
     cut_edits,
     director_song,
     director_tools,
+    live,
     locked_line,
     take_mute,
     take_sound,
@@ -1365,6 +1366,8 @@ def _write(db: Session, job: Job, data: dict) -> bool:
     done = db.execute(update(Job).where(Job.id == job.id,
                                         Job.input["ended"].as_string().is_(None))
                       .values(input=data).execution_options(synchronize_session=False))  # fmt: skip
+    if done.rowcount == 1:
+        live.note(db, job)  # its open page reads the turn's words at once
     return done.rowcount == 1
 
 
