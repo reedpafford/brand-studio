@@ -28,9 +28,7 @@ from app.auth import current_user, user_name
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.files import StoredFile
-from app.models.freestyles import Freestyle
 from app.models.jobs import Job
-from app.models.projects import Project
 from app.models.script_library import Script, ScriptCastSlot, ScriptDraft, ScriptDraftText
 from app.models.scripts import Suggestion
 from app.purge import PURGE_AFTER
@@ -423,7 +421,6 @@ def list_scripts(
     max_seconds: int | None = None,
     removed: bool = False,  # true: the deleted (archived) scripts instead, to restore
     folder: str | None = None,  # OR1: a project's id, or "none" for No project
-    sends: bool = True,  # false: not the scripts New video's pasted sends made (S2-06)
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -440,12 +437,6 @@ def list_scripts(
         query = query.where(Script.brand_id == brand_id)
     if (filed := folders.where(Script.folder_id, folder)) is not None:
         query = query.where(filed)
-    if not sends:  # a send's own script: made with it, not picked from the library
-        made = (select(Freestyle.id).join(Project, Freestyle.project_id == Project.id)
-                .join(ScriptDraft, Project.script_draft_id == ScriptDraft.id)
-                .where(ScriptDraft.script_id == Script.id,
-                       Script.created_at >= Freestyle.created_at))  # fmt: skip
-        query = query.where(~made.exists())
     if reference_id is not None:
         query = query.where(Script.reference_id == reference_id)
     if reference is not None:

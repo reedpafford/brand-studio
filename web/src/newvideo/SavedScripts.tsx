@@ -12,15 +12,20 @@ import { ActionBar } from "../shell/ActionBar";
 import { Press, Under, box, row } from "./NewVideoPage";
 import { useEstimate, useSend, usd } from "./useNewVideo";
 
+const PAGE = 50;
+
 /** The brand's scripts that can become a video: an editor sees every published one, with videos or not (S2-05); the
- *  owner's drafts too, once they have words. Not the scripts New video's own pasted sends made (S2-06). */
-function useScripts(brandId: number, owner: boolean, q: string) {
+ *  owner's drafts too, once they have words. Pasted sends' scripts are published scripts like any other, so they show.
+ *  The server searches (title, description, the script's words) and pages; `more` says the page came back full. */
+function useScripts(brandId: number, owner: boolean, q: string, limit: number) {
   return useQuery({
-    queryKey: ["scripts", "new-video", brandId, owner, q],
+    queryKey: ["scripts", "new-video", brandId, owner, q, limit],
     queryFn: async () => {
-      const { data } = await api.GET("/scripts", { params: { query: { brand_id: brandId, sends: false, ...(q ? { q } : {}), limit: 50 } } });
-      return (data ?? []).filter((s) => directed(s.kind) && (owner ? s.versions.some((v) => v.lines > 0) : s.published && s.versions.some(finished)));
+      const { data } = await api.GET("/scripts", { params: { query: { brand_id: brandId, ...(q ? { q } : {}), limit } } });
+      const all = data ?? [];
+      return { more: all.length >= limit, rows: all.filter((s) => directed(s.kind) && (owner ? s.versions.some((v) => v.lines > 0) : s.published && s.versions.some(finished))) };
     },
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -30,7 +35,9 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
   const navigate = useNavigate();
   const [text, setText] = useState("");
   const q = useDebounced(text.trim());
-  const rows = useScripts(brandId, owner, q);
+  const [limit, setLimit] = useState(PAGE);
+  const found = useScripts(brandId, owner, q, limit);
+  const rows = { ...found, data: found.data?.rows };
   const looks = useLooks().data;
   const [picked, setPicked] = useState<number | null>(null);
   const script = rows.data?.find((s) => s.id === picked);
@@ -66,13 +73,18 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
           );
         })}
       </ul>
+      {found.data?.more && limit < 200 && (
+        <div className="border-t border-border px-3 py-2">
+          <Button variant="secondary" dense busy={found.isFetching} onClick={() => setLimit(limit + PAGE)}>Show more scripts</Button>
+        </div>
+      )}
     </div>
   );
   const search = (
     <label className={`flex h-11 lg:h-[30px] items-center gap-2 rounded-md border border-border-strong bg-surface px-2.5 text-sm text-muted focus-within:border-focus ${rail ? "w-[260px]" : "w-full"}`}>
       <Search size={14} aria-hidden />
       <span className="sr-only">Search scripts</span>
-      <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search scripts" className="min-w-0 flex-1 bg-transparent text-text outline-none! placeholder:text-muted" />
+      <input type="search" value={text} onChange={(e) => (setText(e.target.value), setLimit(PAGE))} placeholder="Search scripts" className="min-w-0 flex-1 bg-transparent text-text outline-none! placeholder:text-muted" />
     </label>
   );
   const press = <Press owner={owner} est={est} busy={sent.isPending} disabled={!send || !!had} onClick={() => go()} wide={!rail} />;
