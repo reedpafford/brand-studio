@@ -227,6 +227,18 @@ def test_generated_options_cost_their_price_stay_with_the_video_and_can_be_cance
     look = db.get(LibraryItem, db.get(Project, pid).slot_cast[str(nate.id)])
     assert look.owner_project_id == pid and look.sheet_file_id == made[0]["file_id"]  # rule 12
     assert not look.brands  # never the brand's
+    # Video 294: a picked option is checked like any drawn sheet, so its words pin it in clips
+    (check,) = [j for j in db.query(Job).all() if j.input.get("step") == "look_fit"
+                and j.input.get("library_item_id") == look.id]  # fmt: skip
+    from app.routes.sheets import save_fit
+
+    check.output = {"fits": True, "seen": "teen boy", "problem": "",
+                    "anchors": "messy dark hair, slim build, pale skin"}  # fmt: skip
+    save_fit(db, check)
+    db.commit()
+    assert (
+        db.get(LibraryItem, look.id).short_description == "messy dark hair, slim build, pale skin"
+    )
 
 
 def test_failed_options_charge_nothing_and_a_product_never_generates(app, db, owner, editor):

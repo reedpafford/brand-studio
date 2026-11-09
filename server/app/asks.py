@@ -333,7 +333,8 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
     elif data.get("how") in ("upload", "option") and _picture(db, data.get("file_id")):
         item = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character,
                            name=cast_roles.short(slot.role) or slot.role,
-                           notes=slot.description or slot.role, owner_project_id=project.id,
+                           notes=project_assets.role_words(db, project, slot) or slot.role,
+                           owner_project_id=project.id,
                            sheet_look=project.look or "house")  # fmt: skip
         if data["how"] == "option":  # drawn as a sheet in the video's look: it is the look,
             item.sheet_file_id, item.sheet_approved = data["file_id"], True  # this video's own
@@ -345,6 +346,10 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
     else:
         return
     project_assets._cast(db, who, project, slot, item)
+    if data.get("how") == "option" and item.owner_project_id == project.id:
+        from app.routes.sheets import check_fit  # its words, read off it as off any drawn sheet
+
+        check_fit(db, who, item, redo=False)  # (video 294: a picked Bruno had none: 3 dogs)
 
 
 def _about(ask: Ask) -> str:
