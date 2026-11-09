@@ -1353,10 +1353,13 @@ def treatment(made: dict, script: str) -> list[str]:
     """The treatment never varies from the script (Reed, 2 Nov: "not vary from the scripts"):
     its beats cover every line but the scene headings once, in order; any line it quotes is the
     script's word for word (a trailing "…" marks a cut-off quote); and a picture that answers an
-    earlier one is a callback, never a "rhyme"."""
+    earlier one is a callback, never a "rhyme". A blank line or a heading inside a beat's lines
+    is no fault (301: "2–6" redone for its blank lines), nor is a quote's punctuation (293:
+    "the crypto guy," redone for its comma)."""
     lines = script.splitlines()
     want = [n for n, line in enumerate(lines, 1) if line.strip() and not HEADING.match(line)]
-    got = [n for beat in made.get("beats", []) for n in beat.get("lines", [])]
+    blank = set(range(1, len(lines) + 1)) - set(want)
+    got = [n for beat in made.get("beats", []) for n in beat.get("lines", []) if n not in blank]
     problems = []
     if got != want:
         missing = [n for n in want if n not in got]
@@ -1368,8 +1371,8 @@ def treatment(made: dict, script: str) -> list[str]:
             said += f"; not lines to cover, or twice: {sorted(set(extra))}"
         problems.append(said)
 
-    def bare(text: str) -> str:  # an ellipsis is a cut, in the script or the quote
-        return " ".join(text.replace("…", " ").replace("...", " ").split())
+    def bare(text: str) -> str:  # the words only: an ellipsis is a cut, a comma no change
+        return " ".join(re.sub(r"[^\w\s]", " ", text).split())
 
     flat = bare(" ".join(lines))
     texts = [made.get(k, "") for k in ("hook", "logline", "why_it_holds", "ending")]

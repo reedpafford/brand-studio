@@ -89,9 +89,9 @@ def test_a_flagged_take_is_made_again_with_its_notes_at_most_twice(
     redos = [t for t in out["turns"] if t["tool"] == "make_take" and "flagged" in t["why"]]
     clips = {t["why"].split()[-1] for t in redos}
     assert len(redos) == director.MAX_REDOS * len(clips)  # then it cuts with the newest
-    cut = [t for t in out["turns"] if t["tool"] == "final_cut"][-1]
+    cuts = [t["why"] for t in out["turns"] if t["tool"] == "final_cut"]
     assert out["turns"][-1]["tool"] == "deliver"
-    assert "is clean: its newest is used." in cut["why"]  # said in the log
+    assert any("is clean: its newest is used." in why for why in cuts)  # said in the log
 
 
 def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor, monkeypatch):

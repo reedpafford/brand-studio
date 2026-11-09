@@ -144,7 +144,7 @@ def test_it_looks_at_its_stills_against_the_treatment_and_redraws_one_before_tak
     (redraw,) = [t for t in out["turns"] if t["tool"] == "redraw_still"]
     assert redraw["result"].startswith("Drawing shot ") and "treatment's hook" in redraw["result"]
     step = Job.input["step"].as_string()
-    (review,) = db.query(Job).filter(Job.project_id == pid, step == "review_stills").all()
+    review, again = db.query(Job).filter(Job.project_id == pid, step == "review_stills").all()
     drawn = review.input["files"]["reference_images"]
     assert (
         drawn
@@ -152,7 +152,13 @@ def test_it_looks_at_its_stills_against_the_treatment_and_redraws_one_before_tak
         and "[Image1] shot" in review.input["prompt"]
     )
     assert review.input.get(director.RUN)  # on the director's own limit
-    assert still_review.state(db, db.get(Project, pid))["current"] is False  # one was redrawn
+    # once the redraw is drawn the server reviews again, once, then goes on (no turn for either)
+    assert again.input["seen"] != review.input["seen"]
+    assert still_review.state(db, db.get(Project, pid))["current"] is True
+    turns = director.turns(db, db.get(Project, pid))
+    n = next(n for n, t in enumerate(turns) if (t.output or {}).get("tool") == "redraw_still")
+    assert [((t.output or {}).get("tool"), t.input.get("server")) for t in turns[n + 1:n + 3]] == [
+        ("review_stills", True), ("clip_prompts", True)]  # fmt: skip
 
 
 def test_a_still_is_redrawn_twice_at_most_a_run(app, db, owner, editor, monkeypatch):
@@ -252,7 +258,7 @@ def test_a_note_sent_while_the_first_turn_is_answered_is_read_before_the_start_c
     read the chat); the treatment it asked for never read it and the start card showed the
     plan from before the brief. The card now waits until a turn has read every note, and
     comes once it has, also when that turn changes nothing ("Thanks, looks fine.": no dead
-    end, QA on #1469)."""
+    end, QA on #1469). The treatment, which starts after the note, reads it too."""
     real, sent, choose = director.refresh, [], director.choose
     brief = "Make her a nurse coming off a night shift." if changes else "Thanks, looks fine."
 
@@ -285,6 +291,8 @@ def test_a_note_sent_while_the_first_turn_is_answered_is_read_before_the_start_c
     (card,) = [t for t in turns if t.input.get(director.START)]
     assert not director.ended(db, db.get(Project, pid))  # never "it waited twice"
     assert any(t.input.get(director.READ) == 1 and t.id < card.id for t in turns)  # read first
-    written = db.query(Job).filter(Job.project_id == pid,
-                                   Job.input["step"].as_string() == "treatment").all()  # fmt: skip
-    assert any(j.input.get("note") == brief and j.id < card.id for j in written) == changes
+    step = Job.input["step"].as_string()
+    first, *again = db.query(Job).filter(Job.project_id == pid, step == "treatment").all()
+    # the treatment read it as it started (videos 293, 315): no second treatment for it
+    assert first.input[director.NOTES_READ] == [1] and brief in first.input["prompt"]
+    assert not again and first.id < card.id

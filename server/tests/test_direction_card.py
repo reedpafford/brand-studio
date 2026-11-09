@@ -2,8 +2,11 @@
 one card: concept, beats, the look, the clip plan and the estimate. I refine it in chat; nothing
 expensive starts until I say go." The start card and the cast and places OK are one stop."""
 
-from app import director
+import pytest
+
+from app import director, director_auto
 from app.models.jobs import Job
+from app.models.projects import Project
 from app.providers import get_providers
 from app.worker import run_once
 from tests.helpers import ok_when_asked
@@ -90,6 +93,7 @@ def test_a_wait_with_nothing_left_to_plan_brings_the_card(app, db, owner, editor
             else {**real(state), "tool": "wait"}
         ),
     )
+    monkeypatch.setattr("app.director_auto.move", lambda state: None)  # its own wait, no ask
     pid, _ = _video(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
     _run(app, db, ticks=12, start=False)
@@ -142,3 +146,20 @@ def test_a_look_that_will_not_draw_is_drawn_again_once_then_the_card_marks_it(
     assert [i["readiness"] for i in items if i["name"] == "Nate"] == ["needs_look"]  # undrawn
     card = _card(owner, pid)  # the card came anyway
     assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).is_success
+
+
+@pytest.mark.parametrize("wrong", [False, True])
+def test_the_server_asks_for_the_cast_ok_unless_a_look_needs_the_directors_word(
+    app, db, owner, editor, monkeypatch, wrong
+):
+    """301 T5, 294 T11: a paid turn only to ask for the cast and places OK once every look was
+    drawn. The server asks; a look the check says is wrong stays the director's to judge."""
+    if wrong:
+        monkeypatch.setattr("app.cast_gate._fit", lambda db, project, item: {"why": "A man."})
+    pid, _ = _video(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=12, start=False)
+    (ask,) = [t for t in director.turns(db, db.get(Project, pid))
+              if (t.output or {}).get("tool") == "ask_cast_ok"]  # fmt: skip
+    assert bool(ask.input.get(director_auto.SAID)) is not wrong
+    assert _card(owner, pid)["state"] == "open"

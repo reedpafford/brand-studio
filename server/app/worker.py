@@ -517,6 +517,8 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
         db.commit()  # stopped before its call: no call is made, so nothing is charged
         return True
+    if job.input.get("step") == "treatment":
+        director.read_notes(db, job)  # a brief sent as its turn was answered: read now
     ref = "sync" if provider.paid or job.provider in FREE_LANES else f"{STAND_IN}sync"
     sent = update(Job).where(Job.id == job.id).values(provider_ref=ref)  # a stand-in's: marked
     try:  # a Claude check that looks at a picture gets it as data, like other providers

@@ -310,8 +310,9 @@ def chat(project: Project, run_id: str) -> list[dict]:
 
 def answered(db: Session, run_id: str, project_id: int | None = None) -> set[int]:
     """The run's notes (numbered from 1) a move has answered: named "Note N" in the why of a
-    move that wasn't refused, or in the delivery's note. An ask stays open until then. With
-    its video (`project_id`), only that video's jobs are read, not the whole table."""
+    move that wasn't refused, or in the delivery's note, or read by its treatment as it was
+    written (`read_notes`). An ask stays open until then. With its video (`project_id`), only
+    that video's jobs are read, not the whole table."""
     if project_id is not None:
         rows = [j for j in all_turns(db, project_id) if j.input[RUN]["id"] == run_id]
     else:
@@ -319,7 +320,17 @@ def answered(db: Session, run_id: str, project_id: int | None = None) -> set[int
         rows = db.scalars(select(Job).where(*mine)).all()
     return {int(n) for j in rows if not (j.input.get("result") or "").startswith("Refused")
             and j.input.get("result") != START_FIRST  # asked for, but it waits for Make it
-            for n in NOTE.findall(move_words(j.output or {}))}  # fmt: skip
+            for n in NOTE.findall(move_words(j.output or {}))} | in_treatment(
+        db, run_id, project_id)  # fmt: skip
+
+
+def in_treatment(db: Session, run_id: str, project_id: int | None) -> set[int]:
+    """The run's notes its treatment read as it was written (`read_notes`)."""
+    return {n for j in db.scalars(select(Job).where(
+        Job.input["step"].as_string() == "treatment", Job.input[RUN]["id"].as_string() == run_id,
+        Job.status == JobStatus.succeeded,
+        *((Job.project_id == project_id,) if project_id is not None else ())))
+        for n in j.input.get(NOTES_READ) or []}  # fmt: skip
 
 
 def move_words(decision: dict) -> str:
@@ -1407,12 +1418,13 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
     seen: dict = {}
     prompt = turn_input(db, project, run, seen=seen)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
-    if (not (card or carry) and (not before or _planning(run)) and last is not None
+    free = before and _free_revision(db, run, project.id)  # a revision's free cut changes
+    if (not (card or carry) and (not before or _planning(run) or free) and last is not None
             and last.input[RUN]["id"] == run["id"]
             and (step := _auto(db, project, run, {**seen, "started": True}, last))):  # fmt: skip
-        if not before or step["tool"] in PLANNING:  # approving its written plan, say
+        if not before or step["tool"] in (REVISE_FREE if free else PLANNING):  # the plan, say
             return _by_server(db, user, project, run, step, after)
-        if not _unlooked(db, project, run):  # the plan is done and every look drawn: the
+        if not free and not _unlooked(db, project, run):  # the plan done, every look drawn: the
             card, run = True, {**run, "ok": True}  # direction card, with no call to reach it
     data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
     wait = ""
@@ -1490,9 +1502,20 @@ def _auto(db: Session, project: Project, run: dict, seen: dict, last: Job) -> di
         return None
     at = (last.started_at or last.created_at).isoformat()
     questions = bool(asks.waiting(db, project)) or asks.answered_since(db, project, at)
-    step = director_auto.move({**seen, "questions": questions, "tried": _tried(db, project, run)})
+    reviews = db.scalar(select(func.count(Job.id)).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == "review_stills",
+        Job.input[RUN]["id"].as_string() == run["id"],
+        Job.status == JobStatus.succeeded))  # fmt: skip
+    cut = db.scalar(select(FinalVideo).where(FinalVideo.project_id == project.id)
+                    .order_by(FinalVideo.id.desc()).limit(1))  # fmt: skip
+    step = director_auto.move({**seen, "questions": questions, "tried": _tried(db, project, run),
+                               "reviews": reviews, "fixed": _fixed(db, project, run),
+                               "in_cut": (cut.take_ids or []) if cut else []})  # fmt: skip
     if step and step["tool"] in ("make_take", "final_cut") and STORE.get() is None:
         return None
+    if step and step["tool"] == "ask_cast_ok" and any(
+            i["look_fit"] for i in cast_gate.current(db, project)):  # fmt: skip
+        return None  # the look check says one is wrong: the director's to change or keep
     if step and last.input.get(director_auto.SAID) and (last.output or {}).get("tool") == step[
             "tool"]:  # fmt: skip
         return None  # its own step again (a clip prompt's part that failed): the director's
@@ -1504,6 +1527,37 @@ def _auto(db: Session, project: Project, run: dict, seen: dict, last: Job) -> di
     if step and step["tool"] == "make_take" and run.get(PRICED):
         return None  # a priced run makes only its own clips' takes, named by the director
     return step
+
+
+FIXES = ("make_take", "pick_take", "mute", "unmute", "splice_word")  # a fix on its clip_id
+
+
+def _fixed(db: Session, project: Project, run: dict) -> bool:
+    """Each fault this run's newest watch of the cut found (not a keep or a doubt) has had its
+    own move on its clip since, not refused: the cut may be made again with no turn to say so.
+    A split alone isn't a fix (its trim comes next). True with no watch of this run: a
+    revision's changes are its notes', answered by the director."""
+    from collections import Counter
+
+    from app import watch_cut
+
+    job = watch_cut._newest(db, project)
+    if job is None or (job.input.get(RUN) or {}).get("id") != run["id"]:
+        return True
+    done: Counter = Counter()
+    for t in turns(db, project):
+        said, d = t.input.get("result") or "", t.output or {}
+        if (t.id < job.id or t.input[RUN]["id"] != run["id"] or said == START_FIRST
+                or said.startswith("Refused")):  # fmt: skip
+            continue
+        edit = d.get("edit") or {} if d.get("tool") == "edit_cut" else {}
+        if edit and edit.get("kind") != "split":
+            done.update([None, (edit.get("piece") or "").partition(".")[0]])
+        elif d.get("tool") in FIXES:
+            done.update([d.get("clip_id")])
+    found = Counter(f.get("clip_id") for f in (job.output or {}).get("checked") or []
+                    if f.get("fix") != "keep" and not f.get("doubt"))  # fmt: skip
+    return all(done[c] >= n for c, n in found.items())
 
 
 def _tried(db: Session, project: Project, run: dict) -> bool:
@@ -1661,15 +1715,15 @@ def refresh(db: Session, job: Job) -> bool:
 
 def _go_step(db: Session, job: Job, seen: dict) -> bool:
     """Make it on the direction card: when the step after it needs no judgment (the
-    storyboard, say), the server takes it as this turn, as `_by_server` does: no Claude call,
-    nothing charged for it."""
+    storyboard, say), or is the director's own move that waited for it, the server takes it
+    as this turn, as `_by_server` does: no Claude call, nothing charged for it."""
     from app import director_auto
 
     project, run = db.get(Project, job.project_id), job.input[RUN]
     if not job.input.get(START) or job.input.get(CARRIES):
         return False
     # read as of this turn's own start: the Make it just pressed is no question answered
-    if not (step := _auto(db, project, run, seen, job)):
+    if not (step := _auto(db, project, run, seen, job) or _held(db, project, run, job, seen)):
         return False
     job.kind, job.provider, job.credits, job.output = "director_step", "server", 0, step
     job.input = {**job.input, director_auto.SAID: True}
@@ -1678,6 +1732,18 @@ def _go_step(db: Session, job: Job, seen: dict) -> bool:
     _act(db, job, STORE.get())
     db.commit()
     return True
+
+
+def _held(db: Session, project: Project, run: dict, job: Job, seen: dict) -> dict | None:
+    """The director's move that waited for Make it ("Waiting for Make it"), made as it asked
+    once Make it is pressed (video 294's revision paid a turn to ask for the same plan again);
+    None when a note came since or a question waits: the director reads it first."""
+    last = next((t for t in reversed(turns(db, project))
+                 if t.id < job.id and t.input[RUN]["id"] == run["id"]), None)  # fmt: skip
+    if (last is None or last.input.get("result") != START_FIRST or asks.waiting(db, project)
+            or any(m.get("new") for m in seen.get("chat") or [])):  # fmt: skip
+        return None
+    return dict(last.output or {})
 
 
 FRESH = "fresh"  # in a run: when "Start the plan again" was pressed (S3-08)
@@ -1803,10 +1869,12 @@ def _turn_input(db: Session, project: Project, run: dict, job_id: int | None,
                "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
     given = max((t.input.get(READ, 0) for t in turns(db, project)
                  if t.input[RUN]["id"] == run["id"] and t.id != job_id), default=0)  # fmt: skip
-    closed = answered(db, run["id"], project.id)
-    asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed}
+    closed, read = answered(db, run["id"], project.id), in_treatment(db, run["id"], project.id)
+    asked = [{"note": n + 1, **m, "new": n >= given, "answered": n + 1 in closed,
+              **({"in_treatment": True} if n + 1 in read else {})}
              for n, m in enumerate(chat(project, run["id"]))]  # fmt: skip
-    # new: no earlier turn was given it. answered: a move named it ("Note N"); else still open
+    # new: no earlier turn was given it. answered: a move named it ("Note N"), or the treatment
+    # read it as it was written (in_treatment); else still open
     own = db.scalar(select(Job.id).where(Job.project_id == project.id,
                                          Job.input["step"].as_string() == "treatment",
                                          Job.input[RUN]["id"].as_string() == run["id"],
@@ -1916,6 +1984,36 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     enqueue(db, user, "write-claude", data, project=project, provider="claude",
             prepaid=not wait, wait=wait)  # fmt: skip
     return "Changing the treatment." if again else "Writing the treatment."
+
+
+NOTES_READ = "notes_read"  # in a treatment's input: the run's notes it read as it started
+
+
+def read_notes(db: Session, job: Job) -> None:
+    """Before Make it, a treatment about to be written reads the run's notes nothing read yet
+    (a brief sent while the turn that asked for it was being answered: videos 293 and 315 paid
+    for a second treatment and turn for it). It answers them (the director still reads them,
+    marked `in_treatment`); a check's redo keeps them in its note. A revision's or a started
+    run's notes may ask for more than the story: those stay the director's."""
+    from html import escape
+
+    run = job.input.get(RUN) or {}
+    if job.input.get("redo") or not run.get("id") or run.get("ok", True) or run.get(REVISION):
+        return
+    project = db.get(Project, job.project_id)
+    db.refresh(project)
+    read = [t.input.get(READ, 0) for t in turns(db, project) if t.input[RUN]["id"] == run["id"]]
+    read += [max(j.input.get(NOTES_READ) or [0]) for j in db.scalars(select(Job).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == "treatment",
+        Job.input[RUN]["id"].as_string() == run["id"], Job.id != job.id))]  # fmt: skip
+    given = max(read, default=0)
+    if not (notes := chat(project, run["id"])[given:]):
+        return
+    said = "\n".join(f"Note {n}: {m['text']}" for n, m in enumerate(notes, given + 1))
+    job.input = {**job.input, "prompt": f"{job.input['prompt']}\n<note>{escape(said)}</note>",
+                 "note": "\n".join(x for x in (job.input.get("note"), said) if x),
+                 NOTES_READ: list(range(given + 1, given + len(notes) + 1))}  # fmt: skip
+    db.commit()
 
 
 def _shown(db: Session, project: Project):
@@ -2105,10 +2203,8 @@ def video_state(db: Session, project: Project) -> dict:
 
     cast = _cast_ok(db, project) if bd else {"state": "none"}
     watch = _watch(db, project)
-    doubts = {f.get("clip_id") for f in watch.get("findings") or [] if f.get("doubt")}
-    for c in clips:  # A6: a doubt it would be refused a redo for says so, before a paid turn
-        doubt = c["takes"] and (c["takes"][-1]["verdict"] == "unsure" or c["clip_id"] in doubts)
-        if doubt and not _confirmed(db, project, c, watch):
+    for c in clips:  # A6: a redo it would be refused says so before a paid turn (301, 294)
+        if c["takes"] and not _confirmed(db, project, c, watch):
             c["redo"] = REDO_NEEDS
     held = set(cast.get("paused_clips") or [])
     for c in clips:

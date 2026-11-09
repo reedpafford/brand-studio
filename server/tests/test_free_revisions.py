@@ -72,6 +72,9 @@ def test_a_pacing_note_is_a_free_edit_with_no_new_story_or_start_card(app, db, o
         )
         for t in turns
     ]
+    after = turns[turns.index(edits[0]) + 1 :]  # its cut again and its watch: the server's
+    assert [((t.output or {}).get("tool"), t.input.get("server")) for t in after[:2]] == [
+        ("final_cut", True), ("watch_cut", True)]  # fmt: skip
 
 
 def test_a_one_clip_note_remakes_only_that_clip_after_its_start_card(app, db, owner, editor):
