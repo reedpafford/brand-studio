@@ -162,13 +162,39 @@ test("S2-06/S2-05: an editor's saved script starts inside its budget, or goes to
   expect(within(list).getByText("Published · Version B · 13 lines")).toBeInTheDocument();
   expect(within(list).getByText("Published · Version A · 1 line")).toBeInTheDocument();
   const asked = new URL(calls.find((c) => c.key === "GET /scripts")!.url).searchParams;
-  expect([asked.get("sends"), asked.get("status")]).toEqual(["false", null]); // not pasted sends; published, made or not
+  expect([asked.get("sends"), asked.get("status"), asked.get("limit")]).toEqual([null, null, "50"]); // every script, published made or not, a page at a time
   expect(screen.getByPlaceholderText("Search scripts")).toBeInTheDocument();
   expect(list).toHaveClass("max-h-[340px]", "overflow-y-auto");
   await userEvent.click(within(list).getByRole("radio", { name: /Beer gut doctor rant/ }));
   expect(await screen.findByText("Inside this video’s budget, so it starts straight away.", undefined, { timeout: 3000 })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it · up to 158 credits" }));
   await vi.waitFor(() => expect(posted(calls)).toEqual({ type: "dialogue", script_id: 7, slot: 1, shape: "9:16", folder_id: 4, broll_look: null }));
+});
+
+test("saved scripts: searching asks the server, which finds a script by its title or its words", async () => {
+  setViewport(1440);
+  const calls = server(owner, { "GET /scripts": [200, [scriptRow(113, "Small city apartment", { look: "pixar" })]], "GET /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: 194 }] });
+  renderApp("/b/1/videos/new?from=script");
+  await screen.findByRole("radio", { name: /Small city apartment/ });
+  await userEvent.type(screen.getByPlaceholderText("Search scripts"), "sushi");
+  await vi.waitFor(() => expect(calls.some((c) => new URL(c.url).searchParams.get("q") === "sushi")).toBe(true));
+});
+
+test("saved scripts: a full page offers Show more scripts, which asks for a longer one", async () => {
+  setViewport(1440);
+  const many = Array.from({ length: 50 }, (_, i) => scriptRow(200 + i, `Script ${i}`));
+  const calls = server(owner, { "GET /scripts": [200, many] });
+  renderApp("/b/1/videos/new?from=script");
+  await userEvent.click(await screen.findByRole("button", { name: "Show more scripts" }));
+  await vi.waitFor(() => expect(calls.some((c) => new URL(c.url).searchParams.get("limit") === "100")).toBe(true));
+});
+
+test("saved scripts: a short page has no Show more", async () => {
+  setViewport(1440);
+  server(owner, { "GET /scripts": [200, [scriptRow(7, "Beer gut doctor rant")]] });
+  renderApp("/b/1/videos/new?from=script");
+  await screen.findByRole("radio", { name: /Beer gut doctor rant/ });
+  expect(screen.queryByRole("button", { name: "Show more scripts" })).toBeNull();
 });
 
 test("S2-05: past the video's budget the press goes to the owner and the line says the budget", async () => {
