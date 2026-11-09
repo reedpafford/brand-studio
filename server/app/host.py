@@ -220,11 +220,12 @@ def _spans(take: SongTake) -> list[tuple[float, float]]:
     return talker.whole(float(take.seconds))
 
 
-def _store(db: Session, storage, project: Project, data: bytes, name: str) -> StoredFile:
+def _store(db: Session, storage, project: Project, data: bytes, name: str,
+           kind: str = "audio/mpeg") -> StoredFile:  # fmt: skip
     key = f"{project.workspace_id}/{uuid.uuid4().hex}"
     storage.put(key, data)
     stored = StoredFile(workspace_id=project.workspace_id, key=key, filename=name,
-                        content_type="audio/mpeg", size=len(data),
+                        content_type=kind, size=len(data),
                         sha256=hashlib.sha256(data).hexdigest())  # fmt: skip
     db.add(stored)
     db.flush()

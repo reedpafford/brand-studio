@@ -31,6 +31,7 @@ from app import (
     locked_line,
     take_mute,
     take_sound,
+    told_look,
     word_splice,
 )
 from app.clip_takes import NOTE_MAX
@@ -855,7 +856,8 @@ def _wakeable(db: Session, project: Project) -> Job | None:
 def _parked(db: Session, project: Project, last: Job) -> bool:
     """A run that waits only on open questions (`ON_YOU`) sleeps until one is answered, a story
     choice's time passes or someone sends a note: then it reads them."""
-    if last.input.get("result") != ON_YOU or not asks.waiting(db, project):
+    said = last.input.get("result") or ""
+    if not (said == ON_YOU or said.startswith(told_look.WAITING)) or not asks.waiting(db, project):
         return False
     at = (last.started_at or last.created_at).isoformat()  # what it read was as of its start
     noted = any(m.get("run") == last.input[RUN]["id"] and m["at"] > at
@@ -975,7 +977,13 @@ def _act(db: Session, job: Job, storage) -> None:
         if idle and rows and rows[-1].input.get("result") == IDLE:
             return _end(job, "It stopped: it waited twice with nothing being made.", result=IDLE)
         return _record(db, job, run, IDLE if idle else "Waiting.")
+    if tool == "make_looks" and (no := told_look.held(db, project, run, decision)):
+        if no.startswith(told_look.WAITING):  # asked about them: it sleeps until answered
+            return _record(db, job, run, no)
+        return _end(job, f"It stopped: {no}", result=f"Refused again: {no}")
     if (refused := _refused_again(db, job, decision)) is not None:
+        if tool == "make_looks" and (card := told_look.again(db, project, run, decision, refused)):
+            return _record(db, job, run, card)  # its one retry: the owner's card, not a stop
         return _end(job, f"It stopped: {refused}", result=f"Refused again: {refused}")
     replan = tool == "plan" and bool((decision.get("note") or "").strip())
     if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
@@ -1252,7 +1260,7 @@ def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
     again never stops it: it's told to fix something or deliver (QA on #1145)."""
     project = db.get(Project, job.project_id)
     rows = [j for j in turns(db, project) if j.id < job.id]
-    keys = ("tool", "clip_id", "take_id", "shot_id", "note", "edit", "redraws")
+    keys = ("tool", "clip_id", "take_id", "shot_id", "note", "edit", "redraws", "look")
     said = []
     for before in rows[-2:][::-1]:  # the last turn, then the one before it
         result = before.input.get("result") or ""

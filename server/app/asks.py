@@ -23,7 +23,7 @@ from app.models.accounts import User
 from app.models.asks import Ask
 from app.models.brands import Brand, BrandScreen
 from app.models.jobs import Job, JobStatus
-from app.models.library import Kind, LibraryItem
+from app.models.library import LibraryItem
 from app.models.projects import Project
 
 QUESTIONS = ("cast", "presenter", "voice", "place", "product", "brand_item", "story", "question")
@@ -295,7 +295,6 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
     director's make_looks; never saved to the brand); a product shot's saved still picks that
     product's variant for this video; a narrator voice is the one the narration is read in
     (`voice`). Every other answer steers the director, who reads it on its next turn."""
-    from app import cast_roles
     from app.routes import project_assets
 
     data = ask.answer or {}
@@ -331,19 +330,12 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
     if data.get("how") == "saved" and str(data.get("option", "")).startswith("item:"):
         item = db.get(LibraryItem, int(data["option"].split(":")[1]))
     elif data.get("how") in ("upload", "option") and _picture(db, data.get("file_id")):
-        item = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character,
-                           name=cast_roles.short(slot.role) or slot.role,
-                           notes=project_assets.role_words(db, project, slot)
-                           or (ask.describe if data["how"] == "option" else "") or slot.role,
-                           owner_project_id=project.id,
-                           sheet_look=project.look or "house")  # fmt: skip
+        item = project_assets.own_look(db, project, slot, project_assets.role_words(
+            db, project, slot) or (ask.describe if data["how"] == "option" else ""))  # fmt: skip
         if data["how"] == "option":  # drawn as a sheet in the video's look: it is the look,
             item.sheet_file_id, item.sheet_approved = data["file_id"], True  # this video's own
         else:  # a photo is only source material: make_looks draws its sheet
             item.source_photo_file_id = data["file_id"]
-        db.add(item)
-        db.flush()
-        project.slot_looks = {**project.slot_looks, str(slot.id): item.id}
     else:
         return
     project_assets._cast(db, who, project, slot, item)
@@ -360,15 +352,15 @@ def _about(ask: Ask) -> str:
     return ask.subject or (ask.topic if ask.kind in NAMED else "")
 
 
-def _new_role(db: Session, project: Project, name: str):
+def _new_role(db: Session, project: Project, name: str, shown: bool = False):
     """A role a card names that the script has none for yet (a screenplay's MAYA the cast read
     never knew): added as the cast read adds a speaker it missed, and put in the shots that
     show it (`breakdown.complete_cast`), so the picked look is used in each. Only a name the
-    script's words or its shots name (QA on #1401: "The landlord" in neither, or "the
-    husband" for Dad, is never added); None otherwise, with no script, or a role of that name
-    merged into another."""
+    script's words or its shots name, or (`shown`) one the director names the shots of (QA on
+    #1401: "The landlord" in neither, or "the husband" for Dad, is never added); None
+    otherwise, with no script, or a role of that name merged into another."""
     from app import breakdown, cast_roles
-    from app.models.script_library import ScriptCastSlot, ScriptDraft
+    from app.models.script_library import ScriptDraft
     from app.routes.project_assets import _newest
 
     draft = db.get(ScriptDraft, project.script_draft_id or 0)
@@ -377,12 +369,10 @@ def _new_role(db: Session, project: Project, name: str):
         return None
     bd = _newest(db, project)
     shots = [s for scene in (bd.data if bd else {}).get("scenes", []) for s in scene["shots"]]
-    if not cast_roles.named(name, " ".join([draft.text, *(s.get("action", "") for s in shots)])):
+    words = " ".join([draft.text, *(s.get("action", "") for s in shots)])
+    if not (shown or cast_roles.named(name, words)):
         return None
-    slot = ScriptCastSlot(script_id=draft.script_id, role=name.strip(), kind="Helper",
-                          appears_in=[draft.slot], position=len(slots) + 1)  # fmt: skip
-    db.add(slot)
-    db.flush()
+    slot = breakdown._add_role(db, project, draft, name.strip())
     breakdown.complete_cast(db, project)
     return slot
 

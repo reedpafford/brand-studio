@@ -433,8 +433,7 @@ def fix_clip(
     project, row = _clip(db, user, project_id, clip_id)
     newest = _newest_breakdown(db, project)
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
-    was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
-                     references=[Reference(**r) for r in row.references])  # fmt: skip
+    was = clip_prompts.as_written(row)
     if not advice.stops(row):
         raise HTTPException(409, "This clip has nothing to fix.")
     if running := clip_prompts.fixing(db, row):  # one in flight per clip: never a second call
@@ -482,8 +481,7 @@ def undo_auto_fix(
     bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
     row.same_fix = True  # its own words back: a used free fix stays used
     row.prompt, row.auto_fix = fix["before"], {**fix, "undone": True}
-    was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
-                     references=[Reference(**r) for r in row.references])  # fmt: skip
+    was = clip_prompts.as_written(row)
     row.problems = clip_prompts.undone_flags(row, clip_prompts.clip_problems(db, project, bd, was))
     row.prompt_ok = row.approved = False
     db.commit()
@@ -595,8 +593,10 @@ def generate(
     db: Session = Depends(get_db),
 ):
     """Make a new take of this clip (a paid video job, counted against the project budget).
-    A clip with problems must be fixed first."""
+    A clip with problems must be fixed first. A look drawn since its prompt goes with it
+    (`clip_prompts.sheets_in`)."""
     project, row = _clip(db, user, project_id, clip_id)
+    clip_prompts.sheets_in(db, project, row)
     if advice.stops(row):  # advice and problems kept anyway never block
         raise HTTPException(409, "Fix this clip's problems first.")
     if _stale(db, row, _newest_breakdown(db, project)):

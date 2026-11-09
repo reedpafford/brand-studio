@@ -94,16 +94,24 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             _cast_in_shots(db, project, me)  # every role the shots need, drawn together
             if no := locks.refusal(project, "cast"):  # the cast and its looks are fixed
                 return f"{no} {CAST_LOCKED}"  # what to do (rule 22), said again when it stops
+            from app import told_look
+
             look = decision.get("look") or {}
+            name = (look.get("name") or "").strip()
+            if name and (why := told_look.prepare(db, user, project, look, storage)):
+                return told_look.failed(db, project, run, look, why)
             made, blind = project_assets.make_missing(
-                db, user, project, (look.get("name") or "", look.get("description") or "")
+                db, user, project, (name, look.get("description") or "")
             )
-            if not blind:
-                return "Making the missing looks."
-            said = "Making the other missing looks." if made else "Refused:"
-            return (f"{said} {project_assets.blind(blind)} make_looks again with `look`: the "
-                    "name, and in `description` what they are and look like from the plan "
-                    "(person or animal, age, build, what they wear).")  # fmt: skip
+            if not blind:  # nothing made and nothing to make is no try (video 294: four)
+                return ("Making the missing looks." if made else "Refused: every role and "
+                        "place the shots show has a look already, or one being drawn.")  # fmt: skip
+            why = (f"{project_assets.blind(blind)} make_looks again with `look`: the name, and "
+                   "in `description` what they are and look like from the plan (person or "
+                   "animal, age, build, what they wear).")  # fmt: skip
+            if made:
+                return f"Making the other missing looks. {why}"
+            return told_look.failed(db, project, run, look, why) if name else f"Refused: {why}"
         if tool == "storyboard":
             _cast_in_shots(db, project, me)
             storyboard.make(body=storyboard.StoryboardIn(), **me)  # the looks: the person's OK
