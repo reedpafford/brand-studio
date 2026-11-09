@@ -2,10 +2,33 @@ name: server
 on:
   pull_request:
   workflow_call:  # on main, deploy.yml runs this before deploying
+# The tests run in 4 parallel parts (pytest-split, balanced by server/.test_durations), lint once.
+# Each part saves only the times it measured (--clean-durations), so the four join without
+# overwriting each other. To refresh: gh run download <run id> -p 'durations-*' -D /tmp/d, then
+# jq -S -s add /tmp/d/*/.test_durations > server/.test_durations (new tests count as average).
 jobs:
-  lint-test:
+  lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+  tests:
+    name: tests (${{ matrix.group }} of 4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4]
     defaults:
       run:
         working-directory: server
@@ -18,6 +41,23 @@ jobs:
         uses: ./.github/actions/ffmpeg
         timeout-minutes: 16
       - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run pytest -q
+      - run: uv run pytest -q --splits 4 --group ${{ matrix.group }} --store-durations --clean-durations
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: durations-${{ matrix.group }}
+          path: server/.test_durations
+          include-hidden-files: true
+          retention-days: 14
+  # The required check (branch protection, scripts/protect-branches.sh): passes only when lint and
+  # every part passed. It always runs, since a skipped required check would count as passed.
+  lint-test:
+    needs: [lint, tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - if: needs.lint.result != 'success' || needs.tests.result != 'success'
+        run: |
+          echo "lint: ${{ needs.lint.result }}, tests: ${{ needs.tests.result }}"
+          exit 1
