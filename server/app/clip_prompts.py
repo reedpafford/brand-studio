@@ -569,7 +569,6 @@ def _voiced(db: Session, project: Project, bd: Breakdown, clip_id: str, prompt: 
     words. A clip on another model, or cut from the UGC talker's HeyGen take, is unchanged.
     Free; doing it again changes nothing."""
     from app import model_map, talker, voices
-    from app.cast_roles import labels
     from app.clip_takes import VOICE_OVER
 
     row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
@@ -586,8 +585,7 @@ def _voiced(db: Session, project: Project, bd: Breakdown, clip_id: str, prompt: 
     sounds = voices.on_omni(db, project) if speakers else []
     lines = prompt.splitlines()
     for who in speakers:
-        words = next((w for names, w in sounds if any(labels(who, n) for n in names)), "")
-        if not words:
+        if not (words := voices.voice_of(who, sounds)):
             continue
         line, mine = f"{who}'s voice: {words.rstrip('.')}.", f"{who}'s voice: "
         if (at := _line(lines, mine)) >= 0:
