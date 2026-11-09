@@ -4,7 +4,9 @@ only, on the narration once its pauses are trimmed (narration.measure), so its l
 words' times stay as measured. The chain and why each step (.context/team/research/
 ugc-realism.md): a phone mic's band and presence, a light phone-style compressor, a short
 small-room reflection (a synthetic 0.3 s impulse, convolved), a quiet room-tone bed (`BED`) under
-every gap, then one loudness for the whole track."""
+every gap, then one loudness for the whole track. A talker filming in a car gets a car's sound
+instead (`CAR`): a shorter, boxier cabin and the muffled hum of outside (video 293: a phone in a
+car, voiced as a room)."""
 
 import subprocess
 from pathlib import Path
@@ -23,23 +25,32 @@ IMPULSE = (
 # 200 Hz, 45 dB under the voice, so on a phone every gap was dead quiet; this one sits about
 # -49 dBFS in the gaps, 37 dB under the voice.
 BED = "anoisesrc=c=pink:r=48000:a=1:seed=3,highpass=f=150,lowpass=f=5000"
+# A parked car: glass and upholstery a foot away, so a short (0.1 s), dull, closer reflection
+# with a boxy low-mid; outside traffic and the cabin's hum, muffled, under every gap.
+CAR = {"impulse": "anoisesrc=d=0.1:c=pink:r=48000:a=1:seed=7,afade=t=out:st=0:d=0.1:curve=exp,"
+                  "highpass=f=150,lowpass=f=2500",
+       "bed": "anoisesrc=c=pink:r=48000:a=1:seed=3,highpass=f=80,lowpass=f=1500",
+       "wet": -11, "tone": -43, "eq": ",equalizer=f=180:t=q:w=1.0:g=2"}  # fmt: skip
+ROOM = {"impulse": IMPULSE, "bed": BED, "wet": WET, "tone": TONE, "eq": ""}
+PLACES = {"room": ROOM, "car": CAR}
 
 
-def graph() -> str:
+def graph(place: str = "room") -> str:
     """The filter graph: input 0 is the voice; the output is [out]."""
+    at = PLACES.get(place, ROOM)
     return ";".join([
-        f"[0:a]aformat=sample_rates=48000:channel_layouts=mono,{MIC},asplit[dry][send]",
-        f"{IMPULSE}[ir]",
-        f"[send][ir]afir=dry=0:wet=1,volume={WET}dB[wet]",
-        f"{BED},volume={TONE}dB[tone]",
+        f"[0:a]aformat=sample_rates=48000:channel_layouts=mono,{MIC}{at['eq']},asplit[dry][send]",
+        f"{at['impulse']}[ir]",
+        f"[send][ir]afir=dry=0:wet=1,volume={at['wet']}dB[wet]",
+        f"{at['bed']},volume={at['tone']}dB[tone]",
         "[dry][wet][tone]amix=inputs=3:duration=first:normalize=0,"
         f"loudnorm=I={LUFS}:TP={PEAK}:LRA=11,aresample=44100[out]",
     ])  # fmt: skip
 
 
-def finish(voice: Path, out: Path) -> Path:
-    """The voice in a room, as an MP3 of the same length."""
-    command = ["ffmpeg", "-v", "error", "-y", "-i", str(voice), "-filter_complex", graph(),
+def finish(voice: Path, out: Path, place: str = "room") -> Path:
+    """The voice in a room (or a car: `PLACES`), as an MP3 of the same length."""
+    command = ["ffmpeg", "-v", "error", "-y", "-i", str(voice), "-filter_complex", graph(place),
                "-map", "[out]", "-c:a", "libmp3lame", "-b:a", "192k", str(out)]  # fmt: skip
     done = subprocess.run(command, capture_output=True, timeout=300)  # noqa: S603
     if done.returncode:

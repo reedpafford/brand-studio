@@ -191,8 +191,10 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
         from app import talker
 
         video = db.get(Project, take.project_id) if take.project_id else None
-        read = {"pause": narration.kept_pause(db.get(Job, take.job_id).input),
-                "room": bool(video and talker.on(db, video))}  # fmt: skip
+        read = {
+            "pause": narration.kept_pause(db.get(Job, take.job_id).input),
+            "room": talker.place(db, video) if video and talker.on(db, video) else "",
+        }
     job = enqueue(db, user, kind,
                   {"song_key": song.key, "lyrics": lyrics, "step": "song_timing",
                    "spread": spread, **read},

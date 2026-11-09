@@ -12,6 +12,7 @@ lines (`motion`); the fixed line's "one easy hand gesture" made a stray hand pop
 steering wheel, so the fallback names no hands."""
 
 import hashlib
+import re
 import subprocess
 import tempfile
 import uuid
@@ -109,6 +110,30 @@ def where(db: Session, project: Project) -> str:
         return ROOM
     look = (scene.get("look") or "").strip()
     return f"where the plan puts them, {scene.get('heading', '').strip()}: {look}"[:400]
+
+
+# Inside a vehicle, never just a vehicle word ("car keys on the counter", "my car insurance",
+# "the food truck", "a Van Gogh print"): in/inside a car, truck or SUV, a car seat's or
+# wheel's words, or a heading "INT. ... CAR" (QA on #1477)
+CAR = re.compile(
+    r"\b(?:in|inside|into)\s+(?:the|a|an|her|his|their|my|our|your)\s+(?:[\w'-]+\s+){0,3}?"
+    r"(?:car|truck|suv)\b(?!\s*(?:insurance|keys?|payments?|loans?|wash|dealer\w*|park)\b)"
+    r"|\b(?:driver'?s|passenger)\s+seat\b|\bsteering wheel\b|\bseat\s?belt\b"
+    r"|\bINT\.[^\n:]*?\b(?:CAR|TRUCK|SUV)\b",
+    re.I,
+)
+
+
+def place(db: Session, project: Project) -> str:
+    """Where the talker's voice was recorded, for its sound (room.PLACES): "car" when where
+    they film themselves is a vehicle (the plan's place, else the treatment's hook, written
+    before the voice is made), else "room"."""
+    from app.director import treatment
+
+    said = where(db, project)
+    if said == ROOM:
+        said = str((treatment(db, project) or {}).get("hook") or "")
+    return "car" if CAR.search(said) else "room"
 
 
 def frame(db: Session, project: Project) -> int | None:

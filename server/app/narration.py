@@ -43,9 +43,9 @@ ELEVENLABS = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 MINIMAX, MINIMAX_SPEED = "minimax-speech-2.8-hd", 1.1
 MINIMAX_VOICES = ("English_FriendlyPerson", "English_Trustworth_Man", "English_Upbeat_Woman",
                   "English_ConfidentWoman", "English_Graceful_Lady")  # fmt: skip
-# A voice's own start, where measured: English_FriendlyPerson read 4.9 words a second at 1.1, in
-# auto and calm alike (video 281, takes 1-2); its speed scales that, so 0.76 is about 3.4.
-VOICE_SPEEDS = {"English_FriendlyPerson": 0.76}
+# A voice's own start, where measured: English_FriendlyPerson talked at 4.9 words a second at 1.1
+# (281), 3.7 at about 0.9, 2.9 at 0.76 (293): pace grows as speed**SPEED_POWER; 0.85 reads 3.4.
+VOICE_SPEEDS, SPEED_POWER = {"English_FriendlyPerson": 0.85}, 1.43
 # An emotion slows MiniMax, so its speed rises (th-20s, English_Graceful_Lady: fearful 2.4 words a
 # second at 1.25, 3.4-3.6 at 1.5; sad 1.6 at 1.1, 2.0 at 1.3), scaled to each voice's own start
 SPEEDS = {"fearful": 1.5, "sad": 1.3}
@@ -236,12 +236,12 @@ def pace(heard: list[dict], gap: float = PAUSE) -> float | None:
 
 def retimed(speed: float, heard: float, want: tuple[float, float]) -> float | None:
     """The speed that brings a narration read at `heard` words a second (at `speed`) to the
-    middle of the style's range `want`, from the measurement, not a guess; None when it's
-    inside the range already."""
+    middle of the style's range `want`, from the measurement, not a guess (pace grows as speed
+    to SPEED_POWER: 293's linear step from 2.9 overshot to 3.7); None when it's in range."""
     low, high = want
     if low <= heard <= high:
         return None
-    scaled = speed * (low + high) / 2 / heard
+    scaled = speed * ((low + high) / 2 / heard) ** (1 / SPEED_POWER)
     return round(min(max(scaled, SLOWEST_SPEED), FASTEST), 2)
 
 

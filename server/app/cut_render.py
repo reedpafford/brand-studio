@@ -23,6 +23,7 @@ from app import (
     screen_figures,
     take_mute,
     take_sound,
+    talker,
     word_splice,
 )
 from app.models.clips import ClipTake, ProjectClip
@@ -36,6 +37,10 @@ HELD_FADE = 0.5  # seconds: a held end fades only at its very end
 # A narrated video's mix (flows V6n): the takes' own sound under the narration, the music
 # lower still, the whole about -14 LUFS
 TAKES, MUSIC, LOUD = 0.75, 0.30, "loudnorm=I=-14:TP=-1.5:LRA=11"
+# Under a talker's own voice (UGC: one close phone voice in one room), B-roll's own sound sits
+# 20 dB lower again: 293's dinner chatter played 7-12 dB under the voice, a narrator over a
+# party; the references' other sound is about 39 dB under. Sound effects a person added keep TAKES.
+UNDER_TALKER = 0.075
 AIM = "loudnorm=I=-14:TP=-1.5:LRA=20"  # every cut, last (E2E 233); TP as LOUD: AAC overshoots
 CEILING = -1.0  # dBTP a delivered cut's sound never passes, measured after the encode
 RAMP = 0.25  # seconds the music takes to dip under the voice and rise after it
@@ -104,6 +109,9 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
                      "key": _key(db, music["file_id"]),
                      "lines": tl.get("lines") or []} if music else None,
            "host": None}  # fmt: skip
+    if talker.on(db, project):  # the talker's room carries the video
+        out["takes"] = [TAKES if out["sources"][str(p["take_id"])]["sound"] else UNDER_TALKER
+                        for p in tl["pieces"]]  # fmt: skip
     if tl["presenter"] and any(not s["hidden"] for s in tl["presenter"]["spans"]):
         from app.cut import SIZES
 
@@ -163,7 +171,7 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
             r["mode"] == "narrated",
             bed,
             [p["from"] for p in pieces],
-            {**(music or {}), "last_word": r.get("last_word") or 0},
+            {**(music or {}), "last_word": r.get("last_word") or 0, "takes": r.get("takes")},
             shape,
         )
     progress(85)
@@ -465,10 +473,12 @@ def song_cut(
 def _narrated_mix(folder: Path, lengths: list[float], froms: list[float], music: bool,
                   fade: str, mix: dict | None) -> list[str]:  # fmt: skip
     """Each take's own sound from its in-point (silence if it has none), the narration on top,
-    the music under it at its level (`level`), made loud enough and faded."""
+    the music under it at its level (`level`), made loud enough and faded. Each take's sound
+    at its level in `mix["takes"]`, else TAKES."""
     n, total = len(lengths), sum(lengths)
+    each = (mix or {}).get("takes") or [TAKES] * n
     takes = [f"[{i}:a]{SAME},atrim=start={froms[i]},asetpts=PTS-STARTPTS,atrim=duration={d},"
-             f"apad=whole_dur={d},volume={TAKES}[a{i}]"
+             f"apad=whole_dur={d},volume={each[i]}[a{i}]"
              if _probe(folder, f"{i}.mp4", "a:0", "index")
              else f"anullsrc=r=44100:cl=stereo,atrim=duration={d}[a{i}]"
              for i, d in enumerate(lengths)]  # fmt: skip
