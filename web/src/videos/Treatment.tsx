@@ -81,8 +81,8 @@ export const newestTreatment = (thread: object[] | undefined) => [...(thread ?? 
 
 const lineSpan = (ns: number[] = []) => (ns.length === 0 ? "" : ns.length === 1 ? `Line ${ns[0]}` : `Lines ${ns[0]}–${ns[ns.length - 1]}`);
 
-/** The Plan tab before Make it (S3-02): the director's treatment as the plan's scenes, one a beat, with what is known so
- *  far. Its shots and clips are planned after Make it, so their count isn't known yet. Nothing is spent for it. */
+/** The Plan tab before its plan (S3-02): the director's treatment as the plan's scenes, one a beat, with what is known so
+ *  far. Its shots and clips are planned next, so their count isn't known yet. */
 export function TreatmentPlan({ t, seconds }: { t: Treatment; seconds?: number | null }) {
   const counts = [`${t.beats.length} scene${t.beats.length === 1 ? "" : "s"}`, ...(seconds ? [`about ${seconds} s`] : [])].join(" · ");
   return (
@@ -104,7 +104,7 @@ export function TreatmentPlan({ t, seconds }: { t: Treatment; seconds?: number |
           </li>
         ))}
       </ol>
-      <p className="text-sm text-muted">The director plans each scene's shots and clips after Make it.</p>
+      <p className="text-sm text-muted">The director plans each scene's shots and clips next. You see them before Make it.</p>
     </section>
   );
 }

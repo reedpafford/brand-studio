@@ -73,12 +73,12 @@ test("S3-01: the header says where it is, its status and reason, the money, and 
   expect(screen.getByPlaceholderText("Add anything the director should know")).toBeInTheDocument();
 });
 
-test("before Make it the header says No generation started, even after the treatment's small planning spend (Reed, 4 Nov)", async () => {
+test("before Make it the header says No stills or clips yet, even after its planning spend (the plan and the looks)", async () => {
   setViewport(1440);
   server(owner, fs(), run({ started: false }), { "GET /projects/50/idea": [200, head({ status: status("needs_you", "Needs you", "Make it?") })] });
   renderApp("/b/1/videos/50");
   const top = await screen.findByRole("banner");
-  expect(await within(top).findByText("No generation started ·", { exact: false })).toBeInTheDocument();
+  expect(await within(top).findByText("No stills or clips yet ·", { exact: false })).toBeInTheDocument();
   expect(within(top).getByText("up to $16.86")).toBeInTheDocument();
   expect(top.textContent).not.toMatch(/Nothing spent/);
 });
@@ -88,8 +88,8 @@ test("MAIN's Claymation run: planning right after New video's Make it says Plann
   server(owner, fs(), run({ started: false }));
   renderApp("/b/1/videos/50");
   const top = await screen.findByRole("banner");
-  expect(await within(top).findByText("Planning, no generation yet ·", { exact: false })).toBeInTheDocument();
-  expect(top.textContent).not.toMatch(/No generation started/);
+  expect(await within(top).findByText("Planning, no stills or clips yet ·", { exact: false })).toBeInTheDocument();
+  expect(top.textContent).not.toMatch(/No stills or clips yet/);
 });
 
 test("an editor sees credits and the budget, never dollars (rule 4)", async () => {
@@ -595,6 +595,28 @@ test("MAIN's run (video 233): a start card the chat names before its card is rea
   expect(await screen.findByRole("button", { name: "Make it · about $8.13" }, { timeout: 8_000 })).toBeInTheDocument(); // read again on its own
 });
 
+test("Reed, 8 Nov: the start card is the direction card: concept, beats, the look, the clip plan and the price on one card; its Make it is the cast OK too", async () => {
+  setViewport(390);
+  const story = { hook: "A doctor slaps a glowing gut", logline: "A doctor shows what the weekend does to your gut.", why_it_holds: "A gross picture first.", beats: [{ id: "b1", name: "Hook", purpose: "stops the scroll", picture: "The glowing gut" }, { id: "b2", purpose: "payoff", picture: "The capsule held up" }] };
+  const start = ask({ id: 9, kind: "start", topic: "", question: "Make it for up to $14.40?", why: "That's the most this run can charge.", saved: [], pick: null, can: ["make_it"], money: { ...held$(), what: "", over: "the budget", carry: false } });
+  const thread = [item("t1", "move", "Director", "The treatment: …", "done", at, { treatment: story }), item("a9", "move", "Director", "", null, later, { kind: "ask", ask_id: 9 })];
+  const look = { ref: "char:5", kind: "character", name: "Dr. Pickle", preview_file_id: 31, readiness: "ready", approval: "new", sig: "abc", look_fit: null };
+  const shot = (id: string, action: string) => ({ id, script_lines: [1], speaker: null, line: null, action, reaction: null, camera: "", seconds: 5, character_ids: [], place_id: null, moment: null, screen_ids: [] });
+  const plan = { breakdown: { hook: "", scenes: [{ shots: [shot("s1", "He slaps the glowing gut"), shot("s2", "He holds up the capsule")] }], clips: [{ id: "c1", shot_ids: ["s1"], seconds: 5, seam: "" }, { id: "c2", shot_ids: ["s2"], seconds: 6, seam: "end" }] } };
+  const calls = server(owner, null, run({ status: "running", thread }), { ...cards(start), "GET /projects/50/cast": [200, { state: "ready", asked: true, can_approve: true, items: [look] }], "GET /projects/50/breakdown": [200, plan], "POST /asks/9/answer": [200, { ...start, state: "answered" }] });
+  renderApp("/b/1/videos/50");
+  const card = await screen.findByRole("region", { name: "Make it for up to $14.40?" });
+  expect(within(card).getByText("A doctor shows what the weekend does to your gut.")).toBeInTheDocument(); // the concept
+  expect(within(card).getByRole("region", { name: "Beats" })).toHaveTextContent("1.Hook · The glowing gut2.Payoff · The capsule held up");
+  expect(await within(card).findByRole("img", { name: "Dr. Pickle" })).toBeInTheDocument(); // the look: what the cast step drew
+  expect(await within(card).findByText("Clip plan · 2 clips · about 11 s")).toBeInTheDocument();
+  expect(within(card).getByText("He holds up the capsule")).toBeInTheDocument();
+  expect(within(card).getByText(/approves this cast and places/)).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Cast & places waiting for your OK" })).toBeNull(); // one card, one press
+  await userEvent.click(within(card).getByRole("button", { name: "Make it · up to $14.40" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /asks/9/answer")?.body).toEqual({ how: "make_it" }));
+});
+
 test("S3-05: once a question is answered, the pinned bar goes at once, with no reload", async () => {
   setViewport(1440);
   const r = run({ status: "ended", thread: [asked()], waiting: [{ id: 7, topic: "The presenter", question: "Who should be the presenter?" }] });
@@ -713,7 +735,7 @@ test("S3-02: the start-of-run card: Make it · up to its price, Change the plan 
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to $14.40?" });
   expect(within(card).getByText("Ready to start")).toBeInTheDocument();
-  expect(within(card).getByText("No generation starts until you press.")).toBeInTheDocument();
+  expect(within(card).getByText("No stills or clips are made until you press.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Make it again/ })).toBeNull();
   await userEvent.click(within(card).getByRole("button", { name: "Change the plan first" }));
   expect(screen.getByLabelText("Tell the director what to change")).toHaveFocus();
@@ -1242,7 +1264,7 @@ test("S3-02 (QA on #1383): before Make it the Plan tab shows the director's trea
   expect(within(plan).getByText("2 scenes · about 60 s")).toBeInTheDocument();
   expect(within(within(plan).getByLabelText("Scene 2")).getByText("2. What beer does")).toBeInTheDocument();
   expect(within(within(plan).getByLabelText("Scene 2")).getByText("Lines 2–3")).toBeInTheDocument();
-  expect(within(plan).getByText("The director plans each scene's shots and clips after Make it.")).toBeInTheDocument();
+  expect(within(plan).getByText("The director plans each scene's shots and clips next. You see them before Make it.")).toBeInTheDocument();
   expect(screen.queryByText(/No plan yet/)).toBeNull();
 });
 

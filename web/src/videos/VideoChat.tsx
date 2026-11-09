@@ -637,7 +637,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
             ),
           )}
         </ol>
-        {id > 0 && <CastOk projectId={id} />}
+        {id > 0 && !startOpen && <CastOk projectId={id} /> /* while the direction card waits, its Make it is this OK */}
         {fs?.reel_script_id && !items.length && <ReelBlock scriptId={fs.reel_script_id} published={false} /> /* Use a reel: its read, before the script is written */}
         {again.isError && <p role="alert" className="mt-2 text-sm text-danger">{again.error.message}</p>}
         {actions.withdraw.isError && <p role="alert" className="mt-2 text-sm text-danger">{actions.withdraw.error.message}</p>}

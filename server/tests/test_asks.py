@@ -369,12 +369,13 @@ def test_the_start_card_waits_for_make_it_and_change_the_plan_first_keeps_it_wai
     # budget: he starts it himself (S2-06)
     url = f"/projects/{pid}/director"
     editor.post(url)
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     out = editor.get(url).json()
     assert (out["started"], out["status"]) == (False, "running")  # S3-02
-    assert [t["tool"] for t in out["turns"]] == ["treatment", None]
+    # its plan up to the cast and places OK (the direction card, Reed 8 Nov), then its card
+    assert [t["tool"] for t in out["turns"]] == ["treatment", "make_looks", "ask_cast_ok", None]
     made = {j.input.get("step") for j in db.query(Job).filter(Job.project_id == pid)}
-    assert made == {"director", "treatment"}  # its plan only: no generation started
+    assert not made & {"frame", "clip_take", "storyboard"}  # no still or take before it
     assert out["spent"] > 0  # the plan is charged as it costs, on its allowance
     (card,) = owner.get(f"/projects/{pid}/asks").json()
     assert card["kind"] == "start" and card["question"].startswith("Make it for up to $")
@@ -402,7 +403,7 @@ def test_an_answered_up_to_start_card_says_a_grown_price_needs_another_ok(app, d
     can't charge past the OK without asking. It keeps the approved figure and says both."""
     pid, _ = _video(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     (card,) = owner.get(f"/projects/{pid}/asks").json()
     said = card["question"]
     assert said.startswith("Make it for up to $")
@@ -427,7 +428,7 @@ def test_a_start_card_waits_while_a_note_is_read_into_the_plan(app, db, owner, e
     pid, _ = _video(app, owner, editor, db)
     url = f"/projects/{pid}/director"
     editor.post(url)
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     (card,) = owner.get(f"/projects/{pid}/asks").json()
     assert "make_it" in card["can"] and not card["money"]["updating"]
     last = db.query(Job).filter(Job.project_id == pid).order_by(Job.id.desc()).first()
@@ -469,10 +470,10 @@ def test_a_plan_a_person_makes_while_the_start_card_waits_never_holds_it(app, db
     for ever. Only the director's own steps wait to be read."""
     pid, _ = _video(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     made = owner.post(f"/projects/{pid}/plan", json={})  # Make a new plan, by the owner
     assert made.status_code == 201, made.text
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     job = db.get(Job, made.json()["id"])
     assert job.status == JobStatus.succeeded and not job.input.get("director_run")
     (card,) = owner.get(f"/projects/{pid}/asks").json()
@@ -487,7 +488,7 @@ def test_an_editors_pasted_script_waits_for_the_owner_and_may_withdraw(app, db, 
 
     app.state.settings.fake_providers = True
     sent = editor.post("/freestyles", json=BODY).json()
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     (row,) = editor.get("/needs-you").json()["money"]  # the editor's own request
     card = row["ask"]
     assert (card["kind"], card["can"]) == ("start", ["withdraw"])
@@ -739,7 +740,7 @@ def test_planning_before_make_it_has_an_allowance_that_a_restart_never_resets(
     project = db.get(Project, pid)
     url = f"/projects/{pid}/director"
     editor.post(url)
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     plans, used, _ = asks.planned(db, project)
     assert plans >= 1 and 0 < used <= Decimal(str(get_settings().plan_credits_before_ok))
     db.rollback()  # the worker reads in this session: end the read before the note lands
@@ -755,7 +756,7 @@ def test_planning_before_make_it_has_an_allowance_that_a_restart_never_resets(
 
     editor.post(f"{url}/stop")  # a resend: stop, then start again
     editor.post(url)
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     db.expire_all()
     held = [c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "plan"]
     assert held[-1]["state"] == "open"  # the new run's plan waits for the owner too
@@ -788,7 +789,7 @@ def test_past_the_price_make_it_approved_every_run_waits_for_the_owner(
     for who in (owner, editor):
         pid, _ = _video(app, owner, editor, db)
         who.post(f"/projects/{pid}/director")
-        _run(app, db, ticks=4, start=False)
+        _run(app, db, ticks=12, start=False)
         card = next(c for c in who.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
         assert who.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
         _priced_down(db, pid, "12")
@@ -903,14 +904,14 @@ def test_keep_on_a_plan_card_brings_back_make_it_for_the_plan_it_has(
     pid, _ = _video(app, owner, editor, db)
     url = f"/projects/{pid}/director"
     editor.post(url)
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     editor.post(f"{url}/messages", json={"text": "End on the capsule."})
     _run(app, db, ticks=6, start=False)
     (card,) = [c for c in owner.get(f"/projects/{pid}/asks").json()
                if c["kind"] == "plan" and c["state"] == "open"]  # fmt: skip
     r = owner.post(f"/asks/{card['id']}/answer", json={"how": "keep"})
     assert r.json()["state"] == "answered"
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     cards = owner.get(f"/projects/{pid}/asks").json()
     assert [c["kind"] for c in cards if c["state"] == "open"] == ["start"]  # Make it is back
     assert editor.get(url).json()["status"] == "running"
@@ -937,12 +938,13 @@ def test_the_progress_card_reads_ready_for_its_editor_and_ignores_an_options_hol
     pid, _ = _video(app, owner, editor, db)
     url = f"/projects/{pid}/director"
     editor.post(url)
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     mine = editor.get(f"{url}/progress").json()
-    assert (mine["title"], mine["sub"]) == ("Ready to make", "No generation started: press Make it")
+    sub = "No stills or clips yet: press Make it"
+    assert (mine["title"], mine["sub"]) == ("Ready to make", sub)
     for who in (editor, owner):  # the chat's line for the run says the same to each of them
         (line,) = [m for m in who.get(url).json()["thread"] if m.get("run")]
-        assert line["text"] == "Ready to make · No generation started: press Make it"
+        assert line["text"] == "Ready to make · No stills or clips yet: press Make it"
     assert owner.get(f"{url}/progress").json()["title"] == "Ready to make"  # the owner's too
     make_it(db)
     project = db.get(Project, pid)
@@ -1033,10 +1035,21 @@ def _up(credits) -> float:
     return float(_up(Decimal(str(credits))))
 
 
+def _drawn_first(db, pid: int):
+    """What the looks drawn before the direction card charged: spent before its price, which
+    then covers only what's left to make (the card's figure never counts them twice)."""
+    from decimal import Decimal
+
+    card = _start_job(db, pid)
+    rows = db.query(Job).filter(Job.project_id == pid, Job.id < card.id).all()
+    return sum((j.credits for j in rows if j.input.get("by_director")
+                and not j.input.get(director.RUN)), Decimal(0))  # fmt: skip
+
+
 def _start(app, db, who, pid: int) -> Job:
     """The video's run asked for: its plan, then its start card waiting for Make it."""
     who.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     db.expire_all()
     return db.query(Job).filter(Job.project_id == pid, Job.input[asks.START].as_boolean(),
                                 Job.status == "needs_owner_approval").one()  # fmt: skip
@@ -1080,12 +1093,13 @@ def test_the_header_the_run_card_and_the_note_say_one_figure_on_every_run(
     card = _start(app, db, owner, pid)
     head = owner.get(f"/projects/{pid}/idea").json()
     assert head["spent"]["credits"] > 0  # its planning
-    assert head["up_to"]["credits"] == _up(card.input["price"])  # the start card's figure
+    drawn = _drawn_first(db, pid)  # the looks drawn before the card, outside its price
+    assert head["up_to"]["credits"] == _up(drawn + Decimal(card.input["price"]))  # its figure
     first = _make_it(app, db, owner, pid)
-    assert one_figure(owner, editor, pid) == _up(first)  # its look's check is the run's too
+    assert one_figure(owner, editor, pid) == _up(drawn + first)  # its look's check is the run's
     _charge(db, pid, 3, {"auto_made": True})  # a person's own Make missing looks after it
     head = owner.get(f"/projects/{pid}/idea").json()
-    assert head["up_to"]["credits"] == _up(first + 3)  # outside the run: not against its price
+    assert head["up_to"]["credits"] == _up(drawn + first + 3)  # outside the run: not its price
     owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
     _start(app, db, owner, pid)
     second = _make_it(app, db, owner, pid)
@@ -1105,7 +1119,7 @@ def test_after_an_ok_past_the_price_the_up_to_is_what_the_run_can_still_charge(
     _start(app, db, owner, pid)
     card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
     assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
-    _priced_down(db, pid, "12")
+    _priced_down(db, pid, "20")  # past its planning
     url = f"/projects/{pid}/director/progress"
     for _ in range(40):  # every OK past the price, until it delivers
         if owner.get(url).json()["status"] == "delivered":
@@ -1138,8 +1152,9 @@ def test_the_up_to_covers_a_charge_before_the_run_and_a_press_between_runs(app, 
     pid, _ = _video(app, owner, editor, db)
     _charge(db, pid, 7)
     card = _start(app, db, owner, pid)
-    assert one_figure(owner, editor, pid) == _up(7 + Decimal(card.input["price"]))  # it waits
-    first = _make_it(app, db, owner, pid)
+    drawn = _drawn_first(db, pid)  # the looks drawn before the card, outside its price
+    assert one_figure(owner, editor, pid) == _up(7 + drawn + Decimal(card.input["price"]))
+    first = drawn + _make_it(app, db, owner, pid)
     assert one_figure(owner, editor, pid) == _up(7 + first)  # the 7 before it, then its price
     _charge(db, pid, 90)  # a big press between runs: past what the first price covered
     before = _spent(owner, pid)
@@ -1299,14 +1314,14 @@ def test_a_revision_never_says_no_generation_started(app, db, owner, editor):
     assert owner.get(url).json()["started"] is False  # the first start card waits
     first = owner.get(f"{url}/progress").json()
     assert first["title"] == "Ready to make"
-    assert first["sub"] == "No generation started: press Make it"
+    assert first["sub"] == "No stills or clips yet: press Make it"
     _make_it(app, db, owner, pid)
     assert owner.get(url).json()["started"] is True
     cut = [t["note"]["cut"] for t in owner.get(url).json()["thread"] if t.get("note")][-1]
     editor.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})  # the editor's
     # revision starts by talking; past the budget, its start card waits for the owner at once
     assert owner.get(url).json()["started"] is True
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     mine = owner.get(f"{url}/progress").json()
     assert mine["title"] == "Ready to make"
     assert mine["sub"] == f"Cut {cut} stays as it is until you press Make it"
@@ -1340,7 +1355,7 @@ def test_notes_kept_before_their_parts_existed_still_show(app, db, owner, editor
                 assert line["note"]["cut"] is cut and line["note"]["made"] == "The cut."
                 assert line["note"]["redid"] == [] and "The cut." in line["text"]
     editor.post(f"{url}/messages", json={"text": "Make clip 1 warmer."})  # held for the owner
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     mine, theirs = owner.get(f"{url}/progress").json(), editor.get(f"{url}/progress").json()
     assert mine["sub"] == "The cut stays as it is until you press Make it"
     assert theirs["sub"] == "The cut stays as it is until the owner says yes"
@@ -1381,7 +1396,7 @@ def test_a_start_card_after_a_stopped_run_says_nothing_more_is_made(app, db, own
     assert owner.post(f"{url}/stop").status_code == 200
     assert owner.get(f"/projects/{pid}/idea").json()["spent"]["credits"] > 0
     editor.post(url)  # Make it again, the editor's: its card waits for the owner
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     mine, theirs = owner.get(f"{url}/progress").json(), editor.get(f"{url}/progress").json()
     assert (mine["title"], mine["sub"]) == (
         "Ready to make", "Nothing more is made until you press Make it")  # fmt: skip

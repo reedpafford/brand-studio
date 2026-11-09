@@ -9625,6 +9625,11 @@ export interface components {
              */
             updating: boolean;
             /**
+             * Carry
+             * @default false
+             */
+            carry: boolean;
+            /**
              * What
              * @default
              */

@@ -546,6 +546,10 @@ def _money(db: Session, user: User, ask: Ask, project: Project, how: str) -> Non
             held[-1].input = {**held[-1].input, HOLD: why, "held": why}  # the budget moved: to the
             db.commit()  # owner, saying why (rule 36: never less than it can charge)
             raise HTTPException(409, why)
+        if ask.kind == "start" and not held[-1].input.get(CARRIES):  # the direction card: its
+            from app import cast_gate  # go is the OK on the cast and places it showed too
+
+            cast_gate.go(db, user, project)
         for job in held:
             routes.approve_job(job.id, user, db)
     elif how in ("keep", "decline"):
@@ -691,7 +695,12 @@ def approved_total(db: Session, project: Project) -> Decimal | None:
 
 def past_run(db: Session, project: Project, credits: Decimal) -> bool:
     """Whether a run's step of `credits` would take it past the price its Make it approved:
-    then it waits for the owner, the owner's own run too (Reed, 4 Nov)."""
+    then it waits for the owner, the owner's own run too (Reed, 4 Nov). A new run planning
+    before its own Make it is never held to an earlier run's price: its own card prices it."""
+    from app.director import planning_now
+
+    if planning_now(db, project):
+        return False
     got = approved_run(db, project)
     return got is not None and got[1] + credits > got[0]
 

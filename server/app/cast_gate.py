@@ -13,7 +13,7 @@ import json
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import utcnow
@@ -32,6 +32,7 @@ NOT_READY = "{} first, then approve the cast and places."
 NOTHING = "There's nothing new to approve: the cast and places are approved."
 WRONG = "The look check says {} look{} wrong. Change it, or approve anyway."
 PAUSED = "Not made: the cast or places changed since. Approve them in Cast, then make it again."
+ASKED = "Asked for the cast and places OK"  # the director's ask_cast_ok, as its log says it
 
 
 class Waiting(HTTPException):
@@ -482,6 +483,39 @@ def approve(db: Session, user: User, project: Project, seen: dict[str, str],
     director.wake(db, project)  # a run waiting on this point goes on
 
 
+SHEET_TRIES = 2  # a look that didn't draw is drawn again once; then the card shows it undrawn
+
+
+def redrawable(db: Session, project: Project, items: list[dict]) -> list[LibraryItem]:
+    """The looks of `items` that didn't draw (no picture, nothing drawing, a sheet failed)
+    and may be drawn again: the director's make_looks does, once (QA on #1482)."""
+    out = []
+    for i in items:
+        if i["readiness"] != "needs_look" or not i["library_item_id"]:
+            continue
+        failed = db.scalar(select(func.count(Job.id)).where(
+            Job.workspace_id == project.workspace_id, Job.status == JobStatus.failed,
+            Job.input["step"].as_string() == "sheet",
+            Job.input["library_item_id"].as_integer() == i["library_item_id"])) or 0  # fmt: skip
+        if 0 < failed < SHEET_TRIES:
+            out.append(db.get(LibraryItem, i["library_item_id"]))
+    return out
+
+
+def go(db: Session, user: User, project: Project) -> None:
+    """Make it on the direction card: the go is also the OK on the cast and places the card
+    showed (Reed, 8 Nov: one card, nothing expensive until "go"), as they are now. Nothing
+    when there's nothing new, or something is still being drawn or changed as it was pressed:
+    the go still goes, and Cast keeps its own press for those."""
+    items = current(db, project)
+    if (any(i["approval"] != "approved" for i in items)
+            and all(i["readiness"] == "ready" for i in items)):  # fmt: skip
+        try:  # its refusals all come before anything is written
+            approve(db, user, project, {i["ref"]: i["sig"] for i in items}, anyway=True)
+        except HTTPException:
+            pass  # the cast and places wait in Cast, as before the direction card
+
+
 def require_voice(db: Session, project: Project, voice: str | None = None) -> None:
     """A narration read in the host's voice (`voice`, as the narration takes it): refused (409)
     while that voice changed since the cast and places OK, until it's approved again. Another
@@ -527,4 +561,4 @@ def ask(db: Session, project: Project, run_id: str | None) -> str:
     asked = {"at": utcnow().isoformat(), "run": run_id, "sigs": sigs}
     project.cast_ok = {**(project.cast_ok or {}), "asked": asked}
     db.commit()
-    return f"Asked for the cast and places OK: {_and(said['waiting'])}."
+    return f"{ASKED}: {_and(said['waiting'])}."
