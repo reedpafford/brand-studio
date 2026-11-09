@@ -1,7 +1,8 @@
 """The UGC talker (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."). In a Presenter
 video in the UGC style the host isn't keyed into a corner: one still of the talker in their own
-room, then ONE HeyGen Avatar IV take of the whole narration (the MiniMax voice with its room
-sound, app/room.py), lip-synced from that still (app/host.py makes both, priced like takes). The
+room, then ONE HeyGen Avatar IV take of the whole narration (the voice picked at their audition,
+app/audition.py, with its room sound, app/room.py), lip-synced from that still (app/host.py
+makes both, priced like takes). The
 plan's talker shots (in a narration, `sung`: the talker says that stretch to the lens) are cut
 from that take at the final cut; every other shot is B-roll cut in over the voice, so the cut
 alternates talker and B-roll. Settings from HeyGen's docs and the paid tests (batch-b,
@@ -21,14 +22,12 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import narration
 from app.models.clips import ClipTake, ProjectClip
 from app.models.files import StoredFile
 from app.models.projects import Project
 
 LOOKS = ("ugc",)  # styles whose host talks in their own room, not keyed in a corner
 MODEL, RESOLUTION, PROVIDER = "heygen-avatar-iv", "720p", "heygen"
-VOICE = narration.MINIMAX_VOICES[0]  # a talker's voice when the director names none
 LONGEST = 600.0  # HeyGen: an avatar's audio input runs 10 minutes at most
 FIT = 1920  # HeyGen takes images under 2K: "as much resolution as you have"
 STILL_PROMPT = (
@@ -65,17 +64,6 @@ def on(db: Session, project: Project) -> bool:
     from app import host
 
     return host.on(db, project) and host.how(project) == "talks"
-
-
-def minimax(db: Session, project: Project) -> bool:
-    """The narration's default voice is MiniMax's (`VOICE`): a talker, or a UGC presenter in one
-    spot the whole time, talking to camera or in a corner over the B-roll (Reed, 6 Nov: a talker
-    in one spot is HeyGen with the MiniMax voice). A person's pick or the presenter's own saved
-    voice comes first (director_song._voice)."""
-    from app import host, looks
-
-    ugc = looks.base(project.look or looks.DEFAULT) in LOOKS
-    return on(db, project) or (ugc and host.on(db, project))
 
 
 def _spoken(data: dict, clip_id: str) -> bool:

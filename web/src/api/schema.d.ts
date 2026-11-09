@@ -6413,6 +6413,14 @@ export interface components {
              */
             options: components["schemas"]["MadeOption"][];
             options_spent?: components["schemas"]["AskPrice"] | null;
+            /**
+             * Audition
+             * @default []
+             */
+            audition: components["schemas"]["Audition"][];
+            audition_spent?: components["schemas"]["AskPrice"] | null;
+            /** Voice */
+            voice?: string | null;
             /** Answer */
             answer?: {
                 [key: string]: unknown;
@@ -6525,6 +6533,25 @@ export interface components {
              * @default false
              */
             script_unlock: boolean;
+        };
+        /**
+         * Audition
+         * @description A voice the director put up for a presenter, reading the script's opening (app/audition).
+         */
+        Audition: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** State */
+            state: string;
+            /** Sample File Id */
+            sample_file_id?: number | null;
         };
         /** AutoFixOut */
         AutoFixOut: {

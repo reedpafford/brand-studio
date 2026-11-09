@@ -162,6 +162,10 @@ def state(db: Session, project: Project) -> dict | None:
         if note := voices.host_note(db, project):
             out["voice_note"] = note  # the host's own voice was removed: say what to do
         out["pace_wanted"] = target(db, project)  # the style's words a second
+        from app import audition
+
+        if heard := audition.status(db, project):  # the presenter's voice is chosen first
+            out["audition"] = heard
     if found == "song":
         used = [t for t in made if t.id == project.song_take_id]
         take = (used or sorted(made, key=lambda t: t.id))[-1] if made else None
@@ -318,22 +322,20 @@ def narrator(
     for the Cast tab (routes/host) and the narration (QA #1395): a person's pick for the video
     (its settings or a voice card's answer, S4-01), else the video's own (its presenter's, else
     its style's, e.g. Dr. Pickle's clone), else the director's `named` one, else the one in use
-    (`kept`), else the default: MiniMax for a UGC presenter in one spot (talks or corner), else
-    narration's (_voice)."""
+    (`kept`), else the default (_voice)."""
     return (voices.picked(db, project) or voices.default_for(db, project) or named or kept
             or _voice(db, project))  # fmt: skip
 
 
 def _voice(db: Session, project: Project) -> str:
     """The narrator when none is picked: a person's for this video, else the video's own (its
-    host's or its style's, e.g. Dr. Pickle's clone), else the MiniMax voice for a talker or a
-    UGC presenter in one spot (talks or corner; Reed, 3 and 6 Nov: talker.minimax), else
-    narration's."""
-    from app import talker
+    host's or its style's, e.g. Dr. Pickle's clone), else "" for a presenter nobody has chosen
+    a voice for yet (their audition picks it, app/audition.py), else narration's."""
+    from app import audition
 
     if own := voices.picked(db, project) or voices.default_for(db, project):
         return own
-    return talker.VOICE if talker.minimax(db, project) else narration.VOICE
+    return "" if audition.needed(db, project) else narration.VOICE
 
 
 def _real(db: Session, found: str) -> float:

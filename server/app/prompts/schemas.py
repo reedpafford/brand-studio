@@ -798,6 +798,14 @@ class AskMove(Strict):
         default=None,
         description="Your pick: a story choice's letter, or the saved item's name you'd use.",
     )
+    voices: list[str] = Field(
+        default_factory=list,
+        description="cast, presenter or voice, only while the narration's `audition` asks for "
+        "it: the presenter's voice audition, 3 or 4 app voices that fit them (their age, "
+        "gender and energy, an ordinary speaking pitch, not a narrator's), by key as the "
+        "narration's `voice` names them. Each reads the script's opening; the person picks. "
+        "Else empty.",
+    )
     ask_id: Id = Field(
         default=None, description="Only to close an open question no longer needed; else 0."
     )
@@ -870,13 +878,14 @@ class DirectorTurn(Strict):
     voice: _pick(
         "Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger", "English_FriendlyPerson",
         "English_Trustworth_Man", "English_Upbeat_Woman", "English_ConfidentWoman",
-        "English_Graceful_Lady",
+        "English_Graceful_Lady", "English_DecentYoungMan", "English_Jovialman",
+        "English_Diligent_Man",
     ) = Field(
         default=None,
         description="For narration being made: the narrator's voice. A person's pick or the "
         "video's own voice (its presenter's, else its style's, e.g. Dr. Pickle's) is kept "
-        "whatever this says. Empty keeps the voice in use on a remake, else gives Sarah (a UGC "
-        "presenter in one spot, talks or corner: English_FriendlyPerson). Else empty.",
+        "whatever this says, and a presenter's is picked at their audition. Empty keeps the "
+        "voice in use on a remake, else gives Sarah. Else empty.",
     )  # fmt: skip
     emotion: _pick(
         "auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent",

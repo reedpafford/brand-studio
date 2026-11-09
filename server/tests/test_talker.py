@@ -35,6 +35,8 @@ from app.providers.heygen import HeyGenProvider
 from tests.conftest import first_brand
 from tests.test_freestyle_dialogue import _run
 
+PICKED = director.STAND_IN_VOICES[0]  # the stand-in's first candidate, as tests.helpers picks
+
 LINES = ("Every morning starts the same.\nThe bowl, the wait, the wag.\nIron Paws makes the bowl "
          "worth waiting for.")  # fmt: skip
 
@@ -60,7 +62,7 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
                    execution_options={"see_hidden": True})  # fmt: skip
     (voice,) = [j for j in _steps(db, video, "song_take") if j.kind == "speech"]
     assert (voice.input["model"], voice.input["input"]["voice_id"]) == (
-        narration.MINIMAX, talker.VOICE)  # a MiniMax voice by default  # fmt: skip
+        narration.MINIMAX, PICKED)  # the voice the person picked at the audition  # fmt: skip
     (timing,) = db.query(Job).filter(Job.kind == "narration_timing").all()
     assert timing.input["room"] == talker.place(db, video) in room.PLACES  # its room's sound
     (still,) = _steps(db, video, host.STILL)
@@ -124,7 +126,7 @@ def test_the_directors_motion_note_makes_the_talker_and_a_remake_keeps_it(app, d
     heard = db.get(SongTake, video.song_take_id).timing["pace"]  # measured, then set from it
     want = director_song.target(db, video)
     assert want == (3.3, 3.5) and director_song.state(db, video)["pace_wanted"] == want
-    first = narration.speed_for("auto", talker.VOICE)  # the talker's voice's own start
+    first = narration.speed_for("auto", PICKED)  # the talker's voice's own start
     speed = narration.retimed(first, heard, want) or first
     said = director_song.run(db, user, video, {"tool": "narration", "emotion": "auto"}, {})
     assert said.startswith("Making the narration"), said

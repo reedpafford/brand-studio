@@ -2114,10 +2114,9 @@ def video_state(db: Session, project: Project) -> dict:
     for c in clips:
         c["waits_for_cast"] = c["clip_id"] in held and not c["takes"]
     audio = director_song.state(db, project)  # a song or narrated video's song or narration
-    from app import host, talker
+    from app import host
 
-    minimax = {"minimax": True} if talker.minimax(db, project) else {}  # its narrator's voice
-    hosted = {"host": {**host.state(db, project), **minimax}} if host.on(db, project) else {}
+    hosted = {"host": host.state(db, project)} if host.on(db, project) else {}
     return {
         **hosted,
         "plan": status(db, project),  # none, ready (waits for approval) or approved
@@ -2358,6 +2357,7 @@ def _still_wrong(state: dict) -> str:
 
 
 STAND_IN_STYLE = "bright pop, warm female vocal, 110 bpm"  # a song version with no style line
+STAND_IN_VOICES = ("English_DecentYoungMan", "English_Jovialman", "English_Trustworth_Man")
 
 
 def _audio_move(state: dict, go) -> dict | None:
@@ -2374,6 +2374,22 @@ def _audio_move(state: dict, go) -> dict | None:
     if audio.get("used_take_id"):
         return None
     what = "song" if tool == "song" else "narration"
+    if heard := audio.get("audition"):  # the presenter's voice first: the person picks it
+        if heard["state"] == "asked":
+            return go("wait", f"{heard['who']}'s voice is being auditioned.")
+        who = heard["who"]
+        return go(
+            "ask",
+            f"{who}'s voice first: everything is timed to it.",
+            ask={
+                "kind": "voice",
+                "subject": who,
+                "topic": f"{who}'s voice"[:80],
+                "question": f"Which voice is {who}?",
+                "voices": list(STAND_IN_VOICES),
+                "why": "Each reads the script's opening. The one you pick is saved on them.",
+            },
+        )
     if audio["state"] == "none":
         style = {} if audio.get("style", True) else {"note": STAND_IN_STYLE}  # a song's first
         return go(tool, f"The {what} first: its timing is what the shots follow.", **style)

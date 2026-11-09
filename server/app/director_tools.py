@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import cast_gate, take_mute
+from app import audition, cast_gate, take_mute
 from app.models.accounts import User
 from app.models.clips import ClipTake, ProjectClip
 from app.models.projects import Project
@@ -69,6 +69,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
     tool, pid = decision["tool"], project.id
     if tool in NOTES and len(written := (decision.get("note") or "").strip()) > _most(tool):
         return LONG_NOTE.format(what=NOTES[tool], most=_most(tool), n=len(written))
+    if tool in audition.HELD and (no := audition.refusal(db, project)):
+        return no  # a presenter's voice first: everything is timed to it
     me = {"project_id": pid, "user": user, "db": db}
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(storage=storage)))
     try:
@@ -349,7 +351,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             from app import asks
 
             move = {**(decision.get("ask") or {}), "closed": decision.get("why") or ""}
-            return asks.asked(db, project, (run or {}).get("id"), move)
+            return asks.asked(db, project, (run or {}).get("id"), move, user,
+                              before=not (run or {}).get("ok", True))  # fmt: skip
         if tool == "add_place":  # a place for some shots, made for this video only
             from app.routes import cast
 

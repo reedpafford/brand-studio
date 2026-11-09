@@ -11,7 +11,7 @@ const brands = [{ id: 1, name: "Resilia", colours: ["#2f7a4f"] }, { id: 2, name:
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 const resilia = { id: 1, name: "Resilia" };
 const video = (id: number, title: string, o: object = {}) => ({ id, title, still_file_id: id * 10, made_by: "Reed", send: false, about: "", ...o });
-const card = (o: object) => ({ topic: "", why: "", state: "open", by_owner: false, saved_in: "", saved: [], pick: null, choices: [], decide_at: null, generate: null, clone: null, options: [], options_spent: null, answer: null, answered_by: "", answered_at: null, closed: "", money: null, can: [], ...o });
+const card = (o: object) => ({ topic: "", why: "", state: "open", by_owner: false, saved_in: "", saved: [], pick: null, choices: [], decide_at: null, generate: null, clone: null, options: [], options_spent: null, audition: [], answer: null, answered_by: "", answered_at: null, closed: "", money: null, can: [], ...o });
 const price = (usd: number, credits = usd * 10) => ({ credits, usd });
 const question = {
   video: video(11, "Bloated after pizza"),

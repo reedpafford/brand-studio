@@ -41,8 +41,12 @@ ELEVENLABS = (VOICE, "Alexandra", "Hope", "Jane", "Austin", "Roger")
 # note. Speed 1.1 with emotion auto read at 3.2-3.4 words a second in the batch-b test (the UGC
 # references: 3.3-3.5), but that was a clone on speech-02-hd: each voice's differs (below).
 MINIMAX, MINIMAX_SPEED = "minimax-speech-2.8-hd", 1.1
+# Every man above measured 82-108 Hz against the UGC references' 125-142 Hz (UGC-DIAGNOSIS, 9
+# Nov), so three everyday men from the same list were added for presenter auditions
+# (app/audition.py), not yet measured: Decent Young Man, Jovial Man, Diligent Man.
 MINIMAX_VOICES = ("English_FriendlyPerson", "English_Trustworth_Man", "English_Upbeat_Woman",
-                  "English_ConfidentWoman", "English_Graceful_Lady")  # fmt: skip
+                  "English_ConfidentWoman", "English_Graceful_Lady", "English_DecentYoungMan",
+                  "English_Jovialman", "English_Diligent_Man")  # fmt: skip
 # A voice's own start, where measured: English_FriendlyPerson talked at 4.9 words a second at 1.1
 # (281), 3.7 at about 0.9, 2.9 at 0.76 (293): pace grows as speed**SPEED_POWER; 0.85 reads 3.4.
 VOICE_SPEEDS, SPEED_POWER = {"English_FriendlyPerson": 0.85}, 1.43

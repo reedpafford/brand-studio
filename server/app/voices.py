@@ -54,11 +54,14 @@ ABOUT = {
     "Jane": ("Jane", "Natural woman's voice"),
     "Austin": ("Austin", "Deep man, about 81 Hz"),
     "Roger": ("Roger", "Relaxed man, about 115 Hz"),
-    "English_FriendlyPerson": ("Friendly Guy", "Friendly man, a UGC talker's default"),
-    "English_Trustworth_Man": ("Trustworthy Man", "Steady, trustworthy man"),
+    "English_FriendlyPerson": ("Friendly Guy", "Deep, polished man, about 89 Hz"),
+    "English_Trustworth_Man": ("Trustworthy Man", "Steady, trustworthy man, about 101 Hz"),
     "English_Upbeat_Woman": ("Upbeat Woman", "Upbeat woman"),
     "English_ConfidentWoman": ("Confident Woman", "Confident woman"),
     "English_Graceful_Lady": ("Graceful Lady", "Older woman, low and warm, about 186 Hz"),
+    "English_DecentYoungMan": ("Decent Young Man", "Everyday younger man"),
+    "English_Jovialman": ("Jovial Man", "Cheerful, chatty man"),
+    "English_Diligent_Man": ("Diligent Man", "Earnest, everyday man"),
 }
 # What each app voice sounds like, as a description can name it (ABOUT's own words; no app
 # voice's accent is known, so none is claimed): its gender, "older" where that's known, tones.
@@ -74,6 +77,9 @@ TRAITS = {
     "English_Upbeat_Woman": ("woman", "", {"upbeat"}),
     "English_ConfidentWoman": ("woman", "", {"confident"}),
     "English_Graceful_Lady": ("woman", "older", {"deep", "warm"}),
+    "English_DecentYoungMan": ("man", "", {"natural"}),
+    "English_Jovialman": ("man", "", {"friendly", "upbeat"}),
+    "English_Diligent_Man": ("man", "", {"steady"}),
 }
 WORDS = {  # a description's words, as those tones
     "warm": ("warm", "cozy", "kind", "gentle", "soft", "motherly", "caring", "sweet"),

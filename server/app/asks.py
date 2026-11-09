@@ -29,6 +29,7 @@ from app.models.projects import Project
 QUESTIONS = ("cast", "presenter", "voice", "place", "product", "brand_item", "story", "question")
 MONEY = ("start", "budget", "own", "plan")  # Make it; past the budget; its own limit; planning
 UPLOADS = ("cast", "presenter", "voice", "place", "product", "brand_item")
+AUDITIONS = ("cast", "presenter", "voice")  # cards that may carry a presenter's voice audition
 STORY_WAIT = timedelta(minutes=30)  # a story choice's time on the card (rule 37)
 START = "start_run"  # in a run's held first paid turn: the start-of-run OK (S3-02)
 BEFORE = "before_ok"  # in a job: planning before Make it, on the video's planning allowance
@@ -67,9 +68,14 @@ PAID_CHOICE = ("Refused: a story choice goes with your pick at its time, so it's
                "redraw_still its shot with a note.")  # fmt: skip
 
 
-def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
+def asked(db: Session, project: Project, run_id: str | None, move: dict,
+          user: User | None = None, before: bool = False) -> str:  # fmt: skip
     """The director's `ask` move, in plain words for its log: a new card, a saved answer used
-    without asking, or (with `ask_id`) a card it no longer needs."""
+    without asking, or (with `ask_id`) a card it no longer needs. A card that casts a presenter
+    whose voice isn't chosen carries its voice audition (`voices`, app/audition.py; `before`:
+    before Make it)."""
+    from app import audition
+
     if close := move.get("ask_id"):
         ask = db.get(Ask, close)
         if ask is None or ask.project_id != project.id or ask.kind in MONEY:
@@ -94,6 +100,14 @@ def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
     role = _slot(db, project, subject) if kind in ("cast", "presenter") else None
     if role is not None and locked(project, role):
         return f"Refused: {role.role} is locked in this video; use that look."
+    hear = move.get("voices") if kind in AUDITIONS and audition.needed(db, project) else None
+    if hear is not None and audition.checked(hear) is None:
+        return audition.TOO_FEW
+    who = user or db.get(User, project.created_by_id)
+
+    def heard(ask: Ask) -> str:  # its candidates read the opening (paid, cheap)
+        return audition.start(db, who, project, ask, hear, before) if hear else ""
+
     if used := reused(db, project, kind, subject):
         ask = Ask(workspace_id=project.workspace_id, project_id=project.id, run=run_id,
                   kind=kind, topic=(move.get("topic") or "")[:80], subject=subject,
@@ -102,9 +116,11 @@ def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
                           "file_id": used["file_id"], "reused": True})  # fmt: skip
         db.add(ask)
         _effect(db, None, project, ask)
+        db.flush()
+        said = heard(ask)
         db.commit()
         brand = db.get(Brand, project.brand_id)
-        return f"{used['name']} is saved in {brand.name}, so I used that."
+        return f"{used['name']} is saved in {brand.name}, so I used that.{said}"
     done = next((a for a in db.scalars(select(Ask).where(
         Ask.project_id == project.id, Ask.kind == kind, Ask.state == "answered"))
         if a.question == question or subject and _same(a.subject, subject)), None)  # fmt: skip
@@ -124,13 +140,16 @@ def asked(db: Session, project: Project, run_id: str | None, move: dict) -> str:
     if kind == "story" and any(PAID.search(f"{c['title']} {c['why']}") for c in choices):
         return PAID_CHOICE  # video 281: "one more paid try", no price, picked at its time
     pick = _pick(db, project, kind, move.get("pick"), choices)
-    db.add(Ask(workspace_id=project.workspace_id, project_id=project.id, run=run_id, kind=kind,
-               topic=(move.get("topic") or "")[:80], subject=subject, question=question,
-               why=(move.get("why") or "").strip(), describe=(move.get("describe") or "").strip(),
-               choices=choices, pick=pick,
-               decide_at=_now() + STORY_WAIT if kind == "story" else None))  # fmt: skip
+    ask = Ask(workspace_id=project.workspace_id, project_id=project.id, run=run_id, kind=kind,
+              topic=(move.get("topic") or "")[:80], subject=subject, question=question,
+              why=(move.get("why") or "").strip(), describe=(move.get("describe") or "").strip(),
+              choices=choices, pick=pick,
+              decide_at=_now() + STORY_WAIT if kind == "story" else None)  # fmt: skip
+    db.add(ask)
+    db.flush()
+    said = heard(ask)
     db.commit()
-    return f"Asked: {question}"
+    return f"Asked: {question}{said}"
 
 
 def _pick(db: Session, project: Project, kind: str, said, choices: list[dict]) -> str | None:
@@ -183,6 +202,16 @@ def answer(db: Session, user: User, ask: Ask, body: dict, storage=None) -> None:
     how = body.get("how")
     if ask.kind in MONEY:
         return _money(db, user, ask, project, how)
+    if how == "voice":  # a voice the audition read (app/audition.py), with or without a look
+        from app import audition
+
+        name = audition.pick(db, user, ask, str(body.get("option") or ""))
+        if ask.kind == "voice":  # the voice is the whole answer; a look's card keeps its own
+            ask.answer = {"how": how, "option": body["option"], "name": name}
+            ask.state, ask.answered_by_id, ask.answered_at = "answered", user.id, _now()
+        db.commit()
+        director.wake(db, project)
+        return
     if ask.state == "not_needed":
         raise HTTPException(409, NOT_NEEDED)
     role = _slot(db, project, _about(ask)) if ask.kind in ("cast", "presenter") else None
@@ -339,7 +368,10 @@ def _effect(db: Session, user: User | None, project: Project, ask: Ask) -> None:
     else:
         return
     project_assets._cast(db, who, project, slot, item)
+    from app import audition
     from app.routes.sheets import check_fit, described
+
+    audition.keep(db, project)  # a voice picked before the look: saved on them now too
 
     if data.get("how") == "option" and item.owner_project_id == project.id and described(item):
         check_fit(db, who, item, redo=False)  # its words read off it, as off any drawn sheet

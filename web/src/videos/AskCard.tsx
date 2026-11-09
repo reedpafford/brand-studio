@@ -10,6 +10,7 @@ import { refreshJobs } from "../jobs/refresh";
 import { serverTime } from "../time";
 import { useRail } from "../useMedia";
 import { Direction } from "./Direction";
+import { VoiceAudition } from "./VoiceAudition";
 
 export type Ask = components["schemas"]["AskOut"];
 type Price = components["schemas"]["AskPrice"];
@@ -27,7 +28,7 @@ export function useAsks(projectId: number, live: boolean, wanted: number[] = [])
     refetchInterval: (q) => {
       const have = q.state.data ?? [];
       const missing = wanted.some((id) => !have.some((a) => a.id === id));
-      return live || missing || have.some((a) => a.money?.updating || ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? ""))) ? 4_000 : false;
+      return live || missing || have.some((a) => a.money?.updating || ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? "")) || a.audition.some((v) => ["queued", "running"].includes(v.state))) ? 4_000 : false;
     },
     queryFn: () => polled(api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } }), []),
   });
@@ -141,6 +142,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const [failedUpload, setFailedUpload] = useState("");
   const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setVoiceName(""), setChanging(""), setFailedUpload(""), onDone?.()) });
   const error = act.isError || failedUpload ? <p role="alert" className="text-sm text-danger">{failedUpload || act.error?.message}</p> : null;
+  const audition = <VoiceAudition ask={a} who={a.subject || "the presenter"} busy={act.isPending} onPick={(option) => go({ how: "voice", option })} />;
 
   // Folded: answered (by you or the owner), or no longer needed (S4-03).
   if ((a.state === "answered" || a.state === "not_needed") && changing !== "answer") {
@@ -178,6 +180,12 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             )}
           </p>
         </div>
+        {!gone && a.audition.length > 0 && (
+          <div className="flex flex-col gap-2 px-3.5 pb-3 max-lg:px-3">
+            {audition}
+            {error}
+          </div>
+        )}
       </section>
     );
   }
@@ -325,7 +333,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             </div>
           </div>
         ) : (
-          saved.length > 0 && (a.state !== "failed" || voice) && (
+          saved.length > 0 && (a.state !== "failed" || voice) && !(voice && a.audition.length) && (
             <div className="flex flex-col gap-2">
               <p className="text-xs font-semibold text-muted">{a.saved_in}</p>
               {a.kind === "voice" ? (
@@ -349,6 +357,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             </div>
           )
         )}
+        {audition}
         {a.state === "failed" && (
           <p className="flex items-center gap-2 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
             <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
@@ -524,7 +533,7 @@ export const isOpen = (a: Ask) => OPEN.includes(a.state);
 export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }: { projectId: number; change: boolean; upTo: number | null | undefined; sentAt: string; owner: boolean; onWithdraw: () => void }) {
   const price = { credits: upTo ?? 0, usd: null };
   const ask: Ask = {
-    id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [],
+    id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [], audition: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is; no generation starts until they say yes." : "The owner has been asked. No generation starts until they say yes.",
     money: { up_to: price, clips: [], sent_at: sentAt, held: "", since: "", updating: false, carry: false, what: "", over: "the budget", expected: false },
