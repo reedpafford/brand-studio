@@ -713,8 +713,10 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
     in one clip only, they're a one-off: drawn as part of the scene, never a paid look. Only
     someone the script treats as a person (a speaker's label, or someone a line speaks to:
     "MARCUS: Danny, you were right."), or, in a song or a narrated video where nobody has a
-    label, someone the brief, a note or the treatment names whom the shots show as a being
-    ("Bruno gnaws", "Maya's hand": video 294's dog and his owner); never the brand, its
+    label, someone the brief, a note or the treatment describes as a being ("Bruno (a young
+    pitbull…)", "his owner Maya, 30s") whom the shots show as one ("Bruno gnaws", "Maya's
+    hand": video 294's dog and his owner; never "Robinhood flashes" or "Tesla gleams": QA on
+    #1473); never the brand, its
     products, screens or places
     (QA on #1466: "Iron Paws", "Robinhood", "Resilia"), a word before another capitalised one,
     a day or a holiday, or someone already in the cast. The names added."""
@@ -739,10 +741,10 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
     screens = [screen_name(x) for x in project_screens(db, project)]
     things = " ".join([db.get(Brand, project.brand_id).name, *items, *screens]).lower()
     known = [s.role for s in all_slots(db, project)] + [i.name for i in cast_looks(db, project)]
-    from app.routes.project_assets import _story
+    from app.routes.project_assets import LOOKS, _bracketed, _described, _story
 
-    told = " ".join([project.goal or "", *(m.get("text") or "" for m in project.director_chat
-                                            or []), *_story(db, project)])  # fmt: skip
+    told = [project.goal or "", *(m.get("text") or "" for m in project.director_chat or []),
+            *_story(db, project)]  # fmt: skip
     actions = " ".join(s.action for scene in bd.scenes for s in scene.shots)
     out = []
     for name, clips in seen.items():
@@ -751,7 +753,9 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
             continue
         word = re.escape(name)
         being = re.search(rf"\b{word}(?:'s\b| [a-z]+s\b)", actions)  # "Maya's", "Bruno gnaws"
-        if _addressed(name, draft.text) or (being and re.search(rf"\b{word}\b", told)):
+        others = [n for n in seen if n != name] + known
+        said = being and (LOOKS.search(_bracketed(name, told)) or _described(name, others, told))
+        if _addressed(name, draft.text) or said:
             _add_role(db, project, draft, name)
             out.append(name)
     return out
