@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import clip_prompts, clip_takes
+from app import clip_prompts, clip_takes, one_frame
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -114,9 +114,11 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     looks = len(roles_needing_look(db, script, video.look if video else None))
     looks += len(roles_without_a_look(db, script, draft))
     looks_cost = looks * look_price(db, script.workspace_id)  # as the look press shows and holds
-    bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
+    own = clip_prompts.newest(db, video) if video is not None and video.id else None
+    planned = own.data if own else draft.breakdown  # the video's own plan once it has one
+    bd = Breakdown.model_validate(planned) if planned else None
     return plan + looks_cost + plan_cost(db, script.workspace_id, seconds, bd, 0,
-                                  breakdown=not bd, video=video, look=script.look,
+                                  breakdown=not draft.breakdown, video=video, look=script.look,
                                   kind=script.kind)  # fmt: skip
 
 
@@ -226,18 +228,23 @@ def _work(db: Session, video: Project, change: tuple[list[ProjectClip], int],
     made = [c for c in clips if c not in edit]
     return (
         looks * look_price(db, ws)
-        + _shots(db, video, made) * _still(db, ws, video)
+        + _shots(db, video, made, looks) * _still(db, ws, video)
         + clip_takes.takes_price(db, video, made)
         + sum((clip_takes.take_credits(db, video, c, edit=True) for c in edit), Decimal(0))
     )
 
 
-def _shots(db: Session, video: Project, clips: list[ProjectClip]) -> int:
-    """The stills these clips' shots are drawn from (each drawn again)."""
+def _shots(db: Session, video: Project, clips: list[ProjectClip], looks: int = 0) -> int:
+    """The stills these clips' shots are drawn from (each drawn again), but the one a talker's
+    pieces in one spot share (app/one_frame.py): kept, or drawn once when a look changes."""
     bd = clip_prompts.newest(db, video)
     ids = {c.clip_id for c in clips}
-    return sum(len(c["shot_ids"]) for c in (bd.data.get("clips", []) if bd else [])
-               if c["id"] in ids)  # fmt: skip
+    shared = one_frame.sharing(db, video)
+    groups = {lead for c, lead in shared.items() if c in ids or lead in ids}
+    keep = {*shared, *groups}
+    each = sum(len(c["shot_ids"]) - (c["id"] in keep)
+               for c in (bd.data.get("clips", []) if bd else []) if c["id"] in ids)  # fmt: skip
+    return each + (len(groups) if looks else 0)
 
 
 def _looks(db: Session, project: Project) -> tuple:
@@ -269,7 +276,8 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
     n_clips = len(planned) or math.ceil(project.estimate_credits / CLIP_SECONDS_GUESS)
     claude, still = _claude(db, project.workspace_id), _still(db, project.workspace_id, project)
 
-    stills_left = (len([f for f in frames if not f.file_id]) if frames else n_clips) * still
+    n_stills = n_clips - len(one_frame.shared(db, project, bd.data) if bd_ok else {})
+    stills_left = (len([f for f in frames if not f.file_id]) if frames else n_stills) * still
     storyboard_done = bool(frames) and all(f.file_id for f in frames)
     if clips:  # and a planned clip with no prompt yet (QA-3 #1013: c2 after a split)
         have = {c.clip_id for c in clips}
@@ -302,7 +310,7 @@ def _stages(db: Session, project: Project) -> list[StageOut]:
             "storyboard",
             storyboard_done,
             (0 if frames else claude) + stills_left,
-            f"frame prompts (one Claude call) and {n_clips} stills",
+            f"frame prompts (one Claude call) and {n_stills} stills",
         ),
         (
             "clip_prompts",

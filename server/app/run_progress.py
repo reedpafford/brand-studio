@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import asks, model_map
+from app import asks, model_map, one_frame
 from app.breakdown_fix import too_long
 from app.models.accounts import User
 from app.models.brands import Brand
@@ -191,6 +191,9 @@ class _Video:
         for f in sorted(frames, key=lambda f: [int(x) for x in re.findall(r"\d+", f.shot_id)]):
             if f.file_id:
                 self.frames.setdefault(f.clip_id, f.file_id)
+        for clip_id, lead in one_frame.shared(db, project, bd.data if bd else {}).items():
+            if lead in self.frames and clip_id not in self.frames:  # its talker's one still
+                self.frames[clip_id] = self.frames[lead]
         mine = TakeSeen.user_id == (viewer.id if viewer else 0)
         seen = select(TakeSeen.take_id).where(mine, TakeSeen.take_id.in_(tids))
         self.seen = set(db.scalars(seen))

@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import cast_gate, looks, model_map, screen_figures, video_settings
+from app import cast_gate, looks, model_map, one_frame, screen_figures, video_settings
 from app.advice import names, plain
 from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
@@ -193,6 +193,8 @@ def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: boo
     ]
     if per_shot:
         parts.append("<per_shot>true</per_shot>")
+    if shared := one_frame.shared(db, project, bd.data):  # one talker, one spot: one still
+        parts.append(f"<shared_stills>\n{json.dumps(shared)}\n</shared_stills>")
     return {
         "step": "storyboard",
         "project_id": project.id,
@@ -653,7 +655,14 @@ def save_frames(db: Session, job: Job) -> None:
     db.execute(delete(StoryboardFrame).where(StoryboardFrame.project_id == project.id))
     bd = Breakdown.model_validate(db.get(BreakdownVersion, job.input["breakdown_id"]).data)
     known = assets(db, project)
+    data = bd.model_dump()
+    shared = one_frame.shared(db, project, data)  # one talker in one spot: one still, at rest
+    leads = {one_frame.opening(data, c) for c in shared.values()}
     for f in (with_cast(db, project, f, bd, known) for f in result.frames):
+        if f.clip_id in shared and f.shot_id == one_frame.opening(data, f.clip_id):
+            continue  # it opens on its talker's one still
+        if f.shot_id in leads and one_frame.NEUTRAL not in f.prompt:
+            f = f.model_copy(update={"prompt": f.prompt + one_frame.NEUTRAL})
         note = softened(f.prompt)  # a word the image model refuses never blocks
         f = f.model_copy(update={"prompt": note["after"]}) if note else f
         after, note = look_fixed(f.prompt, looks.drawn(project), note)

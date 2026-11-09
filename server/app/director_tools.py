@@ -350,6 +350,11 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                     return "Refused: say what the talker's still should change (a note)."
                 return host.redraw(db, user, project, note)
             frame = next((f for f in still_review.frames(db, project) if f.shot_id == sid), None)
+            if frame is None and (lead := _shared_still(db, project, sid or "")):
+                said = (f"shot {sid} opens on the still of shot {lead}, the one still the "
+                        "talker's pieces in this spot share. Remake its take with a note; redraw "
+                        f"shot {lead} only to change the still they all open on.")  # fmt: skip
+                return f"Refused: {said}"
             if frame is None:
                 return f"Refused: there's no drawn still for shot {sid}."
             if no := still_review.no_sheet(db, project, sid, note):
@@ -504,6 +509,17 @@ def _edit_cut_now(db: Session, project: Project, move: dict, request, me: dict, 
         # next watch checks the cut's last frames show it (a trim moved to keep a word too)
         db.commit()
     return f"{made.said}. Free; it shows in the next cut."
+
+
+def _shared_still(db: Session, project: Project, shot_id: str) -> str | None:
+    """The shot whose still this one opens on, when its piece shares its talker's one still."""
+    from app import one_frame
+    from app.clip_prompts import newest
+
+    data = (bd := newest(db, project)) and bd.data or {}
+    clip = next((c for c in data.get("clips", []) if c["shot_ids"][:1] == [shot_id]), None)
+    lead = one_frame.shared(db, project, data).get(clip["id"]) if clip else None
+    return one_frame.opening(data, lead) if lead else None
 
 
 def _cast_in_shots(db: Session, project: Project, me: dict) -> None:
