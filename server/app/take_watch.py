@@ -43,6 +43,12 @@ KEPT = "Kept it."
 UNWATCHED = watch_report.UNWATCHED
 SUPERSEDED = "Nothing done: a newer take of this clip is on its way."
 NOT_REMADE = "Flagged for you: it couldn't be remade here. Make another take from the clip."
+TO_DIRECTOR = "Left for the director: {} A screen or a label is never remade on its own."
+HANDED_BACK = ("Left for the director: it was remade on its own once already since the "
+               "director's last look.")  # fmt: skip
+ITS_CALL = ("screen", "product")  # a brand screen or label: the director's call, never a remake
+# on its own (video 299: Seedance can't draw the real screen exactly, so every take "failed" and
+# each check bought another, and the director never got a turn)
 SPEAKS = "This clip is planned to speak or sing on camera: its lines are in <shot>."
 SILENT = ("A {over} is heard over this clip, which isn't planned to speak: a voice or singing "
           "in the take works against it.")  # fmt: skip
@@ -210,7 +216,9 @@ def save(db: Session, job: Job) -> None:
     doubts = len(sure) < len(found)  # the model's note may cover a doubt: the sure ones only
     note = ("; ".join(f["says"] for f in sure) if doubts and sure
             else answer.note.strip() or "; ".join(f["says"] for f in found))  # fmt: skip
-    if redo and sure:  # only confirmed faults pay for a remake
+    if redo and sure and all(f["kind"] in ITS_CALL for f in sure):
+        did, action, made, credits = TO_DIRECTOR.format(note), "flagged", None, None
+    elif redo and sure:  # only confirmed faults pay for a remake
         prompt = "" if doubts else answer.prompt.strip()
         did, action, made, credits = act(db, take, note, prompt)
     elif doubts:  # shown to the owner, never paid for
@@ -296,6 +304,20 @@ def keeps_looks(db: Session, project: Project, clip: ProjectClip, fitted, note: 
     return all(r.id in kept for r in have.references if r.id.startswith(LOOKS_SET))
 
 
+def _since_director(db: Session, project: Project, clip: ProjectClip) -> bool:
+    """This clip was remade on its own since the director's last turn: the next fault goes to
+    the director, so automatic remakes never keep the run busy without it."""
+    from app.director import STEP as TURN
+
+    last = db.scalar(select(func.max(Job.created_at)).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == TURN))  # fmt: skip
+    if last is None:  # no director on this video: its own limit (REMAKES) only
+        return False
+    jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.kind == "video",
+                                        Job.status.in_(MADE), Job.created_at > last))  # fmt: skip
+    return any(j.input.get(REDO) and j.input.get("project_clip_id") == clip.id for j in jobs)
+
+
 def directors(db: Session, project: Project, clip_id: str) -> int:
     """The director's own remakes of this clip this run (its run's `redos`), so the watch's
     and its own come to REMAKES a clip in all (rule 34)."""
@@ -355,6 +377,8 @@ def act(db: Session, take: ClipTake, note: str,
     if (take.number != newest or any(_for(j, clip) for j in pending)
             or _redone_since(db, project, clip, take)):  # fmt: skip
         return SUPERSEDED, "superseded", None, None
+    if _since_director(db, project, clip):  # a turn runs between: never starved (video 299)
+        return HANDED_BACK, "flagged", None, None
     if remakes(db, clip) + directors(db, project, clip.clip_id) >= REMAKES:
         return (f"Flagged for you: {name} was remade {REMAKES} times already, the most a run "
                 "allows. Remake it or keep it.", "flagged", None, None)  # fmt: skip

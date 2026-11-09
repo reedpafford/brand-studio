@@ -811,7 +811,7 @@ class FakeWriter:
         with its prompt rewritten), fake:text (words burned in: remade with no text),
         fake:face (the face differs from its sheet: remade), fake:music (music under the
         voice, from the spectrogram only: not confirmed, never remade), fake:keep (a small
-        fault, kept)."""
+        fault, kept), fake:screen (an invented app screen: the director's, never remade)."""
         shot = _tag(prompt, "shot") or ""
         who = re.search(r"<sheet[^>]*id=\"((?:char|slot):\d+)\"", prompt)
         found = {"fake:redo": ("action", "Cartoon eyes landed on the stomach",
@@ -821,7 +821,9 @@ class FakeWriter:
                  "fake:face": ("cast", "Their face differs from their sheet",
                                "the face as on their sheet", who[1] if who else "", "picture"),
                  "fake:music": ("sound", "Music may run under the voice", "no music", "",
-                                "sound")}  # fmt: skip
+                                "sound"),
+                 "fake:screen": ("screen", "The phone shows an invented app, not fomo's Home",
+                                 "fomo's real Home screen", "screen", "picture")}  # fmt: skip
         for marker, (kind, says, note, ref, evidence) in found.items():
             if marker in shot:
                 return {"seen": f"{says} at 0:00.4.", "verdict": "redo", "note": note,

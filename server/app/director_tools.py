@@ -120,9 +120,21 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                     held += 1
             return _held("Drawing the stills.", held, frames, "still")
         if tool == "clip_prompts":
+            from app import advice, clip_prompts
+
             storyboard.approve_all(**me)  # the stills it moves on with
-            project_clips.write_prompts(body=None, **me)
-            return "Writing the clip prompts."
+            if clip_prompts.to_rewrite(db, project) or not project_clips._clips(db, pid):
+                project_clips.write_prompts(body=None, **me)
+                return "Writing the clip prompts."
+            # none stale: a clip whose problems stop its first take is rewritten instead (video
+            # 299: "No clip needs new prompts" while its take was refused for its problems)
+            stuck = [r for r in _clips(db, pid, None) if advice.stops(r)]
+            for row in stuck:
+                project_clips.write_prompts(body=project_clips.RewriteIn(clip_id=row.clip_id),
+                                            **me)  # fmt: skip
+            if not stuck:
+                return "Refused: No clip needs new prompts."
+            return f"Rewriting the prompt of {', '.join(r.clip_id for r in stuck)}."
         if tool == "make_take":
             from app import talker
 
@@ -161,7 +173,11 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 project_clips.change_clip(clip_id=first[0].id, body=body, **me)
                 return (f"Rewriting clip {first[0].clip_id.removeprefix('c')}'s prompt with the "
                         "note first; make its take once it's written.")  # fmt: skip
+            blocked: dict[str, str] = {}  # prompts with problems: fixed free first, or rewritten
             for row in rows:
+                if no := _fixed_first(db, row, me):
+                    blocked[row.clip_id] = no
+                    continue
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=asked_note)
                 try:
@@ -189,8 +205,12 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                    "rewritten to fit (free); make its take once it's rewritten.")  # fmt: skip
             if fitting and len(fitting) + held == len(rows):  # nothing was made: say why
                 return f"Refused: {fit}"
+            if blocked and len(blocked) == len(rows):
+                return " ".join(blocked.values())
+            rows = [r for r in rows if r.clip_id not in blocked]
             said = _held(f"Making {_n(len(rows) - held - len(fitting), 'take')}.", held, rows,
                          "take")  # fmt: skip
+            said += "".join(f" {b.removeprefix('Refused: ')}" for b in blocked.values())
             said += f" {fit}" if fitting else ""
             said += (f" The note changes what {', '.join(rewritten)} shows, so its prompt "
                      "is rewritten with it first." if rewritten else "")  # fmt: skip
@@ -541,6 +561,33 @@ def _most(tool: str) -> int:
     from app.clip_takes import NOTE_MAX
 
     return {"host": talker.LONGEST_MOTION, "add_sound": take_sound.LONGEST}.get(tool, NOTE_MAX)
+
+
+def _fixed_first(db: Session, row: ProjectClip, me: dict) -> str:
+    """A clip whose prompt has problems that stop its take (video 299's c3: "Fix this clip's
+    problems first", while clip_prompts said no clip needs new prompts) gets the free fix first,
+    as its button does: "" when it's fixed (its take goes ahead), else what happens instead."""
+    from app import advice
+    from app.routes import project_clips
+
+    if not advice.stops(row):
+        return ""
+    n = row.clip_id.removeprefix("c")
+    try:
+        out = project_clips.fix_clip(clip_id=row.id, **me)
+    except HTTPException:
+        out = None
+    db.refresh(row)
+    if out is not None and out.fixed:
+        return ""
+    if out is not None and out.fixed is None:
+        return f"Fixing clip {n}'s prompt first (free); make its take once it's fixed."
+    if out is not None and out.reason:  # an older breakdown, a look not approved: its own why
+        return f"Refused: clip {n}: {out.reason}"
+    return (
+        f"Refused: clip {n}'s prompt has problems its free fix can't clear "
+        f"({'; '.join(advice.stops(row))}): rewrite it with clip_prompts."
+    )
 
 
 def _rewritten(db: Session, row: ProjectClip, note: str) -> bool:

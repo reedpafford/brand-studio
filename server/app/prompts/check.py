@@ -36,7 +36,7 @@ HIS = re.compile(
 TAG = re.compile(r"^\[[A-Za-z ]+\] ")  # accepted Enhance lines: "[Camera] …", "[Brand screen] ★ …"
 SILENT = "Audio: no one speaks (no voices, narration or dialogue), only "
 AUDIO_LINE = re.compile(
-    r"^Audio: (only the spoken lines and|only the song from|no one speaks \(no voices, "
+    r"^Audio: (only the spoken lines? and|only the song from|no one speaks \(no voices, "
     r"narration or dialogue\), only) .+ No subtitles\.$"
 )
 SAYS = re.compile(  # action that reads like a line; the model voices it (fomo montage, 2026-10-23)

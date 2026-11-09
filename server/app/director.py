@@ -999,7 +999,7 @@ def _act(db: Session, job: Job, storage) -> None:
         return _end(job, result, result=DELIVERED)  # its card is the answer: no re-delivery
     if tool == "watch_cut" and not result.startswith("Refused"):
         run["watches"] = run.get("watches", 0) + 1
-    if redo and not result.startswith("Refused"):  # a try refused made nothing (video 271)
+    if redo and not result.startswith(("Refused", "Fixing")):  # nothing made (video 271)
         run["redos"] = {**run["redos"], clip: run["redos"].get(clip, 0) + 1}
     if replan and not result.startswith("Refused"):
         run["replans"] = run.get("replans", 0) + 1
@@ -1424,6 +1424,11 @@ def _auto(db: Session, project: Project, run: dict, seen: dict, last: Job) -> di
     if step and last.input.get(director_auto.SAID) and (last.output or {}).get("tool") == step[
             "tool"]:  # fmt: skip
         return None  # its own step again (a clip prompt's part that failed): the director's
+    if step and any(t.input[RUN]["id"] == run["id"] and t.input.get(director_auto.SAID)
+                    and (t.output or {}).get("tool") == step["tool"]
+                    and (t.input.get("result") or "").startswith("Refused")
+                    for t in turns(db, project)):  # fmt: skip
+        return None  # refused before (video 299's first takes, four times): the director's
     if step and step["tool"] == "make_take" and run.get(PRICED):
         return None  # a priced run makes only its own clips' takes, named by the director
     return step
