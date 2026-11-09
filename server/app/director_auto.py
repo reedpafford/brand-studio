@@ -84,6 +84,6 @@ def _first_cut(state: dict, clips: list[dict], go) -> dict | None:
         if (last is None or last["verdict"] != "clean" or c["picked_take_id"] != last["id"]
                 or last.get("unscripted") or last.get("set_aside") or c["stale"]
                 or any(c.get(k) for k in ("old_take", "against_notes", "can_splice", "no_copy",
-                                          "inserts", "redo"))):  # fmt: skip
+                                          "redo"))):  # fmt: skip
             return None
     return go("final_cut", "all: every clip has a clean take; the cut is made.")

@@ -388,3 +388,28 @@ def test_a_director_redo_needs_a_confirmed_reason_or_a_persons_note(app, db, edi
     take.prompt = "an older prompt"  # made from another prompt than the clip's now
     db.commit()
     assert not _only_a_doubt(db, project, "c1", "The prompt changed since.")
+
+
+def test_the_watch_never_remakes_a_clip_the_director_just_remade(app, db, editor, setup, clip):  # noqa: F811, E501
+    """Run 287's clip 3: the director remade it, then the watch of the older take remade it
+    too (+$1.54). Only the newest take is judged."""
+    from app.director import RUN
+    from app.director import STEP as TURN
+
+    shot(db, action="Mom waves. fake:redo")
+    clips = f"/projects/{setup['project']}/clips"
+    editor.post(f"{clips}/{clip['id']}/generate")
+    _work(app, db, FakeSeedance([_mp4("red")]))  # take 1 lands; its watch is on its way
+    project = db.get(Project, setup["project"])
+    db.add(Job(workspace_id=project.workspace_id, kind="write-claude", provider="fake",
+               project_id=project.id, status="succeeded", credits=0,
+               output={"tool": "make_take", "clip_id": "c1", "note": "Brighter."},
+               input={"step": TURN, RUN: {"id": "r1", "redos": {"c1": 1}},
+                      "result": "Making 1 take."}))  # fmt: skip
+    db.commit()
+    _listen(app, db)
+    run_writer(app, db)
+    db.expire_all()
+    (take,) = editor.get(clips).json()[0]["takes"]
+    assert take["watch"]["action"] == "superseded"
+    assert db.query(Job).filter(Job.kind == "video").count() == 1  # no second remake
