@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ChevronLeft, ChevronRight, CircleStop, Download, Ellipsis, Folder, Inbox, Lock, Pencil, SlidersHorizontal, X } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, CircleStop, Copy, Download, Ellipsis, Folder, Inbox, Lock, Pencil, SlidersHorizontal, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, must, polled } from "../api/client";
 import type { components } from "../api/schema";
@@ -165,10 +165,11 @@ function Chips({ projectId, head, cast, lookOnly }: { projectId: number; head: H
   );
 }
 
-/** The video's ⋯ menu (S-gaps-03 2): Move to folder…, Download MP4 once a cut exists, then Release this version while it's
- *  being made or Archive once it's done. On a phone it also holds Stop, as its top bar has no room for the button. */
-export function VideoMenu({ title, cut, onMove, onRename, onRelease, onArchive, onStop }: { title: string; cut?: { file: number; name: string } | null; onMove?: () => void; onRename?: () => void; onRelease?: () => void; onArchive?: () => void; onStop?: () => void }) {
-  if (!onMove && !onRename && !cut && !onRelease && !onArchive && !onStop) return null;
+/** The video's ⋯ menu (S-gaps-03 2): Move to folder…, Make variations… once it's delivered, Download MP4 once a cut exists,
+ *  then Release this version while it's being made or Archive once it's done. On a phone it also holds Stop, as its top bar
+ *  has no room for the button. */
+export function VideoMenu({ title, cut, onMove, onRename, onVariations, onRelease, onArchive, onStop }: { title: string; cut?: { file: number; name: string } | null; onMove?: () => void; onRename?: () => void; onVariations?: () => void; onRelease?: () => void; onArchive?: () => void; onStop?: () => void }) {
+  if (!onMove && !onRename && !onVariations && !cut && !onRelease && !onArchive && !onStop) return null;
   const run = (close: () => void, go: () => void) => () => (close(), go());
   return (
     <Menu
@@ -195,6 +196,11 @@ export function VideoMenu({ title, cut, onMove, onRename, onRelease, onArchive, 
           {onMove && (
             <MenuItem onClick={run(close, onMove)}>
               <Folder size={16} strokeWidth={1.75} aria-hidden /> Move to folder…
+            </MenuItem>
+          )}
+          {onVariations && (
+            <MenuItem onClick={run(close, onVariations)}>
+              <Copy size={16} strokeWidth={1.75} aria-hidden /> Make variations…
             </MenuItem>
           )}
           {cut && (

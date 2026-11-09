@@ -95,6 +95,9 @@ def timing_block(t: dict) -> str:
 
 
 def _places(db: Session, project: Project) -> str:
+    from app.video_variations import own_ids
+
+    own = own_ids(db, project)  # a variation's are its source's
     items = db.scalars(
         select(LibraryItem).where(
             LibraryItem.workspace_id == project.workspace_id,
@@ -105,7 +108,7 @@ def _places(db: Session, project: Project) -> str:
     lines = [  # the brand's places, and those made for this video only (rule 12)
         f"place:{p.id} | {p.name} | {p.notes}"
         for p in items
-        if p.owner_project_id == project.id or any(b.id == project.brand_id for b in p.brands)
+        if p.owner_project_id in own or any(b.id == project.brand_id for b in p.brands)
     ]
     return "\n".join(lines)
 

@@ -4529,6 +4529,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/variations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read
+         * @description The newest variations asked for on this video, and whether more can be asked now.
+         */
+        get: operations["read_projects__project_id__variations_get"];
+        put?: never;
+        /**
+         * Make
+         * @description One director call proposes them; each becomes a video in this one's folder, its run
+         *     waiting on its own direction card, priced as only the clips it changes (409 while a run
+         *     goes on, before a delivery, or while some are being written).
+         */
+        post: operations["make_projects__project_id__variations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/update-after": {
         parameters: {
             query?: never;
@@ -13013,6 +13039,13 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** VariationVideoOut */
+        VariationVideoOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+        };
         /** VariationsIn */
         VariationsIn: {
             /**
@@ -13159,6 +13192,41 @@ export interface components {
             songs_note?: string | null;
             /** Song Take Id */
             song_take_id: number | null;
+        };
+        /** VideoVariationsIn */
+        VideoVariationsIn: {
+            /**
+             * Count
+             * @default 3
+             * @enum {integer}
+             */
+            count: 2 | 3;
+            /**
+             * Part
+             * @default hook
+             * @enum {string}
+             */
+            part: "hook" | "ending";
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** VideoVariationsOut */
+        VideoVariationsOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "writing" | "done" | "failed";
+            /** Videos */
+            videos?: components["schemas"]["VariationVideoOut"][];
+            /**
+             * Blocked
+             * @default
+             */
+            blocked: string;
         };
         /** VoiceCloneIn */
         VoiceCloneIn: {
@@ -22655,6 +22723,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProgressOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_projects__project_id__variations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoVariationsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_projects__project_id__variations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VideoVariationsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoVariationsOut"];
                 };
             };
             /** @description Validation Error */

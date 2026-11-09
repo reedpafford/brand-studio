@@ -65,3 +65,37 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });
+
+// Runway #2: a delivered video's Make variations…, at 390: 44 px presses and no sideways scroll; each variation is a new video
+// beside it that waits on its own card (Make it) before anything is made.
+test("at 390, Make variations on a delivered video makes two, each waiting on its own card", async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await signIn(page, "reed@example.com");
+  approveCastWhenReady(page);
+  await onBrand(page, "fomo");
+  const fomo = ((await (await page.request.get("/api/brands")).json()) as { id: number; name: string }[]).find((b) => b.name === "fomo")!.id;
+  const long = "and the chart keeps climbing while everyone at the table laughs at me again, ".repeat(3); // 8 s a line: two clips or more
+  const text = ["SCENE 1 — INT. KITCHEN — DAY", `NATE: The dip is in, ${long}so I'm buying.`, `MOM: Nate, ${long}sit down.`, "SCENE 2 — EXT. STREET — NIGHT", `MOM: Nate? ${long}is that you?`, `NATE: Look who's laughing now, ${long}download fomo.`].join("\n");
+  const s = await (await page.request.post("/api/scripts", { data: { brand_id: fomo, title: `Vary ${Date.now()}`, description: "", notes: "", reference_replace: "", text } })).json();
+  expect((await page.request.post(`/api/scripts/${s.id}/drafts/0/approve`)).ok()).toBe(true);
+  expect((await page.request.post(`/api/scripts/${s.id}/publish`)).ok()).toBe(true);
+  const pid = (await (await page.request.post(`/api/scripts/${s.id}/drafts/0/produce`)).json()).project_id;
+  await page.goto(`/b/${fomo}/videos/${pid}`);
+  await page.getByRole("button", { name: /^Make it/ }).click();
+  await makeIt(page, pid);
+  await expect(page.getByRole("banner").getByText(/^Delivered$/)).toBeVisible({ timeout: 200_000 });
+  await page.getByRole("button", { name: /^More for / }).click();
+  await page.getByRole("menuitem", { name: "Make variations…" }).click();
+  const ask = page.getByRole("alertdialog", { name: "Make variations" });
+  for (const press of [...(await ask.getByRole("radio").all()), ask.getByRole("button", { name: "Make variations" })]) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
+  expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
+  await ask.getByRole("radio", { name: "2 variations" }).click();
+  await ask.getByRole("button", { name: "Make variations" }).click();
+  const links = page.getByRole("alertdialog", { name: "Variations" }).getByRole("link", { name: / · variation [AB]$/ });
+  await expect(links).toHaveCount(2, { timeout: 30_000 });
+  await links.first().click();
+  await expect(page.getByRole("heading", { level: 1, name: / · variation A$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Make it/ })).toBeVisible({ timeout: 30_000 }); // its own card: nothing made yet
+});

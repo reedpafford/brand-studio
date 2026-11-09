@@ -33,6 +33,7 @@ from app import (
     take_mute,
     take_sound,
     told_look,
+    video_variations,
     word_splice,
 )
 from app.clip_takes import NOTE_MAX
@@ -122,7 +123,8 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     lock(db, Project, project.id)  # the notes it takes can't change under it
     db.refresh(project)
     left = set(leftover(db, project))  # every note no run has read: this run reads them
-    if left and not fresh and delivered(turns(db, project)):  # notes after a delivery: a
+    after = delivered(turns(db, project)) or video_variations.source(db, project)
+    if left and not fresh and after:  # notes after a delivery, or on a variation of one: a
         again = {**again, REVISION: True}  # revision, whose story stands
     run = {"id": uuid.uuid4().hex, "turn": 0, "redos": {}, "by": user.id,
            "ok": bool(approved) and user.is_owner, "hold": hold, **again,

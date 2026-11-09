@@ -166,10 +166,9 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
     """The owner's press: the new version, the plan on it with only the line's clips left to
     make again, the narration read again if it's narrated, and a run (already approved: the
     owner's press is the OK) whose note says what to make. Nothing else is made again."""
-    from app import breakdown, cast_roles, clip_prompts, director, plans
+    from app import breakdown, cast_roles, clip_prompts, director
     from app.credits import lock
     from app.db import utcnow
-    from app.routes.scripts import save_version
 
     if not user.is_owner:
         raise HTTPException(403, OWNER_ONLY)
@@ -179,23 +178,11 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
     shown = price(db, project, found)  # the card's "up to", as it's pressed: the run's OK
     since = db.scalar(select(func.max(Job.id))) or 0  # its charges count from here
     lock(db, Project, project.id)
-    version = plans.script(db, project)
-    text = _new_text(version.text, found)
-    old = db.get(ScriptDraft, project.script_draft_id)
-    slot = db.scalar(select(func.max(ScriptDraft.slot)).where(
-        ScriptDraft.script_id == old.script_id)) or 0  # fmt: skip
-    keep = ("status", "style_line", "singer", "plan", "spoken_end_line", "approved_at",
-            "approved_by_id", "target_seconds", "title", "premise")  # fmt: skip
-    draft = ScriptDraft(script_id=old.script_id, slot=slot + 1, text=text,
-                        changed_lines=[text.splitlines()[found["line"] - 1]],
-                        **{k: getattr(old, k) for k in keep})  # fmt: skip
-    db.add(draft)
-    db.flush()
-    project.script_draft_id = draft.id  # this video's words now; the script's others stay
-    now = save_version(db, user, project, text, "owner_line")  # (commits)
+    draft, now = new_version(db, user, project, found)
+    text = draft.text
     row = db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
                     .order_by(BreakdownVersion.id.desc()).limit(1))  # fmt: skip
-    data = _with_line(row.data, found)
+    data = with_line(row.data, found)
     new = BreakdownVersion(project_id=project.id, script_version=now.version, source="edit",
                            data={**data, **breakdown.carried_keys(row)}, created_by_id=user.id,
                            problems=breakdown.problems(db, project, text,
@@ -237,7 +224,29 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
     return {"run": turn.input[director.RUN]["id"], "version": now.version}
 
 
-def _with_line(data: dict, found: dict) -> dict:
+def new_version(db: Session, user: User, project: Project, found: dict):
+    """A new version of the library script with line `found["line"]`'s words changed, as this
+    video's words (the script and its other videos keep theirs), and the video's script
+    version saying it (committed): (draft, script version)."""
+    from app import plans
+    from app.routes.scripts import save_version
+
+    text = _new_text(plans.script(db, project).text, found)
+    old = db.get(ScriptDraft, project.script_draft_id)
+    slot = db.scalar(select(func.max(ScriptDraft.slot)).where(
+        ScriptDraft.script_id == old.script_id)) or 0  # fmt: skip
+    keep = ("status", "style_line", "singer", "plan", "spoken_end_line", "approved_at",
+            "approved_by_id", "target_seconds", "title", "premise")  # fmt: skip
+    draft = ScriptDraft(script_id=old.script_id, slot=slot + 1, text=text,
+                        changed_lines=[text.splitlines()[found["line"] - 1]],
+                        **{k: getattr(old, k) for k in keep})  # fmt: skip
+    db.add(draft)
+    db.flush()
+    project.script_draft_id = draft.id
+    return draft, save_version(db, user, project, text, "owner_line")
+
+
+def with_line(data: dict, found: dict) -> dict:
     """The plan with the changed line's words in its shots (a spoken shot's `line`), never a
     note in brackets, as `Shot.line` reads it."""
     from app.prompts import without_notes

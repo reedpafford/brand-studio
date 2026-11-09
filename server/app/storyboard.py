@@ -127,8 +127,11 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
             LibraryItem.kind != Kind.character,
         )
     )
+    from app.video_variations import own_ids
+
+    own = own_ids(db, project)  # a variation's are its source's
     for item in [*cast_looks(db, project), *items]:
-        mine = item.owner_project_id == project.id  # a place made for this video only
+        mine = item.owner_project_id in own  # a place made for this video only
         if (
             item.kind != Kind.character
             and not mine

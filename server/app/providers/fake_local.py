@@ -551,6 +551,21 @@ class FakeWriter:
             })  # fmt: skip
         return {"variations": out}
 
+    def _video_variations(self, prompt):
+        """<count> practice hooks (each remakes the first clip) or endings (the last one); with
+        quoted words in <note>, the first uses them on the line that clip says."""
+        clips = json.loads(_tag(prompt, "clips") or "[]")
+        hook = _tag(prompt, "part") == "hook"
+        clip = clips[0] if hook else clips[-1]
+        line = next((n for s in clip["shots"] for n in s["script_lines"]), 0)
+        words = re.findall(r"“([^”]+)”", _tag(prompt, "note"))
+        return {"variations": [
+            {"title": f"Practice {'hook' if hook else 'ending'} {n}",
+             "direction": f"A practice {'opening' if hook else 'payoff'}, idea {n}.",
+             "clips": [clip["id"]], "note": f"Stage it as practice idea {n}.",
+             **({"line": line, "words": words[0]} if words and n == 1 else {})}
+            for n in range(1, int(_tag(prompt, "count") or 2) + 1)]}  # fmt: skip
+
     def _cast_slots(self, prompt):
         """The original's first two speakers, in every version."""
         slots = [int(n) for n in re.findall(r'<version slot="(\d+)">', prompt)]

@@ -162,6 +162,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.take_sound import saved as save_sound
     from app.take_watch import save as save_take_watch
     from app.take_words import save as save_words
+    from app.video_variations import save as save_video_variations
     from app.voices import saved as save_voice
     from app.watch_cut import heard_cut
     from app.watch_cut import save as save_watch_cut
@@ -194,6 +195,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "host_still": save_host,
         "host_piece": save_host,
         "variations": save_variations,
+        "video_variations": save_video_variations,
         "script_draft": save_written,
         "cast_slots": save_cast_slots,
         "reel_prepare": save_prepared,

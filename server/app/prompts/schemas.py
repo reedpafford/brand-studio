@@ -684,6 +684,40 @@ class Treatment(BaseModel):
     )
 
 
+# --- Video variations (Runway #2): a finished video's hook or ending, made another way ---
+
+
+class VideoVariation(BaseModel):
+    title: str = Field(description="A few words naming it, as the team would: 'Opens on the bowl'.")
+    direction: str = Field(
+        description="The new hook (the first 2 seconds: what we see and hear) or the new ending "
+        "(the payoff and why it lands), as the treatment's own hook or ending would say it."
+    )
+    clips: list[str] = Field(
+        description="The clips made again for it, from <clips> ('c1'): the opening clips for a "
+        "hook, the closing clips for an ending, as few as it needs."
+    )
+    note: str = Field(
+        description="The change note for those clips, ready to send: what we see and how the "
+        "moment plays now. Never the words."
+    )
+    line: int = Field(
+        default=0,
+        description="Only when <note> gives new words in quotes for the opening (or closing) "
+        "line: that line's number in <script>, a line one of `clips` says. Else 0.",
+    )
+    words: str = Field(
+        default="",
+        description="With `line`: the new words, exactly as <note> quotes them. Else empty.",
+    )
+
+
+class VideoVariations(BaseModel):
+    variations: list[VideoVariation] = Field(
+        description="Exactly the number asked for in <count>, each a different idea."
+    )
+
+
 # --- Review the stills (the Producer, 2 Nov): against the treatment, before any take ---
 
 

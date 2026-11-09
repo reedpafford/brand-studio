@@ -28,6 +28,7 @@ import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview
 import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
 import { InsteadCard } from "./InsteadCard";
 import { DeliveryNote, Failed, PastNote, RunCard, stopLines, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
+import { VariationsDialog } from "./Variations";
 import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 import { upTo } from "./money";
 
@@ -72,6 +73,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const [stopping, setStopping] = useState(false);
   const [moving, setMoving] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [varying, setVarying] = useState(false);
   const [opened, setOpened] = useState<TabId | null>(null);
   const [cutSeen, setCutSeen] = useState(false);
   const previewSide = useRef<HTMLDivElement>(null);
@@ -170,6 +172,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       onStop={!rail && running && maker ? () => setStopping(true) : undefined}
       onMove={p && maker && !archived ? () => setMoving(true) : undefined}
       onRename={p && maker && !archived ? () => setRenaming(true) : undefined}
+      onVariations={p && maker && !archived && !running && shownHead?.status.kind === "delivered" ? () => setVarying(true) : undefined}
       onRelease={releasable ? () => video.release(target) : undefined}
       onArchive={target && maker && !archived && (finished || (!releasable && !running)) ? () => video.archive(target) : undefined}
     />
@@ -212,6 +215,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       )}
       {video.dialog}
       {renaming && p && <RenameDialog projectId={id} freestyleId={fs?.id ?? null} title={title} onClose={() => setRenaming(false)} />}
+      {varying && p && <VariationsDialog brandId={brandId} projectId={id} onClose={() => setVarying(false)} />}
       {moving && p && <MoveDialog brandId={brandId} projectId={id} title={title} now={shownHead?.folder?.id ?? p.folder_id ?? null} onClose={() => setMoving(false)} />}
       {stopping && (
         <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending || actions.stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => (fs ? actions.stop.mutate(undefined, { onSettled: () => setStopping(false) }) : stop.mutate())}>

@@ -41,6 +41,7 @@ SCHEMAS = {
     "take_watch": schemas.TakeWatch,  # rule 11: every take looked at as it lands
     "treatment": schemas.Treatment,  # the director's first move: why it holds a viewer
     "review_stills": schemas.StillsReview,  # the stills against the treatment, before takes
+    "video_variations": schemas.VideoVariations,  # a finished video's other hooks or endings
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
