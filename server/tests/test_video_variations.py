@@ -6,15 +6,24 @@ it makes only them. Stand-ins only."""
 
 import json
 
+import pytest
+
 from app import director, video_variations
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.scripts import ScriptVersion
+from tests import test_line_change
 from tests.test_director import _run
-from tests.test_line_change import _delivered, _last_job
+from tests.test_line_change import _last_job
 from tests.test_revision_price import _card, _prices
+
+pytestmark = pytest.mark.xdist_group(__name__)  # its delivered video is made once (saved)
+
+
+def _delivered(app, db, owner, editor, monkeypatch) -> int:
+    return test_line_change._delivered(app, db, owner, editor, monkeypatch, __name__)
 
 
 def _variations(app, db, client, pid, **body) -> list[Project]:

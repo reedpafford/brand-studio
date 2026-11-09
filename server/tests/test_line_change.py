@@ -6,6 +6,8 @@ and take stays. An editor's card is S3-14's. On the stand-ins (no paid call)."""
 
 import copy
 
+import pytest
+
 from app import director, line_change, locked_line
 from app.models.asks import Ask
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
@@ -13,10 +15,12 @@ from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.scripts import ScriptVersion
 from tests import test_cast_roles
-from tests.conftest import make_cut
+from tests.conftest import make_cut, saved
 from tests.test_breakdown import BREAKDOWN
 from tests.test_director import _made, _run
 from tests.test_narration import narrated  # noqa: F401
+
+pytestmark = pytest.mark.xdist_group(__name__)  # its delivered video is made once (saved)
 
 ASK = "Change “bought the dip” to “bought the top”"
 
@@ -31,13 +35,20 @@ def _two_clips(monkeypatch) -> None:
     monkeypatch.setattr(test_cast_roles, "BREAKDOWN", bd)
 
 
-def _delivered(app, db, owner, editor, monkeypatch) -> int:
+def _delivered(app, db, owner, editor, monkeypatch, module=__name__) -> int:
+    """A video the director delivered: made once per test process in `module`, then copied
+    (`saved`)."""
     _two_clips(monkeypatch)
-    pid = _made(app, owner, editor, db)
-    editor.post(f"/projects/{pid}/director")
-    _run(app, db)
-    assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
-    return pid
+    app.state.settings.fake_providers = True  # as _made sets it, for the copies too
+
+    def make():
+        pid = _made(app, owner, editor, db)
+        editor.post(f"/projects/{pid}/director")
+        _run(app, db)
+        assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+        return pid
+
+    return saved(app, db, module, make, owner, editor)
 
 
 def _card(client, pid: int) -> dict:

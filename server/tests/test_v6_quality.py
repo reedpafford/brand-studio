@@ -4,13 +4,17 @@ earlier take, a speaker with no sheet, and 226's cut that stayed out of date. St
 
 import json
 
+import pytest
+
 from app import clip_prompts
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
-from tests.conftest import upload
+from tests.conftest import saved, upload
 from tests.test_change_notes import _frame
 from tests.test_enhance import setup  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.xdist_group(__name__)  # its delivered video is made once (saved)
 
 
 def _job(db, project: Project, files: list[int], **more) -> Job:
@@ -67,11 +71,16 @@ def _delivered(app, owner, editor, db) -> Project:
     """A dialogue video the stand-in director took to delivery: Mom (Mia) and Nate (Kid)."""
     from tests.test_director import _made, _run
 
-    pid = _made(app, owner, editor, db)
-    editor.post(f"/projects/{pid}/director")
-    _run(app, db)
-    assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
-    return db.get(Project, pid)
+    app.state.settings.fake_providers = True  # as _made sets it, for the copies too
+
+    def make():
+        pid = _made(app, owner, editor, db)
+        editor.post(f"/projects/{pid}/director")
+        _run(app, db)
+        assert editor.get(f"/projects/{pid}/director").json()["status"] == "delivered"
+        return pid
+
+    return db.get(Project, saved(app, db, __name__, make, owner, editor))  # made once, copied
 
 
 def _ed(db):

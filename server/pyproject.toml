@@ -42,5 +42,6 @@ ignore = ["B008"]
 testpaths = ["tests"]
 markers = ["whisper: runs the real speech model (needs the reel group; downloads ~460 MB)"]
 # -n auto: one worker per CPU (each test has its own database and files), so a slow CI runner
-# stays well inside its time limit; -n 0 runs in one process
-addopts = "-m 'not whisper' -n auto"
+# stays well inside its time limit; -n 0 runs in one process. loadgroup: a module marked with an
+# xdist_group runs in one worker, so its saved setup is made once (tests/conftest.py `saved`).
+addopts = "-m 'not whisper' -n auto --dist loadgroup"
