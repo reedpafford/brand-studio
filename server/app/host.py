@@ -330,9 +330,11 @@ def _piece(db: Session, user: User, project: Project, row: HostPiece, still: int
     motion = motion or (talker.MOTION if talks else TALK)
     if note:  # first, so the fit to HeyGen's limit never cuts it
         motion = f"{note[:200].rstrip('.')}. {motion}"
-    if talks:  # nobody else in it, whatever the note says (video 281: strangers, three times)
-        room = talker.LONGEST_MOTION - len(talker.ALONE) - 1
-        data = talker.piece_input(project, row, still, f"{motion[:room]} {talker.ALONE}")
+    if talks:  # eyes on the lens and nobody else in it, whatever the note says (281, 293)
+        kept = f"{talker.LENS} {talker.ALONE}"
+        data = talker.piece_input(project, row, still,
+                                  f"{motion[:talker.LONGEST_MOTION - len(kept) - 1]} {kept}",
+                                  talker.expressiveness(db, project))  # fmt: skip
     else:  # on green, whatever the director's note says: the cut keys it
         room = talker.LONGEST_MOTION - len(GREEN) - 1
         said = " ".join(motion.split())[:room]
@@ -411,6 +413,7 @@ def _motion(jobs: dict[int, Job], have: list[HostPiece]) -> str:
     said = [j.input.get("motion") or (j.input.get("input") or {}).get("motion_prompt")
             for j in made]  # fmt: skip
     said = [(m or "").removesuffix(f" {GREEN}").removesuffix(f" {talker.ALONE}")
+            .removesuffix(f" {talker.LENS}")
             for m in said]  # the director's own words  # fmt: skip
     return next((m for m in said if m and m not in (talker.MOTION, TALK)), "")
 

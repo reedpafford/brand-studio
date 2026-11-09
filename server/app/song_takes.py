@@ -166,8 +166,7 @@ def _sings(draft: ScriptDraft) -> dict:
 
 def words(db: Session, draft: ScriptDraft, project: Project | None) -> str:
     """The words a narration says in this video, and so what a presenter's voice audition
-    reads (app/audition.py): the version's own. (#1484 adds a UGC talker's spoken version the
-    owner approved on the start card here: keep its body when both land.)"""
+    reads (app/audition.py): the version's own (Reed, 9 Nov: UGC sticks to the script too)."""
     return draft.text
 
 
@@ -195,14 +194,16 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
     kind = "narration_timing" if take.kind == narration.KIND else "song_timing"
     lyrics = check.narration_text(take.lyrics) if take.kind == narration.KIND else take.lyrics
     read = {}
-    if take.kind == narration.KIND:  # its marked pauses kept; a UGC talker's in a room
+    if take.kind == narration.KIND:  # its marked pauses kept; a UGC talker's a breath, in a room
         from app import talker
 
         video = db.get(Project, take.project_id) if take.project_id else None
+        ugc = bool(video and talker.minimax(db, video))
         read = {
-            "pause": narration.kept_pause(db.get(Job, take.job_id).input),
+            "pause": narration.TALKER_KEEP if ugc
+            else narration.kept_pause(db.get(Job, take.job_id).input),
             "room": talker.place(db, video) if video and talker.on(db, video) else "",
-        }
+        }  # fmt: skip
     job = enqueue(db, user, kind,
                   {"song_key": song.key, "lyrics": lyrics, "step": "song_timing",
                    "spread": spread, **read},

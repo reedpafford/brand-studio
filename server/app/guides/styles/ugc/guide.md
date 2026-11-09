@@ -40,7 +40,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - How the talker is made depends on how they appear in the video (Reed, 6 Nov):
   - In one spot the whole time (talking to camera, or in a corner over the B-roll): HeyGen Avatar IV from one still, in one take, lip-synced to the video's own voice-over in the MiniMax voice (unless a person picks another or the presenter has their own saved voice), so the voice keeps its real inflection (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."). Omni 1.2 makes only the B-roll shown over or between their take.
   - Moving around or acting in the story (not in one spot): there's no HeyGen take; their shots are made on Omni 1.2 like the B-roll, which keeps their face from their picture (Reed, 6 Nov: "Omni is more for the realistic stuff"), and a line they say there in Omni's voice, described in the same words in every clip (their saved voice's description, else the treatment's `voices`) so it doesn't drift between clips.
-- A talker shot is one continuous take: the camera locked off or nearly (no push-ins, no pans on the talker), the speaker talking into the lens with small natural head movement, blinks and hand gestures at the bottom of the frame.
+- A talker shot is one continuous take: the camera locked off or nearly (no push-ins, no pans on the talker), the speaker talking into the lens like someone telling a friend: head nods and tilts, the shoulders moving, and hands that come up at chest height on the key words (the references gesture with both hands almost constantly; 293's talker moved a third as much, with no hands). The eyes stay open on the lens with ordinary blinks; the feeling is in the voice and the mouth, never a squint or a wince (293: eyes shut or squinting in about 40% of talker frames).
 - A talker in one spot only talks: HeyGen animates one still, so nothing is picked up, held up to the lens, unwrapped or pointed at, and nothing new comes into the frame. A moment where they do something with a prop is a B-roll shot of them on Omni 1.2 (video 281: the close planned Marcus peeling foil off a plate and holding a roll up like a white flag; the HeyGen take only talks, so the gag never happened).
 - B-roll shots move gently: a slow push-in, a still frame with movement inside it, or a phone's handheld drift. A list of things gets one short shot per item. Neighbouring B-roll pictures share one generated clip, a shot each, never past the video model's longest clip (past about 13 s, a natural beat is a good place to start the next); a picture shorter than its shortest clip runs with its neighbours rather than as a clip of its own (Reed, 7 Nov, revising 3 Nov's separate clips spliced together). B-roll is always made with Omni 1.2 (Reed, 6 Nov: "Omni is more for the realistic stuff"): realistic phone footage with the place's own sound and no one speaking, so the narration runs over it.
 - B-roll sound is the place's own quiet sound and the action's small sounds (cutlery, a door, a car's hum). Never laughter, cheering, chatter, a crowd or murmur: Omni makes a crowd as garbled half-words, heard under the voice as an AI fault (video 281: the roaring table came out with clipped laughter and garbled words). Never a loud hit or thump.
@@ -48,7 +48,8 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - The talker's voice runs across the B-roll: it never stops for a cutaway.
 
 ## Breakdown
-- Every B-roll shot has a job (to show the thing said, the feeling, the proof or the product) and cuts in on the word it shows; what it shows, and who and what appears in it, follows the script's context, not fixed rules (Reed, 4 Nov). Cut to B-roll on the phrase that names something showable; come back to the talker for opinions, turns and the close. The talker is in every talker shot, and in B-roll only when the line is about them (see Shots).
+- Every B-roll shot has a job (to show the thing said, the feeling, the proof or the product) and cuts in on the word it shows; what it shows, and who and what appears in it, follows the script's context, not fixed rules (Reed, 4 Nov). Cut to B-roll on the phrases that name something worth seeing, not on every noun; come back to the talker for the hook, opinions, turns and the close. The talker is in every talker shot, and in B-roll only when the line is about them (see Shots).
+- The talker carries about half the video (the references: on screen 40–47% of the time, the longest hold 4.8–21 s): a talker shot often runs two or three sentences. Video 293 showed him 23% of the time, two short holds, and it felt like narrated B-roll with a face at each end. Their one take covers the whole narration already, so a longer hold costs nothing.
 - One talker for the whole video, in one outfit and one room.
 
 ## pacing
@@ -57,7 +58,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - Hook: the first cut comes at 1.4–4.3 s (4 of 4); the voice starts at 0.0 s (4 of 4).
 - Talker shots: median 2.9–6.3 s, range 1.1–21 s (the 2 straight-cutaway ads). The longest hold in every ad is the talker (4.8–21 s, 4 of 4), on an opinion or the close.
 - B-roll shots: median 1.8–2.9 s, range 0.2–6.9 s (4 of 4). Shortest in lists (0.6–1.1 s a picture); longest on 3D mechanism renders (4–7 s).
-- Alternation in a straight cutaway: the talker comes back after a B-roll run of 3–6 s (median, 1–2 shots); an explainer run can go 20–26 s (8–10 shots) without the face (2 of 2). A talker block is one shot (2 of 2). The talker is on screen 40–45% of the time (2 of 2).
+- Alternation in a straight cutaway: the talker comes back after a B-roll run of 3–6 s (median, 1–2 shots); an explainer run can go 20–26 s (8–10 shots) without the face (2 of 2). A talker block is one shot (2 of 2). The talker is on screen 40–47% of the time (2 of 2).
 - Arc: a fast hook, the face on screen within 0–7 s (4 of 4), B-roll runs growing in the middle, often a long talker hold to close (2 of 4: 11 s and 21 s).
 
 ## must keep
@@ -67,8 +68,8 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - A room that says who the talker is (3 of 3 that show the room; the fourth removes it).
 - Literal B-roll, one picture per phrase, a new picture every 0.6–3 s in list sections (4 of 4).
 - B-roll mixes looks on purpose, with no shared grade: B-roll saturation 7–74 and warmth −16 to +34 across the four (4 of 4).
-- Voice from 0.0 s and almost no silence: voice on 88–96% of the time, no pause longer than 0.44–0.56 s (4 of 4).
-- 3.3–3.5 words a second while talking (4 of 4), whatever the energy.
+- Voice from 0.0 s and almost no silence: voice on 88–96% of the time, 8–10% of the talk silent between words, the typical pause 0.30–0.34 s and none longer than 0.44–0.56 s (4 of 4). Runs of 8–10 words between pauses (median), and a third to a half of the sentence ends run straight on with no pause (4 of 4).
+- 3.4–3.75 words a second while talking, pauses over a quarter second left out (4 of 4), whatever the energy.
 
 ## safe to vary
 - How talker and B-roll combine: straight cutaway (2 of 4), the talker cut out over full-frame B-roll for the whole video (1 of 4), or a mix (1 of 4).
@@ -102,7 +103,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 
 ## Sound and delivery
 - One voice from the first frame to the last, as if recorded close on a phone in a real room: the room's ambience under it and real emotion in the inflection (Reed, 3 Nov: "a much more realistic voice, with room ambience and emotion influction").
-- A person talking to their phone, not a narrator reading: the words keep moving and sentences run into each other, with breaths, not a dead stop after every full stop. In the voice's reading, short marks (0.1–0.3 s) only where a person would catch themselves (the voice already stops at full stops), and a breath or a small sound where it would really happen; the emotion is the voice's own (auto) unless the read is one clear mood. The site sets the pace and trims the gaps; the words stay exactly the script's.
+- A person talking to their phone, not a narrator reading: the words keep moving and sentences run into each other. The voice stops and drops its pitch at every full stop (video 293: at all of them, in 5-word bursts), so the voice's reading runs the words together the way the talker would say them: the script's words exactly and in order, with commas or dashes in place of most full stops ("Called him the crypto guy. In front of everybody." is read "Called him the crypto guy, in front of everybody") and a full stop only where a person telling it would really stop. No pause marks or sounds: they only add stops (9 Nov listening test: 1.2 s pauses), and the site trims every gap to a breath. In Reed's blind listen (9 Nov), a run-together reading in English_Trustworth_Man was the best AI voice, with only the real person above it (5% silence, 12-word runs); English_FriendlyPerson paused at the commas instead. The emotion is the voice's own (auto) unless the read is one clear mood.
 - Pitch variability 3.6–5.8 semitones: warm and calm to lively; urgency shows as rising peaks.
 - No music by default. When asked for: a quiet bed 21–24 dB under the voice that can change as the video turns to the offer. Effects only on editor transitions (a whoosh on a flash, one low impact).
 

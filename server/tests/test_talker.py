@@ -65,6 +65,7 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
         narration.MINIMAX, PICKED)  # the voice the person picked at the audition  # fmt: skip
     (timing,) = db.query(Job).filter(Job.kind == "narration_timing").all()
     assert timing.input["room"] == talker.place(db, video) in room.PLACES  # its room's sound
+    assert timing.input["pause"] == narration.TALKER_KEEP  # every gap a breath (293: 21% silent)
     (still,) = _steps(db, video, host.STILL)
     said = still.input["input"]["prompt"]  # where their clip's still has them (video 281)
     assert "where [Image1] (the opening still of their clip) shows them" in said
@@ -75,9 +76,11 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
     assert (piece.provider, piece.input["model"], row.start) == ("heygen", talker.MODEL, 0.0)
     assert row.end == pytest.approx(db.get(SongTake, video.song_take_id).seconds)
     sent = piece.input["input"]
-    assert (sent["expressiveness"], sent["resolution"]) == ("high", "720p")  # th-20s: high
-    assert sent["motion_prompt"] == f"{talker.MOTION} {talker.ALONE}"  # the plain one, no hands
-    assert "hand" not in talker.MOTION
+    assert (sent["expressiveness"], sent["resolution"]) == ("medium", "720p")  # an auto read
+    assert sent["motion_prompt"] == f"{talker.MOTION} {talker.LENS} {talker.ALONE}"  # eyes on lens
+    read = db.get(Job, db.get(SongTake, video.song_take_id).job_id)
+    read.input = {**read.input, "input": {**read.input["input"], "emotion": "sad"}}
+    assert talker.expressiveness(db, video) == "high"  # one big mood moves the face (th-20s)
     assert piece.input["files"] == {"image": [host.rows(db, video)[0].file_id],
                                     "audio": [row.audio_file_id]}  # fmt: skip
     assert piece.credits == sent["duration"] * get_model(talker.MODEL).credits_per_unit("720p")
@@ -98,6 +101,8 @@ def test_a_ugc_presenter_talks_on_heygen_in_one_take_cut_between_b_roll(app, db,
     assert set(cut_render.recipe(db, video, tl)["takes"]) == {cut_render.UNDER_TALKER}
     director = prompts.system("director")
     assert "where its guide measures its own talker rhythm" in director  # the style's swaps first
+    planner = prompts.system("narrated_breakdown", "ugc", "narrated", "presenter")
+    assert "about half the video" in planner  # the talker's share is the plan's, no re-plan
 
 
 def test_the_directors_motion_note_makes_the_talker_and_a_remake_keeps_it(app, db, owner):
@@ -113,19 +118,19 @@ def test_the_directors_motion_note_makes_the_talker_and_a_remake_keeps_it(app, d
     assert said == "Refused: " + host.MADE + director_tools.REDRAW  # made: redraw its still
     host.make(db, user, video, storage, number=1, motion=note)
     assert _steps(db, video, host.PIECE)[-1].input["input"]["motion_prompt"] == (
-        f"{note} {talker.ALONE}"
-    )  # nobody else in it, whatever the note (video 281)
+        f"{note} {talker.LENS} {talker.ALONE}"
+    )  # eyes on the lens and nobody else in it, whatever the note (videos 281, 293)
     _run(app, db, ticks=5)
     host.make(db, user, video, storage, number=1)  # again with none: the last one stays
     assert _steps(db, video, host.PIECE)[-1].input["input"]["motion_prompt"] == (
-        f"{note} {talker.ALONE}"
-    )  # nobody else in it, whatever the note (video 281)
+        f"{note} {talker.LENS} {talker.ALONE}"
+    )
     assert talker.motion(" ") == talker.MOTION and len(talker.motion("x" * 900)) == 600
-    for said in (talker.ALONE, talker.MOTION):  # said as what's there (#1392: no negatives)
+    for said in (talker.LENS, talker.ALONE, talker.MOTION):  # what's there (#1392: no negatives)
         assert not re.search(r"\b(?:no|nobody|never|not)\b", said, re.I), said
     heard = db.get(SongTake, video.song_take_id).timing["pace"]  # measured, then set from it
     want = director_song.target(db, video)
-    assert want == (3.3, 3.5) and director_song.state(db, video)["pace_wanted"] == want
+    assert want == (3.4, 3.75) and director_song.state(db, video)["pace_wanted"] == want
     first = narration.speed_for("auto", PICKED)  # the talker's voice's own start
     speed = narration.retimed(first, heard, want) or first
     said = director_song.run(db, user, video, {"tool": "narration", "emotion": "auto"}, {})
@@ -141,17 +146,18 @@ def test_an_emotion_speeds_minimax_up_and_a_remake_is_set_from_the_measured_pace
              for e in ("fearful", "sad", "auto", "calm")}  # fmt: skip
     assert speed == {"fearful": 1.5, "sad": 1.3, "auto": 1.1, "calm": 1.1}  # th-20s, measured
     friendly = narration.job(words, "English_FriendlyPerson", emotion="calm")["input"]["speed"]
-    assert friendly == 0.85  # 281 and 293: 4.9, 3.7 and 2.9 words a second at 1.1, 0.9, 0.76
+    assert friendly == 0.88  # the references' words, not slowed for 293's gaps
     scared = narration.job(words, "English_FriendlyPerson", emotion="fearful")["input"]["speed"]
-    assert scared == round(0.85 * 1.5 / 1.1, 2)  # the emotion's rise, from the voice's own start
+    assert scared == round(0.88 * 1.5 / 1.1, 2)  # the emotion's rise, from the voice's own start
     assert narration.job(words, "English_Graceful_Lady", speed=2.6)["input"]["speed"] == 2.0
     heard = [{"word": "a", "start": 0.0, "end": 0.4}, {"word": "b", "start": 0.45, "end": 1.0},
              {"word": "c", "start": 2.0, "end": 2.5}]  # a 1 s pause, left out  # fmt: skip
     assert narration.pace(heard) == round(3 / 1.5, 2) and narration.pace(heard[:1]) is None
-    assert narration.retimed(0.76, 2.88, (3.3, 3.5)) == 0.85  # 293's take 1, to the middle
-    assert narration.retimed(1.1, 4.9, (3.3, 3.5)) == 0.85  # 281's take 1: the same 0.85
-    assert narration.retimed(1.5, 3.4, (3.3, 3.5)) is None  # inside the style's range
-    assert guides.pace("ugc", "presenter") == (3.3, 3.5)  # "3.3–3.5 words a second"
+    ugc = guides.pace("ugc", "presenter")  # the references as `pace` measures: 3.43-3.75
+    assert ugc == (3.4, 3.75)  # (3.3-3.5 counted their pauses: the voice was slowed to match)
+    for speed, heard in ((0.76, 2.88), (1.1, 4.9)):  # 293's take 1 and 281's
+        assert narration.retimed(speed, heard, ugc) == 0.88  # both land on the voice's start
+    assert narration.retimed(0.9, 3.7, ugc) is None  # 293's take 2: its words were in range
     assert guides.pace("dr-pickle", "presenter") == (3.1, 4.3)
     assert "English_Graceful_Lady" in narration.VOICES  # the older woman (th-20s)
     assert director_song.REMAKES >= 1
@@ -173,7 +179,11 @@ def test_a_minimax_reading_keeps_the_words_and_its_pauses_survive_the_trim(tmp_p
     assert (made["input"]["emotion"], made["input"]["speed"]) == ("calm", 1.1)
     assert narration.kept_pause(made) == narration.MARKED_KEEP  # kept, at most 0.3 s (281)
     assert narration.kept_pause({"input": {"text": "One. <#0.2#> Two."}}) == 0.2
+    said = "your dog's gut is a mess, Iron Paws fixes it"  # run together: only punctuation moves
+    assert narration.job(words, "English_Trustworth_Man", reading=said)["input"]["text"] == said
     for wrong in ("Your cat's gut is a mess. <#0.4#> Iron Paws fixes it.",
+                  "Iron Paws fixes it, your dog's gut is a mess.",  # reordered
+                  "So your dog's gut is a mess, Iron Paws fixes it.",  # a word added
                   "Your dog's gut is a mess. <#0.4#><#0.3#> Iron Paws fixes it."):  # fmt: skip
         with pytest.raises(ValueError, match="words exactly"):
             narration.job(words, "English_ConfidentWoman", reading=wrong)

@@ -48,8 +48,9 @@ MINIMAX_VOICES = ("English_FriendlyPerson", "English_Trustworth_Man", "English_U
                   "English_ConfidentWoman", "English_Graceful_Lady", "English_DecentYoungMan",
                   "English_Jovialman", "English_Diligent_Man")  # fmt: skip
 # A voice's own start, where measured: English_FriendlyPerson talked at 4.9 words a second at 1.1
-# (281), 3.7 at about 0.9, 2.9 at 0.76 (293): pace grows as speed**SPEED_POWER; 0.85 reads 3.4.
-VOICE_SPEEDS, SPEED_POWER = {"English_FriendlyPerson": 0.85}, 1.43
+# (281), 3.7 at about 0.9, 2.9 at 0.76 (293): pace grows as speed**SPEED_POWER. 0.88 reads the
+# UGC references' 3.4-3.75 as `pace` measures them; 293 sounded slow from its gaps, not its words.
+VOICE_SPEEDS, SPEED_POWER = {"English_FriendlyPerson": 0.88}, 1.43
 # An emotion slows MiniMax, so its speed rises (th-20s, English_Graceful_Lady: fearful 2.4 words a
 # second at 1.25, 3.4-3.6 at 1.5; sad 1.6 at 1.1, 2.0 at 1.3), scaled to each voice's own start
 SPEEDS = {"fearful": 1.5, "sad": 1.3}
@@ -72,6 +73,9 @@ PAUSE = 0.25  # a gap between heard words longer than this isn't talking (`pace`
 # apart. Video 261 kept every 0.5-0.8 s pause: its trim was cut, then refused because two
 # Whisper reads of the same words differed (junk glued to a word), so it's now heard once.
 KEEP = 0.2
+# A UGC talker's: every gap a breath, marked or not (293's own voice: 21% of the talk silent at
+# 0.3, about 10% at 0.1; the references 8-10%, typical pause 0.30-0.34 s with the words' fades)
+TALKER_KEEP = 0.1
 # A blip this long inside a pause is the pause (`cuts`): MiniMax's gaps flicker around the quiet
 # line, so 281's 0.6-1.3 s gaps stayed whole (0.9 s cut of 24 s); bridged, they're 0.6 s or under
 BLIP = 0.05
@@ -120,7 +124,7 @@ def longest(db, draft, video=None) -> int:
 
 def slowest(db, draft, video=None) -> float:
     """Words a second a narration is quoted at, over its whole length: the lower bound of its
-    style's pace while speaking (its guide's "3.3–3.5 words a second", its format's when the
+    style's pace while speaking (its guide's "3.4–3.75 words a second", its format's when the
     style says none; a read outside the range is made again at the speed that brings it in,
     `retimed`), with the pauses the guides measured around it (VOICED); else SLOWEST."""
     from app import guides
@@ -150,7 +154,8 @@ def sentences(text: str) -> list[str]:
     return [s for line in text.splitlines() for s in re.split(r"(?<=[.!?…])\s+", line) if s]
 
 
-NOT_THE_WORDS = "The reading must say the script's words exactly, adding only pauses and sounds."
+NOT_THE_WORDS = ("The reading must say the script's words exactly, in order: only its "
+                 "punctuation may change, and pauses and sounds be added.")  # fmt: skip
 NO_NOTE = "A MiniMax voice takes no note: give it an emotion, or pause marks in its reading."
 
 
@@ -159,8 +164,9 @@ def job(script: str, voice: str = VOICE, note: str = "", emotion: str | None = N
     """The voice call. A remake's note ("quickly") goes in as a v3 delivery tag (`tag`) on
     this request only, never into the version's words, and its `speed` (pace, within
     V3_SPEED; None or 1 leaves v3's own); the voice is the Director's pick. A
-    MiniMax voice reads `reading` when given (the words exactly, with pause marks and sounds
-    added; a note in brackets copied from the script is taken out, as from `text`) in
+    MiniMax voice reads `reading` when given (the words exactly, as `plain` compares them: their
+    punctuation is free, so a talker's runs together; pause marks and sounds added; a note in
+    brackets copied from the script is taken out, as from `text`) in
     `emotion` (auto: its own choice), at `speed` (None: the emotion's own)."""
     text = check.narration_text(script)  # the Director's: what the narrator reads
     if not text:

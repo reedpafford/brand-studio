@@ -6,11 +6,14 @@ makes both, priced like takes). The
 plan's talker shots (in a narration, `sung`: the talker says that stretch to the lens) are cut
 from that take at the final cut; every other shot is B-roll cut in over the voice, so the cut
 alternates talker and B-roll. Settings from HeyGen's docs and the paid tests (batch-b,
-.context/team/research/ugc-realism.md; th-20s, .context/tests/th-20s/REPORT.md): type image,
-720p, expressiveness high (th-20s: high with a motion prompt for the moment clearly beat medium
-with a fixed one), and a motion prompt the director writes for this narration's emotion and
-lines (`motion`); the fixed line's "one easy hand gesture" made a stray hand pop in behind a
-steering wheel, so the fallback names no hands."""
+.context/team/research/ugc-realism.md; th-20s, .context/tests/th-20s/REPORT.md; 293,
+team/round2/UGC-DIAGNOSIS.md): type image, 720p, expressiveness from the read's mood
+(`expressiveness`), and a motion prompt the director writes for this narration's emotion and
+lines (`motion`), every take keeping its eyes on the lens (`LENS`) and nobody else in it
+(`ALONE`). 293 (high, a light confession, no hands named) shut or squinted the eyes in about
+40% of its frames and moved a third as much as the references; batch-b (medium, a hand
+gesture named) moved like a phone talker. th-20s's "hand gesture low in the frame" popped a
+stray hand in by the steering wheel, so hands come up at chest height."""
 
 import hashlib
 import re
@@ -22,6 +25,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import narration
 from app.models.clips import ClipTake, ProjectClip
 from app.models.files import StoredFile
 from app.models.projects import Project
@@ -40,15 +44,22 @@ STILL_PROMPT = (
     "only this one person in it, alone in the frame."
 )  # HeyGen: a clear, front-facing, evenly lit portrait, the whole head in frame, one person
 ROOM = "in their own real, lived-in room that says who they are"  # with no plan to say where
-EXPRESSIVENESS = "high"  # HeyGen: high, medium or low ("energy and range of movement")
+EXPRESSIVENESS = "high"  # HeyGen: high, medium or low ("energy and range of movement"); on green
+# The moods a whole read is in that move the face a lot (th-20s: a crying mother, high);
+# any other read is medium (`expressiveness`)
+BIG = ("sad", "fearful", "angry")
 MOTION = (
-    "They stay where they are and talk straight into the phone lens like a real selfie video: "
-    "small natural head nods and tilts, blinks, eyebrows and mouth that move with the feeling "
-    "of the words. The camera stays locked off the whole time."
+    "They stay where they are and talk straight into the phone lens like a real selfie video, "
+    "telling a friend something: easy head nods and tilts, the shoulders shifting as they talk, "
+    "and their hands coming up at chest height to gesture on the key words, then dropping "
+    "away. The camera stays locked off the whole time."
 )  # when the director writes none (Make the host pressed by a person)
+# Every talker take, after the note: the eyes on the lens (the UGC guide's must keep; 293's
+# wince), and alone; said as what is there, never as what isn't (#1392's HeyGen notes: a
+# negative can suggest it; 281's strangers)
+LENS = "Their eyes stay open on the lens after any glance, the brow easy, blinking normally."
 ALONE = ("They are alone in the frame the whole time; the place behind them stays exactly as "
-         "the picture shows it, still and empty.")  # fmt: skip  # every talker take: said as what
-# is there, never as what isn't (#1392's HeyGen notes: a negative can suggest it; 281's strangers)
+         "the picture shows it, still and empty.")  # fmt: skip
 LONGEST_MOTION = 600  # characters: a motion note is a few sentences
 SAID = ("The talker says this clip: its picture is cut from the talker's take. To change how "
         "the talker looks or where they are, press Make it again on the presenter in the "
@@ -166,7 +177,7 @@ def says(db: Session, project: Project, clip: ProjectClip) -> bool:
 
 def share(db: Session, project: Project) -> dict:
     """What the director reads: the talker clips, the talker's share of the screen and the
-    longest stretch of talker without a cut-in (the references: 40-45% and median holds of
+    longest stretch of talker without a cut-in (the references: 40-47% and median holds of
     3-6 s)."""
     from app.clip_prompts import newest
 
@@ -196,16 +207,29 @@ def motion(note: str) -> str:
     return " ".join((note or "").split())[:LONGEST_MOTION] or MOTION
 
 
-def piece_input(project: Project, row, still_file_id: int, note: str = "") -> dict:
+def expressiveness(db: Session, project: Project) -> str:
+    """HeyGen's range for the talker: high for a narration read in one big mood (BIG), else
+    medium, so a light read doesn't wince (293, auto: eyes shut or squinting in 40% of frames)."""
+    from app.models.jobs import Job
+    from app.models.songs import SongTake
+
+    take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
+    made = db.get(Job, take.job_id) if take and take.job_id else None
+    return "high" if made and narration.delivery(made.input).get("emotion") in BIG else "medium"
+
+
+def piece_input(project: Project, row, still_file_id: int, note: str = "",
+                how: str = EXPRESSIVENESS) -> dict:  # fmt: skip
     """The one HeyGen take: the still, and the whole narration as the voice it lip-syncs
     (`duration` is for the stand-in; HeyGen's length follows the voice). `note`: the
-    director's motion note (kept in the job's input, `motion`, for a remake)."""
+    director's motion note (kept in the job's input, `motion`, for a remake); `how`: its
+    expressiveness."""
     from app import host
 
     return {"step": host.PIECE, "project_id": project.id, "host_piece_id": row.id,
             "model": MODEL, "brand_id": project.brand_id, "fit_images_to": FIT,
             "input": {"aspect_ratio": project.aspect_ratio, "resolution": RESOLUTION,
-                      "expressiveness": EXPRESSIVENESS, "motion_prompt": motion(note),
+                      "expressiveness": how, "motion_prompt": motion(note),
                       "title": f"Brand Studio video {project.id}",
                       "duration": host._seconds(row)},
             "files": {"image": [still_file_id], "audio": [row.audio_file_id]}}  # fmt: skip
