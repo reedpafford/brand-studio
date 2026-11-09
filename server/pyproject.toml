@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=9.1", "pytest-xdist>=3.8", "ruff>=0.17"]
+dev = ["pytest>=9.1", "pytest-split>=0.11", "pytest-xdist>=3.8", "ruff>=0.17"]
 # Reel import in the worker image only (tests use stand-ins): yt-dlp and faster-whisper.
 reel = ["yt-dlp==2026.8.19", "faster-whisper==1.2.1", "av<19"]  # av 19 breaks faster-whisper 1.2.1
 
