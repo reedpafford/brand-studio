@@ -35,12 +35,12 @@ def test_copy_reads_the_reel_then_the_run_waits_for_the_owners_ok(app, owner, db
     again = owner.post("/freestyles/reel", json=body)
     assert again.status_code == 409 and again.json()["detail"] == reel_video.READ_ALREADY
     _drain(app, db)
-    _run(app, db, ticks=4, start=False)  # its plan first, then its start card (S3-02)
+    _run(app, db, ticks=12, start=False)  # its plan first, then its direction card (S3-02)
     db.expire_all()
     done = owner.get(f"/freestyles/{out['id']}").json()
     assert done["status"] == "working" and done["make_it"], done["thread"]  # Make it waits
     made = {j.input.get("step") for j in db.query(Job).filter(Job.project_id == video.id)}
-    assert made == {"director", "treatment"}  # no generation before Make it
+    assert not made & {"frame", "clip_take", "storyboard"}  # no still or take before Make it
     assert done["thread"][0]["text"].endswith("copy it shot by shot.") and done["up_to"] > 0
     r = owner.post(f"/asks/{done['make_it']}/answer", json={"how": "make_it"})
     assert r.status_code == 200, r.text  # Make it: it starts

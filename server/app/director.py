@@ -1376,8 +1376,10 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
     if (not (card or carry) and (not before or _planning(run)) and last is not None
             and last.input[RUN]["id"] == run["id"]
-            and (step := _auto(db, project, run, seen, last))):  # fmt: skip
-        return _by_server(db, user, project, run, step, after)
+            and (step := _auto(db, project, run, {**seen, "started": True}, last))):  # fmt: skip
+        if not before or step["tool"] in PLANNING:  # approving its written plan, say
+            return _by_server(db, user, project, run, step, after)
+        card, run = True, {**run, "ok": True}  # the plan is done: the direction card, no call
     data = {"step": STEP, RUN: run, **prompt, **(extra or {})}
     wait = ""
     if card:  # the start card: its first generating turn, held for Make it (S3-02)
@@ -1612,12 +1614,36 @@ def refresh(db: Session, job: Job) -> bool:
         db.refresh(job)
     if job.input.get("ended") or over(db, job.input[RUN]["id"], job.project_id):
         return False
-    asked = turn_input(db, project, job.input[RUN], job.id)  # given to this turn as it starts
+    seen: dict = {}
+    asked = turn_input(db, project, job.input[RUN], job.id, seen=seen)  # as this turn starts
     db.refresh(job)  # Stop may land while the prompt is built: checked as it's written
     kept = _write(db, job, {**job.input, **asked})
     db.commit()
     db.refresh(job)
+    if kept and not over(db, job.input[RUN]["id"], job.project_id) and _go_step(db, job, seen):
+        return False  # the server took the step after Make it: no call
     return kept and not over(db, job.input[RUN]["id"], job.project_id)  # the last check
+
+
+def _go_step(db: Session, job: Job, seen: dict) -> bool:
+    """Make it on the direction card: when the step after it needs no judgment (the
+    storyboard, say), the server takes it as this turn, as `_by_server` does: no Claude call,
+    nothing charged for it."""
+    from app import director_auto
+
+    project, run = db.get(Project, job.project_id), job.input[RUN]
+    if not job.input.get(START) or job.input.get(CARRIES):
+        return False
+    # read as of this turn's own start: the Make it just pressed is no question answered
+    if not (step := _auto(db, project, run, seen, job)):
+        return False
+    job.kind, job.provider, job.credits, job.output = "director_step", "server", 0, step
+    job.input = {**job.input, director_auto.SAID: True}
+    job.status, job.finished_at = JobStatus.succeeded, utcnow()
+    db.commit()
+    _act(db, job, STORE.get())
+    db.commit()
+    return True
 
 
 FRESH = "fresh"  # in a run: when "Start the plan again" was pressed (S3-08)

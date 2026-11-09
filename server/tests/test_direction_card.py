@@ -2,7 +2,7 @@
 one card: concept, beats, the look, the clip plan and the estimate. I refine it in chat; nothing
 expensive starts until I say go." The start card and the cast and places OK are one stop."""
 
-from app import director, director_auto
+from app import director
 from app.models.jobs import Job
 from tests.test_asks import _video
 from tests.test_director import _run
@@ -47,9 +47,15 @@ def test_a_wait_with_nothing_left_to_plan_brings_the_card(app, db, owner, editor
     assert _card(owner, pid)["state"] == "open"
 
 
-def test_before_make_it_the_server_only_approves_a_written_plan():
-    state = {"started": False, "being_made": 0, "held_for_owner": [], "questions": False,
-             "failed_since_last_turn": [], "clips": [], "cut": "none", "shots": "none",
-             "plan": "ready"}  # fmt: skip
-    assert director_auto.move(state)["tool"] == "plan"  # no Claude call for it
-    assert director_auto.move({**state, "plan": "approved", "shots": "ready"}) is None
+def test_the_step_after_make_it_is_the_servers_with_no_claude_call(app, db, owner, editor):
+    """Reed: fewer turns, same quality. The card comes on the director's own ask (no turn to
+    reach it), and the storyboard after Make it needs no judgment: the server takes it."""
+    pid, _ = _video(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=12, start=False)
+    turns = owner.get(f"/projects/{pid}/director").json()["turns"]
+    assert director.START_FIRST not in [t["result"] for t in turns]
+    assert owner.post(f"/asks/{_card(owner, pid)['id']}/answer", json={"how": "make_it"}).is_success
+    _run(app, db, ticks=2, start=False)
+    (go,) = db.query(Job).filter(Job.project_id == pid, Job.input["start_run"].as_boolean())
+    assert (go.kind, go.output["tool"], go.credits) == ("director_step", "storyboard", 0)

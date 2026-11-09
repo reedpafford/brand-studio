@@ -336,7 +336,7 @@ def test_a_saved_presenter_is_in_the_cast_with_its_own_voice_before_make_it(app,
             "brand_id": brand, "cast_ids": [mark["id"]]}  # fmt: skip
     sent = owner.post("/freestyles", json=body)
     assert sent.status_code == 201, sent.text
-    _run(app, db, ticks=6, start=False)  # its plan, then its start card: nothing made yet
+    _run(app, db, ticks=2, start=False)  # its treatment: no narration made yet
     pid = owner.get(f"/freestyles/{sent.json()['id']}").json()["project_id"]
     said = owner.get(f"/projects/{pid}/host").json()
     assert (said["presenter_id"], said["voice"]) == (mark["id"], "Roger")  # his, not a clone
@@ -366,7 +366,7 @@ def test_a_dr_pickle_presenter_keeps_its_clone_when_the_director_names_another(a
             "brand_id": first_brand(owner)}  # fmt: skip
     sent = owner.post("/freestyles", json=body)
     assert sent.status_code == 201, sent.text
-    _run(app, db, ticks=6, start=False)  # its plan, then its start card: nothing made yet
+    _run(app, db, ticks=2, start=False)  # its treatment: no narration made yet
     video = _video(db, sent.json())
     clone = f"voice:{db.query(Voice).filter_by(look='dr-pickle').one().id}"
     assert owner.get(f"/projects/{video.id}/host").json()["voice"] == clone

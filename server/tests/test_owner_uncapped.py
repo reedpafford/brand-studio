@@ -70,7 +70,7 @@ def test_new_videos_press_says_about_what_it_will_cost(app, db, owner, editor, o
 def test_the_start_card_is_an_estimate_with_no_limit(app, db, owner, editor, on, monkeypatch):
     pid, _ = _video(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
     assert card["question"].startswith("Make it? About $") and card["question"].endswith(
         " (estimate).")  # fmt: skip
@@ -91,7 +91,7 @@ def test_an_answered_start_card_keeps_what_was_approved(app, db, owner, editor, 
 
     pid, _ = _video(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=4, start=False)
+    _run(app, db, ticks=12, start=False)
     card = next(c for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start")
     said = card["question"]
     assert owner.post(f"/asks/{card['id']}/answer", json={"how": "make_it"}).status_code == 200
