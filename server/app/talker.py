@@ -112,7 +112,16 @@ def where(db: Session, project: Project) -> str:
     return f"where the plan puts them, {scene.get('heading', '').strip()}: {look}"[:400]
 
 
-CAR = re.compile(r"\b(?:car|truck|van|suv|pickup|driver'?s seat|steering wheel)\b", re.I)
+# Inside a vehicle, never just a vehicle word ("car keys on the counter", "my car insurance",
+# "the food truck", "a Van Gogh print"): in/inside a car, truck or SUV, a car seat's or
+# wheel's words, or a heading "INT. ... CAR" (QA on #1477)
+CAR = re.compile(
+    r"\b(?:in|inside|into)\s+(?:the|a|an|her|his|their|my|our|your)\s+(?:[\w'-]+\s+){0,3}?"
+    r"(?:car|truck|suv)\b(?!\s*(?:insurance|keys?|payments?|loans?|wash|dealer\w*|park)\b)"
+    r"|\b(?:driver'?s|passenger)\s+seat\b|\bsteering wheel\b|\bseat\s?belt\b"
+    r"|\bINT\.[^\n:]*?\b(?:CAR|TRUCK|SUV)\b",
+    re.I,
+)
 
 
 def place(db: Session, project: Project) -> str:

@@ -205,8 +205,18 @@ def _length(path: Path) -> float:
 def test_the_room_keeps_the_voices_length_fills_its_gaps_and_sets_its_loudness(tmp_path, place):
     dry = _tone(tmp_path / "dry.mp3", "between(t,0,1.5)+between(t,2,3.5)", 4)  # dead gaps
     wet = room.finish(dry, tmp_path / "wet.mp3", place)
-    assert room.graph("car") != room.graph() and talker.CAR.search("his parked car, seatbelt on")
-    assert not talker.CAR.search("at her kitchen table, cards on the counter")  # a room
+    assert room.graph("car") != room.graph()
+    for inside in (
+        "Marcus in his parked car by day",
+        "INT. MARCUS'S CAR - DAY: flat light",
+        "she films from the driver's seat",
+        "a grey hoodie, his seatbelt on",
+    ):
+        assert talker.CAR.search(inside), inside
+    for outside in ("at her kitchen table, car keys on the counter", "a Van Gogh print behind "
+                    "her", "by the food truck downtown", "my car insurance is a scam",
+                    "pickup basketball court", "in my car insurance claim"):  # fmt: skip
+        assert not talker.CAR.search(outside), outside  # a room (QA on #1477)
     assert abs(_length(wet) - _length(dry)) < 0.06
     gaps = _ff("ffmpeg", "-i", str(wet), "-af", "silencedetect=n=-70dB:d=0.2", "-f", "null", "-")
     assert "silence_start" not in gaps  # room tone under every gap
