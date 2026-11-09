@@ -1425,7 +1425,11 @@ def plan(
         if others := [c for c in sc.cast if c not in cast]:
             problems.append(f"{ADVICE}scene {sc.id}: {', '.join(others)} isn't in the cast")
         rate = WORDS_A_SECOND.get(fmt, 4.8)
-        said = sum(len(_said(words.get(x.line, ""), labelled).split()) for x in sc.lines)
+        said = sum(
+            len((LIP_SYNC.sub("", t) if fmt == "song" else _said(t, labelled)).split())
+            for x in sc.lines
+            if (t := words.get(x.line, ""))
+        )  # a song's: its sung words
         seconds = said / rate + (len(sc.lines) if fmt == "dialogue" else 0)
         if max_seconds and seconds > max_seconds:
             problems.append(f"{ADVICE}scene {sc.id} runs about {round(seconds)} s, over one "
