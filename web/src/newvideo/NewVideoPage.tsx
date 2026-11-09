@@ -56,10 +56,10 @@ export function Under({ owner, est, phone }: { owner: boolean; est: Estimate | u
 }
 
 /** The main press, with the most it can charge after a dot ("Make it · up to $16.86"). */
-export function Press({ owner, est, busy, disabled, onClick, go, wide }: { owner: boolean; est: Estimate | undefined; busy: boolean; disabled: boolean; onClick: () => void; go?: string; wide?: boolean }) {
+export function Press({ owner, est, busy, disabled, onClick, go, wide, shortcut }: { owner: boolean; est: Estimate | undefined; busy: boolean; disabled: boolean; onClick: () => void; go?: string; wide?: boolean; /** ⌘↵ sends from this box (the Paste tab only) */ shortcut?: boolean }) {
   const w = pressWords(owner, est, go);
   return (
-    <Button busy={busy} disabled={disabled} icon={w.held ? ArrowUp : undefined} onClick={onClick} kbd={wide || disabled ? undefined : "⌘↵"} className={`${wide ? "w-full" : "shrink-0 whitespace-nowrap"} lg:min-h-8 lg:px-3`}>
+    <Button busy={busy} disabled={disabled} icon={w.held ? ArrowUp : undefined} onClick={onClick} kbd={shortcut && !wide && !disabled ? "⌘↵" : undefined} className={`${wide ? "w-full" : "shrink-0 whitespace-nowrap"} lg:min-h-8 lg:px-3`}>
       {w.label}
       {!disabled && w.most && (
         <>
@@ -148,7 +148,7 @@ export function NewVideoPage() {
             <Attach files={files} onReel={() => setTab("reel")} />
             {chips(true)}
             <span className="flex-1" />
-            <Press owner={owner} est={est} busy={sent.isPending} disabled={empty} onClick={go} />
+            <Press owner={owner} est={est} busy={sent.isPending} disabled={empty} onClick={go} shortcut />
           </div>
         )}
       </div>
