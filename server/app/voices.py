@@ -602,7 +602,10 @@ def on_omni(db: Session, project) -> list[tuple[list[str], str]]:
     that keep a voice from drifting between clips (Reed, 9 Nov: "if you prompt the voice the
     same for each clip, it should not vary that much"; docs/prompting/omni-1.2.md §4). A voice
     saved on the character or presenter comes first, by its own description; then the
-    director's treatments (`_told`). Each at most LINE_MAX characters, cut between words."""
+    director's treatments (`_told`); then, for a UGC talker on Omni neither named, words from
+    their look (omni_talker.voice), never none. Each at most LINE_MAX characters, cut between
+    words."""
+    from app import omni_talker
     from app.cast_roles import cast_roles
     from app.storyboard import cast_looks
 
@@ -614,7 +617,8 @@ def on_omni(db: Session, project) -> list[tuple[list[str], str]]:
                                                         project.brand_id):  # fmt: skip
             said = _cut(saved.description)
             out += [([item.name, *(s.role for s in roles.get(item.id, []))], said)] if said else []
-    return out + [([who], said) for who, said in _told(db, project)]
+    out += [([who], said) for who, said in _told(db, project)]
+    return out + ([found] if (found := omni_talker.voice(db, project, out)) else [])
 
 
 LINE_MAX = 200  # a voice line's words at most (a saved description may run to 500)

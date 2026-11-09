@@ -54,11 +54,11 @@ def needed(db: Session, project: Project) -> bool:
     """A presenter speaks in one of our voices and nobody has chosen it: no pick for this
     video, none saved on the presenter, no style voice (Dr. Pickle's clone), and no narration
     made yet (one made before the audition keeps its voice). A UGC talker filmed on Omni speaks
-    in Omni's own voice, described once by the treatment (talker.omni): no audition."""
-    from app import host, talker
+    in Omni's own voice, described once by the treatment (omni_talker.on): no audition."""
+    from app import host, omni_talker
 
     return (not project.song_take_id and host.presents(db, project)
-            and not talker.omni(db, project)
+            and not omni_talker.on(db, project)
             and not (voices.picked(db, project) or voices.default_for(db, project)))  # fmt: skip
 
 

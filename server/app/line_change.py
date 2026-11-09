@@ -51,14 +51,18 @@ def _narrated(db: Session, project: Project) -> bool:
 
 
 def clips_of(db: Session, project: Project, n: int) -> list[str]:
-    """The clips of the newest plan whose shots carry script line `n`, in plan order."""
+    """The clips of the newest plan whose shots carry script line `n`, in plan order; a UGC
+    talker on Omni's only where it's said: their silent B-roll of it is laid over the new
+    piece as it was (QA on #1497)."""
+    from app import omni_talker
     from app.clip_prompts import newest
 
     bd = newest(db, project)
     if bd is None:
         return []
+    said = omni_talker.on(db, project)
     shots = {s["id"] for sc in bd.data.get("scenes", []) for s in sc.get("shots", [])
-             if n in (s.get("script_lines") or [])}  # fmt: skip
+             if n in (s.get("script_lines") or []) and (s.get("line") or not said)}  # fmt: skip
     return [c["id"] for c in bd.data.get("clips", []) if shots & set(c["shot_ids"])]
 
 

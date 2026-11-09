@@ -206,8 +206,8 @@ def own_look(monkeypatch):
 def heygen_talker(monkeypatch):
     """A presenter who talks to camera on HeyGen, in their own room over our voice track (as
     one does outside UGC): the UGC look's stand-in plans talker shots for it, but a UGC talker
-    on camera is filmed on Omni now (app/talker.omni, tests/test_omni_talker.py)."""
-    monkeypatch.setattr("app.talker.full_screen", lambda look, presenter: False)
+    on camera is filmed on Omni now (app/omni_talker.on, tests/test_omni_talker.py)."""
+    monkeypatch.setattr("app.omni_talker.full_screen", lambda look, presenter: False)
 
 
 def make_cut(app, db, client, base: str):

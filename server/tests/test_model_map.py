@@ -6,7 +6,7 @@ from the chat (a person's own choice stays); how a presenter appears, per video
 
 import pytest
 
-from app import director_tools, host, model_map, settings_move, talker
+from app import director_tools, host, model_map, omni_talker, settings_move, talker
 from app.breakdown import video_model
 from app.catalogue import get_model
 from app.clip_takes import take_input
@@ -212,14 +212,13 @@ def test_a_ugc_talker_on_camera_is_omni_in_a_corner_heygen_and_the_broll_omni(
     assert move(talking, model_map.OMNI) == model_map.SAYS_IT
     assert move(broll, "seedance-2.5") == model_map.REAL
     monkeypatch.undo()  # in UGC, the style's start: talks to camera full screen, on Omni
-    voiced, ugc.song_take_id = ugc.song_take_id, None  # (before any voice track is made)
-    assert host.how(ugc) == "talks" and talker.omni(db, ugc) and not host.on(db, ugc)
-    assert host.run_price(db, draft, 10, ugc) == 0 and made_on(broll) == model_map.OMNI
-    ugc.song_take_id = voiced
+    assert host.how(ugc) == "talks" and host.run_price(db, draft, 10) == 0  # a new video's
+    assert not omni_talker.on(db, ugc) and host.on(db, ugc)  # its voice track came first
+    assert made_on(broll) == model_map.OMNI
     ugc.presenter = "corner"  # in one spot: one HeyGen take keyed over the B-roll
     db.flush()
     assert host.on(db, ugc) and host.run_price(db, draft, 10, ugc) > 0
-    assert not talker.omni(db, ugc) and made_on(broll) == model_map.OMNI
+    assert not omni_talker.on(db, ugc) and made_on(broll) == model_map.OMNI
     ugc.presenter = "acts"  # moves around in the story: no HeyGen take, their shots on Omni
     db.flush()
     assert not host.on(db, ugc) and host.run_price(db, draft, 10, ugc) == 0

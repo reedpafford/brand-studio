@@ -11,6 +11,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import omni_talker
 from app import script_library as lib
 from app.credits import COUNTED, credits_used, director_credits
 from app.models.checks import ItemCheck
@@ -39,6 +40,7 @@ class Facts:
     clips: int
     takes: int
     score: int | None
+    omni: bool = False  # a UGC talker filmed on Omni (omni_talker.films): its own rate
 
 
 def _cut(db: Session, project: Project) -> FinalVideo | None:
@@ -63,8 +65,10 @@ def facts(db: Session, project: Project) -> Facts | None:
         return None
     takes = db.scalar(select(func.count()).select_from(ClipTake)
                       .where(ClipTake.clip_id.in_([c.id for c in made])))  # fmt: skip
+    draft = db.get(ScriptDraft, project.script_draft_id)
     return Facts(pair, seconds, credits_used(db, project), director_credits(db, project),
-                 len(made), takes, project.score)  # fmt: skip
+                 len(made), takes, project.score,
+                 omni_talker.films(db.get(Script, draft.script_id), project))  # fmt: skip
 
 
 def finished(db: Session, workspace_id: int, look: str | None = None) -> list[Facts]:
@@ -112,7 +116,8 @@ def finished(db: Session, workspace_id: int, look: str | None = None) -> list[Fa
             continue
         out.append(Facts((lib.format_id(script), p.look), seconds, Decimal(used.get(p.id, 0)),
                          Decimal(own.get(p.id, 0)), len(made),
-                         sum(takes.get(c.id, 0) for c in made), p.score))  # fmt: skip
+                         sum(takes.get(c.id, 0) for c in made), p.score,
+                         omni_talker.films(script, p)))  # fmt: skip
     return out
 
 
@@ -140,13 +145,16 @@ def table(db: Session, workspace_id: int) -> list[dict]:
 def forecast(db: Session, draft: ScriptDraft, project: Project | None = None) -> dict:
     """What making this version will probably cost, in credits, and what that rests on. With
     ENOUGH finished videos of its (format, look): its length x their credits per second, basis
-    "N finished videos". Otherwise the price Make already quotes, basis "estimate"."""
+    "N finished videos"; a UGC talker on Omni only by others filmed so, never the HeyGen ones
+    (QA on #1497). Otherwise the price Make already quotes, basis "estimate"."""
     from app.routes.estimate import version_cost
 
     script = db.get(Script, draft.script_id)
     pair = (lib.format_id(script), project.look if project else script.look)
     seconds = lib.seconds(draft) or int(project.estimate_credits if project else 0)
-    same = [f for f in finished(db, script.workspace_id, pair[1]) if f.pair == pair]
+    omni = omni_talker.films(script, project)
+    same = [f for f in finished(db, script.workspace_id, pair[1])
+            if f.pair == pair and f.omni == omni]  # fmt: skip
     if len(same) >= ENOUGH and seconds:
         rate = sum(f.credits for f in same) / sum(f.seconds for f in same)
         return {"credits": float(round(rate * seconds, 2)), "basis": f"{len(same)} finished videos"}

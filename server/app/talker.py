@@ -1,5 +1,5 @@
 """The talker. A UGC presenter who talks to camera full screen is filmed on Omni 1.2 speaking
-for themself (Reed, 9 Nov; `omni`, `cutaways`). A presenter who talks to camera in another
+for themself (Reed, 9 Nov; app/omni_talker.py). A presenter who talks to camera in another
 style (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes.") isn't keyed into a corner: one
 still of the talker in their own room, then ONE HeyGen Avatar IV take of the whole narration
 (the voice picked at their audition, app/audition.py, with its room sound, app/room.py),
@@ -72,123 +72,10 @@ TOO_LONG = "The narration runs past HeyGen's 10 minutes. Shorten the script to m
 
 def on(db: Session, project: Project) -> bool:
     """A Presenter video whose presenter talks to camera in their own room on HeyGen (chosen
-    for a video in a style other than UGC: app/host.how; a UGC one is `omni`)."""
+    for a video in a style other than UGC: app/host.how; a UGC one is app/omni_talker's)."""
     from app import host
 
     return host.on(db, project) and host.how(project) == "talks"
-
-
-def full_screen(look: str | None, presenter: str | None) -> bool:
-    """A UGC presenter who talks to camera filling the frame (the style's start), not in a
-    corner over the B-roll and not acting in the story (app/host.HOW)."""
-    from app import host, looks
-
-    how = presenter if presenter in host.HOW else "talks"
-    return looks.base(look or looks.DEFAULT) in LOOKS and how == "talks"
-
-
-def films(script, video=None) -> bool:
-    """`omni` for a script's quote: its own look before it has a video. A video whose voice
-    track was made before this (a narration in use) keeps its HeyGen talker."""
-    from app import host
-
-    if video is not None and video.song_take_id:
-        return False
-    shown = (video.look, video.presenter) if video is not None else (script.look, None)
-    return host.hosted(script) and full_screen(*shown)
-
-
-def omni(db: Session, project: Project) -> bool:
-    """A Presenter video whose UGC presenter talks to camera full screen, filmed on Omni 1.2
-    (Reed, 9 Nov: "Full screen UGC should be omni, yes. Meaning the talking head is filmed in
-    omni"): a story video whose talker says the script's lines in their own Omni pieces, lips,
-    voice and room from one take, with no voice-over and no HeyGen take, and whose B-roll is
-    laid over their picture, silent, while their voice runs on (`cutaways`). A corner
-    presenter stays one HeyGen take of our voice track (app/host.py)."""
-    return films(narration.video_script(db, project), project)
-
-
-PIECE = ("{who} is the presenter and talks straight to camera, filling the frame, filmed on "
-         "Omni 1.2 in pieces of their own: every spoken line is theirs, said on camera, a line "
-         "with no speaker label too. Their shots have `speaker` \"{who}\", the line's exact words "
-         "in `line` and {who} in `character_ids`. Their consecutive shots in one place share one "
-         "clip of up to {most} s, in script order: as few pieces as the lines allow, so a talker "
-         "sitting in one spot is never split into short pieces without a reason (a new place, a "
-         "real change of shot). Their clips alone make the video's length.\n"
-         "B-roll is cut in over their voice, never between their pieces: a B-roll shot shows "
-         "what a line says, names that line in `script_lines`, and has no `line` or `speaker` "
-         "(nobody speaks in it: their voice runs on under it). A talker clip's B-roll shots "
-         "come right after it, in clips of their own, in the order of the words they show; the "
-         "cut lays each over the talker's picture where its line is said.")  # fmt: skip
-
-
-def breakdown_block(db: Session, project: Project, most: int) -> str:
-    """How an Omni talker's plan is laid out (`omni`), for the breakdown step: named as
-    their look is, else as the script's first speaker label names them."""
-    from app import host
-    from app.prompts.check import LABEL
-    from app.routes.scripts import latest
-
-    item, words = host.host_look(db, project), latest(db, project)
-    said = next((m[1] for x in (words.text if words else "").splitlines()
-                 if (m := LABEL.match(x))), "")  # fmt: skip
-    who = item.name if item else said.title() or "The presenter"
-    return f"<talker>\n{PIECE.format(who=who, most=most)}\n</talker>"
-
-
-def _plan(data: dict) -> list[tuple[str, list[dict]]]:
-    shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
-    return [(c["id"], [shots[i] for i in c.get("shot_ids", []) if i in shots])
-            for c in data.get("clips", [])]  # fmt: skip
-
-
-def fewer(data: dict, most: int) -> list[str]:
-    """Advice on an Omni talker's plan: two of their pieces in one spot, with only B-roll
-    between them, that one piece of up to `most` s holds (Reed: real UGC scripts run 3-4
-    minutes; a sitting talker isn't split without a reason)."""
-    from app import one_frame
-    from app.prompts.check import ADVICE
-
-    lead = one_frame.followers(data, True, False)
-    seconds = {c["id"]: c.get("seconds") or 0 for c in data.get("clips", [])}
-    talks = [c for c, mine in _plan(data) if any(s.get("line") for s in mine)]
-    return [f"{ADVICE}clips {a} and {b}: the talker in one spot, {seconds[a] + seconds[b]} s "
-            "together; make them one piece" for a, b in zip(talks, talks[1:], strict=False)
-            if lead.get(a, a) == lead.get(b, b) and seconds[a] + seconds[b] <= most]  # fmt: skip
-
-
-def cutaways(db: Session, project: Project, rows: list[ProjectClip]) -> list[dict]:
-    """An Omni talker video's B-roll clips, each laid over the talker's piece that says the
-    first line it shows, from where that line starts: its first word as the piece's words
-    check heard it, else its share of the piece's words. [{clip_id, take_id, piece, at,
-    seconds}], `at` in seconds into the piece's take, `seconds` the B-roll take's own."""
-    from app.clip_prompts import newest
-    from app.cut import _take_seconds
-    from app.word_splice import _heard
-
-    plan = _plan(bd.data if (bd := newest(db, project)) else {})
-    said: dict[int, tuple[str, int]] = {}  # a script line -> its talker clip, words before it
-    for cid, mine in plan:
-        k = 0
-        for s in (s for s in mine if s.get("line")):
-            said.update({n: (cid, k) for n in s.get("script_lines") or [] if n not in said})
-            k += len(s["line"].split())
-    picked = {r.clip_id: r for r in rows}
-    out = []
-    for cid, mine in plan:
-        n = next((x for s in mine for x in s.get("script_lines") or [] if x in said), None)
-        row, (talk, k) = picked.get(cid), said.get(n, ("", 0))
-        voice = picked.get(talk)
-        if any(s.get("line") for s in mine) or not (row and row.picked_take_id and voice):
-            continue
-        take = db.get(ClipTake, voice.picked_take_id) if voice.picked_take_id else None
-        heard = _heard(db, take)[0] if take else []
-        words = sum(len(s["line"].split()) for s in dict(plan)[talk] if s.get("line"))
-        at = heard[k]["start"] if k < len(heard) else voice.seconds * k / max(words, 1)
-        out.append({"clip_id": cid, "take_id": row.picked_take_id, "piece": talk,
-                    "at": round(at, 2), "seconds": _take_seconds(
-                        db, db.get(ClipTake, row.picked_take_id), row.seconds)})  # fmt: skip
-    return out
 
 
 def minimax(db: Session, project: Project) -> bool:
