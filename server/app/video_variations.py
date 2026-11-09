@@ -91,7 +91,10 @@ def ask(db: Session, user: User, project: Project, count: int, part: str, note: 
         *([f"<note>{escape(note.strip())}</note>"] if note.strip() else [])])  # fmt: skip
     data = {"step": STEP, "project_id": project.id, "system": system, "prompt": text,
             "part": part, "count": count, "note": note.strip()}  # fmt: skip
-    return enqueue(db, user, "write-claude", data, project=project, provider="claude")
+    from app.routes.freestyles import held_for  # an editor's on a Freestyle video: the owner's
+
+    wait = held_for(db, user, project)  # OK first, as any Freestyle send; then it runs
+    return enqueue(db, user, "write-claude", data, project=project, provider="claude", wait=wait)
 
 
 def save(db: Session, job: Job) -> None:
@@ -178,7 +181,7 @@ def _make(db: Session, user: User, source_: Project, option: VideoVariation, cli
     letter = f"{was['letter']}{taken + 1}" if was else chr(ord("A") + taken % 26)
     base = title.rsplit(" · variation ", 1)[0] if was else title
     chain = [*((was or {}).get("chain") or []), source_.id]
-    video, frames = _copy(db, user, source_, f"{base[:100]} · variation {letter}", clips)
+    video, frames = _copy(db, user, source_, f"{_short(base)} · variation {letter}", clips)
     line = _new_words(db, user, video, option, clips, asked["note"])
     told, seen = (_newest(db, source_, step) for step in ("treatment", "review_stills"))
     _job(db, user, video, told, {SOURCE: {"id": source_.id, "letter": letter, "chain": chain}},
@@ -230,6 +233,13 @@ def _copy(db: Session, user: User, src: Project, name: str,
         _row(db, h, project_id=video.id)
     db.flush()
     return video, frames
+
+
+def _short(title: str, most: int = 100) -> str:
+    """The title, cut at a word to fit beside " · variation A1" (a name holds 120)."""
+    if len(title) <= most:
+        return title
+    return title[: most - 1].rsplit(" ", 1)[0].rstrip(" ,·—-") + "…"
 
 
 def _newest(db: Session, project: Project, step: str) -> Job | None:

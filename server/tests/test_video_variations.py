@@ -218,3 +218,51 @@ def test_releasing_an_unfinished_variation_keeps_its_sources_hold_on_the_version
     db.expire_all()
     assert draft.reserved_by_id == holder and db.get(Project, pid).script_draft_id == draft.id
     assert owner.post(f"/projects/{video.id}/restore").status_code == 200  # Undo still works
+
+
+def test_an_editors_variations_of_a_freestyle_video_wait_for_the_owner(app, db, owner, editor,
+                                                                      monkeypatch):  # fmt: skip
+    """QA on #1491 (rule 5): every editor send in Freestyle waits for Reed. Make variations on
+    an editor's Freestyle video is held, nothing spent, until the owner's OK runs the ideas
+    call; each variation's run then waits on the owner's OK too. Its name is cut at a word."""
+    from app import asks
+    from app.models.accounts import User
+    from app.models.freestyles import Freestyle
+    from app.routes.freestyles import HELD
+    from tests.test_freestyle_dialogue import BODY
+    from tests.test_freestyle_dialogue import _run as fs_run
+
+    monkeypatch.setattr(director, "own_limit", lambda: director.OWN_CREDITS * 2)
+    long = "and the chart keeps climbing while everyone at the table laughs at me again, " * 3
+    text = "\n".join(f"{who}: {first}, {long}so." for who, first in (  # two clips or more
+        ("MIA", "The market opened"), ("LEO", "We were ready"), ("MIA", "It dipped"),
+        ("LEO", "We bought")))  # fmt: skip
+    made = editor.post("/freestyles", json={**BODY, "text": text}).json()
+    fs_run(app, db, ticks=4, start=False)
+    (first,) = owner.get("/jobs", params={"status": "needs_owner_approval"}).json()
+    assert owner.post(f"/jobs/{first['id']}/approve").status_code == 200
+    fs_run(app, db)
+    fs = db.get(Freestyle, made["id"])
+    title = "A very long title for a freestyle video that goes on and on about the market " * 2
+    editor.patch(f"/freestyles/{fs.id}", json={"title": title[:118]})
+    pid = fs.project_id
+    since = _last_job(db)
+    asked = editor.post(f"/projects/{pid}/variations", json={"count": 2, "part": "hook"})
+    assert asked.status_code == 201, asked.text
+    _run(app, db, ticks=6, start=False)
+    assert asked.json()["state"] == "held" and editor.get(  # nothing ran or was charged
+        f"/projects/{pid}/variations").json()["state"] == "held"  # fmt: skip
+    (ideas,) = db.query(Job).filter(Job.id > since).all()
+    assert ideas.status == JobStatus.needs_owner_approval and ideas.input.get("held") == HELD
+    assert owner.post(f"/jobs/{ideas.id}/approve").status_code == 200  # the owner's OK
+    _run(app, db, ticks=8, start=False)
+    videos = [db.get(Project, v["id"]) for v in owner.get(
+        f"/projects/{pid}/variations").json()["videos"]]  # fmt: skip
+    assert len(videos) == 2
+    for video in videos:
+        assert director.turns(db, video)[0].input[director.RUN]["hold"] == HELD
+        maker = db.get(User, video.created_by_id)
+        assert not maker.is_owner and asks.start_hold(db, maker, video) == HELD  # later runs
+        stem = video.name.rsplit(" · variation ", 1)[0]
+        assert stem.endswith("…") and title.startswith(stem[:-1])  # cut at a word
+        assert title[len(stem) - 1] == " "
