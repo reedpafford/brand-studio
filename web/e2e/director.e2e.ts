@@ -53,9 +53,15 @@ test("at 390, an editor presses Make it and the director delivers the finished c
   await ed.getByLabel("Tell the director what to change").fill("Make clip 1 slower.");
   await ed.getByRole("button", { name: "Send to the director" }).click();
   await expect(thread.getByText("Make clip 1 slower.")).toBeVisible();
+  // The revision runs and delivers again: one more delivery note than before. On the stand-ins it can finish before the
+  // header's Working is ever looked at (the page follows a run within 3 s since #1485), so the test waits on the run.
+  type Read = { status: string; thread: { note?: object | null }[] };
+  const read = async () => (await (await page.request.get(`/api/projects/${pid}/director`)).json()) as Read;
+  const notes = (r: Read) => r.thread.filter((t) => t.note).length;
+  const before = notes(await read());
   await makeIt(page, pid); // its start card again
-  await expect(ed.getByRole("banner").getByText(/^Working/)).toBeVisible();
-  await expect(ed.getByRole("banner").getByText(/^Delivered$/)).toBeVisible({ timeout: 200_000 });
+  await expect.poll(async () => { const r = await read(); return r.status === "delivered" && notes(r) > before; }, { timeout: 200_000 }).toBe(true);
+  await expect(ed.getByRole("banner").getByText(/^Delivered$/)).toBeVisible({ timeout: 30_000 });
   const sizes = await ed.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });
