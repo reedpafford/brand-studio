@@ -7,8 +7,9 @@ first piece's, drawn once with them at rest (`NEUTRAL`), given as [Image1] to ev
 remakes and revisions included. Automatic in the UGC style; any style when a note or the brief
 asks for one spot (`ONE_SPOT`). The plan may give a piece its own opening picture (`own_frame`,
 saying why: an insert of the phone screen, B-roll), and a piece whose first shot shows a screen
-keeps its own; a one-spot note overrides both. A narrated video's talker is HeyGen's, already
-one still for the whole narration (app/talker.py)."""
+keeps its own; a one-spot note overrides both. A piece that already has its own drawn still
+(a video made before this) keeps it: only new storyboards share. A narrated video's talker is
+HeyGen's, already one still for the whole narration (app/talker.py)."""
 
 import re
 
@@ -21,11 +22,12 @@ NEUTRAL = (
     "anything happens: looking straight into the lens, mouth closed, a relaxed face, hands "
     "relaxed and low and empty (filming themselves: the phone held steady at arm's length)."
 )
-ONE_SPOT = re.compile(
-    r"\b(?:one|same|single)\s+(?:spot|place|position|location|angle|set-?up)\b"
-    r"|\b(?:stationary|static|fixed|locked[- ]off)\s+camera\b"
-    r"|\bcamera\s+(?:stays?|still|fixed|locked|in\s+one)\b"
-    r"|\bsame\s+(?:start(?:ing)?|first|opening)\s+(?:frame|still|shot)\b",
+ONE_SPOT = re.compile(  # only a clear ask: "the camera stays on her face" isn't one (QA)
+    r"\bcamera\s+(?:stays?\s+|is\s+)?in\s+(?:one|the\s+same|a\s+single)\s+"
+    r"(?:spot|place|position)\b"
+    r"|\b(?:stationary|static|locked[- ]off)\s+camera\b"
+    r"|\bsame\s+(?:start(?:ing)?|opening|first)\s+frame\b"
+    r"|\b(?:don'?t|do\s+not|never)\s+move\s+the\s+camera\b",
     re.I,
 )
 
@@ -44,7 +46,8 @@ def _talker(shots: list[dict]) -> str | None:
 
 def followers(data: dict | None, ugc: bool, forced: bool) -> dict[str, str]:
     """Each piece that opens on another's still -> that piece: the first piece of the same
-    talker in the same place (any place, `forced`)."""
+    talker in the same place. `forced` (a one-spot note) overrides the style, `own_frame` and
+    the screen rule, never the place (QA: a night-park piece opened on the kitchen still)."""
     if not data or not (ugc or forced):
         return {}
     shots = {s["id"]: (s, sc) for sc in data.get("scenes", []) for s in sc.get("shots", [])}
@@ -57,7 +60,7 @@ def followers(data: dict | None, ugc: bool, forced: bool) -> dict[str, str]:
             continue
         opens, scene = mine[0]
         place = opens.get("place_id") or re.sub(r"\W+", " ", scene.get("heading", "")).lower()
-        key = (who, "" if forced else place.strip())
+        key = (who, place.strip())
         if key in first:
             out[clip["id"]] = first[key]
         else:
@@ -76,6 +79,20 @@ def shared(db: Session, project: Project | None, data: dict | None = None) -> di
         data = (row.data if (row := newest(db, project)) else None) if project.id else None
     ugc = looks.base(project.look or looks.DEFAULT) in talker.LOOKS
     return followers(data, ugc, one_spot(project))
+
+
+def sharing(db: Session, project: Project) -> dict[str, str]:
+    """`shared` on the newest plan, but a piece with a still of its own keeps it."""
+    from sqlalchemy import select
+
+    from app.clip_prompts import newest
+    from app.models.storyboards import StoryboardFrame
+
+    if (bd := newest(db, project)) is None:
+        return {}
+    own = set(db.scalars(select(StoryboardFrame.clip_id).where(
+        StoryboardFrame.breakdown_id == bd.id, StoryboardFrame.file_id.is_not(None))))  # fmt: skip
+    return {c: lead for c, lead in shared(db, project, bd.data).items() if c not in own}
 
 
 def opening(data: dict, clip_id: str) -> str | None:

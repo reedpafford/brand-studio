@@ -4,8 +4,9 @@ be using the same starting frame - as long as the hands are in like a neutral po
 car. Stand-ins only: no paid calls."""
 
 import copy
+from types import SimpleNamespace
 
-from app import one_frame, storyboard
+from app import clip_prompts, one_frame, storyboard
 from app.clip_takes import take_input
 from app.models.breakdowns import BreakdownVersion
 from app.models.clips import ProjectClip
@@ -15,7 +16,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import ScriptDraft
 from app.models.storyboards import StoryboardFrame
-from app.routes.estimate import version_cost
+from app.routes.estimate import _shots, version_cost
 from tests.conftest import first_brand
 from tests.test_breakdown import _shot
 from tests.test_cast_roles import _video
@@ -117,8 +118,36 @@ def test_an_insert_keeps_its_own_frame(owner, editor, db):
 
 def test_the_owners_one_spot_note_puts_every_talker_piece_on_it(owner, editor, db):
     project, _ = _ugc(owner, editor, db, look="house", own="an insert of the phone")
-    project.director_chat = [{"by": 1, "text": "Keep the camera in one spot please."}]
-    assert one_frame.shared(db, project) == {"c2": "c1", "c3": "c1"}  # the B-roll c4 stays
+    for loose in ("The camera stays on her face.", "The camera still pans to the door.",
+                  "Use the same angle as clip 2.", "Set in one location."):  # fmt: skip
+        project.director_chat = [{"by": 1, "text": loose}]
+        assert one_frame.shared(db, project) == {}  # not an ask for one spot
+    for ask in ("Keep the camera in one spot please.", "A static camera.", "Don't move the "
+                "camera.", "Use the same starting frame for every clip."):  # fmt: skip
+        project.director_chat = [{"by": 1, "text": ask}]
+        assert one_frame.shared(db, project) == {"c2": "c1", "c3": "c1"}  # the B-roll c4 stays
+    data = copy.deepcopy(_newest(db, project).data)  # c3 at night in the park: its own place
+    data["scenes"].append({**data["scenes"][0], "id": 2, "heading": "EXT. PARK — NIGHT",
+                           "shots": [data["scenes"][0]["shots"].pop(2)]})  # fmt: skip
+    assert one_frame.shared(db, project, data) == {"c2": "c1"}  # the place always counts
+
+
+def test_a_video_made_before_keeps_each_pieces_own_still(owner, editor, db):
+    """QA on #1494: a finished UGC video whose pieces each have a still never goes out of date."""
+    project, data = _ugc(owner, editor, db)
+    files = [StoredFile(workspace_id=project.workspace_id, key=f"still-{c['id']}", size=1,
+                        filename="still.png", content_type="image/png", sha256="0" * 64)
+             for c in data["clips"]]  # fmt: skip
+    db.add_all(files)
+    db.flush()
+    for clip, still in zip(data["clips"], files, strict=True):
+        db.add(StoryboardFrame(project_id=project.id, breakdown_id=_newest(db, project).id,
+                               clip_id=clip["id"], shot_id=clip["shot_ids"][0], prompt="x",
+                               reference_ids=[], file_id=still.id))  # fmt: skip
+    db.commit()
+    known = clip_prompts.assets(db, project)
+    assert [known[f"frame:c{n}"][2] for n in (1, 2, 3)] == [[f.id] for f in files[:3]]
+    assert one_frame.sharing(db, project) == {}
 
 
 def test_the_estimate_counts_one_still(owner, editor, db):
@@ -126,6 +155,8 @@ def test_the_estimate_counts_one_still(owner, editor, db):
     stage = next(s for s in owner.get(f"/projects/{project.id}/estimate").json()["stages"]
                  if s["stage"] == "storyboard")  # fmt: skip
     assert stage["note"].endswith(" 2 stills")  # c1's, shared by c2 and c3, and c4's
+    pieces = [SimpleNamespace(clip_id=c) for c in ("c2", "c3")]  # a revision remaking them
+    assert (_shots(db, project, pieces), _shots(db, project, pieces, looks=1)) == (0, 1)
     draft = db.get(ScriptDraft, project.script_draft_id)
     shared = version_cost(db, draft, project)  # the start card's, from the video's own plan
     apart = copy.deepcopy(data)
@@ -139,7 +170,7 @@ def test_the_estimate_counts_one_still(owner, editor, db):
 
 def test_a_remake_of_one_piece_reuses_the_shared_still(owner, editor, db):
     project, data = _ugc(owner, editor, db, look="house")  # where Mia's sheet is drawn
-    project.goal = "Her in one spot, talking to the camera."
+    project.goal = "Her talking to us, the camera in one spot."
     frames = {f.clip_id: f for f in _storyboard(db, project, data)}
     frames["c1"].file_id = still = db.query(StoredFile).order_by(StoredFile.id).first().id
     bd = _newest(db, project)

@@ -228,21 +228,23 @@ def _work(db: Session, video: Project, change: tuple[list[ProjectClip], int],
     made = [c for c in clips if c not in edit]
     return (
         looks * look_price(db, ws)
-        + _shots(db, video, made) * _still(db, ws, video)
+        + _shots(db, video, made, looks) * _still(db, ws, video)
         + clip_takes.takes_price(db, video, made)
         + sum((clip_takes.take_credits(db, video, c, edit=True) for c in edit), Decimal(0))
     )
 
 
-def _shots(db: Session, video: Project, clips: list[ProjectClip]) -> int:
+def _shots(db: Session, video: Project, clips: list[ProjectClip], looks: int = 0) -> int:
     """The stills these clips' shots are drawn from (each drawn again), but the one a talker's
-    pieces in one spot share, which they keep (app/one_frame.py)."""
+    pieces in one spot share (app/one_frame.py): kept, or drawn once when a look changes."""
     bd = clip_prompts.newest(db, video)
     ids = {c.clip_id for c in clips}
-    shared = one_frame.shared(db, video, bd.data) if bd else {}
-    keep = {*shared, *shared.values()}
-    return sum(len(c["shot_ids"]) - (c["id"] in keep)
+    shared = one_frame.sharing(db, video)
+    groups = {lead for c, lead in shared.items() if c in ids or lead in ids}
+    keep = {*shared, *groups}
+    each = sum(len(c["shot_ids"]) - (c["id"] in keep)
                for c in (bd.data.get("clips", []) if bd else []) if c["id"] in ids)  # fmt: skip
+    return each + (len(groups) if looks else 0)
 
 
 def _looks(db: Session, project: Project) -> tuple:

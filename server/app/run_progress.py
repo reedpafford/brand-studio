@@ -192,7 +192,7 @@ class _Video:
             if f.file_id:
                 self.frames.setdefault(f.clip_id, f.file_id)
         for clip_id, lead in one_frame.shared(db, project, bd.data if bd else {}).items():
-            if lead in self.frames:  # it opens on its talker's one still
+            if lead in self.frames and clip_id not in self.frames:  # its talker's one still
                 self.frames[clip_id] = self.frames[lead]
         mine = TakeSeen.user_id == (viewer.id if viewer else 0)
         seen = select(TakeSeen.take_id).where(mine, TakeSeen.take_id.in_(tids))

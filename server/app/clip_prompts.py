@@ -256,8 +256,8 @@ def assets(db: Session, project: Project) -> Assets:
     for f in frames:
         key = f"frame:{f.clip_id}"
         out.setdefault(key, (f"{key} | storyboard frame | clip {f.clip_id}", "image", [f.file_id]))
-    for clip_id, lead in one_frame.shared(db, project).items():  # its talker's one still
-        if f"frame:{lead}" in out:
+    for clip_id, lead in one_frame.shared(db, project).items():  # its talker's one still,
+        if f"frame:{lead}" in out and f"frame:{clip_id}" not in out:  # unless it has its own
             line = f"frame:{clip_id} | storyboard frame | clip {clip_id}, the same still as {lead}"
             out[f"frame:{clip_id}"] = (line, "image", out[f"frame:{lead}"][2])
     for char_id in project.cast_ids:
