@@ -460,15 +460,16 @@ def shows(role: str, shot, roles: list[str], off: bool = False, here: bool = Tru
     V.O. or O.S.; not in a reaction shot of someone else among `roles`), or the action names
     it; named only as an owner ("Nate's ring") unless the plan shows the role only at other
     places (`here` false: video 276's "an echo of Granny's pats" in the truck lot, Granny
-    only ever in the barn)."""
-    from app.cast_roles import labels, named
+    only ever in the barn). Named only in a quote or as someone talked about (`seen`) isn't
+    shown (video 315)."""
+    from app.cast_roles import labels, named, seen
 
-    seen = f"{shot.action} {shot.reaction or ''}"
-    reacting = [r for r in roles if r != role and named(r, seen)]
+    shown = seen(f"{shot.action} {shot.reaction or ''}")
+    reacting = [r for r in roles if r != role and named(r, shown)]
     speaks = bool(shot.speaker) and labels(shot.speaker, role) and not off
-    speaks = speaks and not (reacting and not named(role, seen))  # a reaction shot
-    action = shot.action if here else POSSESSIVE.sub("", shot.action)
-    return speaks or named(role, action)
+    speaks = speaks and not (reacting and not named(role, shown))  # a reaction shot
+    action = seen(shot.action)
+    return speaks or named(role, action if here else POSSESSIVE.sub("", action))
 
 
 def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[str, list[str]]:
@@ -714,6 +715,7 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
     so they get a look and the cast and places OK covers them (video 281: Danny, Marcus's
     brother-in-law, in four B-roll clips, was no role and drifted from clip to clip). Named
     in one clip only, they're a one-off: drawn as part of the scene, never a paid look. Only
+    talked about (a quote, "an impression of Danny": `cast_roles.seen`), never a role (315). Only
     someone the script treats as a person (a speaker's label, or someone a line speaks to:
     "MARCUS: Danny, you were right."), or, in a song or a narrated video where nobody has a
     label, someone the brief, a note or the treatment describes as a being ("Bruno (a young
@@ -724,6 +726,7 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
     (QA on #1466: "Iron Paws", "Robinhood", "Resilia"), a word before another capitalised one,
     a day or a holiday, or someone already in the cast. The names added."""
     from app.cast_roles import all_slots, same
+    from app.cast_roles import seen as shown
     from app.models.library import Kind, LibraryItem
     from app.models.script_library import ScriptDraft
     from app.storyboard import cast_looks
@@ -736,7 +739,7 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
     for shot in (s for scene in bd.scenes for s in scene.shots):
         mid = r"(?<=[a-z,] )([A-Z][a-z]{2,})\b(?!\s+[A-Z])"  # mid-sentence, or at its start
         first = r"(?:^|(?<=[.!?] ))([A-Z][a-z]{2,})(?='s\b| [a-z]+s\b)"  # as "Maya's hand"
-        for found in re.finditer(f"{mid}|{first}", shot.action):
+        for found in re.finditer(f"{mid}|{first}", shown(shot.action)):  # shown, never named
             seen.setdefault(found[1] or found[2], set()).add(clip_of.get(shot.id, shot.id))
     items = db.scalars(select(LibraryItem.name).where(  # its places and products
         LibraryItem.workspace_id == project.workspace_id,
@@ -748,7 +751,7 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
 
     told = [project.goal or "", *(m.get("text") or "" for m in project.director_chat or []),
             *_story(db, project)]  # fmt: skip
-    actions = " ".join(s.action for scene in bd.scenes for s in scene.shots)
+    actions = " ".join(shown(s.action) for scene in bd.scenes for s in scene.shots)
     out = []
     for name, clips in seen.items():
         if (len(clips) < 2 or CALENDAR.match(name) or any(same(name, k) for k in known)

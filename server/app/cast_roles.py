@@ -157,6 +157,21 @@ def named(role: str, text: str) -> bool:
     )
 
 
+TALKED_ABOUT = re.compile(  # words said aloud, and someone only spoken of or copied
+    r"[“\"][^”\"]*[”\"]|‘[^’]*’|(?<!\w)'.*?'(?!\w)|\b(?:(?:impression|imitation|"
+    r"impersonation|parody|caricature)s? of|like|about)\s+(?:the\s+)?[A-Z][\w'’-]*"
+)
+
+
+def seen(action: str) -> str:
+    """The words of a shot's action that put someone on screen (Reed, 9 Nov: trust the
+    plan; a clip shows who its shots show, never who a line names). Quoted words and someone
+    it's only about are taken out: video 315's "a cruel impression of Danny", "like the Danny
+    he mocked" and "on 'Danny, you were right'" never put Danny, who is never on screen, in
+    the car with Marcus."""
+    return TALKED_ABOUT.sub("", action)
+
+
 LABEL = re.compile(r"^\s*([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:")  # "NATE:" or "NATE (V.O.):"
 
 
@@ -297,18 +312,22 @@ def bare(text: str, name: str) -> str:
 def carry_clips(db: Session, project: Project, old_row, new_row) -> int:
     """Clip prompts follow a recast like frames (free, no model call): a clip whose shots
     only changed who plays a role moves to the new breakdown with its references, the look's
-    name and description swapped. Its takes stay (they show the old cast, so it isn't
-    approved any more). Others stay behind as stale, for clip_prompts.follow. How many moved."""
+    name and description swapped; one whose shots only lost someone (remove-ref) moves with
+    that person's sheet and words taken out (`with_cast`; video 315: Danny stayed attached).
+    Its takes stay (they show the old cast, so it isn't approved any more). Others stay
+    behind as stale, for clip_prompts.follow. How many moved."""
+    from app.clip_prompts import as_written, with_cast
     from app.models.clips import ProjectClip
     from app.prompts.schemas import Breakdown
 
     old, new = Breakdown.model_validate(old_row.data), Breakdown.model_validate(new_row.data)
     swaps, renamed = _swaps(old, new), _renamed(old, new)
+    out = {c["shot_id"] for c in changed_shots(old, new) if set(c["after"]) < set(c["before"])}
     clips = {c.id: c.shot_ids for c in new.clips}
     moved, names = 0, {}
     for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == old_row.id)):
         to = renamed.get(clip.clip_id)  # regrouped (a split): written again
-        if to is None or any(swaps.get(s, {}) is None for s in clips[to]):
+        if to is None or any(swaps.get(s, {}) is None and s not in out for s in clips[to]):
             continue
         swap = {k: v for s in clips[to] for k, v in (swaps.get(s) or {}).items()}
         names[clip.clip_id] = to
@@ -317,6 +336,10 @@ def carry_clips(db: Session, project: Project, old_row, new_row) -> int:
         if swap:
             clip.references = [{**r, "id": swap.get(r["id"], r["id"])} for r in clip.references]
             clip.prompt = _recast(db, clip.prompt, swap)
+            clip.approved = clip.prompt_ok = False
+        if clip.prompt and out & set(clips[to]):  # who was taken out goes, free
+            now = with_cast(db, project, as_written(clip), new)
+            clip.prompt, clip.references = now.prompt, [r.model_dump() for r in now.references]
             clip.approved = clip.prompt_ok = False
     from app import cut_edits
 
