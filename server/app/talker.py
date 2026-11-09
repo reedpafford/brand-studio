@@ -1,11 +1,12 @@
-"""The UGC talker (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes."). In a Presenter
-video in the UGC style the host isn't keyed into a corner: one still of the talker in their own
-room, then ONE HeyGen Avatar IV take of the whole narration (the voice picked at their audition,
-app/audition.py, with its room sound, app/room.py), lip-synced from that still (app/host.py
-makes both, priced like takes). The
-plan's talker shots (in a narration, `sung`: the talker says that stretch to the lens) are cut
-from that take at the final cut; every other shot is B-roll cut in over the voice, so the cut
-alternates talker and B-roll. Settings from HeyGen's docs and the paid tests (batch-b,
+"""The talker. A UGC presenter who talks to camera full screen is filmed on Omni 1.2 speaking
+for themself (Reed, 9 Nov; app/omni_talker.py). A presenter who talks to camera in another
+style (Reed, 3 Nov: "Heygen for still imaged UGC talking, yes.") isn't keyed into a corner: one
+still of the talker in their own room, then ONE HeyGen Avatar IV take of the whole narration
+(the voice picked at their audition, app/audition.py, with its room sound, app/room.py),
+lip-synced from that still (app/host.py makes both, priced like takes). The plan's talker
+shots (in a narration, `sung`: the talker says that stretch to the lens) are cut from that take
+at the final cut; every other shot is B-roll cut in over the voice, so the cut alternates
+talker and B-roll. Settings from HeyGen's docs and the paid tests (batch-b,
 .context/team/research/ugc-realism.md; th-20s, .context/tests/th-20s/REPORT.md; 293,
 team/round2/UGC-DIAGNOSIS.md): type image, 720p, expressiveness from the read's mood
 (`expressiveness`), and a motion prompt the director writes for this narration's emotion and
@@ -70,8 +71,8 @@ TOO_LONG = "The narration runs past HeyGen's 10 minutes. Shorten the script to m
 
 
 def on(db: Session, project: Project) -> bool:
-    """A Presenter video whose presenter talks to camera in their own room (its style's start
-    for UGC, or chosen for the video: app/host.how)."""
+    """A Presenter video whose presenter talks to camera in their own room on HeyGen (chosen
+    for a video in a style other than UGC: app/host.how; a UGC one is app/omni_talker's)."""
     from app import host
 
     return host.on(db, project) and host.how(project) == "talks"

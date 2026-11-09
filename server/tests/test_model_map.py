@@ -1,12 +1,12 @@
-"""Reed's model map (4 Nov, changed 6 Nov: a UGC talker in one spot on HeyGen, everything else
-in UGC on Omni 1.2, the animated styles on Seedance) and the v6 model moves: each clip's model
-and why; the director's per-clip model and its
-settings switch from the chat (a person's own choice stays); how a presenter appears, per video
+"""Reed's model map (4 Nov, changed 6 Nov and 9 Nov: a UGC talker in a corner on HeyGen, one
+on camera and everything else in UGC on Omni 1.2, the animated styles on Seedance) and the v6
+model moves: each clip's model and why; the director's per-clip model and its settings switch
+from the chat (a person's own choice stays); how a presenter appears, per video
 (Reed's L3). Stand-ins only: no paid calls."""
 
 import pytest
 
-from app import director_tools, host, model_map, settings_move, talker
+from app import director_tools, host, model_map, omni_talker, settings_move, talker
 from app.breakdown import video_model
 from app.catalogue import get_model
 from app.clip_takes import take_input
@@ -25,8 +25,8 @@ def songs_on(monkeypatch):
 
 
 @pytest.fixture
-def ugc(app, db, owner):
-    """A delivered UGC presenter video: a HeyGen talker and its B-roll."""
+def ugc(app, db, owner, heygen_talker):
+    """A delivered presenter video in the UGC look: a HeyGen talker and its B-roll."""
     body = {"type": "presenter", "look": "ugc", "shape": "9:16", "text": LINES,
             "brand_id": first_brand(owner)}  # fmt: skip
     fs = owner.post("/freestyles", json=body).json()
@@ -180,12 +180,14 @@ def test_a_clip_or_take_still_on_omni_1_1_reads_as_the_videos_model_not_a_crash(
     assert next(t for t in row["takes"] if t["id"] == take.id)["model"] == "gemini-omni-1.1"
 
 
-def test_a_ugc_talker_in_one_spot_is_heygen_one_who_moves_and_the_broll_are_omni(
-    app, db, owner, ugc
+def test_a_ugc_talker_on_camera_is_omni_in_a_corner_heygen_and_the_broll_omni(
+    app, db, owner, ugc, monkeypatch
 ):
-    """Reed, 6 Nov: a UGC talker in one spot the whole time (talks to camera, or in a corner)
-    is HeyGen Avatar IV with our MiniMax voice, and Omni 1.2 makes only the B-roll; a talker
-    who moves around in the story (acts) is made on Omni 1.2; UGC's B-roll is always Omni 1.2."""
+    """Reed, 6 Nov, changed 9 Nov: a UGC talker in a corner over the B-roll is HeyGen Avatar IV
+    with our MiniMax voice, and Omni 1.2 makes only the B-roll; one who talks to camera full
+    screen is filmed on Omni 1.2 speaking for themself (tests/test_omni_talker.py), as is one
+    who moves around in the story (acts); UGC's B-roll is always Omni 1.2. A HeyGen talker in
+    their own room (as outside UGC) keeps their clips on its take."""
     from app import narration
     from app.models.script_library import ScriptDraft
     from app.models.songs import SongTake
@@ -201,7 +203,6 @@ def test_a_ugc_talker_in_one_spot_is_heygen_one_who_moves_and_the_broll_are_omni
         return _move(app, db, ugc, tool="clip_model", clip_id=clip.clip_id, model=model, why="x")
 
     shown = {c["clip_id"]: c["model"] for c in owner.get(f"/projects/{ugc.id}/clips").json()}
-    assert host.how(ugc) == "talks"  # the UGC style's start: in one spot
     assert shown[talking.clip_id]["id"] == talker.MODEL  # cut from the one HeyGen take
     assert shown[broll.clip_id] | {"why": ""} == {"id": model_map.OMNI, "name": "Gemini Omni 1.2",
                                                  "by": "map", "why": ""}  # fmt: skip
@@ -210,10 +211,14 @@ def test_a_ugc_talker_in_one_spot_is_heygen_one_who_moves_and_the_broll_are_omni
     assert db.get(SongTake, ugc.song_take_id).voice in narration.MINIMAX_VOICES
     assert move(talking, model_map.OMNI) == model_map.SAYS_IT
     assert move(broll, "seedance-2.5") == model_map.REAL
-    ugc.presenter = "corner"  # still in one spot: one HeyGen take keyed over the B-roll
+    monkeypatch.undo()  # in UGC, the style's start: talks to camera full screen, on Omni
+    assert host.how(ugc) == "talks" and host.run_price(db, draft, 10) == 0  # a new video's
+    assert not omni_talker.on(db, ugc) and host.on(db, ugc)  # its voice track came first
+    assert made_on(broll) == model_map.OMNI
+    ugc.presenter = "corner"  # in one spot: one HeyGen take keyed over the B-roll
     db.flush()
     assert host.on(db, ugc) and host.run_price(db, draft, 10, ugc) > 0
-    assert made_on(broll) == model_map.OMNI
+    assert not omni_talker.on(db, ugc) and made_on(broll) == model_map.OMNI
     ugc.presenter = "acts"  # moves around in the story: no HeyGen take, their shots on Omni
     db.flush()
     assert not host.on(db, ugc) and host.run_price(db, draft, 10, ugc) == 0

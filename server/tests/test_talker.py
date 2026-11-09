@@ -41,6 +41,9 @@ LINES = ("Every morning starts the same.\nThe bowl, the wait, the wag.\nIron Paw
          "worth waiting for.")  # fmt: skip
 
 
+pytestmark = pytest.mark.usefixtures("heygen_talker")  # the HeyGen talker, as outside UGC
+
+
 @pytest.fixture(autouse=True)
 def songs_on(monkeypatch):
     monkeypatch.setattr("app.director_song._on", lambda db, draft: True)

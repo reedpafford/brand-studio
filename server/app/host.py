@@ -22,7 +22,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import guides, narration, take_watch, talker, watch_report
+from app import guides, narration, omni_talker, take_watch, talker, watch_report
 from app.credits import estimate
 from app.models.accounts import User
 from app.models.clips import HostPiece, ProjectClip
@@ -78,6 +78,8 @@ def hosted(script) -> bool:
 HOW = ("talks", "corner", "acts")
 ACTS = ("The presenter acts in the story: their shots are made like the B-roll, with no take of "
         "their own to make.")  # fmt: skip
+OMNI = ("The presenter talks to camera in their own clips, filmed on Omni 1.2: there's no "
+        "separate take of them to make. Make their clips' takes.")  # fmt: skip
 
 
 def how(project: Project) -> str:
@@ -97,8 +99,9 @@ def presents(db: Session, project: Project) -> bool:
 
 def on(db: Session, project: Project) -> bool:
     """A Presenter video whose presenter is one HeyGen take (talks or in a corner); one who
-    acts in the story has no take: their shots are made like the B-roll (app/model_map)."""
-    return presents(db, project) and how(project) != "acts"
+    acts in the story has no take: their shots are made like the B-roll (app/model_map), nor
+    does a UGC one who talks to camera full screen: their pieces are Omni's (omni_talker.on)."""
+    return presents(db, project) and how(project) != "acts" and not omni_talker.on(db, project)
 
 
 def _narration(db: Session, project: Project) -> SongTake | None:
@@ -185,13 +188,16 @@ def run_price(db: Session, draft: ScriptDraft, seconds: int, video=None,
     """A director run's "up to" for the host (rule 36): the still and every second of the
     narration in one HeyGen take, rounded up a second. A presenter who acts in the story has
     no take: their shots are made on the video's model like the B-roll (Omni 1.2 in UGC, Reed,
-    6 Nov), already in the takes' price. With `redos`, each made that many times again by its
-    watch (app/host_watch), as a run may."""
+    6 Nov), already in the takes' price, as are a UGC talker's own pieces (omni_talker.films).
+    With `redos`, each made that many times again by its watch (app/host_watch), as a run
+    may."""
     from app.models.script_library import Script
     from app.storyboard import image_model, still_credits
 
     script = db.get(Script, draft.script_id)
     if not hosted(script) or (video is not None and how(video) == "acts"):
+        return Decimal(0)
+    if omni_talker.films(script, video):  # filmed in their own Omni pieces: in the takes' price
         return Decimal(0)
     still = _still_price(db, video) if video is not None else still_credits(
         db, script.workspace_id, image_model(video))  # fmt: skip
@@ -352,7 +358,8 @@ def make(db: Session, user: User, project: Project, storage, number: int | None 
     from app.routes.jobs import enqueue
 
     if not on(db, project):
-        raise HTTPException(409, ACTS if presents(db, project) else NOT_PRESENTER)
+        said = OMNI if omni_talker.on(db, project) else ACTS
+        raise HTTPException(409, said if presents(db, project) else NOT_PRESENTER)
     take = _narration(db, project)
     if take is None:
         raise HTTPException(409, NO_NARRATION)

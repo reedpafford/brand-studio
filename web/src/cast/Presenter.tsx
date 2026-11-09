@@ -21,7 +21,7 @@ type Voice = { id: number | null; name: string; kind?: string; uses?: string | n
 type Voices = { voices: Voice[]; clone_credits: number; clone_usd: number | null };
 
 export const WAYS: { id: Way; title: string; made: string; line: string; now: string }[] = [
-  { id: "talks", title: "Talks to camera", made: "HeyGen from one still, with B-roll laid over parts", line: "Talks to camera, with B-roll laid over parts", now: "talks to camera" },
+  { id: "talks", title: "Talks to camera", made: "Omni in UGC (HeyGen in other styles), with B-roll laid over parts", line: "Talks to camera, with B-roll laid over parts", now: "talks to camera" },
   { id: "corner", title: "In a corner over the B-roll", made: "HeyGen, keyed over the B-roll", line: "Talks over the B-roll for the whole video", now: "sits in a corner over the B-roll" },
   { id: "acts", title: "Acts in the story", made: "Omni: moves, acts, talks to others", line: "Acts in the story", now: "acts in the story" },
 ];

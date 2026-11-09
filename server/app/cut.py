@@ -24,6 +24,7 @@ from app import (
     looks,
     narration,
     narration_music,
+    omni_talker,
     take_sound,
     talker,
     video_settings,
@@ -41,6 +42,7 @@ GONE = 0.05  # seconds: an ending trimmed this short drops its last piece
 LEAD, TAIL = 0.15, 0.3  # re-timed to the words: a breath before the first word and after
 SNAP = 0.5  # Snap to words: an edge this near a word's edge lands on it
 HOLD = 3.0  # seconds a narrated cut may run past its last word
+ON_START = 0.2  # seconds: B-roll this near a piece's start starts with it
 SIZES = {"small": 0.30, "medium": host_layer.HEIGHT, "large": 0.46}
 QUIETER, LOUDEST = 18.0, 30.0  # dB the music sits under the voice: default ("A lot"), most
 KINDS = ("trim", "retime", "split", "swap", "presenter", "music")
@@ -139,9 +141,16 @@ def _heard(db: Session, take: ClipTake | None) -> list[dict]:
 
 
 def base(db: Session, project: Project) -> dict:
-    """The cut as the picked takes make it, before any edit."""
+    """The cut as the picked takes make it, before any edit. An Omni talker's pieces meet with a
+    breath between them: each join from just after one's last word to just before the next's
+    first (a pause at each end of a piece became a gap); the video's first piece starts and its
+    last ends as made (rule 29: the ending has room to land). Their B-roll is laid over them
+    (`laid_over`), never a piece of its own."""
     voice, clips = song(db, project), rows(db, project)
     mode = "takes" if voice is None else "narrated" if voice.kind == narration.KIND else "song"
+    omni = omni_talker.on(db, project)
+    over, broll = omni_talker.cutaways(db, project, clips) if omni else ([], set())
+    clips = [r for r in clips if r.clip_id not in broll]
     if mode == "takes":
         lengths = [_take_seconds(db, db.get(ClipTake, r.picked_take_id) if r.picked_take_id
                                  else None, r.seconds) for r in clips]  # fmt: skip
@@ -153,10 +162,15 @@ def base(db: Session, project: Project) -> dict:
     synced = talker.clips(db, project)  # a talker's clips lip-sync the narration
     made = next(iter(host.rows(db, project)[1:]), None) if synced else None
     voiced = made.file_id if made else None  # the talker take in use (a take's made_with "talker")
-    for r, d in zip(clips, lengths, strict=False):
+    for i, (r, d) in enumerate(zip(clips, lengths, strict=False)):
+        heard = _heard(db, db.get(ClipTake, r.picked_take_id)) if omni and r.picked_take_id else []
+        frm = round(max(0.0, heard[0]["start"] - LEAD), 2) if heard and i else 0.0
+        end = min(d, heard[-1]["end"] + TAIL) if heard and i < len(clips) - 1 else d
+        d, whole = round(end - frm, 2), not frm and end == d
         pieces.append({"id": r.clip_id, "clip_id": r.clip_id, "take_id": r.picked_take_id,
                        "source": label(r.clip_id), "start": round(at, 2),
-                       "end": round(at + d, 2), "from": 0.0, "whole": mode == "takes",
+                       "end": round(at + d, 2), "from": frm,
+                       "whole": mode == "takes" and whole,
                        "edited": False, "director": False,
                        "lipsync": r.clip_id in synced,
                        **({"picture": round(d, 2), "voiced": voiced}
@@ -172,6 +186,7 @@ def base(db: Session, project: Project) -> dict:
         "music": None,
         "words": [],
         "seconds": float(voice.seconds or 0) if voice else None,
+        **({"over": over} if over else {}),
     }
     if host.on(db, project) and not talker.on(db, project):  # a talker is in its clips
         look = host.host_look(db, project)
@@ -196,6 +211,27 @@ def base(db: Session, project: Project) -> dict:
                        "quieter_db": QUIETER, "gaps": "rise", "loop": True, "removed": False,
                        "director": False}  # fmt: skip
     return tl
+
+
+def laid_over(tl: dict) -> list[dict]:
+    """The B-roll over an Omni talker's pieces (`omni_talker.cutaways`), in the cut's seconds
+    after its edits: each from where its line is said in the piece that plays it (from the
+    piece's start when that's within ON_START of it, so the talker never flashes up for a few
+    frames first), for its own length, ending where the next starts or the cut ends; one whose
+    words a trim cut out isn't shown. Picture only: the talker's voice runs on under it."""
+    out = []
+    for o in tl.get("over", []):
+        p = next((p for p in tl["pieces"] if p["clip_id"] == o["piece"]
+                  and o["at"] < p["from"] + p["end"] - p["start"]), None)  # fmt: skip
+        if p is not None:
+            at = max(p["start"] + o["at"] - p["from"], p["start"])
+            at = p["start"] if at - p["start"] < ON_START else round(at, 2)
+            out.append({"take_id": o["take_id"], "seconds": o["seconds"], "start": at})
+    out.sort(key=lambda o: o["start"])
+    for i, o in enumerate(out):
+        end = out[i + 1]["start"] if i + 1 < len(out) else tl["length"]
+        o["length"] = round(min(o.pop("seconds"), end - o["start"]), 2)
+    return [o for o in out if o["length"] >= MIN]
 
 
 def _bed_name(db: Session, voice: SongTake) -> str:

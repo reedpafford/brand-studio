@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import clip_prompts, clip_takes, one_frame
+from app import clip_prompts, clip_takes, omni_talker, one_frame
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -78,8 +78,9 @@ def broll_seconds(db: Session, script: Script, draft: ScriptDraft, video=None) -
     """A narrated version's B-roll at most (rule 36): a shot shorter than the clip model's
     shortest clip is made at that length (F7). With a plan, each of its shots at least that
     long; before one, the narration's length (`narration.longest`) times max(1, shortest / 2),
-    the references' median shot being about 2 s (Seedance x2, P-Video x1). The model is the
-    one the video's takes will use (`video_model`)."""
+    the references' median shot being about 2 s (Seedance x2, P-Video x1), and a UGC talker's
+    own Omni pieces, as long as the lines take (omni_talker.films), where HeyGen and our voice
+    track were. The model is the one the video's takes will use (`video_model`)."""
     from app import narration
 
     low = video_model(video, script.look, script.kind).duration.min
@@ -88,7 +89,8 @@ def broll_seconds(db: Session, script: Script, draft: ScriptDraft, video=None) -
     shots = [sh.get("seconds") or 0 for sc in plan.get("scenes", []) for sh in sc.get("shots", [])]
     if shots:
         return math.ceil(sum(max(s, low) for s in shots))
-    return math.ceil(narration.longest(db, draft, video) * max(1, low / 2))
+    said = narration.longest(db, draft, video)  # a UGC talker on Omni: their pieces as well
+    return math.ceil(said * max(1, low / 2)) + (said if omni_talker.films(script, video) else 0)
 
 
 def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
@@ -147,7 +149,8 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
              + clips * take_watch.per_take(db, ws))  # fmt: skip
     from app import director_song, host
 
-    audio = director_song.price(db, draft)  # a song or narration still to make, and one remake
+    # a song or narration still to make, and one remake; a UGC talker on Omni has none
+    audio = Decimal(0) if omni_talker.films(script, video) else director_song.price(db, draft)
     talks = host.run_price(db, draft, said, video, director.MAX_REDOS)  # on HeyGen, and remakes
     return (version_cost(db, draft, video) + audio + talks + director.MAX_REDOS * takes
             + director.own_limit())  # fmt: skip
@@ -187,7 +190,8 @@ def expected(db: Session, draft: ScriptDraft, video=None, ended: bool = False) -
         return Decimal(str(found["credits"]))
     seconds = quoted_seconds(db, draft, video)
     said = narration.longest(db, draft, video) if script.kind == "narrated" else seconds
-    audio = director_song.price(db, draft) / (1 + director_song.REMAKES)  # made once
+    made_once = director_song.price(db, draft) / (1 + director_song.REMAKES)
+    audio = Decimal(0) if omni_talker.films(script, video) else made_once  # a UGC talker has none
     talks = host.run_price(db, draft, said, video, 0)
     turns = TYPICAL_TURNS * estimate(db, ws, "write-claude", Decimal(1), {})
     return version_cost(db, draft, video) + audio + talks + turns + watch
