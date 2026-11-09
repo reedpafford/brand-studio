@@ -638,6 +638,14 @@ class Beat(BaseModel):
     picture: str = Field(description="What we see: something happening, readable with no sound.")
 
 
+class SpeakerVoice(BaseModel):
+    who: str = Field(description="The speaker as the script names them: 'Mom'.")
+    sounds: str = Field(
+        description="Their voice in a few plain words, no line or delivery: 'a woman in her "
+        "40s, low and warm, a slight rasp, unhurried'."
+    )
+
+
 class Treatment(BaseModel):
     hook: str = Field(description="The first 2 seconds: what we see and hear.")
     logline: str = Field(description="The story in one plain sentence.")
@@ -647,6 +655,11 @@ class Treatment(BaseModel):
     )
     ending: str = Field(
         description="The payoff, and the call to action when the script has one, and why they land."
+    )
+    voices: list[SpeakerVoice] = Field(
+        default_factory=list,
+        description="Each person who speaks on camera, once: their voice, which every clip "
+        "they speak in repeats word for word. Empty when no one speaks on camera.",
     )
 
 

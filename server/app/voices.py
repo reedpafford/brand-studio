@@ -585,6 +585,33 @@ def host_note(db: Session, project) -> str:
     return HOST_VOICE_GONE.format(who=item.name, name=voice.name)
 
 
+def on_omni(db: Session, project) -> list[tuple[list[str], str]]:
+    """Each speaker's voice on Omni 1.2, set once for the video, as (the names they go by, the
+    words every clip they speak in repeats exactly): Omni takes no voice, so its words are all
+    that keep a voice from drifting between clips (Reed, 9 Nov: "if you prompt the voice the
+    same for each clip, it should not vary that much"; docs/prompting/omni-1.2.md §4). A voice
+    saved on the character or presenter comes first, by its own description; then the
+    director's treatments, the first one to name a speaker setting their words for good."""
+    from app.cast_roles import cast_roles
+    from app.storyboard import cast_looks
+
+    roles, out = cast_roles(db, project), []
+    cast = {i.id: i for i in cast_looks(db, project)}
+    for item in (cast.get(i) or db.get(LibraryItem, i) for i in dict.fromkeys([*cast, *roles])):
+        saved = db.get(Voice, item.voice_id) if item and item.voice_id else None
+        if saved and saved.archived_at is None and mine(saved, project.workspace_id,
+                                                        project.brand_id):  # fmt: skip
+            said = " ".join(saved.description.split())
+            out += [([item.name, *(s.role for s in roles.get(item.id, []))], said)] if said else []
+    told = db.scalars(select(Job.output).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == "treatment",
+        Job.status == JobStatus.succeeded).order_by(Job.id))  # fmt: skip
+    for treatment in told:
+        out += [([v["who"]], " ".join(v["sounds"].split())) for v in (treatment or {}).get(
+            "voices") or [] if v.get("who") and (v.get("sounds") or "").strip()]  # fmt: skip
+    return out
+
+
 def for_director(db: Session, workspace_id: int, brand_id: int | None,
                  said: str | None) -> dict | None:  # fmt: skip
     """The saved voice a narration is (or will be) read in, as the director reads it."""
