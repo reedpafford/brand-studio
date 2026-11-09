@@ -4,7 +4,7 @@ import { ArrowUp, ChevronRight, CircleHelp, Clock, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
-import { Button, creditsLabel, wholeCredits } from "../components";
+import { Button, Segmented, creditsLabel, wholeCredits } from "../components";
 import { useFolders } from "../folders/Projects";
 import { SHAPES, sentTo } from "../freestyle/useFreestyle";
 import { notMadeAs, useLooks } from "../scripts/Looks";
@@ -27,8 +27,8 @@ const TABS: { id: Tab; name: string; phone: string }[] = [
   { id: "reel", name: "Use a reel", phone: "Use a reel" },
 ];
 const PLACEHOLDER = "Paste a script, or describe the video. “A Dr. Pickle rant about beer bellies, under a minute, ending on the capsule.”";
-export const box = "rounded-[14px] border border-border-strong bg-surface shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]";
-export const row = "flex flex-wrap items-center gap-2 border-t border-border px-3 pb-3 pt-2";
+export const box = "rounded-xl border border-border bg-surface shadow-soft transition-[border-color,box-shadow] duration-(--dur-fast) ease-out hover:border-border-button focus-within:border-accent focus-within:shadow-ring";
+export const row = "flex flex-wrap items-center gap-1.5 border-t border-border px-3 py-2.5";
 
 /** The press's label (rules 34, 36): the owner sees the most in dollars, an editor in credits; a held send goes to the owner. */
 export function pressWords(owner: boolean, est: Estimate | undefined, go = "Make it") {
@@ -45,26 +45,26 @@ export function Under({ owner, est, phone }: { owner: boolean; est: Estimate | u
   if (!owner && est.held) {
     const past = est.budget != null ? `Up to ${wholeCredits(est.credits)} credits is past this video’s budget of ${wholeCredits(est.budget)}, so it goes to the owner first. No generation starts while it waits.` : "The owner approves before any generation starts. You’ll see it in My requests.";
     return (
-      <span className="flex items-center gap-1 text-xs text-warning">
-        <Clock size={12} aria-hidden /> {past}
+      <span className="animate-fade flex items-center gap-1.5 text-xs text-warning">
+        <Clock size={12} aria-hidden className="shrink-0" /> {past}
       </span>
     );
   }
-  if (est.expected) return <span className="text-xs text-muted">An estimate of what it will probably cost. Nothing stops it at a limit here; what it really spends shows on the video.</span>;
+  if (est.expected) return <span className="animate-fade text-xs text-muted">An estimate of what it will probably cost. Nothing stops it at a limit here; what it really spends shows on the video.</span>;
   if (phone) return <span className="text-xs text-muted">The most it can charge, redos included</span>;
-  return <span className="text-xs text-muted">{owner ? "Most it can charge, including redos and the director’s time. Usually less." : "Inside this video’s budget, so it starts straight away."}</span>;
+  return <span className="animate-fade text-xs text-muted">{owner ? "Most it can charge, including redos and the director’s time. Usually less." : "Inside this video’s budget, so it starts straight away."}</span>;
 }
 
 /** The main press, with the most it can charge after a dot ("Make it · up to $16.86"). */
-export function Press({ owner, est, busy, disabled, onClick, go, wide }: { owner: boolean; est: Estimate | undefined; busy: boolean; disabled: boolean; onClick: () => void; go?: string; wide?: boolean }) {
+export function Press({ owner, est, busy, disabled, onClick, go, wide, shortcut }: { owner: boolean; est: Estimate | undefined; busy: boolean; disabled: boolean; onClick: () => void; go?: string; wide?: boolean; /** ⌘↵ sends from this box (the Paste tab only) */ shortcut?: boolean }) {
   const w = pressWords(owner, est, go);
   return (
-    <Button busy={busy} disabled={disabled} icon={w.held ? ArrowUp : undefined} onClick={onClick} className={`${wide ? "w-full" : "shrink-0 whitespace-nowrap"} lg:min-h-9 lg:px-3.5`}>
+    <Button busy={busy} disabled={disabled} icon={w.held ? ArrowUp : undefined} onClick={onClick} kbd={shortcut && !wide && !disabled ? "⌘↵" : undefined} className={`${wide ? "w-full" : "shrink-0 whitespace-nowrap"} lg:min-h-8 lg:px-3`}>
       {w.label}
       {!disabled && w.most && (
         <>
           {" "}
-          <span className="opacity-85">· {w.most}</span>
+          <span className="font-normal opacity-85">· {w.most}</span>
         </>
       )}
     </Button>
@@ -133,21 +133,13 @@ export function NewVideoPage() {
       <Chip label="Folder" icon={FolderIcon} value={folder ?? 0} options={[...folders.map((f) => ({ id: f.id, name: f.name })), { id: 0, name: "Unsorted" }]} onPick={(f) => setPicked({ ...picked, folder: f || null })} />
     </>
   );
-  const seg = (
-    <div role="tablist" aria-label="Start from" className="inline-flex gap-0.5 rounded-md bg-surface-2 p-0.5">
-      {TABS.map((t) => (
-        <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} onClick={() => setTab(t.id)} className={`h-11 lg:h-7 whitespace-nowrap rounded-[5px] px-3 text-sm font-medium ${t.id === tab ? "bg-surface text-text shadow-[0_1px_2px_rgb(28_27_25/0.06)]" : "text-muted hover:text-text"}`}>
-          {rail ? t.name : t.phone}
-        </button>
-      ))}
-    </div>
-  );
+  const seg = <Segmented label="Start from" items={TABS.map((t) => ({ id: t.id, name: rail ? t.name : t.phone }))} value={tab} onChange={setTab} fill={!rail} />;
   const error = sent.isError && <p role="alert" className="text-sm text-danger">{sent.error.message}</p>;
   const paste = (
     <>
       <div className={box}>
-        {rail && <div className="px-3 pt-2.5">{seg}</div>}
-        <div className="px-4 pb-2 pt-3.5">
+        {rail && <div className="px-3 pt-3">{seg}</div>}
+        <div className="px-4 pb-3 pt-3">
           <Words text={text} setText={setText} go={go} rail={rail} narrated={format?.engine === "narrated"} />
           <Attached files={files} />
         </div>
@@ -156,31 +148,31 @@ export function NewVideoPage() {
             <Attach files={files} onReel={() => setTab("reel")} />
             {chips(true)}
             <span className="flex-1" />
-            <Press owner={owner} est={est} busy={sent.isPending} disabled={empty} onClick={go} />
+            <Press owner={owner} est={est} busy={sent.isPending} disabled={empty} onClick={go} shortcut />
           </div>
         )}
       </div>
-      {rail && <div className="flex min-h-6 items-center px-1 py-1.5">{!empty && <Under owner={owner} est={est} />}</div>}
+      {rail && <div className="flex min-h-7 items-center justify-end px-1 pt-2">{!empty && <Under owner={owner} est={est} />}</div>}
     </>
   );
   const body =
     tab === "script" ? <SavedScripts brandId={brandId} owner={owner} folder={folder} broll={broll} seg={seg} rail={rail} onScript={setLocked} /> : tab === "reel" ? <Reel brandId={brandId} owner={owner} folder={folder} seg={seg} rail={rail} format={settings.type} formatName={format?.name} look={look} broll={broll} /> : paste;
   const picker = (
     <>
-      <section aria-label="Format" className={`flex flex-col gap-2 ${rail ? "" : "pt-1"}`}>
-        <div className="flex items-center gap-2">
+      <section aria-label="Format" className={`flex flex-col gap-3 ${rail ? "" : "pt-1"}`}>
+        <div className="flex items-baseline gap-2">
           <h2 className="text-sm font-semibold">Format</h2>
-          {rail && <span className="text-xs text-muted">{fixed ? "From the script" : "How the words are delivered"}</span>}
+          {rail && <span className="text-sm text-muted">{fixed ? "From the script" : "How the words are delivered"}</span>}
         </div>
         <FormatCards formats={formats} value={settings.type} onPick={pickFormat} small={!rail} locked={!!fixed} />
       </section>
-      <section aria-label="Style" className="relative flex flex-col gap-2">
-        <div className="flex items-center gap-2">
+      <section aria-label="Style" className="relative flex flex-col gap-3">
+        <div className="flex items-baseline gap-2">
           <h2 className="text-sm font-semibold">Style</h2>
-          {rail && <span className="text-xs text-muted">{fixed ? "From the script. The B-roll follows the style." : "How it looks and how the camera moves. The B-roll follows the style."}</span>}
+          {rail && <span className="text-sm text-muted">{fixed ? "From the script. The B-roll follows the style." : "How it looks and how the camera moves. The B-roll follows the style."}</span>}
           <span className="flex-1" />
           {rail && format?.host && look && (
-            <button type="button" aria-expanded={brolling} onClick={() => setBrolling(!brolling)} className="text-xs font-medium text-accent-text hover:underline">
+            <button type="button" aria-expanded={brolling} onClick={() => setBrolling(!brolling)} className="text-sm font-medium text-accent-text underline-offset-2 hover:underline">
               Change B-roll look…
             </button>
           )}
@@ -195,8 +187,8 @@ export function NewVideoPage() {
   if (!rail)
     return (
       <main className="flex min-h-[calc(100dvh-var(--tabbar-h))] flex-col">
-        <header className="flex items-center gap-2 border-b border-border px-2 py-2">
-          <Link to={`/b/${brandId}/videos`} aria-label="Close" className="grid size-control place-items-center rounded-md text-muted">
+        <header className="flex items-center gap-2 border-b border-border bg-surface px-2 py-1.5">
+          <Link to={`/b/${brandId}/videos`} aria-label="Close" className="grid size-control place-items-center rounded-md text-muted transition-colors duration-(--dur-fast) active:bg-surface-2">
             <X size={20} aria-hidden />
           </Link>
           <div className="min-w-0">
@@ -204,10 +196,10 @@ export function NewVideoPage() {
             <p className="truncate text-xs text-muted">{[brand?.name, folderName].filter(Boolean).join(" · ")}</p>
           </div>
         </header>
-        <div className="flex flex-col gap-4 p-3.5">
-          <div className="self-start">{seg}</div>
+        <div className="flex flex-col gap-5 px-4 py-4">
+          {seg}
           {tab === "paste" ? (
-            <div className="rounded-xl border border-border-strong bg-surface p-3">
+            <div className={`${box} p-3`}>
               <Words text={text} setText={setText} go={go} rail={false} narrated={format?.engine === "narrated"} />
               <Attached files={files} />
             </div>
@@ -231,20 +223,26 @@ export function NewVideoPage() {
     );
   return (
     <main className="flex min-h-screen flex-col">
-      <header className="flex h-[52px] items-center border-b border-border px-5 text-sm text-muted">
-        {brand?.name}
-        <ChevronRight size={12} aria-hidden className="mx-1.5" />
-        <span className="font-semibold text-text">New video</span>
+      <header className="sticky top-0 z-10 flex h-pagehead shrink-0 items-center justify-center border-b border-border bg-bg/85 px-8 text-sm text-muted backdrop-blur-md">
+        <nav aria-label="Where it is" className="flex w-full max-w-[1112px] items-center">
+          <Link to={`/b/${brandId}/videos`} className="transition-colors duration-(--dur-fast) hover:text-text">
+            {brand?.name}
+          </Link>
+          <ChevronRight size={14} strokeWidth={1.75} aria-hidden className="mx-1 text-faint" />
+          <span className="font-medium text-text">New video</span>
+        </nav>
       </header>
-      <div className="flex justify-center px-8 py-5">
-        <div className="flex w-full max-w-[1112px] flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="type-page text-2xl">What should the director make?</h1>
-            <p className="text-md text-muted">Paste a script or describe it. The director plans it, asks what it can’t decide, and makes it in a chat with you.</p>
-          </div>
-          <div>
-            {body}
-            {error}
+      <div className="flex justify-center px-8 pb-16 pt-10">
+        <div className="flex w-full max-w-[1112px] flex-col gap-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <h1 className="type-page">What should the director make?</h1>
+              <p className="text-base text-muted">Paste a script or describe it. The director plans it, asks what it can’t decide, and makes it in a chat with you.</p>
+            </div>
+            <div>
+              {body}
+              {error}
+            </div>
           </div>
           {picker}
           {offNote}
@@ -285,7 +283,7 @@ function Words({ text, setText, go, rail, narrated }: { text: string; setText: (
         onChange={(e) => setText(e.target.value)}
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing && (e.preventDefault(), go())}
-        className="field-sizing-content min-h-24 w-full resize-none bg-transparent font-script text-sm leading-[1.6] text-text outline-none! placeholder:font-sans placeholder:text-md placeholder:text-faint"
+        className="field-sizing-content min-h-24 w-full resize-none bg-transparent font-script text-sm leading-[1.6] text-text outline-none! placeholder:font-sans placeholder:text-base placeholder:text-muted"
       />
     </>
   );
@@ -313,11 +311,11 @@ function OffNote({ formats, looks, owner }: { formats: { name: string; off?: str
     );
   if (!parts.length) return null;
   return (
-    <div className="flex items-start gap-2 rounded-lg bg-surface-2 px-3 py-2.5 text-sm">
-      <CircleHelp size={14} aria-hidden className="mt-0.5 shrink-0 text-muted" />
-      <span className="min-w-0 flex-1">{parts}</span>
+    <div className="flex items-start gap-2.5 rounded-lg border border-border bg-surface-2/60 px-3.5 py-3 text-sm text-muted">
+      <CircleHelp size={16} strokeWidth={1.75} aria-hidden className="mt-px shrink-0 text-muted" />
+      <span className="min-w-0 flex-1 [&_b]:text-text">{parts}</span>
       {owner && (
-        <Link to="/settings?tab=looks" className="-my-2.5 inline-flex min-h-11 shrink-0 items-center font-medium text-accent-text hover:underline lg:my-0 lg:min-h-0">
+        <Link to="/settings?tab=looks" className="-my-2.5 inline-flex min-h-11 shrink-0 items-center font-medium text-accent-text underline-offset-2 hover:underline lg:my-0 lg:min-h-0">
           Settings → Looks
         </Link>
       )}

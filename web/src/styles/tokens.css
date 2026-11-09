@@ -23,6 +23,7 @@
   --border: #e7e7ea;           /* dividers, card edges */
   --border-strong: #8b8e97;    /* inputs, checkboxes: 3.3:1 on surface */
   --border-button: #d9dadf;    /* a secondary button's outline (v5: no fill) */
+  --accent-line: #c9ccf6;      /* an indigo-tinted hairline: an open chip, a picked soft card */
   --scrim: rgb(20 20 18 / 0.45);  /* behind sheets and dialogs */
   --media-shade: linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0) 70%); /* text on pictures */
 
@@ -65,6 +66,10 @@
 
   /* Elevation: hairline edges, soft shadows only for what floats */
   --shadow-card: none;
+  --shadow-soft: 0 1px 2px rgb(17 18 23 / 0.05), 0 2px 6px rgb(17 18 23 / 0.04);   /* a resting card in the chat, the message box, a picked segment */
+  --shadow-hover: 0 2px 4px rgb(17 18 23 / 0.06), 0 8px 20px rgb(17 18 23 / 0.07); /* a card that can be picked, under the pointer */
+  --shadow-press: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 1px 2px rgb(17 18 23 / 0.16); /* the main press: a faint top light */
+  --ring: 0 0 0 3px rgb(94 99 214 / 0.16);  /* a box being typed in: the indigo edge plus this halo */
   --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12); /* menus, toasts */
   --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);                                       /* sheets, dialogs */
 
@@ -82,7 +87,7 @@
   --text-xl: 1.25rem;     --leading-xl: 1.75rem;     /* 20/28 empty-state headlines (600) */
   --text-2xl: 1.375rem;   --leading-2xl: 1.875rem;   /* 22/30 page titles (600; 22/30 on phones too) */
   --text-script: 0.875rem; --leading-script: 1.6;   /* 14 Courier Prime */
-  --tracking-display: -0.01em;
+  --tracking-display: -0.015em;
 
   /* Space: 4px grid. Allowed steps only: 1 2 3 4 5 6 8 10 12 16 (x4px) */
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
@@ -99,15 +104,16 @@
   --control-h: 44px;       /* every control on phones; also the desktop minimum for primary actions */
   --control-h-dense: 32px; /* secondary controls on desktop only (pointer), never on phones */
   --topbar-h: 60px;
+  --pagehead-h: 52px;      /* every desktop page's top row (breadcrumb, title or tabs): one line across the app */
   --rail-w: 248px;         /* desktop side rail (v6 S0-01) */
   --tabbar-h: 64px;        /* phone bottom tabs (+ safe area) */
   --actionbar-h: 68px;     /* phone action bar above the tabs */
   --content-max: 1280px;
+  --pane-max: 960px;       /* a video's preview tabs: past this, the pane centres instead of stretching (wide screens) */
 
   /* Motion: quick and smooth. Enter decelerates, exit accelerates and is ~70% as long. */
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1); /* press-release, toasts in */
   --dur-instant: 80ms;  /* press feedback */
   --dur-fast: 140ms;    /* hover, focus, small fades */
   --dur: 220ms;         /* cards, tabs, step changes */
@@ -146,6 +152,7 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-border-button: var(--border-button);
+  --color-accent-line: var(--accent-line);
   --color-text: var(--text);
   --color-muted: var(--text-muted);
   --color-faint: var(--text-faint);
@@ -197,18 +204,23 @@
   --radius-full: var(--radius-full);
 
   --shadow-card: var(--shadow-card);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-hover: var(--shadow-hover);
+  --shadow-press: var(--shadow-press);
+  --shadow-ring: var(--ring);
   --shadow-raised: var(--shadow-raised);
   --shadow-overlay: var(--shadow-overlay);
 
   --ease-out: var(--ease-out);
   --ease-in: var(--ease-in);
-  --ease-spring: var(--ease-spring);
 
   --spacing-control: var(--control-h);
   --spacing-control-dense: var(--control-h-dense);
   --spacing-topbar: var(--topbar-h);
+  --spacing-pagehead: var(--pagehead-h);
   --spacing-rail: var(--rail-w);
   --spacing-tabbar: var(--tabbar-h);
   --spacing-actionbar: var(--actionbar-h);
   --container-content: var(--content-max);
+  --container-pane: var(--pane-max);
 }

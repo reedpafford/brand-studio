@@ -4,7 +4,7 @@ import { Download, Lock, Scissors } from "lucide-react";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
-import { Banner, Button, Skeleton, ViewOnly, buttonClass, useViewOnly } from "../components";
+import { Banner, Button, Skeleton, ViewOnly, buttonClass, segItem, segTrack, useViewOnly } from "../components";
 import { mmss } from "../freestyle/FromScript";
 import { BreakdownPane } from "../projects/BreakdownPane";
 import { PlanStep } from "../projects/PlanStep";
@@ -73,9 +73,9 @@ function CutPane(props: PaneProps) {
   if (viewOnly) return <CutWatch {...props} />;
   return (
     <div className="space-y-4">
-      <div role="radiogroup" aria-label="Cut view" className="ml-auto flex w-fit gap-0.5 rounded-md bg-surface-2 p-0.5">
+      <div role="radiogroup" aria-label="Cut view" className={segTrack}>
         {(["watch", "edit"] as const).map((m) => (
-          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`flex min-h-control items-center gap-1 rounded-sm px-3 text-sm lg:min-h-control-dense ${mode === m ? "bg-surface text-text shadow-raised" : "text-muted"}`}>
+          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={segItem(mode === m)}>
             {m === "edit" && <Scissors size={14} strokeWidth={1.75} aria-hidden />}
             {m === "watch" ? "Watch" : "Edit"}
           </button>
@@ -205,7 +205,7 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
       )}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         <video ref={player} controls src={fileUrl(file)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 sm:max-w-80">
           {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={pick} />}
           <div className="flex flex-col gap-1 max-sm:hidden">
             {!(live && (live.versions.length > 1 || nextCut(live))) && <h2 className="text-lg font-semibold">{revising ? "Current cut" : "Final cut"}</h2>}
@@ -257,15 +257,15 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="flex justify-between text-xs">
-              <span className="font-semibold text-muted">The video, scene by scene</span>
-              <span className="text-muted">Click a frame to jump there</span>
+            <p className="flex items-baseline gap-2 text-sm">
+              <span className="font-semibold">The video, scene by scene</span>
+              <span className="text-xs text-muted">Click a frame to jump there</span>
             </p>
             <Filmstrip scenes={run.scenes} big onPick={(c) => jump(c.clip_id, c.take_id)} />
           </div>
         ))}
       {/* The song or narration under the cut, and the owner's score: no board draws them, and nothing else carries them. */}
-      <div className="space-y-3 border-t border-border pt-4 empty:hidden">
+      <div className="space-y-4 border-t border-border pt-5 empty:hidden">
         <FinalSong projectId={p.id} madeWith={video.song_take_id} narration={video.narration} />
         <Scorecard projectId={p.id} />
       </div>
@@ -422,22 +422,22 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
   const count: Partial<Record<TabId, number>> = { clips: facts.progress.clips.total || facts.progress.frames.total, cast: facts.cast.length };
   const Pane = PANES[tab];
   const tabs = phone ? (
-    <div className="border-b border-border px-2 py-1.5">
-      <div role="tablist" aria-label="Preview" className="flex gap-0.5 overflow-x-auto rounded-md bg-surface-2 p-0.5">
+    <div className="border-b border-border px-3 py-2">
+      <div role="tablist" aria-label="Preview" className={`${segTrack} flex w-full overflow-x-auto`}>
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={`flex h-control shrink-0 items-center rounded-[5px] px-3 text-sm font-medium ${tab === t.id ? "bg-surface text-text shadow-[var(--shadow-soft,0_1px_2px_rgb(28_27_25/0.06))]" : "text-muted"}`}>
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={`${segItem(tab === t.id)} flex-1`}>
             {t.label}
           </button>
         ))}
       </div>
     </div>
   ) : (
-    <div role="tablist" aria-label="Preview" className="flex h-10 shrink-0 items-stretch gap-0.5 border-b border-border bg-surface px-4">
+    <div role="tablist" aria-label="Preview" className="flex h-pagehead shrink-0 items-stretch gap-1 border-b border-border bg-surface px-4">
       {TABS.map((t) => (
-        <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-2.5 text-sm font-medium ${tab === t.id ? "border-text text-text" : "border-transparent text-muted hover:text-text"}`}>
+        <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-2.5 text-sm font-medium transition-[color,border-color] duration-(--dur-fast) ease-out ${tab === t.id ? "border-text text-text" : "border-transparent text-muted hover:border-border-button hover:text-text"}`}>
           {t.label}
           {!!count[t.id] && " "}
-          {!!count[t.id] && <span className="inline-flex h-4 items-center rounded-lg bg-surface-2 px-1.5 text-[11px] text-muted tabular-nums">{count[t.id]}</span>}
+          {!!count[t.id] && <span className="text-xs font-normal text-muted tabular-nums">{count[t.id]}</span>}
         </button>
       ))}
     </div>
@@ -445,13 +445,14 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
   return (
     <section aria-label="Preview" className="flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
       {tabs}
-      <div role="tabpanel" aria-label={TABS.find((t) => t.id === tab)!.label} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
+      <div key={tab} role="tabpanel" aria-label={TABS.find((t) => t.id === tab)!.label} className="animate-fade relative flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5">
         {!p ? (
           <Empty title="Opens once the owner approves">The plan, the cast, the clips and the cut show here once the owner says yes.</Empty>
         ) : facts.loading ? (
           <PanelSkeleton />
         ) : (
           <ViewOnly on={!!lookOnly}>
+            <div className="mx-auto flex w-full max-w-pane flex-col gap-4">
             <PaneBoundary tab={tab}>
               <Pane
               p={p}
@@ -468,6 +469,7 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
               onEditor={onEditor}
             />
             </PaneBoundary>
+            </div>
           </ViewOnly>
         )}
       </div>

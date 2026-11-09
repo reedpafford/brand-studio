@@ -37,7 +37,7 @@ export function Menu({ title, trigger, align = "left", up = false, popover = fal
       )}
       {open && !phone && (
         // A long list (many brands) scrolls inside the menu, so its last item (New brand) is always reachable.
-        <div role="menu" aria-label={title} className={`absolute ${up ? "bottom-full mb-2" : "top-full mt-2"} z-30 max-h-[min(70vh,36rem)] min-w-64 overflow-y-auto overscroll-contain rounded-lg border border-border bg-surface-3 p-2 shadow-raised ${align === "right" ? "right-0" : "left-0"}`}>
+        <div role="menu" aria-label={title} className={`animate-pop absolute ${up ? "bottom-full mb-2" : "top-full mt-2"} z-30 max-h-[min(70vh,36rem)] min-w-64 overflow-y-auto overscroll-contain rounded-lg border border-border bg-surface p-1.5 shadow-raised ${align === "right" ? "right-0" : "left-0"}`}>
           {children(close)}
         </div>
       )}
@@ -56,7 +56,7 @@ export function MenuItem({ children, checked, danger, disabled: off, onClick }: 
       aria-checked={checked}
       onClick={disabled ? undefined : onClick}
       aria-disabled={disabled || undefined}
-      className={`flex min-h-control w-full items-center gap-3 rounded-md px-3 text-left ${disabled ? "cursor-not-allowed text-faint" : `hover:bg-surface-2 ${danger ? "text-danger" : "text-text"}`}`}
+      className={`flex min-h-control w-full items-center gap-3 rounded-md px-3 text-left transition-colors duration-(--dur-fast) ${disabled ? "cursor-not-allowed text-faint" : `hover:bg-surface-2 ${danger ? "text-danger" : "text-text"}`}`}
     >
       {children}
     </button>

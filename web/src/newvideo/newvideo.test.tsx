@@ -274,9 +274,9 @@ test("P-03: on a phone, the three ways in, cards that scroll, and Make it in the
   renderApp("/b/1/videos/new?folder=4");
   expect(await screen.findByText("Resilia · Week of 3 Nov")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", "/b/1/videos");
-  for (const tab of ["Paste", "Saved script", "Use a reel"]) expect(screen.getByRole("tab", { name: tab })).toHaveClass("h-11", "lg:h-7"); // 44 px on a phone (S10)
-  for (const chip of [/^Cast: /, /^Shape: /, /^Folder: /]) expect(screen.getByRole("button", { name: chip })).toHaveClass("h-11");
-  expect(screen.getByRole("radiogroup", { name: "Format" })).toHaveClass("-mx-3.5", "px-3.5"); // its edge is the page's 14 px gutter, not 2 px past it
+  for (const tab of ["Paste", "Saved script", "Use a reel"]) expect(screen.getByRole("tab", { name: tab })).toHaveClass("h-control", "lg:h-7"); // 44 px on a phone (S10)
+  for (const chip of [/^Cast: /, /^Shape: /, /^Folder: /]) expect(screen.getByRole("button", { name: chip })).toHaveClass("h-control");
+  expect(screen.getByRole("radiogroup", { name: "Format" })).toHaveClass("-mx-4", "px-4"); // its edge is the page's 16 px gutter, not past it
   await userEvent.type(await words(), SCRIPT);
 
   expect(await screen.findByRole("button", { name: "Make it · up to $16.86" }, { timeout: 3000 })).toBeInTheDocument();
@@ -316,7 +316,7 @@ test("MAIN's run 276: a style with no sample says so, never a blank box, and the
   const styles = await screen.findByRole("radiogroup", { name: "Style" });
   const card = (await within(styles).findByRole("radio", { name: /^Movie/ })).parentElement!;
   expect(within(card).getByText("No sample yet")).toBeInTheDocument();
-  expect(styles).toHaveClass("flex-wrap");
+  expect(styles).toHaveClass("grid"); // a grid that fills the width: the row ends where the box above it ends
   expect(styles).not.toHaveClass("overflow-x-auto");
 });
 

@@ -17,14 +17,14 @@ import { markWatched, type Clip, type Frame, type Row, type Scene, type Take } f
 type Project = components["schemas"]["ProjectOut"];
 
 /** A press with its price after the label ("Another take · up to $0.32"); `null` waits for the price. */
-function Priced({ label, price, wide, ...rest }: { label: string; price: string | null | undefined; wide?: boolean } & Omit<Parameters<typeof Button>[0], "children" | "price" | "charge">) {
+function Priced({ label, price, wide, variant = "secondary", ...rest }: { label: string; price: string | null | undefined; wide?: boolean } & Omit<Parameters<typeof Button>[0], "children" | "price" | "charge">) {
   return (
-    <Button variant="secondary" className={wide ? "w-full justify-start" : ""} {...rest} busy={price === null || rest.busy}>
+    <Button variant={variant} className={wide ? "w-full justify-start" : variant === "primary" ? "lg:min-h-control-dense lg:px-3" : ""} {...rest} busy={price === null || rest.busy}>
       {label}
       {price && (
         <>
           {" "}
-          <span className="font-normal text-muted">· {price}</span>
+          <span className={`font-normal ${variant === "primary" ? "opacity-85" : variant === "ghost" ? "" : "text-muted"}`}>· {price}</span>
         </>
       )}
     </Button>
@@ -305,10 +305,10 @@ function Review({ p, head, clip, fixPrice, fixError, onNote, onTake, takeBlock, 
   const muted = (span: number[]) => (picked.mutes ?? []).some((m) => Math.abs(m[0] - span[0]) < 0.05 && Math.abs(m[1] - span[1]) < 0.05);
   const fix = fixPrice == null ? null : upTo(head, fixPrice);
   return (
-    <section aria-label="Review" className="flex flex-col gap-2">
-      <h4 className="text-xs font-semibold text-muted">Review of take {picked.number}</h4>
+    <section aria-label="Review" className="flex flex-col gap-1.5 border-t border-border pt-5">
+      <h4 className="mb-1 text-sm font-semibold">Review of take {picked.number}</h4>
       {lines.map((l) => (
-        <p key={l} className="text-sm text-muted">
+        <p key={l} className="text-sm">
           {l}
         </p>
       ))}
@@ -594,34 +594,48 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
     ...(row.words ? [[row.broll ? "Words over it" : "Words in this clip", row.broll ? `“${row.words}”` : row.said] as [string, ReactNode]] : []),
     ["Cost", `${spent(head, clip.spent)}${clip.stills || clip.takes.length ? ` (${[clip.stills && `${clip.stills} still${clip.stills === 1 ? "" : "s"}`, clip.takes.length && `${clip.takes.length} take${clip.takes.length === 1 ? "" : "s"}`].filter(Boolean).join(", ")})` : ""}`],
   ];
+  // The clip's presses by weight (Reed, 9 Nov: "these buttons need much better organization"): the main way to change it
+  // first and the only filled one (rule 24), then the other paid redos; the small extras and the download quieter, on a line
+  // of their own.
+  const stillPress = frame?.file_id && (
+    <span className={`flex flex-col gap-1 ${phone ? "" : "items-start"}`}>
+      <Priced wide={phone} icon={ImageIcon} label="Change the still…" price={stillPrice.isError ? undefined : stillPrice.data == null ? null : upTo(head, stillPrice.data)} disabled={stillPrice.isError} reason={stillPrice.isError ? stillPrice.error.message : null} onClick={() => setBox({ kind: "still", text: "" })} />
+      <span className="px-1 text-xs text-muted">{stillMakes}</span>
+    </span>
+  );
+  const extras = [
+    picked && (clip.sound?.state === "none" || clip.sound?.state === "removed") && <Priced key="sound" wide={phone} variant={phone ? "secondary" : "ghost"} icon={Volume2} label="Add sound effects" price={upTo(head, clip.sound.credits)} onClick={() => setBox({ kind: "sound", text: "" })} />,
+    piece && !viewOnly && (
+      <Button key="swap" variant={phone ? "secondary" : "ghost"} icon={ArrowLeftRight} aria-expanded={swapping} className={phone ? "w-full justify-start" : ""} onClick={() => setSwapping(!swapping)}>
+        Swap B-roll <span className="font-normal text-muted">· free</span>
+      </Button>
+    ),
+    picked && clip.sound?.state === "ready" && (
+      <Button key="unsound" variant={phone ? "secondary" : "ghost"} icon={Volume2} className={phone ? "w-full justify-start" : ""} onClick={() => go(() => must(api.DELETE("/projects/{project_id}/clips/{clip_id}/sound", { params: { path } })))}>
+        Remove the sound effects
+      </Button>
+    ),
+  ].filter(Boolean);
   const presses = (
-    <div className={`flex gap-2 ${phone ? "flex-col" : "flex-wrap"}`}>
-      {frame && !frame.file_id && <Priced wide={phone} icon={ImageIcon} label="Draw the still" price={upTo(head, frame.still_credits)} busy={run.isPending || frame.drawing} onClick={() => go(() => must(api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/render", { params: { path: { project_id: p.id, frame_id: frame.id } } })))} />}
-      {frame?.file_id && (
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Priced wide={phone} icon={ImageIcon} label="Change the still…" price={stillPrice.isError ? undefined : stillPrice.data == null ? null : upTo(head, stillPrice.data)} disabled={stillPrice.isError} reason={stillPrice.isError ? stillPrice.error.message : null} onClick={() => setBox({ kind: "still", text: "" })} />
-          <span className="text-xs text-muted">{stillMakes}</span>
-        </span>
-      )}
-      {!clip.stale && <Priced wide={phone} icon={Pencil} label="Change this…" price={changePrice.isError ? undefined : changePrice.data == null ? null : upTo(head, changePrice.data)} disabled={changePrice.isError} reason={changePrice.isError ? changePrice.error.message : null} onClick={() => setBox({ kind: "change", text: "" })} />}
-      <Priced wide={phone} icon={RefreshCw} label={clip.takes.length ? "Another take" : "Make the take"} price={takePrice} busy={run.isPending} disabled={!!takeBlock} reason={takeBlock} onClick={() => take()} />
-      {picked && (clip.sound?.state === "none" || clip.sound?.state === "removed") && <Priced wide={phone} icon={Volume2} label="Add sound effects" price={upTo(head, clip.sound.credits)} onClick={() => setBox({ kind: "sound", text: "" })} />}
-      {piece && !viewOnly && (
-        <Button variant="secondary" icon={ArrowLeftRight} aria-expanded={swapping} className={phone ? "w-full justify-start" : ""} onClick={() => setSwapping(!swapping)}>
-          Swap B-roll <span className="font-normal text-muted">· free</span>
-        </Button>
-      )}
-      {picked && clip.sound?.state === "ready" && clip.sound.asked && <p className="text-xs text-muted">Sound effects: {clip.sound.asked}</p>}{/* why they're there: a person's words, or the style guide's the director named */}
-      {picked && clip.sound?.state === "ready" && (
-        <Button variant="secondary" icon={Volume2} className={phone ? "w-full justify-start" : ""} onClick={() => go(() => must(api.DELETE("/projects/{project_id}/clips/{clip_id}/sound", { params: { path } })))}>
-          Remove the sound effects
-        </Button>
-      )}
-      {picked && !phone && (
-        <a className={`${buttonClass("secondary")} gap-2`} href={fileUrl(picked.file_id)} download={mp4(`${p.name} clip ${row.number}`)}>
-          <Download size={20} strokeWidth={1.75} aria-hidden />
-          Download
-        </a>
+    <div className={`flex flex-col gap-3 ${phone ? "" : "border-t border-border pt-5"}`}>
+      {!phone && <h4 className="text-sm font-semibold">Change this clip</h4>}
+      <div className={`flex gap-2 ${phone ? "flex-col" : "flex-wrap items-start"}`}>
+        {frame && !frame.file_id && <Priced wide={phone} variant="primary" icon={ImageIcon} label="Draw the still" price={upTo(head, frame.still_credits)} busy={run.isPending || frame.drawing} onClick={() => go(() => must(api.POST("/projects/{project_id}/storyboard/frames/{frame_id}/render", { params: { path: { project_id: p.id, frame_id: frame.id } } })))} />}
+        {!clip.stale && <Priced wide={phone} variant={frame && !frame.file_id ? "secondary" : "primary"} icon={Pencil} label="Change this…" price={changePrice.isError ? undefined : changePrice.data == null ? null : upTo(head, changePrice.data)} disabled={changePrice.isError} reason={changePrice.isError ? changePrice.error.message : null} onClick={() => setBox({ kind: "change", text: "" })} />}
+        <Priced wide={phone} icon={RefreshCw} label={clip.takes.length ? "Another take" : "Make the take"} price={takePrice} busy={run.isPending} disabled={!!takeBlock} reason={takeBlock} onClick={() => take()} />
+        {stillPress}
+      </div>
+      {(extras.length > 0 || (picked && !phone) || (picked && clip.sound?.state === "ready" && clip.sound.asked)) && (
+        <div className={`flex gap-1 ${phone ? "flex-col gap-2" : "-ml-3 flex-wrap items-center"}`}>
+          {extras}
+          {picked && clip.sound?.state === "ready" && clip.sound.asked && <p className="px-3 text-xs text-muted">Sound effects: {clip.sound.asked}</p>}{/* why they're there: a person's words, or the style guide's the director named */}
+          {picked && !phone && (
+            <a className={`${buttonClass("ghost")} ml-auto gap-2 lg:min-h-control-dense lg:px-3 lg:text-sm`} href={fileUrl(picked.file_id)} download={mp4(`${p.name} clip ${row.number}`)}>
+              <Download size={16} strokeWidth={1.75} aria-hidden />
+              Download
+            </a>
+          )}
+        </div>
       )}
     </div>
   );
@@ -629,7 +643,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
   const boxes = { change: ["Change this…", "What should change in this clip?"], still: ["Change the still…", "What should change in the still?"], sound: ["Add sound effects", "Slight footsteps, wind…"], prompt: ["The director’s prompt", ""] } as const;
   const boxPrice = box?.kind === "change" ? changePrice.data : box?.kind === "still" ? stillPrice.data : box?.kind === "sound" ? clip.sound?.credits : undefined;
   return (
-    <section aria-label={`Clip ${row.number}`} className="flex flex-col gap-4">
+    <section aria-label={`Clip ${row.number}`} className="flex flex-col gap-6">
       {!phone && (
         <div className="flex flex-wrap items-baseline gap-x-2">
           <h3 className="text-lg font-semibold">Clip {row.number}</h3>
@@ -750,7 +764,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       ) : (
         <>
           {!phone && (
-            <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1.5 text-sm">
+            <dl className="grid grid-cols-[112px_1fr] gap-x-4 gap-y-2.5 border-t border-border pt-5 text-sm">
               {kv.map(([k, v]) => (
                 <div key={k} className="contents">
                   <dt className="text-muted">{k}</dt>
@@ -760,23 +774,42 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
             </dl>
           )}
           {!phone && (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted">The director’s prompt</span>
-                {!viewOnly && (
-                  <button type="button" onClick={() => setBox({ kind: "prompt", text: clip.prompt })} className="text-xs font-medium text-accent-text hover:underline">
-                    Edit
-                  </button>
-                )}
-              </div>
-              <p className="rounded-md bg-surface-2 px-3 py-2.5 font-mono text-xs leading-[1.6] whitespace-pre-wrap text-text/80">{clip.prompt}</p>
-            </div>
+            <Prompt text={clip.prompt} onEdit={viewOnly ? undefined : () => setBox({ kind: "prompt", text: clip.prompt })} />
           )}
           {presses}
           {swapBox}
         </>
       )}
     </section>
+  );
+}
+
+/** The director's prompt, in full: a long one opens at its first lines with the rest a press away (it is always there to
+ *  read and change, rule 21; it just doesn't push the clip's own picture and review off the screen). */
+function Prompt({ text, onEdit }: { text: string; onEdit?: () => void }) {
+  const [all, setAll] = useState(false);
+  const lines = text.split("\n").length;
+  const long = lines > 8;
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-5">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold">The director’s prompt</h4>
+        {onEdit && (
+          <Button variant="ghost" dense icon={Pencil} onClick={onEdit}>
+            Edit
+          </Button>
+        )}
+      </div>
+      <div className="relative">
+        <p className={`overflow-hidden whitespace-pre-wrap rounded-lg border border-border bg-surface-2/60 px-3.5 py-3 font-mono text-xs leading-[1.6] text-text/80 ${long && !all ? "max-h-44" : ""}`}>{text}</p>
+        {long && !all && <span aria-hidden className="pointer-events-none absolute inset-x-px bottom-px h-16 rounded-b-lg bg-linear-to-t from-surface-2 to-transparent" />}
+      </div>
+      {long && (
+        <button type="button" aria-expanded={all} onClick={() => setAll(!all)} className="self-start text-sm font-medium text-accent-text underline-offset-2 hover:underline max-lg:min-h-control">
+          {all ? "Show less" : `Show all ${lines} lines`}
+        </button>
+      )}
+    </div>
   );
 }
 

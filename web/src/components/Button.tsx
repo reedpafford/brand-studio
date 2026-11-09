@@ -7,11 +7,11 @@ type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: str
 export type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-[transform,opacity,background-color] duration-(--dur-fast) active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100";
+  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-[transform,background-color,border-color,color,box-shadow] duration-(--dur-fast) ease-out active:scale-[0.98] active:duration-(--dur-instant) disabled:cursor-not-allowed disabled:active:scale-100";
 const look: Record<Variant, string> = {
-  primary: "border border-accent-border bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-pressed disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
+  primary: "border border-accent-border bg-accent text-on-accent shadow-press hover:bg-accent-hover active:bg-accent-pressed disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text disabled:shadow-none",
   // v5: outlined on the page's colour, no fill; 32 px and 13/500 on a computer, 44 px on a phone.
-  secondary: "border border-border-button bg-transparent text-text hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text lg:text-sm",
+  secondary: "border border-border-button bg-transparent text-text hover:border-border-strong/50 hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text lg:text-sm",
   ghost: "text-muted hover:bg-surface-2 hover:text-text disabled:text-disabled-text",
   danger: "border border-danger bg-danger-soft text-danger hover:bg-surface-2 disabled:border-transparent disabled:bg-disabled disabled:text-disabled-text",
 };
@@ -67,7 +67,7 @@ export function Button({ variant = "primary", dense, busy, price, charge, usuall
       className={`${base} ${look[variant]} ${size} ${spread ? "w-full justify-between text-left" : ""} ${busy ? "cursor-progress" : ""} ${className}`}
       {...rest}
     >
-      {busy ? <LoaderCircle size={16} strokeWidth={1.75} aria-hidden className="animate-spin motion-reduce:animate-none" /> : Icon ? <Icon size={20} strokeWidth={1.75} aria-hidden /> : null}
+      {busy ? <LoaderCircle size={16} strokeWidth={1.75} aria-hidden className="animate-spin motion-reduce:animate-none" /> : Icon ? <Icon size={20} strokeWidth={1.75} aria-hidden className="shrink-0 lg:size-4" /> : null}
       <span className={spread ? "min-w-0 flex-1" : undefined}>
         {label}
         {price === null && (
@@ -85,11 +85,11 @@ export function Button({ variant = "primary", dense, busy, price, charge, usuall
         )}
       </span>
       {kbd && (
-        <kbd aria-hidden className="hidden rounded-sm border border-current/30 px-1.5 font-sans text-xs leading-4 opacity-80 lg:inline">
+        <kbd aria-hidden className="hidden rounded-sm bg-current/15 px-1 font-sans text-xs leading-4 opacity-90 lg:inline">
           {kbd}
         </kbd>
       )}
-      {Trailing && <Trailing size={20} strokeWidth={1.75} aria-hidden className="shrink-0" />}
+      {Trailing && <Trailing size={20} strokeWidth={1.75} aria-hidden className="shrink-0 lg:size-4" />}
     </button>
   );
   const usual = charge === "estimate" && usually !== undefined && price !== undefined && price !== null && !busy ? `Usually ${wholeCredits(usually)}. Anything not used comes back.` : null;

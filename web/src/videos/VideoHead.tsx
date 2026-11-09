@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { api, must, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
-import { Button, Dialog, Field, Menu, MenuItem, Skeleton, useToast } from "../components";
+import { Button, Dialog, Field, Menu, MenuItem, Skeleton, chipClass, chipPress, useToast } from "../components";
 import { flatten, said, StatusDot, useRefreshIdeas, useTree, type Status } from "../folders/ideas";
 import { useLocks } from "./locks";
 
@@ -77,7 +77,7 @@ function StatusWords({ status }: { status: Status }) {
   );
 }
 
-const chip = "inline-flex h-[26px] shrink-0 items-center gap-[5px] whitespace-nowrap rounded-sm border border-border-button bg-surface px-[9px] text-xs font-medium text-text";
+const chip = chipClass;
 
 /** The chips under the title (S3-01): Format · Style, Cast, Length, then Locks +N, whose menu turns each lock on or off
  *  (S-gaps-03 1). The first three are labels; a lock icon says that choice is locked. */
@@ -119,7 +119,7 @@ function Chips({ projectId, head, cast, lookOnly }: { projectId: number; head: H
       <Menu
         title="Locks"
         trigger={(p) => (
-          <button type="button" {...p} className={`${chip} ${p["aria-expanded"] ? "border-[#c9ccf6] bg-accent-soft text-accent-text" : "hover:bg-surface-2"}`}>
+          <button type="button" {...p} className={chipPress}>
             <SlidersHorizontal size={12} strokeWidth={1.75} aria-hidden />
             {more ? `Locks +${more}` : "Locks"}
           </button>
@@ -176,7 +176,7 @@ export function VideoMenu({ title, cut, onMove, onRename, onVariations, onReleas
       title={`More for ${title}`}
       align="right"
       trigger={(p) => (
-        <button type="button" {...p} aria-label={`More for ${title}`} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2 lg:size-8">
+        <button type="button" {...p} aria-label={`More for ${title}`} className="grid size-control place-items-center rounded-md text-muted transition-colors duration-(--dur-fast) hover:bg-surface-2 hover:text-text aria-expanded:bg-surface-2 aria-expanded:text-text lg:size-8">
           <Ellipsis size={20} strokeWidth={1.75} aria-hidden className="lg:size-4" />
         </button>
       )}
@@ -277,14 +277,14 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
       </header>
     );
   return (
-    <header role="banner" className="flex flex-col gap-2 border-b border-border px-5 py-2.5">
-      <div className="flex min-h-8 items-center gap-2">
-        <nav aria-label="Where it is" className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted">
-          <Link to={`/b/${brand.id}/videos`} className="hover:text-text">
+    <header role="banner" className="flex flex-col border-b border-border">
+      <div className="flex h-pagehead shrink-0 items-center gap-2 border-b border-border px-5">
+        <nav aria-label="Where it is" className="flex min-w-0 items-center gap-1 whitespace-nowrap text-sm text-muted">
+          <Link to={`/b/${brand.id}/videos`} className="transition-colors duration-(--dur-fast) hover:text-text">
             {brand.name}
           </Link>
-          <ChevronRight size={12} strokeWidth={1.75} aria-hidden />
-          <Link to={`/b/${brand.id}/videos?folder=${head.folder?.id ?? "none"}`} className="truncate hover:text-text">
+          <ChevronRight size={14} strokeWidth={1.75} aria-hidden className="text-faint" />
+          <Link to={`/b/${brand.id}/videos?folder=${head.folder?.id ?? "none"}`} className="truncate transition-colors duration-(--dur-fast) hover:text-text">
             {head.folder?.name ?? "Unsorted"}
           </Link>
         </nav>
@@ -296,9 +296,9 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
         )}
         {menu}
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-5 pt-3.5">
         {/* beside the cut editor the chat is 400px: the status and the money go under the title (S7) */}
-        <h1 className="min-w-0 max-w-[300px] shrink-0 truncate text-lg font-semibold">{head.title}</h1>
+        <h1 className="min-w-0 max-w-[300px] shrink-0 truncate text-lg font-semibold tracking-[-0.01em]">{head.title}</h1>
         <StatusWords status={status} /> {/* its reason gives way before the title does (a question's words are long) */}
         <span className="flex-1" />
         {/* the owner's full line can be long (H20): it wraps under the title, never past the column */}
@@ -307,7 +307,9 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
           <b className="whitespace-nowrap font-medium text-text">{most}</b>
         </p>
       </div>
-      <Chips projectId={projectId} head={head} cast={cast} lookOnly={lookOnly} />
+      <div className="px-5 pb-3.5 pt-2.5">
+        <Chips projectId={projectId} head={head} cast={cast} lookOnly={lookOnly} />
+      </div>
     </header>
   );
 }
