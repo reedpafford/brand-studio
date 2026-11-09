@@ -31,7 +31,7 @@ class VariationVideoOut(BaseModel):
 
 
 class VideoVariationsOut(BaseModel):
-    state: Literal["none", "writing", "done", "failed"]
+    state: Literal["none", "writing", "held", "done", "unfit", "failed", "declined"]
     videos: list[VariationVideoOut] = Field(default_factory=list)
     blocked: str = ""  # why Make variations can't be pressed now, or ""
 

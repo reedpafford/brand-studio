@@ -28,7 +28,7 @@ from app.prompts.schemas import VideoVariation, VideoVariations
 
 log = logging.getLogger(__name__)
 STEP = "video_variations"
-SOURCE = "variation_of"  # in a variation's treatment: {id, letter} of the video it varies
+SOURCE = "variation_of"  # in a variation's treatment: {id, letter, chain} of what it varies
 NOT_DONE = "Make variations once the director has delivered this video."
 WRITING = "Variations of this video are already being written."
 ONE_CLIP = "This video has one clip: there's nothing to keep, so make a new video instead."
@@ -69,10 +69,14 @@ def ask(db: Session, user: User, project: Project, count: int, part: str, note: 
     answer makes them (`save`)."""
     from app import plans, prompts
     from app.clip_prompts import newest
+    from app.credits import lock
     from app.enhance import escape, project_context
     from app.routes.jobs import enqueue
 
+    lock(db, Project, project.id)  # two presses at once: the second finds the first's job
+    db.refresh(project)
     if why := refusal(db, project):
+        db.rollback()
         raise HTTPException(409, why)
     system, context = project_context(db, project, STEP)
     clips = [{"id": c["id"], "seconds": c["seconds"], "shots": [
@@ -116,7 +120,8 @@ def save(db: Session, job: Job) -> None:
 
 
 def source(db: Session, project: Project) -> dict | None:
-    """A variation's {id, letter} of the video it varies, else None."""
+    """A variation's {id, letter, chain} of the video it varies (`chain`: every video back to
+    the first, oldest first), else None."""
     if project.id is None:
         return None
     return db.scalar(select(Job.input[SOURCE]).where(
@@ -125,9 +130,20 @@ def source(db: Session, project: Project) -> dict | None:
 
 
 def own_ids(db: Session, project: Project) -> set[int]:
-    """The videos whose own looks and places are this video's too: itself, and a variation's
-    source (its cast and places are the source's, kept)."""
-    return {project.id, *([src["id"]] if (src := source(db, project)) else [])}
+    """The videos whose own looks and places are this video's too: itself, and every video a
+    variation comes from, back to the first (its cast and places are theirs, kept)."""
+    return {project.id, *((source(db, project) or {}).get("chain") or [])}
+
+
+def using(db: Session, project: Project) -> list[Project]:
+    """This video and every live variation made from it, and from those: they all use its own
+    looks."""
+    rows = db.execute(select(Job.project_id, Job.input[SOURCE]).where(
+        Job.workspace_id == project.workspace_id, Job.input["step"].as_string() == "treatment",
+        Job.input[SOURCE]["id"].as_integer().is_not(None))).all()  # fmt: skip
+    ids = {pid for pid, src in rows if project.id in (src.get("chain") or [])}
+    return [project, *db.scalars(select(Project).where(Project.id.in_(ids or {0}),
+                                                       Project.archived_at.is_(None)))]  # fmt: skip
 
 
 def made(db: Session, project: Project) -> dict:
@@ -139,13 +155,15 @@ def made(db: Session, project: Project) -> dict:
                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
     if job is None:
         return {"state": "none", "videos": []}
-    if job.status in WAITING:
-        return {"state": "writing", "videos": []}
+    said = {JobStatus.needs_owner_approval: "held", JobStatus.failed: "failed",
+            JobStatus.cancelled: "declined"}  # fmt: skip
+    if job.status != JobStatus.succeeded:
+        return {"state": said.get(job.status, "writing"), "videos": []}
     ids = (job.output or {}).get("made") or []
     names = {p.id: p.name for p in db.scalars(select(Project).where(Project.id.in_(ids or [0])))}
     names |= titles(db, ids)
     videos = [{"id": i, "title": names[i]} for i in ids if i in names]
-    return {"state": "done" if videos else "failed", "videos": videos}
+    return {"state": "done" if videos else "unfit", "videos": videos}
 
 
 def _make(db: Session, user: User, source_: Project, option: VideoVariation, clips: list[str],
@@ -155,12 +173,15 @@ def _make(db: Session, user: User, source_: Project, option: VideoVariation, cli
     taken = db.scalar(select(func.count(Job.id)).where(
         Job.input["step"].as_string() == "treatment",
         Job.input[SOURCE]["id"].as_integer() == source_.id)) or 0  # fmt: skip
-    letter = chr(ord("A") + taken % 26)
     title = titles(db, [source_.id]).get(source_.id, source_.name)
-    video, frames = _copy(db, user, source_, f"{title[:100]} · variation {letter}", clips)
+    was = source(db, source_)  # a variation of a variation: "… · variation A1", A2, …
+    letter = f"{was['letter']}{taken + 1}" if was else chr(ord("A") + taken % 26)
+    base = title.rsplit(" · variation ", 1)[0] if was else title
+    chain = [*((was or {}).get("chain") or []), source_.id]
+    video, frames = _copy(db, user, source_, f"{base[:100]} · variation {letter}", clips)
     line = _new_words(db, user, video, option, clips, asked["note"])
     told, seen = (_newest(db, source_, step) for step in ("treatment", "review_stills"))
-    _job(db, user, video, told, {SOURCE: {"id": source_.id, "letter": letter}},
+    _job(db, user, video, told, {SOURCE: {"id": source_.id, "letter": letter, "chain": chain}},
          {**told.output, asked["part"]: option.direction})  # its new hook or ending  # fmt: skip
     if seen is not None:  # the stills it keeps were looked at: their review stands
         _job(db, user, video, seen, {"seen": {str(frames[int(f)]): file for f, file in
@@ -245,10 +266,12 @@ def _new_words(db: Session, user: User, video: Project, option: VideoVariation,
     nothing changes. Never on a song or narrated video, whose words time every clip."""
     from app import line_change, plans
     from app.clip_prompts import newest
+    from app.locked_line import QUOTE
     from app.narration import video_kind
 
     words, n = option.words.strip(), option.line
-    if not (user.is_owner and words and words in note and video_kind(db, video) == "story"):
+    quoted = {(a or b).strip() for a, b in QUOTE.findall(note)}  # only words it puts in quotes
+    if not (user.is_owner and words in quoted and video_kind(db, video) == "story"):
         return None
     saying = line_change.clips_of(db, video, n) if n > 0 else []
     if not saying or not set(saying) <= set(clips):  # every clip that says it is made again

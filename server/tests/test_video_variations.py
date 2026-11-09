@@ -92,6 +92,15 @@ def test_only_a_delivered_video_with_its_director_idle_gets_variations(app, db, 
     again = owner.post(f"/projects/{pid}/variations", json={"count": 2})
     assert (again.status_code, again.json()["detail"]) == (409, video_variations.WRITING)
     assert owner.get(f"/projects/{pid}/variations").json()["state"] == "writing"
+    turns = len(director.turns(db, db.get(Project, pid)))  # they copy the video as it is: no
+    owner.post(f"/projects/{pid}/director/messages", json={"text": "Make clip 1 warmer."})
+    assert len(director.turns(db, db.get(Project, pid))) == turns  # new run until they're made
+    assert owner.get(f"/projects/{pid}/director").json()["start_blocked"] == (
+        video_variations.WRITING)  # fmt: skip
+    asked = db.query(Job).filter(Job.input["step"].as_string() == video_variations.STEP).one()
+    asked.status = JobStatus.cancelled  # the owner said no: it says so, never "no idea fit"
+    db.commit()
+    assert owner.get(f"/projects/{pid}/variations").json()["state"] == "declined"
 
 
 def test_an_idea_that_remakes_every_clip_or_misses_its_end_is_never_made(app, db, owner, editor,
@@ -114,8 +123,17 @@ def test_the_owners_quoted_words_are_a_new_version_for_that_variation_only(
     """Rule 31's owner exception: a hook in the owner's own quoted words is a new version of
     the script for that variation; the source and the script keep theirs. An editor's quotes
     change no word."""
+    from app.providers.fake_local import FakeWriter
+
     pid = _delivered(app, db, owner, editor, monkeypatch)
     source = db.get(Project, pid)
+    plain = {"title": "x", "direction": "x", "clips": ["c1"], "note": "x", "line": 2,
+             "words": "the money"}  # fmt: skip
+    with monkeypatch.context() as m:  # words that aren't in quotes are never the owner's
+        m.setattr(FakeWriter, "_video_variations", lambda self, p: {"variations": [plain] * 2})
+        unquoted = _variations(app, db, owner, pid, count=2, note="Open on the money.")
+    assert {v.script_draft_id for v in unquoted} == {source.script_draft_id}
+    _run(app, db, ticks=80)
     note = "Open on “Nate, show me the money!”"
     by_editor = _variations(app, db, editor, pid, count=2, part="hook", note=note)
     assert {v.script_draft_id for v in by_editor} == {source.script_draft_id}
@@ -130,7 +148,10 @@ def test_the_owners_quoted_words_are_a_new_version_for_that_variation_only(
     assert "Line 2 of this video's script" in first.director_chat[0]["text"]
 
 
-def test_a_place_made_for_the_source_is_its_variations_too(app, db, owner, editor, monkeypatch):
+def test_a_place_made_for_the_first_video_is_every_later_variations_too(
+        app, db, owner, editor, monkeypatch):  # fmt: skip
+    """A variation of a variation keeps the first video's places, and is named after it:
+    "… · variation A1", never "… · variation A · variation A"."""
     from app.breakdown import _places
     from app.models.library import Kind, LibraryItem
 
@@ -140,5 +161,60 @@ def test_a_place_made_for_the_source_is_its_variations_too(app, db, owner, edito
                         owner_project_id=pid)  # fmt: skip
     db.add(place)
     db.commit()
+    first = _variations(app, db, owner, pid, count=2)[0]
+    _run(app, db, ticks=80)  # Make it: A and B are delivered
+    again = _variations(app, db, owner, first.id, count=2)[0]
+    assert again.name == f"{source.name} · variation A1"
+    for video in (first, again):
+        assert f"place:{place.id} | The den" in _places(db, video)
+
+
+def test_a_look_its_variations_still_use_isnt_removed_from_the_source(app, db, owner, editor,
+                                                                     monkeypatch):  # fmt: skip
+    from app.models.library import Kind, LibraryItem
+
+    pid = _delivered(app, db, owner, editor, monkeypatch)
+    source = db.get(Project, pid)
     video = _variations(app, db, owner, pid, count=2)[0]
-    assert f"place:{place.id} | The den" in _places(db, video)
+    look = LibraryItem(workspace_id=source.workspace_id, kind=Kind.character, name="Old Mom",
+                       owner_project_id=pid)  # fmt: skip
+    db.add(look)
+    db.flush()
+    video.cast_ids = [*video.cast_ids, look.id]  # the source swapped it out; its variation didn't
+    db.commit()
+    gone = owner.delete(f"/library/character/{look.id}")
+    assert gone.status_code == 409
+    assert gone.json()["detail"] == (f"Swap the role to another look first: “{video.name}” "
+                                     "still uses it.")  # fmt: skip
+
+
+def test_an_editors_variation_card_and_its_hold_say_one_price(app, db, owner, editor,
+                                                             monkeypatch):  # fmt: skip
+    """QA on #1491: the hold was priced before the run was a revision (the whole video, up to
+    110 credits) beside the card's own up to 88. Both are the variation's own price now."""
+    from app import asks
+
+    pid = _delivered(app, db, owner, editor, monkeypatch)
+    held_at, start = {}, director.start
+
+    def priced(db_, user, video, **kw):  # the price its hold is worked out from, as it starts
+        held_at[video.id] = asks.run_price(db_, video)
+        return start(db_, user, video, **kw)
+
+    monkeypatch.setattr(director, "start", priced)
+    whole = asks.run_price(db, db.get(Project, pid))
+    for video in _variations(app, db, editor, pid, count=2):
+        card = _card(editor, video.id)["money"]["up_to"]["credits"]
+        assert abs(float(held_at[video.id]) - card) <= 1 and held_at[video.id] < whole
+
+
+def test_releasing_an_unfinished_variation_keeps_its_sources_hold_on_the_version(
+        app, db, owner, editor, monkeypatch):  # fmt: skip
+    pid = _delivered(app, db, owner, editor, monkeypatch)
+    draft = db.get(ScriptDraft, db.get(Project, pid).script_draft_id)
+    holder = draft.reserved_by_id
+    video = _variations(app, db, owner, pid, count=2)[0]
+    assert owner.post(f"/projects/{video.id}/release").status_code == 200
+    db.expire_all()
+    assert draft.reserved_by_id == holder and db.get(Project, pid).script_draft_id == draft.id
+    assert owner.post(f"/projects/{video.id}/restore").status_code == 200  # Undo still works

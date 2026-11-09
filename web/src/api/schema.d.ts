@@ -13219,7 +13219,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "none" | "writing" | "done" | "failed";
+            state: "none" | "writing" | "held" | "done" | "unfit" | "failed" | "declined";
             /** Videos */
             videos?: components["schemas"]["VariationVideoOut"][];
             /**

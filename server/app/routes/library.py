@@ -621,7 +621,17 @@ def _may_remove_look(db: Session, user: User, look: LibraryItem) -> None:
             raise HTTPException(
                 403, "Only the owner or whoever made this video can remove its looks."
             )
-        in_use = look.id in project.cast_ids or look.id in project.slot_cast.values()
+        from app.ideas import titles
+        from app.video_variations import using
+
+        videos = [p for p in using(db, project)  # its variations use its looks too
+                  if look.id in p.cast_ids or look.id in p.slot_cast.values()]  # fmt: skip
+        if videos:
+            named = titles(db, [p.id for p in videos])
+            names = ", ".join(f"“{named.get(p.id, p.name)}”" for p in videos)
+            raise HTTPException(409, f"Swap the role to another look first: {names} still "
+                                f"use{'s' if len(videos) == 1 else ''} it.")  # fmt: skip
+        in_use = False
     else:
         script = lib.editable(user, lib.get_script(db, user, look.owner_script_id))
         drafts = select(ScriptDraft.id).where(ScriptDraft.script_id == script.id)

@@ -5,6 +5,12 @@ import { api, must, polled } from "../api/client";
 import { Dialog, TextArea } from "../components";
 import { useRefreshIdeas } from "../folders/ideas";
 
+const UNMADE: Record<string, string> = {
+  unfit: "None of the ideas kept the rest of the video, so nothing was made. Try again, or say more in the note.",
+  declined: "The owner said no, or it was withdrawn, so nothing was written or charged.",
+  failed: "Writing the ideas failed, so nothing was made. Try again.",
+};
+
 const path = (projectId: number) => ({ params: { path: { project_id: projectId } } });
 
 function Pick<T extends string | number>({ label, value, onPick, options }: { label: string; value: T; onPick: (v: T) => void; options: [T, string][] }) {
@@ -30,7 +36,7 @@ export function VariationsDialog({ brandId, projectId, onClose }: { brandId: num
   const refresh = useRefreshIdeas();
   const read = useQuery({
     queryKey: ["variations", projectId],
-    refetchInterval: (q) => (q.state.data?.state === "writing" ? 2_000 : false),
+    refetchInterval: (q) => (q.state.data?.state === "writing" ? 2_000 : q.state.data?.state === "held" ? 10_000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/variations", path(projectId)), null),
   });
   const make = useMutation({
@@ -38,7 +44,7 @@ export function VariationsDialog({ brandId, projectId, onClose }: { brandId: num
     onSuccess: () => (setAsked(true), void read.refetch()),
   });
   const out = read.data;
-  const done = asked && out?.state !== "writing";
+  const done = asked && out?.state !== "writing" && out?.state !== "held";
   const shown = useRef(false);
   useEffect(() => {
     if (done && out?.state === "done" && !shown.current) {
@@ -50,7 +56,7 @@ export function VariationsDialog({ brandId, projectId, onClose }: { brandId: num
     return (
       <Dialog title="Variations" cancelLabel="Close" actionLabel="Done" onCancel={onClose} onConfirm={onClose}>
         {!done ? (
-          <p role="status">{`The director is writing ${count} ideas for ${part === "hook" ? "the hook" : "the ending"}…`}</p>
+          <p role="status">{out?.state === "held" ? "Waiting for the owner's OK to write the ideas. Nothing is charged until then, and you can withdraw it in My requests." : `The director is writing ${count} ideas for ${part === "hook" ? "the hook" : "the ending"}…`}</p>
         ) : out?.state === "done" ? (
           <>
             <p>Each waits on its own card, with its price, before anything is made:</p>
@@ -65,7 +71,7 @@ export function VariationsDialog({ brandId, projectId, onClose }: { brandId: num
             </ul>
           </>
         ) : (
-          <p role="alert">None of the ideas kept the rest of the video, so nothing was made. Try again, or say more in the note.</p>
+          <p role="alert">{UNMADE[out?.state ?? "failed"] ?? UNMADE.failed}</p>
         )}
       </Dialog>
     );

@@ -521,6 +521,8 @@ def blocked(db: Session, project: Project) -> str:
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
     if not (draft and db.get(Script, draft.script_id).published):
         return NOT_PUBLISHED
+    if video_variations.writing(db, project):  # they copy it as it is when they're written
+        return video_variations.WRITING
     return RUNNING if active(db, project) else ""
 
 
