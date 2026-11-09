@@ -6238,8 +6238,8 @@ export interface paths {
         put?: never;
         /**
          * Remove Ref
-         * @description Take a character, place or screen out of one shot (free; the action stays as written).
-         *     Undo saves the old breakdown back with PUT.
+         * @description Take a character, place or screen out of one shot (free; the action stays as written,
+         *     and a character stays out: `Shot.taken_out`). Undo saves the old breakdown back with PUT.
          */
         post: operations["remove_ref_projects__project_id__shots__shot_id__remove_ref_post"];
         delete?: never;

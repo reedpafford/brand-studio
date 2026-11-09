@@ -363,12 +363,12 @@ def land(
     known = {**assets(db, project), **dict.fromkeys(also)}
     slots = video_slots(db, project)
     looks = {f"char:{picked(project, s)}": s for s in slots if picked(project, s)}
-    notes = []
+    notes, actions = [], " ".join(s.action for scene in bd.scenes for s in scene.shots)
     for shot in (s for scene in bd.scenes for s in scene.shots):
         for ref in [r for r in shot.character_ids if r not in known]:
             if ref.startswith(PERSON):  # someone who never speaks (226's Grant): their role
                 name = ref.removeprefix(PERSON).strip()
-                slot = _person(db, project, slots, name)
+                slot = _person(db, project, slots, name, actions)
                 if slot is None:  # an extra ("Crowd", "Woman"): the director decides, unpaid
                     shot.character_ids = [r for r in shot.character_ids if r != ref]
                     notes.append(NO_ROLE.format(name or "Someone"))
@@ -494,8 +494,9 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
     """Each of the video's roles is in the shots that show them (Reed, 2026-10-27, "Marriage
     Rejection": the groom was never in his own shots, so no sheet was attached and the video
     model invented him): the shots they speak in on screen (the script's label has no V.O. or
-    O.S.), and, in a plan with no cast lists, the shots whose action names them (`shows`). In
-    place; {shot id: names added}. Free."""
+    O.S.), and, in a plan with no cast lists, the shots whose action names them (`shows`);
+    never a shot a person took them out of (`taken_out`). In place; {shot id: names added}.
+    Free."""
     from app.cast_roles import ref, short, video_slots
 
     slots = [s for s in video_slots(db, project) if short(s.role)]
@@ -508,8 +509,8 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
         roles, bare = [s.role for s in slots], not shot.character_ids
         for slot in slots:
             who = ref(db, project, slot)
-            if {who, f"slot:{slot.id}"} & set(shot.character_ids):
-                continue
+            if {who, f"slot:{slot.id}"} & {*shot.character_ids, *shot.taken_out}:
+                continue  # there, or taken out by a person: it stays out
             seen = {s.place_id for s in shots if {who, f"slot:{slot.id}"} & set(s.character_ids)}
             here = not seen or shot.place_id in seen
             if shows(slot.role, shot, roles, off, here, lists, bare):
@@ -529,7 +530,7 @@ def _hero_in_montage(db: Session, project: Project, bd: Breakdown, added: dict) 
         return
     shots = [s for scene in bd.scenes for s in scene.shots]
     for shot in (shots[k] for k in check.montage(shots)):
-        if not any(_same(known, lead, c) for c in shot.character_ids):
+        if not any(_same(known, lead, c) for c in [*shot.character_ids, *shot.taken_out]):
             shot.character_ids = [*shot.character_ids, lead]
             added.setdefault(shot.id, []).append(_name(known, lead))
 
@@ -692,7 +693,7 @@ def _role(db: Session, project: Project, slots: list, speaker: str | None):
     return next((s for s in slots if labels(speaker, s.role)), None)
 
 
-def _person(db: Session, project: Project, slots: list, name: str):
+def _person(db: Session, project: Project, slots: list, name: str, actions: str = ""):
     """The role of someone the breakdown shows who never speaks ("person:Grant", 226: Grant
     was never a role, so his shots borrowed another's look and no sheet was drawn): the role
     of that very name, else one added as the cast read adds one, only for a proper name the
@@ -700,7 +701,7 @@ def _person(db: Session, project: Project, slots: list, name: str):
     cheers", "a woman walks past" are extras, never paid roles; nor is "Woman" ever "Mara, a
     young woman"); or someone the brief, a note or the treatment names that way and describes
     as a being (`_a_being`: video 294's Maya, "his owner Maya, 30s"; never "a woman, 30s" or
-    "the bartender, 40s", extras). None otherwise."""
+    "the bartender, 40s", extras; the plan's `actions` are read too). None otherwise."""
     from app.cast_roles import all_slots, same
     from app.models.script_library import ScriptDraft
 
@@ -710,7 +711,7 @@ def _person(db: Session, project: Project, slots: list, name: str):
     every = all_slots(db, project)
     roles = [s.role for s in every]
     if not (draft and name) or any(same(name, r) for r in roles) or not (
-            _proper(name, draft.text) or _a_being(db, project, name, roles)):  # fmt: skip
+            _proper(name, draft.text) or _a_being(db, project, name, roles, actions)):  # fmt: skip
         return None
     slots.append(slot := _add_role(db, project, draft, name))
     return slot
@@ -734,17 +735,23 @@ CALENDAR = re.compile(r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sund
                       r"Ramadan|Valentine)$")  # fmt: skip
 
 
-def _a_being(db: Session, project: Project, name: str, others: list[str]) -> bool:
+def _a_being(db: Session, project: Project, name: str, others: list[str],
+             actions: str = "") -> bool:  # fmt: skip
     """The brief, a note or the treatment writes their name as a name (capitalised, as it is,
-    never right after "a", "an" or "the": "Bruno, a young pitbull…", "his owner Maya", never
-    "A woman, 30s" or "The bartender": QA on #1496, extras are never paid roles) and says
-    what they look like ("Bruno (a young pitbull…)", "Maya, 30s"), in words about them alone
-    (none of `others`)."""
+    never right after "a", "an" or "the": "Bruno, a young pitbull…", "his owner Maya") and
+    never in lowercase there, in the script or in the plan's `actions` ("Woman, 30s, in a red
+    dress" and "Bartender (40s)" are "a woman" and "the bartender" elsewhere: QA on #1496,
+    extras are never paid roles), and says what they look like ("Bruno (a young pitbull…)",
+    "Maya, 30s"), in words about them alone (none of `others`)."""
+    from app.models.script_library import ScriptDraft
     from app.routes.project_assets import LOOKS, _bracketed, _described, _story
 
     told = [project.goal or "", *(m.get("text") or "" for m in project.director_chat or []),
             *_story(db, project)]  # fmt: skip
-    text = "\n".join(told)
+    text, draft = "\n".join(told), db.get(ScriptDraft, project.script_draft_id or 0)
+    every = "\n".join([text, draft.text if draft else "", actions])
+    if re.search(rf"(?<![\w-]){re.escape(name.lower())}(?![\w-])", every):
+        return False  # written in lowercase somewhere: a word, not a name
     if not name[:1].isupper() or not any(
             not re.search(r"(?i)\b(?:a|an|the)\s+$", text[: m.start()])
             for m in re.finditer(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text)):  # fmt: skip
@@ -800,7 +807,8 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
         word = re.escape(name)
         being = re.search(rf"\b{word}(?:'s\b| [a-z]+s\b)", actions)  # "Maya's", "Bruno gnaws"
         others = [n for n in seen if n != name] + known
-        if _addressed(name, draft.text) or (being and _a_being(db, project, name, others)):
+        if _addressed(name, draft.text) or (being and _a_being(db, project, name, others,
+                                                                 actions)):  # fmt: skip
             _add_role(db, project, draft, name)
             out.append(name)
     return out

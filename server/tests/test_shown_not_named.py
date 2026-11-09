@@ -237,15 +237,16 @@ def test_an_insert_that_lists_nobody_never_pulls_in_who_its_words_name(owner, ed
     assert shows["2.2"] == shows["3.2"] == []
 
 
-def _land(owner, editor, db, brief: str, who: list[str]) -> tuple[list[str], list[str], list]:
-    """315's video with `brief`, its shot 2.1 listing `who` too, landed as a plan is saved:
-    the video's roles, what shot 2.1 shows, and the notes."""
+def _land(owner, editor, db, brief: str, who: list[str], action: str = ""):
+    """315's video with `brief`, its shot 2.1 listing `who` too (and doing `action`), landed
+    as a plan is saved: the video's roles, what shot 2.1 shows, and the notes."""
     pid, _ = _video(owner, editor)
     project = db.get(Project, pid)
     project.goal = brief
     db.commit()
     plan = Breakdown.model_validate(_plan(db, pid)[0].data)
     plan.scenes[0].shots[2].character_ids += who
+    plan.scenes[0].shots[2].action = action or plan.scenes[0].shots[2].action
     plan, notes = breakdown.land(db, project, plan)
     roles = [s.role for s in all_slots(db, project)]
     return roles, plan.scenes[0].shots[2].character_ids, notes
@@ -259,6 +260,19 @@ def test_an_extra_the_brief_describes_is_never_a_paid_role(owner, editor, db):
     assert roles == ["Marcus"] and len(shown) == 1
     assert "Advice: Woman is on screen with no role." in notes
     assert "Advice: Bartender is on screen with no role." in notes
+
+
+def test_an_extra_the_brief_writes_like_a_name_is_still_never_a_paid_role(owner, editor, db):
+    """QA on #1496: a brief that opens on "Woman, 30s, …" or writes "Bartender (40s, bald)",
+    while the plan says "a woman" and "the bartender": a word written in lowercase anywhere is
+    never a name, so they stay extras."""
+    action = "Behind Marcus, a woman in a red dress walks past and the bartender pours."
+    for brief in ("Woman, 30s, in a red dress, walks past. Bartender, 40s, bald, pours.",
+                  "Woman (30s, red dress) walks past. Bartender (40s, bald) pours."):  # fmt: skip
+        roles, shown, notes = _land(owner, editor, db, brief,
+                                    ["person:Woman", "person:Bartender"], action)  # fmt: skip
+        assert roles == ["Marcus"] and len(shown) == 1, brief
+        assert "Advice: Woman is on screen with no role." in notes, brief
 
 
 def test_someone_the_plan_lists_and_the_brief_names_and_describes_is_a_role(owner, editor, db):
@@ -292,3 +306,19 @@ def test_a_shot_listing_nobody_that_shows_a_roles_hand_gets_that_role(owner, edi
     assert shows["2.1"] == shows["3.1"] == [cast["Marcus"][0]]
     row = _write(db, pid, cast, "c4", ["Marcus"])
     assert [r["id"] for r in row.references] == [cast["Marcus"][0], cast["Danny"][0]]
+    row = _off(editor, db, pid, "4.2", row)  # the owner takes him out: he stays out
+    assert [r["id"] for r in row.references] == [cast["Marcus"][0]]
+    editor.get(f"/projects/{pid}/assets")
+    assert _plan(db, pid)[1]["4.2"] == []
+
+
+def test_a_speaker_taken_out_of_a_shot_stays_out(owner, editor, db):
+    """Remove-ref on someone who speaks in the shot (a voice on the phone, say): opening Cast
+    never puts them back."""
+    pid, _ = _video(owner, editor, broll=True)
+    cast = _cast(editor, db, pid)
+    out = editor.post(f"/projects/{pid}/shots/1.1/remove-ref",
+                      json={"kind": "character", "name": "Marcus"})  # fmt: skip
+    assert out.status_code == 200, out.text
+    editor.get(f"/projects/{pid}/assets")
+    assert _plan(db, pid)[1]["1.1"] == [] and _plan(db, pid)[1]["1.2"] == [cast["Marcus"][0]]

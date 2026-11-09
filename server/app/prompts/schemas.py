@@ -8,6 +8,7 @@ Asset ids are strings with a kind prefix, as listed in the brand block and the u
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, WithJsonSchema
+from pydantic.json_schema import SkipJsonSchema
 
 # --- Enhance: suggestions anchored to the editor's script ---
 
@@ -215,6 +216,9 @@ class Shot(BaseModel):
         "for the first screen in screen_ids; the server draws it onto that screen. Each winning "
         "beat's figure is bigger than the last; a loss is signed '-'. Null otherwise.",
     )
+    # Who a person took out of this shot (remove-ref): nothing puts them back by itself.
+    # The server's own, never the writer's (no schema).
+    taken_out: SkipJsonSchema[list[str]] = Field(default_factory=list)
 
 
 class Scene(BaseModel):
