@@ -187,3 +187,27 @@ def test_a_revision_prices_an_omni_edit_as_an_edit(app, db, owner, editor):
     assert work == clip_takes.take_credits(db, video, row, edit=True)  # no still drawn again
     still = est._still(db, video.workspace_id, video)
     assert up_to >= work + est._shots(db, video, [row]) * still  # the "up to" keeps a remake
+
+
+def test_only_text_on_a_thing_passes_the_dialogue_guard():
+    from app.prompts.check import _rewords
+
+    said = ["Change the dialogue in clip 2", "Reword the line in shot 3", "Cut the line in the "
+            "middle", "Add a line in Spanish", "Swap the lines in the second half", "Change her "
+            "line in the kitchen", "Drop the line on the phone call", "Change the words on the "
+            "phone call", "Change the words on the poster and reword the line"]  # fmt: skip
+    assert [n for n in said if not _rewords(n)] == []  # every one still refused
+    assert not _rewords("Change the words on the poster to SALE.")  # text in the picture
+    assert not _rewords("Make the text on her shirt read FOMO.")
+
+
+def test_an_edit_with_no_reported_length_is_recorded_at_its_takes_seconds():
+    from app.providers import Result, UsageItem
+    from app.providers.fake import FakeProvider
+    from app.worker import _usage as recorded
+
+    job = Job(workspace_id=1, provider="replicate", kind="video", credits=Decimal(6),
+              input={"edit": True, "seconds": 5})  # fmt: skip
+    longest = UsageItem(Decimal(15), "second", Decimal("1.65"), True)  # Omni's longest, guessed
+    (row,) = recorded(job, FakeProvider(), Result("succeeded", usage=[longest]))
+    assert (row.units, row.cost_usd, row.estimated) == (5, Decimal("0.55"), True)

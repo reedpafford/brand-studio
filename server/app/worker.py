@@ -38,6 +38,7 @@ from app.providers import (
     NotStarted,
     Provider,
     Result,
+    UsageItem,
     get_providers,
 )
 from app.purge import purge_deleted, purge_uploads
@@ -149,7 +150,18 @@ def _actual_credits(job: Job, result: Result) -> Decimal:
     3.35 charged). The dollars are recorded as they were."""
     if not result.usage:
         return job.credits
-    return min(job.credits, usd_to_credits(sum((i.cost_usd for i in result.usage), Decimal(0))))
+    spent = sum((_seconds(job, i).cost_usd for i in result.usage), Decimal(0))
+    return min(job.credits, usd_to_credits(spent))
+
+
+def _seconds(job: Job, item: UsageItem) -> UsageItem:
+    """An Omni edit sends no length (it keeps its take's): when the provider reports none,
+    it's its source take's `seconds`, never the model's longest (QA on #1488)."""
+    seconds = job.input.get("seconds") if job.input.get("edit") else None
+    if not (seconds and item.estimated and item.unit == "second" and item.units):
+        return item
+    each = item.cost_usd / item.units
+    return UsageItem(Decimal(seconds), item.unit, each * seconds, True, item.tokens)
 
 
 def _usage(job: Job, provider: Provider, result: Result, made: bool = False) -> list[Usage]:
@@ -160,7 +172,7 @@ def _usage(job: Job, provider: Provider, result: Result, made: bool = False) -> 
         Usage(workspace_id=job.workspace_id, job_id=job.id, provider=job.provider, kind=job.kind,
               units=i.units, unit=i.unit, cost_usd=i.cost_usd, estimated=i.estimated,
               **_tokens(i.tokens))
-        for i in result.usage
+        for i in (_seconds(job, u) for u in result.usage)
     ]  # fmt: skip
     if not items and provider.paid and job.credits and (made or result.state == "succeeded"):
         items.append(

@@ -916,10 +916,24 @@ def reel_speakers(
 
 REWORD = re.compile(
     r"\b(add|cut|remove|drop|change|reword|rewrite|replace|swap|new)\s+(?:[\w'-]+\s+){0,2}"
-    r"(line|lines|dialogue|words?)\b(?!\s+(?:on|in)\s)|\bsays? (something else|instead)\b",
-    # "the words on the poster" are text in the picture, never a line (QA on #1488)
+    r"(line|lines|dialogue|words?)\b|\bsays? (something else|instead)\b",
     re.I,
 )
+# Text on a thing in the picture ("the words on the poster") is never a line: left out before
+# REWORD reads a note (QA on #1488). Never "line" or "dialogue", never words on a phone or call.
+PICTURED = re.compile(
+    r"\b(?:words?|text|writing)\s+(?:on|in)\s+(?:the|a|an|her|his|their|its)\s+(?:poster|sign|"
+    r"screen|shirt|t-shirt|wall|banner|board|billboard|label|mug|cup|bag|box|card|menu|bottle|"
+    r"can|packet|sticker|book|cover|door|window|truck|van|car)s?\b",
+    re.I,
+)
+
+
+def _rewords(note: str) -> bool:
+    """A note that adds, cuts or rewords what's said (REWORD), text on a thing aside."""
+    return bool(REWORD.search(PICTURED.sub("", note)))
+
+
 SPEAKS = re.compile(
     r"\b([A-Z][a-z]+)(?: should| could| to)? (say|says|speak|speaks|talk|talks|shout|shouts|"
     r"whisper|whispers|reply|replies|answer|answers)\b"
@@ -949,7 +963,7 @@ def redo_note(note: str, bd: Breakdown, clip_id: str) -> list[str]:
                 f"The note quotes “{quote}”, which nobody says in this clip. A note can change "
                 "how a line is said, never its words."
             )
-    if REWORD.search(note):
+    if _rewords(note):
         problems.append(
             "The note changes what's said. The spoken lines stay exactly as written; say how "
             "they should sound instead (louder, angrier, slower)."
@@ -996,7 +1010,7 @@ def reel_note(note: str, said: list[str]) -> str:
     asking to add, cut or reword a line, and no quoting words nobody says. '' if it's fine."""
     spoken = {_exact(x) for x in said}
     quoted = [q for q in QUOTED.findall(note) if q.strip()]
-    if REWORD.search(note) or any(_exact(q) not in spoken for q in quoted):
+    if _rewords(note) or any(_exact(q) not in spoken for q in quoted):
         return READ_AGAIN
     return ""
 
