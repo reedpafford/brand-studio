@@ -3,6 +3,7 @@
 Done stages cost nothing more; the final video is free."""
 
 import math
+import re
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends
@@ -10,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import clip_prompts
+from app import clip_prompts, clip_takes
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -104,6 +105,11 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     from app import plans, song_takes
     from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
+    if change := revision(db, video):  # a revision: only what it makes again (F15)
+        clips, looks = change
+        ws = video.workspace_id
+        return (looks * look_price(db, ws) + _shots(db, video, clips) * _still(db, ws, video)
+                + clip_takes.takes_price(db, video, clips))  # fmt: skip
     script, seconds = db.get(Script, draft.script_id), quoted_seconds(db, draft, video)
     if script.kind == "song" and (take := song_takes.preferred(db, draft)):
         return song_takes.video_credits(db, take, video=video)  # its plan call included
@@ -127,6 +133,9 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     by its watch (`host.run_price`). The cut, mutes and splices are free."""
     from app import director, narration, take_watch
 
+    if change := revision(db, video):  # its clips made again, never the whole video's (F15)
+        return (version_cost(db, draft, video) + director.own_limit()
+                + director.MAX_REDOS * clip_takes.takes_price(db, video, change[0]))  # fmt: skip
     script = db.get(Script, draft.script_id)
     ws = script.workspace_id
     bd = Breakdown.model_validate(draft.breakdown) if draft.breakdown else None
@@ -154,22 +163,74 @@ def expected(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     with enough finished videos of its format and style, their credits a second
     (`scorecard.forecast`); else the version's own price (its first takes and their checks),
     its song or narration and the presenter's host made once, and the director's usual turns
-    and one watch of the cut, at their own prices. No allowance, no remakes bound: an estimate,
-    never a limit."""
+    and one watch of the cut, at their own prices. A revision: what it makes again, a turn a
+    look and two a clip (its stills, its take) and the cut's, and one watch. No allowance, no
+    remakes bound: an estimate, never a limit."""
     from app import director_song, host, narration, scorecard, watch_cut
+    from app.line_change import CUT_TURNS
 
-    found = scorecard.forecast(db, draft, video)
-    if found["basis"] != "estimate":
-        return Decimal(str(found["credits"]))
     script = db.get(Script, draft.script_id)
     ws = script.workspace_id
+    turns = TYPICAL_TURNS
+    if change := revision(db, video):
+        turns = min(turns, CUT_TURNS + change[1] + 2 * len(change[0]))
+    elif (found := scorecard.forecast(db, draft, video))["basis"] != "estimate":
+        return Decimal(str(found["credits"]))
+    watch = estimate(db, ws, watch_cut.KIND, Decimal(WATCH_LOOKS), {})
+    own = turns * estimate(db, ws, "write-claude", Decimal(1), {}) + watch
+    if change:  # its song, plan and kept clips are made already
+        return version_cost(db, draft, video) + own
     seconds = quoted_seconds(db, draft, video)
     said = narration.longest(db, draft, video) if script.kind == "narrated" else seconds
     audio = director_song.price(db, draft) / (1 + director_song.REMAKES)  # made once
     talks = host.run_price(db, draft, said, video, 0)
-    turns = TYPICAL_TURNS * estimate(db, ws, "write-claude", Decimal(1), {})
-    watch = estimate(db, ws, watch_cut.KIND, Decimal(WATCH_LOOKS), {})
-    return version_cost(db, draft, video) + audio + talks + turns + watch
+    return version_cost(db, draft, video) + audio + talks + own
+
+
+CLIPS = re.compile(r"\bclips?\s+(\d+[a-z]?(?:(?:\s*(?:,|&|\band\b)\s*)+\d+[a-z]?)*)", re.I)
+LOOK_MOVES = ("make_looks", "change_look", "outfit")
+
+
+def revision(db: Session, video) -> tuple[list[ProjectClip], int] | None:
+    """What a revision makes (`director.REVISION`: a run after a delivery whose story stands;
+    F15, Skeleton 261: one clip again cost $2.81, its card said the whole video's $10.42): the
+    clips it makes again, those its notes name ("clips 3, 5 and 6"), its moves ask for (made,
+    or waiting for Make it), out of date or with no take yet; and how many looks, those its
+    moves ask for and each role still without one. Its song, plan and the clips it keeps are
+    made already. None for any other run, or with none yet."""
+    from app import director
+    from app.sheets import roles_needing_look, roles_without_a_look
+    from app.video_settings import out_of_date
+
+    rows = director.all_turns(db, video.id) if video is not None and video.id else []
+    run = (rows[-1].input.get(director.RUN) or {}) if rows else {}
+    if not run.get(director.REVISION) or director._own_story(db, run, video.id):
+        return None
+    moves = [t.output or {} for t in director.turns(db, video)
+             if not (t.input.get("result") or "").startswith("Refused")]  # fmt: skip
+    said = " ".join(m["text"] for m in director.chat(video, run["id"]))
+    ids = {f"c{n}" for found in CLIPS.findall(said) for n in re.findall(r"\d+[a-z]?", found)}
+    ids |= {m["clip_id"] for m in moves if m.get("tool") == "make_take" and m.get("clip_id")}
+    bd = clip_prompts.newest(db, video)
+    of = {s: c["id"] for c in (bd.data.get("clips", []) if bd else []) for s in c["shot_ids"]}
+    ids |= {of.get(r.get("shot_id")) for m in moves if m.get("tool") == "redraw_still"
+            for r in m.get("redraws") or [m]}  # fmt: skip
+    stale = {c.id for c in out_of_date(db, video)[1]}
+    plan = bd.id if bd else None
+    rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == video.id,
+                                                ProjectClip.breakdown_id == plan))  # fmt: skip
+    clips = [c for c in rows if c.clip_id in ids or c.id in stale or not c.picked_take_id]
+    names = {(m.get("look") or {}).get("name") for m in moves if m.get("tool") in LOOK_MOVES}
+    names |= {*roles_without_a_look(db, video), *roles_needing_look(db, video)}
+    return clips, len(names - {None, ""})
+
+
+def _shots(db: Session, video: Project, clips: list[ProjectClip]) -> int:
+    """The stills these clips' shots are drawn from (each drawn again)."""
+    bd = clip_prompts.newest(db, video)
+    ids = {c.clip_id for c in clips}
+    return sum(len(c["shot_ids"]) for c in (bd.data.get("clips", []) if bd else [])
+               if c["id"] in ids)  # fmt: skip
 
 
 def _looks(db: Session, project: Project) -> tuple:

@@ -357,10 +357,11 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
                      f"about {first['minutes_left']} min" if first else "",
             "watching": watching[1] if watching else "",
             "prompts": "; ".join(reasons)}  # fmt: skip
-    out = []
+    out, kept = [], _kept(db, project)
     for key in (k for k in ORDER if k in words):
         n = ORDER.index(key)
-        state = "done" if how == "delivered" or n < at else "now" if n == at and not how else "todo"
+        state = ("done" if how == "delivered" or n < at or n > at and key in kept
+                 else "now" if n == at and not how else "todo")  # fmt: skip
         if key == "watching" and first and not how:
             state = "now"  # it watches each take as it lands, while takes are made
         if n == at and how:
@@ -371,6 +372,18 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
         out.append({"key": key, "state": state, "text": words[key],
                     "sub": subs.get(key, "") if shown else ""})  # fmt: skip
     return out
+
+
+def _kept(db: Session, project: Project) -> set[str]:
+    """The steps a revision doesn't run again (F15): its plan, voice and prompts; its cast when
+    it makes no look, its stills and takes when it makes no clip again (`estimate.revision`)."""
+    from app.routes.estimate import revision
+
+    if (change := revision(db, project)) is None:
+        return set()
+    clips, looks = change
+    return {"read", "plan", "voice", "prompts", *(() if looks else ("cast",)),
+            *(() if clips else ("stills", "takes", "watching"))}  # fmt: skip
 
 
 def _and(names: list[str]) -> str:
