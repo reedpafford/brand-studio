@@ -1,11 +1,14 @@
 """Omni edits (Reed, 9 Nov, runway item 7): "Change this…" on a nearly-right Omni take edits
 that take (Omni's `video` input, up to 15 s, "keep everything else the same") instead of making
-a new one; a note about the words or the timing makes a new take, saying why. Stand-ins and a
-mocked Claude only: no paid calls."""
+a new one. The prompt rewrite the note already makes judges whether it's a look change (an
+edit) or more (a new take, saying why); the server checks Omni, 15 s, the same length and no
+new picture itself. Stand-ins and a mocked Claude only: no paid calls."""
 
 from decimal import Decimal
 
-from app import change, clip_takes, model_map
+import pytest
+
+from app import change, clip_prompts, clip_takes, model_map, prompts
 from app.catalogue import get_model
 from app.clip_takes import save_take
 from app.credits import estimate, price
@@ -20,16 +23,17 @@ from tests.test_enhance import FakeClaude, _run, setup  # noqa: F401 - fixture
 
 
 def _on_omni(db, editor, row: ProjectClip, seconds: int | None = None) -> ClipTake:
-    """The clip on Omni 1.2 with an Omni take of it in use."""
+    """The clip on Omni 1.2 with an Omni take of it in use, made from its pictures."""
     file_id = upload(editor)  # before this session writes (one writer at a time)
     row.model = {"id": model_map.OMNI, "why": "Realistic.", "by": "director"}
     row.prompt_ok = True
     video = db.get(Project, row.project_id)
+    sent = clip_takes.take_input(db, video, row, check=False)["files"]  # as a take is sent
     asked = {"duration": seconds or row.seconds, "resolution": "720p"}
     made = Job(workspace_id=video.workspace_id, created_by_id=video.created_by_id, kind="video",
                provider="fake", project_id=video.id, status="succeeded",
                input={"step": "clip_take", "project_clip_id": row.id, "model": model_map.OMNI,
-                      "input": asked})  # fmt: skip
+                      "input": asked, "files": sent})  # fmt: skip
     db.add(made)
     db.flush()
     number = len(db.query(ClipTake).filter_by(clip_id=row.id).all()) + 1
@@ -42,10 +46,12 @@ def _on_omni(db, editor, row: ProjectClip, seconds: int | None = None) -> ClipTa
     return take
 
 
-def _change(app, db, editor, setup, clip, note: str) -> ProjectClip:  # noqa: F811
+def _change(app, db, editor, setup, clip, note: str, edit: bool, why: str) -> ProjectClip:  # noqa: F811
+    """Change this… with the note, the rewrite judging it an edit or not (`edit`, `why`)."""
     url = f"/projects/{setup['project']}/clips/{clip['id']}/change"
     assert editor.post(url, json={"note": note}).status_code == 201
-    _run(app, db, FakeClaude({"prompt": _noted(db.get(ProjectClip, clip["id"]).prompt, note)}))
+    after = _noted(db.get(ProjectClip, clip["id"]).prompt, note)
+    _run(app, db, FakeClaude({"prompt": after, "edit": edit, "why": why}))
     db.expire_all()
     return db.get(ProjectClip, clip["id"])
 
@@ -56,11 +62,12 @@ def test_an_edit_is_priced_from_its_own_catalogue_line():
     assert omni.usd_per_unit("720p", edit=True) == omni.edit.price.usd["720p"]
     job = {"model": omni.id, "edit": True, "input": {"resolution": "720p"}}
     assert estimate(None, 0, "video", Decimal(8), job) == 8 * omni.credits_per_unit("720p", True)
-    sent = {"input": {"video": "https://x/take.mp4", "duration": 8, "resolution": "720p"}}
-    assert _usage(omni, sent, 1).cost_usd == 8 * omni.edit.price.usd["720p"]  # as Usage records it
+    made = {"input": {"video": "https://x/take.mp4", "resolution": "720p"},
+            "metrics": {"video_output_duration_seconds": 8}}  # fmt: skip
+    assert _usage(omni, made, 1).cost_usd == 8 * omni.edit.price.usd["720p"]  # as Usage records
 
 
-def test_a_visual_note_on_an_omni_take_edits_that_take(app, db, editor, setup, clip, monkeypatch):  # noqa: F811
+def test_a_look_note_on_an_omni_take_edits_that_take(app, db, editor, setup, clip, monkeypatch):  # noqa: F811
     row = db.get(ProjectClip, clip["id"])
     take = _on_omni(db, editor, row)
     project = db.get(Project, row.project_id)
@@ -68,69 +75,98 @@ def test_a_visual_note_on_an_omni_take_edits_that_take(app, db, editor, setup, c
     write = estimate(db, project.workspace_id, "write-claude", Decimal(1))
     edit = clip_takes.take_credits(db, project, row, edit=True)
     assert editor.get(url).json()["credits"] == price(write + edit)  # the price first
-    row = _change(app, db, editor, setup, clip, "Warmer evening light, a red scarf on Mom.")
-    assert row.change["how"] == change.EDITING.format(n=1)
+    note = "Warmer evening light, a red scarf on Mom."
+    row = _change(app, db, editor, setup, clip, note, True, "only the light and a scarf change")
+    assert row.change["how"] == change.EDITING.format(n=1, why="only the light and a scarf change")
     made = db.get(Job, row.change["made_job_id"])
     assert made.input["edit"] and made.input["edit_of"] == take.id
     assert made.input["files"] == {"video": [take.file_id]}  # the take, and no pictures
-    assert made.input["input"]["prompt"] == (
-        f"Warmer evening light, a red scarf on Mom. {change.KEEP}"
-    )
-    assert made.input["input"]["duration"] == row.seconds  # an edit keeps its length
+    assert made.input["input"] == {"prompt": f"{note.rstrip('.')}. {change.KEEP}",
+                                   "resolution": "720p"}  # no duration with `video`  # fmt: skip
+    assert made.input["seconds"] == row.seconds  # its length, kept out of what's sent
     watched = []
     monkeypatch.setattr("app.take_watch.queue_safely", lambda db, job, t, c: watched.append(t))
     made.output = {"file_ids": [upload(editor)]}  # the edited take lands as any take does
     save_take(db, made)
     db.commit()
+    clip_prompts.repair(db, project)  # as Clips opening runs it
+    db.commit()
     row = db.get(ProjectClip, clip["id"])
     new = db.get(ClipTake, row.picked_take_id)
     assert new.number == 2 and watched == [new]  # picked, and watched like any take
+    assert not clip_prompts.take_stale(row)  # made from its source's pictures: not out of date
     assert new.prompt == row.prompt and "red scarf" in row.prompt  # the clip's own prompt
     assert db.get(ClipTake, take.id).prompt is not None  # the take before stays: the Undo
 
 
-def test_a_note_on_the_words_or_timing_makes_a_new_take_and_says_why(
+@pytest.mark.parametrize(
+    ("note", "edit", "why"),
+    [
+        ("She should sound angrier.", False, "the delivery changes"),
+        ("Slowly push in on her.", False, "a camera move changes"),
+        ("Make it 6s.", False, "the length changes"),
+        ("Warmer colour tone.", True, "only the colour tone changes"),
+        ("Shorter hair.", True, "only her hair changes"),
+        ("Change the words on the poster to SALE.", True, "only the poster's text changes"),
+    ],
+)
+def test_the_rewrite_judges_an_edit_or_a_new_take_and_says_why(
     app,
     db,
     editor,
     setup,  # noqa: F811
     clip,  # noqa: F811
+    note,
+    edit,
+    why,
 ):
-    row = db.get(ProjectClip, clip["id"])
-    _on_omni(db, editor, row)
-    project = db.get(Project, row.project_id)
-    assert change.editable(db, project, row, "She speaks softer.")[1] == change.NEW_TAKE["says"]
-    assert change.editable(db, project, row, "A shorter pause.")[1] == change.NEW_TAKE["timed"]
-    row = _change(app, db, editor, setup, clip, "Slower push in.")
-    assert row.change["how"] == change.NEW_TAKE["timed"]  # the owner sees why
+    assert "**A clip: edit or new take.**" in prompts.system("change")  # QA's cases, its guide
+    _on_omni(db, editor, db.get(ProjectClip, clip["id"]))
+    row = _change(app, db, editor, setup, clip, note, edit, why)
     made = db.get(Job, row.change["made_job_id"])
-    assert "edit" not in made.input and "Slower push in." in made.input["clip_prompt"]
+    assert bool(made.input.get("edit")) is edit
+    line = change.EDITING if edit else change.NEW_TAKE
+    assert row.change["how"] == line.format(n=1, why=why)  # the owner sees why
+
+
+def test_the_servers_own_checks_make_a_new_take(app, db, editor, setup, clip):  # noqa: F811
+    row = db.get(ProjectClip, clip["id"])
+    project = db.get(Project, row.project_id)
     take = _on_omni(db, editor, row, seconds=row.seconds + 2)  # the clip's length changed
-    assert change.editable(db, project, row, "Brighter.") == (None, change.NEW_TAKE["length"])
+    assert change.editable(db, project, row) == (None, change.HARD["length"])
     db.get(Job, take.job_id).input = {"model": "seedance-2.0", "input": {"duration": 5}}
     db.commit()
-    assert change.editable(db, project, row, "Brighter.") == (None, "")  # not Omni: as ever
+    assert change.editable(db, project, row) == (None, "")  # not Omni: as ever, no line
+    _on_omni(db, editor, row)
+    row.references = [r for r in row.references if not r["id"].startswith("char:")]
+    db.commit()  # the rewrite attaches Mom's sheet again: a picture an edit can't take
+    row = _change(app, db, editor, setup, clip, "Mom holds the phone.", True, "a prop changes")
+    assert any(r["id"].startswith("char:") for r in row.references)
+    assert row.change["how"] == change.NEW_TAKE.format(why=change.HARD["pictures"])
+    assert "edit" not in db.get(Job, row.change["made_job_id"]).input
 
 
-def test_the_director_may_edit_an_omni_take_instead_of_remaking_it(
-    app,
-    db,
-    editor,
-    setup,  # noqa: F811
-    clip,  # noqa: F811
-):
+def test_the_director_edits_only_a_take_omni_can_edit(app, db, editor, setup, clip):  # noqa: F811
     from app import director_tools
     from app.models.accounts import User
 
     row = db.get(ProjectClip, clip["id"])
-    _on_omni(db, editor, row)
+    take = _on_omni(db, editor, row)
     project = db.get(Project, row.project_id)
     user = db.get(User, project.created_by_id)
-    said = director_tools.run(db, user, project, {"tool": "make_take", "clip_id": row.clip_id,
-                              "note": "Hide the coffee cup.", "edit_take": True}, None)  # fmt: skip
-    assert said.endswith(f"{row.clip_id}: {change.EDITING.format(n=1)}")  # it says so
-    job = db.get(Job, db.get(ProjectClip, row.id).change["job_id"])
-    assert job.input["step"] == "change"  # through Change this…: it edits once rewritten
+    move = {"tool": "make_take", "clip_id": row.clip_id, "note": "Hide the cup.", "edit_take": True}
+    said = director_tools.run(db, user, project, move, None)
+    assert said.endswith(f"{row.clip_id}: {change.MAYBE.format(n=1)}")  # it says so
+    row = db.get(ProjectClip, row.id)
+    assert db.get(Job, row.change["job_id"]).input["step"] == "change"  # its rewrite judges it
+    db.get(Job, row.change["job_id"]).status = "succeeded"  # done: the clip is free again
+    db.get(Job, take.job_id).input = {**db.get(Job, take.job_id).input,
+                                      "input": {"duration": row.seconds + 2}}  # fmt: skip
+    db.commit()
+    writes = db.query(Job).filter(Job.kind == "write-claude").count()
+    said = director_tools.run(db, user, project, move, None)  # can't be edited: a plain redo
+    assert f"{row.clip_id}: {change.NEW_TAKE.format(why=change.HARD['length'])}" in said
+    assert db.query(Job).filter(Job.kind == "write-claude").count() == writes  # no rewrite
 
 
 def test_a_revision_prices_an_omni_edit_as_an_edit(app, db, owner, editor):

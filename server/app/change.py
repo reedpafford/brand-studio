@@ -5,7 +5,6 @@ comes back the same, nothing is made and nothing is charged. The old still or ta
 the prompt it was made from, so picking it back is the Undo. A nearly-right Omni take is edited
 instead of made again (`editable`)."""
 
-import re
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -28,17 +27,16 @@ Row = StoryboardFrame | ProjectClip
 # Omni's edit (docs/prompting/omni-1.2.md §9; Reed, 9 Nov): only what the note says changes
 KEEP = ("Keep the people, their dialogue and voices, the timing and the camera move the same; "
         "keep everything else the same.")  # fmt: skip
-SAYS = re.compile(r"\b(?:say|says|said|saying|lines?|words?|dialogue|voices?|accent|pronounc\w*|"
-                  r"louder|quieter|speak\w*|talk\w*|tone|sing\w*|lyrics?)\b", re.I)  # fmt: skip
-TIMED = re.compile(r"\b(?:faster|slower|quicker|longer|shorter|pauses?|timing|seconds?|pace|"
-                   r"speed|sooner|earlier|later|extend\w*|trim\w*)\b", re.I)  # fmt: skip
-EDITING = "An edit of take {n}: only what the note says changes; the acting, timing and voice stay."
-NEW_TAKE = {
-    "says": "A new take, not an edit: the note changes what's said or how it's said.",
-    "timed": "A new take, not an edit: the note changes the timing, which an edit keeps.",
-    "long": "A new take, not an edit: the take is over {most} s, longer than Omni can edit.",
-    "length": "A new take, not an edit: the clip's length changed since this take.",
-    "pictures": "A new take, not an edit: the change attaches a picture, which an edit can't take.",
+# Whether the note is an edit is the rewrite's own judgment (ChangedPrompt.edit, its `why`);
+# these are what the server checks itself: Omni, up to 15 s, the same length, no picture
+MAYBE = "Take {n} is Omni's: an edit if the note only changes the look, else a new take."
+EDITING = "An edit of take {n}: {why}. The acting, timing and voice stay."
+NEW_TAKE = "A new take, not an edit: {why}."
+LOOK, MORE = "only the look changes", "the note changes more than the look"
+HARD = {
+    "long": "the take is over {most} s, longer than Omni can edit",
+    "length": "the clip's length changed since this take",
+    "pictures": "the change attaches a picture, which an edit can't take",
 }
 
 
@@ -51,38 +49,37 @@ def _has_take(db: Session, row: ProjectClip) -> bool:
 
 
 def _seconds(db: Session, take: ClipTake) -> int:
-    """How long a take is: what it was asked for (an edit keeps its source's length)."""
-    return int((db.get(Job, take.job_id).input.get("input") or {}).get("duration") or 0)
+    """How long a take is: what it was asked for, or an edit's source's length (`seconds`)."""
+    made = db.get(Job, take.job_id).input
+    return int(made.get("seconds") or (made.get("input") or {}).get("duration") or 0)
 
 
-def editable(db: Session, project: Project, row: ProjectClip,
-             note: str = "") -> tuple[ClipTake | None, str]:  # fmt: skip
-    """Omni's edit of the take in use (Reed, 9 Nov: "Change this…" on a nearly-right Omni take
-    edits it; it can't change what's said): (the take, its line) when it's edited; (None, why)
-    when it's Omni's but the note needs a new take; (None, "") for any other take."""
+def editable(db: Session, project: Project, row: ProjectClip) -> tuple[ClipTake | None, str]:
+    """The take in use, when Omni can edit it (Reed, 9 Nov: "Change this…" on a nearly-right
+    Omni take edits it), by the server's own checks: (the take, "") when it can; (None, why)
+    when it's Omni's but can't be (over 15 s, or the clip's length changed); (None, "") for
+    any other take. Whether the note is an edit is the rewrite's judgment (`save_changed`)."""
     take = db.get(ClipTake, row.picked_take_id) if row.picked_take_id else None
     made = db.get(Job, take.job_id) if take is not None and take.job_id else None
     model = model_map.of_clip(project, row)
     if made is None or model.edit is None or made.input.get("model") != model.id:
         return None, ""
     seconds = _seconds(db, take)
-    why = ("says" if SAYS.search(note) else "timed" if TIMED.search(note)
-           else "long" if seconds > model.edit.max_seconds
+    why = ("long" if seconds > model.edit.max_seconds
            else "length" if seconds != model_map.billed(model, row.seconds) else "")  # fmt: skip
-    if why:
-        return None, NEW_TAKE[why].format(most=model.edit.max_seconds)
-    return take, EDITING.format(n=take.number)
+    return (None, HARD[why].format(most=model.edit.max_seconds)) if why else (take, "")
 
 
 def _edit(db: Session, data: dict, take: ClipTake, note: str) -> dict:
     """A take's job (`clip_takes.take_input`: its checks, its records) made an edit of `take`:
-    the take as `video`, the note and what stays as its prompt, and no pictures."""
+    the take as `video`, the note and what stays as its prompt, and no pictures. Its length
+    is the take's (`seconds`, never sent: it doesn't apply to an edit)."""
     kept = {k: v for k, v in data.items()
             if k not in ("fit_images_to", "exact_file_ids", "screen_figures")}  # fmt: skip
     prompt = f"{note.strip().rstrip('.')}. {KEEP}" if note.strip() else KEEP
-    return {**kept, "edit": True, "edit_of": take.id, "files": {"video": [take.file_id]},
-            "input": {"prompt": prompt, "duration": _seconds(db, take),
-                      "resolution": data["input"]["resolution"]}}  # fmt: skip
+    return {**kept, "edit": True, "edit_of": take.id, "seconds": _seconds(db, take),
+            "files": {"video": [take.file_id]},
+            "input": {"prompt": prompt, "resolution": data["input"]["resolution"]}}  # fmt: skip
 
 
 def _draw(db: Session, project: Project, row: Row, before: str = "", check: bool = True,
@@ -96,7 +93,7 @@ def _draw(db: Session, project: Project, row: Row, before: str = "", check: bool
     data = clip_takes.take_input(db, project, row, check=check)
     if edit:  # billed on the take's own seconds, which it keeps
         data = _edit(db, data, edit, note)
-        return "video", data, data["input"]["duration"]
+        return "video", data, data["seconds"]
     return "video", data, model_map.billed(model_map.of_clip(project, row), row.seconds)
 
 
@@ -115,13 +112,13 @@ def take_after(db: Session, frame: StoryboardFrame) -> ProjectClip | None:
     return clip if clip is not None and _has_take(db, clip) else None
 
 
-def _then(db: Session, project: Project, row: Row, check: bool = True, note: str = "") -> Decimal:
+def _then(db: Session, project: Project, row: Row, check: bool = True) -> Decimal:
     """What making it again costs once the prompt is rewritten (0 for a clip with no take):
     a still's redraw, and its clip's new take (or its take's edit) when it has one. Checked
     (the press): refused up front while its cast or places wait for the OK."""
     if isinstance(row, StoryboardFrame) or _has_take(db, row):
-        edit = None if isinstance(row, StoryboardFrame) else editable(db, project, row, note)[0]
-        kind, data, units = _draw(db, project, row, check=check, note=note, edit=edit)
+        edit = None if isinstance(row, StoryboardFrame) else editable(db, project, row)[0]
+        kind, data, units = _draw(db, project, row, check=check, edit=edit)
         made = estimate(db, project.workspace_id, kind, Decimal(units), data)
         if isinstance(row, StoryboardFrame):
             clip = take_after(db, row)
@@ -159,7 +156,7 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
         mine = job.input.get("step") == "change" and job.input.get("target_id") == row.id
         if job.input.get(key) == row.id or (mine and job.input.get("target") == target):
             raise HTTPException(409, "This one is still being made.")
-    then = _then(db, project, row, note=note)
+    then = _then(db, project, row)
     data = {
         "step": "change",
         "project_id": project.id,
@@ -180,11 +177,20 @@ def start(db: Session, user: User, project: Project, row: Row, note: str) -> Job
     # The whole price is checked in one locked step, against the video's budget.
     job = enqueue(db, user, "write-claude", data, project=project, provider="claude", hold=then)
     was = {"was_take_id": row.picked_take_id} if target == "clip" else {"was_file_id": row.file_id}
-    how = editable(db, project, row, note)[1] if target == "clip" and _has_take(db, row) else ""
+    how = _how(*editable(db, project, row)) if target == "clip" and _has_take(db, row) else ""
     row.change = {"note": note, "job_id": job.id, "status": "changing", **was,
                   **({"how": how} if how else {})}  # fmt: skip
     db.commit()
     return job
+
+
+def _how(take: ClipTake | None, why: str, said: str | None = None) -> str:
+    """The clip's line on how the change is made: while the note is read, an Omni take may be
+    edited (MAYBE); once read (`said`, the rewrite's own reason), an edit or a new take, why."""
+    if take is not None:
+        return MAYBE.format(n=take.number) if said is None else EDITING.format(
+            n=take.number, why=said.strip().rstrip(".") or LOOK)  # fmt: skip
+    return NEW_TAKE.format(why=why.strip().rstrip(".")) if why else ""
 
 
 def fit(db: Session, project: Project, row: ProjectClip, after: str,
@@ -233,7 +239,8 @@ def save_changed(db: Session, job: Job) -> None:
     row = db.get(model, i["target_id"], populate_existing=True)  # read fresh: Undo's pick
     if row is None or row.project_id != i["project_id"]:
         return
-    before, after = i["before"], ChangedPrompt.model_validate(job.output).prompt.strip()
+    answer = ChangedPrompt.model_validate(job.output)
+    before, after = i["before"], answer.prompt.strip()
     change = {**(row.change or {}), "note": i["note"], "job_id": job.id, "before": before,
               "after": after}  # fmt: skip
     if row.prompt != before:  # edited by hand while the note was read: never overwrite it
@@ -263,10 +270,14 @@ def save_changed(db: Session, job: Job) -> None:
         use(db, row, *fit(db, project, row, after, i["note"]), job.created_by_id)
         if not _has_take(db, row):
             return  # before any take, a change only rewrites the prompt
-        edit, how = editable(db, project, row, i["note"])
+        edit, why = editable(db, project, row)
         if edit and {r["id"] for r in row.references} - had:  # "use the real bag": attached
-            edit, how = None, NEW_TAKE["pictures"]
-        row.change = {**row.change, **({"how": how} if how else {})}
+            edit, why = None, HARD["pictures"]
+        if edit and not answer.edit:  # the rewrite read more than a look change in the note
+            edit, why = None, answer.why or MORE
+        how = _how(edit, why, answer.why)
+        row.change = {**{k: v for k, v in row.change.items() if k != "how"},
+                      **({"how": how} if how else {})}  # fmt: skip
         if stops := advice.stops(row):  # never pay for a take from a prompt with a problem
             fix = stops[0].rstrip(".")
             row.change = {**row.change, "status": "failed", "error": f"The new prompt has a "

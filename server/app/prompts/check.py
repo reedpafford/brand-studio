@@ -916,7 +916,8 @@ def reel_speakers(
 
 REWORD = re.compile(
     r"\b(add|cut|remove|drop|change|reword|rewrite|replace|swap|new)\s+(?:[\w'-]+\s+){0,2}"
-    r"(line|lines|dialogue|words?)\b|\bsays? (something else|instead)\b",
+    r"(line|lines|dialogue|words?)\b(?!\s+(?:on|in)\s)|\bsays? (something else|instead)\b",
+    # "the words on the poster" are text in the picture, never a line (QA on #1488)
     re.I,
 )
 SPEAKS = re.compile(

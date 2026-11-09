@@ -159,7 +159,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 clip = re.sub(r"^(clip\s*|c)", "", str(clip or "").strip(), flags=re.I)
                 return (f"Refused: there's no clip {clip}." if clip  # "c9", "C9" or "9": clip 9
                         else "Refused: every clip has a take already.")  # fmt: skip
-            from app import clip_takes
+            from app import change, clip_takes
             from app.clip_takes import contradicts
             from app.director import against_notes, chat
 
@@ -195,11 +195,15 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 project_clips.prompt_looks_good(clip_id=row.id, **me)  # read: it moves on
                 note = project_clips.TakeIn(note=asked_note)
                 try:
-                    edit = decision.get("edit_take") and note.note
+                    edit, why = None, ""
+                    if decision.get("edit_take") and note.note and row.picked_take_id:
+                        edit, why = change.editable(db, project, row)  # else a plain redo
+                    if why:
+                        hows.append(f"{row.clip_id}: {change.NEW_TAKE.format(why=why)}")
                     if row.picked_take_id and (edit or contradicts(row.prompt, note.note)):
                         # A7: "no phone" under a prompt with the phone: appended, both stay and
                         # the take can't win; Change it… rewrites the prompt, then the take.
-                        # An Omni edit goes the same way (`change.editable`), saying how.
+                        # An Omni edit goes the same way, its rewrite judging the note.
                         body = storyboard.ChangeIn(note=note.note)
                         job = project_clips.change_clip(clip_id=row.id, body=body, **me)
                         rewritten.append(row.clip_id)

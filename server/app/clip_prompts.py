@@ -142,8 +142,19 @@ def _sent(db: Session, row: ProjectClip, take: ClipTake | None = None) -> set[in
     """The files the clip's picked take (or `take`) was made from; empty with no take, or when
     not known."""
     take = _take(db, row, take)
-    job = db.get(Job, take.job_id) if take else None
+    job = _source(db, db.get(Job, take.job_id) if take else None)
     return {f for ids in ((job.input.get("files") or {}) if job else {}).values() for f in ids}
+
+
+def _source(db: Session, job: Job | None) -> Job | None:
+    """The job a take's pictures came from: an Omni edit (`edit_of`) sends only its source
+    take, so it shows what that take was made from (QA on #1488: "Out of date" on landing)."""
+    seen: set[int] = set()
+    while job is not None and (of := job.input.get("edit_of")) and of not in seen:
+        seen.add(of)
+        source = db.get(ClipTake, of)
+        job = db.get(Job, source.job_id) if source is not None and source.job_id else None
+    return job
 
 
 def older_take(
@@ -170,7 +181,7 @@ def _left_out(db: Session, row: ProjectClip, take: ClipTake | None) -> list[str]
     from app.clip_takes import UNSENT, _out, _shots
     from app.model_map import left_out
 
-    job = db.get(Job, _take(db, row, take).job_id)
+    job = _source(db, db.get(Job, _take(db, row, take).job_id))
     if job is not None and UNSENT in job.input:  # as the take was made (QA on #1453)
         return [r for r in _images(row) if _out(r, tuple(job.input[UNSENT]))]
     bd = db.get(BreakdownVersion, row.breakdown_id).data
@@ -198,7 +209,7 @@ def _asked(db: Session, take: ClipTake | None) -> set[int]:
     still out on purpose (`clip_takes._again_without`), so its take is still the one made for
     that still, never one "from an earlier still" (video 226's clip 2: the cut stayed out of
     date through five remakes)."""
-    job = db.get(Job, take.job_id) if take else None
+    job = _source(db, db.get(Job, take.job_id) if take else None)
     out: set[int] = set()
     while job is not None and job.auto and job.retry_of_id:
         job = db.get(Job, job.retry_of_id)

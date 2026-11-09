@@ -344,6 +344,19 @@ class ClipPrompts(BaseModel):
 
 class ChangedPrompt(BaseModel):
     prompt: str = Field(description="The whole prompt with only the note's change made.")
+    edit: bool = Field(
+        default=False,
+        description="For a clip: true when the note changes only how things look (light, "
+        "colour, wardrobe, hair, props, the background, text on objects), so its take can be "
+        "edited and keep its acting, timing and voice; false when it changes the words, the "
+        "delivery or emotion, the timing or pace, a camera move, the length, or brings in a "
+        "person. False for a still.",
+    )
+    why: str = Field(
+        default="",
+        description="For a clip: one short plain line on why it's an edit or a new take "
+        "('only the colour tone changes', 'the delivery changes'). Else empty.",
+    )
 
 
 # --- Quick clip: Improve prompt ---

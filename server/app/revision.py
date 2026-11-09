@@ -69,15 +69,13 @@ def revision(db: Session, video, ended: bool = False) -> tuple[list[ProjectClip]
 
 
 def edited(db: Session, video, clips: list[ProjectClip]) -> list[ProjectClip]:
-    """The clips of a revision an Omni edit changes rather than makes again (`change.editable`
-    on its notes: a take on Omni, notes about what's seen, never the words or timing): no
-    still is drawn for them, and each costs an edit."""
-    from app import change, director
+    """The clips of a revision an Omni edit may change rather than make again
+    (`change.editable`: its take is Omni's, up to 15 s, the clip's length): no still is drawn
+    for them, and each costs an edit. An estimate: the director edits when its judgment says
+    so, and the run's "up to" keeps a remake."""
+    from app import change
 
-    rows = director.all_turns(db, video.id)
-    run = (rows[-1].input.get(director.RUN) or {}) if rows else {}
-    said = " ".join(m["text"] for m in director.chat(video, run.get("id")))
-    return [c for c in clips if change.editable(db, video, c, said)[0]]
+    return [c for c in clips if change.editable(db, video, c)[0]]
 
 
 def _showing(db: Session, video: Project, bd, names: set) -> set[str]:
