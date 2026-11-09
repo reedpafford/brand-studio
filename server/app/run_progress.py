@@ -376,10 +376,10 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
 
 def _kept(db: Session, project: Project) -> set[str]:
     """The steps a revision doesn't run again (F15): its plan, voice and prompts; its cast when
-    it makes no look, its stills and takes when it makes no clip again (`estimate.revision`)."""
-    from app.routes.estimate import revision
+    it makes no look, its stills and takes when it makes no clip again (`revision.revision`)."""
+    from app.revision import revision
 
-    if (change := revision(db, project)) is None:
+    if (change := revision(db, project, ended=True)) is None:  # this run's, ended or not
         return set()
     clips, looks = change
     return {"read", "plan", "voice", "prompts", *(() if looks else ("cast",)),
@@ -669,7 +669,7 @@ def _actual(db: Session, project: Project, viewer: User | None, since) -> dict:
     from app.routes.asks import _expected
 
     real = actual_usd(db, project.id, since)
-    most = _expected(db, project) * USD_PER_CREDIT  # rounded up, as the header rounds it
+    most = _expected(db, project, ended=True) * USD_PER_CREDIT  # rounded up, as the header
     return {"actual_usd": float(real.usd), "listed_usd": float(real.listed),
             "unreported": real.pending, "expected_usd": math.ceil(most * 100) / 100,
             "cost": real.words("on this run")}  # fmt: skip

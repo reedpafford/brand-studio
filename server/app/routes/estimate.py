@@ -3,19 +3,18 @@
 Done stages cost nothing more; the final video is free."""
 
 import math
-import re
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import clip_prompts, clip_takes
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
-from app.credits import CLIP_SECONDS_GUESS, credits_used, estimate, plan_cost
+from app.credits import CLIP_SECONDS_GUESS, credits_used, estimate, plan_cost, usd_to_credits
 from app.db import get_db
 from app.models.accounts import User
 from app.models.breakdowns import BreakdownVersion
@@ -24,6 +23,7 @@ from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
 from app.models.storyboards import StoryboardFrame
 from app.prompts.schemas import Breakdown
+from app.revision import revision
 from app.routes.projects import get_project
 from app.routes.scripts import latest
 from app.storyboard import image_model, still_credits
@@ -106,10 +106,7 @@ def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
     if change := revision(db, video):  # a revision: only what it makes again (F15)
-        clips, looks = change
-        ws = video.workspace_id
-        return (looks * look_price(db, ws) + _shots(db, video, clips) * _still(db, ws, video)
-                + clip_takes.takes_price(db, video, clips))  # fmt: skip
+        return _work(db, video, change)
     script, seconds = db.get(Script, draft.script_id), quoted_seconds(db, draft, video)
     if script.kind == "song" and (take := song_takes.preferred(db, draft)):
         return song_takes.video_credits(db, take, video=video)  # its plan call included
@@ -134,7 +131,7 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     from app import director, narration, take_watch
 
     if change := revision(db, video):  # its clips made again, never the whole video's (F15)
-        return (version_cost(db, draft, video) + director.own_limit()
+        return (_work(db, video, change) + director.own_limit()
                 + director.MAX_REDOS * clip_takes.takes_price(db, video, change[0]))  # fmt: skip
     script = db.get(Script, draft.script_id)
     ws = script.workspace_id
@@ -156,73 +153,67 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
 
 TYPICAL_TURNS = 14  # a run's usual turns, treatment to deliver: for its expected cost only
 WATCH_LOOKS = 12  # a cut watch's usual pictures (its frame strips, the words and the facts)
+# A revision's turns, as real ones took them (QA on #1481): its own (the note, its card, the
+# cut, its watch, the delivery), and more for each clip (its still, its take, its remake) and
+# each look (and its cast OK): Skeleton 261's one clip took 11; Pixar Song 294's three clips
+# and a look about 20.
+REVISION_TURNS, CLIP_TURNS, LOOK_TURNS = 8, 3, 3
 
 
-def expected(db: Session, draft: ScriptDraft, video=None) -> Decimal:
+def expected(db: Session, draft: ScriptDraft, video=None, ended: bool = False) -> Decimal:
     """What a run will probably cost (Reed, 6 Nov: the owner's test site, `owner_uncapped`):
     with enough finished videos of its format and style, their credits a second
     (`scorecard.forecast`); else the version's own price (its first takes and their checks),
     its song or narration and the presenter's host made once, and the director's usual turns
-    and one watch of the cut, at their own prices. A revision: what it makes again, a turn a
-    look and two a clip (its stills, its take) and the cut's, and one watch. No allowance, no
-    remakes bound: an estimate, never a limit."""
-    from app import director_song, host, narration, scorecard, watch_cut
-    from app.line_change import CUT_TURNS
+    and one watch of the cut, at their own prices. A revision (`revision`; `ended`: the run
+    that ended, for its own record): what it makes again, each of its clips once more (real
+    ones remake one: 261's clip 7 was made twice), its turns at what a turn really costs, and
+    one watch. No allowance, no remakes bound: an estimate, never a limit."""
+    from app import director, director_song, host, narration, scorecard, watch_cut
 
     script = db.get(Script, draft.script_id)
     ws = script.workspace_id
-    turns = TYPICAL_TURNS
-    if change := revision(db, video):
-        turns = min(turns, CUT_TURNS + change[1] + 2 * len(change[0]))
-    elif (found := scorecard.forecast(db, draft, video))["basis"] != "estimate":
-        return Decimal(str(found["credits"]))
     watch = estimate(db, ws, watch_cut.KIND, Decimal(WATCH_LOOKS), {})
-    own = turns * estimate(db, ws, "write-claude", Decimal(1), {}) + watch
-    if change:  # its song, plan and kept clips are made already
-        return version_cost(db, draft, video) + own
+    if change := revision(db, video, ended):
+        clips, looks = change
+        turns = min(director.MAX_TURNS, REVISION_TURNS + CLIP_TURNS * len(clips)
+                    + LOOK_TURNS * looks)  # fmt: skip
+        return (_work(db, video, change) + clip_takes.takes_price(db, video, clips)
+                + turns * turn_price(db, ws) + watch)  # fmt: skip
+    found = scorecard.forecast(db, draft, video)
+    if found["basis"] != "estimate":
+        return Decimal(str(found["credits"]))
     seconds = quoted_seconds(db, draft, video)
     said = narration.longest(db, draft, video) if script.kind == "narrated" else seconds
     audio = director_song.price(db, draft) / (1 + director_song.REMAKES)  # made once
     talks = host.run_price(db, draft, said, video, 0)
-    return version_cost(db, draft, video) + audio + talks + own
+    turns = TYPICAL_TURNS * estimate(db, ws, "write-claude", Decimal(1), {})
+    return version_cost(db, draft, video) + audio + talks + turns + watch
 
 
-CLIPS = re.compile(r"\bclips?\s+(\d+[a-z]?(?:(?:\s*(?:,|&|\band\b)\s*)+\d+[a-z]?)*)", re.I)
-LOOK_MOVES = ("make_looks", "change_look", "outfit")
+def turn_price(db: Session, ws: int) -> Decimal:
+    """A director turn at what it really costs (QA on #1481: about $0.13 on 294, against the
+    $0.31 its charge is capped at): the mean of the workspace's last 40 real turns (Usage);
+    with none yet (the stand-ins), its rate."""
+    from app.director import STEP
+    from app.models.jobs import Job, Usage
+
+    each = (select(func.sum(Usage.cost_usd).label("usd")).join(Job, Job.id == Usage.job_id)
+            .where(Usage.workspace_id == ws, Usage.estimated.is_(False),
+                   Job.input["step"].as_string() == STEP)
+            .group_by(Usage.job_id).order_by(Usage.job_id.desc()).limit(40).subquery())  # fmt: skip
+    usd = db.scalar(select(func.avg(each.c.usd)))
+    return usd_to_credits(usd) if usd else estimate(db, ws, "write-claude", Decimal(1), {})
 
 
-def revision(db: Session, video) -> tuple[list[ProjectClip], int] | None:
-    """What a revision makes (`director.REVISION`: a run after a delivery whose story stands;
-    F15, Skeleton 261: one clip again cost $2.81, its card said the whole video's $10.42): the
-    clips it makes again, those its notes name ("clips 3, 5 and 6"), its moves ask for (made,
-    or waiting for Make it), out of date or with no take yet; and how many looks, those its
-    moves ask for and each role still without one. Its song, plan and the clips it keeps are
-    made already. None for any other run, or with none yet."""
-    from app import director
-    from app.sheets import roles_needing_look, roles_without_a_look
-    from app.video_settings import out_of_date
+def _work(db: Session, video: Project, change: tuple[list[ProjectClip], int]) -> Decimal:
+    """A revision's own work: its looks, its clips' stills drawn again, a take of each."""
+    from app.sheets import look_price
 
-    rows = director.all_turns(db, video.id) if video is not None and video.id else []
-    run = (rows[-1].input.get(director.RUN) or {}) if rows else {}
-    if not run.get(director.REVISION) or director._own_story(db, run, video.id):
-        return None
-    moves = [t.output or {} for t in director.turns(db, video)
-             if not (t.input.get("result") or "").startswith("Refused")]  # fmt: skip
-    said = " ".join(m["text"] for m in director.chat(video, run["id"]))
-    ids = {f"c{n}" for found in CLIPS.findall(said) for n in re.findall(r"\d+[a-z]?", found)}
-    ids |= {m["clip_id"] for m in moves if m.get("tool") == "make_take" and m.get("clip_id")}
-    bd = clip_prompts.newest(db, video)
-    of = {s: c["id"] for c in (bd.data.get("clips", []) if bd else []) for s in c["shot_ids"]}
-    ids |= {of.get(r.get("shot_id")) for m in moves if m.get("tool") == "redraw_still"
-            for r in m.get("redraws") or [m]}  # fmt: skip
-    stale = {c.id for c in out_of_date(db, video)[1]}
-    plan = bd.id if bd else None
-    rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == video.id,
-                                                ProjectClip.breakdown_id == plan))  # fmt: skip
-    clips = [c for c in rows if c.clip_id in ids or c.id in stale or not c.picked_take_id]
-    names = {(m.get("look") or {}).get("name") for m in moves if m.get("tool") in LOOK_MOVES}
-    names |= {*roles_without_a_look(db, video), *roles_needing_look(db, video)}
-    return clips, len(names - {None, ""})
+    clips, looks = change
+    ws = video.workspace_id
+    return (looks * look_price(db, ws) + _shots(db, video, clips) * _still(db, ws, video)
+            + clip_takes.takes_price(db, video, clips))  # fmt: skip
 
 
 def _shots(db: Session, video: Project, clips: list[ProjectClip]) -> int:

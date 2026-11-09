@@ -332,19 +332,25 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
     return card
 
 
-def _expected(db: Session, project: Project) -> Decimal:
+def _expected(db: Session, project: Project, ended: bool = False) -> Decimal:
+    """`ended`: a run's own record, a revision's after it ended too (`revision.revision`)."""
     from app.models.script_library import ScriptDraft
     from app.routes.estimate import expected
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    return expected(db, draft, project) if draft else Decimal(0)
+    return expected(db, draft, project, ended) if draft else Decimal(0)
 
 
 def _usual(db: Session, project: Project) -> Decimal:
+    """The start card's "usually": the version's price; a revision's own estimate, its turns
+    and its watch with its work (QA on #1481: 6 credits said, 23 estimated, 18 charged)."""
     from app.models.script_library import ScriptDraft
+    from app.revision import revision
     from app.routes.estimate import version_cost
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    if draft and revision(db, project):
+        return _expected(db, project)
     return version_cost(db, draft, project) if draft else Decimal(0)
 
 
