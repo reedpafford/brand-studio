@@ -1819,7 +1819,7 @@ def test_a_song_or_narration_is_made_first_and_judged_as_the_clock():
                  "never a character's voice", "a take with any speech in it is a fault",
                  "**The song or the narration is the clock.**", "`hook_at` about 5 s or less",
                  "never change a lyric (see", "With `take_id` and no `note` (free)",
-                 "the shorter (fewer seconds to film)", "onto the song's sections",
+                 "the shorter only as a tiebreak", "onto the song's sections",
                  "a voice in a take is a fault to redo", "not a second before",
                  "Treatment, then the song or the narration"):  # fmt: skip
         assert part in director, part
@@ -2020,3 +2020,14 @@ def test_every_label_judgment_follows_rule_16():
     assert "leave it out of `faults` entirely" in prompts.system("take_watch")
     assert "small print may garble and is never a finding" in prompts.system("review_stills")
     assert "its small print may garble: never a fault" in prompts.system("director")
+
+
+def test_a_song_is_picked_and_cut_for_its_style_not_its_length():
+    """Pixar song video 294: the director took the tighter take ("fewer seconds to film") and
+    the plan made 19 half-line shots of 1.2 s; Reed's pet songs sing slower and hold a line a
+    shot (2.4-3.5 s)."""
+    director, song = prompts.system("director"), prompts.system("song_breakdown")
+    assert "fewer seconds to film" not in director
+    assert "pace and room fit the style and the treatment" in director
+    assert "A shot holds one sung line, follows the song's phrasing" in song
+    assert "one lyric line or less" not in song and "cut on the beat" not in song
