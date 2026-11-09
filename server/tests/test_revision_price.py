@@ -143,15 +143,37 @@ def test_a_look_change_naming_no_clip_counts_the_clips_that_person_is_in(app, db
     assert [c.clip_id for c in clips] == ["c1"] and looks == 1  # the clip that shows them
 
 
-def test_a_revision_turn_is_priced_at_what_real_turns_cost(app, db, owner, editor):
-    """294's turns really cost about $0.13 each, against a 3-credit charge cap: a revision's
-    turns are priced at the workspace's measured real cost (the stand-ins report none)."""
+def test_a_revision_turn_is_priced_at_what_real_revision_turns_cost(app, db, owner, editor):
+    """QA on #1481: a new video's turns ($0.05-0.08) pulled the mean under a revision's
+    ($0.11-0.14), and 261's card under its real $2.81. Only revision turns count, and only
+    once there are MEASURED of them; before, the rate (the stand-ins report none)."""
+    from app.models.jobs import JobStatus
+
     pid = _delivered(app, db, owner, editor)
     ws = db.get(Project, pid).workspace_id
-    assert estimate.turn_price(db, ws) == credits.estimate(db, ws, "write-claude", Decimal(1))
-    turns = db.query(Job).filter(Job.project_id == pid, Job.input["step"].as_string() == "director")
-    for turn, usd in zip(turns.order_by(Job.id.desc()).limit(2), ("0.10", "0.20"), strict=True):
-        db.add(Usage(workspace_id=ws, job_id=turn.id, provider="claude", kind="write-claude",
+    rate = credits.estimate(db, ws, "write-claude", Decimal(1))
+    new = db.query(Job).filter(Job.project_id == pid,
+                               Job.input["step"].as_string() == director.STEP).all()  # fmt: skip
+
+    def paid(job: Job, usd: str) -> None:
+        db.add(Usage(workspace_id=ws, job_id=job.id, provider="claude", kind="write-claude",
                      units=1, unit="call", cost_usd=Decimal(usd)))  # fmt: skip
+
+    def revision_turn() -> Job:
+        job = Job(workspace_id=ws, project_id=pid, kind="write-claude", provider="claude",
+                  status=JobStatus.succeeded, credits=3, created_by_id=new[0].created_by_id,
+                  input={"step": director.STEP,
+                         director.RUN: {"id": "rev", director.REVISION: True}})  # fmt: skip
+        db.add(job)
+        db.flush()
+        return job
+
+    for job in new:
+        paid(job, "0.05")  # a new video's turns: never counted
+    for _ in range(estimate.MEASURED - 1):
+        paid(revision_turn(), "0.12")
     db.commit()
-    assert estimate.turn_price(db, ws) == credits.usd_to_credits(Decimal("0.15"))
+    assert estimate.turn_price(db, ws) == rate  # 9 revision turns: not enough yet
+    paid(revision_turn(), "0.12")
+    db.commit()
+    assert estimate.turn_price(db, ws) == credits.usd_to_credits(Decimal("0.12"))

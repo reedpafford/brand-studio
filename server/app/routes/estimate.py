@@ -191,19 +191,25 @@ def expected(db: Session, draft: ScriptDraft, video=None, ended: bool = False) -
     return version_cost(db, draft, video) + audio + talks + turns + watch
 
 
+MEASURED = 10  # real revision turns before their own mean prices one (else the rate)
+
+
 def turn_price(db: Session, ws: int) -> Decimal:
-    """A director turn at what it really costs (QA on #1481: about $0.13 on 294, against the
-    $0.31 its charge is capped at): the mean of the workspace's last 40 real turns (Usage);
-    with none yet (the stand-ins), its rate."""
-    from app.director import STEP
+    """A revision's director turn at what one really costs (QA on #1481: $0.11-0.14, against
+    the $0.31 its charge is capped at; a new video's turns, $0.05-0.08, aren't counted): the
+    mean of the workspace's last 40 real revision turns (Usage); with fewer than MEASURED
+    (the stand-ins report none), the rate."""
+    from app.director import REVISION, RUN, STEP
     from app.models.jobs import Job, Usage
 
     each = (select(func.sum(Usage.cost_usd).label("usd")).join(Job, Job.id == Usage.job_id)
             .where(Usage.workspace_id == ws, Usage.estimated.is_(False),
-                   Job.input["step"].as_string() == STEP)
+                   Job.input["step"].as_string() == STEP,
+                   Job.input[RUN][REVISION].as_boolean().is_(True))
             .group_by(Usage.job_id).order_by(Usage.job_id.desc()).limit(40).subquery())  # fmt: skip
-    usd = db.scalar(select(func.avg(each.c.usd)))
-    return usd_to_credits(usd) if usd else estimate(db, ws, "write-claude", Decimal(1), {})
+    n, usd = db.execute(select(func.count(), func.avg(each.c.usd))).one()
+    rate = estimate(db, ws, "write-claude", Decimal(1), {})
+    return usd_to_credits(usd) if n >= MEASURED else rate
 
 
 def _work(db: Session, video: Project, change: tuple[list[ProjectClip], int]) -> Decimal:
