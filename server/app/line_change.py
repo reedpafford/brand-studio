@@ -165,7 +165,7 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
     """The owner's press: the new version, the plan on it with only the line's clips left to
     make again, the narration read again if it's narrated, and a run (already approved: the
     owner's press is the OK) whose note says what to make. Nothing else is made again."""
-    from app import breakdown, cast_roles, clip_prompts, director
+    from app import clip_prompts, director
     from app.credits import lock
     from app.db import utcnow
 
@@ -177,30 +177,7 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
     shown = price(db, project, found)  # the card's "up to", as it's pressed: the run's OK
     since = db.scalar(select(func.max(Job.id))) or 0  # its charges count from here
     lock(db, Project, project.id)
-    draft, now = new_version(db, user, project, found)
-    text = draft.text
-    row = db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
-                    .order_by(BreakdownVersion.id.desc()).limit(1))  # fmt: skip
-    data = with_line(row.data, found)
-    new = BreakdownVersion(project_id=project.id, script_version=now.version, source="edit",
-                           data={**data, **breakdown.carried_keys(row)}, created_by_id=user.id,
-                           problems=breakdown.problems(db, project, text,
-                                                       breakdown.Breakdown.model_validate(data),
-                                                       data.get("song")))  # fmt: skip
-    db.add(new)
-    db.flush()  # a song part is carried on insert (song_breakdown._carry)
-    cast_roles.carry_frames(db, project, row, new)
-    cast_roles.carry_clips(db, project, row, new)
-    for clip in found["clips"]:  # its clips stay on the old plan: made again (stale)
-        if (r := _row(db, project, clip)) is not None:
-            r.breakdown_id = row.id
-    for r in db.scalars(
-        select(ProjectClip).where(
-            ProjectClip.breakdown_id == row.id, ProjectClip.project_id == project.id
-        )
-    ):
-        if r.clip_id not in found["clips"]:
-            r.breakdown_id = new.id  # every other clip and its takes stay as they are
+    draft, now = replan(db, user, project, found)
     narrated = _narrated(db, project)
     if narrated:
         _read_again(db, user, project, draft)
@@ -221,6 +198,40 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
               "since": since}  # fmt: skip
     turn = director.start(db, user, project, approved=priced)
     return {"run": turn.input[director.RUN]["id"], "version": now.version}
+
+
+def replan(db: Session, user: User, project: Project, found: dict, heard: str = ""):
+    """The new version (`new_version`) and the plan on it: the line's words in its shots
+    (`heard`: the old words as the shots read them, when the script's carry a note), every
+    other clip and its takes moved on to it, and only the line's clips (`found["clips"]`) left
+    on the old plan, stale: their prompts are written again, then their takes (a variation in
+    the owner's words too). Not committed: (draft, script version)."""
+    from app import breakdown, cast_roles
+
+    draft, now = new_version(db, user, project, found)
+    row = db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
+                    .order_by(BreakdownVersion.id.desc()).limit(1))  # fmt: skip
+    data = with_line(row.data, {**found, "old": heard or found["old"]})
+    new = BreakdownVersion(project_id=project.id, script_version=now.version, source="edit",
+                           data={**data, **breakdown.carried_keys(row)}, created_by_id=user.id,
+                           problems=breakdown.problems(db, project, draft.text,
+                                                       breakdown.Breakdown.model_validate(data),
+                                                       data.get("song")))  # fmt: skip
+    db.add(new)
+    db.flush()  # a song part is carried on insert (song_breakdown._carry)
+    cast_roles.carry_frames(db, project, row, new)
+    cast_roles.carry_clips(db, project, row, new)
+    for clip in found["clips"]:  # its clips stay on the old plan: made again (stale)
+        if (r := _row(db, project, clip)) is not None:
+            r.breakdown_id = row.id
+    for r in db.scalars(
+        select(ProjectClip).where(
+            ProjectClip.breakdown_id == row.id, ProjectClip.project_id == project.id
+        )
+    ):
+        if r.clip_id not in found["clips"]:
+            r.breakdown_id = new.id  # every other clip and its takes stay as they are
+    return draft, now
 
 
 def new_version(db: Session, user: User, project: Project, found: dict):

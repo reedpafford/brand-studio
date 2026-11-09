@@ -272,10 +272,11 @@ def _row(db: Session, row, **changed):
 def _new_words(db: Session, user: User, video: Project, option: VideoVariation,
                clips: list[str], note: str) -> int | None:  # fmt: skip
     """The owner's own new words for the opening (or closing) line, quoted in their note,
-    in a new version of the script for this video only (as Change the line makes one); else
-    nothing changes. Never on a song or narrated video, whose words time every clip."""
+    made as Change the line makes them (`line_change.replan`): a new version of the script
+    for this video only, and the plan on it, whose clips saying that line are left stale, so
+    their prompts are written again with the new words before their takes (after Make it).
+    Else nothing changes. Never on a song or narrated video, whose words time every clip."""
     from app import line_change, plans
-    from app.clip_prompts import newest
     from app.locked_line import QUOTE
     from app.narration import video_kind
     from app.prompts import without_notes
@@ -290,9 +291,6 @@ def _new_words(db: Session, user: User, video: Project, option: VideoVariation,
     line = plans.script(db, video).text.splitlines()[n - 1]
     said = line.split(":", 1)[-1].strip()
     heard = without_notes(said)  # as the shot's line reads it (#1490): "[quietly] Nate…"
-    found = {"line": n, "old": heard if heard in line else said, "new": words}
-    _, version = line_change.new_version(db, user, video, found)  # a note before it stays
-    plan = newest(db, video)
-    plan.data = line_change.with_line(plan.data, {**found, "old": heard})
-    plan.script_version = version.version
+    found = {"line": n, "old": heard if heard in line else said, "new": words, "clips": saying}
+    line_change.replan(db, user, video, found, heard)  # a note before the words stays
     return n

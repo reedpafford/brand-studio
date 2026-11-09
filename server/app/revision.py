@@ -65,10 +65,14 @@ def revision(db: Session, video, ended: bool = False) -> tuple[list[ProjectClip]
             for r in m.get("redraws") or [m]}  # fmt: skip
     stale = {c.id for c in out_of_date(db, video)[1]}
     plan = bd.id if bd else None
-    rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == video.id,
-                                                ProjectClip.breakdown_id == plan))  # fmt: skip
+    rows = list(db.scalars(select(ProjectClip).where(
+        ProjectClip.project_id == video.id, ProjectClip.breakdown_id == plan)))  # fmt: skip
     clips = [c for c in rows if c.clip_id in ids or c.id in stale or not c.picked_take_id]
-    return clips, len(looks)
+    left = {c["id"] for c in (bd.data.get("clips", []) if bd else [])} - {c.clip_id for c in rows}
+    behind = {c.clip_id: c for c in db.scalars(select(ProjectClip).where(  # a clip left on an
+        ProjectClip.project_id == video.id, ProjectClip.clip_id.in_(left or {""}))  # older plan
+        .order_by(ProjectClip.id))}  # (a changed line's): its prompt and take again  # fmt: skip
+    return [*clips, *behind.values()], len(looks)
 
 
 def edited(db: Session, video, clips: list[ProjectClip]) -> list[ProjectClip]:

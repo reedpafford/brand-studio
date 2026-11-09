@@ -4,6 +4,8 @@ source, "<title> · variation A", keeping its words, cast, looks, stills and eve
 the changed clips'. Each waits on its own direction card, priced as those clips only, and Make
 it makes only them. Stand-ins only."""
 
+import json
+
 from app import director, video_variations
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job, JobStatus
@@ -137,9 +139,16 @@ def test_a_variation_in_the_owners_words_reaches_its_shot_and_delivers(app, db, 
     assert "MOM: [quietly] Nate, show me the money!" in text
     shots = [s for sc in newest(db, video).data["scenes"] for s in sc["shots"]]
     assert shots[0]["line"] == "Nate, show me the money!"
+    assert _card(owner, video.id)["money"]["up_to"]["credits"] > 0  # its clip 1, priced
+    since = _last_job(db)
     _run(app, db, ticks=80)
     out = owner.get(f"/projects/{video.id}/director").json()
     assert out["status"] == "delivered", (out["ended"], [t["result"] for t in out["turns"]])
+    takes = [json.dumps(j.input) for j in db.query(Job).filter(
+        Job.id > since, Job.project_id == video.id,
+        Job.input["step"].as_string() == "clip_take")]  # fmt: skip
+    assert takes and all("show me the money" in t and "where is all your money" not in t
+                         for t in takes)  # its prompt was written again: the new words  # fmt: skip
 
 
 def test_the_owners_quoted_words_are_a_new_version_for_that_variation_only(
