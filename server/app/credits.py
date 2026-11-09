@@ -100,19 +100,21 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     "About 55" quoted, 99 charged): the breakdown (`breakdown`), the frame prompts, a still
     per clip, the clip prompts (half a Claude call a clip), a look per role (`roles`) and
     its seconds of video. `bd` is its Breakdown, if it has one; `video` its models (VS1),
-    else its `look` and script `kind` say which (`breakdown.video_model`). Redos aren't counted."""
-    from app import clip_prompts, take_watch
+    else its `look` and script `kind` say which (`breakdown.video_model`). Pieces that open on
+    their talker's one still draw none of their own (app/one_frame.py). Redos aren't counted."""
+    from app import clip_prompts, one_frame, take_watch
     from app.breakdown import video_model
     from app.sheets import look_usual
     from app.storyboard import image_model, still_credits
 
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
+    stills = clips - len(one_frame.shared(db, video, bd.model_dump()) if bd else {})
     calls = int(breakdown) + 1 + clip_prompts.priced(clips)
     claude = estimate(db, ws, "write-claude", Decimal(1)) * calls
     m = video_model(video, look, kind)
     clip = {"model": m.id, "input": {"resolution": m.take_resolution}}
     checks = clips * take_watch.per_take(db, ws)  # a watch of a take a clip, while on
-    return (claude + clips * still_credits(db, ws, image_model(video)) + look_usual(db, ws) * roles
+    return (claude + stills * still_credits(db, ws, image_model(video)) + look_usual(db, ws) * roles
             + estimate(db, ws, "video", Decimal(seconds), clip) + checks)  # fmt: skip
 
 

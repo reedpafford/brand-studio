@@ -235,6 +235,14 @@ class Clip(BaseModel):
         "answers it (a look, a sound, a matching pose, a white flash into a time jump), after "
         "the last line's reaction has landed. 'end' for the last clip."
     )
+    own_frame: str | None = Field(
+        default=None,
+        exclude_if=lambda v: v is None,  # saved only when the plan gives a piece its own
+        description="Only for a piece of one person talking to camera in the place of their "
+        "other pieces that truly needs another opening picture (an insert of the phone "
+        "screen, a B-roll cutaway): why, in a few words. Null otherwise: those pieces all "
+        "open on one shared still.",
+    )
 
 
 class Breakdown(BaseModel):

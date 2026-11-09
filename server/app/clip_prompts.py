@@ -15,7 +15,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app import cut_in, looks
+from app import cut_in, looks, one_frame
 from app.advice import names, plain
 from app.breakdown import video_model, video_model_block
 from app.cast_roles import bare
@@ -256,6 +256,10 @@ def assets(db: Session, project: Project) -> Assets:
     for f in frames:
         key = f"frame:{f.clip_id}"
         out.setdefault(key, (f"{key} | storyboard frame | clip {f.clip_id}", "image", [f.file_id]))
+    for clip_id, lead in one_frame.shared(db, project).items():  # its talker's one still
+        if f"frame:{lead}" in out:
+            line = f"frame:{clip_id} | storyboard frame | clip {clip_id}, the same still as {lead}"
+            out[f"frame:{clip_id}"] = (line, "image", out[f"frame:{lead}"][2])
     for char_id in project.cast_ids:
         item = db.get(LibraryItem, char_id)
         if item and item.voice_file_id:

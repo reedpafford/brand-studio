@@ -7153,6 +7153,11 @@ export interface components {
              * @description The hand-off: the beat the clip ends on and how the next clip's first shot answers it (a look, a sound, a matching pose, a white flash into a time jump), after the last line's reaction has landed. 'end' for the last clip.
              */
             seam: string;
+            /**
+             * Own Frame
+             * @description Only for a piece of one person talking to camera in the place of their other pieces that truly needs another opening picture (an insert of the phone screen, a B-roll cutaway): why, in a few words. Null otherwise: those pieces all open on one shared still.
+             */
+            own_frame?: string | null;
         };
         /**
          * ClipCellOut
