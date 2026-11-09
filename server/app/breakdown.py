@@ -455,28 +455,34 @@ def carry_kept(kept: list[str], problems: list[str]) -> list[str]:
 POSSESSIVE = re.compile(r"[\w-]+['’]s\b")  # "Granny's pats": hers, not her
 
 
-def shows(role: str, shot, roles: list[str], off: bool = False, here: bool = True) -> bool:
+def shows(role: str, shot, roles: list[str], off: bool = False, here: bool = True,
+          listed: bool | None = None) -> bool:  # fmt: skip
     """This role is in the shot: it speaks there on screen (`off`: the script's label says
-    V.O. or O.S.; not in a reaction shot of someone else among `roles`), or the action names
-    it; named only as an owner ("Nate's ring") unless the plan shows the role only at other
-    places (`here` false: video 276's "an echo of Granny's pats" in the truck lot, Granny
-    only ever in the barn). Named only in a quote or as someone talked about (`seen`) isn't
-    shown (video 315)."""
-    from app.cast_roles import labels, named, seen
+    V.O. or O.S.; not in a reaction shot of someone else among `roles`), or, in a shot with no
+    cast list (`listed`, its own by default: an older plan), the action names it; named only
+    as an owner ("Nate's ring") unless the plan shows the role only at other places (`here`
+    false: video 276's "an echo of Granny's pats" in the truck lot, Granny only ever in the
+    barn). A shot's cast list is who it shows (Reed, 9 Nov: trust the plan): nobody joins it
+    from its words (video 315: Danny, only talked about in Marcus's car, was put in three
+    shots, drawn and attached)."""
+    from app.cast_roles import labels, named
 
-    shown = seen(f"{shot.action} {shot.reaction or ''}")
-    reacting = [r for r in roles if r != role and named(r, shown)]
+    seen = f"{shot.action} {shot.reaction or ''}"
+    reacting = [r for r in roles if r != role and named(r, seen)]
     speaks = bool(shot.speaker) and labels(shot.speaker, role) and not off
-    speaks = speaks and not (reacting and not named(role, shown))  # a reaction shot
-    action = seen(shot.action)
-    return speaks or named(role, action if here else POSSESSIVE.sub("", action))
+    speaks = speaks and not (reacting and not named(role, seen))  # a reaction shot
+    if bool(shot.character_ids) if listed is None else listed:
+        return speaks
+    action = shot.action if here else POSSESSIVE.sub("", shot.action)
+    return speaks or named(role, action)
 
 
 def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[str, list[str]]:
     """Each of the video's roles is in the shots that show them (Reed, 2026-10-27, "Marriage
     Rejection": the groom was never in his own shots, so no sheet was attached and the video
     model invented him): the shots they speak in on screen (the script's label has no V.O. or
-    O.S.), and the shots whose action names them. In place; {shot id: names added}. Free."""
+    O.S.), and, in a shot the plan gave no cast list, the shots whose action names them
+    (`shows`). In place; {shot id: names added}. Free."""
     from app.cast_roles import ref, short, video_slots
 
     slots = [s for s in video_slots(db, project) if short(s.role)]
@@ -486,13 +492,13 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
         said = [check.SPEAKER.match(lines[n - 1]) for n in shot.script_lines
                 if 0 < n <= len(lines)]  # fmt: skip
         off = any(m and OFF_SCREEN.search(m[0]) for m in said)
-        roles = [s.role for s in slots]
+        roles, listed = [s.role for s in slots], bool(shot.character_ids)
         for slot in slots:
             who = ref(db, project, slot)
             if {who, f"slot:{slot.id}"} & set(shot.character_ids):
                 continue
             seen = {s.place_id for s in shots if {who, f"slot:{slot.id}"} & set(s.character_ids)}
-            if shows(slot.role, shot, roles, off, not seen or shot.place_id in seen):
+            if shows(slot.role, shot, roles, off, not seen or shot.place_id in seen, listed):
                 shot.character_ids = [*shot.character_ids, who]
                 added.setdefault(shot.id, []).append(short(slot.role))
     _hero_in_montage(db, project, bd, added)
@@ -678,7 +684,9 @@ def _person(db: Session, project: Project, slots: list, name: str):
     of that very name, else one added as the cast read adds one, only for a proper name the
     script writes capitalised mid-sentence or as a speaker's label (QA on #1405: "A crowd
     cheers", "a woman walks past" are extras, never paid roles; nor is "Woman" ever "Mara, a
-    young woman"). None otherwise."""
+    young woman"); or, with no label to go by (a song, a narration), someone the brief, a
+    note or the treatment describes as a being (`_a_being`: video 294's Maya). None
+    otherwise."""
     from app.cast_roles import all_slots, same
     from app.models.script_library import ScriptDraft
 
@@ -686,7 +694,9 @@ def _person(db: Session, project: Project, slots: list, name: str):
     if found := next((s for s in slots if name and same(name, s.role)), None):
         return found
     every = all_slots(db, project)
-    if not (draft and name and _proper(name, draft.text)) or any(same(name, s.role) for s in every):
+    roles = [s.role for s in every]
+    if not (draft and name) or any(same(name, r) for r in roles) or not (
+            _proper(name, draft.text) or _a_being(db, project, name, roles)):  # fmt: skip
         return None
     slots.append(slot := _add_role(db, project, draft, name))
     return slot
@@ -710,12 +720,24 @@ CALENDAR = re.compile(r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sund
                       r"Ramadan|Valentine)$")  # fmt: skip
 
 
+def _a_being(db: Session, project: Project, name: str, others: list[str]) -> bool:
+    """The brief, a note or the treatment says what they look like ("Bruno (a young
+    pitbull…)", "his owner Maya, 30s"), in words about them alone (none of `others`)."""
+    from app.routes.project_assets import LOOKS, _bracketed, _described, _story
+
+    told = [project.goal or "", *(m.get("text") or "" for m in project.director_chat or []),
+            *_story(db, project)]  # fmt: skip
+    return bool(LOOKS.search(_bracketed(name, told)) or _described(name, others, told))
+
+
 def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
-    """A person the script names who the shots' actions show in two or more clips is a role,
-    so they get a look and the cast and places OK covers them (video 281: Danny, Marcus's
-    brother-in-law, in four B-roll clips, was no role and drifted from clip to clip). Named
+    """In a plan with no cast list on its shots (an older one), a person the script names who
+    the shots' actions show in two or more clips is a role, so they get a look and the cast
+    and places OK covers them (video 281: Danny, Marcus's brother-in-law, in four B-roll
+    clips, was no role and drifted from clip to clip). A shot with a cast list is shown as
+    listed, its words never add anyone (video 315: Danny, only talked about by Marcus, was
+    made a role and drawn); someone it lists is a role as it lands (`land`). Named
     in one clip only, they're a one-off: drawn as part of the scene, never a paid look. Only
-    talked about (a quote, "an impression of Danny": `cast_roles.seen`), never a role (315). Only
     someone the script treats as a person (a speaker's label, or someone a line speaks to:
     "MARCUS: Danny, you were right."), or, in a song or a narrated video where nobody has a
     label, someone the brief, a note or the treatment describes as a being ("Bruno (a young
@@ -726,7 +748,6 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
     (QA on #1466: "Iron Paws", "Robinhood", "Resilia"), a word before another capitalised one,
     a day or a holiday, or someone already in the cast. The names added."""
     from app.cast_roles import all_slots, same
-    from app.cast_roles import seen as shown
     from app.models.library import Kind, LibraryItem
     from app.models.script_library import ScriptDraft
     from app.storyboard import cast_looks
@@ -735,11 +756,12 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
     if draft is None:
         return []
     clip_of = {s: c.id for c in bd.clips for s in c.shot_ids}
+    unlisted = [s for scene in bd.scenes for s in scene.shots if not s.character_ids]
     seen: dict[str, set[str]] = {}
-    for shot in (s for scene in bd.scenes for s in scene.shots):
+    for shot in unlisted:
         mid = r"(?<=[a-z,] )([A-Z][a-z]{2,})\b(?!\s+[A-Z])"  # mid-sentence, or at its start
         first = r"(?:^|(?<=[.!?] ))([A-Z][a-z]{2,})(?='s\b| [a-z]+s\b)"  # as "Maya's hand"
-        for found in re.finditer(f"{mid}|{first}", shown(shot.action)):  # shown, never named
+        for found in re.finditer(f"{mid}|{first}", shot.action):
             seen.setdefault(found[1] or found[2], set()).add(clip_of.get(shot.id, shot.id))
     items = db.scalars(select(LibraryItem.name).where(  # its places and products
         LibraryItem.workspace_id == project.workspace_id,
@@ -747,11 +769,7 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
     screens = [screen_name(x) for x in project_screens(db, project)]
     things = " ".join([db.get(Brand, project.brand_id).name, *items, *screens]).lower()
     known = [s.role for s in all_slots(db, project)] + [i.name for i in cast_looks(db, project)]
-    from app.routes.project_assets import LOOKS, _bracketed, _described, _story
-
-    told = [project.goal or "", *(m.get("text") or "" for m in project.director_chat or []),
-            *_story(db, project)]  # fmt: skip
-    actions = " ".join(shown(s.action) for scene in bd.scenes for s in scene.shots)
+    actions = " ".join(s.action for s in unlisted)
     out = []
     for name, clips in seen.items():
         if (len(clips) < 2 or CALENDAR.match(name) or any(same(name, k) for k in known)
@@ -760,8 +778,7 @@ def _named_extras(db: Session, project: Project, bd: Breakdown) -> list[str]:
         word = re.escape(name)
         being = re.search(rf"\b{word}(?:'s\b| [a-z]+s\b)", actions)  # "Maya's", "Bruno gnaws"
         others = [n for n in seen if n != name] + known
-        said = being and (LOOKS.search(_bracketed(name, told)) or _described(name, others, told))
-        if _addressed(name, draft.text) or said:
+        if _addressed(name, draft.text) or (being and _a_being(db, project, name, others)):
             _add_role(db, project, draft, name)
             out.append(name)
     return out

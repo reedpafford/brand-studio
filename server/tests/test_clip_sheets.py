@@ -203,16 +203,22 @@ def test_a_sheet_of_someone_not_in_the_clip_is_dropped_with_its_lines(app, db, e
     assert [r.id for r in kept.references] == ["frame:c1", mom, nate]  # Nate kept, after Mom
 
 
-def test_someone_who_speaks_or_is_named_but_isnt_listed_keeps_their_sheet(app, db, editor, setup):  # noqa: F811
+def test_someone_who_speaks_but_isnt_listed_keeps_their_sheet_one_only_named_doesnt(
+    app,
+    db,
+    editor,
+    setup,  # noqa: F811
+):
     row, nate, mom = _people(app, db, editor, setup)
     project = db.get(Project, setup["project"])
-    for shot in ({"speaker": "Nate", "line": "I bought the dip."},  # QA-3's probe
-                 {"speaker": "Nate (V.O.)", "line": "I bought the dip."},  # any line of his
-                 {"action": "Mom glares at Nate."}):  # fmt: skip
-        _only_mom(db, row, mom, **shot)
+    for shot, kept in (({"speaker": "Nate", "line": "I bought the dip."}, True),  # QA-3's probe
+                       ({"speaker": "Nate (V.O.)", "line": "I bought the dip."}, True),
+                       ({"action": "Mom glares at Nate."}, False),  # listed: the list is who
+                       ({"action": "Mom glares at Nate.", "character_ids": []}, True)):  # fmt: skip
+        _only_mom(db, row, mom, **shot)  # (video 315); with no list, the words say who
         bd = Breakdown.model_validate(row.data)
         done = clip_prompts.with_cast(db, project, _picked(nate, mom), bd)
-        assert nate in [r.id for r in done.references], shot  # only no sign at all drops him
+        assert (nate in [r.id for r in done.references]) is kept, shot
 
 
 def _absent_nate(app, db, editor, setup, refs: str, keep: str):  # noqa: F811

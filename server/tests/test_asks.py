@@ -1551,6 +1551,7 @@ def test_a_role_card_with_no_subject_casts_the_role_its_topic_names(app, db, own
     row = db.query(BreakdownVersion).filter_by(project_id=pid).order_by(BreakdownVersion.id.desc())
     bd = row.first()
     bd.data["scenes"][0]["shots"][1]["action"] = "Maya hands Nate the dip."
+    bd.data["scenes"][0]["shots"][1]["speaker"] = "Maya"  # her line, on screen
     flag_modified(bd, "data")
     db.commit()
     project = db.get(Project, pid)

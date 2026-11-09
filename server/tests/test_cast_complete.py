@@ -111,7 +111,9 @@ def test_a_role_joins_the_shots_naming_it_but_not_its_off_screen_lines(owner, ed
     off = TEXT.replace("NATE: Will", "NATE (O.S.): Will")
     assert breakdown.show_roles(db, project, plan, off) == {}
     two.action = "The bride stares at Nate's ring."
-    assert breakdown.show_roles(db, project, plan, off) == {"1.2": ["Nate"]}
+    assert breakdown.show_roles(db, project, plan, off) == {}  # its list is who it shows
+    two.character_ids = []  # an older plan with no list: its words say who
+    assert breakdown.show_roles(db, project, plan, off) == {"1.2": ["Bride", "Nate"]}
 
 
 def test_a_role_named_only_as_an_owner_where_it_never_is_stays_out(owner, editor, db):
@@ -124,10 +126,11 @@ def test_a_role_named_only_as_an_owner_where_it_never_is_stays_out(owner, editor
     one, two = plan.scenes[0].shots
     one.character_ids, one.place_id, one.action = [], "place:1", "Nate paces the barn."
     two.place_id, two.action = "place:2", "In the lot the bride does an echo of Nate's shrug."
+    two.character_ids = []  # an older plan with no cast lists: the words say who
     off = TEXT.replace("NATE: Will", "NATE (O.S.): Will")
-    assert breakdown.show_roles(db, project, plan, off) == {"1.1": ["Nate"]}  # not 1.2
-    two.place_id = "place:1"  # where he is: his shrug is his
-    assert breakdown.show_roles(db, project, plan, off) == {"1.2": ["Nate"]}
+    assert breakdown.show_roles(db, project, plan, off) == {"1.1": ["Nate"], "1.2": ["Bride"]}
+    two.place_id, two.character_ids = "place:1", []  # where he is: his shrug is his
+    assert breakdown.show_roles(db, project, plan, off) == {"1.2": ["Bride", "Nate"]}
 
 
 def test_a_label_naming_a_role_already_there_never_makes_a_second_one(owner, editor, db):

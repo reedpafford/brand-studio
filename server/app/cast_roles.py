@@ -157,21 +157,6 @@ def named(role: str, text: str) -> bool:
     )
 
 
-TALKED_ABOUT = re.compile(  # words said aloud, and someone only spoken of or copied
-    r"[“\"][^”\"]*[”\"]|‘[^’]*’|(?<!\w)'.*?'(?!\w)|\b(?:(?:impression|imitation|"
-    r"impersonation|parody|caricature)s? of|like|about)\s+(?:the\s+)?[A-Z][\w'’-]*"
-)
-
-
-def seen(action: str) -> str:
-    """The words of a shot's action that put someone on screen (Reed, 9 Nov: trust the
-    plan; a clip shows who its shots show, never who a line names). Quoted words and someone
-    it's only about are taken out: video 315's "a cruel impression of Danny", "like the Danny
-    he mocked" and "on 'Danny, you were right'" never put Danny, who is never on screen, in
-    the car with Marcus."""
-    return TALKED_ABOUT.sub("", action)
-
-
 LABEL = re.compile(r"^\s*([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:")  # "NATE:" or "NATE (V.O.):"
 
 

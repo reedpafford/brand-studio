@@ -399,8 +399,9 @@ def _cast(bd: Breakdown, clip_id: str, pics: dict, lead: str | None = None) -> l
 
 def _shown(bd: Breakdown, clip_id: str, pics: dict, refs: list[str]) -> list[str]:
     """Those of `refs` the clip shows any sign of though its shots' lists miss them: they speak
-    one of its lines (V.O. too) or its action names them (the Producer, #1116: only someone
-    with no sign at all is dropped). The same matching as `breakdown.shows`, which Assets' cast
+    one of its lines (V.O. too) or, in a shot with no cast list, its action names them (the
+    Producer, #1116: only someone with no sign at all is dropped; a listed shot shows only its
+    list, video 315). The same matching as `breakdown.shows`, which Assets' cast
     completion uses; a breakdown saved by Claude or by hand doesn't run it."""
     from app.breakdown import shows
 
