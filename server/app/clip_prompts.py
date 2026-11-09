@@ -562,6 +562,40 @@ def _worn(prompt: str, people: list[str], known: dict, pics: dict, said: str = "
     return prompt
 
 
+def _voiced(db: Session, project: Project, bd: Breakdown, clip_id: str, prompt: str) -> str:
+    """On Omni 1.2, a line for each person speaking on camera in the clip, before its shots,
+    with their voice as set once for the video (`voices.on_omni`): "Mom's voice: a woman in
+    her 40s, low and warm." An older line of theirs is replaced, so every clip says the same
+    words. A clip on another model, or cut from the UGC talker's HeyGen take, is unchanged.
+    Free; doing it again changes nothing."""
+    from app import model_map, talker, voices
+    from app.clip_takes import VOICE_OVER
+
+    row = db.scalar(select(ProjectClip).where(ProjectClip.project_id == project.id,
+                                              ProjectClip.clip_id == clip_id))  # fmt: skip
+    if model_map.of_clip(project, row).id != model_map.OMNI:
+        return prompt
+    if row is not None and talker.says(db, project, row):
+        return prompt
+    planned = next((c for c in bd.clips if c.id == clip_id), None)
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    said = [shots[i] for i in (planned.shot_ids if planned else []) if i in shots]
+    heard = [s.speaker for s in said if s.line and s.speaker and not VOICE_OVER.search(s.speaker)]
+    speakers = dict.fromkeys(re.sub(r"\s*\(.*?\)", "", s).strip() for s in heard)  # "Mom (O.S.)"
+    sounds = voices.on_omni(db, project) if speakers else []
+    lines = prompt.splitlines()
+    for who in speakers:
+        if not (words := voices.voice_of(who, sounds)):
+            continue
+        line, mine = f"{who}'s voice: {words.rstrip('.')}.", f"{who}'s voice: "
+        if (at := _line(lines, mine)) >= 0:
+            lines[at] = line
+            continue
+        at = next((i for i, x in enumerate(lines) if x.startswith(("Shot", "Keep: "))), -1)
+        lines.insert(at if at >= 0 else max(len(lines) - 1, 0), line)
+    return "\n".join(lines)
+
+
 def with_cast(
     db: Session,
     project: Project,
@@ -580,7 +614,8 @@ def with_cast(
     References and Keep lines, an added screen the References line. Free; doing it again
     changes nothing. A sheet of someone not in the clip's shots is dropped, with its
     References and Keep sentences (FOMO's Reptilian v4: absent people's sheets blurred c4 and
-    c7). With trim off (an edit, or a saved clip) nothing already picked is dropped."""
+    c7). With trim off (an edit, or a saved clip) nothing already picked is dropped. Each
+    outfit (`_worn`) and, on Omni, each speaker's voice (`_voiced`) is said in its set words."""
     known = known if known is not None else assets(db, project)
     pics = _pictures(known)
     images: list[Reference] = []  # each picture once
@@ -634,6 +669,7 @@ def with_cast(
     worn = [r.id for r in new if r.id.startswith(CHAR)]  # their outfit, word for word
     if new == was:
         prompt = _worn(clip.prompt, worn, known, pics, _acts(bd, clip))
+        prompt = _voiced(db, project, bd, clip.clip_id, prompt)
         return clip if prompt == clip.prompt else clip.model_copy(update={"prompt": prompt})
     ids, before = [r.id for r in new], [r.id for r in was]
     moved = {i + 1: ids.index(r) + 1 for i, r in enumerate(before) if r in ids}
@@ -661,6 +697,7 @@ def with_cast(
         prompt = _add(prompt, "References: ", f"{tag} is {who}.")
         prompt = _add(prompt, "Keep: ", f"{who} as in {tag}, the same look as on their sheet.")
     prompt = _worn(prompt, worn, known, pics, _acts(bd, clip))
+    prompt = _voiced(db, project, bd, clip.clip_id, prompt)
     return clip.model_copy(update={"prompt": prompt, "references": new + others})
 
 

@@ -1781,12 +1781,14 @@ def story(db: Session, project: Project) -> str:
 
 def treatment(db: Session, project: Project) -> dict | None:
     """The video's newest treatment (the Director's step: hook, logline, why it holds, beats,
-    ending), or None."""
+    ending, voices), or None; its voices are the words set for the video (`voices.as_set`)."""
+    from app import voices
+
     job = db.scalar(select(Job).where(Job.project_id == project.id,
                                       Job.input["step"].as_string() == "treatment",
                                       Job.status == JobStatus.succeeded)
                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
-    return (job.output or None) if job else None
+    return voices.as_set(db, project, job.output or None) if job else None
 
 
 def write_treatment(db: Session, user: User, project: Project, run: dict | None, note: str = "",

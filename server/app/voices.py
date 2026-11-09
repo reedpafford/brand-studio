@@ -20,6 +20,7 @@ import tempfile
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from textwrap import shorten
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -583,6 +584,68 @@ def host_note(db: Session, project) -> str:
     if voice is None or usable(db, project.workspace_id, project.brand_id, f"{PREFIX}{voice.id}"):
         return ""
     return HOST_VOICE_GONE.format(who=item.name, name=voice.name)
+
+
+def on_omni(db: Session, project) -> list[tuple[list[str], str]]:
+    """Each speaker's voice on Omni 1.2, set once for the video, as (the names they go by, the
+    words every clip they speak in repeats exactly): Omni takes no voice, so its words are all
+    that keep a voice from drifting between clips (Reed, 9 Nov: "if you prompt the voice the
+    same for each clip, it should not vary that much"; docs/prompting/omni-1.2.md §4). A voice
+    saved on the character or presenter comes first, by its own description; then the
+    director's treatments (`_told`). Each at most LINE_MAX characters, cut between words."""
+    from app.cast_roles import cast_roles
+    from app.storyboard import cast_looks
+
+    roles, out = cast_roles(db, project), []
+    cast = {i.id: i for i in cast_looks(db, project)}
+    for item in (cast.get(i) or db.get(LibraryItem, i) for i in dict.fromkeys([*cast, *roles])):
+        saved = db.get(Voice, item.voice_id) if item and item.voice_id else None
+        if saved and saved.archived_at is None and mine(saved, project.workspace_id,
+                                                        project.brand_id):  # fmt: skip
+            said = _cut(saved.description)
+            out += [([item.name, *(s.role for s in roles.get(item.id, []))], said)] if said else []
+    return out + [([who], said) for who, said in _told(db, project)]
+
+
+LINE_MAX = 200  # a voice line's words at most (a saved description may run to 500)
+
+
+def _cut(text: str) -> str:
+    return shorten(text, LINE_MAX, placeholder="").rstrip(" ,;.")
+
+
+def _told(db: Session, project) -> list[tuple[str, str]]:
+    """(who, words) from the director's treatments, oldest first, so the first one to name a
+    speaker sets their words for good; one its own check replaced (`redone`) never counts."""
+    jobs = db.scalars(select(Job).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == "treatment",
+        Job.status == JobStatus.succeeded).order_by(Job.id))  # fmt: skip
+    return [(v["who"], _cut(v["sounds"])) for j in jobs if not j.input.get("redone")
+            for v in (j.output or {}).get("voices") or []
+            if v.get("who") and _cut(v.get("sounds") or "")]  # fmt: skip
+
+
+def voice_of(who: str, sounds: list[tuple[list[str], str]]) -> str:
+    """`who`'s words in `on_omni`: a name that's exactly theirs first (ignoring case and any
+    description after a comma), so Woman 1 and Woman 2, or Bride and Ex-Bride, each keep their
+    own; only with none, the script's looser label match ("MOM" is "Mia, the mom"). "" if none."""
+    from app.cast_roles import labels, same
+
+    for match in (same, labels):
+        if words := next((w for names, w in sounds if any(match(who, n) for n in names)), ""):
+            return words
+    return ""
+
+
+def as_set(db: Session, project, treatment: dict | None) -> dict | None:
+    """A treatment as the steps after it read it: `voices` holds the words set for the video,
+    for every speaker a treatment named, so the plan, the clip prompts and the director read
+    what the clips say (a saved voice's, or the first treatment's), never a later rewording."""
+    whos = list(dict.fromkeys(who for who, _ in _told(db, project)))
+    if not treatment or not whos:
+        return treatment
+    sounds = on_omni(db, project)
+    return {**treatment, "voices": [{"who": w, "sounds": voice_of(w, sounds)} for w in whos]}
 
 
 def for_director(db: Session, workspace_id: int, brand_id: int | None,
