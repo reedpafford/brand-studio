@@ -7,7 +7,7 @@ import { api, errorText, polled } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
-import { Banner, Button, Dialog, Skeleton } from "../components";
+import { Banner, Button, Dialog, Segmented, Skeleton } from "../components";
 import { mmss } from "../freestyle/FromScript";
 import { Item, type Said } from "../freestyle/Thread";
 import { treatmentOf } from "./Treatment";
@@ -200,13 +200,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
         <>
           {header}
           <div className="border-b border-border bg-surface px-3 py-2">
-            <div role="tablist" aria-label="Chat or preview" className="flex gap-0.5 rounded-md bg-surface-2 p-0.5">
-              {(["chat", "preview"] as const).map((s) => (
-                <button key={s} type="button" role="tab" aria-selected={side === s} onClick={() => setSide(s)} className={`flex h-control flex-1 items-center justify-center rounded-[5px] text-sm font-medium ${side === s ? "bg-surface text-text shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]" : "text-muted"}`}>
-                  {s === "chat" ? "Chat" : "Preview"}
-                </button>
-              ))}
-            </div>
+            <Segmented label="Chat or preview" fill items={[{ id: "chat", name: "Chat" }, { id: "preview", name: "Preview" }]} value={side} onChange={setSide} />
           </div>
           {/* Both stay mounted: a typed note, its files and anything waiting to send survive the switch. */}
           <div className={`min-h-0 flex-1 flex-col ${side === "chat" ? "flex" : "hidden"}`}>{chat}</div>
@@ -260,13 +254,17 @@ function Loading({ phone }: { phone: boolean }) {
     </div>
   );
   const head = (
-    <div className="flex flex-col gap-2 border-b border-border px-5 py-2.5">
-      <Skeleton className="h-3 w-40" />
-      <Skeleton className="h-[18px] w-60" />
-      <div className="flex gap-2">
-        <Skeleton className="h-[26px] w-[110px]" />
-        <Skeleton className="h-[26px] w-[90px]" />
-        <Skeleton className="h-[26px] w-20" />
+    <div className="flex flex-col border-b border-border">
+      <div className="flex h-pagehead items-center border-b border-border px-5">
+        <Skeleton className="h-3 w-40" />
+      </div>
+      <div className="flex flex-col gap-3 px-5 py-3.5">
+        <Skeleton className="h-5 w-60" />
+        <div className="flex gap-1.5">
+          <Skeleton className="h-7 w-28" />
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-7 w-20" />
+        </div>
       </div>
     </div>
   );
@@ -287,7 +285,7 @@ function Loading({ phone }: { phone: boolean }) {
         {box}
       </section>
       <section className="flex flex-1 flex-col bg-bg">
-        <div className="flex h-10 items-stretch gap-0.5 border-b border-border bg-surface px-4" aria-hidden>
+        <div className="flex h-pagehead items-stretch gap-1 border-b border-border bg-surface px-4" aria-hidden>
           {["Cut", "Clips", "Cast", "Plan", "Script"].map((t, i) => (
             <span key={t} className={`-mb-px inline-flex items-center border-b-2 px-2.5 text-sm font-medium ${i === 0 ? "border-text text-text" : "border-transparent text-muted"}`}>{t}</span>
           ))}
@@ -571,8 +569,10 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
           </Banner>
         </div>
       )}
-      <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-2 pt-4 [mask-image:linear-gradient(to_bottom,transparent_0,#000_36px)]">
-        <ol aria-label="Conversation with the director" className="mt-auto flex flex-col gap-4">
+      {/* `relative`: anything positioned inside (a hidden label) stays in this scroll area instead of stretching the page (the
+          phone video page scrolled ~170px with its message box off screen). */}
+      <div ref={scroller} className="fade-top relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-3 pt-5">
+        <ol aria-label="Conversation with the director" className="mt-auto flex flex-col gap-5">
           {[...items, ...sending].map((t) =>
             t.kind === "ask" ? (
               <Item key={t.id} t={t} owner={owner} words={cards.some((a) => a.id === t.ask_id) ? null : unread(t)}>
@@ -719,7 +719,7 @@ function Composer({ placeholder, closed, note, error, busy, upload, disabled, on
   return (
     <form
       aria-label="Your message"
-      className="mx-5 mb-4 mt-1 flex flex-col gap-2 rounded-xl border border-border-strong bg-surface py-2 pl-3 pr-2.5 focus-within:border-focus max-lg:mx-3 max-lg:mb-3"
+      className="mx-5 mb-5 mt-1 flex flex-col gap-2 rounded-xl border border-border bg-surface py-2.5 pl-3.5 pr-2.5 shadow-soft transition-[border-color,box-shadow] duration-(--dur-fast) ease-out hover:border-border-button focus-within:border-accent focus-within:shadow-ring max-lg:mx-3 max-lg:mb-safe"
       onSubmit={(e) => {
         e.preventDefault();
         go();
@@ -741,7 +741,7 @@ function Composer({ placeholder, closed, note, error, busy, upload, disabled, on
             go();
           }
         }}
-        className="mt-0.5 min-h-5 resize-none bg-transparent text-base leading-5 outline-none! placeholder:text-[#6f727a] disabled:cursor-not-allowed lg:text-sm"
+        className="field-sizing-content mt-0.5 max-h-48 min-h-5 resize-none bg-transparent text-base leading-5 outline-none! placeholder:text-muted disabled:cursor-not-allowed lg:text-sm"
       />
       {files.length > 0 && (
         <ul aria-label="Sent with it, for this video only" className="flex flex-wrap gap-1.5">
@@ -768,8 +768,8 @@ function Composer({ placeholder, closed, note, error, busy, upload, disabled, on
         <span className={`min-w-0 flex-1 text-xs ${error || problem ? "text-danger" : "text-muted"}`} role="status">
           {error ?? problem ?? (adding ? "Adding…" : note)}
         </span>
-        <button type="submit" aria-label="Send to the director" disabled={!ready} className={`grid size-8 shrink-0 place-items-center rounded-lg max-lg:size-control ${ready ? "bg-ink text-white" : "bg-surface-3 text-faint"}`}>
-          <ArrowUp size={14} strokeWidth={1.75} aria-hidden />
+        <button type="submit" aria-label="Send to the director" disabled={!ready} className={`grid size-8 shrink-0 place-items-center rounded-full transition-[background-color,color,transform] duration-(--dur-fast) ease-out active:scale-90 max-lg:size-control ${ready ? "bg-ink text-white hover:bg-ink/85" : "bg-surface-2 text-faint"}`}>
+          <ArrowUp size={16} strokeWidth={2} aria-hidden />
         </button>
       </div>
     </form>

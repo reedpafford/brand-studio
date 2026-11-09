@@ -4,7 +4,7 @@ import { Download, Lock, Scissors } from "lucide-react";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
-import { Banner, Button, Skeleton, ViewOnly, buttonClass, useViewOnly } from "../components";
+import { Banner, Button, Skeleton, ViewOnly, buttonClass, segItem, segTrack, useViewOnly } from "../components";
 import { mmss } from "../freestyle/FromScript";
 import { BreakdownPane } from "../projects/BreakdownPane";
 import { PlanStep } from "../projects/PlanStep";
@@ -422,22 +422,22 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
   const count: Partial<Record<TabId, number>> = { clips: facts.progress.clips.total || facts.progress.frames.total, cast: facts.cast.length };
   const Pane = PANES[tab];
   const tabs = phone ? (
-    <div className="border-b border-border px-2 py-1.5">
-      <div role="tablist" aria-label="Preview" className="flex gap-0.5 overflow-x-auto rounded-md bg-surface-2 p-0.5">
+    <div className="border-b border-border px-3 py-2">
+      <div role="tablist" aria-label="Preview" className={`${segTrack} flex w-full overflow-x-auto`}>
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={`flex h-control shrink-0 items-center rounded-[5px] px-3 text-sm font-medium ${tab === t.id ? "bg-surface text-text shadow-[var(--shadow-soft,0_1px_2px_rgb(28_27_25/0.06))]" : "text-muted"}`}>
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={`${segItem(tab === t.id)} flex-1`}>
             {t.label}
           </button>
         ))}
       </div>
     </div>
   ) : (
-    <div role="tablist" aria-label="Preview" className="flex h-10 shrink-0 items-stretch gap-0.5 border-b border-border bg-surface px-4">
+    <div role="tablist" aria-label="Preview" className="flex h-pagehead shrink-0 items-stretch gap-1 border-b border-border bg-surface px-4">
       {TABS.map((t) => (
-        <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-2.5 text-sm font-medium ${tab === t.id ? "border-text text-text" : "border-transparent text-muted hover:text-text"}`}>
+        <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-2.5 text-sm font-medium transition-[color,border-color] duration-(--dur-fast) ease-out ${tab === t.id ? "border-text text-text" : "border-transparent text-muted hover:border-border-button hover:text-text"}`}>
           {t.label}
           {!!count[t.id] && " "}
-          {!!count[t.id] && <span className="inline-flex h-4 items-center rounded-lg bg-surface-2 px-1.5 text-[11px] text-muted tabular-nums">{count[t.id]}</span>}
+          {!!count[t.id] && <span className="text-xs font-normal text-muted tabular-nums">{count[t.id]}</span>}
         </button>
       ))}
     </div>
@@ -445,7 +445,7 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
   return (
     <section aria-label="Preview" className="flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
       {tabs}
-      <div role="tabpanel" aria-label={TABS.find((t) => t.id === tab)!.label} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
+      <div key={tab} role="tabpanel" aria-label={TABS.find((t) => t.id === tab)!.label} className="animate-fade relative flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5">
         {!p ? (
           <Empty title="Opens once the owner approves">The plan, the cast, the clips and the cut show here once the owner says yes.</Empty>
         ) : facts.loading ? (

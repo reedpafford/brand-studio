@@ -145,11 +145,11 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
   const [open, setOpen] = useState(false);
   const long = r.clips > LONG;
   const steps = (
-    <ol aria-label="Every step" className="mt-2.5 flex flex-col border-t border-border pt-1">
+    <ol aria-label="Every step" className="animate-fade mt-2.5 flex flex-col border-t border-border pt-1">
       {r.steps.map((s) => {
         const [cls, icon] = STEP[s.state];
         return (
-          <li key={s.key} className="flex items-start gap-2.5 py-[7px] text-[13px] leading-[18px]">
+          <li key={s.key} className="flex items-start gap-2.5 py-1.5 text-sm">
             <span className={`grid size-[18px] shrink-0 place-items-center rounded-full ${cls}`}>{icon}</span>
             <span className="min-w-0 flex-1">
               <span className={s.state === "now" ? "font-medium" : ""}>{s.text}</span>
@@ -161,9 +161,9 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
     </ol>
   );
   const toggle = (
-    <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="ml-auto inline-flex shrink-0 items-center justify-end gap-1 text-sm text-muted hover:text-text max-lg:min-h-control max-lg:min-w-control">
+    <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="relative ml-auto inline-flex shrink-0 items-center justify-end gap-1 rounded-md px-1.5 text-sm text-muted transition-colors duration-(--dur-fast) hover:bg-surface-2 hover:text-text max-lg:min-h-control max-lg:min-w-control lg:-mr-1.5 lg:h-7">
       {!phone && (open ? "Hide steps" : "Every step")}
-      <ChevronDown size={phone ? 14 : 12} strokeWidth={1.75} aria-hidden className={open ? "rotate-180" : ""} />
+      <ChevronDown size={phone ? 14 : 12} strokeWidth={1.75} aria-hidden className={`transition-transform duration-(--dur-fast) ease-out ${open ? "rotate-180" : ""}`} />
       {phone && <span className="sr-only">{open ? "Hide steps" : "Every step"}</span>}
     </button>
   );
@@ -198,14 +198,14 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
   const waiting = r.tone === "wait" && r.sub;
   const banner = waiting && r.status === "waiting"; // says the wait once: never also in the head line (polish)
   return (
-    <section aria-label={r.title} className="rounded-lg border border-border bg-surface shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]">
-      <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
+    <section aria-label={r.title} className="rounded-lg border border-border bg-surface shadow-soft">
+      <div className="flex min-w-0 items-center gap-2 px-4 py-2.5">
         {ICON[r.tone]}
-        <span className="shrink-0 text-[13px] font-semibold">{r.title}</span>
-        {!phone && r.sub && !banner && <span className="min-w-0 truncate text-[13px] text-muted">· {r.sub}</span>}
+        <span className="shrink-0 text-sm font-semibold">{r.title}</span>
+        {!phone && r.sub && !banner && <span className="min-w-0 truncate text-sm text-muted">· {r.sub}</span>}
         {toggle}
       </div>
-      <div className="px-3 pb-3">
+      <div className="px-4 pb-3.5">
         {phone && r.sub && !banner && <p className="mb-2 text-xs text-muted">{[r.sub, r.redone > 0 && `${r.redone} redone after watching`].filter(Boolean).join(" · ")}</p>}
         {body}
         {banner && (
@@ -319,20 +319,20 @@ export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatc
     </div>
   );
   return (
-    <section aria-label="Delivery note" className="rounded-lg border border-border bg-surface shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]">
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <h3 className="text-[13px] font-semibold">Delivery note</h3>
+    <section aria-label="Delivery note" className="rounded-lg border border-border bg-surface shadow-soft">
+      <div className="flex items-center gap-2 px-4 pb-2 pt-3">
+        <h3 className="text-sm font-semibold">Delivery note</h3>
         <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-success">
-          <span aria-hidden className="size-[7px] rounded-full bg-success" />
+          <span aria-hidden className="size-1.5 rounded-full bg-success" />
           Delivered
         </span>
       </div>
-      <div className="flex flex-col gap-3 px-3 pb-3">
-        {part("What I made", <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.made}</p>)}
+      <div className="flex flex-col gap-3.5 px-4 pb-4">
+        {part("What I made", <p className="text-sm max-lg:text-md">{n.made}</p>)}
         {n.redid.length > 0 &&
           part(
             "What I watched and redid",
-            <ul aria-label="What I watched and redid" className="flex flex-col gap-1 text-[13px] max-lg:text-[15px]">
+            <ul aria-label="What I watched and redid" className="flex flex-col gap-1 text-sm max-lg:text-md">
               {n.redid.map((r, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-accent-soft px-1.5 text-[11px] font-semibold tabular-nums text-accent-text">{mmss(r.at)}</span>
@@ -345,9 +345,9 @@ export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatc
           part(
             "What remains uncertain",
             <>
-              {n.unsure && <p className="text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">{n.unsure}</p>}
+              {n.unsure && <p className="text-sm max-lg:text-md">{n.unsure}</p>}
               {n.open.length > 0 && (
-                <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[13px] leading-[19px] max-lg:text-[15px] max-lg:leading-[22px]">
+                <ul className="flex list-disc flex-col gap-0.5 pl-4 text-sm max-lg:text-md">
                   {n.open.map((o, i) => (
                     <li key={i}>{o}</li>
                   ))}
@@ -355,12 +355,12 @@ export function DeliveryNote({ note: n, onWatch, changes }: { note: Note; onWatc
               )}
             </>,
           )}
-        {part("What I need from you", <p className="text-[13px] text-muted max-lg:text-[15px]">{n.needs}</p>)}
+        {part("What I need from you", <p className="text-sm text-muted max-lg:text-md">{n.needs}</p>)}
       </div>
-      <div className="flex items-center gap-2 border-t border-border px-3 py-2.5 text-[13px]">
+      <div className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-sm">
         <span className="tabular-nums text-muted">{n.cost}</span>
         {onWatch && changes > 0 && (
-          <button type="button" onClick={onWatch} className="ml-auto font-medium text-accent-text hover:underline max-lg:min-h-control">
+          <button type="button" onClick={onWatch} className="ml-auto font-medium text-accent-text underline-offset-2 hover:underline max-lg:min-h-control">
             Watch the changes
           </button>
         )}

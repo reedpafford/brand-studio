@@ -1,16 +1,17 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
-/* Native checkboxes, radios, range and progress take the amber, not the browser blue. */
+/* Native checkboxes, radios, range and progress take the indigo, not the browser blue. */
 :root {
   accent-color: var(--accent);
 }
 
-/* Type roles (phase3 README): use these classes instead of raw sizes. */
-@utility type-page { font-family: var(--font-display); font-size: var(--text-2xl); line-height: var(--leading-2xl); font-weight: 800; letter-spacing: var(--tracking-display); }
-@utility type-headline { font-family: var(--font-display); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: 750; }
-@utility type-section { font-family: var(--font-display); font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: 700; }
-@utility type-card { font-family: var(--font-display); font-size: var(--text-md); line-height: var(--leading-md); font-weight: 700; }
+/* Type roles (phase3 README): use these classes instead of raw sizes. Titles are semibold, never black-weight:
+   the hierarchy comes from size and space (site polish, 9 Nov). */
+@utility type-page { font-family: var(--font-display); font-size: var(--text-2xl); line-height: var(--leading-2xl); font-weight: 600; letter-spacing: var(--tracking-display); }
+@utility type-headline { font-family: var(--font-display); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: 600; letter-spacing: var(--tracking-display); }
+@utility type-section { font-family: var(--font-display); font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: 600; }
+@utility type-card { font-family: var(--font-display); font-size: var(--text-md); line-height: var(--leading-md); font-weight: 600; }
 @utility type-body { font-size: var(--text-base); line-height: var(--leading-base); }
 @utility type-label { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: 500; }
 @utility type-meta { font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--text-muted); }
@@ -18,12 +19,37 @@
 @utility type-caption { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: 600; }
 @utility type-script { font-family: var(--font-script); font-size: var(--text-script); line-height: var(--leading-script); }
 
+/* A row that scrolls sideways fades at its far edge, so it's plain there is more (phone card rows, tab strips). */
+@utility fade-x { mask-image: linear-gradient(to right, #000 calc(100% - var(--space-8)), transparent); }
+/* A thread that scrolls fades in under its top edge. */
+@utility fade-top { mask-image: linear-gradient(to bottom, transparent 0, #000 var(--space-8)); }
+/* Above a phone's home bar. */
+@utility mb-safe { margin-bottom: max(var(--space-3), env(safe-area-inset-bottom)); }
+
+/* Motion: things arrive, they don't pop. Short, decelerating, and still under reduced motion (the durations go to 1ms). */
+@keyframes rise-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+@utility animate-rise { animation: rise-in var(--dur) var(--ease-out) both; }
+@utility animate-fade { animation: fade-in var(--dur) var(--ease-out) both; }
+@utility animate-pop { animation: pop-in var(--dur-fast) var(--ease-out) both; transform-origin: top; }
+
 body {
   @apply bg-bg font-sans text-text antialiased;
   font-size: var(--text-base);
+  font-feature-settings: "cv11", "ss01"; /* Inter's straight-sided 1 and open digits: cleaner numbers in prices and times */
+  caret-color: var(--accent);
 }
+
+/* The parts the browser draws carry the look too. */
+::selection { background: var(--accent-soft); color: var(--accent-text); }
+* { scrollbar-width: thin; scrollbar-color: var(--border-button) transparent; }
 
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
 }

@@ -10,3 +10,4 @@ export { ToastProvider, useToast } from "./Toast";
 export { Menu, MenuItem } from "./Menu";
 export { ViewOnly, useViewOnly } from "./ViewOnly";
 export { PageTop } from "./PageTop";
+export { Segmented, segItem, segTrack, chipClass, chipPress } from "./Segmented";

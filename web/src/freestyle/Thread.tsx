@@ -87,8 +87,8 @@ export function Item({ t, words, why, owner, children, first, excerpt, earlier, 
   const lines = typeof words === "string" ? words.split("\n").filter((l) => l.trim()) : [];
   const script = !director && !!excerpt && lines.length > 2 && lines.some((l) => SCRIPTY.test(l.trim()));
   return (
-    <li ref={ref} className="flex min-w-0 gap-2.5">
-      <span aria-hidden className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${director ? "bg-ink text-white" : "bg-accent-soft text-accent-text"}`}>
+    <li ref={ref} className="animate-rise flex min-w-0 gap-2.5">
+      <span aria-hidden className={`grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold ${director ? "bg-ink text-white" : "bg-accent-soft text-accent-text"}`}>
         {director ? <Sparkles size={12} strokeWidth={1.75} /> : t.who.slice(0, 1).toUpperCase()}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
