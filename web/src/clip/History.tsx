@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, polled } from "../api/client";
+import { SHARED_FOR } from "../api/queryClient";
 import { serverTime } from "../time";
 
 // Job clocks and the caller's jobs, shared by the video and script steps (Freestyle replaced Quick clip and its History).
@@ -13,6 +14,7 @@ export function useJobs(projectId?: number) {
   return useQuery({
     queryKey: projectId ? ["jobs", projectId] : ["jobs"],
     queryFn: () => polled(api.GET("/jobs", projectId ? { params: { query: { project_id: projectId } } } : {}), []),
+    ...(projectId ? { staleTime: SHARED_FOR } : {}), // a video page's own, shared as its other reads are
     refetchInterval: (q) => (q.state.data?.some((j) => GOING.includes(j.status)) ? 3000 : false),
   });
 }

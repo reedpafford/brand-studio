@@ -480,17 +480,6 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       if (!data) throw new Error(errorText(error));
       return data;
     },
-    // The note shows in the thread at once, "Sending…", and leaves it again if it's refused (its words go back in the box).
-    onMutate: async ({ text, files }) => {
-      await queryClient.cancelQueries({ queryKey: ["director", id] });
-      const before = queryClient.getQueryData<Run | null>(["director", id]);
-      const sending: Said = { id: `sending-${Date.now()}`, kind: "message", at: new Date().toISOString(), who: me?.name ?? "", text, status: "queued", why: "", files: files.length ? files : null };
-      if (before) queryClient.setQueryData<Run>(["director", id], { ...before, thread: [...before.thread, sending] });
-      return { before };
-    },
-    onError: (_error, _note, sent) => {
-      if (sent?.before) queryClient.setQueryData(["director", id], sent.before);
-    },
     onSuccess: (data) => {
       queryClient.setQueryData(["director", id], data);
       if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
@@ -498,6 +487,13 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       return refreshJobs(queryClient);
     },
   });
+  // The note shows in the thread the moment it's sent, "Sending…", until the server has it (a read landing meanwhile keeps
+  // it); a refused one leaves, its words back in the box.
+  const inFlight = saveNote.isPending ? saveNote.variables : undefined;
+  const sending: Said[] = inFlight && [...items].reverse().find((t) => t.kind === "message")?.text !== inFlight.text ? [{ id: "sending", kind: "message", at: new Date(saveNote.submittedAt).toISOString(), who: me?.name ?? "", text: inFlight.text, status: "queued", why: "", files: inFlight.files.length ? inFlight.files : null }] : [];
+  useEffect(() => {
+    if (sending.length) scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
+  }, [sending.length]);
   // An editor's change with nothing running is a new run, held for the owner: it goes through the freestyle. Every other
   // note (any while it runs, the owner's after it) is the director's own, with pictures or clips if any.
   const viaFreestyle = !!fs && !running && !owner;
@@ -577,7 +573,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       )}
       <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-2 pt-4 [mask-image:linear-gradient(to_bottom,transparent_0,#000_36px)]">
         <ol aria-label="Conversation with the director" className="mt-auto flex flex-col gap-4">
-          {items.map((t) =>
+          {[...items, ...sending].map((t) =>
             t.kind === "ask" ? (
               <Item key={t.id} t={t} owner={owner} words={cards.some((a) => a.id === t.ask_id) ? null : unread(t)}>
                 {(() => {

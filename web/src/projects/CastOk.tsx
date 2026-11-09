@@ -29,6 +29,7 @@ export function CastOk({ projectId }: { projectId: number }) {
       void queryClient.invalidateQueries({ queryKey: ["director", projectId] });
       return refreshJobs(queryClient);
     },
+    onError: () => queryClient.invalidateQueries({ queryKey: ["cast", projectId] }), // refused as changed: show what it is now
   });
   const shown = cast.data;
   // Whenever the set is ready and this person may approve it, not only once the director asked: a video with no run, or a

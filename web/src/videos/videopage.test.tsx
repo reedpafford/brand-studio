@@ -1325,7 +1325,7 @@ test("MAIN's run (video 233): before a scene has clips the phone's run card name
 // the live card, and no polling of what can't change by itself.
 const reads = (calls: { key: string }[], key: string) => calls.filter((c) => c.key === key).length;
 
-test("opening a video asks the server for each thing once", async () => {
+test("opening a video asks the server for each of its own things once", async () => {
   setViewport(1440);
   const tree = { folders: [], unsorted: { id: null, parent_id: null, name: "Unsorted", count: 0, can_manage: false, ideas: [], more: 0, folders: [] } };
   const calls = server(owner, null, run({ status: "delivered", thread: [card] }), {
@@ -1336,7 +1336,7 @@ test("opening a video asks the server for each thing once", async () => {
   renderApp("/b/1/videos/50");
   await ready();
   await new Promise((r) => setTimeout(r, 300)); // every part of the page has opened and read what it needs
-  const asked = calls.filter((c) => c.key.startsWith("GET")).map((c) => c.url);
+  const asked = calls.filter((c) => c.key.startsWith("GET /projects/50") || c.url.includes("project_id=50")).map((c) => c.url); // the shell's own (brands) are read as any screen's
   expect(asked.filter((u, i) => asked.indexOf(u) !== i)).toEqual([]);
 });
 
@@ -1361,10 +1361,10 @@ test("a change on the run's live card brings the director's moves at once, not a
   await vi.waitFor(() => expect(reads(calls, "GET /projects/50/director")).toBe(2), { timeout: 4_000 }); // the director's own is 5 s
 }, 10_000);
 
-test("a note shows in the thread the moment it's sent; a refused one leaves it, its words back in the box", async () => {
+test("a note shows in the thread the moment it's sent, through a read of the run; a refused one leaves, its words back in the box", async () => {
   setViewport(1440);
   let answer: (r: Response) => void = () => {};
-  server(owner, null, run({ thread: [card] }));
+  const calls = server(owner, null, run({ thread: [card] }));
   const answered = globalThis.fetch;
   vi.stubGlobal("fetch", (input: Request) => (input.method === "POST" ? new Promise<Response>((r) => (answer = r)) : answered(input)));
   renderApp("/b/1/videos/50");
@@ -1373,10 +1373,24 @@ test("a note shows in the thread the moment it's sent; a refused one leaves it, 
   expect(within(thread).getByText("Warmer light.")).toBeInTheDocument(); // before the server answers
   expect(within(thread).getByText(/· Sending…/)).toBeInTheDocument();
   expect(screen.getByLabelText("Tell the director what to change")).toHaveValue("");
+  await vi.waitFor(() => expect(reads(calls, "GET /projects/50/director")).toBe(2), { timeout: 6_000 }); // its 5 s read lands mid-send
+  expect(within(thread).getByText(/· Sending…/)).toBeInTheDocument();
   act(() => answer(new Response(JSON.stringify({ detail: "One note every 3 s." }), { status: 429, headers: { "content-type": "application/json" } })));
   expect(await screen.findByText("One note every 3 s.")).toBeInTheDocument();
   expect(within(thread).queryByText("Warmer light.")).toBeNull();
   expect(screen.getByLabelText("Tell the director what to change")).toHaveValue("Warmer light.");
+}, 12_000);
+
+test("the chat's Approve cast & places, refused as changed since, reads the cast again so it shows what's there now", async () => {
+  setViewport(1440);
+  const shown = { state: "ready", approved_by: null, approved_at: null, asked: true, can_approve: true, items: [{ ref: "char:5", kind: "character", name: "Marcus", library_item_id: 5, version: 1, source: "library", preview_file_id: null, readiness: "ready", approval: "new", sig: "a", clip_ids: [], changes: [] }], waiting: ["Marcus"], not_ready: [] };
+  const calls = server(owner, null, run({ status: "delivered" }), {
+    "GET /projects/50/cast": [200, shown],
+    "POST /projects/50/cast/approve": [409, { detail: "Marcus changed since you opened Cast. Look at it again." }],
+  });
+  renderApp("/b/1/videos/50");
+  await userEvent.click(await screen.findByRole("button", { name: "Approve cast & places" }));
+  await vi.waitFor(() => expect(reads(calls, "GET /projects/50/cast")).toBe(2));
 });
 
 test("Cast & places is read again only while its looks are being drawn", async () => {
