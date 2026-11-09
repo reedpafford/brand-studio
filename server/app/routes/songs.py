@@ -345,7 +345,7 @@ def make_video_songs(
 ):
     """More takes for this video only, charged to its budget (or the editor's week). A
     narration is read in the video's own voice; a presenter's waits for their audition."""
-    from app import audition, director_song
+    from app import audition, director_song, voices
 
     project, draft = _song_video(db, user, project_id)
     if not songs_on(request, db, draft):
@@ -353,7 +353,11 @@ def make_video_songs(
     reads = song_takes.narrated(db, draft)
     if reads and audition.needed(db, project):
         raise HTTPException(409, audition.PICK_FIRST.format(who=audition.who(db, project)))
-    voice = director_song.narrator(db, project) if reads else narration.VOICE
+    used = db.get(SongTake, project.song_take_id) if project.song_take_id else None
+    kept = used.voice if used is not None and used.kind == narration.KIND else None
+    if kept and not voices.usable(db, project.workspace_id, project.brand_id, kept):
+        kept = None  # removed since: the video's own voice now, as the director's remake does
+    voice = director_song.narrator(db, project, kept=kept) if reads else narration.VOICE
     song_takes.make(db, user, draft, project, _real(request, db, draft), voice=voice)
     return _video_songs(request, db, user, project, draft)
 

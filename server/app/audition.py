@@ -45,6 +45,7 @@ NOT_ONE = "Pick one of the voices that read for this card."
 NOT_MADE = "That voice hasn't read yet. Play it once it's ready."
 NOT_FAILED = "These voices are reading or have read: play them, then pick one."
 CHOSEN = "The voice is chosen already."
+MOVED = "The director is auditioning other voices on question {}: pick there."
 PICK_FIRST = ("Pick {who}'s voice first: the director puts voices for them on its card in the "
               "chat, and the narration is read in the one you pick.")  # fmt: skip
 
@@ -171,6 +172,8 @@ def again(db: Session, user: User, ask: Ask) -> None:
     project = db.get(Project, ask.project_id)
     if not needed(db, project):
         raise HTTPException(409, CHOSEN)
+    if (newer := card(db, project)) is not None:  # the director auditioned again: one at a time
+        raise HTTPException(409, MOVED.format(newer.id))
     keys = list(dict.fromkeys(j.input["voice"] for j in jobs(db, ask)))
     _read(db, user, project, ask, keys, before=False)
 

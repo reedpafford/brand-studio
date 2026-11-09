@@ -219,7 +219,8 @@ def out(db: Session, user: User, ask: Ask) -> AskOut:
     if mine and state != "not_needed":
         card.can = ["describe" if ask.kind == "voice" else "reply"]  # a voice: Describe it
         card.can += ["voice"] if card.audition and not card.voice else []  # the audition's pick
-        card.can += ["again"] if card.audition_failed and not card.voice else []
+        again = card.audition_failed and not card.voice and audition.card(db, project) is None
+        card.can += ["again"] if again else []  # not once the director auditions again
         card.can += ["saved"] if card.saved else []
         card.can += ["upload"] if ask.kind in asks.UPLOADS else []
         card.can += ["choice"] if ask.kind == "story" else []

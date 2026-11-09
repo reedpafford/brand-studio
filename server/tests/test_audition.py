@@ -197,3 +197,43 @@ def test_when_every_voice_fails_to_read_the_card_never_leaves_the_video_stuck(ap
     assert picked.status_code == 200 and picked.json()["voice_name"] == "Roger"
     db.expire_all()
     assert db.get(Project, video.id, execution_options={"see_hidden": True}).voice == "stock:Roger"
+
+
+def test_a_failed_cards_read_again_gives_way_to_the_directors_new_audition(app, db, owner):
+    """QA on #1486: once the director auditions again on a new card, the failed card can't
+    read again (one audition at a time, never paid twice) and drops its button."""
+    from app.models.jobs import JobStatus
+
+    video = _video(app, db, owner)
+    old = audition.card(db, video)
+    for job in _samples(db, video):
+        job.status = JobStatus.failed
+    db.commit()
+    move = {"kind": "voice", "subject": "Marcus", "question": "Which voice now?",
+            "voices": ["Roger", "English_Jovialman", "English_Diligent_Man"]}  # fmt: skip
+    assert asks.asked(db, video, None, move).startswith("Asked: Which voice now? Roger")
+    new, reads = audition.card(db, video), len(_samples(db, video))
+    assert new.id != old.id
+    card = next(c for c in owner.get(f"/projects/{video.id}/asks").json() if c["id"] == old.id)
+    assert card["audition_failed"] and "again" not in card["can"]
+    refused = owner.post(f"/asks/{old.id}/answer", json={"how": "again"})
+    assert refused.status_code == 409 and f"question {new.id}" in refused.json()["detail"]
+    assert len(_samples(db, video)) == reads
+
+
+def test_more_narration_takes_read_in_the_voice_the_narration_is_in(app, db, owner):
+    """QA on #1486: a person's "more takes" press reads in the voice of the narration in use
+    (the director chose Roger), never the narrator's default."""
+    from app.models.songs import SongTake
+
+    body = {"type": "narrated", "look": "house", "shape": "9:16", "text": LINES,
+            "brand_id": first_brand(owner)}  # fmt: skip
+    fs = owner.post("/freestyles", json=body).json()
+    _run(app, db, ticks=200)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    db.get(SongTake, video.song_take_id).voice = "Roger"  # the director's pick for it
+    db.commit()
+    assert owner.post(f"/projects/{video.id}/songs").status_code == 201
+    newest = db.query(Job).filter_by(project_id=video.id, kind="speech").order_by(Job.id.desc())
+    assert newest.first().input["input"]["voice"] == "Roger"
