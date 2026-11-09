@@ -771,6 +771,23 @@ def undone_flags(row: ProjectClip, problems: list[str]) -> list[str]:
     return [f"{check.ADVICE}{p}" if p.lower().endswith(wording) else p for p in problems]
 
 
+def as_written(row: ProjectClip) -> ClipPrompt:
+    """A clip as its row has it: its prompt and references."""
+    return ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
+                      references=[Reference(**r) for r in row.references or []])  # fmt: skip
+
+
+def sheets_in(db: Session, project: Project, row: ProjectClip) -> None:
+    """Before a take, the sheet of everyone its shots show goes with it (`with_cast`, nothing
+    dropped), as when Clips opens, though nobody may have (video 294: Maya's sheet, drawn after
+    the clip's prompt was written). Someone its shots don't show never joins. Free."""
+    if not row.prompt:
+        return
+    bd = Breakdown.model_validate(db.get(BreakdownVersion, row.breakdown_id).data)
+    if (now := with_cast(db, project, was := as_written(row), bd, trim=False)) != was:
+        row.prompt, row.references = now.prompt, [r.model_dump() for r in now.references]
+
+
 def repair(db: Session, project: Project) -> int:
     """Give every clip of the video its characters' sheets (`with_cast`, nothing dropped),
     put its shape right (`repair_shape`: shot times, "No one speaks." and the rest) and check
@@ -784,9 +801,7 @@ def repair(db: Session, project: Project) -> int:
         if row.breakdown_id not in breakdowns:
             data = db.get(BreakdownVersion, row.breakdown_id).data
             breakdowns[row.breakdown_id] = Breakdown.model_validate(data)
-        bd = breakdowns[row.breakdown_id]
-        was = ClipPrompt(clip_id=row.clip_id, seconds=row.seconds, prompt=row.prompt,
-                         references=[Reference(**r) for r in row.references or []])  # fmt: skip
+        bd, was = breakdowns[row.breakdown_id], as_written(row)
         now = repair_shape(with_cast(db, project, was, bd, known, trim=False), bd)
         images = [r.id for r in now.references if r.kind == "image"]
         newer = newer_sheets(db, known, images, row.job_id)  # a sheet changed since it was written

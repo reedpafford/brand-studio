@@ -810,7 +810,8 @@ class LookMove(Strict):
     )
     shot_ids: list[str] = Field(
         default_factory=list,
-        description="For add_place: the plan's shots that happen there, e.g. ['3.1', '3.2'].",
+        description="For add_place: the plan's shots that happen there, e.g. ['3.1', '3.2']. "
+        "For make_looks: the plan's shots that show someone who isn't a role yet.",
     )
     library_item_id: Id = Field(
         default=None,
@@ -924,8 +925,8 @@ class DirectorTurn(Strict):
         description="For add_place: the place, its look in words and the plan's shots there. "
         "For change_look: the character or place by name (as <video>'s cast_ok names it), "
         "with the change in `note`. For outfit: the character by name and the outfit in "
-        "`description`. For make_looks: only after it said nothing describes a role, that "
-        "role by name and what it looks like in `description`. Else null.",
+        "`description`. For make_looks: a role nothing describes, or someone the shots show "
+        "who isn't a role yet, by name, with what they look like in `description`. Else null.",
     )
     word: Name = Field(
         default=None,

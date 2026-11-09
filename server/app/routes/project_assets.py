@@ -474,6 +474,23 @@ def make_look(
     return list_assets(project_id, user, db)
 
 
+def own_look(db: Session, project: Project, slot: ScriptCastSlot, notes: str,
+             photo: int | None = None) -> LibraryItem:  # fmt: skip
+    """A look for this role made for this video only, never the brand's (rule 12), drawn in
+    its look (ST2) and kept per look (n12): Make a look's, an upload's (`photo`, its sheet
+    drawn from it later), a card's answer's or the director's (`told_look`)."""
+    look = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character,
+                       name=cast_roles.short(slot.role) or slot.role, notes=notes or slot.role,
+                       owner_project_id=project.id, sheet_look=project.look or "house",
+                       source_photo_file_id=photo)  # fmt: skip
+    db.add(look)
+    db.flush()
+    project.slot_looks = {**project.slot_looks, str(slot.id): look.id}  # the sheet knows its role
+    kept = {**(project.own_looks or {}).get(str(slot.id), {}), look.sheet_look: look.id}
+    project.own_looks = {**(project.own_looks or {}), str(slot.id): kept}
+    return look
+
+
 def blind(names: list[str]) -> str:
     """Why a role gets no look: nothing says what it is (video 268)."""
     return (f"Nothing says what {' and '.join(names)} look{'s' if len(names) == 1 else ''} "
@@ -499,19 +516,8 @@ def _make_look(
     if not check.AGE.search(words) and (age := cast_roles.stated_age(
             cast_roles.short(slot.role), _told(db, project))):  # fmt: skip
         words = f"{words.rstrip('. ')}, {age}"
-    look = LibraryItem(
-        workspace_id=project.workspace_id,
-        kind=Kind.character,
-        name=cast_roles.short(slot.role) or slot.role,
-        notes=f"{words.rstrip('. ')}. {change.strip()}" if change.strip() else words,
-        owner_project_id=project.id,
-        sheet_look=project.look or "house",  # drawn in the video's look (ST2)
-    )
-    db.add(look)
-    db.flush()
-    project.slot_looks = {**project.slot_looks, str(slot.id): look.id}  # the sheet knows its role
-    kept = {**(project.own_looks or {}).get(str(slot.id), {}), look.sheet_look: look.id}
-    project.own_looks = {**(project.own_looks or {}), str(slot.id): kept}  # per look (n12)
+    noted = f"{words.rstrip('. ')}. {change.strip()}" if change.strip() else words
+    look = own_look(db, project, slot, noted)
     queue_sheet(db, user, look, SheetIn(), auto=auto)  # commits; a refusal adds nothing
     _cast(db, user, project, slot, look)
     db.commit()
@@ -640,20 +646,7 @@ def upload_look(
     project = get_project(db, user, project_id)
     slot = _open_slot(db, project, slot_id)
     photo = get_file(db, user, body.file_id, "image")
-    look = LibraryItem(
-        workspace_id=project.workspace_id,
-        kind=Kind.character,
-        name=cast_roles.short(slot.role) or slot.role,
-        notes=slot.description or slot.role,
-        owner_project_id=project.id,
-        sheet_look=project.look or "house",
-        source_photo_file_id=photo.id,
-    )
-    db.add(look)
-    db.flush()
-    project.slot_looks = {**project.slot_looks, str(slot.id): look.id}
-    kept = {**(project.own_looks or {}).get(str(slot.id), {}), look.sheet_look: look.id}
-    project.own_looks = {**(project.own_looks or {}), str(slot.id): kept}
+    look = own_look(db, project, slot, slot.description, photo.id)
     _cast(db, user, project, slot, look)
     db.commit()
     return list_assets(project_id, user, db)
@@ -902,24 +895,27 @@ def make_missing_looks(
 def make_missing(db: Session, user: User, project: Project, told=("", ""),
                  whole=False) -> tuple[int, list]:  # fmt: skip
     """`make_missing_looks`; `told`: a role's name and what it looks like, as the director gives
-    it for a role nothing describes. Such a role is left without a look, never drawn from its
+    it, added to the plan's words for them (video 294: "Maya, 30s" alone lost her messy bun
+    and grey sleep tee). A role nothing describes is left without a look, never drawn from its
     name alone (video 268); `whole`: then nothing is made. How many looks it started, and the
     roles it left."""
     out = _missing_out(db, user, project)
     if out.reason:
         raise HTTPException(409, out.reason)
-    slots = [(s, None if _undrawn(db, project, s) else role_words(db, project, s)
-              or (told[1].strip() if cast_roles.same(told[0], s.role) else ""))
+    slots = [(s, None if _undrawn(db, project, s) else role_words(db, project, s),
+              told[1].strip() if cast_roles.same(told[0], s.role) else "")
              for s in _missing(db, project)]  # fmt: skip
-    left = [cast_roles.short(s.role) or s.role for s, words in slots if words == ""]
+    left = [cast_roles.short(s.role) or s.role for s, words, said in slots
+            if words == "" and not said]  # fmt: skip
     if left and whole:
         raise HTTPException(409, blind(left) + BLIND_FIX)
     made = 0
-    for slot, words in slots:
+    for slot, words, said in slots:
         if words is None:  # from the photo given for it
             queue_sheet(db, user, _undrawn(db, project, slot), SheetIn(), auto=True)
-        elif words:
-            _make_look(db, user, project, slot, auto=True, words=words)
+        elif words or said:
+            _make_look(db, user, project, slot, auto=True, words=words or said,
+                       change=said if words else "")  # fmt: skip
         else:
             continue
         made += 1

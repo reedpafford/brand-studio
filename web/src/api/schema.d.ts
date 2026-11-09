@@ -3841,7 +3841,8 @@ export interface paths {
         /**
          * Generate
          * @description Make a new take of this clip (a paid video job, counted against the project budget).
-         *     A clip with problems must be fixed first.
+         *     A clip with problems must be fixed first. A look drawn since its prompt goes with it
+         *     (`clip_prompts.sheets_in`).
          */
         post: operations["generate_projects__project_id__clips__clip_id__generate_post"];
         delete?: never;
