@@ -90,12 +90,13 @@ def _request(
     from app.routes.jobs import enqueue
 
     if narrated(db, draft):  # one voice call (flows N1)
+        said = words(db, draft, project)  # a UGC talker's approved spoken version, else the script
         try:  # a remake's note: this one only; a saved voice ("voice:<id>") through its model
             brand = project.brand_id if project else db.get(Script, draft.script_id).brand_id
-            job_input = (voices.narration_job(db, user.workspace_id, brand, draft.text, voice,
+            job_input = (voices.narration_job(db, user.workspace_id, brand, said, voice,
                                               note, **(delivery or {}))
                          if voice.startswith(voices.PREFIX) else
-                         narration.job(draft.text, voice, note, **(delivery or {})))  # fmt: skip
+                         narration.job(said, voice, note, **(delivery or {})))  # fmt: skip
         except ValueError as no:
             raise HTTPException(422, str(no)) from None
         job_input = {**job_input, "step": "song_take", "on_script": draft.script_id}
@@ -161,6 +162,13 @@ def make(
 def _sings(draft: ScriptDraft) -> dict:
     """What a take sings, as the person wrote it (Suno gets it with song_request's pacing)."""
     return {"lyrics": draft.text.strip(), "style_line": draft.style_line.strip()}
+
+
+def words(db: Session, draft: ScriptDraft, project: Project | None) -> str:
+    """The words a narration says in this video, and so what a presenter's voice audition
+    reads (app/audition.py): the version's own. (#1484 adds a UGC talker's spoken version the
+    owner approved on the start card here: keep its body when both land.)"""
+    return draft.text
 
 
 def _by_job(db: Session, column, job: Job) -> list[SongTake]:

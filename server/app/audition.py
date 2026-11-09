@@ -4,15 +4,17 @@ finding the voice before generating on HeyGen? Let's implement a voice discovery
 A presenter speaks in one of our voices (a UGC talker, or a host in a corner). Until that
 voice is chosen, the director names 3 or 4 that fit them (age, gender, energy, an ordinary
 speaking pitch, not a narrator's) on the card that casts them, in the same move (`ask` with
-`voices`). Each reads the script's opening, about 8 s, in the words as written: a cheap voice
-call each (narration.job; MiniMax and ElevenLabs are $0.10 per 1,000 characters). The person
-plays them and picks one. The pick is the video's voice (`projects.voice`), and it's saved on
-the presenter, so the next video with them reuses it with no audition (voices.default_for).
+`voices`). Each reads the opening of what the narration will say, about 8 s, as it will say
+it (`line`): a cheap voice call each (narration.job; MiniMax and ElevenLabs are $0.10 per
+1,000 characters). The person plays them and picks one. The pick is the video's voice
+(`projects.voice`), and it's saved on the presenter, so the next video with them reuses it
+with no audition (voices.default_for).
 
 Nothing pricier waits on a guess: while a presenter's voice isn't chosen, the narration (the
 clock everything follows), the looks, stills, takes and the host are refused (`HELD`). A
 revision keeps the voice: it's the video's own by then."""
 
+import re
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -70,17 +72,24 @@ def who(db: Session, project: Project) -> str:
 
 
 def line(db: Session, project: Project) -> str:
-    """What every candidate reads: the script's opening sentences, about SECONDS long (the
-    first one whole, however long), in the words as written."""
+    """What every candidate reads: the opening of exactly what the narration will say
+    (song_takes.words: the approved words, a UGC talker's spoken version once approved),
+    whole sentences to about SECONDS (the first one however long). A UGC talker's are run
+    together as they'd say them, a comma for each full stop between them (the listening test,
+    9 Nov: that reading is half of why Reed preferred Trustworthy Man)."""
+    from app import song_takes, talker
     from app.models.script_library import ScriptDraft
     from app.prompts import check
 
     draft = db.get(ScriptDraft, project.script_draft_id or 0)
-    words, out = round(SECONDS * PACE), []
-    for sentence in narration.sentences(check.narration_text(draft.text if draft else "")):
-        if out and len(" ".join(out).split()) + len(sentence.split()) > words:
+    said = song_takes.words(db, draft, project) if draft else ""
+    most, out = round(SECONDS * PACE), []
+    for sentence in narration.sentences(check.narration_text(said)):
+        if out and len(" ".join(out).split()) + len(sentence.split()) > most:
             break
         out.append(sentence)
+    if talker.minimax(db, project):
+        out = [re.sub(r"\.$", ",", s) for s in out[:-1]] + out[-1:]
     return " ".join(out)
 
 
@@ -188,9 +197,16 @@ def status(db: Session, project: Project) -> dict | None:
         **(
             {"ask_id": asked.id}
             if asked
-            else {"voices": {k: " · ".join(voices.ABOUT[k]) for k in voices.stock_keys()}}
+            else {"voices": {k: heard(k) for k in voices.stock_keys()}}
         ),
     }
+
+
+def heard(key: str) -> str:
+    """An app voice as the director chooses from it: its name, what it sounds like, and its
+    pitch where a test measured it (cards say it in words only)."""
+    hz = voices.PITCH.get(key)
+    return " · ".join([*voices.ABOUT[key], *([f"about {hz} Hz"] if hz else [])])
 
 
 def refusal(db: Session, project: Project) -> str:

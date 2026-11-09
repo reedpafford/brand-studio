@@ -47,13 +47,14 @@ def _samples(db, video) -> list[Job]:
 
 
 def test_nothing_is_timed_to_a_presenters_voice_until_the_person_picks_it(app, db, owner):
-    """Each of the director's candidates reads the script's opening (about 8 s, the words as
-    written) on the cast card; the narration, looks, stills, takes and host wait; the pick is
-    the voice the narration is read in."""
+    """Each of the director's candidates reads the script's opening (about 8 s, run together
+    as a talker says it) on the cast card; the narration, looks, stills, takes and host wait;
+    the pick is the voice the narration is read in."""
     video = _video(app, db, owner)
     reads = _samples(db, video)
     assert [j.input["voice"] for j in reads] == list(director.STAND_IN_VOICES)
-    assert {j.input["input"]["text"] for j in reads} == {OPENING}  # whole sentences to ~8 s
+    run_together = OPENING.replace("apology.", "apology,")  # whole sentences to ~8 s
+    assert {j.input["input"]["text"] for j in reads} == {run_together}
     assert all(j.kind == "speech" and j.input["model"] == narration.MINIMAX for j in reads)
     assert not [
         j
@@ -81,6 +82,23 @@ def test_nothing_is_timed_to_a_presenters_voice_until_the_person_picks_it(app, d
     assert read.input["input"]["voice_id"] == "English_Jovialman"
     assert len(_samples(db, video)) == 3  # no new audition on the way, nor after delivery
     assert audition.status(db, video) is None
+
+
+def test_the_audition_reads_the_words_the_narration_will_say(app, db, owner, monkeypatch):
+    """The lead, 9 Nov: the voices read exactly what the narration will (the approved words,
+    from the narration's own source, song_takes.words: #1484's spoken version once it lands),
+    run together as the talker says them, so the pick is judged on the real read."""
+    spoken = ("So I owe my brother-in-law an apology. Every Thanksgiving I'd tease Danny about "
+              "his phone. And this year he showed me what he's doing.")  # fmt: skip
+    monkeypatch.setattr("app.song_takes.words", lambda db, draft, project: spoken)
+    video = _video(app, db, owner)
+    (said,) = {j.input["input"]["text"] for j in _samples(db, video)}
+    assert said == spoken.replace("apology.", "apology,").replace("phone.", "phone,")
+    _run(app, db, ticks=200)  # the voice picked, the narration made
+    db.expire_all()
+    (read,) = [j for j in db.query(Job).filter_by(project_id=video.id, kind="speech")
+               if j.input.get("step") == "song_take"]  # fmt: skip
+    assert narration.plain(read.input["input"]["text"]) == narration.plain(said)
 
 
 def test_the_pick_is_saved_on_the_presenter_so_their_next_video_has_no_audition(
