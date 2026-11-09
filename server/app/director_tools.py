@@ -582,6 +582,8 @@ def _fixed_first(db: Session, row: ProjectClip, me: dict) -> str:
         return ""
     if out is not None and out.fixed is None:
         return f"Fixing clip {n}'s prompt first (free); make its take once it's fixed."
+    if out is not None and out.reason:  # an older breakdown, a look not approved: its own why
+        return f"Refused: clip {n}: {out.reason}"
     return (
         f"Refused: clip {n}'s prompt has problems its free fix can't clear "
         f"({'; '.join(advice.stops(row))}): rewrite it with clip_prompts."

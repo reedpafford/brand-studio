@@ -73,5 +73,20 @@ def test_a_generated_screen_is_judged_by_its_brand_name_and_logo():
     from app import prompts
 
     said = prompts.system("take_watch")
-    assert "a generated brand screen passes when its brand name and logo read" in said
-    assert "a wrong brand or logo is still a fault" in said
+    assert (
+        "passes when its brand name, logo, UI and layout read as the brand's given screen" in said
+    )
+    assert "a wrong brand, logo or layout is a fault for the director" in said
+
+
+def test_a_fix_that_cant_run_says_its_own_reason(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.routes import project_clips
+
+    why = "This clip was made for an older breakdown. Rewrite this clip's prompt first."
+    out = SimpleNamespace(fixed=False, reason=why)
+    monkeypatch.setattr(project_clips, "fix_clip", lambda **_: out)
+    row = SimpleNamespace(id=1, clip_id="c3", problems=["has no Summary line"], kept=[])
+    db = SimpleNamespace(refresh=lambda r: None)
+    assert director_tools._fixed_first(db, row, {}) == f"Refused: clip 3: {why}"
