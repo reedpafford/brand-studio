@@ -273,7 +273,7 @@ def test_a_wait_with_nothing_being_made_reads_the_video_again(app, db, owner, ed
     monkeypatch.setattr(director, "choose", lambda state: {**real(state), "tool": "wait"})
     pid = _made_again(app, owner, editor, db)
     owner.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=4)
+    _run(app, db, ticks=40)  # before Make it a wait is the plan done (its card), then twice
     out = editor.get(f"/projects/{pid}/director").json()
     assert out["ended"] == "It stopped: it waited twice with nothing being made."
 
@@ -307,7 +307,7 @@ def test_the_same_refused_tool_again_stops_the_run_with_why(app, db, owner, edit
     monkeypatch.setattr(director, "choose", started(lambda state: stuck))
     pid = _made(app, owner, editor, db)
     editor.post(f"/projects/{pid}/director")
-    _run(app, db, ticks=8)
+    _run(app, db, ticks=40)  # the server's own steps after Make it, then its turns
     out = editor.get(f"/projects/{pid}/director").json()
     assert [t["result"] for t in out["turns"]][-2:] == [
         "Refused: name one clip.", "Refused again: name one clip."]  # fmt: skip
@@ -460,7 +460,8 @@ def test_a_locked_cast_with_a_look_missing_stops_saying_what_to_do(
     editor.post(f"/projects/{pid}/director")
     _run(app, db)
     out = editor.get(f"/projects/{pid}/director").json()
-    assert out["status"] == "ended" and len(out["turns"]) == 3  # the treatment; refused twice
+    tools = [t["tool"] for t in out["turns"]]
+    assert out["status"] == "ended" and tools[-2:] == ["make_looks"] * 2  # refused twice
     assert out["ended"] == (
         "It stopped: the cast is locked for this video. Approve the missing "
         "looks in Cast, or unlock the cast, then start it again."
@@ -745,7 +746,7 @@ def test_a_stop_after_a_turns_call_records_and_charges_it_and_stays_stopped(
     pid, calls = _second_turn(app, db, owner, editor, monkeypatch, "after")
     out = editor.get(f"/projects/{pid}/director").json()
     assert (out["status"], out["ended"]) == ("ended", "Stopped."), out["turns"]
-    assert calls == [1, 2] and len(out["turns"]) == 2  # no turn after it
+    assert len(calls) == 2 and len(out["turns"]) == calls[-1]  # no turn after it
     second = director.turns(db, db.get(Project, pid))[-1]
     assert second.status == JobStatus.succeeded  # its call went out: kept, logged, charged
     assert db.query(Usage).filter(Usage.job_id == second.id).count() == 1
