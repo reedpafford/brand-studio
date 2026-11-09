@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app import advice
 from app.db import make_sessionmaker
+from app.live import Hub
 from app.routes import (
     asks,
     auth,
@@ -29,6 +30,7 @@ from app.routes import (
     jobs,
     languages,
     library,
+    live,
     locks,
     looks,
     media,
@@ -95,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Brand Studio API", version="0.1.0")
     app.state.settings = settings
     app.state.sessionmaker = make_sessionmaker(settings.database_url)
+    app.state.live = Hub(settings.database_url)  # its open video pages (app/live.py)
     advice.LOOKUP = app.state.sessionmaker  # names an id left in a shown message
     app.state.storage = LocalStorage(settings.storage_dir)
     for module in (
@@ -159,6 +162,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         languages,
         media,
         voices,
+        live,
     ):
         app.include_router(module.router)
     app.include_router(breakdown.shots)

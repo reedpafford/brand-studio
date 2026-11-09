@@ -17,7 +17,6 @@ export function useHead(projectId: number) {
   return useQuery({
     queryKey: ["idea", projectId],
     enabled: projectId > 0,
-    refetchInterval: (q) => (q.state.data?.status.kind === "working" ? 10_000 : false),
     queryFn: () => polled(api.GET("/projects/{project_id}/idea", { params: { path: { project_id: projectId } } }), null),
   });
 }

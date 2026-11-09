@@ -6179,6 +6179,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live
+         * @description Whoever may read the video hears, as each change lands, which part of it changed: `data:
+         *     jobs | made | cards | video` (app/live.py). Never the change itself: the page reads it.
+         *     `event: still` every 15 s while nothing changes; `event: bye` when the stream ends.
+         */
+        get: operations["live_projects__project_id__live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/shots/{shot_id}/remove-ref": {
         parameters: {
             query?: never;
@@ -25734,6 +25756,35 @@ export interface operations {
             header?: never;
             path: {
                 name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    live_projects__project_id__live_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
             };
             cookie?: never;
         };

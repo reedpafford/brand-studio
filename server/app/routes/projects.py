@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import looks, narration, needs_you, plans, reference, settings_move
+from app import live, looks, narration, needs_you, plans, reference, settings_move
 from app.auth import current_user, owner_only, user_name
 from app.credits import (
     budget_used,
@@ -415,6 +415,7 @@ def approve_project(
     )
     if done.rowcount != 1:
         raise HTTPException(409, "This project isn't waiting for approval.")
+    live.note(db, project.id)
     db.refresh(project)
     _release_held_jobs(db, owner, project)
     db.commit()

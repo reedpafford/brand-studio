@@ -18,6 +18,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app import ask_options as opts
+from app import live
 from app.db import utcnow
 from app.models.accounts import User
 from app.models.asks import Ask
@@ -494,6 +495,7 @@ def withdraw_clone(db: Session, user: User, ask: Ask) -> bool:
         ).values(status=JobStatus.cancelled, finished_at=_now()))  # fmt: skip
         if done.rowcount != 1:
             raise HTTPException(409, STARTED)
+        live.note(db, job.project_id, JobStatus.cancelled)
         voices.withdrawn(voice, job)
         answered = select(Ask).where(Ask.id != ask.id, Ask.kind == "voice", Ask.state == "answered")
         same = {"how": "clone", "option": option}

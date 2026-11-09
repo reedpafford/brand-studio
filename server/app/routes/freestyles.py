@@ -17,7 +17,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import asks, director, folders, guides, hidden, looks, model_map, prompts, scorecard
+from app import asks, director, folders, guides, hidden, live, looks, model_map, prompts, scorecard
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -721,6 +721,7 @@ def withdraw_freestyle(
                       .values(status=JobStatus.cancelled, finished_at=utcnow()))  # fmt: skip
     if not done.rowcount:
         raise HTTPException(409, "Nothing is waiting to withdraw.")
+    live.note(db, fs.project_id, JobStatus.cancelled)
     for job in db.scalars(select(Job).where(Job.id.in_(ids))):
         job.input = {**job.input, WITHDRAWN: True}
         if job.input.get(FREEZE):

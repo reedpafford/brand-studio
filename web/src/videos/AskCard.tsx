@@ -18,18 +18,11 @@ type Saved = components["schemas"]["SavedOption"];
 
 const OPEN = ["open", "uploading", "generating", "ready", "failed", "held"];
 
-/** Every card on the video (v6 piece B), read again while one is being answered or made, or the run goes on. */
-/** The video's cards. `wanted`: the cards its chat already names; while one isn't read yet (a slow or failed read, MAIN's
- *  run on video 233: the start card after a delivery showed as an empty bubble with no Make it), it reads again. */
-export function useAsks(projectId: number, live: boolean, wanted: number[] = []) {
+/** Every card on the video (v6 piece B), read again the moment one is asked, answered or made (./live.ts). */
+export function useAsks(projectId: number) {
   return useQuery({
     queryKey: ["asks", projectId],
     enabled: projectId > 0,
-    refetchInterval: (q) => {
-      const have = q.state.data ?? [];
-      const missing = wanted.some((id) => !have.some((a) => a.id === id));
-      return live || missing || have.some((a) => a.money?.updating || ["uploading", "generating", "held"].includes(a.state) || a.choices.some((c) => ["held", "making", "watching"].includes(c.made ?? "")) || a.audition.some((v) => ["queued", "running", "needs_owner_approval"].includes(v.state))) ? 4_000 : false;
-    },
     queryFn: () => polled(api.GET("/projects/{project_id}/asks", { params: { path: { project_id: projectId } } }), []),
   });
 }
