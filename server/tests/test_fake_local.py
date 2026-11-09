@@ -54,3 +54,20 @@ def test_script_to_clip_take_with_stand_ins(app, db, editor, setup):  # noqa: F8
 
 def test_real_providers_unless_switched_on():
     assert isinstance(get_providers(Settings())["replicate"], ReplicateProvider)
+
+
+def test_local_outputs_are_fetched_when_the_temp_folder_is_a_link(tmp_path, monkeypatch):
+    """macOS keeps its temp folder behind a link (/var is /private/var): a stand-in's file is
+    still its own, not refused as a bad local file."""
+    from app.providers.local import LocalProvider
+
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "link").symlink_to(real)
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "link"))
+    monkeypatch.setattr("tempfile.tempdir", None)
+    local = LocalProvider(storage=None)
+    folder = local.root / "one"
+    folder.mkdir()
+    (folder / "a.png").write_bytes(b"x")
+    assert local.fetch(f"local://{folder / 'a.png'}")[0] == b"x"
