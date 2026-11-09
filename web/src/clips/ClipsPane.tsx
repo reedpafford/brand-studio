@@ -253,8 +253,10 @@ export function ClipsPane({ p, head, progress, go }: PaneProps) {
       {phone ? (
         list
       ) : (
-        <div className="flex min-h-0 items-start gap-4">
-          <div className={`w-[240px] ${long ? "@[760px]:w-[330px]" : "@[760px]:w-[300px]"} max-h-[calc(100dvh-220px)] shrink-0 overflow-y-auto`}>{list}</div>
+        // The preview has a set width now (Reed, 9 Nov): below 720px of room the list goes above the open clip (a short video's
+        // list hides, its "All clips" is the way back), so the clip keeps the width its takes and details need.
+        <div className="flex min-h-0 flex-col gap-4 @[720px]:flex-row @[720px]:items-start">
+          <div className={`w-full @[720px]:w-[240px] ${long ? "@[760px]:w-[330px]" : "@[760px]:w-[300px]"} max-h-48 shrink-0 overflow-y-auto @[720px]:max-h-[calc(100dvh-220px)] ${rows.length <= GRID && opened ? "hidden @[720px]:block" : ""}`}>{list}</div>
           <div className="min-w-0 flex-1">{opened && clip ? <ClipOpen key={clip.id} p={p} head={head} row={opened} clip={clip} frames={frames.data ?? []} scene={scenes.find((s) => s.id === opened.scene)!} phone={false} onCast={() => go("cast")} /> : opened ? <NotMade row={opened} /> : <p className="pt-2 text-sm text-muted">Pick a clip to see its takes, its prompt and what the director did.</p>}</div>
         </div>
       )}

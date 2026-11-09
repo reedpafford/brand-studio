@@ -108,13 +108,13 @@ test("the Cut tab watches the cut, and Edit opens the cut editor (screen 10)", a
   expect(await screen.findByRole("radio", { name: "Watch" })).toBeChecked();
   expect(screen.getByLabelText("The cut")).toBeInTheDocument();
   const chat = screen.getByRole("region", { name: "Chat" });
-  expect(chat.className).toContain("w-[min(600px,50%)]");
+  expect(chat.className).toContain("flex-1"); // Reed, 9 Nov: the chat takes the room; the preview has a set width
   await userEvent.click(screen.getByRole("radio", { name: "Edit" }));
   expect(await screen.findByLabelText("Cut editor")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Cut 2" })).toBeInTheDocument();
   expect(chat.className).toContain("w-[400px]"); // the editor gets the boards' 792px panel (S7)
   await userEvent.click(screen.getByRole("radio", { name: "Watch" }));
-  expect(chat.className).toContain("w-[min(600px,50%)]");
+  expect(chat.className).toContain("flex-1");
 });
 
 test("the Cut tab puts the clips together by itself the first time, for free", async () => {

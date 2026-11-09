@@ -190,11 +190,13 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
       {rail ? (
         <>
-          <section aria-label="Chat" className={`flex min-h-0 shrink-0 flex-col border-r border-border bg-surface ${editing ? "w-[400px]" : "w-[min(600px,50%)]"}`}>
+          {/* Reed, 9 Nov: the preview "dominates the screen". The chat takes the room and the preview has a set width (560–680),
+              except beside the cut editor, which needs the width (S7: the chat narrows to 400). */}
+          <section aria-label="Chat" className={`flex min-h-0 flex-col border-r border-border bg-surface ${editing ? "w-[400px] shrink-0" : "min-w-0 flex-1"}`}>
             {header}
             {chat}
           </section>
-          {preview}
+          <div className={`flex min-h-0 min-w-0 ${editing ? "flex-1" : "w-[clamp(560px,46%,680px)] shrink-0"}`}>{preview}</div>
         </>
       ) : (
         <>
@@ -279,12 +281,12 @@ function Loading({ phone }: { phone: boolean }) {
     );
   return (
     <div className="flex h-screen">
-      <section className="flex w-[min(600px,50%)] shrink-0 flex-col border-r border-border bg-surface">
+      <section className="flex min-w-0 flex-1 flex-col border-r border-border bg-surface">
         {head}
         {thread}
         {box}
       </section>
-      <section className="flex flex-1 flex-col bg-bg">
+      <section className="flex w-[clamp(560px,46%,680px)] shrink-0 flex-col bg-bg">
         <div className="flex h-pagehead items-stretch gap-1 border-b border-border bg-surface px-4" aria-hidden>
           {["Cut", "Clips", "Cast", "Plan", "Script"].map((t, i) => (
             <span key={t} className={`-mb-px inline-flex items-center border-b-2 px-2.5 text-sm font-medium ${i === 0 ? "border-text text-text" : "border-transparent text-muted"}`}>{t}</span>
@@ -572,7 +574,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
       {/* `relative`: anything positioned inside (a hidden label) stays in this scroll area instead of stretching the page (the
           phone video page scrolled ~170px with its message box off screen). */}
       <div ref={scroller} className="fade-top relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-3 pt-5">
-        <ol aria-label="Conversation with the director" className="mt-auto flex flex-col gap-5">
+        <ol aria-label="Conversation with the director" className="mt-auto flex w-full max-w-3xl flex-col gap-5 self-center">
           {[...items, ...sending].map((t) =>
             t.kind === "ask" ? (
               <Item key={t.id} t={t} owner={owner} words={cards.some((a) => a.id === t.ask_id) ? null : unread(t)}>
@@ -719,7 +721,7 @@ function Composer({ placeholder, closed, note, error, busy, upload, disabled, on
   return (
     <form
       aria-label="Your message"
-      className="mx-5 mb-5 mt-1 flex flex-col gap-2 rounded-xl border border-border bg-surface py-2.5 pl-3.5 pr-2.5 shadow-soft transition-[border-color,box-shadow] duration-(--dur-fast) ease-out hover:border-border-button focus-within:border-accent focus-within:shadow-ring max-lg:mx-3 max-lg:mb-safe"
+      className="mx-5 mb-5 mt-1 flex flex-col gap-2 rounded-xl lg:w-[calc(100%-40px)] lg:max-w-3xl lg:self-center border border-border bg-surface py-2.5 pl-3.5 pr-2.5 shadow-soft transition-[border-color,box-shadow] duration-(--dur-fast) ease-out hover:border-border-button focus-within:border-accent focus-within:shadow-ring max-lg:mx-3 max-lg:mb-safe"
       onSubmit={(e) => {
         e.preventDefault();
         go();
