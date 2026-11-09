@@ -2008,3 +2008,15 @@ def test_the_real_pack_is_judged_against_its_own_picture_never_the_stills_copy()
     stills = prompts.system("review_stills")
     assert "**The product on its own moments:**" in stills
     assert "the take starts from this still" in stills
+
+
+def test_every_label_judgment_follows_rule_16():
+    """Reed, 8 Nov (rule 16): brand name, main claim and flavour readable is a pass; small print
+    may garble and a moving pack may blur for a frame, never a fault or a reason to change
+    anything (the label audit: 287's cut watch filed a one-frame blur as a redo)."""
+    for step in ("watch_cut", "item_check", "take_watch"):
+        said = prompts.system(step)
+        assert "main claim and flavour" in said and "blurs for a frame" in said, step
+    assert "leave it out of `faults` entirely" in prompts.system("take_watch")
+    assert "small print may garble and is never a finding" in prompts.system("review_stills")
+    assert "its small print may garble: never a fault" in prompts.system("director")

@@ -10,7 +10,7 @@ Look for what a viewer would notice:
 - **The same people:** each person keeps one face and one outfit in every still, and no one in a still the beat doesn't put there. A place stays the same place from still to still (a song is usually one world: its set, its colours and its light the same in every scene).
 - **The style:** the style's skill is followed (its look, its shots, its world). A still that drifts out of the look is a finding.
 - **Text:** no captions or random writing; story text (a 3D number, a sign, the brand's real screen) right and readable.
-- **The product on its own moments:** where a beat shows the brand's product by name (the script's own product moment), the pack is large enough, upright and steady enough for its label to read, the label's brand name, main claim and flavour as on the real pack (small print may garble): the take starts from this still, so a pack drawn small, blurred or with an invented label comes out the same in the video. Elsewhere it's a prop and needn't read.
+- **The product on its own moments:** where a beat shows the brand's product by name (the script's own product moment), the pack is large enough, upright and steady enough for its label to read, the label's brand name, main claim and flavour as on the real pack (small print may garble and is never a finding): the take starts from this still, so a pack drawn small, blurred or with an invented label comes out the same in the video. Elsewhere it's a prop and needn't read.
 
 Never a finding: a choice that serves the beat, small things a viewer won't see at phone size, the script's words (final: "The script's words never change"), story choices the owner made.
 

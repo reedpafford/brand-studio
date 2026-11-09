@@ -826,7 +826,7 @@ class DirectorTurn(Strict):
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
         "mute", "unmute", "splice_word", "add_sound", "song", "narration", "host", "edit_cut",
         "ask", "add_place", "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model",
-        "settings", "split_clip", "outfit", "real_screen", "locked_line",
+        "settings", "split_clip", "outfit", "locked_line",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -846,7 +846,7 @@ class DirectorTurn(Strict):
     )
     shot_id: Name = Field(
         default=None,
-        description="For real_screen: the insert's shot, from that clip's `inserts`; else empty.",
+        description="For redraw_still of one still (else `redraws`): its shot; else empty.",
     )
     redraws: list[StillFix] = Field(
         default_factory=list,
@@ -916,9 +916,8 @@ class DirectorTurn(Strict):
         default=None,
         description="For settings with setting look, aspect_ratio or presenter: the new value "
         "(a style id, '9:16', or talks / corner / acts); empty for the style's own. For "
-        "real_screen: 'off' puts the generated screen back. For locked_line: the words the "
-        "note asks for instead, when it says them (the owner's card offers to change the line "
-        "to them). Else empty.",
+        "locked_line: the words the note asks for instead, when it says them (the owner's card "
+        "offers to change the line to them). Else empty.",
     )
     look: LookMove | None = Field(
         default=None,

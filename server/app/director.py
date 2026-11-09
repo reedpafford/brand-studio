@@ -1513,9 +1513,25 @@ def _ready(db: Session, project: Project, run: dict, last: Job) -> bool:
         Job.project_id == project.id, Job.input[RUN]["id"].as_string() == run["id"],
         Job.input[asks.PLAN_OK].as_boolean(),
         Job.input[DECLINE].as_boolean()))  # fmt: skip
-    seen = max(at, kept) if kept else at
     notes = [m["at"] for m in project.director_chat or [] if m.get("run") == run["id"]]
-    return not notes or max(notes) <= seen.isoformat()
+    if not notes or kept and max(notes) <= kept.isoformat():
+        return True
+    # every note was given to a turn (run 287: a brief sent while the first turn was being
+    # answered was never read, and the card showed the plan from before it), and a treatment
+    # asked since that turn is written: one that reads a note and changes nothing (a wait, a
+    # question) gets its card too
+    if not _own_story(db, run, project.id):  # a revision's story stands: its free changes,
+        return False  # or Make it once it moves past them (START_FIRST)
+    mine = [t for t in turns(db, project) if t.input[RUN]["id"] == run["id"]]
+    reader = next((t for t in mine if t.input.get(READ, 0) >= len(notes)), None)
+    if reader is None:
+        return False
+    newest = db.scalar(select(Job).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == "treatment",
+        Job.input[RUN]["id"].as_string() == run["id"],
+    ).order_by(Job.id.desc()).limit(1))  # fmt: skip
+    return (newest is None or newest.status == JobStatus.succeeded
+            or newest.id < reader.id and newest.status not in WAITING)  # fmt: skip
 
 
 def keep_plan(db: Session, project: Project, job: Job) -> None:
@@ -1883,18 +1899,6 @@ def old_take(row: ProjectClip) -> dict:
     return {"old_take": why.removeprefix("Advice: ")}
 
 
-def _inserts(db: Session, project: Project, row: ProjectClip) -> dict:
-    """The clip's shots that show a brand screen, each with its figure and whether the cut
-    shows the brand's real screen there (`real`), for `real_screen`; {} with none."""
-    from app import cut_in
-
-    out = [{"shot_id": i.shot_id, "screen": i.name, "real": i.on,
-            **({"figure": " ".join(x for x in (i.figure.get("balance"), i.figure.get("change"))
-                                   if x)} if i.figure else {})}
-           for i in cut_in.inserts(db, project, row)]  # fmt: skip
-    return {"inserts": out} if out else {}
-
-
 def cut_findings(db: Session, project: Project) -> dict[int, list[str]]:
     """What the watches of this video's cuts found on each take, by take id (each finding is
     about the take its clip played in that cut): picking a take back brings these back (233:
@@ -1975,7 +1979,6 @@ def video_state(db: Session, project: Project) -> dict:
                       "sound": {k: v for k, v in (take_sound.state(db, picked) or {}).items()
                                 if k in ("state", "how")},
                       **({"own_sound": True} if take_sound.own(db, picked) else {}),
-                      **_inserts(db, project, row),  # real_screen
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip

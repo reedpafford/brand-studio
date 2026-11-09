@@ -782,7 +782,9 @@ def undo_approve_all(
     return list_clips(project_id, user, db)
 
 
-BY_DIRECTOR = "@director"  # in real_images: the director switched this shot (`real_screen`)
+BY_DIRECTOR = "@director"  # in real_images: the director switched this shot (older runs)
+AS_REFERENCE = ("The real image is attached to this clip as its reference, so the product or "
+                "screen shows in the scene; it's never cut in as a flat picture.")  # fmt: skip
 
 
 @router.put("/clips/{clip_id}/inserts/{shot_id}", response_model=ProjectClipOut)
@@ -794,11 +796,14 @@ def set_insert(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Switch "Use the real image" for one insert shot. Free: it applies when the video is
-    made, so the take and its approval stay."""
+    """Switch off a real image an older cut cuts in over one insert shot. Free: it applies
+    when the video is made, so the take and its approval stay. A real product or screen is the
+    clip's reference, never a flat cut-in (Reed, 8 Nov: rule 13), so none is switched on."""
     project, row = _clip(db, user, project_id, clip_id)
     if shot_id not in {i.shot_id for i in cut_in.inserts(db, project, row)}:
         raise HTTPException(404, "That shot isn't an insert in this clip.")
+    if body.use_real_image:
+        raise HTTPException(409, AS_REFERENCE)
     mark = f"{shot_id}{BY_DIRECTOR}"  # who set it: a person's own switch clears the mark
     kept = {k: v for k, v in (row.real_images or {}).items() if k != mark}
     row.real_images = {**kept, shot_id: body.use_real_image}

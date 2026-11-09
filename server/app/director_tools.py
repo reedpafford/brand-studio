@@ -26,8 +26,7 @@ CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "unmute", "splice_word", "add_sound", "song", "narration", "host",
          "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place",
-         "change_look", "ask_cast_ok", "split_clip", "outfit", "real_screen",
-         "locked_line")  # fmt: skip
+         "change_look", "ask_cast_ok", "split_clip", "outfit", "locked_line")  # fmt: skip
 WAITING = "{} for the cast and places OK."
 LONG_NOTE = ("Refused: a {what} note is at most {most} characters (this one is {n}); say it "
              "shorter, keeping everything it asks.")  # fmt: skip  # never cut (261: its end lost)
@@ -227,23 +226,6 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             back = (f" It comes back with what a watch of a cut found on it: {'; '.join(known)}."
                     if known else "")  # 233: the dead hold a paid redo had removed  # fmt: skip
             return f"Picked take {take.number} for {row.clip_id}.{back}"
-        if tool == "real_screen":  # free: Use the real image on one insert, as Clips' switch
-            rows = _clips(db, pid, decision.get("clip_id")) if decision.get("clip_id") else []
-            if len(rows) != 1:
-                return "Refused: name one clip."
-            sid, off = decision.get("shot_id") or "", (decision.get("value") or "") == "off"
-            row, n = rows[0], rows[0].clip_id.removeprefix("c")
-            mark = f"{sid}{project_clips.BY_DIRECTOR}"
-            if sid in (row.real_images or {}) and not (row.real_images or {}).get(mark):
-                return (f"Refused: a person set shot {sid} of clip {n} themselves; it stays "
-                        "as they left it unless a person asks.")  # fmt: skip
-            body = project_clips.InsertIn(use_real_image=not off)
-            project_clips.set_insert(clip_id=row.id, shot_id=sid, body=body, **me)
-            row.real_images = {**(row.real_images or {}), mark: True}  # the director's
-            db.commit()
-            return (f"Shot {sid} of clip {n} shows the generated screen again." if off else
-                    f"Shot {sid} of clip {n} shows the brand's real screen in the cut, its "
-                    "figure drawn on it. Free; it shows in the next cut.")  # fmt: skip
         if tool == "mute":  # free: the found stretches, through the Mute button (#1091)
             (row,) = _clips(db, pid, decision.get("clip_id"))
             spans, clip = to_mute(db, row), f"clip {row.clip_id.removeprefix('c')}"

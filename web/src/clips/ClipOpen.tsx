@@ -139,8 +139,8 @@ function Problems({ p, clip, onDone }: { p: Project; clip: Clip; onDone: () => P
   );
 }
 
-/** The brand screens a clip shows (rule 13): "Use the real image" cuts the real picture in over that stretch when the cut is
- *  made, instead of the one the model drew. Free. */
+/** A real image an older cut still cuts in flat over a stretch, to switch off. A real product or screen is the clip's
+ *  reference, never a flat cut-in (Reed, 8 Nov: rule 13), so none is switched on here. Free. */
 function Inserts({ p, clip, onDone }: { p: Project; clip: Clip; onDone: () => Promise<unknown> }) {
   const toast = useToast();
   const viewOnly = useViewOnly();
@@ -149,15 +149,16 @@ function Inserts({ p, clip, onDone }: { p: Project; clip: Clip; onDone: () => Pr
     onSuccess: onDone,
     onError: (e: Error) => toast(e.message, undefined, "error"),
   });
-  if (!clip.inserts.length) return null;
+  const cut = clip.inserts.filter((i) => i.use_real_image);
+  if (!cut.length) return null;
   return (
     <fieldset className="flex flex-col gap-1.5">
-      <legend className="mb-1 text-xs font-semibold text-muted">Brand screens in this clip</legend>
-      {clip.inserts.map((i) => (
+      <legend className="mb-1 text-xs font-semibold text-muted">Real images cut in by an older cut</legend>
+      {cut.map((i) => (
         <label key={i.shot_id} className="flex min-h-11 items-center gap-2 text-sm lg:min-h-8">
           <input type="checkbox" checked={i.use_real_image} disabled={viewOnly || set.isPending} onChange={(e) => set.mutate({ shot: i.shot_id, on: e.target.checked })} className="size-4 accent-[var(--accent)]" />
           <span>
-            Use the real image: {i.name} <span className="text-muted">· {i.start.toFixed(1)}–{i.end.toFixed(1)} s · free</span>
+            Cut in the real image: {i.name} <span className="text-muted">· {i.start.toFixed(1)}–{i.end.toFixed(1)} s · free</span>
           </span>
         </label>
       ))}

@@ -127,6 +127,8 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
         if near and _near(line["text"], heard[near[0]]["text"]) >= SAID:
             used.add(near[0])
             continue
+        if _within(line, heard, lines):  # run together with another line (video 287)
+            continue
         who = line.get("who") or ""
         findings.append(_finding("missing", None, f"Not heard: {who + ': ' if who else ''}"
                                  f"“{line['text']}”", f"Make sure {who or 'they'} says, word "
@@ -139,6 +141,8 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
         said, at = h["text"].strip(), _clock(h["start"])
         mute = f"It can be muted in the cut ({at}–{_clock(h['end'])})."
         part = _piece(i, heard, [line["text"] for line in lines])
+        again = any(_run(_words(said), _words(x["text"])) for j, x in enumerate(heard) if j != i)
+        part = part or (not again and _pieces(said, [line["text"] for line in lines]))
         if i not in used and not part and not any(_near(line["text"], said) >= SAID
                                                   for line in lines):  # fmt: skip
             if voiced:
@@ -163,6 +167,58 @@ def compare(lines: list[dict], heard: list[dict], brand: str, said_as: str,
                                          "be said wrong. Listen first: the transcript can "
                                          f"mishear.", f"Say {brand} as {said_as}."))  # fmt: skip
     return findings + sounds
+
+
+SLACK = 1.0  # s: how far outside its shot a one-word line may be heard (a take's own timing)
+
+
+def _words(text: str) -> list[str]:
+    """A line's words as compared: bare, any figure one word ("30" and "thirty" alike)."""
+    return ["#" if NUMBERS.match(w) else w for w in _bare(text).split()]
+
+
+def _run(want: list[str], words: list[str]) -> bool:
+    return any(words[k : k + len(want)] == want for k in range(len(words) - len(want) + 1))
+
+
+def _within(line: dict, heard: list[dict], lines: list[dict]) -> bool:
+    """A script line said, but heard run together with another one, so no heard line is
+    close to it alone (video 287: "I'm not pregnant. Oh!", "Your gut's backed up. Mine was,
+    too."): its words in order inside one heard line. A one-word line ("Oh.", "Hey.") counts
+    heard in its shot's window (with SLACK), else when no other line has that word."""
+    want = _words(line["text"])
+    if not want:
+        return False
+    if len(want) > 1:
+        return any(_run(want, _words(h["text"])) for h in heard)
+    if line.get("end") is not None:
+        lo, hi = line["start"] - SLACK, line["end"] + SLACK
+        timed = [w for h in heard for w in h.get("words") or [{**h, "word": h["text"]}]]
+        return any(want[0] in _words(w["word"]) and lo <= w["start"] <= hi for w in timed)
+    others = {w for x in lines if x is not line for w in _words(x["text"])}
+    return want[0] not in others and any(want[0] in _words(h["text"]) for h in heard)
+
+
+def _pieces(said: str, lines: list[str]) -> bool:
+    """A heard line made only of the script's lines run together, joined at their edges ("Hey,
+    Granny means well.": the line "Hey." and the start of the next), never an extra to mute
+    (unless it's heard again inside another heard line: a repeat). Each piece is a whole line,
+    or two words or more from a line's start or end, never a few script words in a new order
+    ("Granny, your gut's fat." is an extra: rule 19)."""
+    words, parts = _words(said), [_words(x) for x in lines]
+
+    def piece(run: list[str]) -> bool:
+        return any(run == p or len(run) >= 2 and run in (p[: len(run)], p[-len(run) :])
+                   for p in parts)  # fmt: skip
+
+    if not words:
+        return False
+    ok = [True] + [False] * len(words)  # ok[k]: the first k words are pieces of lines
+    for k in range(len(words)):
+        if ok[k]:
+            for j in range(k + 1, len(words) + 1):
+                ok[j] = ok[j] or piece(words[k:j])
+    return ok[-1]
 
 
 def _piece(i: int, heard: list[dict], lines: list[str]) -> bool:
@@ -274,8 +330,13 @@ def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict], 
         return None
     silent = plans.fmt(db, project) != "dialogue" and not speaks  # a song's or narrator's
     silent = silent or bool(job.input.get("own_sound"))  # its own room and effects: no voice
-    lines = [] if silent else [{"who": s.get("speaker") or "", "text": s["line"]}
-                               for s in shots if s.get("line")]  # fmt: skip
+    lines, at = [], 0.0
+    for s in shots:  # each line with its shot's window in the take ("Shot 3 | 6-7 s.")
+        end = at + float(s.get("seconds") or 0)
+        if s.get("line") and not silent:
+            lines.append({"who": s.get("speaker") or "", "text": s["line"], "start": at,
+                          "end": end})  # fmt: skip
+        at = end
     if not lines and not silent and not watch:
         return None
     row = None
