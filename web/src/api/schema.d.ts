@@ -333,6 +333,7 @@ export interface paths {
         /**
          * List Folders
          * @description The brand's folders in the order made, each with its `parent_id`; Unsorted isn't listed.
+         *     `footage`: the Footage tab's tree instead.
          */
         get: operations["list_folders_brands__brand_id__folders_get"];
         put?: never;
@@ -911,9 +912,10 @@ export interface paths {
         put?: never;
         /**
          * Add Footage
-         * @description A real clip added once (Media's checks: a clip of up to 3 minutes). Its two frames are
-         *     kept (its thumbnail, and what the AI and the director see); with no words, the AI
-         *     describes it.
+         * @description A real clip added once (Media's checks: a clip of up to 3 minutes), in its footage
+         *     folder. Its two frames are kept (its thumbnail, and what the AI and the director see);
+         *     with no words, the AI describes it, unless `ai_describe` is off (a bulk upload that writes
+         *     its own words).
          */
         post: operations["add_footage_brands__brand_id__footage_post"];
         delete?: never;
@@ -934,6 +936,28 @@ export interface paths {
          * @description What the AI description of one clip costs at most, said before a clip is added blank.
          */
         get: operations["describe_price_brands__brand_id__footage_price_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/footage/spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe Spend
+         * @description What each AI description of the brand's footage really cost, and the total (owner only,
+         *     like every dollar): a bulk upload reads its running total. `since`: those asked from then.
+         *     One still being written isn't in yet.
+         */
+        get: operations["describe_spend_brands__brand_id__footage_spend_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6766,6 +6790,21 @@ export interface components {
             description: string;
             /** Product Id */
             product_id?: number | null;
+            /**
+             * Product
+             * @default
+             */
+            product: string;
+            /**
+             * Folder
+             * @default
+             */
+            folder: string;
+            /**
+             * Ai Describe
+             * @default true
+             */
+            ai_describe: boolean;
         };
         /** Body_add_media_brands__brand_id__media_post */
         Body_add_media_brands__brand_id__media_post: {
@@ -7895,7 +7934,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "script" | "video" | "clip";
+            kind: "script" | "video" | "clip" | "footage";
             /** Ids */
             ids: number[];
             /** Folder Id */
@@ -7998,6 +8037,8 @@ export interface components {
             name: string;
             /** Parent Id */
             parent_id?: number | null;
+            /** Footage */
+            footage?: boolean | null;
         };
         /** FolderOut */
         FolderOut: {
@@ -8058,6 +8099,13 @@ export interface components {
              * @default
              */
             note: string;
+            /** Folder Id */
+            folder_id?: number | null;
+            /**
+             * Folder
+             * @default
+             */
+            folder: string;
         };
         /** FootageUse */
         FootageUse: {
@@ -8993,6 +9041,8 @@ export interface components {
             videos: number;
             /** Clips */
             clips: number;
+            /** Footage */
+            footage: number;
         };
         /**
          * JobDetailOut
@@ -12431,6 +12481,22 @@ export interface components {
             /** Director */
             director: boolean;
         };
+        /** SpendOut */
+        SpendOut: {
+            /** Usd */
+            usd: number;
+            /** Clips */
+            clips: components["schemas"]["Spent"][];
+        };
+        /** Spent */
+        Spent: {
+            /** Id */
+            id: number;
+            /** Usd */
+            usd: number;
+            /** Estimated */
+            estimated: boolean;
+        };
         /** StageOut */
         StageOut: {
             /** Stage */
@@ -14864,7 +14930,9 @@ export interface operations {
     };
     list_folders_brands__brand_id__folders_get: {
         parameters: {
-            query?: never;
+            query?: {
+                footage?: boolean;
+            };
             header?: never;
             path: {
                 brand_id: number;
@@ -16251,6 +16319,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__routes__library__PriceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    describe_spend_brands__brand_id__footage_spend_get: {
+        parameters: {
+            query?: {
+                since?: string | null;
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendOut"];
                 };
             };
             /** @description Validation Error */

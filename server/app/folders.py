@@ -3,7 +3,9 @@ them. A folder can sit inside another of its brand. A video idea, a script or a 
 job with no video) can be filed in one folder of its own brand. Editors make folders and file
 their own items, also into someone else's folder; only the owner renames, moves or deletes a
 folder someone else made, and the owner files anything. A deleted folder is kept for Undo,
-with the folders inside it; their items read as Unsorted until it's back."""
+with the folders inside it; their items read as Unsorted until it's back. The brand's footage
+(Reed, 10 Nov) has a tree of its own: anyone files any clip of it, a folder path is made as a
+clip is added (`made`), and a deleted folder's clips read as one level up."""
 
 from datetime import datetime
 
@@ -13,12 +15,13 @@ from sqlalchemy.orm import Session
 
 from app.db import utcnow
 from app.models.accounts import User
+from app.models.files import MediaUpload
 from app.models.folders import Folder
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import Script
 
-KINDS = {"script": Script, "video": Project, "clip": Job}
+KINDS = {"script": Script, "video": Project, "clip": Job, "footage": MediaUpload}
 NONE = "none"  # ?folder=none: Unsorted
 TAKEN = "A folder called {} is already there. Rename one first."
 NO_FOLDER = "No such folder."
@@ -27,6 +30,7 @@ NOT_YOURS = "Only whoever made it, or the owner, can do that."
 OTHER_BRAND = "That folder is for another brand."
 PICK = "Pick a folder, or Unsorted."
 VIDEO_JOB = "That's part of a video, so it's filed with the video."
+OTHER_TREE = "Footage has folders of its own, apart from the videos'."
 INSIDE_ITSELF = "A folder can't go inside itself or a folder inside it."
 OTHERS_INSIDE = "Someone else made a folder inside it, so only the owner can delete it."
 
@@ -40,10 +44,11 @@ def get(db: Session, user: User, folder_id: int, deleted: bool = False) -> Folde
     return folder
 
 
-def live(db: Session, brand_id: int) -> list[Folder]:
+def live(db: Session, brand_id: int, footage: bool = False) -> list[Folder]:
     """The brand's folders in the order they were made, as S0-01 lists them (a folder inside a
-    deleted one is deleted with it)."""
+    deleted one is deleted with it); `footage`: its footage's instead."""
     return list(db.scalars(select(Folder).where(Folder.brand_id == brand_id,
+                                                Folder.footage == footage,
                                                 Folder.deleted_at.is_(None))
                            .order_by(Folder.id)))  # fmt: skip
 
@@ -67,7 +72,7 @@ def check_name(db: Session, folder: Folder, name: str) -> str:
     same = select(Folder.id).where(Folder.brand_id == folder.brand_id,
                                    Folder.parent_id.is_(None) if folder.parent_id is None
                                    else Folder.parent_id == folder.parent_id,
-                                   Folder.deleted_at.is_(None),
+                                   Folder.deleted_at.is_(None), Folder.footage == folder.footage,
                                    func.lower(Folder.name) == name.lower())  # fmt: skip
     if any(i != folder.id for i in db.scalars(same)):
         raise HTTPException(409, TAKEN.format(name))
@@ -87,16 +92,49 @@ def place(db: Session, user: User, folder: Folder, parent_id: int | None) -> Non
         parent = get(db, user, parent_id)
         if parent.brand_id != folder.brand_id:
             raise HTTPException(409, OTHER_BRAND)
-        if folder.id is not None and parent.id in below(live(db, folder.brand_id), folder.id):
+        if parent.footage != folder.footage:
+            raise HTTPException(409, OTHER_TREE)
+        rows = live(db, folder.brand_id, folder.footage)
+        if folder.id is not None and parent.id in below(rows, folder.id):
             raise HTTPException(409, INSIDE_ITSELF)
     folder.parent_id = parent_id
 
 
+def made(db: Session, user: User, brand_id: int, path: str) -> int | None:
+    """The footage folder at `path` ("Product shots/Close-ups"), each missing one made (a bulk
+    upload mirrors a Drive tree, one call a file); "": the top."""
+    parent = None
+    for name in filter(None, (n.strip()[:120] for n in path.split("/"))):
+        here = (f for f in live(db, brand_id, footage=True) if f.parent_id == parent)
+        found = next((f for f in here if f.name.lower() == name.lower()), None)
+        if found is None:
+            found = Folder(workspace_id=user.workspace_id, brand_id=brand_id, footage=True,
+                           created_by_id=user.id, parent_id=parent, name=name)  # fmt: skip
+            db.add(found)
+            db.flush()
+        parent = found.id
+    return parent
+
+
+def path(db: Session, folder_id: int | None) -> str:
+    """Where a folder is, from the top: "Product shots/Close-ups" ("" for none)."""
+    names = []
+    while folder_id and (folder := db.get(Folder, folder_id)):
+        names.append(folder.name)
+        folder_id = folder.parent_id
+    return "/".join(reversed(names))
+
+
 def item(db: Session, user: User, kind: str, item_id: int):
-    """A script, video or quick clip the caller may file (theirs, or anything for the owner)."""
+    """A script, video or quick clip the caller may file (theirs, or anything for the owner),
+    or any clip of the brand's footage (anyone changes those, as on its tab)."""
     found = db.get(KINDS[kind], item_id)
     if found is None or found.workspace_id != user.workspace_id:
         raise HTTPException(404, NO_ITEM.format(kind))
+    if kind == "footage":
+        if not found.footage or found.removed_at is not None:
+            raise HTTPException(404, NO_ITEM.format(kind))
+        return found
     if kind == "clip" and found.project_id is not None:
         raise HTTPException(409, VIDEO_JOB)  # a video's own jobs are never clips in a folder
     if not (user.is_owner or found.created_by_id == user.id):
@@ -112,6 +150,8 @@ def file(db: Session, user: User, kind: str, ids: list[int], folder_id: int | No
         folder = get(db, user, folder_id)
         if any(f.brand_id != folder.brand_id for f in found):
             raise HTTPException(409, OTHER_BRAND)
+        if folder.footage != (kind == "footage"):
+            raise HTTPException(409, OTHER_TREE)
     was = {f.id: f.live_folder_id for f in found}
     for f in found:
         f.folder_id = folder_id
@@ -121,9 +161,10 @@ def file(db: Session, user: User, kind: str, ids: list[int], folder_id: int | No
 
 def delete(db: Session, user: User, folder: Folder) -> tuple[int, int]:
     """Soft, with every folder inside it (one time, so Undo brings back just those): their
-    items read as Unsorted (nothing inside is touched). (items, video ideas) moved."""
+    items read as Unsorted, or footage one level up (nothing inside is touched). (items, video
+    ideas) moved."""
     may_manage(user, folder)
-    rows = live(db, folder.brand_id)
+    rows = live(db, folder.brand_id, folder.footage)
     ids = below(rows, folder.id)
     if not user.is_owner and any(f.created_by_id != user.id for f in rows if f.id in ids):
         raise HTTPException(403, OTHERS_INSIDE)
@@ -188,8 +229,8 @@ def _scripts(user: User):
 
 def counts(db: Session, user: User, folder_ids: list[int]) -> dict[int, dict[str, int]]:
     """Each folder's own items as their lists show them: live scripts, video ideas (everyone's,
-    as the folder shows them, S1-08) and quick clips."""
-    out = {i: {"scripts": 0, "videos": 0, "clips": 0} for i in folder_ids}
+    as the folder shows them, S1-08), quick clips and footage."""
+    out = {i: {"scripts": 0, "videos": 0, "clips": 0, "footage": 0} for i in folder_ids}
     queries = {
         "scripts": _scripts(user).where(Script.folder_id.in_(folder_ids))
         .group_by(Script.folder_id),
@@ -199,6 +240,10 @@ def counts(db: Session, user: User, folder_ids: list[int]) -> dict[int, dict[str
         "clips": select(Job.folder_id, func.count()).where(
             Job.folder_id.in_(folder_ids), Job.project_id.is_(None), Job.removed_at.is_(None)
         ).group_by(Job.folder_id),
+        "footage": select(MediaUpload.folder_id, func.count()).where(
+            MediaUpload.folder_id.in_(folder_ids), MediaUpload.footage,
+            MediaUpload.removed_at.is_(None)
+        ).group_by(MediaUpload.folder_id),
     }  # fmt: skip
     for kind, query in queries.items():
         for folder_id, n in db.execute(query):

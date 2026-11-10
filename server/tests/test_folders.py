@@ -65,7 +65,7 @@ def test_a_script_is_filed_listed_and_undone(owner, editor):
     assert [s["id"] for s in editor.get(f"/scripts?folder={fid}").json()] == [script]
     assert script not in [s["id"] for s in editor.get("/scripts?folder=none").json()]
     (row,) = editor.get(f"/brands/{brand}/folders").json()
-    assert row["items"] == {"scripts": 1, "videos": 0, "clips": 0}
+    assert row["items"] == {"scripts": 1, "videos": 0, "clips": 0, "footage": 0}
     back = file_into(editor, "script", script, None).json()["was"]
     assert back == [{"id": script, "folder_id": fid}]  # Undo
 
@@ -193,7 +193,7 @@ def test_who_files_what_videos_and_quick_clips(app, owner, editor, db):
     no = file_into(editor, "clip", step.id, fid)
     assert (no.status_code, no.json()["detail"]) == (409, folders.VIDEO_JOB)
     rows = editor.get(f"/brands/{brand}/folders").json()
-    assert rows[0]["items"] == {"scripts": 0, "videos": 1, "clips": 2}
+    assert rows[0]["items"] == {"scripts": 0, "videos": 1, "clips": 2, "footage": 0}
     other, _ = _published(owner, db, breakdown=BREAKDOWN)
     mine = owner.post(f"{other}/drafts/0/produce").json()["project_id"]
     assert file_into(owner, "video", mine, fid).status_code == 200
