@@ -1,6 +1,8 @@
 # Agent team
 **How it actually runs now (8 Nov 2026):** one lead chat (sanaa workspace) holds state, merges as Reed and runs paid tests, and spawns builder, QA, critic and runner subagents per task. A babysitter chat (georgetown) sweeps PRs hourly and reports to Reed only. Reed critiques each style in its own desk chat and asks general questions in short Ask chats; decisions from those go into files the lead reads, never only into a chat. How desks work: ops/DESKS.md (`/desk <style>` starts one). The roles below are the long-term design; most are played by the lead's subagents today.
 
+**Reed's site (since 9 Nov 2026)** is the old test site: https://thisisatestingenv.online, branch `next`, compose project `brand-studio-next`. It is production: real providers, real money, Reed's real work. Agents never experiment on it: never switch it to stand-ins (`NEXT_FAKE_PROVIDERS` stays `false`; the deploy refuses otherwise), never reset it or remove its volumes, and never run a paid call there without Reed's OK (logged in ops/SPEND.md). Every merge to `next` deploys straight to it, so merges happen only in Reed's windows, bundled, until a stand-in-only preview exists for agents to test on. The old production site (`main`, https://srv2091584.hstgr.cloud) is stopped and kept as a snapshot (deploy/README.md); don't touch it.
+
 Each agent is its own Claude Code session on this repo. Work is tracked as GitHub issues (labels: `agent:<name>`). Reed talks to the Producer, and directly to the Writer for scripts.
 
 | Agent | Model | Job | Runs |
@@ -10,7 +12,7 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 | Builder-Server | Opus 5.5 | Backend, data, jobs, model calls; PRs with tests | on demand |
 | Builder-Screens | Sonnet 5.5 | Front end screens; PRs with tests | on demand |
 | QA | Sonnet 5.5 | Playwright click-through tests; reviews every PR; red blocks merge | every PR |
-| Explorer | Opus 5.5 | Maps tezu.ai, then our test/live sites nightly; files issues with screenshots | nightly (later) |
+| Explorer | Opus 5.5 | Maps tezu.ai, then Reed's site (read-only) and the preview nightly; files issues with screenshots | nightly (later) |
 | Release | Sonnet 5.5 | Only merger/deployer; staging then live; rollback; backups; security pass | every PR (later) |
 | Steward | Sonnet 5.5 | Size budgets, no dead code/duplicate tests; can block bloat | every PR + weekly (later) |
 | Designer | Opus 5.5 | Screen designs before build; screenshot review at phone/desktop | on demand (later) |
@@ -40,7 +42,7 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 The per-role session table (Oct 2026) is retired: those sessions have ended. Its last version is in git history (before 8 Nov 2026). Live agents are listed in the lead's `MAIN-HANDOFF.md`.
 
 ## QA review checklist (every PR)
-- Tests: lint, typecheck and unit tests pass; the browser tests pass on the free stand-ins (`BS_FAKE_PROVIDERS`).
+- Tests: lint, typecheck and unit tests pass; the browser tests pass on the free stand-ins (`BS_FAKE_PROVIDERS`), and on the preview for screens and flows once it exists (never by experimenting on Reed's site).
 - Nothing paid runs outside a test the Producer approved; every paid call is logged in ops/SPEND.md.
 - Editors never see dollars, and an editor past the weekly allowance is declined with the reason (never "Ask Reed").
 - Phones (390): no sideways scroll, every control at least 44px.
