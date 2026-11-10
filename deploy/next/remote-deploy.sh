@@ -165,6 +165,9 @@ main() {
       mkdir -p backups
       line="30 3 * * * cd $PWD && KEEP_DAYS=14 COMPOSE_PROJECT_NAME=brand-studio-next COMPOSE_FILE=docker-compose.yml:next/compose.yml ./backup.sh >> $PWD/backups/backup.log 2>&1"
       (crontab -l 2>/dev/null | grep -vF 'COMPOSE_PROJECT_NAME=brand-studio-next' || true; echo "$line") | crontab -
+      ./backup.sh image || echo "::warning::Couldn't build the backup's copying image; tonight's backup tries again."
+      last=$(grep -h '^backup 20' backups/backup.log 2>/dev/null | tail -1) || true
+      echo "Last nightly backup: ${last:-none yet}"
       docker image prune -f >/dev/null
       if curl -fsS --max-time 5 "https://$domain:$PORT/api/health" | grep -q '"status":"ok"'; then
         echo "Test site at https://$domain:$PORT"

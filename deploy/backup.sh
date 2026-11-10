@@ -4,16 +4,40 @@
 # unchanged since the night before, so it costs only what's new or changed. Keeps KEEP_DAYS days
 # (default 14), but never deletes the newest 3 of each kind. The files are skipped (database still
 # saved) when copying the changes would leave under MIN_FREE_GB (default 15) free, so a backup never
-# fills the disk. Cron, installed by deploy/next/remote-deploy.sh for
-# Reed's site: 30 3 * * * cd ~/brand-studio-next/deploy && KEEP_DAYS=14
-#   COMPOSE_PROJECT_NAME=brand-studio-next COMPOSE_FILE=docker-compose.yml:next/compose.yml ./backup.sh
+# fills the disk. Ends with one summary line, "backup DATE: ok|WARNING|FAILED ...". Cron, installed
+# by deploy/next/remote-deploy.sh for Reed's site: 30 3 * * * cd ~/brand-studio-next/deploy &&
+#   KEEP_DAYS=14 COMPOSE_PROJECT_NAME=brand-studio-next COMPOSE_FILE=docker-compose.yml:next/compose.yml ./backup.sh
+# "./backup.sh image" only builds the copying image (each deploy does, so restores have it).
 set -euo pipefail
 cd "$(dirname "$0")"
+
+# The files are copied by a throwaway container: rsync on Alpine, at the lowest CPU and disk
+# priority (ionice where the kernel allows it) so a big first copy can't slow the site.
+img=brand-studio-backup:1
+need_image() {
+  docker image inspect "$img" >/dev/null 2>&1 || docker build -q -t "$img" - >/dev/null <<'EOF'
+FROM alpine:3.20
+RUN apk add --no-cache rsync \
+ && printf '#!/bin/sh\nif ionice -c3 true 2>/dev/null; then set -- ionice -c3 "$@"; fi\nexec nice -n 19 "$@"\n' > /low \
+ && chmod +x /low
+ENTRYPOINT ["/low"]
+EOF
+}
+if [ "${1:-}" = image ]; then need_image; exit; fi
+
 mkdir -p backups/files
-trap 'rm -f backups/*.part' EXIT  # a half-written dump never stays behind to fill the disk
 keep=${KEEP_DAYS:-14}
 stamp=$(date +%Y-%m-%d)
 cutoff=$(date -d "$keep days ago" +%Y-%m-%d 2>/dev/null || date -v-"$keep"d +%Y-%m-%d)
+status=ok db="not saved" files="not copied"
+summary() {
+  local rc=$? n
+  rm -f backups/*.part  # a half-written dump never stays behind to fill the disk
+  [ "$rc" -eq 0 ] || status="FAILED (exit $rc)"
+  n=$(find backups/files -maxdepth 1 -name '????-??-??' | wc -l | tr -d ' ')
+  echo "backup $stamp: $status. Database $db. Files $files. $n nights of files kept."
+}
+trap summary EXIT
 
 # Old ones first, to make room. Arguments: one kind's backups, oldest first (dates in the names
 # sort them). The newest 3 always stay, so failing nights can't age out the last good backups.
@@ -27,16 +51,15 @@ prune backups/db-*.sql.gz
 docker compose exec -T db pg_dump -U brand -d brand --clean --if-exists \
   | gzip > "backups/db-$stamp.sql.gz.part"
 mv "backups/db-$stamp.sql.gz.part" "backups/db-$stamp.sql.gz"
+db=saved
 
-# The files: a throwaway container (rsync on Alpine, built once) reads the volume read-only and
-# writes as root into backups/files/, so it also does the deleting and renaming there.
+# The container reads the volume read-only, has no network, and writes as root into
+# backups/files/, so it also does the deleting and renaming there.
 vol=$(docker volume ls -q --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME:?}" \
   --filter label=com.docker.compose.volume=files)
-[ -n "$vol" ] || { echo "ERROR $stamp: no files volume for $COMPOSE_PROJECT_NAME. Database saved."; exit 1; }
-img=brand-studio-backup:1
-docker image inspect "$img" >/dev/null 2>&1 \
-  || printf 'FROM alpine:3.20\nRUN apk add --no-cache rsync\n' | docker build -q -t "$img" - >/dev/null
-box() { docker run --rm -v "$vol:/data/storage:ro" -v "$PWD/backups/files:/backups" "$img" "$@"; }
+[ -n "$vol" ] || { files="not copied: no files volume for $COMPOSE_PROJECT_NAME"; exit 1; }
+need_image
+box() { docker run --rm --network none -v "$vol:/data/storage:ro" -v "$PWD/backups/files:/backups" "$img" "$@"; }
 
 # Old nights go by the date in the name (a copy keeps the files' own times, not the night's).
 prune_nights() {
@@ -59,10 +82,10 @@ delta_kb=$(( $(awk -F: '/Total transferred file size/ {gsub(/[^0-9]/, "", $2); p
 free_kb=$(df -Pk backups | awk 'NR == 2 {print $4}')
 need_kb=$(( delta_kb + ${MIN_FREE_GB:-15} * 1048576 ))
 if [ "$free_kb" -lt "$need_kb" ]; then
-  echo "WARNING $stamp: files not backed up, only $(( free_kb / 1048576 )) GB free (needs $(( need_kb / 1048576 )) GB). Database saved."
+  status=WARNING files="skipped: only $(( free_kb / 1048576 )) GB free, needs $(( need_kb / 1048576 )) GB"
   exit 0
 fi
 copy || [ $? -eq 24 ]
 box rm -rf "/backups/$stamp"  # a re-run tonight: .part has everything, linked or copied
 box mv /backups/.part "/backups/$stamp"
-echo "backup ok: $stamp (files: $(( delta_kb / 1024 )) MB new or changed)"
+files="copied: $(( delta_kb / 1024 )) MB new or changed"

@@ -28,7 +28,10 @@ night before are shared between nights (hard links), so a night costs only what'
 (about 13 GB in all for 13 GB of files, plus whatever changes over the 14 days). Kept 14 days
 (`KEEP_DAYS=14` in the cron line), and the newest 3 of each are never deleted. If copying the
 night's changes would leave under 15 GB free, that night saves only the database and writes a
-WARNING line in the log. A night that fails halfway leaves `backups/files/.part`, which the next
+WARNING line in the log. Each night ends with one line in the log, `backup DATE: ok` (or `WARNING`
+or `FAILED`) with the MB copied and the nights kept; every deploy prints the newest one. The copy
+runs at the lowest CPU and disk priority, without network, so it doesn't slow the site. Each
+deploy also builds its small image (`brand-studio-backup:1`), which the restore below uses. A night that fails halfway leaves `backups/files/.part`, which the next
 night finishes. The old full copies (`backups/files-DATE.tar.gz`, until 10 Nov) age out after 14
 days. They don't survive losing the server: now and then copy that folder elsewhere with
 `rsync -aH` (plain `cp` or `scp` stores every night in full). **Restore** (Web console, replace the
