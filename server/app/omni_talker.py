@@ -7,6 +7,9 @@ opens on their one still at rest (app/one_frame.py), and their B-roll is made si
 over their picture where its line is said while their voice runs on (`cutaways`, cut.laid_over).
 A corner presenter stays one HeyGen take of our voice track (app/host.py, app/talker.py)."""
 
+import math
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
@@ -18,6 +21,10 @@ from app.talker import LOOKS  # the styles whose presenter talks to camera by de
 
 NAMED = "The presenter"  # the talker's name with no speaker label and no look
 VOICE = "the natural everyday voice of {who}, close to the phone, the same in every piece"
+# A piece sized to its words (Reed, 9 Nov, the UGC playbook §3): words a second, a slow line's,
+# and the room after them. A short line in a long piece drags its words and pauses oddly.
+PACE, SLOW, ROOM = 2.6, 2.1, 1.0
+END = re.compile(r"[.!?…][\"'”’)\]]*$")  # a sentence's last word
 
 
 def full_screen(look: str | None, presenter: str | None) -> bool:
@@ -97,6 +104,11 @@ PIECE = ("{who} is the presenter and talks straight to camera, filling the frame
          "clip of up to {most} s, in script order: as few pieces as the lines allow, so a talker "
          "sitting in one spot is never split into short pieces without a reason (a new place, a "
          "real change of shot). Their clips alone make the video's length.\n"
+         "A piece ends only where one of the script's sentences ends, never mid-sentence or at a "
+         "comma: a piece cut on a comma ends on a falling tone and the join is heard. Size each "
+         "piece to its words: about 2.6 words a second (2.1 for a slow, heavy line) plus about "
+         "1 s, so 24 words make about 11-13 s. Their words are the script's and nothing more: "
+         "never a filler (\"Okay.\", \"um\") to pad a short piece.\n"
          "B-roll is cut in over their voice, never between their pieces: a B-roll shot shows "
          "what a line says, names that line in `script_lines`, and has no `line` or `speaker` "
          "(nobody speaks in it: their voice runs on under it). A talker clip's B-roll shots "
@@ -132,6 +144,72 @@ def fewer(data: dict, most: int) -> list[str]:
     return [f"{ADVICE}clips {a} and {b}: the talker in one spot, {seconds[a] + seconds[b]} s "
             "together; make them one piece" for a, b in zip(talks, talks[1:], strict=False)
             if lead.get(a, a) == lead.get(b, b) and seconds[a] + seconds[b] <= most]  # fmt: skip
+
+
+def _plain(word: str) -> str:
+    return re.sub(r"[^\w']", "", word.lower().replace("’", "'"))
+
+
+def _whole(line: str, script: str) -> bool:
+    """`line` ends where one of the script's sentences ends (a full stop, ? or !, or the end of
+    a script line), wherever the script says those words; True when it can't tell."""
+    from app.prompts.check import narration_text
+
+    said = [(_plain(w), bool(END.search(w)) or i == len(ws) - 1)
+            for x in narration_text(script).splitlines()
+            for ws in [x.split()] for i, w in enumerate(ws)]  # fmt: skip
+    mine, n = [_plain(w) for w in line.split()], len(line.split())
+    found = [said[i + n - 1][1] for i in range(len(said) - n + 1)
+             if [w for w, _ in said[i:i + n]] == mine]  # fmt: skip
+    return not found or any(found)
+
+
+def pieces(bd, script: str, least: int, most: int):
+    """The talker's pieces to Reed's 9 Nov rules (the UGC playbook §3): each sized to its words,
+    between PACE and SLOW plus ROOM and any wordless hold it has, within the model's `least` to
+    `most` s (free, said as Advice); a fix for a piece that ends mid-sentence, or whose words
+    need more than one piece. (Breakdown, what it found)."""
+    from app.prompts.check import ADVICE
+
+    bd, found, sized = bd.model_copy(deep=True), [], []
+    shots = {s.id: s for sc in bd.scenes for s in sc.shots}
+    for clip in bd.clips:
+        mine = [shots[i] for i in clip.shot_ids if i in shots]
+        said = [s.line for s in mine if s.line]
+        if not said:
+            continue
+        if not _whole(said[-1], script):
+            found.append(f"clip {clip.id}: the talker's piece stops mid-sentence (“…"
+                         f"{' '.join(said[-1].split()[-4:])}”); end each piece where a sentence "
+                         "ends, never at a comma")  # fmt: skip
+        words = sum(len(x.split()) for x in said)
+        held = sum(s.seconds for s in mine if not s.line)
+        low, high = (math.ceil(words / pace + ROOM + held - 0.01) for pace in (PACE, SLOW))
+        if low > most:  # never squeezed: too long, it's split (the breakdown's Split fix)
+            found.append(f"clip {clip.id}: its {words} words need about {low} s, more than one "
+                         f"piece's {most} s; split it where a sentence ends")  # fmt: skip
+            continue
+        to = max(least, min(most, high, max(low, clip.seconds)))
+        if to != clip.seconds and (total := sum(s.seconds for s in mine)):
+            for s in mine:
+                s.seconds = round(s.seconds * to / total, 1)
+            mine[-1].seconds = round(to - sum(s.seconds for s in mine[:-1]), 1)
+            clip.seconds, sized = to, [*sized, clip.id]
+    if sized:
+        found.append(f"{ADVICE}The talker's pieces {', '.join(sized)} are sized to their words: "
+                     "about 2.6 words a second, 2.1 for a slow line, plus 1 s.")  # fmt: skip
+    return bd, found
+
+
+def most_seconds(script: str, least: int) -> int:
+    """The talker's pieces at the most `pieces` sizes them, before a plan (rule 36's "up to"):
+    each of the script's sentences a piece of its own at a slow line's pace plus ROOM, never
+    under the model's `least` s. A piece of several sentences never costs more than them."""
+    from app.breakdown_fix import _sentences
+    from app.prompts.check import narration_text
+
+    said = [x for line in narration_text(script).splitlines() for x in _sentences(line)]
+    return sum(max(least, math.ceil(len(x.split()) / SLOW + ROOM - 0.01)) for x in said)
 
 
 def cutaways(db: Session, project: Project,

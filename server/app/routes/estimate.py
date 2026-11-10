@@ -79,8 +79,8 @@ def broll_seconds(db: Session, script: Script, draft: ScriptDraft, video=None) -
     shortest clip is made at that length (F7). With a plan, each of its shots at least that
     long; before one, the narration's length (`narration.longest`) times max(1, shortest / 2),
     the references' median shot being about 2 s (Seedance x2, P-Video x1), and a UGC talker's
-    own Omni pieces, as long as the lines take (omni_talker.films), where HeyGen and our voice
-    track were. The model is the one the video's takes will use (`video_model`)."""
+    own Omni pieces, at the most they're sized to (omni_talker.most_seconds), where HeyGen and
+    our voice track were. The model is the one the video's takes will use (`video_model`)."""
     from app import narration
 
     low = video_model(video, script.look, script.kind).duration.min
@@ -90,7 +90,9 @@ def broll_seconds(db: Session, script: Script, draft: ScriptDraft, video=None) -
     if shots:
         return math.ceil(sum(max(s, low) for s in shots))
     said = narration.longest(db, draft, video)  # a UGC talker on Omni: their pieces as well
-    return math.ceil(said * max(1, low / 2)) + (said if omni_talker.films(script, video) else 0)
+    films = omni_talker.films(script, video)
+    talks = omni_talker.most_seconds(draft.text or "", low) if films else 0
+    return math.ceil(said * max(1, low / 2)) + talks
 
 
 def version_cost(db: Session, draft: ScriptDraft, video=None) -> Decimal:

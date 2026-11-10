@@ -46,6 +46,9 @@ SAYS = re.compile(  # action that reads like a line; the model voices it (fomo m
 )
 RHYME = 'call a picture that answers an earlier one a "callback", never a "rhyme"'
 QUOTED = re.compile(r'["“]([^"”]*)["”]')  # straight or curly (phones type curly)
+# A quote of only fillers ("…Okay.", "Um,"): a prompt trick to pad a short piece, never said
+# (Reed, 9 Nov: "Scripts words are final")
+PADDING = re.compile(r"(?i)(?:[\W_]*\b(?:okay|ok|um+|uh+m?|erm?|yeah|alright)\b)+\W*")
 FLAGGED = re.compile(  # Nano Banana refused frames with these (E005 "sensitive"), 2026-10-23;
     # not everyday words that over-flag: a dog's "crusty eyes", "her lap" (Reed's frame, 10-28)
     r"\b(leggings|thighs?|cleavage|pus|ooz\w*|discharge|blood\w*|wounds?|vomit\w*)\b",
@@ -280,6 +283,19 @@ def _screens_climb(prompt: str) -> list[str]:
                                 f"{last[kind][0]}'s; make each win bigger")  # fmt: skip
             last[kind] = (n, value)
     return problems
+
+
+def padded(bd: Breakdown, c) -> list[str]:
+    """An Omni talker's spoken piece quoting a filler its shots don't say (Reed, 9 Nov: "Scripts
+    words are final": no "…Okay." or "Um" to pad a piece, even as a trick). Only a piece with a
+    line: a B-roll clip's "Okay" button, or a sound the story motivates elsewhere, is fine."""
+    shots = {s.id: s for scene in bd.scenes for s in scene.shots}
+    ids = next((x.shot_ids for x in bd.clips if x.id == c.clip_id), [])
+    lines = {_exact(shots[s].line) for s in ids if s in shots and shots[s].line}
+    said = re.findall(r'["“]([^"”]+)["”]', c.prompt) if lines else []  # "Um" too
+    return [f"{c.clip_id}: “{q}” isn't the script's; say only its lines, never a filler to pad "
+            "a piece" for q in dict.fromkeys(said)
+            if PADDING.fullmatch(q) and _exact(q) not in lines]  # fmt: skip
 
 
 def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: int) -> list[str]:

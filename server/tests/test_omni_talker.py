@@ -4,6 +4,7 @@ own Omni pieces, no voice-over and no HeyGen take; the B-roll laid over their pi
 a corner presenter stays HeyGen. Stand-ins only: no paid calls."""
 
 import copy
+import math
 from decimal import Decimal
 
 import pytest
@@ -19,6 +20,7 @@ from app import (
     narration,
     omni_talker,
     one_frame,
+    plans,
     scorecard,
     talker,
 )
@@ -30,6 +32,7 @@ from app.models.freestyles import Freestyle
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
+from app.prompts.schemas import Breakdown, ClipPrompt
 from app.providers.fake_local import mp4
 from app.routes import estimate
 from tests.conftest import first_brand
@@ -91,6 +94,8 @@ def test_a_full_screen_ugc_talker_says_their_lines_in_their_own_omni_pieces(app,
     assert omni_talker.on(db, video) and narration.video_kind(db, video) == "story"
     assert not _jobs(db, video, "song_take") and not video.song_take_id  # no voice-over
     assert not _jobs(db, video, host.STILL) and not _jobs(db, video, host.PIECE)  # no HeyGen
+    plan = _jobs(db, video, "breakdown")[0].input  # its pieces checked: sized, whole sentences
+    assert plan["talker"] == {"script": LINES, "seconds": [3, 15]}
     pieces = [r for r in _clips(db, video) if SAYS in r.prompt]
     assert len(pieces) > 1  # 8 lines, about 22 s: in pieces of up to 15 s
     for row in pieces:  # lips, voice and room from one Omni take
@@ -226,7 +231,8 @@ def test_the_estimate_prices_the_talker_on_omni_not_heygen_and_a_voice_track(
     assert host.run_price(db, draft, said, video) == 0 and omni < 10_000  # no HeyGen, no voice
     video.presenter = "corner"
     assert host.run_price(db, draft, said, video) > 0  # the corner's HeyGen take
-    assert estimate.quoted_seconds(db, draft, video) == talks - said  # its pieces, on Omni
+    pieces = omni_talker.most_seconds(draft.text, m.duration.min)  # at most (Reed, 9 Nov)
+    assert estimate.quoted_seconds(db, draft, video) == talks - pieces and pieces > said
     assert estimate.run_price(db, draft, video) > 10_000  # and our voice track
 
 
@@ -255,3 +261,72 @@ def test_a_sitting_talker_in_two_short_pieces_is_advised_into_one():
     (said,) = omni_talker.fewer(data, 15)  # B-roll between them is laid over, never a reason
     assert said.startswith("Advice: clips c1 and c3") and "13 s" in said
     assert omni_talker.fewer(data, 12) == []  # one piece couldn't hold both
+
+
+def _pieces(*clips) -> Breakdown:
+    """A talker's plan: each clip one shot of (its line, its seconds)."""
+
+    def shot(i, line, seconds):
+        return {"id": i, "script_lines": [], "speaker": "MARCUS", "line": line, "moment": None,
+                "action": "Talks.", "reaction": None, "camera": "Static", "seconds": seconds,
+                "character_ids": [], "place_id": None, "screen_ids": []}  # fmt: skip
+
+    shots = [shot(f"1.{k}", line, s) for k, (line, s) in enumerate(clips, 1)]
+    return Breakdown.model_validate({"hook": "", "scenes": [{
+        "id": 1, "heading": "INT. CAR", "look": "", "shots": shots}],
+        "clips": [{"id": f"c{k}", "shot_ids": [s["id"]], "seconds": math.ceil(s["seconds"]),
+                   "seam": ""} for k, s in enumerate(shots, 1)]})  # fmt: skip
+
+
+def test_a_talker_piece_ends_only_where_a_sentence_ends():
+    """Reed, 9 Nov (the UGC playbook §3): a piece cut on a comma ends on a falling tone."""
+    talker = {"talker": {"script": LINES, "seconds": [3, 15]}}
+    whole = _pieces(("Called him the crypto guy, in front of everybody", 4.0))
+    _, found = plans.shots_checked(talker, whole.model_dump())  # run together, still whole
+    assert not [f for f in found if "mid-sentence" in f]
+    cut_short = _pieces(("This year he finally showed me. Small trades on fomo,", 5.0))
+    _, found = plans.shots_checked(talker, cut_short.model_dump())
+    assert ("clip c1: the talker's piece stops mid-sentence (“…Small trades on fomo,”); end "
+            "each piece where a sentence ends, never at a comma") in found  # fmt: skip
+
+
+def test_the_quote_before_a_plan_is_never_below_what_its_pieces_are_sized_to():
+    """Rule 36 (QA on #1511): each sentence a piece at most, at a slow line's pace + 1 s, 3 s
+    at least: six 20-word sentences make 66 s, ten 4-word pieces 30 s."""
+    for n, words, most in ((6, 20, 66), (10, 4, 30)):
+        said = [" ".join(["word"] * words) + "." for _ in range(n)]
+        sized, _ = omni_talker.pieces(_pieces(*[(x, 15.0) for x in said]), "", 3, 15)
+        assert sum(c.seconds for c in sized.clips) == most
+        assert omni_talker.most_seconds("\n".join(said), 3) == most
+
+
+def test_a_filler_is_sent_back_only_on_a_talkers_piece(db, owner):
+    """Reed, 9 Nov: "Scripts words are final" is for the talker's spoken pieces: their B-roll's
+    "Okay" button, or a corner talker's clips, are never checked (QA on #1511)."""
+    video = _video(db, owner)
+    piece = _pieces(("Then he showed me the balance.", 4.0))
+    said = 'Marcus (in English, flat): "Then he showed me the balance." '
+
+    def padded(bd, prompt):
+        clip = ClipPrompt(clip_id="c1", seconds=4, references=[], prompt=prompt)
+        return any("never a filler" in p for p in clip_prompts.clip_problems(db, video, bd, clip))
+
+    assert omni_talker.on(db, video)
+    assert padded(piece, said + '"…Okay."') and padded(piece, said + '"Um"')  # a bare "Um" too
+    assert not padded(_pieces((None, 4.0)), 'He taps the "Okay" button. No one speaks.')  # B-roll
+    video.presenter = "corner"  # a HeyGen talker: no Omni pieces
+    assert not omni_talker.on(db, video) and not padded(piece, said + '"…Okay."')
+
+
+def test_each_talker_piece_is_sized_to_its_words():
+    """Reed, 9 Nov (the UGC playbook §3): about 2.6 words a second, 2.1 for a slow line, + 1 s."""
+    bd = _pieces(("Then he showed me the balance.", 12.0),  # 6 words: 4 s at most, not 12
+                 (" ".join(["word"] * 26) + ".", 3.0),  # 26 words: 11 s at least, not 3
+                 (" ".join(["word"] * 40) + ".", 15.0))  # fmt: skip
+    sized, found = omni_talker.pieces(bd, "", 3, 15)
+    assert [c.seconds for c in sized.clips] == [4, 11, 15]
+    assert [s.seconds for sc in sized.scenes for s in sc.shots] == [4, 11, 15]
+    assert found == ["clip c3: its 40 words need about 17 s, more than one piece's 15 s; split "
+                     "it where a sentence ends",
+                     "Advice: The talker's pieces c1, c2 are sized to their words: about 2.6 "
+                     "words a second, 2.1 for a slow line, plus 1 s."]  # fmt: skip

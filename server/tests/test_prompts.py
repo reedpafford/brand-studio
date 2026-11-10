@@ -683,6 +683,25 @@ def test_clip_prompt_checks_catch_music_and_aspect():
     ]  # the cast's order is the server's (clip_prompts.with_cast), never a problem
 
 
+def test_a_filler_padding_a_line_is_found_but_a_sound_or_an_ok_button_is_not():
+    """Reed, 9 Nov: "Scripts words are final": no "…Okay." to pad a piece, even as a trick;
+    a sound the story motivates ("Ahh.", "Mmm") is never a filler, and the check that runs in
+    every style lets a filler-like quote (an "OK" button on a screen) be."""
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    clip = cp.clips[0]
+    clip.prompt = clip.prompt.replace(
+        '"Come on. One more."', '"Come on. One more." "…Okay." "Ahh." "Mmm"'
+    )
+    assert check.padded(bd, clip) == [
+        "c3: “…Okay.” isn't the script's; say only its lines, never a filler to pad a piece"
+    ]
+    clip.prompt = clip.prompt.replace(' "…Okay."', "")
+    assert check.padded(bd, clip) == []  # the sounds: never fillers
+    clip.prompt = clip.prompt.replace('"Mmm"', '"Mmm" His thumb taps the "OK" button.')
+    assert check.clip_prompts(bd, cp, 30, 10) == []  # every style: the button too
+
+
 def test_the_keep_line_holds_every_attached_characters_look():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")
