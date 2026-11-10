@@ -325,3 +325,49 @@ def test_a_free_check_that_keeps_failing_never_ends_the_run(app, db, owner, edit
                    status=JobStatus.failed))  # fmt: skip
     db.commit()
     assert director._failed_too_often(db, project, run) == "The watch of the cut failed 3 times"
+
+
+def test_refused_takes_park_the_run_for_the_owner_never_end_it(app, db, owner, editor,
+                                                               monkeypatch):  # fmt: skip
+    """Video 345: Omni refused clip 10's prompt (E006); said as "couldn't finish, try again",
+    the director sent it twice more as it was and the run ended "Clip 10's take failed 3
+    times". The same prompt is refused by the server; each rewording may go; refusals never
+    end the run, and the third parks it with a question for the owner and Carry on."""
+    from app.clip_takes import SAME_REFUSED
+    from app.providers.fake_local import FakeMedia
+    from tests.test_clip_takes import E006, SAFETY
+
+    real_poll = FakeMedia.poll
+
+    def refuse(self, ref):  # every take refused, as Omni refused clip 10
+        if self._jobs[ref]["kind"] == "video":
+            return Result("failed", error=E006)
+        return real_poll(self, ref)
+
+    monkeypatch.setattr(FakeMedia, "poll", refuse)
+    real = director.choose
+    notes = ["", "Only the skidding shoe.", "Only the lost earbud."]  # after the first take
+
+    def director_(state):
+        move = real(state)
+        if move["tool"] == "make_take" and notes:  # its own words, never the server's
+            return {**move, "clip_id": "c1", "note": notes.pop(0), "why": "b1: the grab."}
+        return move
+
+    monkeypatch.setattr(director, "choose", started(director_))
+    pid = _made(app, owner, editor, db)
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=60)
+    out = owner.get(f"/projects/{pid}/director").json()
+    takes = [t["result"] for t in out["turns"] if t["tool"] == "make_take"]
+    assert takes[0].startswith("Making 1 take"), takes  # the server's own first take: refused
+    assert takes[1] == f"Refused: {SAME_REFUSED.format(SAFETY)}"  # the same prompt again
+    assert all(r.startswith("Making 1 take") for r in takes[2:]) and len(takes) == 4
+    said = director.PARKED.format(what="Clip 1's take", n=3, said=SAFETY)
+    assert out["ended"] == said and "failed" not in out["ended"]  # never "failed 3 times"
+    assert out["carry_on"] is not None  # parked: the owner's answer, then Carry on
+    assert not any(t["result"] == director.DELIVERED for t in out["turns"])
+    told = owner.post(f"/projects/{pid}/director/messages", json={"text": "Show the path."})
+    assert told.is_success  # the owner's answer
+    went = owner.post(f"/projects/{pid}/director/carry-on")
+    assert went.status_code == 201 and went.json()["status"] == "running"  # counted afresh

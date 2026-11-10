@@ -443,21 +443,91 @@ def test_a_reworded_refusal_is_made_again_on_its_own_once(app, db, editor, setup
     assert len(shown["takes"]) == 2 and shown["retried"] is None  # a person's newer take
 
 
-def test_a_sensitive_take_is_made_again_on_its_own_then_reworded(app, db, editor, setup, clip):  # noqa: F811
-    from app.clip_takes import SENSITIVE
+def test_a_sensitive_take_is_never_sent_again_as_it_was(app, db, editor, setup, clip):  # noqa: F811
+    """Video 345: a refusal is never sent again on its own with the same input; a person may
+    try once more, and a second refusal offers the free reword."""
+    from app.clip_takes import REFUSED_SAID
 
     url = f"/projects/{setup['project']}/clips/{clip['id']}"
     clips = f"/projects/{setup['project']}/clips"
     editor.post(f"{url}/generate")
-    _work(app, db, Sensitive([]))  # at random: made again on its own, as it is
-    assert editor.get(clips).json()[0]["problems"] == []
     _work(app, db, Sensitive([]))
-    jobs = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
-    assert [j["error"] for j in jobs] == [SENSITIVE, SENSITIVE] and jobs[0]["auto"]
+    assert db.query(Job).filter(Job.auto.is_(True)).count() == 0  # never the same again
+    said = REFUSED_SAID.format("The input or output was flagged as sensitive")
+    assert [j["error"] for j in editor.get("/jobs").json() if j["kind"] == "video"] == [said]
+    assert editor.get(clips).json()[0]["problems"] == []
+    assert editor.post(f"{url}/generate").status_code == 201  # a person may try once more
+    _work(app, db, Sensitive([]))
     (shown,) = editor.get(clips).json()  # it keeps failing: Reword it to pass
     assert shown["problems"][0].startswith("The video model refused this prompt: it read it as "
                                            "sensitive.")  # fmt: skip
     assert shown["free_fix_used"] is False and editor.post(f"{url}/generate").status_code == 409
+
+
+# Video 345 (job 3357): Omni 1.2 on Replicate refused clip 10's prompt, said as a passing fault
+E006 = ('Prediction failed: Async prediction failed: ModelError: The input was invalid. Please '
+        'try again with different inputs. (E006) (uIJ6l3ruRD): HTTP 400: {"error":{"message":'
+        '"Request blocked due to safety violations (harmful content). Please modify your input '
+        'and retry.","code":"safety"}}')  # fmt: skip
+SAFETY = "Request blocked due to safety violations (harmful content)"
+
+
+class Unsafe(Flagged):
+    error = E006
+
+
+class UnsafeAtStart(FakeSeedance):
+    """The same refusal said as the take is sent (a 400), before it runs."""
+
+    def __call__(self, request):
+        if request.method == "POST":
+            return httpx.Response(400, json={"detail": f"{SAFETY}. Please modify your input."})
+        return super().__call__(request)
+
+
+@pytest.mark.parametrize("fake", [Unsafe, UnsafeAtStart])
+def test_a_refused_prompt_says_why_and_is_never_sent_again(app, db, editor, setup, clip, fake):  # noqa: F811
+    from app.clip_takes import REFUSED_SAID
+    from app.credits import credits_used, never_billed
+    from app.models.projects import Project
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    before = credits_used(db, db.get(Project, setup["project"]))
+    editor.post(f"{url}/generate")
+    _work(app, db, fake([]))
+    _work(app, db, fake([]))  # nothing more is sent on its own
+    (job,) = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
+    assert job["error"] == REFUSED_SAID.format(SAFETY)  # never "try again"
+    db.expire_all()
+    failed = db.get(Job, job["id"])
+    assert SAFETY in failed.error_detail and never_billed(failed)  # the raw words kept
+    assert credits_used(db, db.get(Project, setup["project"])) == before
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
+    assert shown["retrying"] is None and shown["problems"] == []
+
+
+def test_the_director_never_sends_a_refused_prompt_again(app, db, editor, setup, clip):  # noqa: F811
+    """Video 345: the director read E006 as a passing fault and sent the same prompt again."""
+    from app import director_tools
+    from app.clip_takes import SAME_REFUSED
+    from app.models.accounts import User
+    from app.models.projects import Project
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    editor.post(f"{url}/generate")
+    _work(app, db, Unsafe([]))
+    project = db.get(Project, setup["project"])
+    user = db.query(User).filter_by(email="ed@example.com").one()
+
+    def take(note: str = "") -> str:
+        move = {"tool": "make_take", "clip_id": clip["clip_id"], "note": note}
+        return director_tools.run(db, user, project, move, None)
+
+    assert take() == f"Refused: {SAME_REFUSED.format(SAFETY)}"
+    assert take("She only reaches for the phone.").startswith("Making 1 take")  # reworded
+    _work(app, db, Unsafe([]))
+    assert take("She only reaches for the phone.").startswith("Refused: The service refused")
+    assert editor.post(f"{url}/generate").status_code == 201  # a person may still try
 
 
 def test_wording_flags_fix_themselves_with_undo(app, db, editor, setup, clip):  # noqa: F811

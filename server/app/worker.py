@@ -129,8 +129,10 @@ def _plain(job: Job, detail: str) -> str:
             return music.TIMING_TOO_LONG
         return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
     from app import song_directions
-    from app.clip_takes import invalid
+    from app.clip_takes import REFUSED_SAID, invalid, refusal
 
+    if said := refusal(detail):  # its content refused (video 345: E006): never "try again"
+        return REFUSED_SAID.format(said)
     if reason := invalid(detail):  # refused as sent: trying the same again won't help
         return f"The service refused this request as invalid, so nothing was charged: {reason}."
     return song_directions.failure(detail) or FAILED
@@ -561,8 +563,8 @@ def start_next(
             _move(db, job, JobStatus.running, JobStatus.queued)
         else:
             _fail(db, job, FAILED, "Provider unreachable.")
-    except Exception as exc:  # noqa: BLE001 - any other provider error fails the job
-        _fail(db, job, FAILED, repr(exc))
+    except Exception as exc:  # noqa: BLE001 - any other provider error fails the job; a
+        _fail(db, job, _plain(job, repr(exc)), repr(exc))  # refusal (4xx) says its reason
     else:
         db.execute(update(Job).where(Job.id == job.id).values(provider_ref=ref))
     db.commit()
