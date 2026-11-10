@@ -51,7 +51,7 @@ def test_a_clip_is_added_once_and_described_by_one_ai_look_at_two_frames(app, db
     run_writer(app, db)
     (listed,) = owner.get(f"/brands/{brand}/footage").json()
     assert not listed["describing"] and first.name in listed["description"]
-    assert listed["product_id"] == first.id  # it named one of the brand's products
+    assert listed["product_id"] is None  # its words name the product; only a person sets it
     media = owner.get(f"/brands/{brand}/media").json()["items"]  # uploaded once: Media has it
     assert any(m["key"] == f"upload:{clip['id']}" for m in media)
 

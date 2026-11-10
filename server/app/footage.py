@@ -161,19 +161,15 @@ def describe_input(db: Session, row: MediaUpload, brand) -> dict:
 
 
 def save_description(db: Session, job: Job) -> None:
-    """The AI's words, unless the owner typed their own meanwhile; its product, when it
-    named one of the brand's and none was picked (never on a competitor's clip)."""
+    """The AI's words, unless the owner typed their own meanwhile. Never its product: a clip's
+    product is only what the uploader or owner set (Reed's PG upload: the AI tagged pepper
+    spray, a pendant, a callbox and a light as PalaceGuard)."""
     row = db.get(MediaUpload, job.input["media_upload_id"])
     if row is None or row.describe_job_id != job.id:
         return
-    out = job.output or {}
     row.describe_job_id = None
     if not row.description.strip():
-        row.description = (out.get("description") or "").strip()[:500]
-    said = (out.get("product") or "").strip().lower()
-    if row.product_id is None and said and not row.competitor:
-        row.product_id = next((p.id for p in products(db, row.brand_id)
-                               if p.name.strip().lower() == said), None)  # fmt: skip
+        row.description = ((job.output or {}).get("description") or "").strip()[:500]
 
 
 def describe_failed(db: Session, job: Job) -> None:
