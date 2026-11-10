@@ -20,8 +20,9 @@ def _heard(path: Path, sounds: bool = False, words: bool = False, first: bool = 
            fillers: bool = False) -> list[dict]:  # fmt: skip
     """Whisper's words for a take or a cut; nothing to hear in a file with no audio track (a
     silent take: Seedance 1 Lite, or nobody speaking), where whisper would crash. `first`: a
-    take planned to be silent (B-roll) is read only when a quick check hears speech in it
-    (app/whisper.speech: 281's nine takes took 10.7 minutes of whisper, mostly B-roll).
+    take planned to be silent (B-roll), or with no script line to hear (an Omni talker's B-roll
+    laid over them, S1), is read only when a quick check hears speech in it, so stray speech
+    is still caught (app/whisper.speech: 281's nine takes took 10.7 minutes of whisper).
     `fillers`: an Omni talker's piece, heard with its fillers and doubled words kept."""
     from app import deep_watch
 
@@ -45,7 +46,10 @@ class LocalProvider:
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
         hear_take: Callable[[Path, dict], list[dict]] = lambda path, input: _heard(
-            path, True, first=bool(input.get("silent")), fillers=bool(input.get("talker"))
+            path,
+            True,
+            first=bool(input.get("silent") or not input.get("lines")),
+            fillers=bool(input.get("talker")),
         ),
         hear_cut: Callable[[Path, dict], list[dict]] = lambda path, _: _heard(path, words=True),
     ):

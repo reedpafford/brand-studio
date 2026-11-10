@@ -285,7 +285,8 @@ def test_long_claude_jobs_never_hold_up_a_still(db, user):
 
 
 def test_deploy_gives_claude_stills_and_reel_prep_a_worker_each():
-    """Each provider is taken by exactly one worker lane, and Claude's is its own."""
+    """Each provider is taken by exactly one worker lane, and Claude's is its own. Each lets
+    its job in hand finish on a deploy (P1: the reel worker had Docker's default 10 s)."""
     import json
     import re
 
@@ -296,3 +297,77 @@ def test_deploy_gives_claude_stills_and_reel_prep_a_worker_each():
     taken = [p for lane in lanes for p in lane]
     assert sorted(taken) == ["claude", "fake", "heygen", "local", "replicate"]
     assert ["claude"] in lanes
+    assert compose.count("stop_grace_period: 10m") == len(lanes)
+
+
+def test_a_restart_asks_the_job_it_cut_off_mid_answer_again_once(db, user):
+    """P1: a deploy failed the Claude call or local job in hand ("The server restarted… try
+    again"). It goes back in the queue once (its answer was never kept, so nothing is applied
+    twice); cut off a second time, it fails as before."""
+    from app.worker import RESTARTED
+
+    providers = {"claude": SlowClaude(), "local": SlowClaude()}
+    jobs = [enqueue(db, user, "write-claude", {}, provider=p, units=0) for p in providers]
+    for job in jobs:
+        job.status = JobStatus.running  # cut off mid-answer: never handed over, nothing kept
+    db.commit()
+    recover(db, providers)
+    assert _statuses(db, jobs) == [JobStatus.queued] * 2
+    run_once(db, providers)
+    assert [p.asked for p in providers.values()] == [["write-claude"]] * 2
+    assert _statuses(db, jobs) == [JobStatus.succeeded] * 2
+    for job in jobs:
+        job.status, job.provider_ref = JobStatus.running, None  # cut off again
+    db.commit()
+    recover(db, providers)
+    assert _statuses(db, jobs) == [JobStatus.failed] * 2
+    assert {job.error for job in jobs} == {RESTARTED}
+
+
+def test_two_local_lanes_never_take_the_same_job(app, db, user, monkeypatch):
+    """S1: local work runs in two lanes (threads, each with its own session). Both reach for
+    the oldest job at the same moment; the claim, a conditional update, gives it to one."""
+    import threading
+
+    from app import worker
+
+    both = threading.Barrier(2, timeout=10)
+
+    def met(db_, job):  # each lane has picked the job and is about to claim it
+        both.wait()
+        return False
+
+    monkeypatch.setattr(worker.cast_gate, "job_paused", met)
+    local = SlowClaude()
+    jobs = [enqueue(db, user, "take_listen", {}, provider="local", units=0) for _ in range(2)]
+
+    def lane():
+        with app.state.sessionmaker() as mine:
+            worker.start_next(mine, {"local": local}, only={"local"})
+
+    lanes = [threading.Thread(target=lane) for _ in range(2)]
+    for t in lanes:
+        t.start()
+    for t in lanes:
+        t.join()
+    assert local.asked == ["take_listen"]  # one lane ran it; the other found it taken
+    assert _statuses(db, jobs) == [JobStatus.succeeded, JobStatus.queued]
+
+
+def _statuses(db, jobs) -> list[str]:
+    for job in jobs:
+        db.refresh(job)
+    return [job.status for job in jobs]
+
+
+def test_each_local_lane_gets_its_own_share_of_the_cpus(monkeypatch):
+    """S1: two lanes' whisper reads and ffmpeg encodes never crowd onto the same cores: each
+    lane (and what it starts) is pinned to its share, which whisper sizes its threads to."""
+    import os
+
+    from app.worker import shares
+
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: {0, 1, 2, 3}, raising=False)
+    monkeypatch.setattr(os, "sched_setaffinity", lambda pid, cpus: None, raising=False)
+    assert shares(2) == [[0, 2], [1, 3]]
+    assert shares(1) == [None] and shares(5) == [None] * 5  # one lane, or too few cores

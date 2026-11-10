@@ -4,7 +4,8 @@ Rules
 - Network errors while checking on work are retried (checking is free).
 - A paid submit is never retried automatically: if we can't tell whether the provider
   started (and charged for) the work, the job fails with a note and a person decides.
-- After a restart, running jobs with a provider reference are simply checked again.
+- After a restart, running jobs with a provider reference are simply checked again; one cut
+  off mid-answer (Claude, or our own server's local work) goes back in the queue once.
 - `only` (BS_WORKER_PROVIDERS) splits the queue: a worker handles only those providers' jobs
   and leaves the rest to another worker. Live, Claude (answers in the call, for minutes), the
   image and video service (handed over, then checked on) and reel prep each have their own.
@@ -13,6 +14,7 @@ Rules
 import base64
 import hashlib
 import logging
+import os
 import signal
 import threading
 import time
@@ -202,14 +204,26 @@ def _mine(query, only: set[str] | None):
     return query.where(Job.provider.in_(only)) if only else query
 
 
+RESTART = "restarted"  # in a job's input: put back in the queue after a restart (P1)
+
+
 def recover(db: Session, providers: dict[str, Provider], only: set[str] | None = None) -> None:
-    """On boot: jobs marked running but never handed to the provider."""
+    """On boot: jobs marked running but never handed to the provider. One cut off mid-answer
+    by a restart (a deploy) goes back in the queue once: its answer is kept in the same commit
+    as its status (`_finish`), so nothing of it was kept and nothing is applied twice; Claude
+    bills at most one more call. Cut off a second time, it fails as before."""
     query = select(Job).where(Job.status == JobStatus.running, Job.provider_ref.is_(None))
     for job in db.scalars(_mine(query, only)).all():
         if job.provider not in providers:
             _fail(db, job, UNKNOWN, job.provider)
         elif getattr(providers[job.provider], "sync", False):  # cut off mid-answer by a restart
-            _fail(db, job, RESTARTED)
+            if job.input.get("discard"):  # its video was released meanwhile: never asked again
+                _stop(db, job)
+            elif job.input.get(RESTART):
+                _fail(db, job, RESTARTED)
+            else:
+                _move(db, job, JobStatus.running, JobStatus.queued,
+                      input={**job.input, RESTART: True})  # fmt: skip
         elif providers[job.provider].paid:
             _fail(db, job, UNSURE, CHECK)
         else:
@@ -608,31 +622,62 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
                     purge_uploads(db, storage)  # Bulk create videos never used
             except Exception:  # housekeeping never stops the worker
                 log.exception("removing long-deleted scripts failed; trying again tomorrow")
+        lane(only)
+
+    def lane(jobs: set[str] | None) -> None:
         try:
             with sessions() as db:
-                run_once(db, providers, storage, settings.generation_enabled, only)
+                run_once(db, providers, storage, settings.generation_enabled, jobs)
         except Exception:  # keep the worker alive through e.g. a database hiccup
             log.exception("worker tick failed; trying again next tick")
 
-    serve(tick, settings.worker_poll_seconds)
+    # Local work (takes' listens, cuts) runs in more than one lane, each on its own share of
+    # the CPUs: a long video's 47 listens took about 55 minutes one at a time (S1).
+    lanes = max(1, settings.local_workers) if only is None or "local" in only else 1
+    serve([tick] + [lambda: lane({"local"})] * (lanes - 1), settings.worker_poll_seconds)
 
 
 STOP = threading.Event()
 
 
-def serve(tick, poll: float) -> None:
-    """Run the worker's ticks until it's asked to stop (SIGTERM: a deploy restarting it). The
-    job in hand always finishes first, so a deploy never cuts a Claude call off mid-answer
-    (QA-Live 6: two clip-prompts runs lost to deploys); compose waits for it (stop_grace_period)."""
+def serve(ticks: list, poll: float) -> None:
+    """Run each lane's ticks (the first here, the rest in threads) until the worker is asked to
+    stop (SIGTERM: a deploy restarting it). The job in hand always finishes first, so a deploy
+    never cuts a Claude call off mid-answer (QA-Live 6: two clip-prompts runs lost to
+    deploys); compose waits for it (stop_grace_period)."""
 
     def stop(*_) -> None:
         log.info("stopping after the job in hand")
         STOP.set()
 
+    def loop(tick, cpus: list[int] | None) -> None:
+        if cpus:  # what the lane starts (whisper, ffmpeg) inherits its share and sizes to it
+            os.sched_setaffinity(0, cpus)
+        while not STOP.is_set():
+            tick()
+            STOP.wait(poll)
+
     signal.signal(signal.SIGTERM, stop)
-    while not STOP.is_set():
-        tick()
-        STOP.wait(poll)
+    cpus = shares(len(ticks))  # read before any lane is pinned
+    others = [threading.Thread(target=loop, args=(t, c), name=f"lane-{n}")
+              for n, (t, c) in enumerate(zip(ticks, cpus, strict=True)) if n]  # fmt: skip
+    for t in others:
+        t.start()
+    loop(ticks[0], cpus[0])
+    for t in others:
+        t.join()
+
+
+def shares(lanes: int) -> list[list[int] | None]:
+    """Each lane's share of the CPUs this process may use (Linux), so two lanes' whisper reads
+    and ffmpeg encodes never crowd onto the same cores (app/whisper.threads sizes to it). None
+    (no pinning) for one lane, off Linux, or with fewer CPUs than lanes."""
+    if lanes < 2 or not hasattr(os, "sched_setaffinity"):
+        return [None] * lanes
+    cpus = sorted(os.sched_getaffinity(0))
+    if len(cpus) < lanes:
+        return [None] * lanes
+    return [cpus[n::lanes] for n in range(lanes)]
 
 
 def warm_speech_model() -> None:  # pragma: no cover - downloads ~460 MB once

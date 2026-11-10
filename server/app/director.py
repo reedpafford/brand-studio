@@ -2019,6 +2019,8 @@ def read_notes(db: Session, job: Job) -> None:
     run = job.input.get(RUN) or {}
     if job.input.get("redo") or not run.get("id") or run.get("ok", True) or run.get(REVISION):
         return
+    if job.input.get(NOTES_READ):  # asked again (busy, or a restart): its prompt has them
+        return
     project = db.get(Project, job.project_id)
     db.refresh(project)
     read = [t.input.get(READ, 0) for t in turns(db, project) if t.input[RUN]["id"] == run["id"]]

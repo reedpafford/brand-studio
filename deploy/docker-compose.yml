@@ -83,9 +83,12 @@ services:
       migrate: { condition: service_completed_successfully }
 
   # Free reel prep (fetch, cuts, transcription) is slow, so it never holds up the paid queue.
+  # It runs BS_LOCAL_WORKERS jobs at once (2), each on its own share of the CPUs: check the
+  # server's cores and memory before raising it.
   reel-worker:
     <<: *server
     command: ["python", "-m", "app.worker"]
+    stop_grace_period: 10m  # a deploy lets the take listens and cut in hand finish
     environment:
       <<: *server-env
       BS_WORKER_PROVIDERS: '["local"]'
