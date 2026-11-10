@@ -11,7 +11,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.providers import Result, get_providers
 from app.providers.fake_local import FakeWriter
-from app.worker import _fail, run_once
+from app.worker import RESTART, _fail, run_once
 from tests.helpers import make_it, ok_when_asked
 from tests.test_director import _made, _run, started
 
@@ -153,6 +153,11 @@ def test_a_cut_off_answer_is_asked_again_once_then_the_run_ends(app, db, owner, 
     def cut_off(self, kind, input):
         if input["step"] == director.STEP:
             calls.append(1)
+            if len(calls) == 1:  # the first was put back in the queue once after a restart
+                with app.state.sessionmaker() as other:
+                    for t in other.query(Job).filter(Job.status == JobStatus.running):
+                        t.input = {**t.input, RESTART: True}
+                    other.commit()
             if len(calls) <= 2:
                 return Result("failed", error=claude.RAN_OUT)
         return real(self, kind, input)
@@ -163,6 +168,7 @@ def test_a_cut_off_answer_is_asked_again_once_then_the_run_ends(app, db, owner, 
     failed = [t for t in _turns(db, pid) if t.status == JobStatus.failed]
     assert len(failed) == 2 and failed[1].retry_of_id == failed[0].id  # asked again once
     assert failed[0].input.get(director.RETRIED) and not failed[1].input.get(director.RETRIED)
+    assert failed[0].input.get(RESTART) and not failed[1].input.get(RESTART)  # a fresh turn's
     assert (out["status"], out["ended"]) == ("ended", director.TURN_FAILED)  # then it ends
 
 

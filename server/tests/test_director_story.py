@@ -296,3 +296,21 @@ def test_a_note_sent_while_the_first_turn_is_answered_is_read_before_the_start_c
     # the treatment read it as it started (videos 293, 315): no second treatment for it
     assert first.input[director.NOTES_READ] == [1] and brief in first.input["prompt"]
     assert not again and first.id < card.id
+
+
+def test_a_treatment_asked_again_reads_its_notes_once(app, db, owner, editor):
+    """P1: a treatment cut off by a restart (or a busy service) is asked again; the notes it
+    read the first time are in its prompt already, never added twice."""
+    pid = _made(app, owner, editor, db)
+    project = db.get(Project, pid)
+    project.director_chat = [{"text": "Make her a nurse.", "run": "r1"}]
+    job = Job(workspace_id=project.workspace_id, kind="write-claude", provider="claude",
+              project_id=pid, input={"step": "treatment", "prompt": "Write it.",
+                                     director.RUN: {"id": "r1", "ok": False}})  # fmt: skip
+    db.add(job)
+    db.commit()
+    director.read_notes(db, job)
+    once = job.input["prompt"]
+    assert once.count("Make her a nurse.") == 1
+    director.read_notes(db, job)  # asked again
+    assert job.input["prompt"] == once and job.input[director.NOTES_READ] == [1]

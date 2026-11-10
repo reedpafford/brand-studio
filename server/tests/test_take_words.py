@@ -170,10 +170,13 @@ def test_takes_are_heard_with_their_sounds_and_the_stand_in_gasps_on_cue(monkeyp
                         first=False, fillers=False: asked.update(sounds=sounds, first=first)
                         or [])  # fmt: skip
     monkeypatch.setattr("app.deep_watch.probe", lambda path: {"audio": True})  # it has sound
-    LocalProvider(None).hear_take(tmp_path / "take.mp4", {})
+    LocalProvider(None).hear_take(tmp_path / "take.mp4", {"lines": LINES})
     assert asked == {"sounds": True, "first": False}  # whisper keeps its "(gasps)" tags
     LocalProvider(None).hear_take(tmp_path / "take.mp4", {"silent": True})  # B-roll
     assert asked == {"sounds": True, "first": True}  # read only when speech is heard first
+    # S1: an Omni talker's B-roll keeps its sound but has no line to hear: no full read either
+    LocalProvider(None).hear_take(tmp_path / "take.mp4", {"lines": [], "watch": {}})
+    assert asked == {"sounds": True, "first": True}
     said = [h["text"] for h in hear_take(tmp_path, {"lines": LINES, "prompt": "fake:gasp"})]
     assert said[-1] == "(gasps)"
 

@@ -110,6 +110,10 @@ class Settings(BaseSettings):
     worker_poll_seconds: float = 2.0
     # Which providers' jobs this worker takes, e.g. ["local"] for a reel-prep worker; empty: all.
     worker_providers: list[str] = []
+    # How many local jobs (takes' listens, cuts) the worker taking them runs at once, each with
+    # its own speech model in memory (and its own CPUs, with 2 or more each): check the
+    # server's cores and memory before raising it.
+    local_workers: int = 2
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 
