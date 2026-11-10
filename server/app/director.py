@@ -85,7 +85,8 @@ NOT_MADE = "Not made yet: it waits for Make it, and is made once it's pressed." 
 # as <last_actions> shows it: the step still to make, not one done
 TREATMENT_FIRST = "Refused: the treatment comes first, before Make it."
 PLAN_FIRST = "Changing the plan first."  # a note while the start card waited
-PRE_OK = ("treatment", "ask", "wait", "stop", "locked_line")  # before Make it: nothing made
+PRE_OK = ("treatment", "ask", "wait", "stop", "locked_line",
+          "find_footage")  # fmt: skip  # before Make it: nothing made
 # The direction card (Reed, 8 Nov: "before any paid stills or takes, the director presents one
 # card: concept, beats, the look, the clip plan and the estimate"): on a first run not held for
 # the owner, the director plans up to its cast and places OK before Make it, and the card comes

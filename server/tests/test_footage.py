@@ -82,8 +82,10 @@ def test_the_director_gets_only_the_clips_that_fit_in_a_few_lines_and_frames(app
     brand = video.brand_id
     app_id, alarm = product(db, brand, "fomo"), product(db, brand, "Pocket alarm")
     db.commit()
-    mine = [_described(app, db, owner, brand, f"The fomo app, take {n}.", product_id=app_id)
-            for n in range(7)]  # fmt: skip
+    mine = [
+        _described(app, db, owner, brand, f"The fomo app on a {n} phone.", product_id=app_id)
+        for n in ("red", "blue", "gold", "black", "pink", "green", "white", "grey", "teal")
+    ]
     _described(app, db, owner, brand, "The alarm flashing.", product_id=alarm)  # not this video's
     told = project_context(db, video, "director")[0][-1]
     assert told.startswith("<footage>") and "alarm" not in told
