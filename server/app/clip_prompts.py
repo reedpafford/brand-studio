@@ -1335,18 +1335,31 @@ def _waiting(db: Session, project: Project) -> set[str]:
     return {j.input.get("step") for j in jobs}
 
 
+def _taking(db: Session, project: Project, clip_ids: list[str]) -> bool:
+    """A take of one of these clips is on its way."""
+    mine = select(ProjectClip.id).where(ProjectClip.project_id == project.id)
+    ids = set(db.scalars(mine.where(ProjectClip.clip_id.in_(clip_ids))))
+    jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING)))
+    return any(j.input.get("step") == "clip_take" and j.input.get("project_clip_id") in ids
+               for j in jobs)  # fmt: skip
+
+
 def queue_rewrite(
     db: Session, user, project: Project, clip_ids: list[str] | None,
-    extra: dict | None = None, prepaid: bool = False,
+    extra: dict | None = None, prepaid: bool = False, others_taking: bool = False,
 ) -> Job:  # fmt: skip
     """The clip-prompts call (paid) for `clip_ids` (None: every clip). `extra` and `prepaid`:
-    a step of Update everything after this (app/update_after.py), already paid for."""
+    a step of Update everything after this (app/update_after.py), already paid for.
+    `others_taking`: other clips' takes may be on their way (the director's first takes, made
+    as these are rewritten); only a take of one of these stops it."""
     from app.routes.jobs import enqueue
 
     bd = newest(db, project)
     if bd is None:
         raise HTTPException(409, "Make a breakdown first.")
     waiting = _waiting(db, project)
+    if others_taking and clip_ids is not None and not _taking(db, project, clip_ids):
+        waiting.discard("clip_take")
     if "clip_take" in waiting:  # a take on its way would land on a rewritten or removed clip
         raise HTTPException(409, "Wait for the clips being made to finish first.")
     if "clip_prompts" in waiting:

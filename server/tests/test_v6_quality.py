@@ -190,11 +190,16 @@ def test_a_runs_notes_reach_the_writing_steps_and_are_checked_before_first_takes
         db.delete(t)
     row.picked_take_id = row.file_id = None
     db.commit()
-    before = db.query(Job).count()
+    for other in rows[1:]:  # they have their takes: only this one is a first take
+        assert other.picked_take_id
     held = _tool(app, db, project, tool="make_take", clip_id="", note="")
-    assert held.startswith("Refused: Not made yet, their prompt shows what a note takes away: "
-                           f"clip {row.clip_id.removeprefix('c')} (Note 1).")  # fmt: skip
-    assert db.query(Job).count() == before  # nothing made, nothing charged
+    assert held == (f"The prompt of clip {row.clip_id.removeprefix('c')} still shows what a "
+                    "note takes away (Note 1): rewriting first, all at once; make_take with no "
+                    "clip_id makes the takes once they're written.")  # fmt: skip
+    rewrite = db.query(Job).order_by(Job.id.desc()).first()  # its writer reads the notes
+    assert rewrite.input["step"] == "clip_prompts" and rewrite.input["clip_ids"] == [row.clip_id]
+    rewrite.status = "failed"  # say it never ran: a first take named with a note rewrites it
+    db.commit()
     said = _tool(app, db, project, tool="make_take", clip_id=row.clip_id,
                  note="No phone: his hands hang empty.")  # fmt: skip
     assert said == (f"Rewriting clip {row.clip_id.removeprefix('c')}'s prompt with the note "
@@ -339,7 +344,7 @@ def test_the_plan_and_the_prompts_fit_actions_to_seconds_and_make_silence_a_choi
         "cut_watch",
         "old_take",
         "own_sound",
-        "Before a clip's first take, check its prompt against every note",
+        "rewritten first, all at once",
     ):
         assert said in director, said
 

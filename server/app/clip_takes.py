@@ -755,14 +755,15 @@ def take_warning(db: Session, row: ProjectClip) -> str | None:
 # car"): the thing it names, to look for in the prompt (226 c4, A7 in session 35's costs)
 TAKES_AWAY = re.compile(
     r"\b(?:no|without|remove|replace|instead of)\s+"  # never "not": "not wide enough"
-    r"(?:the |a |an |any |his |her |their |its )?([a-z][a-z-]{2,})",
+    r"(?:the |a |an |any |all |every |his |her |their |its )?([a-z][a-z-]{2,})",
     re.I,
 )
 
 
 NOT_SEEN = ("Audio:", "Language:", "Style:")  # a clip prompt's sound, language and style lines
 FIXED = ("No one speaks.", "No subtitles.")  # every wordless shot's own words, never a picture
-NOT_A_THING = {"one", "else", "more", "other", "others", "longer", "matter", "way", "need"}
+NOT_A_THING = {"one", "else", "more", "other", "others", "longer", "matter", "way", "need",
+               "from"}  # fmt: skip  # 345: "Remove from clip 10's prompt…" took "from"
 
 
 def contradicts(prompt: str, note: str) -> bool:
