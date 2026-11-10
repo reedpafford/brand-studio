@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs ON the VPS, piped in over SSH by .github/workflows/deploy-next.yml. Safe to run again.
-# Brand Studio Next (the test site): its own checkout (~/brand-studio-next, branch next), its own
-# Compose project (brand-studio-next) and deploy/.env. Never touches the live checkout or stack.
+# Reed's site (production since 9 Nov 2026; formerly the test site, Brand Studio Next): its own
+# checkout (~/brand-studio-next, branch next), its own Compose project (brand-studio-next) and
+# deploy/.env. Never touches the old production site's checkout or stack.
 # Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC, HEYGEN (keys only when FAKE=false),
 # KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on), LOOK_SAMPLES,
 # LOOK_BUDGET (with REPLICATE while real look samples are switched on), and LANGUAGE_TESTS,
@@ -35,6 +36,13 @@ add_swap() {
 }
 
 main() {
+  # Reed's site runs on real providers. Refuse before anything changes if the repo variable
+  # NEXT_FAKE_PROVIDERS is unset or true (the workflow sends FAKE=true for both): stand-ins
+  # would turn his queued real work into grey placeholders.
+  if [ "${FAKE:-}" != false ]; then
+    echo "::error::Not deployed: repo variable NEXT_FAKE_PROVIDERS must be false on Reed's site (it is unset or true). Nothing was changed. Set it to false and run deploy-next again."
+    exit 1
+  fi
   REPO=https://github.com/reedpafford/brand-studio.git
   APP="$HOME/brand-studio-next"
   PORT=8443  # live's Caddy answers https on this port and forwards here (deploy/Caddyfile)
@@ -58,7 +66,7 @@ main() {
   [ -n "$domain" ] || domain=$(hostname -f)
   db_password=$(old POSTGRES_PASSWORD .env)
   [ -n "$db_password" ] || db_password=$(openssl rand -hex 24)
-  fake=${FAKE:-true}
+  fake=${FAKE:-false}  # always false here (checked at the top)
   samples=false  # real look samples among the stand-ins: switched on, with the Replicate key
   [ "${LOOK_SAMPLES:-false}" = true ] && [ -n "${REPLICATE:-}" ] && samples=true
   tests=false  # real language tests among the stand-ins: switched on, with the Claude key
@@ -68,7 +76,7 @@ main() {
     echo "DOMAIN=$domain"
     echo "PUBLIC_ADDRESS=$domain:$PORT"
     echo "POSTGRES_PASSWORD=$db_password"
-    # Free stand-ins unless the Producer turns them off for an approved paid test.
+    # Real providers on Reed's site (checked at the top); the stand-in branches go in a clean-up.
     if [ "$fake" = false ]; then
       echo "BS_FAKE_PROVIDERS=false"
       echo "BS_GENERATION_ENABLED=${GENERATION:-false}"
@@ -152,6 +160,11 @@ main() {
   for _ in $(seq 1 60); do
     if compose exec -T caddy wget -qO- http://localhost/api/health 2>/dev/null | grep -q '"status":"ok"'; then
       compose exec -T api python -m app.seed refresh
+      # Nightly backup at 3:30 (server time): database and files into deploy/backups/, 14 days
+      # (Reed's files were 1.1 GB on 9 Nov); backup.sh skips the files when the disk is low.
+      mkdir -p backups
+      line="30 3 * * * cd $PWD && KEEP_DAYS=14 COMPOSE_PROJECT_NAME=brand-studio-next COMPOSE_FILE=docker-compose.yml:next/compose.yml ./backup.sh >> $PWD/backups/backup.log 2>&1"
+      (crontab -l 2>/dev/null | grep -vF 'COMPOSE_PROJECT_NAME=brand-studio-next' || true; echo "$line") | crontab -
       docker image prune -f >/dev/null
       if curl -fsS --max-time 5 "https://$domain:$PORT/api/health" | grep -q '"status":"ok"'; then
         echo "Test site at https://$domain:$PORT"

@@ -1,20 +1,42 @@
-# Brand Studio Next (the test site)
+# Reed's site (production since 9 Nov 2026; formerly the test site, Brand Studio Next)
 
-The `next` branch, running on the live server as its own Docker Compose project
-(`brand-studio-next`): its own database, files, images and worker lanes. Nothing is shared with
-live. It runs on the free stand-ins (grey pictures, simple answers), so it never spends money.
+**This is Reed's production site: real providers, real money, Reed's real work.** Agents never
+experiment on it: never switch it to the stand-ins, never reset it or remove its volumes, and
+never run a paid test here without Reed's OK (logged in ops/SPEND.md). Every merge to `next`
+deploys straight to it, so merges are bundled into Reed's windows until a stand-in-only preview
+exists for agents to test on.
 
-**Address:** the live address on port 8443, e.g. `https://srv2091584.hstgr.cloud:8443`. Live's
-Caddy answers there (it holds ports 80 and 443) and forwards to this stack over a private Docker
-network, `brand-studio-edge`. If the test site is down, only port 8443 fails; live is unaffected.
-It also answers at `https://thisisatestingenv.online` (port 443, for cloud sessions that only reach
-443) once that name's DNS A record points at the server: the same site and accounts, signed in separately.
+The `next` branch, on the server as its own Docker Compose project (`brand-studio-next`): its own
+database, files, images and worker lanes. The old production site (`main`, project
+`brand-studio`) is stopped and kept as a snapshot (`deploy/README.md`); don't touch it.
+
+**Address:** **https://thisisatestingenv.online** (also the server's address on port 8443,
+`https://srv2091584.hstgr.cloud:8443`). The old site's Caddy container is still the front door: it
+holds ports 80, 443 and 8443 and forwards here over a private Docker network,
+`brand-studio-edge`. It stays running until a separate front door replaces it.
 
 **Deploys:** every push to `next` runs `.github/workflows/deploy-next.yml` (checks first, then
-`deploy/next/remote-deploy.sh` over SSH, with the live deploy's secrets). Safe to re-run.
+`deploy/next/remote-deploy.sh` over SSH). Safe to re-run. A deploy lets each worker finish the job
+in hand (up to 10 minutes), then restarts in about a minute. **It refuses to deploy** (nothing
+changes) unless repo variable `NEXT_FAKE_PROVIDERS` is `false`.
 
-**One-time setup**
-1. Live's side (needs the Producer's OK, merged to `main`): `deploy/Caddyfile` answers on 8443,
+**Backups:** every night at 3:30 (server time) the database and all files are saved to
+`~/brand-studio-next/deploy/backups/` (`deploy/backup.sh`, installed by each deploy; log in
+`backups/backup.log`). Kept 14 days (`KEEP_DAYS=14` in the cron line; each night is a full copy of
+the files, 1.1 GB on 9 Nov), and the newest 3 of each are never deleted. If the disk has under 15 GB free
+(or under twice the last files backup), that night saves only the database and writes a WARNING
+line in the log. They don't survive losing the server: now and then copy that folder elsewhere. **Restore** (Web console, replace the date; this replaces what's on the site now):
+```
+cd ~/brand-studio-next/deploy
+c="docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml"
+$c stop api worker claude-worker reel-worker
+gunzip -c backups/db-2026-11-10.sql.gz | $c exec -T db psql -q -U brand -d brand
+$c run --rm --no-deps -T api tar -xzf - -C /data < backups/files-2026-11-10.tar.gz   # files too, if needed
+$c up -d --no-build
+```
+
+**One-time setup (done; kept for reference)**
+1. The front door's side (merged to `main`): `deploy/Caddyfile` answers on 8443,
    `deploy/docker-compose.yml` publishes 8443 and joins `brand-studio-edge`.
 2. Hostinger firewall: if it has rules, allow TCP 8443 (VPS → Security → Firewall).
 3. Reed's owner account, by a one-time invite link. In the Hostinger Web console, paste
@@ -24,24 +46,24 @@ It also answers at `https://thisisatestingenv.online` (port 443, for cloud sessi
    ```
    It prints the link (valid 7 days). Running it again replaces the link. The first run also
    makes the workspace and the launch brands (fomo, Iron Paws: kits and screens from the repo's
-   `assets/brands`, never live data). Nobody else ever sees the link.
+   `assets/brands`, never the old site's data). Nobody else ever sees the link.
 
-**A paid test** (only one Reed and the Producer approved, logged in ops/SPEND.md): repo variables
-`NEXT_FAKE_PROVIDERS=false` and `NEXT_GENERATION_ENABLED=true`, run deploy-next, run the test,
-then set `NEXT_FAKE_PROVIDERS` back to `true` and run deploy-next again. Every real call counts
-against `NEXT_REAL_BUDGET_USD` (dollars) from `NEXT_REAL_BUDGET_SINCE` (an ISO time like
-`2026-11-02T09:00:00Z`). Set both together; with either unset, nothing paid runs. A new budget
-starts counting at its new start time. Past it, a press says "The test site's real-AI budget ($N) is used up. Nothing was
-charged." and queued work isn't sent. Spent so far: the owner's `GET /api/credits/real-budget`,
-or the worker's log lines "real budget: $X of $Y since …".
+**Settings** (repo variables, Settings → Secrets and variables → Actions → Variables; they take
+effect on the next deploy). These are Reed's permanent production settings, not a test:
+- `NEXT_FAKE_PROVIDERS=false`: real providers. **Never set it to `true` or delete it**: the
+  deploy refuses, and if it didn't, Reed's queued real work would come out as grey stand-ins.
+- `NEXT_GENERATION_ENABLED=true`: paid jobs run. `NEXT_OWNER_UNCAPPED=true`: no money holds on
+  Reed's own work (editors are held as before).
+- `NEXT_REAL_BUDGET_USD` (dollars, effectively no cap at 100000) from `NEXT_REAL_BUDGET_SINCE` (an
+  ISO time): every paid call counts against it. Don't set it to 0: that refuses paid jobs that
+  have no owner attached. Spent so far: the owner's `GET /api/credits/real-budget`.
+- `NEXT_ITEM_CHECKS_PAID=true`: the take checks (eyes, screens, cast, words); self-approval, the
+  director's redos and best take need them. `NEXT_ITEM_CHECK_SCOPE`: `key_takes`, `all_takes`
+  (now) or `everything`.
+- `NEXT_KIE_SUNO=true` with `NEXT_KIE_BUDGET_USD` (100000) and `NEXT_KIE_DELIVERY_HOSTS`: real songs.
+- Off unless Reed asks: `NEXT_NARRATION_MUSIC_PAID` (a narration's music bed, with
+  `NEXT_NARRATION_MUSIC_BUDGET_USD`) and `NEXT_SITE_READ_REAL` ("Import from website" reads the
+  real site). The look and language sample switches only mattered with the stand-ins on.
 
-Other paid switches for a paid test, all off by default and all inside the same real budget
-(they only matter with `NEXT_FAKE_PROVIDERS=false`):
-- `NEXT_ITEM_CHECKS_PAID=true`: the take checks (eyes, screens, cast, words). Self-approval, the
-  director's redos and best take need them. `NEXT_ITEM_CHECK_SCOPE` says how much they cover:
-  `key_takes` (default), `all_takes` or `everything`.
-- `NEXT_NARRATION_MUSIC_PAID=true` with `NEXT_NARRATION_MUSIC_BUDGET_USD`: a narration's music bed.
-- `NEXT_SITE_READ_REAL=true`: "Import from website" reads the real site.
-
-**Start over:** `docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml down -v`
-then run deploy-next. This wipes only the test site.
+Every real job writes usage rows (the Usage screen shows them). Agents' paid runs, only with
+Reed's OK, also go in ops/SPEND.md.
