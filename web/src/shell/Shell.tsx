@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
-import { Archive, ChevronDown, Clock, Ellipsis, Film, House, Inbox, Package, Plus, FileText, Images, Palette, Check, Users, type LucideIcon } from "lucide-react";
-import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
+import { Archive, ChevronDown, Clock, Ellipsis, Film, Inbox, Plus, Palette, Check, Users, type LucideIcon } from "lucide-react";
+import { Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { WORDS_ID } from "../home/Words";
 import { useMyRequests } from "../approvals/HeldRequests";
 import { useArchiveBrand } from "../brand/ArchiveBrand";
@@ -8,33 +8,20 @@ import { useNeedsYou } from "../approvals/NeedsYouPage";
 import { useMe } from "../auth/useMe";
 import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { useMedia, useOnline } from "../useMedia";
-import { AccountMenu, STUDIO } from "./AccountMenu";
-import { FolderTree } from "./FolderTree";
-import { QuickSearch } from "./QuickSearch";
+import { HOME, NavItem, Rail } from "./Rail";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
 
-// The rail's rows under a brand: Home (its other address is New video's), All videos, then the brand's assets. A brand
-// switch keeps you in the same section.
-const NEW_VIDEO = "videos/new";
-const HOME = /^\/b\/\d+\/videos\/new$/;
-const PRODUCTS = /^\/b\/\d+\/library\/products(\/|$)/;
-const ASSETS: { to: string; label: string; icon: LucideIcon; except?: RegExp }[] = [
-  { to: "brand", label: "Brand kit", icon: Palette },
-  { to: "library/products", label: "Products", icon: Package },
-  { to: "library", label: "Cast & places", icon: Users, except: PRODUCTS }, // Products is a tab of the same library, with its own row
-  { to: "media", label: "Media", icon: Images },
-  { to: "scripts", label: "Scripts", icon: FileText },
-];
-const SECTIONS = ["videos", "scripts", "library", "media", "brand"];
+const SECTIONS = ["videos", "scripts", "media", "brand"];
 
-/** Where a brand switch lands: the same section in the other brand; a video or an item goes to that section's list, and
- *  Home (at either address) stays Home. */
+/** Where a brand switch lands: the same section in the other brand (the library's same tab: Products, Cast); a video or
+ *  an item goes to that section's list, and Home (at either address) stays Home. */
 function sectionOf(pathname: string) {
   if (HOME.test(pathname)) return "";
-  if (PRODUCTS.test(pathname)) return "library/products";
+  const tab = /^\/b\/\d+\/library\/([a-z]+)/.exec(pathname)?.[1];
+  if (tab) return `library/${tab}`;
   const m = /^\/b\/\d+\/([^/]+)/.exec(pathname)?.[1];
   if (m === "kit" || m === "screens") return "brand";
   if (m === "projects") return "videos";
@@ -46,7 +33,7 @@ const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isConte
 // v5 A_Shell/A_Account: a brand is a small colour square.
 const dot = (brand?: Brand) => <span aria-hidden className="size-3.5 shrink-0 rounded-[3px]" style={{ background: brand?.colours?.[0] || "var(--accent)" }} />; // no colour: the accent, as the Brand page;
 
-/** Desktop: one rail (brand switcher on top; Home, All videos, Assets, Projects and, for Reed, Studio; the account at the bottom), no top bar.
+/** Desktop: one rail (`Rail`: the brand switcher on top; Home, All videos, Assets, Projects; the account at the bottom), no top bar.
  *  Phone: the top bar (switcher, Needs you, account) and the bottom tabs. */
 export function Shell() {
   return (
@@ -60,8 +47,8 @@ function Frame() {
   const { data: brands, isPending, isError } = useBrands();
   const { brandId } = useParams();
   const fromUrl = Number(brandId) || null;
-  // Off brand pages (e.g. /team) you stay "in" the brand you were last in, or the first one: the rail keeps Make and
-  // Library on every page, Studio ones and an editor's My credits included (v5 A_Shell; audit lane 2).
+  // Off brand pages (e.g. /team) you stay "in" the brand you were last in, or the first one: the rail keeps the brand's
+  // rows on every page, Studio ones and an editor's My credits included (v5 A_Shell; audit lane 2).
   const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : (brands?.[0]?.id ?? null));
   const brand = brands?.find((b) => b.id === current);
   const rail = useMedia("(min-width: 1024px)");
@@ -148,7 +135,7 @@ function Frame() {
     <div className="min-h-screen bg-bg text-text">
       {!inVideo && !onFolders && !rail && <TopBar brands={brands ?? []} brand={brand} current={current} />}
       <div className="flex">
-        {rail && <Rail brands={brands ?? []} brand={brand} current={current} wide={wide} owner={owner} waiting={waiting} />}
+        {rail && <Rail switcher={<BrandSwitcher brands={brands ?? []} brand={brand} current={current} inRail iconOnly={!wide} />} current={current} wide={wide} owner={owner} waiting={waiting} />}
         {work}
       </div>
       {!rail && (
@@ -245,76 +232,6 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
       </Menu>
       {archive.dialog}
     </div>
-  );
-}
-
-/** A nav link that knows when it is current, including for the pages that belong under it (a video sits under Scripts). */
-function NavItem({ to, also, under, exact, except, className, children, ...rest }: { to: string; also?: string; /** also current on these pages (the phone's Library tab, Home's other address) */ under?: RegExp; /** not current on the pages under it (Home) */ exact?: boolean; /** nor on these (Cast & places, on Products) */ except?: RegExp; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
-  const { pathname } = useLocation();
-  const onNew = pathname.endsWith(`/${NEW_VIDEO}`); // under /videos, but it is Home
-  const active = pathname === to || !!under?.test(pathname) || (!exact && !onNew && !except?.test(pathname) && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
-  return (
-    <Link to={to} className={className(active)} aria-current={active ? "page" : undefined} {...rest}>
-      {children}
-    </Link>
-  );
-}
-
-function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; wide: boolean; owner: boolean; waiting: number | null }) {
-  const mine = (useMyRequests().data ?? []).filter((j) => j.status === "needs_owner_approval").length;
-  const item = (isActive: boolean) => `flex h-[30px] items-center gap-2 rounded-md px-2 text-sm font-medium ${wide ? "" : "justify-center"} ${isActive ? "bg-surface-3 text-text" : "text-muted hover:bg-surface-3/60 hover:text-text"}`;
-  const row = (to: string, label: string, Icon: LucideIcon, extra?: ReactNode, also?: string, except?: RegExp) => (
-    <NavItem key={to} to={to} also={also} except={except} className={item} aria-label={wide ? undefined : label} title={wide ? undefined : label}>
-      <Icon size={14} strokeWidth={1.75} aria-hidden />
-      {wide && <span>{label}</span>}
-      {wide && extra}
-    </NavItem>
-  );
-  const count = (n: number, tone: "need" | "n") => (
-    <span className={`ml-auto inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${tone === "need" ? "bg-warning-soft text-warning" : "bg-surface-3 text-muted"}`}>
-      {n}
-      <span className="sr-only"> waiting</span>
-    </span>
-  );
-  const group = (label: string, rows: ReactNode) => (
-    <div className="flex flex-col gap-0.5">
-      {wide && <p className="mt-2.5 flex h-7 items-center px-2 text-xs font-medium text-muted">{label}</p>}
-      {rows}
-    </div>
-  );
-  return (
-    <nav aria-label="Main" className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col gap-0.5 border-r border-border bg-surface-2 px-2 py-2.5 ${wide ? "w-rail" : "w-[64px]"}`}>
-      {/* Only the rows scroll: the brand and account menus are wider than the rail and must not be clipped by it. */}
-      <BrandSwitcher brands={brands} brand={brand} current={current} inRail iconOnly={!wide} />
-      {current && (
-        <div className={`flex gap-2 pb-1.5 pt-0.5 ${wide ? "" : "flex-col"}`}>
-          {/* Home, with its key: N opens it on the words box from anywhere. */}
-          <NavItem to={`/b/${current}`} exact under={HOME} aria-label="Home" title="Home (N)" className={(on) => `${item(on)} h-8! ${wide ? "min-w-0 flex-1" : ""}`}>
-            <House size={14} strokeWidth={1.75} aria-hidden />
-            {wide && <span aria-hidden className="flex-1">Home</span>}
-            {wide && <kbd aria-hidden className="rounded-sm border border-border-button px-1 font-sans text-[11px] leading-4 text-muted">N</kbd>}
-          </NavItem>
-          {wide && <QuickSearch brandId={current} />}
-        </div>
-      )}
-      <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
-        {current && row(href("videos", current), "All videos", Film, undefined, "projects")}
-        {current && group("Assets", ASSETS.map((a) => row(href(a.to, current), a.label, a.icon, undefined, undefined, a.except)))}
-        {current && wide && <FolderTree brandId={current} />}
-        {owner
-          ? group(
-              "Studio",
-              <>
-                {row("/approvals", "Needs you", Inbox, waiting !== null && count(waiting, "need"))}
-                {STUDIO.map(([to, label, Icon]) => row(to, label, Icon))}
-              </>,
-            )
-          : group("Mine", row("/requests", "My requests", Clock, count(mine, "n")))}
-      </div>
-      <div className="pt-2">
-        <AccountMenu inRail iconOnly={!wide} />
-      </div>
-    </nav>
   );
 }
 

@@ -185,11 +185,12 @@ test("One brand's Usage: its own totals and the line under them", async () => {
   expect(within(screen.getByRole("main")).getByRole("link", { name: "Usage" })).toHaveAttribute("href", "/usage");
 });
 
-test("the rail has Usage for Reed", async () => {
+test("the account menu at the foot of the rail has Usage for Reed", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([])] });
   open("/b/1/scripts");
-  expect(await screen.findByRole("link", { name: "Usage" })).toHaveAttribute("href", "/usage");
+  await userEvent.click(await screen.findByRole("button", { name: "Account menu" }));
+  expect(within(screen.getByRole("menu", { name: "Account" })).getByRole("link", { name: "Usage" })).toHaveAttribute("href", "/usage");
 });
 
 const video = (o: object = {}) => ({ project_id: 31, title: "Bo tries salmon", script_id: 7, version_letter: "B", legacy: false, person: { id: 2, name: "Sam" }, status: "done", spend_usd: 11.8, spend_estimated: false, credits: 134, finished_at: "2026-10-21T10:00:00Z", last_activity_at: "2026-10-21T10:00:00Z", ...o });

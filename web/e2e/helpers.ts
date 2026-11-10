@@ -35,6 +35,13 @@ export async function openAccountMenu(page: Page) {
   } else await page.getByRole("button", { name: "Account menu" }).click();
 }
 
+/** One of the owner's Studio pages (In production, Usage, Team, Settings) on desktop: they are in the account menu at
+ *  the foot of the rail, not rows of it. */
+export async function openStudio(page: Page, name: string) {
+  await openAccountMenu(page);
+  await page.getByRole("menu", { name: "Account" }).getByRole("link", { name, exact: true }).click();
+}
+
 /** The account menu shows who is signed in, with Sign out. */
 export async function expectSignedInAs(page: Page, name: string) {
   await openAccountMenu(page);

@@ -8,6 +8,7 @@
 
 /* Type roles (phase3 README): use these classes instead of raw sizes. Titles are semibold, never black-weight:
    the hierarchy comes from size and space (site polish, 9 Nov). */
+@utility type-hero { font-family: var(--font-display); font-size: var(--text-3xl); line-height: var(--leading-3xl); font-weight: 600; letter-spacing: calc(var(--tracking-display) * 1.5); text-wrap: balance; }
 @utility type-page { font-family: var(--font-display); font-size: var(--text-2xl); line-height: var(--leading-2xl); font-weight: 600; letter-spacing: var(--tracking-display); }
 @utility type-headline { font-family: var(--font-display); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: 600; letter-spacing: var(--tracking-display); }
 @utility type-section { font-family: var(--font-display); font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: 600; }

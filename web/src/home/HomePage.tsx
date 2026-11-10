@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { ArrowLeft, Package, Palette } from "lucide-react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SHAPES, sentTo } from "../freestyle/useFreestyle";
 import { Attach, Attached } from "../newvideo/Attach";
-import { CastIcon, Chip, FolderIcon } from "../newvideo/Chips";
-import { Press, Under, box, row } from "../newvideo/Press";
+import { CastIcon, Chip, FolderIcon, ShapeIcon } from "../newvideo/Chips";
+import { Press, Under, box } from "../newvideo/Press";
 import { Reel } from "../newvideo/Reel";
 import { SavedScripts } from "../newvideo/SavedScripts";
 import { useEstimate, useSend } from "../newvideo/useNewVideo";
@@ -23,9 +23,10 @@ type View = "paste" | "script" | "reel";
 const HEADS = { script: "Use a saved script", reel: "Use a reel" };
 
 /** Home (a brand's front door, and New video's address): paste a script or an idea, pick a style, and the director makes
- *  it in a chat. One box with its settings as chips (style, product, cast, shape, folder, mode) and the price on the
- *  press; under it the story cards. The + menu also starts from a saved script or a reel (?from=script|reel). The idea
- *  lands in the open folder (?folder=) or Unsorted, and Make it opens the video. */
+ *  it in a chat. A centred headline over one box, no wider than 720 px, with its settings as small pills (style, product,
+ *  cast, shape, folder, mode) and the price on the press; under it the story cards. The + menu also starts from a saved
+ *  script or a reel (?from=script|reel). The idea lands in the open folder (?folder=) or Unsorted, and Make it opens the
+ *  video. */
 export function HomePage() {
   const brandId = Number(useParams().brandId);
   const [params, setParams] = useSearchParams();
@@ -58,9 +59,9 @@ export function HomePage() {
     <>
       <Attach files={files} onScript={() => setView("script")} onReel={() => setView("reel")} />
       {style}
-      <PickChip label="Product" icon={Package} value={said(draft.products, products, "products")} none="None" onClick={() => setDialog("products")} />
-      <PickChip label="Cast" icon={CastIcon} value={said(draft.cast, cast, "people")} none="Nobody" onClick={() => setDialog("cast")} />
-      <Chip label="Shape" value={send.shape} options={SHAPES.map((s) => ({ id: s, name: s }))} onPick={(shape) => draft.pick({ shape })} />
+      <PickChip label="Product" icon={Package} value={said(draft.products, products, "products")} none="None" onClick={() => setDialog("products")} onClear={() => draft.pick({ products: [] })} />
+      <PickChip label="Cast" icon={CastIcon} value={said(draft.cast, cast, "people")} none="Nobody" onClick={() => setDialog("cast")} onClear={() => draft.pick({ cast: [] })} />
+      <Chip label="Shape" icon={ShapeIcon} value={send.shape} options={SHAPES.map((s) => ({ id: s, name: s }))} onPick={(shape) => draft.pick({ shape })} />
       <Chip label="Folder" icon={FolderIcon} value={folder ?? 0} options={[...folders.map((f) => ({ id: f.id, name: f.name })), { id: 0, name: "Unsorted" }]} onPick={(f) => draft.pick({ folder: f || null })} />
     </>
   );
@@ -80,6 +81,11 @@ export function HomePage() {
         <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
       </button>
       <h2 className="whitespace-nowrap text-sm font-semibold">{HEADS[view]}</h2>
+      {view === "script" && (
+        <Link to={`/b/${brandId}/scripts`} className="inline-flex min-h-control items-center whitespace-nowrap pl-2 text-sm text-accent-text hover:underline lg:min-h-7">
+          Manage scripts
+        </Link>
+      )}
     </div>
   );
   const scriptStyle = locked ? style : null; // a saved script's own, once one is picked
@@ -91,11 +97,11 @@ export function HomePage() {
     ) : null;
   const error = sent.isError && <p role="alert" className="text-sm text-danger">{sent.error.message}</p>;
   const hero = (
-    <div className={`flex flex-col gap-2 ${rail ? "items-center text-center" : ""}`}>
-      <h1 className="type-page">
+    <div className={`flex flex-col gap-3 ${rail ? "items-center text-center" : ""}`}>
+      <h1 className="type-hero">
         <span className="block">Paste your script, pick a style.</span> <span className="block text-muted">We handle the rest.</span>
       </h1>
-      <p className="max-w-[560px] text-base text-muted">The director plans it, asks what it can’t decide, and makes it in a chat with you.</p>
+      <p className="max-w-[520px] text-base text-muted">The director plans it, asks what it can’t decide, and makes it in a chat with you.</p>
     </div>
   );
   const gallery = <StoryCards cards={cards.data ?? []} loading={cards.isPending} looks={draft.looks} onOpen={setCard} />;
@@ -137,25 +143,26 @@ export function HomePage() {
       </main>
     );
   return (
-    <main className="flex min-h-screen justify-center px-8 pb-16 pt-14">
-      <div className="flex w-full max-w-[1112px] flex-col gap-12">
-        <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6">
+    <main className="flex min-h-screen justify-center px-8 pb-16 pt-[clamp(4rem,12vh,8rem)]">
+      <div className="flex w-full max-w-[1112px] flex-col gap-10">
+        <div className="mx-auto flex w-full max-w-[720px] flex-col gap-8">
           {hero}
           <div>
             {other ?? (
               <>
                 <div className={box}>
-                  <div className="px-4 pb-3 pt-3">{words}</div>
-                  <div className={row}>
-                    {chips}
-                    {/* Kept to the right, on whichever line the chips leave it. */}
-                    <div className="ml-auto flex items-center gap-1.5">
+                  <div className="px-4 pb-3 pt-3.5">{words}</div>
+                  {/* The pills wrap on the left; Mode and the press keep the right, in room held for the price, so nothing
+                      moves when it arrives. */}
+                  <div className="flex items-end gap-2 border-t border-border px-3 py-2.5">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{chips}</div>
+                    <div className="flex min-w-[19rem] shrink-0 items-center justify-end gap-1.5">
                       {mode}
                       <Press owner={owner} price={price} busy={sent.isPending} disabled={empty} onClick={go} shortcut />
                     </div>
                   </div>
                 </div>
-                <div className="flex min-h-7 items-center justify-end px-1 pt-2">{!empty && <Under owner={owner} {...price} />}</div>
+                <div className="flex min-h-10 items-start justify-end px-1 pt-2">{!empty && <Under owner={owner} {...price} />}</div>
               </>
             )}
             {error}

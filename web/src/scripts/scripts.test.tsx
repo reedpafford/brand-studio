@@ -56,7 +56,8 @@ test("an editor's brand opens on their videos; on Scripts they start on Ready to
   const calls = fakeServer({ ...base, "GET /auth/me": [200, editor], "GET /scripts": [200, []], "GET /projects": [200, []] });
   open("/b/1");
   expect(await screen.findByText("Unsorted")).toBeInTheDocument(); // the brand's videos open on a folder (v6 S1)
-  await userEvent.click(screen.getAllByRole("link", { name: "Scripts" })[0]);
+  await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Brand" })); // Scripts is on the Brand page, not a rail row
+  await userEvent.click(await within(await screen.findByRole("navigation", { name: "Also in this brand" })).findByRole("link", { name: "Scripts" }));
   await screen.findByRole("heading", { name: "Scripts" });
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /scripts")).toBe(true));
   expect(screen.getByRole("tab", { name: /Ready to make/ })).toHaveAttribute("aria-selected", "true");

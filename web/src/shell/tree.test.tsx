@@ -106,7 +106,7 @@ test("the magnifier searches this brand's ideas and folders; Enter opens the fir
   expect(within(results).getByRole("option", { name: /Dr. Pickle rants.*folder · 124 ideas/ })).toBeInTheDocument();
 });
 
-test("an editor's rail has Mine · My requests, and the page lists what waits with Withdraw and this week's answers (S-gaps-04 R4)", async () => {
+test("an editor's rail has My requests with its count, and the page lists what waits with Withdraw and this week's answers (S-gaps-04 R4)", async () => {
   setViewport(1440);
   const job = (o: object) => ({ id: 5, kind: "video", status: "needs_owner_approval", project_id: 9, credits: 20, created_at: new Date().toISOString(), step: "clip_take", held: "Past the budget.", declined: false, approved: false, note: "", ...o });
   fakeServer(base(editor, {

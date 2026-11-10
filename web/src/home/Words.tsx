@@ -61,20 +61,19 @@ const KINDS = [
   { idea: true, name: "An idea", hint: "write the script for me" },
 ];
 
-/** "My words are: A script | An idea": the guess from the words (`readsAsScript`) until the person flips it. */
+/** "My words are: A script | An idea", one quiet line under the words: the guess from the words (`readsAsScript`) until
+ *  the person flips it. A phone drops the lead-in (the group still says it) so both choices fit across, each over its hint. */
 export function WordsAre({ idea, onPick }: { idea: boolean; onPick: (idea: boolean) => void }) {
   return (
-    <div role="radiogroup" aria-label="My words are" className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span aria-hidden className="text-xs text-muted">
+    <div role="radiogroup" aria-label="My words are" className="flex items-center gap-1 text-xs">
+      <span aria-hidden className="pr-1 text-muted max-sm:hidden">
         My words are:
       </span>
-      <span className="flex w-full gap-0.5 rounded-lg bg-surface-2 p-0.5 sm:inline-flex sm:w-auto">
-        {KINDS.map((k) => (
-          <button key={k.name} type="button" role="radio" aria-checked={k.idea === idea} onClick={() => onPick(k.idea)} className={`flex min-h-control flex-1 flex-col items-center justify-center rounded-md px-2 py-1 text-xs font-medium transition-[background-color,color,box-shadow] duration-(--dur-fast) ease-out sm:flex-none sm:flex-row sm:gap-1 sm:px-2.5 lg:min-h-6.5 lg:py-0 ${k.idea === idea ? "bg-surface text-text shadow-soft" : "text-muted hover:text-text"}`}>
-            {k.name} <span className="font-normal text-muted">({k.hint})</span>
-          </button>
-        ))}
-      </span>
+      {KINDS.map((k) => (
+        <button key={k.name} type="button" role="radio" aria-checked={k.idea === idea} onClick={() => onPick(k.idea)} className={`flex min-h-control flex-1 flex-col items-center justify-center rounded-lg px-2 py-1 font-medium transition-colors duration-(--dur-fast) ease-out sm:flex-none sm:flex-row sm:gap-1 sm:rounded-full sm:px-2.5 lg:min-h-6 lg:py-0 ${k.idea === idea ? "bg-surface-2 text-text" : "text-muted hover:text-text"}`}>
+          {k.name} <span className="font-normal text-muted">({k.hint})</span>
+        </button>
+      ))}
     </div>
   );
 }

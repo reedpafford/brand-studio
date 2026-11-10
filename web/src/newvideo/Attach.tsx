@@ -39,7 +39,7 @@ export function Attach({ files, onScript, onReel }: { files: Attachments; onScri
       <Menu
         title="Add to this video"
         trigger={(p) => (
-          <button type="button" {...p} aria-label="Add" title="Add pictures, a saved script or a reel" className="grid size-control shrink-0 place-items-center rounded-md border border-border-button text-muted hover:bg-surface-2 hover:text-text aria-expanded:bg-surface-2 lg:size-7">
+          <button type="button" {...p} aria-label="Add" title="Add pictures, a saved script or a reel" className="grid size-control shrink-0 place-items-center rounded-full border border-border-button text-muted transition-colors duration-(--dur-fast) ease-out hover:bg-surface-2 hover:text-text aria-expanded:bg-surface-2 lg:size-7">
             <Plus size={14} aria-hidden />
           </button>
         )}

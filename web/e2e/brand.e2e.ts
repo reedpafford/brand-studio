@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   await page.goto(`/b/${await emptyBrand(page)}`);
   await onBrand(page, "Night Owl");
-  await page.getByRole("link", { name: "Brand kit", exact: true }).first().click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Brand", exact: true }).click(); // the rail's Brand row
   await expect(page.getByRole("navigation", { name: "Library" }).getByRole("link", { name: "Brand kit" })).toHaveAttribute("aria-current", "page");
 });
 

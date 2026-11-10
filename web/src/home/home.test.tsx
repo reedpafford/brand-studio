@@ -253,6 +253,84 @@ test("Product and Cast open one picker on their own tab; the picks show on the c
   await vi.waitFor(() => expect(posted(calls)).toMatchObject({ cast_ids: [5], product_ids: [21, 22] }));
 });
 
+test("a picked Product or Cast has a small × in its pill that clears it, and focus stays on the pill; Style has none", async () => {
+  setViewport(1440);
+  const calls = server(owner);
+  renderApp("/b/1");
+  await userEvent.type(await words(), SCRIPT);
+  expect(screen.queryByRole("button", { name: /^Clear/ })).toBeNull(); // nothing picked: nothing to clear
+  await userEvent.click(screen.getByRole("button", { name: "Product: None" }));
+  const picker = await screen.findByRole("dialog", { name: "Cast and products" });
+  await userEvent.click(within(picker).getByRole("checkbox", { name: "Capsule pack" }));
+  await userEvent.click(within(picker).getByRole("tab", { name: /^Cast/ }));
+  await userEvent.click(within(picker).getByRole("checkbox", { name: "Nurse Kim" }));
+  await userEvent.click(within(picker).getByRole("button", { name: "Done" }));
+  expect(screen.getByRole("button", { name: "Product: Capsule pack" })).toHaveTextContent("ProductCapsule pack");
+  expect(screen.getAllByRole("button", { name: /^Clear/ }).map((b) => b.getAttribute("aria-label"))).toEqual(["Clear product", "Clear cast"]);
+  await userEvent.click(screen.getByRole("button", { name: "Clear product" }));
+  expect(screen.getByRole("button", { name: "Product: None" })).toHaveFocus();
+  expect(screen.queryByRole("button", { name: "Clear product" })).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull(); // the × clears; it doesn't open the picker
+  screen.getByRole("button", { name: "Clear cast" }).focus();
+  await userEvent.keyboard("{Enter}");
+  expect(screen.getByRole("button", { name: "Cast: Nobody" })).toHaveFocus();
+  await userEvent.click(await press());
+  await vi.waitFor(() => expect(posted(calls)).toMatchObject({ cast_ids: [], product_ids: [] }));
+});
+
+test("the + menu's saved scripts have Manage scripts, to the brand's Scripts page", async () => {
+  for (const width of [1440, 390]) {
+    setViewport(width);
+    server(owner, { "GET /scripts": [200, []] });
+    const view = renderApp("/b/1?from=script");
+    expect(await screen.findByRole("heading", { name: "Use a saved script" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage scripts" })).toHaveAttribute("href", "/b/1/scripts");
+    view.unmount();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Home's composition: a two-line headline, the second muted, over a box no wider than 720 px; the pills wrap beside room held for the price, so nothing moves when it arrives", async () => {
+  setViewport(1440);
+  server(owner);
+  renderApp("/b/1");
+  const box = await words();
+  const head = screen.getByRole("heading", { level: 1 });
+  expect(head).toHaveClass("type-hero");
+  expect([...head.children].map((l) => [l.textContent, l.className])).toEqual([["Paste your script, pick a style.", "block"], ["We handle the rest.", "block text-muted"]]);
+  expect(head.closest(".max-w-\\[720px\\]")).toContainElement(box);
+  const right = screen.getByRole("button", { name: "Make it" }).parentElement!;
+  expect(right).toHaveClass("min-w-[19rem]", "shrink-0"); // Mode and the press, at the right
+  expect(right).toContainElement(screen.getByRole("button", { name: "Mode: Ask before making" }));
+  const pills = right.previousElementSibling!;
+  expect(pills).toHaveClass("flex-wrap", "min-w-0", "flex-1");
+  expect(pills).toContainElement(screen.getByRole("button", { name: "Shape: 9:16" }));
+  for (const pill of [/^Style: /, "Product: None", "Cast: Nobody", "Shape: 9:16", "Folder: Unsorted"]) expect(screen.getByRole("button", { name: pill }).querySelector("svg")).not.toBeNull(); // an icon and a label each
+  await userEvent.type(box, SCRIPT);
+  expect((await press()).parentElement).toBe(right);
+  expect(screen.getByText(/^Most it can charge/).parentElement).toHaveClass("min-h-10"); // its line has its room before the price
+});
+
+test("a story card whose style has no sample picture is a text poster: its plot line, larger, centred on a tint; in the card's dialog too", async () => {
+  setViewport(1440);
+  server(owner, { "GET /looks": [200, [look("movie", "Movie", { test_still: false, test_clip: false }), look("house", "House")]] });
+  renderApp("/b/1");
+  const gallery = await screen.findByRole("region", { name: "Story cards" });
+  expect(within(gallery).getByRole("heading", { name: "Story cards" }).parentElement).toHaveClass("lg:text-center");
+  const card = await within(gallery).findByRole("button", { name: /Public failure/ });
+  expect(card).toHaveClass("rounded-xl");
+  const plot = within(card).getByText("Public failure, the short of it.");
+  expect(plot).toHaveClass("sm:text-base", "font-medium", "line-clamp-5");
+  expect(plot.parentElement).toHaveClass("items-center");
+  expect(card.firstElementChild).toHaveClass("bg-accent-soft", "text-accent-text");
+  expect(card.querySelector("img")).toBeNull();
+  expect(within(gallery).getByRole("button", { name: /Last goodbye/ }).firstElementChild).toHaveClass("bg-surface-2", "text-muted"); // off on this site: grey, not tinted
+  expect(within(gallery).getByRole("button", { name: /Bear proof/ }).querySelector("img")).not.toBeNull(); // a style with a sample keeps its picture
+  await userEvent.click(card);
+  const dialog = await screen.findByRole("dialog", { name: "Public failure" });
+  expect(within(dialog).getAllByText("Public failure, the short of it.")[0]).toHaveClass("line-clamp-5"); // the poster, in the phone frame
+});
+
 test("the picker's Uploads tab attaches pictures for this video; a brand with no products says what to do", async () => {
   setViewport(1440);
   const calls = server(owner, { "GET /library/prop": [200, []], "POST /files": [201, { id: 61, filename: "pack.jpg", content_type: "image/jpeg", size: 9, created_at: at }] });

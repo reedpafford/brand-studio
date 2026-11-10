@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { Navigate, useBlocker, useParams } from "react-router-dom";
+import { Link, Navigate, useBlocker, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
@@ -14,9 +14,18 @@ import { ImagePicker } from "./ImagePicker";
 
 type Brand = components["schemas"]["BrandOut"];
 const HEX = /^#[0-9a-fA-F]{6}$/;
+// The rest of what a brand holds, one press from its page (the rail's Brand row is the way to all of it).
+const ALSO = [
+  ["library/products", "Products"],
+  ["library/characters", "Cast & places"],
+  ["library/footage", "B-roll and footage"],
+  ["media", "Media"],
+  ["scripts", "Scripts"],
+];
 
 /** /b/:brandId/brand: the Brand kit tab of the library (v6 S8-05 as redrawn in S-gaps-05 L1): only the brand's name, logo,
- *  colours, and tone and rules. The script and the director carry the rest; products (apps and things) are their own tab. */
+ *  colours, and tone and rules, under a quiet row of links to the rest of the brand (products, cast, footage, media,
+ *  scripts). The script and the director carry the rest; products (apps and things) are their own tab. */
 export function BrandKit() {
   const brandId = Number(useParams().brandId);
   const { data: brands, isError, refetch } = useBrands();
@@ -81,6 +90,17 @@ function Kit({ brand }: { brand: Brand }) {
   );
   return (
     <LibraryFrame brandId={brand.id} tab="kit" action={action}>
+      <nav aria-label="Also in this brand" className="mb-4 flex flex-wrap items-center gap-x-2 text-sm lg:mb-5">
+        <span className="text-muted">Also in this brand:</span>
+        {ALSO.map(([to, label], n) => (
+          <span key={to} className="flex items-center gap-2">
+            {n > 0 && <span aria-hidden className="text-faint">·</span>}
+            <Link to={`/b/${brand.id}/${to}`} className="inline-flex min-h-control items-center text-accent-text hover:underline lg:min-h-7">
+              {label}
+            </Link>
+          </span>
+        ))}
+      </nav>
       {save.isError && <p role="alert" className={`${errorClass} mb-4`}>{save.error.message}</p>}
       <div className="flex max-w-[600px] flex-col gap-4">
         <div className="flex flex-wrap items-start gap-4">

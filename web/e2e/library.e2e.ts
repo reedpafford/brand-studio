@@ -8,7 +8,7 @@ test.describe.configure({ mode: "serial" });
 test.beforeEach(async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
-  await page.getByRole("link", { name: "Cast & places" }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Cast", exact: true }).click();
   await expect(page.getByRole("navigation", { name: "Library" })).toBeVisible();
 });
 

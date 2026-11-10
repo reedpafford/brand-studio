@@ -53,7 +53,9 @@ test("In production: a row per video links to it, flagged rows say why, and the 
   expect(within(link).queryByText(/\$|of director time/)).toBeNull();
   const rail = screen.getByRole("navigation", { name: "Main" });
   expect(await within(rail).findByRole("link", { name: /^Needs you/ })).toHaveTextContent("3 waiting"); // GET /needs-you's total
-  expect(within(rail).getByRole("link", { name: "In production" })).toBeInTheDocument(); // its own count went to Needs you
+  expect(within(rail).queryByRole("link", { name: "In production" })).toBeNull(); // the Studio pages are in the account menu, not rows
+  await userEvent.click(within(rail).getByRole("button", { name: "Account menu" }));
+  expect(within(screen.getByRole("menu", { name: "Account" })).getByRole("link", { name: "In production" })).toHaveAttribute("href", "/production"); // its own count went to Needs you
 });
 
 test("In production: filters go in the address and to the server; the Brand column goes when one brand is chosen", async () => {

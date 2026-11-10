@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Ellipsis, Folder, FolderOpen, FolderPlus, Inbox, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Ellipsis, Folder, FolderOpen, FolderPlus, Inbox } from "lucide-react";
 import { Link, useLocation, useMatch, useNavigate, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
 import { useFolderActions } from "../folders/FolderActions";
 import { StatusDot, UNSORTED, pathTo, useRefreshIdeas, useTree, type Branch } from "../folders/ideas";
 import { useVideoProject } from "../videos/VideoChat";
+import { NewVideoRow, RailGroup, Recent, railRow as row } from "./RailParts";
 
 /** What a dragged idea carries (an idea card on the folder page, or an idea in the tree). */
 export const IDEA = "application/x-brand-studio-idea";
@@ -23,11 +24,11 @@ const readOpen = (brandId: number): number[] => {
 };
 
 type Said = { message: string; undo?: () => void; id: number } | null;
-const row = "flex h-[30px] items-center gap-2 rounded-md px-2 text-sm";
 
-/** The rail's Projects (v6 S0-01): New video, then the folder tree: folders inside folders with their counts, the open folder's newest ideas with their
- *  status dots, and Unsorted. Drag an idea onto a folder to move it; right-click or ⋯ for New video here, New folder
- *  inside, Rename (in place), Move to… and Delete folder…; Undo shows at the foot of the rail. */
+/** The rail's Projects (v6 S0-01): a header that folds it away, with New folder; New video; the brand's recent videos; then
+ *  the folder tree: folders inside folders with their counts, the open folder's newest ideas with their status dots, and
+ *  Unsorted. Drag an idea onto a folder to move it; right-click or ⋯ for New video here, New folder inside, Rename (in
+ *  place), Move to… and Delete folder…; Undo shows at the foot of the rail. */
 export function FolderTree({ brandId }: { brandId: number }) {
   const tree = useTree(brandId).data;
   const refresh = useRefreshIdeas();
@@ -93,7 +94,6 @@ export function FolderTree({ brandId }: { brandId: number }) {
   });
 
   const top = useFolderActions(brandId, undefined, { say });
-  if (!tree?.folders) return <div className="h-24" aria-hidden />; // not loaded yet
 
   const ideas = (b: Branch, depth: number) => (
     <>
@@ -127,32 +127,33 @@ export function FolderTree({ brandId }: { brandId: number }) {
     </>
   );
 
+  const newFolder = (
+    <button type="button" aria-label="New folder" title="New folder" onClick={top.newInside} className="grid size-6 place-items-center rounded-md hover:bg-surface-3 hover:text-text">
+      <FolderPlus size={14} strokeWidth={1.75} aria-hidden />
+    </button>
+  );
   return (
-    <div className="relative flex flex-col gap-0.5">
-      <div className="mt-2.5 flex h-7 items-center gap-1.5 px-2 text-xs font-medium text-muted">
-        <span className="flex-1">Projects</span>
-        <button type="button" aria-label="New folder" title="New folder" onClick={top.newInside} className="grid size-6 place-items-center rounded-md hover:bg-surface-3 hover:text-text">
-          <FolderPlus size={14} strokeWidth={1.75} aria-hidden />
-        </button>
-      </div>
-      {/* Home, with the open folder kept so the new idea lands in it. */}
-      <Link to={`/b/${brandId}${picked && picked !== UNSORTED ? `?folder=${picked}` : ""}`} className={`${row} font-medium text-muted hover:bg-surface-3/60 hover:text-text`}>
-        <span className="w-3" />
-        <Plus size={14} strokeWidth={1.75} aria-hidden />
-        <span>New video</span>
-      </Link>
-      {tree.folders.map((b) => (
-        <FolderRow key={b.id} brandId={brandId} b={b} depth={0} here={picked} isOpen={isOpen} toggle={toggle} drop={drop} dropTarget={dropTarget} ideas={ideas} say={say} onDeleted={(parent) => here === String(b.id) && navigate(`/b/${brandId}/videos${parent ? `?folder=${parent}` : ""}`)} />
-      ))}
-      <div {...dropTarget(tree.unsorted)}>
-        <Link to={`/b/${brandId}/videos`} aria-current={picked === UNSORTED ? "page" : undefined} className={`${row} font-medium ${drop === "none" ? "bg-accent-soft text-accent-text outline-1 outline-dashed outline-[#9fa3ef]" : picked === UNSORTED ? "bg-surface-3 text-text" : "text-muted hover:bg-surface-3/60"}`}>
-          <span className="w-3" />
-          <Inbox size={14} strokeWidth={1.75} aria-hidden />
-          <span className="flex-1 truncate">Unsorted</span>
-          <span className="text-xs text-muted tabular-nums">{tree.unsorted.count}</span>
-        </Link>
-      </div>
-      {here === UNSORTED && ideas(tree.unsorted, 1)}
+    <div className="relative">
+      <RailGroup id="projects" label="Projects" wide action={newFolder}>
+        <NewVideoRow brandId={brandId} folder={picked === UNSORTED ? null : picked} wide />
+        <Recent brandId={brandId} />
+        {tree?.folders && (
+          <>
+            {tree.folders.map((b) => (
+              <FolderRow key={b.id} brandId={brandId} b={b} depth={0} here={picked} isOpen={isOpen} toggle={toggle} drop={drop} dropTarget={dropTarget} ideas={ideas} say={say} onDeleted={(parent) => here === String(b.id) && navigate(`/b/${brandId}/videos${parent ? `?folder=${parent}` : ""}`)} />
+            ))}
+            <div {...dropTarget(tree.unsorted)}>
+              <Link to={`/b/${brandId}/videos`} aria-current={picked === UNSORTED ? "page" : undefined} className={`${row} font-medium ${drop === "none" ? "bg-accent-soft text-accent-text outline-1 outline-dashed outline-[#9fa3ef]" : picked === UNSORTED ? "bg-surface-3 text-text" : "text-muted hover:bg-surface-3/60"}`}>
+                <span className="w-3" />
+                <Inbox size={14} strokeWidth={1.75} aria-hidden />
+                <span className="flex-1 truncate">Unsorted</span>
+                <span className="text-xs text-muted tabular-nums">{tree.unsorted.count}</span>
+              </Link>
+            </div>
+            {here === UNSORTED && ideas(tree.unsorted, 1)}
+          </>
+        )}
+      </RailGroup>
       {top.dialogs}
       {said && (
         <div role="status" className="fixed bottom-16 left-2 z-40 flex w-[232px] flex-wrap items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2.5 text-sm text-white shadow-overlay">

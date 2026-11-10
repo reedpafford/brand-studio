@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { PASSWORD, expectSignedInAs, fill, onBrand, openAccountMenu, signIn, switchBrand } from "./helpers";
+import { PASSWORD, expectSignedInAs, fill, onBrand, openAccountMenu, openStudio, signIn, switchBrand } from "./helpers";
 
 // Runs after auth.e2e.ts, which created the owner (Reed). Ed is invited in the first team test and removed in the last.
 test.describe.configure({ mode: "serial" });
@@ -46,7 +46,7 @@ test("signing out ends the session", async ({ page }) => {
 test("the owner invites someone with a link, and they join", async ({ browser, page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
-  await page.getByRole("link", { name: "Team" }).click();
+  await openStudio(page, "Team");
   await page.getByRole("button", { name: "Invite someone" }).click();
   await page.getByLabel("Email to invite").fill("ed@example.com");
   await page.getByRole("button", { name: "Create invite link" }).click();
@@ -75,8 +75,11 @@ test("an editor sees the team but not the owner's controls", async ({ page }) =>
   await signIn(page, "ed@example.com");
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   await expect(page).toHaveURL(/\/b\/\d+$/); // an editor's day starts from the brand's Home, as the owner's
-  // Team is Reed's: an editor has no link to it, but the page still opens and is read-only.
+  // Team is Reed's: an editor has no link to it, in the rail or the account menu, but the page still opens and is read-only.
+  await openAccountMenu(page);
+  await expect(page.getByRole("menu", { name: "Account" }).getByRole("link", { name: "My credits" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Team" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await page.goto("/team");
   await expect(page.getByRole("heading", { name: "Team" })).toBeVisible();
   await expect(page.getByText("Reed", { exact: true })).toBeVisible(); // names show plainly (Reed, 2026-10-28)
@@ -88,7 +91,7 @@ test("an editor sees the team but not the owner's controls", async ({ page }) =>
 test("the owner removes a member, who can no longer sign in", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo"); // wait for the landing page, or the sign-in redirect can replace the Team click
-  await page.getByRole("link", { name: "Team" }).click();
+  await openStudio(page, "Team");
   await page.getByRole("button", { name: "Remove Ed" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove Ed" })).toHaveCount(0);
@@ -102,7 +105,7 @@ test("the owner removes a member, who can no longer sign in", async ({ page }) =
 test("the owner finds the removed person, restores them, and changes their role with Undo", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
-  await page.getByRole("link", { name: "Team" }).click();
+  await openStudio(page, "Team");
   await page.getByRole("button", { name: "Restore Ed" }).click();
   await expect(page.getByText("Ed is back on the team.")).toBeVisible();
   await page.getByRole("combobox", { name: "Ed's role" }).selectOption("owner");
