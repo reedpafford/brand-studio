@@ -327,13 +327,14 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: d
     (video 345: E006 "The input was invalid", the same prompt three times): it rewords it."""
     from app.routes.jobs import DIRECTOR_TOOL
 
-    takes = db.scalars(select(Job).where(Job.input["project_clip_id"].as_integer() == clip.id,
+    takes = db.scalars(select(Job).where(Job.project_id == clip.project_id,
+                                         Job.input["project_clip_id"].as_integer() == clip.id,
                                          Job.input["step"].as_string() == "clip_take")
                        .order_by(Job.id.desc())).all()  # fmt: skip
 
     def same(job: Job, whole: bool) -> bool:  # its pictures changed: it may go
         asked = job.input.get("input") or {}
-        said = asked == take if whole else asked.get("prompt") == take.get("prompt")
+        said = asked == take if whole else _words(asked.get("prompt")) == _words(take.get("prompt"))
         return (job.input.get("model") == model_id and said
                 and (job.input.get("files") or {}) == (sent or {}))  # fmt: skip
 
@@ -346,6 +347,11 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: d
     for job in takes:
         if job.status == JobStatus.failed and why_failed(job) == "refused" and same(job, False):
             raise HTTPException(409, SAME_REFUSED.format(refused_how(job.error_detail)))
+
+
+def _words(prompt) -> str:
+    """A prompt as the model reads it: spaces and line breaks don't make it another one."""
+    return " ".join(str(prompt or "").split())
 
 
 FIT = "fit"  # in a free fix's input: it shortens the prompt to its model's limit
@@ -452,9 +458,9 @@ SENSITIVE = ("The video model flagged this take as sensitive. Nothing was charge
 REFUSAL = re.compile(r"\bE00[56]\b|flagged (?:as|for)|ContentModeration|content[_ ]policy|"
                      r"safety violation|prohibited content|\"code\"\s*:\s*\"(?:safety|"
                      r"prohibited_content)\"", re.I)  # fmt: skip
-# Omni's safety filter (E006 over "code": "safety" or "prohibited_content"): said as such
-SAFETY_FILTER = re.compile(r'\bE006\b|safety violation|prohibited content|"code"\s*:\s*"'
-                           r'(?:safety|prohibited_content)"', re.I)  # fmt: skip
+# Omni's safety filter: its inner "code": "safety" or "prohibited_content" (video 345). A bare
+# E006 ("The input was invalid": a bad picture, say) is only refused.
+SAFETY_FILTER = re.compile(r'"code"\s*:\s*"(?:safety|prohibited_content)"', re.I)
 REFUSED_SAID = "This prompt was {}. Change the prompt before trying again. Nothing was charged."
 
 
@@ -486,7 +492,8 @@ def last_refused(db: Session, row: ProjectClip) -> dict:
     """The clip's newest take when the service refused it: how, and the prompt it was sent
     in full, so the director sees what tripped it (video 345: a script line carried into a
     B-roll prompt, blocked 6 times); {} otherwise."""
-    job = db.scalar(select(Job).where(Job.input["project_clip_id"].as_integer() == row.id,
+    job = db.scalar(select(Job).where(Job.project_id == row.project_id,  # its video's only
+                                      Job.input["project_clip_id"].as_integer() == row.id,
                                       Job.input["step"].as_string() == "clip_take")
                     .order_by(Job.id.desc()).limit(1))  # fmt: skip
     if job is None or job.status != JobStatus.failed or why_failed(job) != "refused":

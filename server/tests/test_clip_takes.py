@@ -478,7 +478,8 @@ class UnsafeAtStart(FakeSeedance):
 
     def __call__(self, request):
         if request.method == "POST":
-            return httpx.Response(400, json={"detail": f"{SAFETY}. Please modify your input."})
+            said = {"message": f"{SAFETY}. Please modify your input.", "code": "safety"}
+            return httpx.Response(400, json={"error": said})
         return super().__call__(request)
 
 
@@ -507,6 +508,17 @@ def test_a_refused_prompt_is_said_and_never_sent_again(app, db, owner, editor, s
     assert shown["retrying"] is None and shown["problems"] == []
 
 
+def test_only_the_safety_code_says_safety_filter():
+    """QA on #1532: a bare E006 (a bad picture, say) is refused, not a safety block."""
+    from app.clip_takes import refused_how
+
+    bare = "ModelError: The input was invalid. Please try again with different inputs. (E006)"
+    assert refused_how(bare) == "refused by the service (it said: The input was invalid)"
+    assert refused_how(E006) == BLOCKED
+    held = E006.replace('"safety"', '"prohibited_content"')
+    assert refused_how(held).startswith("blocked by the service's safety filter")
+
+
 def test_the_director_never_sends_a_refused_prompt_again(app, db, editor, setup, clip):  # noqa: F811
     """Video 345: the director read E006 as a passing fault and sent the same prompt again."""
     from app import director, director_tools
@@ -527,6 +539,10 @@ def test_the_director_never_sends_a_refused_prompt_again(app, db, editor, setup,
     seen = director.video_state(db, project)["clips"][0]["refused"]  # what it was sent, whole
     sent = db.query(Job).filter(Job.kind == "video").one().input["input"]["prompt"]
     assert seen == {"how": BLOCKED, "prompt": sent}
+    assert take() == f"Refused: {SAME_REFUSED.format(BLOCKED)}"
+    spaced = db.query(Job).filter(Job.kind == "video").one()  # spaces don't make it another
+    spaced.input = {**spaced.input, "input": {**spaced.input["input"], "prompt": f" {sent}\n "}}
+    db.commit()
     assert take() == f"Refused: {SAME_REFUSED.format(BLOCKED)}"
     assert take("She only reaches for the phone.").startswith("Making 1 take")  # reworded
     assert "refused" not in director.video_state(db, project)["clips"][0]  # being made
