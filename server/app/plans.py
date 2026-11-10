@@ -237,7 +237,7 @@ def scene_input(db: Session, project: Project, version: ScriptVersion, scene_id:
     message = prompts.plan_scene_input(base["prompt"], _plan_of(plan), escape(version.text),
                                        scene_id, escape(note))  # fmt: skip
     system, _ = project_context(db, project, SCENE_STEP)
-    return {**base, "step": SCENE_STEP, "system": system, "prompt": message, "max_tokens": 6000,
+    return {**base, "step": SCENE_STEP, "system": system, "prompt": message, "max_tokens": 16000,
             "scene_id": scene_id, "before": before, "made_from": plan.get("version")}  # fmt: skip
 
 
