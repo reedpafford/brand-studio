@@ -128,7 +128,7 @@ export function CutEditor({
             <TopRight cut={c} projectName={projectName} busy={busy} onUndoAll={() => edits.step.mutate("undo-all")} onMake={() => make.mutate()} />
           </div>
           <div className="flex items-start gap-5">
-            {c.file_id && <Player fileId={c.file_id} length={c.timeline.length} at={at} onTime={setAt} width={playerWidth} aspect={aspect} />}
+            {c.file_id && <Player fileId={c.file_id} length={c.timeline.length} at={at} onTime={setAt} width={playerWidth} aspect={aspect} speed={c.timeline.speed} />}
             <div className="flex min-w-0 grow flex-col gap-3">
               <div className="rounded-lg border border-border bg-surface p-3 shadow-card">
                 <Words words={c.timeline.words} text={c.timeline.voice?.text ?? ""} at={at} onSeek={setAt} />
@@ -359,7 +359,7 @@ function PhoneCut({
       </div>
       <div className="flex justify-center py-3">
         {cut.file_id ? (
-          <Player fileId={cut.file_id} length={cut.timeline.length} at={at} onTime={onTime} width={200} aspect={aspect} />
+          <Player fileId={cut.file_id} length={cut.timeline.length} at={at} onTime={onTime} width={200} aspect={aspect} speed={cut.timeline.speed} />
         ) : (
           <div
             className="flex flex-col items-center justify-center gap-2 rounded-[10px] bg-surface-2 text-sm text-muted"

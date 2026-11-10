@@ -1,0 +1,114 @@
+{
+ "model": "ryan5453/demucs",
+ "version": "ff5ad47d2685b27c0f820ee134c4394140804f08fa755cb20c846459faa4b337",
+ "fetched": "2026-11-09",
+ "_note": "Read from the version's API page (replicate.com/ryan5453/demucs/versions/ff5ad47d.../api); its enum lists weren't shown there.",
+ "Input": {
+  "type": "object",
+  "title": "Input",
+  "properties": {
+   "audio": {
+    "type": "string",
+    "title": "Audio",
+    "format": "uri",
+    "x-order": 0,
+    "description": "The audio file to separate"
+   },
+   "model": {
+    "title": "Model",
+    "default": "htdemucs",
+    "x-order": 1,
+    "description": "The model to use (this deployment serves htdemucs)"
+   },
+   "format": {
+    "type": "string",
+    "title": "Format",
+    "default": "wav",
+    "x-order": 2,
+    "description": "The output audio's format (any FFmpeg supports)"
+   },
+   "isolate_stem": {
+    "title": "Isolate Stem",
+    "default": "none",
+    "x-order": 3,
+    "description": "Only produce {stem} and no_{stem} outputs"
+   },
+   "shifts": {
+    "type": "integer",
+    "title": "Shifts",
+    "default": 1,
+    "maximum": 20,
+    "x-order": 4,
+    "description": "Random shifts; 0 turns them off"
+   },
+   "split_overlap": {
+    "type": "number",
+    "title": "Split Overlap",
+    "default": 0.25,
+    "maximum": 0.99,
+    "x-order": 5,
+    "description": "Overlap between the splits"
+   },
+   "seed": {
+    "type": "integer",
+    "title": "Seed",
+    "default": -1,
+    "x-order": 6,
+    "description": "Seed for the random shifts; -1 is random"
+   },
+   "clip_mode": {
+    "title": "Clip Mode",
+    "default": "rescale",
+    "x-order": 7,
+    "description": "Keep the output in [-1, 1] (rescale), or not (none)"
+   }
+  }
+ },
+ "Output": {
+  "type": "object",
+  "title": "Output",
+  "properties": {
+   "bass": {
+    "type": "string",
+    "title": "Bass",
+    "format": "uri"
+   },
+   "drums": {
+    "type": "string",
+    "title": "Drums",
+    "format": "uri"
+   },
+   "other": {
+    "type": "string",
+    "title": "Other",
+    "format": "uri"
+   },
+   "vocals": {
+    "type": "string",
+    "title": "Vocals",
+    "format": "uri"
+   },
+   "no_bass": {
+    "type": "string",
+    "title": "No Bass",
+    "format": "uri"
+   },
+   "no_drums": {
+    "type": "string",
+    "title": "No Drums",
+    "format": "uri"
+   },
+   "no_other": {
+    "type": "string",
+    "title": "No Other",
+    "format": "uri"
+   },
+   "no_vocals": {
+    "type": "string",
+    "title": "No Vocals",
+    "format": "uri"
+   }
+  }
+ },
+ "enums": {}
+}

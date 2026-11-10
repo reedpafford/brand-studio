@@ -162,6 +162,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.take_sound import saved as save_sound
     from app.take_watch import save as save_take_watch
     from app.take_words import save as save_words
+    from app.talker_sound import saved as save_voice_split
     from app.video_variations import save as save_video_variations
     from app.voices import saved as save_voice
     from app.watch_cut import heard_cut
@@ -191,6 +192,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,
         "take_sound": save_sound,
+        "voice_split": save_voice_split,
         "voice_clone": save_voice,
         "host_still": save_host,
         "host_piece": save_host,

@@ -256,3 +256,14 @@ test("Trim handles stay but are locked while an edit is on its way", async () =>
   expect(calls.filter((c) => c.key === "POST /projects/9/cut/edits")).toHaveLength(0);
   finish(new Response(JSON.stringify(cutOut()), { status: 201, headers: { "content-type": "application/json" } }));
 });
+
+test("A UGC talker's cut plays 1.1x faster: the player keeps the page on the takes' own seconds", async () => {
+  setViewport(1440);
+  open(cutOut({ timeline: { ...cutOut().timeline, speed: 1.1 } }));
+  const video = (await screen.findAllByLabelText("The cut"))[0] as HTMLVideoElement;
+  video.currentTime = 10 / 1.1; // the file's own seconds
+  fireEvent.timeUpdate(video);
+  expect(screen.getAllByText("0:10 / 0:12")[0]).toBeInTheDocument();
+  fireEvent.change(screen.getAllByLabelText("Where in the cut")[0], { target: { value: "11" } });
+  expect(video.currentTime).toBeCloseTo(10, 1);
+});

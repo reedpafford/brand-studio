@@ -63,7 +63,7 @@ UNKNOWN = "This job names a service we don't have."
 # minute, a video take a few minutes); past it the job fails, uncharged, and is cancelled there.
 # A song takes a minute or two (Starpop's music stalled for good: never wait past this).
 LIMITS = {"image": timedelta(minutes=15), "video": timedelta(minutes=45),
-          "music": timedelta(minutes=15)}  # fmt: skip
+          "music": timedelta(minutes=15), "voice_split": timedelta(minutes=10)}  # fmt: skip
 LIMIT = timedelta(hours=1)  # anything else, e.g. a reel's local prep
 SLOW = "{} didn't finish this in time. Nothing was charged; try again."
 DAY = 24 * 60 * 60
@@ -222,6 +222,8 @@ def _download(job: Job, provider: Provider, urls: list[str], storage: Storage) -
     files = []
     for url in urls:
         data, content_type = provider.fetch(url)
+        content_type = {"audio/x-wav": "audio/wav", "audio/wave": "audio/wav"}.get(
+            content_type, content_type)  # a WAV by any of its names (Demucs's voice)  # fmt: skip
         if content_type not in ALLOWED_TYPES or not matches(content_type, data[:16]):
             raise RuntimeError(f"Output {url} isn't an allowed file ({content_type!r}).")
         key = f"{job.workspace_id}/{uuid.uuid4().hex}"

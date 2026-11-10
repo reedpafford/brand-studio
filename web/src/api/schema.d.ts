@@ -12692,6 +12692,11 @@ export interface components {
             words: components["schemas"]["WordOut"][];
             /** Sfx */
             sfx: components["schemas"]["SoundFxOut"][];
+            /**
+             * Speed
+             * @default 1
+             */
+            speed: number;
         };
         /** TitleIn */
         TitleIn: {

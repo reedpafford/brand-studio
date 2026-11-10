@@ -3,6 +3,7 @@ anywhere and nothing is billed: images are a plain grey picture, videos a few gr
 and each Claude step gets a simple answer in the right shape (made from the script and
 breakdown in the request), so every page can be clicked through end to end."""
 
+import base64
 import html
 import io
 import itertools
@@ -402,6 +403,9 @@ class FakeMedia:
     def fetch(self, url: str) -> tuple[bytes, str]:
         job = self._jobs[url.removeprefix("fake://")]
         aspect = job.get("aspect_ratio", "9:16")
+        if job.get("isolate_stem"):  # Demucs's stand-in: the voice is the take's sound as given
+            kind, _, data = job["audio"].removeprefix("data:").partition(";base64,")
+            return base64.b64decode(data), kind
         if job["kind"] in ("video", "sound"):
             return mp4(aspect, int(job.get("duration", 5)), job["kind"] == "sound"), "video/mp4"
         if job["kind"] in ("speech", "voice"):

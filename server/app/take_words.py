@@ -11,7 +11,7 @@ from difflib import SequenceMatcher
 
 from sqlalchemy.orm import Session
 
-from app import item_checks, plans
+from app import item_checks, omni_talker, plans, talker_sound
 from app.models.brands import Brand
 from app.models.checks import ItemCheck
 from app.models.files import StoredFile
@@ -345,9 +345,10 @@ def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict], 
         db.add(row)
         db.flush()
     brand = db.get(Brand, project.brand_id)
+    talks = bool(lines) and omni_talker.on(db, project)  # its own sound measured (talker_sound)
     data = {"step": STEP, "item_check_id": row.id if row else None, "project_id": project.id,
             "video_key": db.get(StoredFile, file_id).key, "lines": lines, "prompt": prompt or "",
-            "actions": [s.get("action") or "" for s in shots], "watch": watch,
+            "actions": [s.get("action") or "" for s in shots], "watch": watch, "talker": talks,
             "brand": brand.name, "said_as": say(brand), "silent": silent}  # fmt: skip
     listen = Job(workspace_id=project.workspace_id, created_by_id=job.created_by_id, kind=KIND,
                  provider="local", input=data, project_id=project.id, brand_id=project.brand_id,
@@ -385,6 +386,8 @@ def save(db: Session, job: Job) -> None:
         _mute_voices(db, row)
     else:
         row.findings = compare(i["lines"], heard, i["brand"], i["said_as"], i["actions"])
+    if i.get("talker"):  # an Omni talker's piece: held words, fillers, doubles, moving about
+        row.findings += talker_sound.findings((job.output or {}).get("talker"), heard, i["lines"])
     row.status = "done"
     from app.take_approval import after_check
 

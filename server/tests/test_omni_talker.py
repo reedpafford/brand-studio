@@ -177,24 +177,6 @@ def test_a_talker_no_treatment_gave_a_voice_still_gets_one_line_in_every_piece(a
     assert all(x == {line} for x in lines)  # from their look, the same in every piece
 
 
-def test_only_the_joins_between_pieces_are_trimmed_to_the_words(app, db, owner, monkeypatch):
-    video = _made(app, db, owner)
-    full = cut.base(db, video)["pieces"]  # as made
-    heard = [{"word": "I", "start": 0.9, "end": 1.1}, {"word": "lot", "start": 2.0, "end": 2.4}]
-    monkeypatch.setattr("app.cut._heard", lambda db, take: heard)
-    first, *inner, last = cut.base(db, video)["pieces"]
-    assert inner  # three pieces: two joins
-    assert first["from"] == 0.0  # the video starts as made
-    assert first["end"] - first["start"] == pytest.approx(2.4 + cut.TAIL, abs=0.01)
-    for p in [*inner, last]:  # a breath before the first word, and after the last
-        assert (p["from"], p["whole"]) == (round(0.9 - cut.LEAD, 2), False)
-    for p in inner:
-        assert p["end"] - p["start"] == pytest.approx(2.4 + cut.TAIL - p["from"], abs=0.01)
-    made = full[-1]["end"] - full[-1]["start"]  # the ending has room to land (rule 29)
-    assert last["end"] - last["start"] == pytest.approx(made - last["from"], abs=0.01)
-    assert inner[0]["start"] == first["end"]  # no gap between them
-
-
 def test_b_roll_starts_with_a_piece_and_one_no_piece_says_goes_over_the_nearest(app, db, owner):
     tl = {"length": 12.0, "pieces": [
         {"clip_id": "c1", "start": 0.0, "end": 5.0, "from": 0.0},

@@ -226,6 +226,16 @@
    "offered": false,
    "price": {"unit": "call", "usd": {"any": 0.0061}, "gpu_usd_per_second": 0.000975},
    "price_source": "Replicate model page 2026-11-03: about $0.0061 a run (163 runs per $1) on an Nvidia L40S; billed by GPU time, $0.000975 a second (replicate.com/pricing), so the real cost is the run's predict_time at that rate"
+  },
+  {
+   "id": "demucs",
+   "name": "Demucs",
+   "kind": "sound",
+   "provider_model": "ryan5453/demucs",
+   "provider_version": "ff5ad47d2685b27c0f820ee134c4394140804f08fa755cb20c846459faa4b337",
+   "offered": false,
+   "price": {"unit": "call", "usd": {"any": 0.0045}, "gpu_usd_per_second": 0.0014},
+   "price_source": "Replicate model page 2026-11-09: about $0.0045 a run (222 runs per $1), typically within 4 s on an Nvidia A100; billed by GPU time, priced at the A100's $0.0014 a second (replicate.com/pricing, the one A100 it lists), so the real cost is the run's predict_time at that rate. One run an Omni talker piece separates its voice from its room (app/talker_sound.py)"
   }
  ]
 }

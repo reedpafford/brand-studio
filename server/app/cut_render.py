@@ -24,6 +24,7 @@ from app import (
     take_mute,
     take_sound,
     talker,
+    talker_sound,
     word_splice,
 )
 from app.models.clips import ClipTake, ProjectClip
@@ -70,7 +71,9 @@ def _source(db: Session, project: Project, take_id: int) -> dict:
                for i in (cut_in.inserts(db, project, row) if ours else []) if i.on]  # fmt: skip
     splices = word_splice.spliced(take)
     sound = take_sound.added(take)
+    voice = (take.made_with or {}).get(talker_sound.KEY)  # an Omni talker's, from its room
     return {"key": _key(db, take.file_id), "inserts": inserts, "planned": row.seconds,
+            "voice": _key(db, voice) if voice else None,
             "splices": splices,
             "from_keys": {str(s["from_take"]): _key(db, db.get(ClipTake, s["from_take"]).file_id)
                           for s in splices},
@@ -111,6 +114,12 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
            "host": None,
            "over": [{"key": _key(db, db.get(ClipTake, o["take_id"]).file_id), "start": o["start"],
                      "length": o["length"]} for o in laid_over(tl)]}  # fmt: skip
+    if tl.get("speed"):  # an Omni talker's: each take's voice evened, one room, faster
+        out["steady"] = True
+        for take_id, src in out["sources"].items():
+            src["even"] = True
+            if not src["voice"]:  # never separated (failed, or given up on): its own sound
+                log.info("cut of video %s: take %s plays its own sound", project.id, take_id)
     if talker.on(db, project):  # the talker's room carries the video
         out["takes"] = [TAKES if out["sources"][str(p["take_id"])]["sound"] else UNDER_TALKER
                         for p in tl["pieces"]]  # fmt: skip
@@ -127,6 +136,8 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
 def _prepare(src: dict, storage) -> tuple[bytes, bool]:
     """The take with what's laid over it; and whether anything was."""
     video = storage.get(src["key"])
+    if src.get("even"):  # an Omni talker's take: its voice alone, at the one speech loudness
+        video = talker_sound.even(video, storage.get(src["voice"]) if src["voice"] else None)
     cuts = [(screen_figures.draw(storage.get(i["key"]), i["figure"]), i["start"], i["end"])
             for i in src["inserts"]]  # fmt: skip
     video = cut_in.apply(video, cuts, src["planned"]) if cuts else video
@@ -183,7 +194,9 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     if r["host"]:
         hosts = [storage.get(k) for k in r["host"]["keys"]]
         data = host_layer.lay_over(data, hosts, r["host"]["spans"])
-    data = loud(data)  # every kind of cut, as loud as social video plays (E2E 233: -25 LUFS)
+    # every kind of cut, as loud as social video plays (E2E 233: -25 LUFS); an Omni talker's
+    # by one fixed gain, never loudnorm's dynamic mode, with its room and its speed
+    data = talker_sound.finish(data) if r.get("steady") else loud(data)
     progress(100)
     return data
 

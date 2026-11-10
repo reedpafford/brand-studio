@@ -96,7 +96,7 @@ def load():
 
 
 def main(path: str, words_prompt: str | None = None, study: bool = False,
-         sounds: bool = False, first: bool = False) -> None:  # fmt: skip
+         sounds: bool = False, first: bool = False, fillers: bool = False) -> None:  # fmt: skip
     start = time.monotonic()
     if first:  # `--speech-first`: a take planned to be silent
         found = speech(path)
@@ -111,9 +111,11 @@ def main(path: str, words_prompt: str | None = None, study: bool = False,
         return
     # No VAD: reels put music under every line, and VAD dropped 6 of the altar reel's 11 lines
     # `sounds`: whisper's non-speech tags ("(gasps)", "[breathing]") are kept, not suppressed.
+    # `fillers` (`--fillers`): primed to write "um"s and doubled words, which it otherwise drops
     start = time.monotonic()
+    primed = "Umm, uh, so... um," if fillers else None  # the playbook's filler prompt (§4)
     found, info = model.transcribe(
-        path, word_timestamps=True, vad_filter=False, initial_prompt=words_prompt or None,
+        path, word_timestamps=True, vad_filter=False, initial_prompt=words_prompt or primed,
         **({"suppress_tokens": []} if sounds else {}),
     )  # fmt: skip
     segments = list(found)  # the read itself happens here
@@ -139,4 +141,4 @@ def main(path: str, words_prompt: str | None = None, study: bool = False,
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[3] if sys.argv[2:3] == ["--words"] else None,
          study=sys.argv[2:3] == ["--study"], sounds=sys.argv[2:3] == ["--sounds"],
-         first="--speech-first" in sys.argv[3:])  # fmt: skip
+         first="--speech-first" in sys.argv[3:], fillers="--fillers" in sys.argv[3:])  # fmt: skip
