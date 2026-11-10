@@ -2,7 +2,7 @@ export { Badge, Dot, StepBars, type Tone } from "./Badge";
 export { Button, buttonClass, type ButtonProps, type Variant } from "./Button";
 export { Card, MediaCard } from "./Card";
 export { creditsLabel, creditsText, pressLabel, roundUp, wholeCredits, type Charge } from "./credits";
-export { Field, Select, TextArea } from "./Field";
+export { Field, Select, TextArea, textSize } from "./Field";
 export { Banner, EmptyState, Skeleton } from "./Feedback";
 export { StepPicker, Tabs, pillClass, pillStrip, type Step, type StepState, type Tab } from "./Nav";
 export { Dialog, Panel, Sheet, SidePanel } from "./Overlay";

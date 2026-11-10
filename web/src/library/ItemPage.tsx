@@ -4,7 +4,7 @@ import { Archive, ArrowLeft, Check, ChevronDown, Pencil, Upload } from "lucide-r
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, errorText, must } from "../api/client";
 import { fileUrl } from "../api/upload";
-import { Banner, Button, Menu, MenuItem } from "../components";
+import { Banner, Button, Field, Menu, MenuItem, textSize } from "../components";
 import { refreshJobs } from "../jobs/refresh";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
@@ -12,7 +12,7 @@ import { useRail } from "../useMedia";
 import { Picture } from "./Cards";
 import { ItemMore } from "./ItemMore";
 import { LibraryFrame } from "./LibraryFrame";
-import { SHEET_MODEL, lookFitNote } from "./sheets";
+import { SHEET_MODEL, SHEET_NOTE, lookFitNote } from "./sheets";
 import { useJobs } from "../clip/History";
 import { KINDS, PRODUCT_TYPE, cover, day, isKindSlug, upTo, useItems, videos, type Item, type KindSlug } from "./kinds";
 import { addPicture } from "./products";
@@ -138,6 +138,7 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
   const screens = useScreens(product ? brandId : 0);
   const shownPicture = product ? (item.pictures ?? []).find((p) => p.file_id === big) : undefined;
   const err = archive.error ?? draw.error ?? approve.error ?? restore.error ?? photo.error;
+  const size = textSize(changing ?? "", SHEET_NOTE); // counted, and past the most it waits, said plainly (never cut)
   const old = versions.filter((v) => v.file_id !== cover(item));
   const jobs = useJobs();
   const last = (jobs.data ?? []).filter((j) => j.step === "sheet" && j.library_item_id === item.id).sort((a, b) => b.id - a.id)[0];
@@ -213,12 +214,9 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
           </div>
           {changing !== null && (
             <div className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
-              <label className="text-sm">
-                What should change?
-                <input autoFocus value={changing} onChange={(e) => setChanging(e.target.value)} placeholder="“Navy polo, no hat, a little older”" className="mt-1 h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
-              </label>
+              <Field autoFocus label="What should change?" value={changing} counter={size.counter} error={size.error} onChange={(e) => setChanging(e.target.value)} placeholder="“Navy polo, no hat, a little older”" />
               <div className="flex gap-2">
-                <Button busy={draw.isPending} disabled={!changing.trim()} onClick={() => draw.mutate(changing.trim())}>
+                <Button busy={draw.isPending} disabled={!changing.trim() || size.over} onClick={() => draw.mutate(changing.trim())}>
                   Change it{changeCost && <>{" "}<span className="opacity-80">· {changeCost}</span></>}
                 </Button>
                 <Button variant="ghost" onClick={() => setChanging(null)}>Cancel</Button>
