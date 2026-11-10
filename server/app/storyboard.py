@@ -15,6 +15,7 @@ from app.advice import names, plain
 from app.cast_roles import bare, cast_roles, pick, plays, short, video_slots
 from app.cast_roles import ref as role_ref
 from app.catalogue import CatalogueModel, catalogue
+from app.claude import MOST_TOKENS
 from app.enhance import escape, project_context, project_screens, screen_name, wears
 from app.images import image_job_input, image_model_block
 from app.models.brands import Brand
@@ -183,9 +184,11 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     return out
 
 
-# The storyboard's answer room: one call writes every frame's still prompt, about 15k tokens
-# of answer for a 1,000-word script's 50-odd clips, plus the thinking (long scripts, 10 Nov)
-TOKENS = 64_000
+# The storyboard's answer room: one call writes every frame's still prompt, about 300 tokens
+# a frame, so a full-length song's 150-odd clips (or its shots, one still a shot) go past
+# 64k with the thinking: the model's most (Reed, 10 Nov: the stopgap). Only what is used is
+# charged.
+TOKENS = MOST_TOKENS
 
 
 def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: bool) -> dict:

@@ -290,7 +290,8 @@ def test_long_claude_jobs_never_hold_up_a_still(db, user):
 
 def test_deploy_gives_claude_stills_and_reel_prep_a_worker_each():
     """Each provider is taken by exactly one worker lane, and Claude's is its own. Each lets
-    its job in hand finish on a deploy (P1: the reel worker had Docker's default 10 s)."""
+    its job in hand finish on a deploy (P1: the reel worker had Docker's default 10 s), the
+    Claude worker for up to 30 minutes (a full-length song's shots stream for 20-30)."""
     import json
     import re
 
@@ -301,7 +302,10 @@ def test_deploy_gives_claude_stills_and_reel_prep_a_worker_each():
     taken = [p for lane in lanes for p in lane]
     assert sorted(taken) == ["claude", "fake", "heygen", "local", "replicate"]
     assert ["claude"] in lanes
-    assert compose.count("stop_grace_period: 10m") == len(lanes)
+    graces = re.findall(r"stop_grace_period: (\d+m)", compose)  # every lane has one, and
+    assert len(graces) == len(lanes) and graces.count("30m") == 1  # Claude's long shots: 30m
+    claude = compose[compose.index("claude-worker:") :].split("\n\n")[0]
+    assert "stop_grace_period: 30m" in claude
 
 
 def test_a_restart_asks_the_job_it_cut_off_mid_answer_again_once(db, user, caplog):

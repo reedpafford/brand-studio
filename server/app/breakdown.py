@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, object_session
 
 from app import guides, looks, narration, prompts, song_breakdown
 from app.catalogue import CatalogueModel, catalogue
+from app.claude import MOST_TOKENS
 from app.enhance import escape, escape_block, project_context, project_screens, screen_name
 from app.models.brands import Brand
 from app.models.breakdowns import BreakdownVersion
@@ -24,10 +25,11 @@ from app.prompts.schemas import Breakdown, SongBreakdown
 # A song's sung shots need lip-sync (Seedance 2.5), whatever the style. Every other kind follows
 # its style (dialogue, narrated; a Movie style on Omni comes later).
 LIP_SYNC_KINDS = ("song",)
-# A breakdown's answer room, its thinking included: it repeats every line with each shot's
-# details, about 20-25k tokens of answer for a 1,000-word script's 50-odd shots, plus the
-# thinking (long scripts, 10 Nov). Only what is used is charged.
-TOKENS = 64_000
+# A breakdown's answer room, its thinking included: the model's most. It repeats every line
+# with each shot's details, about 230 tokens a shot (294: 19 shots, 14.8k characters), so a
+# full-length song's 150-280 shots are 35-65k tokens of answer before the thinking (Reed, 10
+# Nov: the stopgap until shots are written scene by scene). Only what is used is charged.
+TOKENS = MOST_TOKENS
 
 
 def video_model(project: Project | None = None, look: str | None = None,
