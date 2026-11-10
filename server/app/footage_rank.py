@@ -8,11 +8,14 @@ list at most), then by the words a clip shares with the script, goal and name (B
 word-search score: a rare word both share counts most), its words being its description, file
 name and folder path (a folder's name, "Church" or "Campus", counts FOLDER times); with no
 words shared, the brand's product clips, then one clip from each folder in turn, never just
-the oldest. Clips that say animation are pushed down there. A near copy of a clip already
-chosen is left out. The same words give the same clips, so a video's <footage> stays put from
-step to step (its treatment isn't read: it is rewritten during a run). The director may find
-another clip by words (`find_footage`, when none listed fits a shot): those go first. Folder
-paths and the ranking are worked out once a transaction (`_cached`), not once a clip."""
+the oldest. Clips that say animation are pushed down there (and are never a real footage
+shot: `animated`). A competitor's clip is never given as the brand's (`usable`); it is named,
+as what never to show as ours, only to a script that compares (`rivals`). A near copy of a
+clip already chosen is left out. The same words give the same clips, so a video's <footage>
+stays put from step to step (its treatment isn't read: it is rewritten during a run). The
+director may find another clip by words (`find_footage`, when none listed fits a shot): those
+go first. Folder paths and the ranking are worked out once a transaction (`_cached`), not once
+a clip."""
 
 import math
 import re
@@ -35,8 +38,6 @@ SHOT = frozenset("wide close closeup medium shot angle drone aerial timelapse ti
                  "tilt zoom track handheld pov overhead static cu ws ms 4k hd broll b roll take "
                  "version alt".split())  # fmt: skip  # how it's filmed: not what it shows
 FOLDER = 2  # a folder name's words count this many times: "Church", "Campus", "PalaceGuard"
-DRAWN = frozenset({"animation", "animated", "cartoon", "graphic", "2d", "3d", "cgi", "render",
-                   "illustrated", "illustration", "anime"})  # fmt: skip
 REAL = ("ugc", "movie")  # the real-looking styles; every other is drawn
 STYLE = 0.3  # in a real-looking style, a clip that says animation loses this share of the best
 SAME, KIN = 0.8, 0.5  # alike past this (Jaccard of what it shows): a near copy; in one folder
@@ -64,6 +65,15 @@ def words(text: str) -> list[str]:
             w = w[:-1]
         out.append(w)
     return out
+
+
+DRAWN = frozenset(words("animation animated cartoon pixar graphic 2d 3d cgi render illustrated "
+                        "illustration anime"))  # fmt: skip  # stemmed, as words() reads
+ANIMATED = frozenset(words("animation animated pixar cartoon"))  # never a real footage shot
+OTHER = frozenset(words("other another cheap cheaper cheapest generic ordinary regular typical "
+                        "normal old knockoff"))  # fmt: skip  # "cheap alarms": it compares
+RIVAL = frozenset(words("competitor competition rival knockoff"))
+RIVALS = "Competitor products (never show as ours): "  # the one line a comparing script gets
 
 
 def _cached(db: Session, key: tuple, make):
@@ -185,13 +195,42 @@ def named(db: Session, project: Project, query: str) -> set[int]:
 
 
 def usable(db: Session, project: Project) -> list[MediaUpload]:
-    """The brand's described clips this video may be given: of no product or one of its
-    products now; in a drawn style, product clips only."""
+    """The brand's described clips this video may be given: its own (never a competitor's), of
+    no product or one of its products now; in a drawn style, product clips only."""
     from app.footage import live, products
 
     have, only = {p.id for p in products(db, project.brand_id)}, drawn(project)
-    return [r for r in live(db, project.brand_id) if r.description.strip()
+    return [r for r in live(db, project.brand_id) if r.description.strip() and not r.competitor
             and (r.product_id in have or r.product_id is None and not only)]  # fmt: skip
+
+
+def animated(db: Session, row: MediaUpload) -> bool:
+    """Its folder, file name or words say animation, Pixar or cartoon: never a real shot."""
+    return bool(ANIMATED.intersection(_texts(db, [row])[0]))
+
+
+def rivals(db: Session, project: Project, most: int = 3) -> str:
+    """One line of the competitor clips that best fit, in their words with no id (never a shot
+    or a reference), only when the script, goal or name talks about others: a competitor, or
+    "other", "cheap" or "old" before (within three words) a word those clips say ("other
+    alarms"). "" otherwise: they're left out."""
+    from app.enhance import escape
+    from app.footage import live
+    from app.routes.scripts import latest
+
+    rows = [r for r in live(db, project.brand_id) if r.competitor and r.description.strip()]
+    script = latest(db, project)
+    said = words(" ".join((script.text if script else "", project.goal or "", project.name or "")))
+    if not rows or not said:
+        return ""
+    docs = _texts(db, rows)
+    theirs = set().union(*docs) - SHOT - OTHER
+    near = any(w in OTHER and theirs.intersection(said[i + 1 : i + 4]) for i, w in enumerate(said))
+    if not (near or RIVAL.intersection(said)):
+        return ""
+    score = _bm25(docs, said)
+    best = sorted(range(len(rows)), key=lambda i: (-score[i], rows[i].id))[:most]
+    return RIVALS + "; ".join(escape(" ".join(rows[i].description.split()))[:160] for i in best)
 
 
 def fit(db: Session, project: Project, most: int) -> list[MediaUpload]:

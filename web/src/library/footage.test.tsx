@@ -71,3 +71,20 @@ test("Footage folders: a clip moves to another folder with Undo; a deleted folde
   await userEvent.click(screen.getByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /folders/2/restore")).toBe(true));
 });
+
+test("Footage: a competitor's clip wears a Competitor badge; the card's toggle marks one, with no product", async () => {
+  const theirs = { ...clip(13, "A cheap keychain alarm.", null, ""), competitor: true };
+  const calls = server({ "GET /brands/1/footage": [200, [...clips, theirs]], "PATCH /brands/1/footage/10": [200, { ...clips[0], competitor: true }] });
+  renderApp("/b/1/library/footage");
+  const card = (await screen.findByText("A cheap keychain alarm.")).closest("li")!;
+  expect(within(card).getByText("Competitor")).toBeInTheDocument();
+  expect(within(card).getByText("Never shown as the brand’s")).toBeInTheDocument();
+  const ours = screen.getByText("The alarm on a desk.").closest("li")!;
+  expect(within(ours).queryByText("Competitor")).not.toBeInTheDocument();
+  await userEvent.click(within(ours).getByRole("button", { name: "Edit" }));
+  expect(within(ours).getByRole("combobox", { name: /Product/ })).toBeInTheDocument();
+  await userEvent.click(within(ours).getByRole("checkbox", { name: /A competitor’s product/ }));
+  expect(within(ours).queryByRole("combobox", { name: /Product/ })).not.toBeInTheDocument();
+  await userEvent.click(within(ours).getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1/footage/10")?.body).toEqual({ description: "The alarm on a desk.", product_id: null, no_product: true, competitor: true }));
+});

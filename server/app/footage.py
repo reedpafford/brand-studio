@@ -9,7 +9,9 @@ speaks in may BE one of them, from its in point to its out point, instead of bei
 (`checked`): its take is cut from the clip on our server, free (`settle`), laid over or under
 the voice like any B-roll (cut.py), shown once in the video, never watched or remade. Rule 13
 (Reed, 9 Nov): it stops screenshots and stills being dropped onto the screen out of context;
-real B-roll footage used as a B-roll shot in UGC, within the story, is allowed."""
+real B-roll footage used as a B-roll shot in UGC, within the story, is allowed. A competitor's
+clip (Reed, 10 Nov: `competitor`) is never one of the brand's: never listed as its footage, a
+shot or a reference; a script that compares is told what never to show as ours."""
 
 import math
 import subprocess
@@ -18,7 +20,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import folders, looks
+from app import folders, footage_rank, looks
 from app.models.clips import ClipTake, ProjectClip
 from app.models.files import MediaUpload, StoredFile
 from app.models.jobs import Job, JobStatus
@@ -66,18 +68,15 @@ def ugc(project: Project) -> bool:
 
 def relevant(db: Session, project: Project) -> list[MediaUpload]:
     """The clips that fit this video best, at most MOST (footage_rank: free, in code)."""
-    from app import footage_rank
-
     return footage_rank.fit(db, project, MOST)
 
 
 def line(db: Session, row: MediaUpload) -> str:
     from app.enhance import escape  # a person's words never close the tag, nor pose as a line
-    from app.footage_rank import paths
 
     item = db.get(LibraryItem, row.product_id) if row.product_id else None
     of = f" | {escape(' '.join(item.name.split()))}" if item else ""
-    where = paths(db, row.brand_id).get(row.folder_id or 0)  # its folder often says what it is
+    where = footage_rank.paths(db, row.brand_id).get(row.folder_id or 0)  # says what it is
     of += f" | in {escape(where)}" if where else ""
     said = escape(" ".join(row.description.split()))
     return f"- {KEY}{row.id} | {row.seconds or 0:.1f} s{of} | {said}"
@@ -85,13 +84,14 @@ def line(db: Session, row: MediaUpload) -> str:
 
 def block(db: Session, project: Project, step: str) -> str:
     """The <footage> part of a step's system prompt: the clips that fit, one line each, then
-    what this step may do with them. "" when the step isn't told or there are none."""
-    from app import footage_rank
+    what this step may do with them; a script that compares, what never to show as ours
+    (footage_rank.rivals). "" when the step isn't told or there are none."""
     from app.breakdown import video_model
 
-    rows = relevant(db, project) if step in TOLD and project.id else []
+    told = step in TOLD and project.id
+    rows, theirs = (relevant(db, project), footage_rank.rivals(db, project)) if told else ([], "")
     if not rows:
-        return ""
+        return f"<footage>\n{theirs}\n</footage>" if theirs else ""
     what = ("of its products, filmed by the brand: how each product looks, moves and works"
             if footage_rank.drawn(project) else "that best fit this video, filmed by the "
             "brand: its products, places and people")  # fmt: skip
@@ -119,7 +119,7 @@ def block(db: Session, project: Project, step: str) -> str:
     if step == "director":
         lines.append("A shot whose `footage` is set is the brand's real clip: free, never "
                      "remade or watched. `find_footage` finds others by words.")  # fmt: skip
-    return "\n".join([*lines, "</footage>"])
+    return "\n".join([*lines, *([theirs] if theirs else []), "</footage>"])
 
 
 def frame_ids(db: Session, project: Project) -> list[int]:
@@ -161,8 +161,9 @@ def _talks(shot) -> bool:
 def checked(db: Session, project: Project, bd, timed: bool = False):
     """Each footage shot as it can be used (free, in code; each change said as Advice): only
     in UGC, only on a B-roll shot nobody speaks in that is a clip of its own, only a clip of the
-    brand's, each once in the video; its stretch kept inside the clip. It shows the real thing:
-    no cast sheet or screen goes with it. Not `timed`: the shot is as long as its stretch.
+    brand's (never a competitor's, nor one that says it's animated), each once in the video;
+    its stretch kept inside the clip. It shows the real thing: no cast sheet or screen goes with
+    it. Not `timed`: the shot is as long as its stretch.
     `timed` (a narration's or a song's clock sets the shot's seconds): the stretch is fitted to
     them, from its in point, moved back to stay inside the clip; a clip shorter than the shot
     is never held on a frozen frame: the shot is made instead (QA on #1513)."""
@@ -178,6 +179,8 @@ def checked(db: Session, project: Project, bd, timed: bool = False):
         why = (NOT_UGC if not ugc(project)
                else "someone speaks in it" if _talks(s)
                else "that clip isn't in the brand's footage" if use.id not in have
+               else "that clip is a competitor's product" if have[use.id].competitor
+               else "that clip is animated, not real" if footage_rank.animated(db, have[use.id])
                else f"{use.id} is already shown in this video" if use.id in seen
                else "it shares its clip with other shots" if clip and len(clip.shot_ids) > 1
                else f"the clip is {length:.1f} s, shorter than the shot's {s.seconds:.1f} s"
@@ -355,13 +358,15 @@ def frames(video: bytes) -> list[bytes]:
 
 def describe_input(db: Session, row: MediaUpload, brand) -> dict:
     """The AI description's call (prompts/footage_describe.md): the clip's frames, the brand's
-    products by name, its length, its folder and file name (they often say what it is)."""
+    products by name (none for a competitor's clip, said so), its length, its folder and file
+    name (they often say what it is)."""
     from app.enhance import escape
     from app.prompts import HERE
 
     names = "\n".join(p.name for p in products(db, row.brand_id)) or "(none)"
+    names, theirs = ("(none)", "<competitor>yes</competitor>\n") if row.competitor else (names, "")
     name = db.get(StoredFile, row.file_id).filename
-    prompt = (f"<brand>{brand.name}</brand>\n<products>\n{names}\n</products>\n"
+    prompt = (f"<brand>{brand.name}</brand>\n<products>\n{names}\n</products>\n{theirs}"
               f"<seconds>{row.seconds or 0:.1f}</seconds>\n"
               f"<folder>{escape(folders.path(db, row.live_folder_id))}</folder>\n"
               f"<file>{escape(name)}</file>")  # fmt: skip
@@ -372,7 +377,7 @@ def describe_input(db: Session, row: MediaUpload, brand) -> dict:
 
 def save_description(db: Session, job: Job) -> None:
     """The AI's words, unless the owner typed their own meanwhile; its product, when it
-    named one of the brand's and none was picked."""
+    named one of the brand's and none was picked (never on a competitor's clip)."""
     row = db.get(MediaUpload, job.input["media_upload_id"])
     if row is None or row.describe_job_id != job.id:
         return
@@ -381,7 +386,7 @@ def save_description(db: Session, job: Job) -> None:
     if not row.description.strip():
         row.description = (out.get("description") or "").strip()[:500]
     said = (out.get("product") or "").strip().lower()
-    if row.product_id is None and said:
+    if row.product_id is None and said and not row.competitor:
         row.product_id = next((p.id for p in products(db, row.brand_id)
                                if p.name.strip().lower() == said), None)  # fmt: skip
 
