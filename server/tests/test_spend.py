@@ -51,6 +51,17 @@ def test_each_brand_by_provider_voices_apart_and_list_price_marked(owner, editor
     summary = owner.get("/usage/summary", params={"period": "all"}).json()
     assert _parts(summary["providers"]) == _parts(row["providers"])
     assert summary["freestyle"]["spend_usd"] == 0 and summary["unassigned_providers"] == []
+    reed = next(
+        p
+        for p in owner.get("/usage/people", params={"period": "all"}).json()
+        if p["role"] == "owner"
+    )
+    assert reed["spend_usd"] == 8.48  # the same reading: the lost still at list price too
+    other = _job(db, me, "write-claude", "claude")  # no brand, sent, never reported back
+    other.provider_ref = "abc124"
+    db.commit()
+    summary = owner.get("/usage/summary", params={"period": "all"}).json()
+    assert summary["unassigned_estimated"] is True  # "Other" gets its ≈ too
     assert editor.get("/usage/summary").status_code == 404
 
 
@@ -65,18 +76,20 @@ def test_every_video_whole_life_by_kind_sorted_and_owner_only(owner, editor, db)
     _job(db, me, "write-claude", "claude", "0.30", project=launch, at=long_ago)
     _job(db, me, "video", "replicate", "3.00", "seedance-2.5", project=launch)
     _job(db, me, "image", "replicate", "0.10", "nano-banana-pro", project=launch)
+    _job(db, me, "check-claude", "claude", "0.02", project=launch, step="take_watch")
     _job(db, me, "speech", "replicate", "0.20", "minimax-speech-2.8-hd", project=other)
     _job(db, me, "video", "replicate", "9.00", "seedance-2.5", project=old, at=long_ago)
 
     month = owner.get("/usage/videos").json()
     assert [(v["title"], v["spend_usd"]) for v in month["items"]] == [
-        ("Launch", 3.4),
+        ("Launch", 3.42),
         ("Teaser", 0.2),
     ]  # whole life, most first; Old had nothing this month
     first = month["items"][0]
-    assert [k["name"] for k in first["kinds"]] == ["Claude's thinking", "Stills", "Takes"]
-    assert _parts(first["providers"]) == {"Replicate": (3.1, False), "Claude": (0.3, False)}
-    assert month["kinds"] == ["Claude's thinking", "Stills", "Takes", "Voice"]
+    names = ["Claude's thinking", "Stills", "Takes", "Checks and watches"]  # a take's watch
+    assert [k["name"] for k in first["kinds"]] == names
+    assert _parts(first["providers"]) == {"Replicate": (3.1, False), "Claude": (0.32, False)}
+    assert month["kinds"] == [*names, "Voice"]
     assert first["brand"] == "fomo"
     every = owner.get("/usage/videos", params={"period": "all", "sort": "title"}).json()
     assert [v["title"] for v in every["items"]] == ["Launch", "Old", "Teaser"]

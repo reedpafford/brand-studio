@@ -23,7 +23,7 @@ MAKERS = {"minimax": "MiniMax", "elevenlabs": "ElevenLabs"}
 KINDS = [  # (job kind starts with, what it made), in the order Usage lists them
     ("image", "Stills"),
     ("video", "Takes"),
-    ("watch", "Watching takes"),
+    ("watch", "Checks and watches"),
     ("speech", "Voice"),
     ("voice", "Voice"),
     ("narration", "Voice"),
@@ -31,7 +31,8 @@ KINDS = [  # (job kind starts with, what it made), in the order Usage lists them
     ("song", "Song and music"),
     ("sound", "Sound effects"),
 ]
-THINKING = "Claude's thinking"  # planning, writing, directing, reviews
+THINKING = "Claude's thinking"  # planning, writing, directing
+CHECKS = "Checks and watches"  # Claude's looks at stills, takes and the cut; Gemini's watches
 KIND_ORDER = [THINKING, *dict.fromkeys(name for _, name in KINDS), "Other"]
 
 
@@ -46,6 +47,8 @@ def provider_name(provider: str, model: str | None) -> str:
 
 
 def kind_name(provider: str, kind: str) -> str:
+    if kind == "check-claude":  # take_watch, still_review, watch_cut, item_checks
+        return CHECKS
     if provider.startswith("claude") or kind.endswith("-claude"):
         return THINKING
     return next((name for start, name in KINDS if kind.startswith(start)), "Other")
@@ -55,6 +58,7 @@ def kind_name(provider: str, kind: str) -> str:
 class Charge:
     project_id: int | None
     brand_id: int | None
+    by: int | None  # who asked for it
     at: datetime  # the job's own time
     provider: str
     kind: str
@@ -63,7 +67,8 @@ class Charge:
 
 
 def _charge(j, usd: Decimal, listed: bool) -> Charge:
-    return Charge(j.project_id, j.brand_id, j.created_at, provider_name(j.provider, j.model),
+    return Charge(j.project_id, j.brand_id, j.created_by_id, j.created_at,
+                  provider_name(j.provider, j.model),
                   kind_name(j.provider, j.kind), Decimal(usd), listed)  # fmt: skip
 
 
@@ -72,7 +77,8 @@ def charges(db: Session, *where, usage_at=(), job_at=()) -> tuple[list[Charge], 
     yet. `usage_at` picks Usage rows by their own time, `job_at` the jobs with none by theirs.
     Only columns are read, never a job's input (a turn's holds its whole prompt: video 240)."""
     model = Job.input["model"].as_string().label("model")
-    cols = (Job.project_id, Job.brand_id, Job.created_at, Job.provider, Job.kind, model)
+    cols = (Job.project_id, Job.brand_id, Job.created_by_id, Job.created_at, Job.provider,
+            Job.kind, model)  # fmt: skip
     rows = select(*cols, Usage.cost_usd, Usage.estimated).join(Usage, Usage.job_id == Job.id)
     out = [_charge(j, j.cost_usd, j.estimated) for j in db.execute(rows.where(*where, *usage_at))]
     sent = and_(Job.provider_ref.is_not(None), Job.provider_ref.not_like(f"{STAND_IN}%"),

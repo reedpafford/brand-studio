@@ -8239,6 +8239,11 @@ export interface components {
              * @default []
              */
             providers: components["schemas"]["Part"][];
+            /**
+             * Spend Estimated
+             * @default false
+             */
+            spend_estimated: boolean;
         };
         /** GenerateIn */
         GenerateIn: {
@@ -13052,6 +13057,11 @@ export interface components {
              * @default []
              */
             unassigned_providers: components["schemas"]["Part"][];
+            /**
+             * Unassigned Estimated
+             * @default false
+             */
+            unassigned_estimated: boolean;
         };
         /** UsageVideo */
         UsageVideo: {

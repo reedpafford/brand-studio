@@ -14,7 +14,7 @@ from sqlalchemy import and_, func, select, true
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import folders, usage
+from app import folders, spend, usage
 from app import script_library as lib
 from app.auth import current_user
 from app.db import get_db, utcnow
@@ -93,6 +93,7 @@ class FreestyleUsage(BaseModel):
     spend_usd: float
     videos: int  # finished in the period, plus being made now
     providers: list[Part] = []
+    spend_estimated: bool = False  # some of it at list price
 
 
 class UsageSummaryOut(BaseModel):
@@ -112,6 +113,7 @@ class UsageSummaryOut(BaseModel):
     freestyle: FreestyleUsage  # "Freestyle (no brand picked)": its own row
     providers: list[Part] = []  # every charge in the period, by provider (Reed, 9 Nov)
     unassigned_providers: list[Part] = []  # "Other (no brand or video)", by provider
+    unassigned_estimated: bool = False  # some of "Other" at list price
 
 
 class UsageBrandRow(BaseModel):
@@ -206,6 +208,7 @@ def summary(
             spend_usd=usage.money(freestyle.usd),
             videos=_freestyle_videos(db, free, now),
             providers=parts(freestyle.providers),
+            spend_estimated=bool(freestyle.listed),
         ),
         period=period,
         starts_at=now.start,
@@ -220,6 +223,7 @@ def summary(
         director_spend_usd=usage.money(usage.director_spend(db, owner.workspace_id, now)),
         providers=parts(every.providers),
         unassigned_providers=parts(other.providers),
+        unassigned_estimated=bool(other.listed),
     )
 
 
@@ -317,10 +321,10 @@ def people(period: PeriodName = "week", month: Month = None,
     jobs = (Job.workspace_id == ws, Job.status.in_(COUNTED), *when.has(Job.created_at))
     credits = dict(db.execute(select(Job.created_by_id, func.sum(Job.credits)).where(*jobs)
                               .group_by(Job.created_by_id)).all())  # fmt: skip
-    dollars = dict(db.execute(select(Job.created_by_id, func.sum(Usage.cost_usd))
-                              .join(Usage, Usage.job_id == Job.id)
-                              .where(Usage.workspace_id == ws, *when.has(Usage.created_at))
-                              .group_by(Job.created_by_id)).all())  # fmt: skip
+    dollars: dict = {}  # as every other figure reads them (`spend.charges`)
+    for c in spend.charges(db, Job.workspace_id == ws, usage_at=when.has(Usage.created_at),
+                           job_at=when.has(Job.created_at))[0]:  # fmt: skip
+        dollars[c.by] = dollars.get(c.by, Decimal(0)) + c.usd
     videos = dict(db.execute(select(Project.created_by_id, func.count()).where(
         Project.workspace_id == ws, Project.finished_at.is_not(None),
         *when.has(Project.finished_at)).group_by(Project.created_by_id)).all())  # fmt: skip

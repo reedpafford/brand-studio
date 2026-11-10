@@ -49,8 +49,8 @@ export function UsagePage() {
   const items = rows.data?.pages.flatMap((p) => p.items) ?? [];
   const f = summary.data;
   const extra: Extra[] = [
-    ...(f?.freestyle && (f.freestyle.credits > 0 || f.freestyle.spend_usd > 0 || f.freestyle.videos > 0) ? [{ name: "Freestyle", note: "(no brand picked)", spend_usd: f.freestyle.spend_usd, providers: f.freestyle.providers ?? [], videos: f.freestyle.videos }] : []),
-    ...(f && (f.unassigned_credits > 0 || f.unassigned_spend_usd > 0) ? [{ name: "Other", note: "(no brand or video)", spend_usd: f.unassigned_spend_usd, providers: f.unassigned_providers ?? [], videos: null }] : []),
+    ...(f?.freestyle && (f.freestyle.credits > 0 || f.freestyle.spend_usd > 0 || f.freestyle.videos > 0) ? [{ name: "Freestyle", note: "(no brand picked)", spend_usd: f.freestyle.spend_usd, estimated: !!f.freestyle.spend_estimated, providers: f.freestyle.providers ?? [], videos: f.freestyle.videos }] : []),
+    ...(f && (f.unassigned_credits > 0 || f.unassigned_spend_usd > 0) ? [{ name: "Other", note: "(no brand or video)", spend_usd: f.unassigned_spend_usd, estimated: !!f.unassigned_estimated, providers: f.unassigned_providers ?? [], videos: null }] : []),
   ];
   const services = (f?.providers ?? []).map((p) => p.name); // the period's services, most spent first: the columns
 
@@ -153,7 +153,7 @@ function People({ query, words }: { query: { period?: Period; month?: string }; 
   );
 }
 
-type Extra = { name: string; note: string; spend_usd: number; providers: Part[]; videos: number | null };
+type Extra = { name: string; note: string; spend_usd: number; estimated: boolean; providers: Part[]; videos: number | null };
 
 /** "$4.00" for a service's part of a row, "≈ $4.00" when some is at list price, "—" for none. */
 function Cell({ parts, name }: { parts: Part[]; name: string }) {
@@ -193,7 +193,7 @@ function BrandTable({ items, extra, services, rail, onRestore }: { items: BrandR
         {extra.map((x) => (
           <li key={x.name} className="space-y-1 rounded-lg border border-border bg-surface p-4">
             <span className="block font-medium">{x.name} <span className="font-normal text-muted">{x.note}</span></span>
-            <span className="block text-lg font-semibold tabular-nums">{money(x.spend_usd)} <span className="text-sm font-normal text-muted">spent{x.videos !== null && ` · ${videos(x.videos)}`}</span></span>
+            <span className="block text-lg font-semibold tabular-nums"><Money value={x.spend_usd} estimated={x.estimated} /> <span className="text-sm font-normal text-muted">spent{x.videos !== null && ` · ${videos(x.videos)}`}</span></span>
             {x.providers.length > 0 && <span className="block text-sm tabular-nums text-muted">{line(x.providers)}</span>}
           </li>
         ))}
@@ -235,7 +235,7 @@ function BrandTable({ items, extra, services, rail, onRestore }: { items: BrandR
           {extra.map((x) => (
             <tr key={x.name} className="text-right">
               <th scope="row" className="px-4 py-3 text-left font-medium">{x.name} <span className="font-normal text-muted">{x.note}</span></th>
-              <td className="px-3 py-3 font-medium">{money(x.spend_usd)}</td>
+              <td className="px-3 py-3 font-medium"><Money value={x.spend_usd} estimated={x.estimated} /></td>
               {services.map((s) => (
                 <td key={s} className="px-3 py-3 text-muted"><Cell parts={x.providers} name={s} /></td>
               ))}

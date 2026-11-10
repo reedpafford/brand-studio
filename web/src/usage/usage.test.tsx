@@ -27,7 +27,7 @@ test("Usage (Reed, 9 Nov): three cards for the month in dollars, and By brand re
   setViewport(1440);
   const calls = fakeServer({
     ...base,
-    "GET /usage/summary": [200, summary],
+    "GET /usage/summary": [200, { ...summary, unassigned_estimated: true }],
     "GET /usage/brands": [200, brands([row(), row({ brand_id: 2, name: "fomo", spend_usd: 30.62, spend_estimated: true, credits: 284.2, videos: 3, providers: [{ name: "Replicate", usd: 20, estimated: true }, { name: "MiniMax", usd: 4, estimated: false }] })])],
   });
   open();
@@ -46,7 +46,7 @@ test("Usage (Reed, 9 Nov): three cards for the month in dollars, and By brand re
   expect(fs).toHaveTextContent("(no brand picked)");
   expect(fs).toHaveTextContent("$3.40—$3.40—2");
   const other = within(table).getByText("Other").closest("tr")!; // Next-Lead: the rows add up to the month's spend
-  expect(other).toHaveTextContent("(no brand or video)$1.20—$1.20——");
+  expect(other).toHaveTextContent("(no brand or video)≈ $1.20—$1.20——");
   expect(calls.find((c) => c.key === "GET /usage/summary")?.url).toContain("period=month");
   expect(calls.find((c) => c.key === "GET /usage/brands")?.url).toContain("period=month");
 });

@@ -115,14 +115,11 @@ def figures(db: Session, workspace_id: int, when: Period) -> Figures:
         .where(Project.id.in_(done))
         .group_by(Project.brand_id),
     )
-    finished_spend = _grouped(  # those videos' whole life, every take and redo
-        db,
-        select(Project.brand_id, func.sum(Usage.cost_usd))
-        .join(Job, Job.id == Usage.job_id)
-        .join(Project, Project.id == Job.project_id)
-        .where(Project.id.in_(done))
-        .group_by(Project.brand_id),
-    )
+    finished_spend: dict = {}  # those videos' whole life, every take and redo
+    brand_of = _grouped(db, select(Project.id, Project.brand_id).where(Project.id.in_(done)))
+    for c in spend.charges(db, Job.project_id.in_(brand_of))[0] if brand_of else []:
+        b = brand_of[c.project_id]
+        finished_spend[b] = finished_spend.get(b, Decimal(0)) + c.usd
     in_progress = _grouped(
         db,
         select(Project.brand_id, func.count())
