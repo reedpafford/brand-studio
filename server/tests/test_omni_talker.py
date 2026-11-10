@@ -32,7 +32,7 @@ from app.models.freestyles import Freestyle
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
-from app.prompts.schemas import Breakdown
+from app.prompts.schemas import Breakdown, ClipPrompt
 from app.providers.fake_local import mp4
 from app.routes import estimate
 from tests.conftest import first_brand
@@ -249,9 +249,8 @@ def test_the_estimate_prices_the_talker_on_omni_not_heygen_and_a_voice_track(
     assert host.run_price(db, draft, said, video) == 0 and omni < 10_000  # no HeyGen, no voice
     video.presenter = "corner"
     assert host.run_price(db, draft, said, video) > 0  # the corner's HeyGen take
-    words = 75  # at most at a slow line's pace, plus 1 s a piece (Reed, 9 Nov)
-    assert estimate.quoted_seconds(db, draft, video) == talks - omni_talker.most_seconds(words, 15)
-    assert omni_talker.most_seconds(words, 15) == math.ceil(words / 2.1 + 3) > said
+    pieces = omni_talker.most_seconds(draft.text, m.duration.min)  # at most (Reed, 9 Nov)
+    assert estimate.quoted_seconds(db, draft, video) == talks - pieces and pieces > said
     assert estimate.run_price(db, draft, video) > 10_000  # and our voice track
 
 
@@ -307,6 +306,32 @@ def test_a_talker_piece_ends_only_where_a_sentence_ends():
     _, found = plans.shots_checked(talker, cut_short.model_dump())
     assert ("clip c1: the talker's piece stops mid-sentence (“…Small trades on fomo,”); end "
             "each piece where a sentence ends, never at a comma") in found  # fmt: skip
+
+
+def test_the_quote_before_a_plan_is_never_below_what_its_pieces_are_sized_to():
+    """Rule 36 (QA on #1511): each sentence a piece at most, at a slow line's pace + 1 s, 3 s
+    at least: six 20-word sentences make 66 s, ten 4-word pieces 30 s."""
+    for n, words, most in ((6, 20, 66), (10, 4, 30)):
+        said = [" ".join(["word"] * words) + "." for _ in range(n)]
+        sized, _ = omni_talker.pieces(_pieces(*[(x, 15.0) for x in said]), "", 3, 15)
+        assert sum(c.seconds for c in sized.clips) == most
+        assert omni_talker.most_seconds("\n".join(said), 3) == most
+
+
+def test_a_filler_is_sent_back_only_on_a_talkers_piece(db, owner):
+    """Reed, 9 Nov: "Scripts words are final" is for the talker's prompts: elsewhere a quoted
+    "OK" (a button) or a sound the story motivates is fine (QA on #1511)."""
+    video = _video(db, owner)
+    bd = _pieces(("Then he showed me the balance.", 4.0))
+    said = 'Marcus (in English, flat): "Then he showed me the balance." "…Okay."'
+    clip = ClipPrompt(clip_id="c1", seconds=4, references=[], prompt=said)
+
+    def padded():
+        return any("never a filler" in p for p in clip_prompts.clip_problems(db, video, bd, clip))
+
+    assert omni_talker.on(db, video) and padded()
+    video.presenter = "corner"  # a HeyGen talker: no Omni pieces
+    assert not omni_talker.on(db, video) and not padded()
 
 
 def test_each_talker_piece_is_sized_to_its_words():

@@ -726,6 +726,10 @@ def clip_problems(db: Session, project: Project, bd: Breakdown, clip: ClipPrompt
     problems = check.clip_prompts(
         bd, ClipPrompts(clips=[clip]), m.max_reference_images, m.max_reference_audios
     )
+    from app import omni_talker
+
+    if omni_talker.on(db, project):  # its pieces say the script's words, no filler (Reed, 9 Nov)
+        problems += check.padded(bd, clip)
     for c in _cast(bd, clip.clip_id, pics):
         if c in pics and pics[c][1]:
             continue

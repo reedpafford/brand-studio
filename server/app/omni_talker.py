@@ -107,8 +107,8 @@ PIECE = ("{who} is the presenter and talks straight to camera, filling the frame
          "A piece ends only where one of the script's sentences ends, never mid-sentence or at a "
          "comma: a piece cut on a comma ends on a falling tone and the join is heard. Size each "
          "piece to its words: about 2.6 words a second (2.1 for a slow, heavy line) plus about "
-         "1 s, so 24 words make about 10 s. Their words are the script's and nothing more: never "
-         "a filler (\"Okay.\", \"um\") to pad a short piece.\n"
+         "1 s, so 24 words make about 11-13 s. Their words are the script's and nothing more: "
+         "never a filler (\"Okay.\", \"um\") to pad a short piece.\n"
          "B-roll is cut in over their voice, never between their pieces: a B-roll shot shows "
          "what a line says, names that line in `script_lines`, and has no `line` or `speaker` "
          "(nobody speaks in it: their voice runs on under it). A talker clip's B-roll shots "
@@ -201,11 +201,15 @@ def pieces(bd, script: str, least: int, most: int):
     return bd, found
 
 
-def most_seconds(words: int, most: int) -> int:
-    """The talker's pieces at the most they're sized to (rule 36's "up to"): every word at a
-    slow line's pace, plus ROOM for each piece of up to `most` s."""
-    said = words / SLOW
-    return math.ceil(said + ROOM * math.ceil(said / (most - ROOM)))
+def most_seconds(script: str, least: int) -> int:
+    """The talker's pieces at the most `pieces` sizes them, before a plan (rule 36's "up to"):
+    each of the script's sentences a piece of its own at a slow line's pace plus ROOM, never
+    under the model's `least` s. A piece of several sentences never costs more than them."""
+    from app.breakdown_fix import _sentences
+    from app.prompts.check import narration_text
+
+    said = [x for line in narration_text(script).splitlines() for x in _sentences(line)]
+    return sum(max(least, math.ceil(len(x.split()) / SLOW + ROOM - 0.01)) for x in said)
 
 
 def cutaways(db: Session, project: Project,
