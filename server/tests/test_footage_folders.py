@@ -5,13 +5,18 @@ and in total; the director reads each clip's folder. Stand-ins only."""
 
 from decimal import Decimal
 
+from sqlalchemy import false
+
 from app import folders, footage
 from app.enhance import project_context
-from app.models.files import MediaUpload
+from app.models.accounts import User
+from app.models.files import MediaUpload, StoredFile
+from app.models.folders import Folder
 from app.models.jobs import Job, Usage
 from tests.conftest import file_into, first_brand, run_writer
 from tests.helpers import product
 from tests.test_footage import _add
+from tests.test_new_video import BODY
 from tests.test_omni_talker import _video
 
 
@@ -87,3 +92,41 @@ def test_the_ai_reads_the_folder_and_file_name_and_its_cost_is_totalled(app, db,
     later = owner.get(f"/brands/{brand}/footage/spend?since=2999-01-01T00:00:00Z").json()
     assert later == {"usd": 0, "clips": []}
     assert editor.get(f"/brands/{brand}/footage/spend").status_code == 403  # dollars: owner only
+
+
+def test_two_uploads_making_one_folder_path_at_once_make_it_once(app, db, owner, monkeypatch):
+    brand = first_brand(owner)
+    me = db.query(User).filter_by(role="owner").one()
+    first = folders.made(db, me, brand, "Product shots/Close-ups")
+    db.commit()
+    real = folders._beside
+    looked: set[str] = set()
+
+    def late(brand_id, parent_id, footage, name):  # looked before the first upload committed
+        query = real(brand_id, parent_id, footage, name)
+        return query if name in looked or looked.add(name) else query.where(false())
+
+    monkeypatch.setattr(folders, "_beside", late)
+    with app.state.sessionmaker() as other:  # a second upload's own session
+        again = folders.made(other, other.get(User, me.id), brand, "product shots/Close-ups")
+        other.commit()
+    assert again == first and looked == {"product shots", "Close-ups"}
+    assert db.query(Folder).filter_by(footage=True).count() == 2
+
+
+def test_footage_folder_names_are_one_line_one_form_and_never_dots(db, owner):
+    brand = first_brand(owner)
+    mac = _add(owner, brand, folder="Café | shots\nB-roll", description="Cup.").json()
+    assert mac["folder"] == "Café shots B-roll"  # one line, no "|", the composed é
+    same = _add(owner, brand, folder="Café shots B-roll", description="Cup.").json()
+    assert same["folder_id"] == mac["folder_id"]
+    for name in ("..", "a/./b"):
+        assert _add(owner, brand, folder=name).json()["detail"] == folders.DOTS
+    no = owner.post(f"/brands/{brand}/folders", json={"name": ".", "footage": True})
+    assert (no.status_code, no.json()["detail"]) == (422, folders.DOTS)
+    files = db.query(StoredFile).count()
+    assert _add(owner, brand, product="Nope").status_code == 422
+    assert db.query(StoredFile).count() == files  # refused before the file was stored
+    video = {**BODY, "brand_id": brand, "folder_id": mac["folder_id"]}
+    wrong = owner.post("/freestyles", json=video)  # a video never goes in a footage folder
+    assert (wrong.status_code, wrong.json()["detail"]) == (422, folders.OTHER_TREE)

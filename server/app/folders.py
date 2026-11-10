@@ -7,10 +7,12 @@ with the folders inside it; their items read as Unsorted until it's back. The br
 (Reed, 10 Nov) has a tree of its own: anyone files any clip of it, a folder path is made as a
 clip is added (`made`), and a deleted folder's clips read as one level up."""
 
+import unicodedata
 from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import utcnow
@@ -31,6 +33,8 @@ OTHER_BRAND = "That folder is for another brand."
 PICK = "Pick a folder, or Unsorted."
 VIDEO_JOB = "That's part of a video, so it's filed with the video."
 OTHER_TREE = "Footage has folders of its own, apart from the videos'."
+DOTS = "A folder can't be called . or .."
+NAMELESS = "Give it a name."
 INSIDE_ITSELF = "A folder can't go inside itself or a folder inside it."
 OTHERS_INSIDE = "Someone else made a folder inside it, so only the owner can delete it."
 
@@ -65,16 +69,33 @@ def below(rows: list[Folder], folder_id: int) -> set[int]:
     return out
 
 
+def clean(name: str) -> str:
+    """A footage folder's name as kept: one line with no "|" (the director reads it in a line
+    of its own), in one Unicode form (a Mac's "é" is the same folder), up to 120 characters,
+    never "." or ".."."""
+    name = " ".join(unicodedata.normalize("NFC", name).replace("|", " ").split())[:120].strip()
+    if name in (".", ".."):
+        raise HTTPException(422, DOTS)
+    return name
+
+
+def _beside(brand_id: int, parent_id: int | None, footage: bool, name: str):
+    """The live folders called `name`, whatever the case, in that place of that tree."""
+    return select(Folder).where(Folder.brand_id == brand_id,
+                                Folder.parent_id.is_(None) if parent_id is None
+                                else Folder.parent_id == parent_id,
+                                Folder.deleted_at.is_(None), Folder.footage == footage,
+                                func.lower(Folder.name) == name.lower())  # fmt: skip
+
+
 def check_name(db: Session, folder: Folder, name: str) -> str:
     """A live folder's name is the only one among the folders beside it (in code: a deleted
     one never blocks)."""
-    name = name.strip()
-    same = select(Folder.id).where(Folder.brand_id == folder.brand_id,
-                                   Folder.parent_id.is_(None) if folder.parent_id is None
-                                   else Folder.parent_id == folder.parent_id,
-                                   Folder.deleted_at.is_(None), Folder.footage == folder.footage,
-                                   func.lower(Folder.name) == name.lower())  # fmt: skip
-    if any(i != folder.id for i in db.scalars(same)):
+    name = clean(name) if folder.footage else name.strip()
+    if not name:
+        raise HTTPException(422, NAMELESS)
+    same = db.scalars(_beside(folder.brand_id, folder.parent_id, folder.footage, name))
+    if any(f.id != folder.id for f in same):
         raise HTTPException(409, TAKEN.format(name))
     return name
 
@@ -102,16 +123,20 @@ def place(db: Session, user: User, folder: Folder, parent_id: int | None) -> Non
 
 def made(db: Session, user: User, brand_id: int, path: str) -> int | None:
     """The footage folder at `path` ("Product shots/Close-ups"), each missing one made (a bulk
-    upload mirrors a Drive tree, one call a file); "": the top."""
+    upload mirrors a Drive tree, one call a file); "": the top. Uploads sent at once make a
+    folder once: the one that loses the race to its unique index uses the winner's."""
     parent = None
-    for name in filter(None, (n.strip()[:120] for n in path.split("/"))):
-        here = (f for f in live(db, brand_id, footage=True) if f.parent_id == parent)
-        found = next((f for f in here if f.name.lower() == name.lower()), None)
+    for name in filter(None, (clean(n) for n in path.split("/"))):
+        found = db.scalars(_beside(brand_id, parent, True, name)).first()
         if found is None:
-            found = Folder(workspace_id=user.workspace_id, brand_id=brand_id, footage=True,
-                           created_by_id=user.id, parent_id=parent, name=name)  # fmt: skip
-            db.add(found)
-            db.flush()
+            try:
+                with db.begin_nested():
+                    found = Folder(workspace_id=user.workspace_id, brand_id=brand_id,
+                                   footage=True, created_by_id=user.id, parent_id=parent,
+                                   name=name)  # fmt: skip
+                    db.add(found)
+            except IntegrityError:  # another upload made it just now
+                found = db.scalars(_beside(brand_id, parent, True, name)).one()
         parent = found.id
     return parent
 

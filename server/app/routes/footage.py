@@ -154,10 +154,12 @@ def add_footage(
     folder. Its two frames are kept (its thumbnail, and what the AI and the director see);
     with no words, the AI describes it, unless `ai_describe` is off (a bulk upload that writes
     its own words)."""
+    get_brand(db, user, brand_id)
+    product_id = _product(db, brand_id, product_id, product)  # both before the file is stored
+    folder_id = folders.made(db, user, brand_id, folder)
     row, data = store(db, user, brand_id, upload, request, clip=True)
     row.footage, row.description = True, description.strip()[:WORDS]
-    row.product_id = _product(db, brand_id, product_id, product)
-    row.folder_id = folders.made(db, user, brand_id, folder)
+    row.product_id, row.folder_id = product_id, folder_id
     ids = []
     for n, jpeg in enumerate(footage.frames(data)):
         key = f"{user.workspace_id}/{uuid.uuid4().hex}"

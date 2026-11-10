@@ -8,7 +8,7 @@ a clip in a deleted footage folder reads as one level up, until Undo puts it bac
 
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, Index, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column, object_session
 
 from app.db import Base, Entity
@@ -23,6 +23,14 @@ class Folder(Entity, Base):
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     deleted_at: Mapped[datetime | None]
     footage: Mapped[bool] = mapped_column(default=False)  # a folder of the brand's footage
+
+
+# One live footage folder of a name in its place, whatever the case: two uploads making the
+# same folder path at once make it once (app.folders.made; QA on #1514).
+LIVE_FOOTAGE = text("footage AND deleted_at IS NULL")
+Index("uq_folders_footage_name", Folder.brand_id, func.coalesce(Folder.parent_id, 0),
+      func.lower(Folder.name), unique=True, sqlite_where=LIVE_FOOTAGE,
+      postgresql_where=LIVE_FOOTAGE)  # fmt: skip
 
 
 class Filed:

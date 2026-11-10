@@ -409,8 +409,12 @@ def _check(db: Session, user: User, request: Request, type: str, look: str,
         get_brand(db, user, brand_id)
     elif type != ONE_CLIP:
         raise HTTPException(422, NO_BRAND)
-    if folder_id is not None and folders.get(db, user, folder_id).brand_id != brand_id:
-        raise HTTPException(422, OTHER_BRAND)
+    if folder_id is not None:
+        folder = folders.get(db, user, folder_id)
+        if folder.brand_id != brand_id:
+            raise HTTPException(422, OTHER_BRAND)
+        if folder.footage:  # a video is never filed with the footage
+            raise HTTPException(422, folders.OTHER_TREE)
 
 
 def _get(db: Session, user: User, freestyle_id: int) -> Freestyle:
