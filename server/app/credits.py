@@ -81,10 +81,13 @@ def estimate(
     model = get_model((input or {}).get("model", ""))
     if model:
         resolution, edit = (input.get("input") or {}).get("resolution"), bool(input.get("edit"))
+        sent = input.get("files") or {}  # a reference video with it: the dearer rate, if any
+        video = bool(input.get("video_in") or sent.get("reference_videos"))
         try:  # an edit of a take (Omni's `video`) at its own price
-            return Decimal(units) * model.credits_per_unit(resolution, edit)
+            return Decimal(units) * model.credits_per_unit(resolution, edit, video)
         except ValueError:  # resolution left to the model: assume the dearest
-            return Decimal(units) * max(model.credits_per_unit(r, edit) for r in model.price.usd)
+            return Decimal(units) * max(model.credits_per_unit(r, edit, video)
+                                        for r in model.price.usd)  # fmt: skip
     rate = get_rate(db, workspace_id, kind)
     if not rate:
         log.warning("No credit rate for %s; estimating %s credit per unit.", kind, FALLBACK_RATE)
@@ -108,7 +111,10 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     from app.storyboard import image_model, still_credits
 
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
-    stills = clips - len(one_frame.shared(db, video, bd.model_dump()) if bd else {})
+    from app.footage import uses
+
+    real = uses(bd.model_dump()) if bd else {}  # cut from the brand's real clips: free
+    stills = clips - len(one_frame.shared(db, video, bd.model_dump()) if bd else {}) - len(real)
     calls = int(breakdown) + 1 + clip_prompts.priced(clips)
     claude = estimate(db, ws, "write-claude", Decimal(1)) * calls
     m = video_model(video, look, kind)

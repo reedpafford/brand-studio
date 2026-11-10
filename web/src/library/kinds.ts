@@ -16,7 +16,7 @@ export const KINDS = {
 export type KindSlug = keyof typeof KINDS;
 export const isKindSlug = (s: string | undefined): s is KindSlug => !!s && s in KINDS;
 export const slugOf = (kind: Kind): KindSlug => (kind === "character" ? "characters" : kind === "place" ? "places" : "products");
-export type TabSlug = KindSlug | "presenters" | "kit";
+export type TabSlug = KindSlug | "footage" | "presenters" | "kit";
 
 /** A brand's saved items of one kind (the archive instead with `archived`). */
 export function itemsQuery(kind: Kind, brandId: number, archived = false) {

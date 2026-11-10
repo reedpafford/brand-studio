@@ -203,7 +203,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         parts.append(told.rstrip())
     if take:
         parts.append(escape_block(prompts.song_block(take.timing or {})))
-    return {
+    data = {
         "step": step,
         **({"song_take_id": take.id} if take else {}),
         **(
@@ -226,6 +226,9 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         "prompt": "\n".join(parts),
         "max_tokens": 32000,
     }
+    from app import footage
+
+    return footage.with_frames(db, project, data)  # a frame of each real clip that fits
 
 
 def problems(
@@ -401,7 +404,11 @@ def land(
     bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
     bd, shown = cta_screen(db, project, bd)  # the end line's shot shows the brand's screen
     bd, bags = product_shots(db, project, bd)  # a shot that shows the product attaches it
-    return bd, notes + removed + shown + bags
+    from app import footage
+
+    timed = song_breakdown.take_for(db, project) is not None  # its clock sets each shot's length
+    bd, real = footage.checked(db, project, bd, timed)  # UGC's real B-roll shots, as they can be
+    return bd, notes + removed + shown + bags + real
 
 
 def products_of(db: Session, project: Project) -> list[dict]:

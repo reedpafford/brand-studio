@@ -21,8 +21,8 @@
    "first_frame": true,
    "last_frame": true,
    "audio": "switch",
-   "price": {"unit": "second", "usd": {"480p": 0.1028, "720p": 0.2313}},
-   "price_source": "Producer decision 2026-10-23 (480p $0.1028/s; 720p = 2.25 credits/s)"
+   "price": {"unit": "second", "usd": {"480p": 0.1028, "720p": 0.2313}, "with_video": {"480p": 0.1285, "720p": 0.2827}},
+   "price_source": "Producer decision 2026-10-23 (480p $0.1028/s; 720p = 2.25 credits/s). With a reference video (a brand's real footage, 9 Nov): Replicate's page doesn't print 2.5's rate, so it's raised as Seedance 2.0's table raises it (480p 0.10/0.08, 720p 0.22/0.18) until a real bill says otherwise"
   },
   {
    "id": "seedance-2.0",
@@ -44,7 +44,7 @@
    "first_frame": true,
    "last_frame": true,
    "audio": "switch",
-   "price": {"unit": "second", "usd": {"480p": 0.08, "720p": 0.18, "1080p": 0.45, "4k": 1.0}},
+   "price": {"unit": "second", "usd": {"480p": 0.08, "720p": 0.18, "1080p": 0.45, "4k": 1.0}, "with_video": {"480p": 0.10, "720p": 0.22, "1080p": 0.55, "4k": 1.25}},
    "price_source": "replicate.com/bytedance/seedance-2.0 billing table, read 2026-11-03: no video input $0.08/s 480p, $0.18 720p, $0.45 1080p, $1.00 4k (a video reference input costs $0.10/$0.22/$0.55/$1.25; audio on or off is the same price)"
   },
   {

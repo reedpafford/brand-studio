@@ -168,7 +168,8 @@ def _usage(model: CatalogueModel, prediction: dict, file_count: int) -> UsageIte
     else:
         units = Decimal(1)
     try:  # an edit (a `video` given to a model that edits) at its own price
-        price = model.usd_per_unit(request.get("resolution"), bool(request.get("video")))
+        price = model.usd_per_unit(request.get("resolution"), bool(request.get("video")),
+                                   bool(request.get("reference_videos")))  # fmt: skip
     except ValueError:  # resolution left to the model's default: assume the dearest
         price, estimated = max(model.price.usd.values()), True
     return UsageItem(units, unit, units * price, estimated or unit == "call")

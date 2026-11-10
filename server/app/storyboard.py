@@ -658,8 +658,12 @@ def save_frames(db: Session, job: Job) -> None:
     data = bd.model_dump()
     shared = one_frame.shared(db, project, data)  # one talker in one spot: one still, at rest
     leads = {one_frame.opening(data, c) for c in shared.values()}
+    from app.footage import uses
+
+    real = uses(data)  # a real footage clip: no still (it's cut from the clip)
     for f in (with_cast(db, project, f, bd, known) for f in result.frames):
-        if f.clip_id in shared and f.shot_id == one_frame.opening(data, f.clip_id):
+        if (f.clip_id in shared and f.shot_id == one_frame.opening(data, f.clip_id)) or (
+                f.clip_id in real):  # fmt: skip
             continue  # it opens on its talker's one still
         if f.shot_id in leads and one_frame.NEUTRAL not in f.prompt:
             f = f.model_copy(update={"prompt": f.prompt + one_frame.NEUTRAL})

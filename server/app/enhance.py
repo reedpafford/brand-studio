@@ -124,7 +124,10 @@ def project_context(db: Session, project: Project, step: str) -> tuple[list[str]
     script = video_script(db, project)
     kind, picked = (script.kind, script.format or "") if script else ("story", "")
     look = prompts.system(step, project.look or "house", kind, picked, project.broll_look or "")
-    return [look, prompts.brand_block(brand_dict, screens)], message
+    from app import footage
+
+    shown = footage.block(db, project, step)  # the brand's real clips that fit (Reed, 9 Nov)
+    return [look, prompts.brand_block(brand_dict, screens), *([shown] if shown else [])], message
 
 
 def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:

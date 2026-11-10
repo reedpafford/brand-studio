@@ -500,8 +500,21 @@ def add_media(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Add a picture or a clip to a brand's Media (anyone with the brand; free). It is checked
-    by its contents: its type, its size, a picture's pixels, a clip's video and length."""
+    """Add a picture or a clip to a brand's Media (anyone with the brand; free)."""
+    added, _ = store(db, user, brand_id, upload, request)
+    db.commit()
+    row, file = _one(db, user, brand_id, f"upload:{added.id}")
+    return _items(db, [row], {file.id: file})[0]
+
+
+NOT_CLIP = "That isn't a clip we can use. Add an MP4 or WebM."
+
+
+def store(db: Session, user: User, brand_id: int, upload: UploadFile, request: Request,
+          clip: bool = False) -> tuple[MediaUpload, bytes]:  # fmt: skip
+    """A picture or a clip added to a brand's Media, stored and flushed with its bytes, checked
+    by its contents: its type, its size, a picture's pixels, a clip's video and length. `clip`:
+    only a clip (the library's Footage tab, app/footage.py)."""
     import hashlib
     import uuid
 
@@ -513,8 +526,8 @@ def add_media(
     if len(data) > limit:
         raise HTTPException(413, f"That file is over {limit >> 20} MB. Add a smaller copy.")
     content_type = _sniff(data[:16])
-    if content_type is None:
-        raise HTTPException(415, NOT_MEDIA)
+    if content_type is None or (clip and SNIFFED[content_type] != "video"):
+        raise HTTPException(415, NOT_CLIP if clip else NOT_MEDIA)
     seconds = None
     if SNIFFED[content_type] == "image":
         problem = too_many_pixels(data)  # from its header, before it is decoded
@@ -542,6 +555,5 @@ def add_media(
     added = MediaUpload(workspace_id=user.workspace_id, brand_id=brand_id, created_by_id=user.id,
                         file_id=stored.id, seconds=seconds)  # fmt: skip
     db.add(added)
-    db.commit()
-    row, file = _one(db, user, brand_id, f"upload:{added.id}")
-    return _items(db, [row], {file.id: file})[0]
+    db.flush()
+    return added, data

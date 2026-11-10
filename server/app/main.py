@@ -23,6 +23,7 @@ from app.routes import (
     estimate,
     files,
     folders,
+    footage,
     freestyles,
     health,
     host,
@@ -114,6 +115,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         brands,
         screens,
         library,
+        footage,
         locks,
         sheets,
         jobs,
@@ -174,9 +176,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(looks.formats)
     app.include_router(host.ways)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
-    app.add_middleware(
-        UploadLimit, path=r"/brands/\d+/media", max_bytes=settings.max_upload_mb * 1024 * 1024
-    )
+    app.add_middleware(UploadLimit, path=r"/brands/\d+/(media|footage)",
+                       max_bytes=settings.max_upload_mb * 1024 * 1024)  # fmt: skip
     app.add_middleware(UploadLimit, path=r"/projects/\d+/script/upload", max_bytes=MAX_DOC_BYTES)
     app.add_middleware(
         UploadLimit, path=script_import.UPLOAD_PATHS, max_bytes=script_import.MAX_BYTES

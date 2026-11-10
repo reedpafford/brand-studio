@@ -108,7 +108,9 @@ def heard_cut(db: Session, job: Job) -> None:
     data = bd.data if bd else {"scenes": [], "clips": []}
     shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
     ids = {c["id"]: c["shot_ids"] for c in data.get("clips", [])}
-    cut = []
+    from app.footage import uses
+
+    real, cut = uses(data), []  # the brand's real footage, said so: never a pasted still
     for span in spans:
         mine = ProjectClip.project_id == project.id
         row = db.scalar(select(ProjectClip).where(mine, ProjectClip.clip_id == span["clip_id"]))
@@ -118,6 +120,7 @@ def heard_cut(db: Session, job: Job) -> None:
         heard = latest(db, "words", [t.id for t in others])
         cut.append({**{k: span[k] for k in ("clip_id", "start", "end", "take_id")},
                     "seconds": span.get("seconds"),
+                    **({"real_footage": True} if span["clip_id"] in real else {}),
                     "shots": [{"id": i, "action": shots[i].get("action", ""),
                                "line": shots[i].get("line")}
                               for i in ids.get(span["clip_id"], []) if i in shots],
@@ -266,6 +269,10 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
                 "it, but the frames don't show it.",
             }
         span = spans.get(f.get("clip_id"))
+        if span and span.get("real_footage") and f["fix"] in ("redo", "pick"):  # never remade:
+            from app.footage import WATCHED  # the owner is told how to change its stretch
+
+            f = {**f, "fix": "keep", "note": WATCHED}
         why = ""
         if span is None or f["fix"] not in FIXES:
             why = "names no clip of the cut" if span is None else f"fix {f['fix']!r}"
