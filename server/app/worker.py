@@ -71,8 +71,9 @@ SLOW = "{} didn't finish this in time, so it was stopped. It may still be charge
 SLOW_FREE = "{} didn't finish this in time. Nothing was charged; try again."  # our own server's
 # A provider that can't stop work (HeyGen) gets one more limit's time, then fails without an
 # automatic remake: the first may still finish there and be billed (FABLE B9).
-LATE = ("{} didn't finish this in time. It can't be stopped there, so it wasn't made again on "
-        "its own; make it again if you still need it.")  # fmt: skip
+LATE = ("{} didn't finish this in time. It can't be stopped there and may still finish and be "
+        "charged, so it wasn't made again on its own: making it again could charge "
+        "twice.")  # fmt: skip
 # "Busy" (a 429) when starting: nothing started. Back in the queue after a wait that grows, not
 # counted as a try, and nothing more goes to that provider this tick (FABLE B3: 47 takes in
 # one burst used up all their tries in one tick). Still busy after the last wait: it fails.
@@ -85,10 +86,11 @@ _check_after: dict[int, datetime] = {}  # job id: when to check it again (this p
 DAY = 24 * 60 * 60
 
 
-def _move(db: Session, job: Job, old: JobStatus, new: JobStatus, **values) -> bool:
-    """Change status only if nobody else did first (safe with several workers)."""
+def _move(db: Session, job: Job, old: JobStatus, new: JobStatus, *where, **values) -> bool:
+    """Change status only if nobody else did first (safe with several workers); `where`: and
+    only while these hold."""
     done = db.execute(
-        update(Job).where(Job.id == job.id, Job.status == old).values(status=new, **values)
+        update(Job).where(Job.id == job.id, Job.status == old, *where).values(status=new, **values)
     )
     if done.rowcount == 1:
         live.note(db, job.project_id, new)
@@ -432,7 +434,7 @@ def _time_out(db: Session, job: Job, provider: Provider) -> None:
     said = f"No answer within {_limit(job, provider)}." + ("" if stoppable else " Not cancellable.")
     # Replicate: "If you cancel a run for an official model, you may still be charged"
     # (replicate.com/docs/topics/billing): listed as an estimate, never under-counted
-    maybe = provider.paid and job.credits
+    maybe = provider.paid and job.credits and not (job.provider_ref or "").startswith(STAND_IN)
     paid = [UsageItem(Decimal(1), "job", (job.credits * USD_PER_CREDIT).quantize(Decimal("0.0001")),
                       estimated=True)] if maybe else []  # fmt: skip
     _finish(db, job, provider, Result("failed", error=said, usage=paid), None, again=stoppable)
@@ -597,8 +599,11 @@ def _busy(db: Session, job: Job, exc: NotStarted, busy: set[str] | None) -> None
         _fail(db, job, BUSY.format(_service(job)), repr(exc))
         return
     later = (utcnow() + timedelta(seconds=BUSY_WAITS[times])).isoformat()
-    _move(db, job, JobStatus.running, JobStatus.queued, attempts=job.attempts - 1,
-          input={**job.input, "busy": times + 1, "wait_until": later})  # fmt: skip
+    unstopped = Job.input["ended"].as_string().is_(None)  # a Stop since: kept (director._write)
+    if not _move(db, job, JobStatus.running, JobStatus.queued, unstopped,
+                 attempts=job.attempts - 1,
+                 input={**job.input, "busy": times + 1, "wait_until": later}):  # fmt: skip
+        _move(db, job, JobStatus.running, JobStatus.queued, attempts=job.attempts - 1)
 
 
 def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None,

@@ -283,6 +283,39 @@ def test_a_song_the_service_failed_is_tried_again_free_once_and_a_refusal_says_s
     assert "fake:fail" in str(job.input)
 
 
+def test_a_song_that_ran_out_of_time_where_it_cant_be_stopped_is_never_asked_for_again(
+    app, db, owner
+):
+    """QA on #1527: KIE can't cancel, so a song past its time may still finish and be charged;
+    the director's free retry would send a second paid request. It refuses, saying why."""
+    from app import director_tools
+    from app.models.accounts import User
+    from app.providers import get_providers
+    from app.worker import LATE, run_once
+
+    fs = _sent(owner, "song", LYRICS)
+    video = db.get(Project, db.get(Freestyle, fs["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    me = db.query(User).filter_by(email="reed@example.com").one()
+    app.state.settings.fake_providers = True
+    providers = get_providers(app.state.settings, app.state.storage)
+    run = {}
+
+    def tool(note=""):
+        return director_tools.run(db, me, video, {"tool": "song", "note": note},
+                                  app.state.storage, run)  # fmt: skip
+
+    tool("pop, fake:fail")
+    for _ in range(3):
+        run_once(db, providers, app.state.storage, only={"suno", "local"})
+    song = max(db.query(Job).filter(Job.kind == "music"), key=lambda j: j.id)
+    song.error = LATE.format("The music service")  # as the worker's time-out leaves it
+    db.commit()
+    asked = db.query(Job).filter(Job.kind == "music").count()
+    assert tool() == f"Refused: {song.error}"
+    assert db.query(Job).filter(Job.kind == "music").count() == asked  # nothing more sent
+
+
 def test_the_real_turns_voice_reaches_the_narration(app, db, owner, monkeypatch):
     """The stand-in's answer goes through DirectorTurn like the model's: `voice` is kept."""
     from app import director

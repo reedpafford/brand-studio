@@ -835,8 +835,8 @@ def _again(db: Session, job: Job) -> bool:
         return True
     db.refresh(job)
     db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
-               provider=job.provider,  # a fresh turn: its own restart, if any, re-queues it
-               input={k: v for k, v in job.input.items() if k not in (RETRIED, RESTART)},
+               provider=job.provider,  # a fresh turn: its own restart and busy waits, if any
+               input={k: v for k, v in job.input.items() if k not in (RETRIED, RESTART, "busy")},
                project_id=job.project_id, brand_id=job.brand_id, credits=job.credits,
                approved_by_id=job.approved_by_id, status=JobStatus.queued,
                retry_of_id=job.id))  # fmt: skip
