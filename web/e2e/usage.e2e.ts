@@ -20,15 +20,25 @@ test("Reed opens Usage: the totals, a row for every brand, and one brand's page"
   await onBrand(page, "fomo");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Usage" }).click();
   await expect(page.getByRole("heading", { name: "Usage", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Totals" })).toContainText("Spent this month"); // v5 D_Usage: one month at a time
+  await expect(page.getByRole("group", { name: "Totals" })).toContainText("Spent this month"); // this month unless picked
   const byBrand = page.getByRole("table", { name: "By brand" });
-  await expect(byBrand.getByRole("columnheader", { name: "Credits" })).toBeVisible();
-  const month = page.getByRole("combobox", { name: "Month" });
-  const last = await month.locator("option").nth(1).getAttribute("value");
-  await month.selectOption(last!);
+  await expect(byBrand.getByRole("columnheader", { name: "Spent" })).toBeVisible(); // Reed, 9 Nov: dollars, by service
+  await expect(page.getByRole("region", { name: "By video" })).toBeVisible();
+  const period = page.getByRole("combobox", { name: "Period" }); // this week, this month, all time, then earlier months
+  await period.selectOption("week");
+  await expect(page).toHaveURL(/period=week/);
+  await expect(page.getByRole("group", { name: "Totals" })).toContainText("Spent this week");
+  const last = await period.locator("option").nth(3).getAttribute("value");
+  await period.selectOption(last!);
   await expect(page).toHaveURL(new RegExp(`month=${last}`));
   await expect(page.getByRole("link", { name: "Download CSV" })).toHaveAttribute("href", `/api/usage/charges.csv?month=${last}`);
-  await month.selectOption({ index: 0 });
+  await period.selectOption("month");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true); // no sideways scroll
+  }
+  expect((await period.boundingBox())!.height).toBeGreaterThanOrEqual(44); // on a phone
+  await page.setViewportSize({ width: 1440, height: 900 });
   const fomo = byBrand.getByRole("link", { name: "fomo", exact: true });
   await expect(fomo).toBeVisible();
   await fomo.click();

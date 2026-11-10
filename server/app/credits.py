@@ -265,8 +265,9 @@ def price(total: Decimal) -> int:
 
 
 def uncapped(user: User | None) -> bool:
-    """The owner's own work, on a site with BS_OWNER_UNCAPPED (Reed, 6 Nov): no monetary hold
-    at all. Never an editor's, and nowhere the setting is off."""
+    """The owner's own work (BS_OWNER_UNCAPPED, on by default; Reed, 9 Nov: "We don't need
+    any budget per video right now. It is just me working."): no monetary hold at all. Never
+    an editor's, and nowhere the setting is turned off."""
     from app.settings import get_settings
 
     return bool(user is not None and user.is_owner and get_settings().owner_uncapped)
@@ -298,35 +299,16 @@ class Spent:
 
 
 def actual_usd(db: Session, project_id: int, since=None, until=None) -> Spent:
-    """What this video's jobs from `since` (to `until`) cost at their providers: each job's
-    Usage (Claude's planning, directing, reviews and watches, the media and voices, billable
-    failures and retries), its estimated rows counted at list price; a job sent with no Usage
-    row (a dropped connection, as `real_spent` counts it) at its own price; a job still
-    running isn't reported yet."""
-    from app.models.jobs import Usage
+    """What this video's jobs from `since` (to `until`) cost at their providers
+    (`spend.charges`): Claude's planning, directing, reviews and watches, the media and
+    voices, billable failures and retries; a job still running isn't reported yet."""
+    from app.spend import charges
 
-    window = [Job.project_id == project_id]
-    window += [Job.created_at >= since] if since is not None else []
+    window = [Job.created_at >= since] if since is not None else []
     window += [Job.created_at <= until] if until is not None else []
-    from sqlalchemy.orm import defer
-
-    # its rows without their inputs and outputs (a turn's holds its whole prompt: video 240)
-    jobs = db.scalars(select(Job).where(*window).options(defer(Job.input), defer(Job.output))).all()
-    rows: dict[int, list] = {}
-    for u in db.scalars(select(Usage).where(Usage.job_id.in_([j.id for j in jobs] or [0]))):
-        rows.setdefault(u.job_id, []).append(u)
-    usd = listed = Decimal(0)
-    pending = False
-    for j in jobs:
-        if mine := rows.get(j.id):
-            usd += sum((Decimal(u.cost_usd) for u in mine), Decimal(0))
-            listed += sum((Decimal(u.cost_usd) for u in mine if u.estimated), Decimal(0))
-        elif j.status == JobStatus.running:
-            pending = True
-        elif (j.provider_ref and not j.provider_ref.startswith(STAND_IN)
-              and j.provider not in FREE_LANES and not never_billed(j)):  # fmt: skip
-            usd += j.credits * USD_PER_CREDIT
-            listed += j.credits * USD_PER_CREDIT
+    found, pending = charges(db, Job.project_id == project_id, *window)
+    usd = sum((c.usd for c in found), Decimal(0))
+    listed = sum((c.usd for c in found if c.listed), Decimal(0))
     return Spent(usd.quantize(Decimal("0.01")), listed.quantize(Decimal("0.01")), pending)
 
 

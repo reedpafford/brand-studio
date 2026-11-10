@@ -31,6 +31,7 @@ import { DeliveryNote, Failed, PastNote, RunCard, stopLines, stoppedParts, useRu
 import { VariationsDialog } from "./Variations";
 import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 import { upTo } from "./money";
+import { VideoSpend } from "../usage/VideoSpend";
 
 type Project = components["schemas"]["ProjectOut"];
 type Run = components["schemas"]["DirectorOut"];
@@ -74,6 +75,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const [moving, setMoving] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [varying, setVarying] = useState(false);
+  const [costing, setCosting] = useState(false); // the owner's What it cost (Reed, 9 Nov)
   const [opened, setOpened] = useState<TabId | null>(null);
   const [cutSeen, setCutSeen] = useState(false);
   const previewSide = useRef<HTMLDivElement>(null);
@@ -165,6 +167,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   // A script's version is released while it's made; a video with no version to release (a New video send) can always be
   // archived when nothing is running, e.g. while it waits for its OK (Flow-QA S12).
   const releasable = !!target && maker && !archived && !finished && !!p.script_draft_id && !fs;
+  const cost = p && shownHead?.spent.usd != null ? () => setCosting(true) : undefined; // the owner's dollars (rule 4)
   const menu = (
     <VideoMenu
       title={title}
@@ -175,10 +178,11 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       onVariations={p && maker && !archived && !running && shownHead?.status.kind === "delivered" ? () => setVarying(true) : undefined}
       onRelease={releasable ? () => video.release(target) : undefined}
       onArchive={target && maker && !archived && (finished || (!releasable && !running)) ? () => video.archive(target) : undefined}
+      onCost={cost}
     />
   );
   const header = shownHead ? (
-    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={shownHead} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={run?.started} />
+    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={shownHead} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={run?.started} onCost={cost} />
   ) : (
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
@@ -212,6 +216,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       {video.dialog}
       {renaming && p && <RenameDialog projectId={id} freestyleId={fs?.id ?? null} title={title} onClose={() => setRenaming(false)} />}
       {varying && p && <VariationsDialog brandId={brandId} projectId={id} onClose={() => setVarying(false)} />}
+      {costing && <VideoSpend projectId={id} onClose={() => setCosting(false)} />}
       {moving && p && <MoveDialog brandId={brandId} projectId={id} title={title} now={shownHead?.folder?.id ?? p.folder_id ?? null} onClose={() => setMoving(false)} />}
       {stopping && (
         <Dialog title="Stop the director?" actionLabel="Stop" danger busy={stop.isPending || actions.stop.isPending} onCancel={() => setStopping(false)} onConfirm={() => (fs ? actions.stop.mutate(undefined, { onSettled: () => setStopping(false) }) : stop.mutate())}>

@@ -1414,6 +1414,32 @@ test("uncapped (QA on #1396): after delivery the estimate is the next run's", as
   expect(within(banner).queryByText(/this run about/)).toBeNull();
 });
 
+test("Reed, 9 Nov: the owner's money line and ⋯ open what the video cost (by service, kind and run); an editor gets neither", async () => {
+  setViewport(1440);
+  const top = head({ status: status("delivered", "Delivered"), spent: money(60, 6.4), up_to: null, budget: null, expected: money(91, 9.1), actual: true, listed_usd: 0, unreported: false });
+  const spent = { project_id: 50, brand_id: 1, brand: "fomo", title: "Beer gut doctor rant", spend_usd: 6.4, spend_estimated: false, providers: [{ name: "Replicate", usd: 5, estimated: false }, { name: "Claude", usd: 1.4, estimated: false }], kinds: [{ name: "Claude's thinking", usd: 1.4, estimated: false }, { name: "Takes", usd: 5, estimated: false }], last_at: at, unreported: false, runs: [{ name: "First run", started_at: at, usd: 6.4, estimated: false }] };
+  server(owner, null, run({ status: "delivered", thread: [] }), { "GET /projects/50/idea": [200, top], "GET /usage/videos/50": [200, spent] });
+  renderApp("/b/1/videos/50");
+  const banner = await screen.findByRole("banner");
+  await userEvent.click(await within(banner).findByRole("button", { name: /This video so far \$6\.40/ }));
+  const panel = await screen.findByRole("dialog", { name: "What this video cost" });
+  expect(within(panel).getByRole("region", { name: "By service" })).toHaveTextContent("Replicate$5.00Claude$1.40");
+  expect(within(panel).getByRole("region", { name: "By run" })).toHaveTextContent("First run");
+  await userEvent.click(within(panel).getByRole("button", { name: "Close" }));
+  await userEvent.click(screen.getByRole("button", { name: "More for Beer gut doctor rant" }));
+  expect(within(screen.getByRole("menu")).getByRole("menuitem", { name: "What it cost…" })).toBeInTheDocument();
+});
+
+test("an editor's header never offers what the video cost (credits only, rule 4)", async () => {
+  setViewport(1440);
+  server(editor, null, run({ status: "delivered", thread: [] }), { "GET /projects/50/idea": [200, head({ status: status("delivered", "Delivered"), spent: money(60, null), up_to: money(164, null), budget: null })] });
+  renderApp("/b/1/videos/50");
+  const banner = await screen.findByRole("banner");
+  expect(await within(banner).findByText(/60 of/)).toBeInTheDocument();
+  expect(within(banner).queryByRole("button", { name: /60 of/ })).toBeNull();
+  expect(screen.queryByText("What it cost…")).toBeNull();
+});
+
 test("MAIN's run (video 233): before a scene has clips the phone's run card names it, never \"0/0\"", () => {
   const scene = (id: number, name: string, total: number) => ({ id, name, total, done: 0, clips: [] });
   render(<SceneRow scenes={[scene(1, "The way out", 0), scene(2, "Payoff", 0)] as never} />);

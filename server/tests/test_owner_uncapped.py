@@ -1,5 +1,5 @@
-"""Reed, 6 Nov: on his owner-only test site (BS_OWNER_UNCAPPED) the owner's own work has no
-monetary hold, every price before a press is what it will probably cost ("About $X
+"""Reed, 6 Nov (his test site) and 9 Nov (every site; BS_OWNER_UNCAPPED): the owner's own
+work has no monetary hold, every price before a press is what it will probably cost ("About $X
 (estimate)"), and what's spent is the providers' own (Usage.cost_usd). Editors' holds are
 exactly as before, and with the setting off nothing changes."""
 
@@ -220,14 +220,14 @@ def test_make_it_again_and_the_list_card_read_the_estimate_and_the_spend(app, db
     assert cost.kind == "so_far" and cost.about_usd and cost.usd == 0  # the header's figures
 
 
-def test_live_refuses_to_start_uncapped():
+def test_on_by_default_on_every_site_the_live_one_too(monkeypatch):
+    """Reed, 9 Nov: no budget per video, on every site ("It is just me working")."""
     from app.settings import check_production
 
-    live = Settings(env="production", owner_uncapped=True, setup_token="", database_url="sqlite://")
-    with pytest.raises(RuntimeError, match="BS_OWNER_UNCAPPED"):
-        check_production(live)
-    check_production(Settings(env="next", owner_uncapped=True, setup_token="",
-                              database_url="sqlite://"))  # the test site may  # fmt: skip
+    monkeypatch.delenv("BS_OWNER_UNCAPPED")  # the tests' own holds (conftest) off
+    live = Settings(env="production", setup_token="", database_url="sqlite://")
+    assert live.owner_uncapped
+    check_production(live)  # starts
 
 
 def test_an_editors_run_is_held_as_theirs_whoever_stops_or_carries_it_on(app, db, owner, editor,

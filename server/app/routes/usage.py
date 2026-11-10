@@ -71,10 +71,28 @@ class UsagePrevious(BaseModel):
     cost_per_finished_usd: float | None
 
 
+class Part(BaseModel):
+    """One provider's (or one kind's) share of a figure, most first."""
+
+    name: str  # "Replicate", "Claude", "MiniMax", …; "Takes", "Stills", "Claude's thinking", …
+    usd: float
+    estimated: bool  # some of it at list price: the provider didn't say
+
+
+def parts(split: dict, order: list[str] | None = None) -> list[Part]:
+    """A Split's providers or kinds as rows: most first, else in `order`."""
+    rows = [Part(name=k, usd=usage.money(usd), estimated=bool(listed))
+            for k, (usd, listed) in split.items()]  # fmt: skip
+    if order:
+        return sorted(rows, key=lambda p: order.index(p.name))
+    return sorted(rows, key=lambda p: (-p.usd, p.name))
+
+
 class FreestyleUsage(BaseModel):
     credits: float
     spend_usd: float
     videos: int  # finished in the period, plus being made now
+    providers: list[Part] = []
 
 
 class UsageSummaryOut(BaseModel):
@@ -92,6 +110,8 @@ class UsageSummaryOut(BaseModel):
     spend_credits: float = 0  # every charge in the period, in credits
     unassigned_credits: float = 0  # "Other (no brand or video)", as unassigned_spend_usd
     freestyle: FreestyleUsage  # "Freestyle (no brand picked)": its own row
+    providers: list[Part] = []  # every charge in the period, by provider (Reed, 9 Nov)
+    unassigned_providers: list[Part] = []  # "Other (no brand or video)", by provider
 
 
 class UsageBrandRow(BaseModel):
@@ -109,6 +129,7 @@ class UsageBrandRow(BaseModel):
     last_activity_at: UtcTime | None
     credits: float = 0  # charged in the period, in credits
     videos: int = 0  # finished in the period, plus being made now
+    providers: list[Part] = []  # spend_usd by provider
 
 
 class UsageBrandsOut(BaseModel):
@@ -124,13 +145,15 @@ class UsageBrandOut(UsageBrandRow):
 
 def _row(brand: Brand, f: usage.Figures) -> UsageBrandRow:
     b = brand.id
+    spent = f.spent([b])
     return UsageBrandRow(
         brand_id=b,
         name=brand.name,
         colour=(brand.colours or [None])[0],
         archived=brand.archived,
-        spend_usd=usage.money(f.spend.get(b)),
-        spend_estimated=f.estimated.get(b, False),
+        spend_usd=usage.money(spent.usd),
+        spend_estimated=bool(spent.listed),
+        providers=parts(spent.providers),
         finished=f.finished.get(b, 0),
         cost_per_finished_usd=f.cost_per(b),
         in_progress=f.in_progress.get(b, 0),
@@ -152,12 +175,12 @@ def _before(db: Session, workspace_id: int, name: str, now: usage.Period, brand_
         done = sum(f.finished.values())
         spent = sum(f.finished_spend.values())
         return UsagePrevious(
-            spend_usd=usage.money(sum(f.spend.values())),
+            spend_usd=usage.money(f.spent().usd),
             finished=done,
             cost_per_finished_usd=usage.money(spent / done) if done else None,
         )
     return UsagePrevious(
-        spend_usd=usage.money(f.spend.get(brand_id)),
+        spend_usd=usage.money(f.spent([brand_id]).usd),
         finished=f.finished.get(brand_id, 0),
         cost_per_finished_usd=f.cost_per(brand_id),
     )
@@ -174,25 +197,29 @@ def summary(
     f = usage.figures(db, owner.workspace_id, now)
     done, spent = sum(f.finished.values()), sum(f.finished_spend.values())
     free = _freestyle_brands(db, owner)
+    every, freestyle, other = f.spent(), f.spent(free), f.spent([None])
     return UsageSummaryOut(
         spend_credits=float(sum(f.credits.values(), Decimal(0))),
         unassigned_credits=float(f.credits.get(None) or 0),
         freestyle=FreestyleUsage(
             credits=float(sum((f.credits.get(b) or 0 for b in free), Decimal(0))),
-            spend_usd=usage.money(sum(f.spend.get(b, 0) for b in free)),
+            spend_usd=usage.money(freestyle.usd),
             videos=_freestyle_videos(db, free, now),
+            providers=parts(freestyle.providers),
         ),
         period=period,
         starts_at=now.start,
         previous=_before(db, owner.workspace_id, period, now),
-        spend_usd=usage.money(sum(f.spend.values())),
-        spend_estimated=any(f.estimated.values()),
+        spend_usd=usage.money(every.usd),
+        spend_estimated=bool(every.listed),
         finished=done,
         cost_per_finished_usd=usage.money(spent / done) if done else None,
         in_progress=sum(f.in_progress.values()),
-        unassigned_spend_usd=usage.money(f.spend.get(None)),
-        freestyle_spend_usd=usage.money(sum(f.spend.get(b, 0) for b in free)),
+        unassigned_spend_usd=usage.money(other.usd),
+        freestyle_spend_usd=usage.money(freestyle.usd),
         director_spend_usd=usage.money(usage.director_spend(db, owner.workspace_id, now)),
+        providers=parts(every.providers),
+        unassigned_providers=parts(other.providers),
     )
 
 

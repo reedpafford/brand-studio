@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ChevronLeft, ChevronRight, CircleStop, Copy, Download, Ellipsis, Folder, Inbox, Lock, Pencil, SlidersHorizontal, X } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, CircleStop, Copy, Download, Ellipsis, Folder, Inbox, Lock, Pencil, Receipt, SlidersHorizontal, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, must, polled } from "../api/client";
 import type { components } from "../api/schema";
@@ -167,9 +167,9 @@ function Chips({ projectId, head, cast, lookOnly }: { projectId: number; head: H
 
 /** The video's ⋯ menu (S-gaps-03 2): Move to folder…, Make variations… once it's delivered, Download MP4 once a cut exists,
  *  then Release this version while it's being made or Archive once it's done. On a phone it also holds Stop, as its top bar
- *  has no room for the button. */
-export function VideoMenu({ title, cut, onMove, onRename, onVariations, onRelease, onArchive, onStop }: { title: string; cut?: { file: number; name: string } | null; onMove?: () => void; onRename?: () => void; onVariations?: () => void; onRelease?: () => void; onArchive?: () => void; onStop?: () => void }) {
-  if (!onMove && !onRename && !onVariations && !cut && !onRelease && !onArchive && !onStop) return null;
+ *  has no room for the button. The owner's What it cost… (Reed, 9 Nov) opens the video's spend. */
+export function VideoMenu({ title, cut, onMove, onRename, onVariations, onRelease, onArchive, onStop, onCost }: { title: string; cut?: { file: number; name: string } | null; onMove?: () => void; onRename?: () => void; onVariations?: () => void; onRelease?: () => void; onArchive?: () => void; onStop?: () => void; onCost?: () => void }) {
+  if (!onMove && !onRename && !onVariations && !cut && !onRelease && !onArchive && !onStop && !onCost) return null;
   const run = (close: () => void, go: () => void) => () => (close(), go());
   return (
     <Menu
@@ -186,6 +186,11 @@ export function VideoMenu({ title, cut, onMove, onRename, onVariations, onReleas
           {onStop && (
             <MenuItem onClick={run(close, onStop)}>
               <CircleStop size={16} strokeWidth={1.75} aria-hidden /> Stop the director
+            </MenuItem>
+          )}
+          {onCost && (
+            <MenuItem onClick={run(close, onCost)}>
+              <Receipt size={16} strokeWidth={1.75} aria-hidden /> What it cost…
             </MenuItem>
           )}
           {onRename && (
@@ -258,7 +263,7 @@ export function MoveDialog({ brandId, projectId, title, now, onClose }: { brandI
 }
 
 /** The chat's header (S3-01, S3-09; P-04 on a phone): the crumb, Stop and ⋯; the title, status and money; the chips. */
-export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phone, menu, stop, started }: { brand: { id: number; name: string }; projectId: number; head: Head; status: Status; cast: string[]; lookOnly: boolean; phone: boolean; menu: ReactNode; stop?: { busy: boolean; onPress: () => void } | null; started?: boolean }) {
+export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phone, menu, stop, started, onCost }: { brand: { id: number; name: string }; projectId: number; head: Head; status: Status; cast: string[]; lookOnly: boolean; phone: boolean; menu: ReactNode; stop?: { busy: boolean; onPress: () => void } | null; started?: boolean; onCost?: () => void }) {
   const [lead, most] = moneyOf(head, phone, started);
   if (phone)
     return (
@@ -302,10 +307,17 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
         <StatusWords status={status} /> {/* its reason gives way before the title does (a question's words are long) */}
         <span className="flex-1" />
         {/* the owner's full line can be long (H20): it wraps under the title, never past the column */}
-        <p className="min-w-0 max-w-full text-sm tabular-nums text-muted">
-          {lead && `${lead} `}
-          <b className="whitespace-nowrap font-medium text-text">{most}</b>
-        </p>
+        {onCost ? ( // the owner's: it opens what the video cost, by service, kind and run (Reed, 9 Nov)
+          <button type="button" onClick={onCost} title="What it cost" className="min-w-0 max-w-full rounded-sm text-left text-sm tabular-nums text-muted underline-offset-2 hover:underline">
+            {lead && `${lead} `}
+            <b className="whitespace-nowrap font-medium text-text">{most}</b>
+          </button>
+        ) : (
+          <p className="min-w-0 max-w-full text-sm tabular-nums text-muted">
+            {lead && `${lead} `}
+            <b className="whitespace-nowrap font-medium text-text">{most}</b>
+          </p>
+        )}
       </div>
       <div className="px-5 pb-3.5 pt-2.5">
         <Chips projectId={projectId} head={head} cast={cast} lookOnly={lookOnly} />

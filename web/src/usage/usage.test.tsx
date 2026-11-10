@@ -13,8 +13,8 @@ const base: Record<string, [number, unknown]> = {
   "GET /scripts": [200, []],
   "GET /projects": [200, []],
 };
-const summary = { period: "week", starts_at: "2026-10-19T00:00:00Z", previous: { spend_usd: 71.72, finished: 4, cost_per_finished_usd: 12.25 }, spend_usd: 84.12, spend_estimated: false, finished: 6, cost_per_finished_usd: 11.4, in_progress: 9, unassigned_spend_usd: 1.2, freestyle_spend_usd: 3.4, director_spend_usd: 0, spend_credits: 841.2, unassigned_credits: 12, freestyle: { credits: 34, spend_usd: 3.4, videos: 2 } };
-const row = (o: object = {}) => ({ brand_id: 1, name: "Iron Paws", colour: "#3a7", archived: false, spend_usd: 52.3, spend_estimated: false, finished: 4, cost_per_finished_usd: 11.05, in_progress: 3, scripts: 12, versions_left: 7, last_activity_at: new Date(Date.now() - 2 * 3600_000).toISOString(), credits: 523, videos: 5, ...o });
+const summary = { period: "week", starts_at: "2026-10-19T00:00:00Z", previous: { spend_usd: 71.72, finished: 4, cost_per_finished_usd: 12.25 }, spend_usd: 84.12, spend_estimated: false, finished: 6, cost_per_finished_usd: 11.4, in_progress: 9, unassigned_spend_usd: 1.2, freestyle_spend_usd: 3.4, director_spend_usd: 0, spend_credits: 841.2, unassigned_credits: 12, freestyle: { credits: 34, spend_usd: 3.4, videos: 2, providers: [{ name: "Claude", usd: 3.4, estimated: false }] }, providers: [{ name: "Replicate", usd: 60, estimated: true }, { name: "Claude", usd: 20.12, estimated: false }, { name: "MiniMax", usd: 4, estimated: false }], unassigned_providers: [{ name: "Claude", usd: 1.2, estimated: false }] };
+const row = (o: object = {}) => ({ brand_id: 1, name: "Iron Paws", colour: "#3a7", archived: false, spend_usd: 52.3, spend_estimated: false, finished: 4, cost_per_finished_usd: 11.05, in_progress: 3, scripts: 12, versions_left: 7, last_activity_at: new Date(Date.now() - 2 * 3600_000).toISOString(), credits: 523, videos: 5, providers: [{ name: "Replicate", usd: 40, estimated: false }, { name: "Claude", usd: 12.3, estimated: false }], ...o });
 const month = new Date().toISOString().slice(0, 7);
 const brands = (items: object[], total = items.length, next: string | null = null) => ({ total, next_cursor: next, items });
 
@@ -23,57 +23,102 @@ function open(path = "/usage") {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("Usage (v5 D_Usage): three cards for the month, and By brand reads Brand · Credits · Dollars · Videos · Share with a Freestyle row", async () => {
+test("Usage (Reed, 9 Nov): three cards for the month in dollars, and By brand reads Brand · Spent · a column a service · Videos, with Freestyle and Other rows", async () => {
   setViewport(1440);
   const calls = fakeServer({
     ...base,
     "GET /usage/summary": [200, summary],
-    "GET /usage/brands": [200, brands([row(), row({ brand_id: 2, name: "fomo", spend_usd: 30.62, spend_estimated: true, credits: 284.2, videos: 3 })])],
+    "GET /usage/brands": [200, brands([row(), row({ brand_id: 2, name: "fomo", spend_usd: 30.62, spend_estimated: true, credits: 284.2, videos: 3, providers: [{ name: "Replicate", usd: 20, estimated: true }, { name: "MiniMax", usd: 4, estimated: false }] })])],
   });
   open();
   const totals = await screen.findByRole("group", { name: "Totals" });
-  expect(await within(totals).findByText("842 credits")).toBeInTheDocument(); // whole credits, rounded up
-  expect(within(totals).getByText("$84.12")).toBeInTheDocument();
-  expect(within(totals).getByText("Spent this month")).toBeInTheDocument();
+  const spent = (await within(totals).findByText("Spent this month")).parentElement!;
+  expect(spent).toHaveTextContent("$84.12"); // the owner's headline is dollars
+  expect(spent).toHaveTextContent("842 credits"); // whole credits, rounded up, under it
   const table = await screen.findByRole("table", { name: "By brand" });
-  expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Brand", "Credits", "Dollars", "Videos", "Share", "Restore"]);
+  expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Brand", "Spent", "Replicate", "Claude", "MiniMax", "Videos", "Restore"]);
   const iron = within(table).getByRole("link", { name: "Iron Paws" });
   expect(iron).toHaveAttribute("href", "/usage/brands/1");
-  expect(iron.closest("tr")).toHaveTextContent("523$52.305");
-  expect(within(table).getByText("≈ $30.62")).toHaveAttribute("title", expect.stringMatching(/estimate/));
+  expect(iron.closest("tr")).toHaveTextContent("$52.30$40.00$12.30—5");
+  const fomo = within(table).getByRole("link", { name: "fomo" }).closest("tr")!;
+  expect(within(fomo).getByText("≈ $20.00")).toHaveAttribute("title", expect.stringMatching(/estimate/)); // part at list price
   const fs = within(table).getByText("Freestyle").closest("tr")!;
   expect(fs).toHaveTextContent("(no brand picked)");
-  expect(fs).toHaveTextContent("34$3.402");
-  expect(within(table).getByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument(); // 523 of 841.2
+  expect(fs).toHaveTextContent("$3.40—$3.40—2");
   const other = within(table).getByText("Other").closest("tr")!; // Next-Lead: the rows add up to the month's spend
-  expect(other).toHaveTextContent("(no brand or video)");
-  expect(other).toHaveTextContent("12$1.20—");
-  expect(calls.find((c) => c.key === "GET /usage/summary")?.url).toContain(`month=${month}`);
-  expect(calls.find((c) => c.key === "GET /usage/brands")?.url).toContain(`month=${month}`);
+  expect(other).toHaveTextContent("(no brand or video)$1.20—$1.20——");
+  expect(calls.find((c) => c.key === "GET /usage/summary")?.url).toContain("period=month");
+  expect(calls.find((c) => c.key === "GET /usage/brands")?.url).toContain("period=month");
 });
 
-test("Usage: picking a month asks the server for that month, puts it in the address, and the CSV follows it", async () => {
+test("Usage: the period is this week, this month, all time or an earlier month, kept in the address, and the CSV follows a month", async () => {
   setViewport(1440);
-  const calls = fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()], 40, "c2")], "GET /usage/people": [200, []] });
+  const calls = fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()], 40, "c2")], "GET /usage/people": [200, []], "GET /usage/videos": [200, { total: 0, next_cursor: null, kinds: [], items: [] }] });
   open();
-  const picker = await screen.findByRole("combobox", { name: "Month" });
-  const last = (picker as HTMLSelectElement).options[1].value;
+  const picker = await screen.findByRole("combobox", { name: "Period" });
+  expect([...(picker as HTMLSelectElement).options].slice(0, 3).map((o) => o.textContent)).toEqual(["This week", "This month", "All time"]);
+  await userEvent.selectOptions(picker, "week");
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /usage/summary" && c.url.includes("period=week"))).toBe(true));
+  for (const key of ["GET /usage/people", "GET /usage/videos", "GET /usage/brands"]) expect(calls.some((c) => c.key === key && c.url.includes("period=week"))).toBe(true);
+  expect(await screen.findByText("Spent this week")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Download CSV" })).toHaveAttribute("href", `/api/usage/charges.csv?month=${month}`); // this month's
+  const last = (picker as HTMLSelectElement).options[3].value;
   await userEvent.selectOptions(picker, last);
   await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /usage/summary" && c.url.includes(`month=${last}`))).toBe(true));
-  expect(calls.some((c) => c.key === "GET /usage/people" && c.url.includes(`month=${last}`))).toBe(true);
   expect(screen.getByRole("link", { name: "Download CSV" })).toHaveAttribute("href", `/api/usage/charges.csv?month=${last}`);
   await userEvent.click(await screen.findByRole("button", { name: "Show more" }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "GET /usage/brands").length).toBeGreaterThan(2));
 });
 
-test("Usage on a phone: each brand is a card with credits, dollars, videos and its share, then Freestyle", async () => {
+test("Usage on a phone: each brand is a card with what it spent, its videos and each service's part, then Freestyle", async () => {
   setViewport(390);
   fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row({ videos: 1 })])] });
   open();
   const card = await screen.findByRole("link", { name: /Iron Paws/ });
-  expect(card).toHaveTextContent("523 credits · $52.30 · 1 video");
-  expect(within(card).getByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument();
-  expect(screen.getByText("Freestyle").closest("li")).toHaveTextContent("34 credits · $3.40 · 2 videos");
+  expect(card).toHaveTextContent("$52.30 spent · 1 video");
+  expect(card).toHaveTextContent("Replicate $40.00 · Claude $12.30");
+  expect(screen.getByText("Freestyle").closest("li")).toHaveTextContent("$3.40 spent · 2 videos");
+});
+
+const spendRow = (o: object = {}) => ({ project_id: 31, brand_id: 1, brand: "Iron Paws", title: "Bo tries salmon · B", spend_usd: 3.4, spend_estimated: false, providers: [{ name: "Replicate", usd: 3.1, estimated: false }, { name: "Claude", usd: 0.3, estimated: false }], kinds: [{ name: "Claude's thinking", usd: 0.3, estimated: false }, { name: "Takes", usd: 3.1, estimated: false }], last_at: "2026-11-08T10:00:00Z", ...o });
+const videoSpend = { ...spendRow(), unreported: false, runs: [{ name: "First run", started_at: "2026-11-08T09:00:00Z", usd: 2.4, estimated: false }, { name: "Revision 1", started_at: "2026-11-08T12:00:00Z", usd: 1, estimated: false }] };
+
+test("Usage's By video (Reed, 9 Nov): each video's whole spend split by what was made, sortable, and Details shows it by service, kind and run", async () => {
+  setViewport(1440);
+  const calls = fakeServer({
+    ...base,
+    "GET /usage/summary": [200, summary],
+    "GET /usage/brands": [200, brands([row()])],
+    "GET /usage/videos": [200, { total: 2, next_cursor: null, kinds: ["Claude's thinking", "Takes", "Voice"], items: [spendRow(), spendRow({ project_id: 40, title: "Chat video", freestyle_id: 6, brand: "Freestyle", spend_usd: 0.2, kinds: [{ name: "Voice", usd: 0.2, estimated: true }] })] }],
+    "GET /usage/videos/31": [200, videoSpend],
+  });
+  open();
+  const table = await screen.findByRole("table", { name: "By video" });
+  expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Video", "Brand", "Spent", "Claude's thinking", "Takes", "Voice", "Details"]);
+  const bo = within(table).getByRole("link", { name: "Bo tries salmon · B" });
+  expect(bo).toHaveAttribute("href", "/b/1/videos/31");
+  expect(bo.closest("tr")).toHaveTextContent("Iron Paws$3.40$0.30$3.10—");
+  expect(within(table).getByRole("link", { name: "Chat video" })).toHaveAttribute("href", "/freestyle/6");
+  expect(within(table).getByText("≈ $0.20")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: "Name" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /usage/videos" && c.url.includes("sort=title"))).toBe(true));
+  await userEvent.click(within(table).getByRole("button", { name: "What Bo tries salmon · B cost" }));
+  const panel = await screen.findByRole("dialog", { name: "What this video cost" });
+  expect(within(panel).getByRole("region", { name: "By service" })).toHaveTextContent("Replicate$3.10Claude$0.30");
+  expect(within(panel).getByRole("region", { name: "By what was made" })).toHaveTextContent("Claude's thinking$0.30Takes$3.10");
+  expect(within(panel).getByRole("region", { name: "By run" })).toHaveTextContent("First run8 Nov$2.40Revision 18 Nov$1.00");
+});
+
+test("Usage's By video on a phone: a card a video, with its spend, each kind's part and a 44px Details", async () => {
+  setViewport(390);
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], "GET /usage/videos": [200, { total: 1, next_cursor: null, kinds: ["Claude's thinking", "Takes"], items: [spendRow()] }] });
+  open();
+  const region = await screen.findByRole("region", { name: "By video" });
+  const card = (await within(region).findByRole("link", { name: "Bo tries salmon · B" })).closest("li")!;
+  expect(card).toHaveTextContent("$3.40 spent");
+  expect(card).toHaveTextContent("Claude's thinking $0.30 · Takes $3.10");
+  expect(within(card).getByRole("button", { name: "What Bo tries salmon · B cost" }).className).toMatch(/w-full/);
+  expect(within(region).getByRole("tab", { name: "Most spent" })).toHaveAttribute("aria-selected", "true");
 });
 
 const mine = {
@@ -296,7 +341,7 @@ test("on a phone the line reads '0 credits' before the badge, and one credit is 
   expect(screen.getByText(/1 credit ·/)).toBeInTheDocument();
 });
 
-test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to Needs you, and each brand's share of the spend is a bar", async () => {
+test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to Needs you", async () => {
   setViewport(1440);
   // Needs you's Money: a start card (its whole run, up to 204) and a held press outside any video (up to 6).
   const start = { video: {}, brand: { id: 1, name: "fomo" }, ask: { id: 7, kind: "start", can: ["make_it"], money: { up_to: { credits: 204, usd: 12.24 } } } };
@@ -306,16 +351,15 @@ test("Usage (v5 D_Usage): what waits for the owner's OK is a card that links to 
   const totals = await screen.findByRole("group", { name: "Totals" });
   expect(await within(totals).findByText("up to $12.60")).toBeInTheDocument(); // the owner: dollars (rule 4)
   expect(within(totals).getByRole("link", { name: "2 in Needs you" })).toHaveAttribute("href", "/approvals");
-  expect(await screen.findByRole("img", { name: "62% of the month's credits" })).toBeInTheDocument(); // 52.30 of 84.12
 });
 
-test("Usage (v5 D_Usage, #1208): the director's own time is its own card, in dollars, outside the credit budget", async () => {
+test("Usage (v5 D_Usage, #1208): the director's own time is its own card, in dollars, part of what was spent", async () => {
   setViewport(1440);
   fakeServer({ ...base, "GET /usage/summary": [200, { ...summary, director_spend_usd: 6.4 }], "GET /usage/brands": [200, brands([row()])] });
   open();
   const totals = await screen.findByRole("group", { name: "Totals" });
   expect(await within(totals).findByText("$6.40")).toBeInTheDocument();
-  expect(within(totals).getByText("Outside the credit budget")).toBeInTheDocument();
+  expect(within(totals).getByText("Its thinking and watching, part of what was spent")).toBeInTheDocument();
 });
 
 test("My credits counts every send waiting for the owner, from the server, and lists sends with Declined and its reason (#1232, QA-3 on #1218)", async () => {
@@ -341,7 +385,7 @@ test("My credits counts every send waiting for the owner, from the server, and l
 
 test("Usage's By person lists each person's credits, dollars, videos and week (#1232)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], [`GET /usage/people?month=${month}`]: [200, [
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], ["GET /usage/people?period=month"]: [200, [
     { user_id: 2, name: "Dee", role: "editor", credits: 804, spend_usd: 80.4, videos: 7, week_used: 40, week_allowance: 100 },
     { user_id: 1, name: "Reed", role: "owner", credits: 448, spend_usd: 44.8, videos: 5, week_used: 0, week_allowance: null },
   ]] });
@@ -376,7 +420,7 @@ test("My credits' rows read 'spent N' with the director's time included, in whol
 
 test("Usage's Download CSV gives this month's charges (v5 D_Usage, #1247)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], [`GET /usage/people?month=${month}`]: [200, []] });
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], ["GET /usage/people?period=month"]: [200, []] });
   open();
   const csv = await screen.findByRole("link", { name: "Download CSV" });
   expect(csv).toHaveAttribute("href", `/api/usage/charges.csv?month=${new Date().toISOString().slice(0, 7)}`);
@@ -385,7 +429,7 @@ test("Usage's Download CSV gives this month's charges (v5 D_Usage, #1247)", asyn
 
 test("By person and My credits never show '-0' for nothing used (UX-Auditor on #1246)", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], [`GET /usage/people?month=${month}`]: [200, [{ user_id: 2, name: "Dee", role: "editor", credits: 0, spend_usd: 0, videos: 0, week_used: 0, week_allowance: 97 }]] });
+  fakeServer({ ...base, "GET /usage/summary": [200, summary], "GET /usage/brands": [200, brands([row()])], ["GET /usage/people?period=month"]: [200, [{ user_id: 2, name: "Dee", role: "editor", credits: 0, spend_usd: 0, videos: 0, week_used: 0, week_allowance: 97 }]] });
   open();
   const people = await screen.findByRole("region", { name: "By person" });
   const dee = (await within(people).findByText("Dee")).closest("tr")!;
