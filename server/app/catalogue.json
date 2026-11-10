@@ -203,6 +203,12 @@
     "price": {"unit": "second", "usd": {"720p": 0.11, "1080p": 0.23, "4k": 0.45}},
     "price_source": "An edit of a take (its `video` input, up to 15 s, no pictures with it) keeps the take's length and shape (Replicate README, read 9 Nov), so it's billed on the same seconds. Google bills Omni by its output (aistudio.google.com/docs/pricing, read 9 Nov: no separate edit price), and Replicate's page shows one rate, so an edit is priced at a take's rate a second until a real edit's bill says otherwise"
    },
+   "via": {
+    "provider": "google",
+    "provider_model": "gemini-omni-1.2-flash",
+    "usd": {"720p": 0.07, "1080p": 0.105, "4k": 0.209},
+    "price_source": "Reed, 10 Nov: \"we go omni through google directly\". Google's Gemini API bills Omni 1.2 Flash by output tokens at $12.00 per 1M: 5,792 tokens a second at 720p (\"approximately $0.07 per second\"), 8,688 at 1080p ($0.104) and 17,376 at 4K ($0.209) (aistudio.google.com/docs/pricing, read 10 Nov 2026); 1080p is rounded up from $0.104256 so a quote is never under the bill. No separate edit price, so an edit is a take's rate a second. Input (the prompt, pictures, a clip to edit) is $1.50 per 1M tokens on top, about a cent a take; Usage records the bill from the tokens Google reports (app/providers/google.py). Used only while BS_GOOGLE_API_KEY is set"
+   },
    "price_source": "Reed, 6 Nov: Omni 1.2 replaces 1.1 and makes the realistic style, UGC (\"Omni is more for the realistic stuff\"), at $0.11 a second at 720p on Replicate (Reed, from its page, 6 Nov). 1080p and 4k aren't used; they keep 1.1's Replicate rates (read 2026-11-03) as a ceiling. Takes at 720p (its 360p draft mode left out). Native audio on every clip, no audio input. Up to 6 reference images, 3 a person, 2 people (docs/prompting/omni-1.2.md). Called on Replicate's official-model endpoint, so no version"
   },
   {

@@ -60,6 +60,18 @@ class Settings(BaseSettings):
     heygen_base_url: str = "https://api.heygen.com"
     heygen_api_key: SecretStr = Field(SecretStr(""), validation_alias="HEYGEN_API_KEY")
     heygen_delivery_hosts: list[str] = ["heygen.ai"]
+    # Google's Gemini API (app/providers/google.py): Omni 1.2 goes straight to Google, at
+    # Google's price, while BS_GOOGLE_API_KEY is set (Reed, 10 Nov: "we go omni through google
+    # directly"); unset, it's Replicate again. The key is the worker's only, never in code or
+    # logs; compose sets BS_GOOGLE_DIRECT for the parts without it, which price and queue by it.
+    google_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    google_api_key: SecretStr = SecretStr("")
+    google_direct: str = ""  # anything: the worker holds the key (deploy/docker-compose.yml)
+    # A file download may be sent on to these hosts (https only, never with the key).
+    google_delivery_hosts: list[str] = ["googleapis.com", "googleusercontent.com"]
+    # Takes start in the background and are checked on (docs/background-execution). False:
+    # each is made in one long call instead, should Google refuse `background` for Omni.
+    google_background: bool = True
     # Real look samples on the test site (Reed, 2026-10-29): with the stand-ins on, a look's
     # sample (its still and 5 s clip) alone is made on Replicate, until the next one would
     # take their spend past this budget; after that a sample is a stand-in again.
@@ -116,6 +128,11 @@ class Settings(BaseSettings):
     local_workers: int = 2
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
+
+    @property
+    def google_on(self) -> bool:
+        """Omni 1.2 goes straight to Google: this part holds the key, or the worker does."""
+        return bool(self.google_api_key.get_secret_value() or self.google_direct.strip())
 
 
 @lru_cache

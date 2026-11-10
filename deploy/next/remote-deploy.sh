@@ -3,7 +3,7 @@
 # Reed's site (production since 9 Nov 2026; formerly the test site, Brand Studio Next): its own
 # checkout (~/brand-studio-next, branch next), its own Compose project (brand-studio-next) and
 # deploy/.env. Never touches the old production site's checkout or stack.
-# Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC, HEYGEN (keys only when FAKE=false),
+# Expects from the workflow: FAKE, GENERATION, REPLICATE, ANTHROPIC, HEYGEN, GOOGLE (keys only when FAKE=false),
 # KIE, KIE_BUDGET, KIE_HOSTS (the KIE key only while real songs are switched on), LOOK_SAMPLES,
 # LOOK_BUDGET (with REPLICATE while real look samples are switched on), and LANGUAGE_TESTS,
 # LANGUAGE_BUDGET (with ANTHROPIC while real language tests are switched on), and with the
@@ -83,6 +83,7 @@ main() {
       echo "REPLICATE_API_TOKEN=$REPLICATE"
       echo "STUDIO_ANTHROPIC_KEY=$ANTHROPIC"
       echo "HEYGEN_API_KEY=${HEYGEN:-}"  # UGC talkers (HeyGen Avatar IV)
+      echo "BS_GOOGLE_API_KEY=${GOOGLE:-}"  # Omni 1.2 straight from Google; empty: through Replicate
       echo "BS_REAL_BUDGET_USD=${REAL_BUDGET:-0}"  # every paid call stops at it (0: none runs,
       # but the owner's own when he's uncapped, below)
       if [ -n "${REAL_SINCE:-}" ]; then echo "BS_REAL_BUDGET_SINCE=$REAL_SINCE"; fi  # unset: none runs

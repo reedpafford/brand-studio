@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.models.credits import USD_PER_CREDIT
+from app.settings import get_settings
 
 
 class Duration(BaseModel):
@@ -30,6 +31,16 @@ class Edit(BaseModel):
 
     max_seconds: int
     price: Price
+    price_source: str
+
+
+class Via(BaseModel):
+    """Another road to the same model, taken while its key is set (Omni 1.2 straight from
+    Google, Reed, 10 Nov): the provider its jobs go to, its name there and its price there."""
+
+    provider: str
+    provider_model: str
+    usd: dict[str, Decimal]  # per resolution, a take's and an edit's alike
     price_source: str
 
 
@@ -62,6 +73,16 @@ class CatalogueModel(BaseModel):
     price: Price
     price_source: str
     edit: Edit | None = None
+    via: Via | None = None
+    direct: bool = False  # reached by its `via` now: priced by it, its jobs go to its provider
+
+    def by_via(self) -> "CatalogueModel":
+        """This model as its `via` reaches and prices it."""
+        price = self.price.model_copy(update={"usd": self.via.usd})
+        source = self.via.price_source
+        edit = self.edit and self.edit.model_copy(update={"price": price, "price_source": source})
+        return self.model_copy(update={"direct": True, "price": price, "edit": edit,
+                                       "price_source": source})  # fmt: skip
 
     @property
     def take_resolution(self) -> str:
@@ -89,10 +110,32 @@ class CatalogueModel(BaseModel):
 
 
 @cache
-def catalogue() -> dict[str, CatalogueModel]:
+def _models(roads: frozenset[str]) -> dict[str, CatalogueModel]:
+    if roads:  # the same models, but those with a `via` on an open road
+        listed = _models(frozenset()).values()
+        return {m.id: m.by_via() if m.via and m.via.provider in roads else m for m in listed}
     data = json.loads((Path(__file__).parent / "catalogue.json").read_text())
     return {m["id"]: CatalogueModel.model_validate(m) for m in data["models"]}
 
 
-def get_model(model_id: str) -> CatalogueModel | None:
-    return catalogue().get(model_id)
+def _roads() -> frozenset[str]:
+    """The direct roads open now: Google's while its key is set (settings.google_on)."""
+    return frozenset({"google"} if get_settings().google_on else ())
+
+
+def catalogue() -> dict[str, CatalogueModel]:
+    """Every model as it's reached now. This is the one place that decides a model's road:
+    with a `via` whose key is set, it's priced by it and its jobs go to it (`provider_for`)."""
+    return _models(_roads())
+
+
+def get_model(model_id: str, listed: bool = False) -> CatalogueModel | None:
+    """`listed`: as the file lists it (on Replicate, at its price), whatever road is open."""
+    return _models(frozenset() if listed else _roads()).get(model_id)
+
+
+def provider_for(model_id: str | None, asked: str) -> str:
+    """The provider a job goes to: its model's `via` while that road is open (Omni 1.2:
+    "google"), else the one asked for. Only Replicate's jobs move (never a test's fake lane)."""
+    model = get_model(model_id or "")
+    return model.via.provider if model and model.direct and asked == "replicate" else asked

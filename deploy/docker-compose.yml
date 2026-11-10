@@ -17,6 +17,10 @@ x-server: &server
     # Provider keys go to the worker only (the only part that calls Replicate or Claude).
     REPLICATE_API_TOKEN: ""
     STUDIO_ANTHROPIC_KEY: ""
+    BS_GOOGLE_API_KEY: ""
+    # Omni 1.2 goes straight to Google while BS_GOOGLE_API_KEY is set in .env (unset: Replicate
+    # again). Every part prices and queues by this switch; only the worker gets the key itself.
+    BS_GOOGLE_DIRECT: ${BS_GOOGLE_API_KEY:+yes}
   volumes:
     - files:/data/storage
 
@@ -66,7 +70,9 @@ services:
     environment:
       <<: *server-env
       REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
-      BS_WORKER_PROVIDERS: '["fake", "replicate", "heygen"]'  # Claude and reel prep have their own
+      BS_GOOGLE_API_KEY: ${BS_GOOGLE_API_KEY:-}
+      # Claude and reel prep have their own
+      BS_WORKER_PROVIDERS: '["fake", "replicate", "heygen", "google"]'
     depends_on:
       migrate: { condition: service_completed_successfully }
 

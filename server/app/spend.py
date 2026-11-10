@@ -17,7 +17,8 @@ from app.models.credits import USD_PER_CREDIT
 from app.models.jobs import Job, JobStatus, Usage
 from app.providers import STAND_IN
 
-PROVIDERS = {"replicate": "Replicate", "claude": "Claude", "heygen": "HeyGen", "suno": "Suno (KIE)"}
+PROVIDERS = {"replicate": "Replicate", "claude": "Claude", "heygen": "HeyGen", "suno": "Suno (KIE)",
+             "google": "Google"}  # fmt: skip
 # Voices billed through Replicate, named apart as Reed counts them
 MAKERS = {"minimax": "MiniMax", "elevenlabs": "ElevenLabs"}
 KINDS = [  # (job kind starts with, what it made), in the order Usage lists them

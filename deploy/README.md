@@ -197,6 +197,20 @@ decide otherwise. When you're ready, and only with your explicit go:
 3. To switch it off again, change the value to `false` (or delete the variable) and run the
    deploy.
 
+**Omni straight from Google (optional; Reed, 10 Nov).** Omni 1.2 video takes cost about $0.07 a
+second on Google's own API against $0.11 through Replicate. To switch to Google: put a Gemini API
+key (aistudio.google.com → Get API key, on a project with billing) in the server's `deploy/.env`
+as `BS_GOOGLE_API_KEY=...` and restart (`docker compose up -d`, or run the deploy). From then on
+new Omni takes go to Google and every price shown for them is Google's; nothing else changes, and
+no other model moves. To switch back: empty or delete that line and restart, and new Omni takes
+go through Replicate at its price again. Let takes that are being made finish first: one already
+sent to Google can't be checked on without the key. Note that each deploy rewrites `deploy/.env`
+from the GitHub secrets, so for the key to last, the deploy must write it too: a `GOOGLE_API_KEY`
+secret passed by the workflow and written by `remote-deploy.sh` (and `next/remote-deploy.sh` for
+the test site) as `BS_GOOGLE_API_KEY`, the same way `REPLICATE_API_TOKEN` is. If Google ever
+refuses to start a take in the background, add `BS_GOOGLE_BACKGROUND=false`: takes are then made
+one at a time in one long call.
+
 ---
 
 ## Reference
