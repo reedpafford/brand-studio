@@ -34,6 +34,7 @@ LONG_NOTE = ("Refused: a {what} note is at most {most} characters (this one is {
 NOTES = {"make_take": "redo", "redraw_still": "redraw", "plan": "plan", "change_look": "change",
          "host": "motion", "add_sound": "sound"}  # fmt: skip  # their note goes on as written
 REDRAW = " Use redraw_still on one of its shots, with the note."
+PLANNED_AGAIN = "Planning again from the new treatment."
 
 
 def _redraw(said) -> str:
@@ -76,7 +77,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(storage=storage)))
     try:
         if tool == "plan":  # the video's plan first when it needs one, as the Plan step does
-            from app.director import fresh
+            from app.director import fresh, plan_behind
 
             if fresh(db, project, run)[0]:  # "Start the plan again": a whole new plan (S3-08)
                 plan_route.make(body=None, **me)
@@ -88,6 +89,9 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             if status == "none":
                 plan_route.make(body=None, **me)
                 return "Making the plan."
+            if plan_behind(db, project, run, shots=False):  # its treatment changed since (342)
+                plan_route.make(body=None, **me)  # from the new one, with every note
+                return PLANNED_AGAIN
             if status == "ready":
                 plan_route.approve(**me)  # approving it makes the shots
                 return "Approved the plan; making the shots."

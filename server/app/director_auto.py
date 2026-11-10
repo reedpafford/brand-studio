@@ -8,6 +8,7 @@ something in it changed since an OK or someone shown isn't cast. On a run with n
 revision) the same steps are the server's once every note has been answered (Reed, 9 Nov)."""
 
 SAID = "server"  # in a turn's input: the server took this step itself (no Claude call)
+OLDER = "older than the treatment"  # <video>'s plan once the run's treatment changed after it
 
 
 def move(state: dict) -> dict | None:
@@ -31,6 +32,9 @@ def move(state: dict) -> dict | None:
             and not state.get("cut_failed") and not watch.get("current")
             and state["allowed"].get("watches_left", 0) > 0):  # fmt: skip
         return go("watch_cut", "all: the cut is made, so it's watched as a viewer meets it.")
+    if state.get("plan") == OLDER:  # video 342: the card showed the old plan's clips
+        return go("plan", "all: the treatment changed after the plan was made; the plan is "
+                  "made again from it.")  # fmt: skip
     if state.get("plan") == "ready":
         return go("plan", "all: the plan is written; approving it makes the shots.")
     if state["shots"] != "ready" or state.get("too_long") or state["missing_looks"]:

@@ -27,6 +27,7 @@ from app import (
     breakdown_fix,
     cast_gate,
     cut_edits,
+    director_auto,
     director_song,
     director_tools,
     live,
@@ -90,6 +91,13 @@ NOT_MADE = "Not made yet: it waits for Make it, and is made once it's pressed." 
 # as <last_actions> shows it: the step still to make, not one done
 TREATMENT_FIRST = "Refused: the treatment comes first, before Make it."
 PLAN_FIRST = "Changing the plan first."  # a note while the start card waited
+PLAN_BEHIND = ("Refused: the treatment changed after the plan was made, so the plan and its "
+               "clip plan still tell the old story. Use plan first: it plans again from the new "
+               "treatment and every note.")  # fmt: skip  # `plan_behind`
+SHOTS_BEHIND = ("Refused: the shots are older than the plan, so the clip plan still shows the old "
+                "one. Use plan first: it makes the shots from the plan.")  # fmt: skip
+FROM_PLAN = ("make_looks", "ask_cast_ok", "split_clip", "storyboard", "stills", "redraw_still",
+             "clip_prompts", "make_take")  # fmt: skip  # made from the plan's shots
 PRE_OK = ("treatment", "ask", "wait", "stop", "locked_line",
           "find_footage")  # fmt: skip  # before Make it: nothing made
 # The direction card (Reed, 8 Nov: "before any paid stills or takes, the director presents one
@@ -990,7 +998,9 @@ def _unlooked(db: Session, project: Project, run: dict) -> str:
     to the person about them waits (QA on #1482: grey boxes on the card, then the cast stop
     again after Make it). A look that didn't draw is missing until it's drawn again once
     (make_looks); after that, or for a role nothing describes, the card comes with it marked
-    as not drawn."""
+    as not drawn. Never while the plan is older than the run's treatment (`plan_behind`)."""
+    if why := _behind(db, project, run):
+        return why
     if asks.waiting(db, project):
         return ""
     me = {"project_id": project.id, "user": db.get(User, run["by"]), "db": db}
@@ -1001,6 +1011,48 @@ def _unlooked(db: Session, project: Project, run: dict) -> str:
     if busy := [i for i in items if i["readiness"] in ("drawing", "waiting_for_owner")]:
         return f"Refused: {cast_gate.WHY[busy[0]['readiness']].format(busy[0]['name'])}; wait."
     return ""
+
+
+def plan_behind(db: Session, project: Project, run: dict | None, shots: bool = True) -> bool:
+    """A run still planning before its Make it wrote its treatment again after its own plan
+    was made from the one before (video 342: "Change the plan first" rewrote two beats, and
+    the card's clip plan, made from the plan before, still showed the old ones): the plan,
+    and with `shots` the shots made from it (the clip plan), tell the old story until they're
+    made again, the shots after the plan. Never after Make it, nor on a run that doesn't plan
+    before it (a revision, a Variation, one held for the owner): their stories stand. A plan
+    and shots both from before the run's first treatment aren't its to redo."""
+    from app import plans
+    from app.clip_prompts import newest
+
+    if not run or run.get("ok", True) or not _planning(run):
+        return False
+    told = db.scalars(select(Job.finished_at).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == "treatment",
+        Job.input[RUN]["id"].as_string() == run["id"], Job.status == JobStatus.succeeded,
+        Job.finished_at.is_not(None)).order_by(Job.finished_at)).all()  # fmt: skip
+    plan = plans.current(db, project) if len(told) > 1 else None
+    if not plan or not plan.get("made_at"):
+        return False
+    row = newest(db, project)
+    at, made = datetime.fromisoformat(plan["made_at"]), row.created_at if row else None
+    if at < told[0] and (made is None or made < told[0]):  # nothing built from its story yet
+        return False
+    return at < told[-1] or shots and (made is None or made < at)
+
+
+def _behind(db: Session, project: Project, run: dict | None) -> str:
+    """Why nothing may be made from the plan yet (`plan_behind`): its plan, or only its shots
+    (a re-plan's shots not made yet, or failed), else ""."""
+    if not plan_behind(db, project, run):
+        return ""
+    return PLAN_BEHIND if plan_behind(db, project, run, shots=False) else SHOTS_BEHIND
+
+
+def most_replans(project: Project, run: dict) -> int:
+    """Plans made again with a note, a run: MAX_REPLANS (the watch's "Re-plan:") and one more
+    for each person's note (video 342: note 5's re-plan was refused, the cap used up before it;
+    F16: a note is never dropped). A stale plan's own re-plan isn't one (`plan_behind`)."""
+    return MAX_REPLANS + len(chat(project, run["id"]))
 
 
 def _before_ok(db: Session, project: Project, run: dict, tool: str | None) -> bool:
@@ -1023,6 +1075,8 @@ def _act(db: Session, job: Job, storage) -> None:
     run = _refund(db, project, dict(job.input[RUN]))
     tool = decision.get("tool")
     free = tool in REVISE_FREE and _free_revision(db, run, project.id)
+    if tool in FROM_PLAN and (why := _behind(db, project, run)):  # nothing from the old story
+        return _record(db, job, run, why)
     if not run.get("ok", True) and not free and not _before_ok(db, project, run, tool):
         written = _written(db, run, project.id)  # nothing made before Make it but the plan
         if written and _planning(run) and (why := _unlooked(db, project, run)):
@@ -1093,9 +1147,11 @@ def _act(db: Session, job: Job, storage) -> None:
         if tool == "make_looks" and (card := told_look.again(db, project, run, decision, refused)):
             return _record(db, job, run, card)  # its one retry: the owner's card, not a stop
         return _end(job, f"It stopped: {refused}", result=f"Refused again: {refused}")
-    replan = tool == "plan" and bool((decision.get("note") or "").strip())
-    if replan and run.get("replans", 0) >= MAX_REPLANS:  # the watch's "Re-plan:", once a run
-        return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
+    replan = (tool == "plan" and bool((decision.get("note") or "").strip())
+              and not plan_behind(db, project, run, shots=False))  # fmt: skip  # stale: owed
+    if replan and run.get("replans", 0) >= (most := most_replans(project, run)):  # 342
+        said = f"{most} time{'s' * (most > 1)}"
+        return _record(db, job, run, f"Refused: it planned again {said} this run.")
     if tool == "watch_cut" and (cut_edits.for_director(db, project) or {}).get("changes"):
         return _record(db, job, run, REBUILD)  # a watch is for the cut with the edits in it
     if tool == "watch_cut":  # its own eyes on the cut: 3 a run (more on a long video), never
@@ -1120,6 +1176,13 @@ def _act(db: Session, job: Job, storage) -> None:
     if replan and not result.startswith("Refused"):
         run["replans"] = run.get("replans", 0) + 1
     _spent_on(db, project, run, counted, mark)
+    if _too_long(db, project, job, tool, result):  # still too long: it stops here, no more tries
+        job = db.get(Job, job.id)
+        job.input = {**job.input, RUN: run}
+        no = result.removeprefix("Refused: ")
+        _end(job, f"It stopped: {no}", result=f"Refused again: {no}")
+        db.commit()
+        return
     _record(db, job, run, result)
 
 
@@ -1360,6 +1423,25 @@ def _over_others(text: str, span: list[float], said: list[dict]) -> bool:
                and not set(_bare(w["word"]).split()) <= own for w in said)  # fmt: skip
 
 
+# A note or question past its length (asks.LONG, director_tools.LONG_NOTE) is never cut: it
+# is said shorter; the LONG_TRIES-th such refusal in a row stops the run (Carry on)
+TOO_LONG = re.compile(r"is at most \d+ characters \(this one is \d+\)")
+LONG_TRIES = 4
+
+
+def _too_long(db: Session, project: Project, job: Job, tool: str | None, result: str) -> bool:
+    """`result` is the LONG_TRIES-th length refusal of `tool` in a row in the run."""
+    if not TOO_LONG.search(result):
+        return False
+    rows, n = [j for j in turns(db, project) if j.id < job.id], 1
+    for j in reversed(rows):
+        if not (TOO_LONG.search(j.input.get("result") or "")
+                and (j.output or {}).get("tool") == tool):  # fmt: skip
+            break
+        n += 1
+    return n >= LONG_TRIES
+
+
 def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
     """The same tool, as it was, right after it was refused, or after one other refused step
     in between (video 281: redraw_still and host, each refused pointing at the other), with
@@ -1368,7 +1450,9 @@ def _refused_again(db: Session, job: Job, decision: dict) -> str | None:
     again never stops it: it's told to fix something or deliver (QA on #1145)."""
     project = db.get(Project, job.project_id)
     rows = [j for j in turns(db, project) if j.id < job.id]
-    keys = ("tool", "clip_id", "take_id", "shot_id", "note", "edit", "redraws", "look")
+    if rows and TOO_LONG.search(rows[-1].input.get("result") or ""):
+        return None  # said shorter, never a loop: `_too_long` stops it (342: twice ended it)
+    keys = ("tool", "clip_id", "take_id", "shot_id", "note", "edit", "redraws", "look", "ask")
     said = []
     for before in rows[-2:][::-1]:  # the last turn, then the one before it
         result = before.input.get("result") or ""
@@ -1555,8 +1639,8 @@ def _auto(db: Session, project: Project, run: dict, seen: dict, last: Job) -> di
     if step and step["tool"] == "ask_cast_ok" and any(
             i["look_fit"] for i in cast_gate.current(db, project)):  # fmt: skip
         return None  # the look check says one is wrong: the director's to change or keep
-    if step and last.input.get(director_auto.SAID) and (last.output or {}).get("tool") == step[
-            "tool"]:  # fmt: skip
+    if (step and last.input.get(director_auto.SAID) and (last.output or {}).get("tool") == step[
+            "tool"] and last.input.get("result") != director_tools.PLANNED_AGAIN):  # fmt: skip
         return None  # its own step again (a clip prompt's part that failed): the director's
     if step and any(t.input[RUN]["id"] == run["id"] and t.input.get(director_auto.SAID)
                     and (t.output or {}).get("tool") == step["tool"]
@@ -1903,7 +1987,7 @@ def _turn_input(db: Session, project: Project, run: dict, job_id: int | None,
                "redos_used": _redos(db, project, run),
                "own_time_usd": float(spent(db, run["id"], project.id)),
                "own_time_limit_usd": _limit_usd(own_usd(db, run, project.id)),
-               "replans_left": MAX_REPLANS - run.get("replans", 0),
+               "replans_left": most_replans(project, run) - run.get("replans", 0),
                "songs_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
                "narrations_left": director_song.REMAKES - run.get(director_song.REMADE, 0),
                "redraws_per_still": 2, "redraws_used": run.get("redraws", {})}  # fmt: skip
@@ -1932,6 +2016,8 @@ def _turn_input(db: Session, project: Project, run: dict, job_id: int | None,
         video["plan"] = "none"
     if shots:
         video["shots"], video["missing_looks"] = "none", []
+    if plan_behind(db, project, run, shots=False):  # its treatment changed since: planned again
+        video["plan"] = director_auto.OLDER
     set_aside(db, project, run, video["clips"])  # its takes from before the press
     from app.routes.reel_video import look_reference
 
@@ -2366,6 +2452,8 @@ def choose(state: dict) -> dict:
             return go("treatment", f"Note {m['note']}: {m['text']}"[:300], note=m["text"])
     if audio := _audio_move(state, go):  # a song or narrated video: its audio is the clock
         return audio
+    if state.get("plan") in (director_auto.OLDER, "ready"):  # made again from a new treatment
+        return go("plan", "The plan is older than the treatment, or waits for approval.")
     if state["shots"] == "none":
         return go("plan", "There are no shots yet.")
     if long := state.get("too_long"):  # before its stills: the split makes new shots
