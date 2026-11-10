@@ -102,7 +102,7 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     its seconds of video. `bd` is its Breakdown, if it has one; `video` its models (VS1),
     else its `look` and script `kind` say which (`breakdown.video_model`). Pieces that open on
     their talker's one still draw none of their own (app/one_frame.py). Redos aren't counted."""
-    from app import clip_prompts, one_frame, take_watch
+    from app import clip_prompts, one_frame, take_watch, talker_sound
     from app.breakdown import video_model
     from app.sheets import look_usual
     from app.storyboard import image_model, still_credits
@@ -114,8 +114,9 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     m = video_model(video, look, kind)
     clip = {"model": m.id, "input": {"resolution": m.take_resolution}}
     checks = clips * take_watch.per_take(db, ws)  # a watch of a take a clip, while on
+    voices = talker_sound.planned(db, video, clips)  # an Omni talker's voices, from their rooms
     return (claude + stills * still_credits(db, ws, image_model(video)) + look_usual(db, ws) * roles
-            + estimate(db, ws, "video", Decimal(seconds), clip) + checks)  # fmt: skip
+            + estimate(db, ws, "video", Decimal(seconds), clip) + checks + voices)  # fmt: skip
 
 
 def approved(db: Session, fs) -> Decimal:

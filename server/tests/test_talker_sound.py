@@ -2,14 +2,21 @@
 9 Nov: app/talker_sound.py). Synthetic sound and pictures made with ffmpeg here; stand-ins
 only, no paid calls."""
 
+import json
 import subprocess
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 
-from app import cut, cut_render, reel, song_timing, talker_sound, watch_report
+from app import cut, cut_render, director, reel, song_timing, spend, talker_sound, watch_report
+from app.catalogue import get_model
+from app.db import utcnow
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
+from app.settings import get_settings
 from tests.test_omni_talker import SAYS, _clips, _jobs, _made
+
+DEMUCS = Path(__file__).parent / "fixtures/replicate/ryan5453_demucs.json"
 
 TONE = 0.3  # a "word": a 220 Hz tone at about -13.5 dBFS
 STILL = "color=c=gray:s=180x320:r=30:d={d}"
@@ -97,11 +104,16 @@ def test_the_talkers_pieces_play_their_kept_stretches_back_to_back(app, db, owne
 
 
 def test_back_to_back_b_roll_never_flashes_the_talker_and_no_take_is_used_twice():
-    tl = {"length": 30.0, "pieces": [{"clip_id": "c1", "start": 0.0, "end": 30.0, "from": 0.0}],
-          "over": [{"take_id": 1, "piece": "c1", "at": 2.0, "seconds": 3.0},
-                   {"take_id": 2, "piece": "c1", "at": 6.0, "seconds": 3.0},  # 1 s after
-                   {"take_id": 3, "piece": "c1", "at": 12.0, "seconds": 3.0},  # 3 s after
-                   {"take_id": 2, "piece": "c1", "at": 20.0, "seconds": 3.0}]}  # used again
+    tl = {
+        "length": 30.0,
+        "pieces": [{"clip_id": "c1", "start": 0.0, "end": 30.0, "from": 0.0}],
+        "over": [
+            {"take_id": 1, "piece": "c1", "at": 2.0, "seconds": 3.0},
+            {"take_id": 2, "piece": "c1", "at": 6.0, "seconds": 3.0},  # 1 s after
+            {"take_id": 3, "piece": "c1", "at": 12.0, "seconds": 3.0},  # 3 s after
+            {"take_id": 2, "piece": "c1", "at": 20.0, "seconds": 3.0},
+        ],
+    }  # used again
     laid = cut.laid_over(tl)
     assert [(o["take_id"], o["start"], o["length"]) for o in laid] == [
         (1, 2.0, 3.0), (2, 5.0, 3.0), (3, 12.0, 3.0)]  # fmt: skip
@@ -194,9 +206,14 @@ def test_each_talker_piece_has_its_voice_separated_and_the_cut_plays_faster(app,
     talks = [r for r in _clips(db, video) if SAYS in r.prompt]
     assert {j.input["take_id"] for j in split} == {
         t.id for r in talks for t in db.query(ClipTake).filter_by(clip_id=r.id)}  # fmt: skip
-    for job in split:  # Demucs on Replicate, priced from the catalogue
+    schema = json.loads(DEMUCS.read_text())
+    for job in split:  # Demucs on Replicate, priced from the catalogue, as its schema reads
         assert (job.provider, job.input["model"]) == ("replicate", talker_sound.MODEL)
+        assert get_model(talker_sound.MODEL).provider_version == schema["version"]
+        assert {*job.input["input"], *job.input["files"]} <= set(schema["Input"]["properties"])
+        assert "vocals" in schema["Output"]["properties"]
         assert job.credits == talker_sound.price(db, video.workspace_id) > 0
+        assert spend.kind_name(job.provider, job.kind) == "Voice"  # never "Sound effects"
         take = db.get(ClipTake, job.input["take_id"])
         assert take.made_with[talker_sound.KEY] == job.output["file_ids"][0]
     broll = [r for r in _clips(db, video) if SAYS not in r.prompt]
@@ -210,3 +227,48 @@ def test_each_talker_piece_has_its_voice_separated_and_the_cut_plays_faster(app,
     job.status = "running"  # a voice still being separated: the cut waits for it
     db.commit()
     assert talker_sound.waiting(db, video, rows)
+    assert job in director._waiting(db, video)  # and the director with it
+
+
+def test_a_separation_is_waited_for_three_minutes_at_most_and_never_with_paid_work_off(
+    app, db, owner, monkeypatch
+):
+    video = _made(app, db, owner)
+    rows = list(db.query(ProjectClip).filter_by(project_id=video.id))
+    job = next(j for j in _jobs(db, video, talker_sound.STEP)
+               if j.input["take_id"] in {r.picked_take_id for r in rows})  # fmt: skip
+    job.status, job.created_at = "running", utcnow() - talker_sound.WAIT_FOR - timedelta(seconds=1)
+    db.commit()
+    assert not talker_sound.waiting(db, video, rows)  # the take's own sound, and on
+    assert job not in director._waiting(db, video)
+    job.status, job.created_at = "queued", utcnow()
+    db.commit()
+    monkeypatch.setattr(get_settings(), "fake_providers", False)
+    monkeypatch.setattr(get_settings(), "generation_enabled", True)
+    assert talker_sound.waiting(db, video, rows)
+    monkeypatch.setattr(get_settings(), "generation_enabled", False)  # paid work is off: it
+    assert not talker_sound.waiting(db, video, rows)  # would never run, so never waited for
+
+
+def test_a_separation_that_cant_be_queued_never_stops_the_take(db, monkeypatch, caplog):
+    def broken(*args):
+        raise RuntimeError("no catalogue")
+
+    monkeypatch.setattr(talker_sound, "queue", broken)
+    take = ClipTake(id=1, clip_id=1, number=1, job_id=1, file_id=1)
+    talker_sound.queue_safely(db, None, take, None)  # logged, nothing raised
+    assert "voice separation of take 1" in caplog.text
+
+
+def test_a_trimmed_pieces_words_are_all_kept(monkeypatch):
+    tl = {"mode": "takes", "speed": talker_sound.SPEED, "pieces": [
+        {"take_id": 5, "start": 0.0, "end": 1.467, "from": 0.633},
+        {"take_id": 5, "start": 1.467, "end": 2.5, "from": 2.5}]}  # fmt: skip
+    heard = [{"word": "I", "start": 0.0, "end": 0.9},  # its silence before glued on
+             {"word": "said", "start": 1.0, "end": 1.9},
+             {"word": "so", "start": 2.0, "end": 2.9},  # mostly after the cut pause
+             {"word": "hour.", "start": 3.2, "end": 4.2}]  # run past the tail  # fmt: skip
+    monkeypatch.setattr(cut, "_heard", lambda db, take: heard)
+    words = cut._cut_words(type("Db", (), {"get": lambda self, kind, i: object()})(), tl)
+    said = [("I", 0.0, 0.27), ("said", 0.37, 1.27), ("so", 1.47, 1.87), ("hour.", 2.17, 2.5)]
+    assert [(w["word"], w["start"], w["end"]) for w in words] == said

@@ -116,8 +116,10 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
                      "length": o["length"]} for o in laid_over(tl)]}  # fmt: skip
     if tl.get("speed"):  # an Omni talker's: each take's voice evened, one room, faster
         out["steady"] = True
-        for src in out["sources"].values():
+        for take_id, src in out["sources"].items():
             src["even"] = True
+            if not src["voice"]:  # never separated (failed, or given up on): its own sound
+                log.info("cut of video %s: take %s plays its own sound", project.id, take_id)
     if talker.on(db, project):  # the talker's room carries the video
         out["takes"] = [TAKES if out["sources"][str(p["take_id"])]["sound"] else UNDER_TALKER
                         for p in tl["pieces"]]  # fmt: skip

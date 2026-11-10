@@ -177,7 +177,6 @@ def test_a_talker_no_treatment_gave_a_voice_still_gets_one_line_in_every_piece(a
     assert all(x == {line} for x in lines)  # from their look, the same in every piece
 
 
-
 def test_b_roll_starts_with_a_piece_and_one_no_piece_says_goes_over_the_nearest(app, db, owner):
     tl = {"length": 12.0, "pieces": [
         {"clip_id": "c1", "start": 0.0, "end": 5.0, "from": 0.0},

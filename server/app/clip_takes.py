@@ -761,7 +761,7 @@ def save_take(db: Session, job: Job) -> None:
     from app import take_watch, talker_sound  # rule 11: the director watches and hears it
 
     take_watch.queue_safely(db, job, take, clip)
-    talker_sound.queue(db, job, take, clip)  # an Omni talker's: its voice from its room
+    talker_sound.queue_safely(db, job, take, clip)  # an Omni talker's: its voice from its room
 
 
 def pick(clip: ProjectClip, take: ClipTake, keep_prompt: bool = False) -> None:

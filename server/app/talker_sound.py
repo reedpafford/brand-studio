@@ -20,8 +20,10 @@ playbook, adopted by Reed on 9 Nov (§4-§7, §9).
   moving about in the kept stretch, and the room's level, which the take's watch also reads
   as measured facts that can confirm its notes (watch_report.confirmed)."""
 
+import logging
 import math
 import tempfile
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -30,8 +32,9 @@ from sqlalchemy.orm import Session
 
 from app import room
 from app.models.clips import ClipTake, ProjectClip
-from app.models.jobs import WAITING, Job
+from app.models.jobs import WAITING, Job, JobStatus
 
+log = logging.getLogger(__name__)
 HEAD = 0.05  # s kept before a piece's first sound
 SENTENCE, COMMA = 0.13, 0.05  # s kept after its last word: a sentence's end, a comma's
 LONG, BEAT = 0.26, 0.2  # a silence inside a piece longer than LONG is cut down to BEAT
@@ -52,6 +55,8 @@ AIM, PEAK = -14.0, -1.5  # the final mix, by one gain: about -14 LUFS, never pas
 SPEED = 1.1
 GAP = 1.4  # s: back-to-back B-roll runs together, or leaves the talker on longer than this
 WAIT = "The talker's pieces are still being measured and their voices cleaned. Ready in a moment."
+WAIT_FOR = timedelta(minutes=3)  # past this a separation isn't waited for: the take's own sound
+MEASURE_FOR = timedelta(minutes=15)  # nor a piece's free measure (whisper can queue): as made
 
 
 def measure(path: Path, lines: list[dict], vad=None) -> dict:
@@ -113,8 +118,9 @@ def voiced(path: Path) -> list[list[float]] | None:
         from faster_whisper.vad import VadOptions, get_speech_timestamps
     except ImportError:
         return None
-    found = get_speech_timestamps(decode_audio(str(path)),
-                                  VadOptions(min_silence_duration_ms=100, speech_pad_ms=0))
+    found = get_speech_timestamps(
+        decode_audio(str(path)), VadOptions(min_silence_duration_ms=100, speech_pad_ms=0)
+    )
     return [[s["start"] / 16000, s["end"] / 16000] for s in found]  # fmt: skip
 
 
@@ -159,8 +165,11 @@ def findings(m: dict | None, heard: list[dict], lines: list[dict]) -> list[dict]
     doubled = {(x, y) for x, y in zip(script, script[1:], strict=False) if x == y}
     runs, out = (m or {}).get("sounds") or [], []
     for w in words:
-        held = sum(max(0.0, min(w["end"], b) - max(w["start"], a)) for a, b in runs) if runs \
-            else w["end"] - w["start"]  # how long it really sounds inside its transcript span
+        held = (
+            sum(max(0.0, min(w["end"], b) - max(w["start"], a)) for a, b in runs)
+            if runs
+            else w["end"] - w["start"]
+        )  # how long it really sounds inside its transcript span
         said, at = w["word"].strip(), _clock(w["start"])
         if held > HELD:
             out.append(_finding("held", w["start"], f"“{said}” at {at} is held {held:.2f} s "
@@ -195,7 +204,9 @@ def _moved(m: dict) -> int | None:
 def told(m: dict, heard: list[dict], lines: list[dict]) -> str:
     """The checks as measured facts, for the take watch's <measured>."""
     found = findings(m, heard, lines)
-    said = "; ".join(f["text"] for f in found) or "no word held, no filler or doubled word"
+    said = (
+        "; ".join(f["text"].rstrip(".") for f in found) or "no word held, no filler or doubled word"
+    )
     room_db = m.get("floor")
     loud = f" (loud: over {LOUD_ROOM} dB)" if room_db is not None and room_db > LOUD_ROOM else ""
     return f"Talker checks (measured): {said}. Room between words: {room_db} dB{loud}."
@@ -222,7 +233,16 @@ def measured(db: Session, take: ClipTake | None) -> dict | None:
 def price(db: Session, workspace_id: int) -> Decimal:
     from app.credits import estimate
 
-    return estimate(db, workspace_id, "sound", Decimal(1), {"model": MODEL})
+    return estimate(db, workspace_id, STEP, Decimal(1), {"model": MODEL})
+
+
+def planned(db: Session, video, clips: int) -> Decimal:
+    """For a video's estimate (credits.plan_cost): an Omni talker's every clip separated once
+    (B-roll counted too: an estimate is never below what's charged)."""
+    from app import omni_talker
+
+    on = video is not None and video.script_draft_id and omni_talker.on(db, video)
+    return clips * price(db, video.workspace_id) if on else Decimal(0)
 
 
 def splits(db: Session, project, clip: ProjectClip) -> bool:
@@ -244,10 +264,19 @@ def queue(db: Session, job: Job, take: ClipTake, clip: ProjectClip) -> None:
     data = {"step": STEP, "project_id": project.id, "take_id": take.id, "model": MODEL,
             "input": {"isolate_stem": "vocals", "format": "wav"},
             "files": {"audio": [take.file_id]}}  # fmt: skip
-    db.add(Job(workspace_id=project.workspace_id, created_by_id=job.created_by_id, kind="sound",
+    db.add(Job(workspace_id=project.workspace_id, created_by_id=job.created_by_id, kind=STEP,
                provider="replicate", input=data, project_id=project.id, brand_id=project.brand_id,
                credits=price(db, project.workspace_id), status="queued",
                approved_by_id=job.approved_by_id))  # fmt: skip
+
+
+def queue_safely(db: Session, job: Job, take: ClipTake, clip: ProjectClip) -> None:
+    """A separation never stops a take from being saved: without one, the take's own sound."""
+    try:
+        with db.begin_nested():
+            queue(db, job, take, clip)
+    except Exception:
+        log.exception("couldn't queue the voice separation of take %s", take.id)
 
 
 def saved(db: Session, job: Job) -> None:
@@ -264,18 +293,34 @@ def saved(db: Session, job: Job) -> None:
     take.made_with = {**(take.made_with or {}), KEY: files[min(n, len(files) - 1)]}
 
 
+def given_up(job: Job) -> bool:
+    """A separation no longer waited for: queued while paid generation is off (it would never
+    run), or older than WAIT_FOR. The cut then plays the take's own sound (`even`); the
+    separation may still land for the next cut. Its failure is never the director's (the
+    fallback is automatic: director.py leaves it out)."""
+    from app.db import utcnow
+    from app.settings import get_settings
+
+    settings = get_settings()
+    off = not (settings.generation_enabled or settings.fake_providers)
+    return (off and job.status == JobStatus.queued) or utcnow() - job.created_at > WAIT_FOR
+
+
 def waiting(db: Session, project, rows: list[ProjectClip]) -> bool:
-    """A picked talker take's voice is still being separated, or its measure still taken."""
+    """A picked talker take's voice is still being separated (`given_up` aside), or its
+    measure still taken (MEASURE_FOR at most: then it plays as made)."""
     from app import item_checks
+    from app.db import utcnow
 
     picked = [r.picked_take_id for r in rows if r.picked_take_id]
     jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING),
                                         Job.input["step"].as_string() == STEP))  # fmt: skip
-    if any(j.input.get("take_id") in picked for j in jobs):
+    if any(j.input.get("take_id") in picked and not given_up(j) for j in jobs):
         return True
     checks = item_checks.latest(db, "words", picked)
     return any(row.status == "checking" and (job := db.get(Job, row.job_id or 0))
                and job.status in WAITING and job.input.get("talker")
+               and utcnow() - job.created_at <= MEASURE_FOR
                for row in checks.values())  # fmt: skip
 
 

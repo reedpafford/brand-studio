@@ -404,18 +404,29 @@ def spoken(words: list[dict], gap: float = 0.6) -> list[list[float]]:
 
 
 def _cut_words(db: Session, tl: dict) -> list[dict]:
-    """The words in cut seconds: the voice's, or a story video's takes' as each piece plays."""
+    """The words in cut seconds: the voice's, or a story video's takes' as each piece plays.
+    An Omni talker's pieces are trimmed in quiet (talker_sound.keep), so every word the
+    transcript times across a kept stretch is said in it (whisper starts a piece's first word
+    at 0.0, its silence before it glued on, QA on #1512): each in the stretch it overlaps
+    most, clamped to it."""
     if tl["mode"] != "takes":
         return tl["words"]
-    out = []
-    for p in tl["pieces"]:
+    out, best, run = [], {}, 0
+    for n, p in enumerate(tl["pieces"]):
         take = db.get(ClipTake, p["take_id"]) if p["take_id"] else None
-        for w in _heard(db, take):
+        run += bool(n) and p["take_id"] != tl["pieces"][n - 1]["take_id"]  # one take's stretches
+        for k, w in enumerate(_heard(db, take)):
             at = p["start"] + w["start"] - p["from"]
-            if p["start"] <= at and at + w["end"] - w["start"] <= p["end"] + 0.05:
-                out.append({"word": w["word"], "start": round(at, 2),
-                            "end": round(at + w["end"] - w["start"], 2)})  # fmt: skip
-    return out
+            end = at + w["end"] - w["start"]
+            if tl.get("speed"):
+                over = min(end, p["end"]) - max(at, p["start"])
+                if over > best.get((run, k), (0.0,))[0]:
+                    kept = {"word": w["word"], "start": round(max(at, p["start"]), 2),
+                            "end": round(min(end, p["end"]), 2)}  # fmt: skip
+                    best[(run, k)] = (over, kept)
+            elif p["start"] <= at and end <= p["end"] + 0.05:
+                out.append({"word": w["word"], "start": round(at, 2), "end": round(end, 2)})
+    return out + sorted((w for _, w in best.values()), key=lambda w: w["start"])
 
 
 def _snap(t: float, words: list[dict]) -> float:

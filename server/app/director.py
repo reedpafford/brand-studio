@@ -32,6 +32,7 @@ from app import (
     locked_line,
     take_mute,
     take_sound,
+    talker_sound,
     told_look,
     video_variations,
     word_splice,
@@ -2207,7 +2208,8 @@ def video_state(db: Session, project: Project) -> dict:
     acted = [j for j in turns(db, project) if "result" in j.input]
     failed = db.scalars(select(Job).where(
         Job.project_id == project.id, Job.status == JobStatus.failed,
-        Job.finished_at >= acted[-1].created_at)) if acted else []  # fmt: skip
+        Job.finished_at >= acted[-1].created_at,
+        Job.kind != talker_sound.STEP)) if acted else []  # a voice's falls back  # fmt: skip
     from app.breakdown import extras as breakdown_extras
     from app.cut import making as cut_making
     from app.plans import status
@@ -2757,9 +2759,11 @@ def _waiting(db: Session, project: Project) -> list[Job]:
     takes = select(SongTake).where(SongTake.project_id == project.id)
     audio = or_(Job.id.in_(takes.with_only_columns(SongTake.timing_job_id)),
                 Job.id.in_(takes.with_only_columns(SongTake.music_job_id)))  # fmt: skip
-    return list(db.scalars(select(Job).where(or_(Job.project_id == project.id, audio),
-                                             Job.status.in_(WAITING),
-                                             or_(step.is_(None), step != STEP))))  # fmt: skip
+    jobs = db.scalars(select(Job).where(or_(Job.project_id == project.id, audio),
+                                        Job.status.in_(WAITING),
+                                        or_(step.is_(None), step != STEP)))  # fmt: skip
+    # a talker's voice separation given up on isn't waited for: the cut uses the take's sound
+    return [j for j in jobs if not (j.kind == talker_sound.STEP and talker_sound.given_up(j))]
 
 
 def _has_take(db: Session, project: Project, clip_id: str) -> bool:
