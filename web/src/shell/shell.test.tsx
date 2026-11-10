@@ -196,14 +196,19 @@ test("an editor's account menu has no Team link", async () => {
   expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
 });
 
-test("on desktop one rail (v6 S0-01): the brand switcher, New video and search, the folders, Library, Studio for Reed only, the account at the bottom; no top bar", async () => {
+test("on desktop one rail: the brand switcher, Home and search, All videos, Assets, Projects with New video and the folders, Studio for Reed only, the account at the bottom; no top bar", async () => {
   setViewport(1440);
   fakeServer({ "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /scripts": [200, []], "GET /projects": [200, []], "GET /brands/1/tree": [200, tree], "GET /needs-you": [200, { total: 1, brands: [], questions: [], money: [], sends: [], stuck: [] }] });
   renderAt("/b/1/projects");
   const rail = await screen.findByRole("navigation", { name: "Main" });
   expect(await within(rail).findByText("fomo")).toBeInTheDocument();
   await within(rail).findByRole("link", { name: /Unsorted/ });
-  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["New videoN", "Unsorted0", "Scripts", "Cast & places", "Media", "Brand kit", "Needs you", "In production", "Usage", "Team", "Settings"]);
+  expect(within(rail).getAllByRole("link").map((l) => l.textContent?.replace(/\d+ waiting$/, "").trim())).toEqual(["HomeN", "All videos", "Brand kit", "Products", "Cast & places", "Media", "Scripts", "New video", "Unsorted0", "Needs you", "In production", "Usage", "Team", "Settings"]);
+  for (const group of ["Assets", "Projects", "Studio"]) expect(within(rail).getByText(group)).toBeInTheDocument();
+  expect(within(rail).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/1");
+  expect(within(rail).getByRole("link", { name: "All videos" })).toHaveAttribute("href", "/b/1/videos");
+  expect(within(rail).getByRole("link", { name: "Products" })).toHaveAttribute("href", "/b/1/library/products"); // the library's own Products tab
+  expect(within(rail).getByRole("link", { name: "New video" })).toHaveAttribute("href", "/b/1"); // Projects' New video is Home
   expect(within(rail).getByRole("button", { name: "Quick search" })).toBeInTheDocument();
   expect(within(rail).getByRole("button", { name: "New folder" })).toBeInTheDocument();
   expect(within(rail).getByRole("button", { name: "Brand: fomo" })).toBeInTheDocument();
@@ -213,6 +218,56 @@ test("on desktop one rail (v6 S0-01): the brand switcher, New video and search, 
   await vi.waitFor(() => expect(within(rail).getByRole("link", { name: /Needs you/ })).toHaveTextContent("1"));
   expect(screen.getAllByRole("link", { name: /Needs you/ })).toHaveLength(1); // only the rail row: no top bar on desktop
   expect(screen.queryByRole("navigation", { name: "Tabs" })).not.toBeInTheDocument();
+});
+
+const home = { "GET /auth/me": [200, owner], "GET /brands": [200, brands], "GET /looks": [200, []], "GET /brands/1/tree": [200, tree], "GET /brands/2/tree": [200, tree] } as Record<string, [number, unknown]>;
+
+test("a brand opens on Home, at its own address and at New video's; switching brand there stays on Home", async () => {
+  setViewport(1440);
+  fakeServer(home);
+  renderAt("/");
+  expect(await screen.findByRole("heading", { name: "Paste your script, pick a style. We handle the rest." })).toBeInTheDocument();
+  const rail = screen.getByRole("navigation", { name: "Main" });
+  expect(within(rail).getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+  expect(within(rail).getByRole("link", { name: "All videos" })).not.toHaveAttribute("aria-current");
+  await pickBrand("Iron Paws");
+  expect(await within(rail).findByRole("link", { name: "Home", current: "page" })).toHaveAttribute("href", "/b/2");
+  cleanup();
+  renderAt("/b/1/videos/new");
+  expect(await screen.findByRole("link", { name: "Home", current: "page" })).toBeInTheDocument(); // the same page, not a video under All videos
+  expect(screen.getByRole("link", { name: "All videos" })).not.toHaveAttribute("aria-current");
+  await screen.findByRole("button", { name: "Brand: fomo" });
+  await pickBrand("Iron Paws");
+  expect(await screen.findByRole("link", { name: "Home", current: "page" })).toHaveAttribute("href", "/b/2");
+  expect(screen.getByRole("heading", { name: "Paste your script, pick a style. We handle the rest." })).toBeInTheDocument();
+});
+
+test("N opens Home on its words box from another page, and goes back to the words when already there", async () => {
+  setViewport(1440);
+  fakeServer({ ...home, "GET /scripts": [200, []] });
+  renderAt("/b/1/scripts");
+  await screen.findByRole("heading", { name: "Scripts" });
+  await userEvent.keyboard("n");
+  const words = await screen.findByLabelText("Paste a script, or describe the video");
+  await vi.waitFor(() => expect(words).toHaveFocus());
+  await userEvent.type(words, "nn"); // typing an n is typing, not the shortcut
+  expect(words).toHaveValue("nn");
+  await userEvent.click(screen.getByRole("heading", { name: /^Paste your script/ })); // focus leaves the box
+  expect(words).not.toHaveFocus();
+  await userEvent.keyboard("n");
+  expect(words).toHaveFocus();
+  expect(words).toHaveValue("nn"); // the words typed so far stay
+});
+
+test("Products has its own row: on the library's Products tab it is the current one, not Cast & places, and a brand switch stays there", async () => {
+  setViewport(1440);
+  fakeServer({ ...home, "GET /library/prop": [200, []], "GET /library/character": [200, []], "GET /library/place": [200, []] });
+  renderAt("/b/1/library/products");
+  const rail = await screen.findByRole("navigation", { name: "Main" });
+  expect(await within(rail).findByRole("link", { name: "Products", current: "page" })).toBeInTheDocument();
+  expect(within(rail).getByRole("link", { name: "Cast & places" })).not.toHaveAttribute("aria-current");
+  await pickBrand("Iron Paws");
+  expect(await within(rail).findByRole("link", { name: "Products", current: "page" })).toHaveAttribute("href", "/b/2/library/products");
 });
 
 test("an editor's rail has no Studio group: Mine has My requests instead (S0-01)", async () => {

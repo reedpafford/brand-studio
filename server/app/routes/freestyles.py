@@ -7,6 +7,7 @@ by the director on the freestyle's own hidden script and video (app/hidden.py): 
 first, then its start card (an editor's waits for the owner), and the owner's OK covers the
 price shown (`up_to`, the video's budget), no more. Song and Narrated come next."""
 
+import logging
 import math
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -17,7 +18,19 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import asks, director, folders, guides, hidden, live, looks, model_map, prompts, scorecard
+from app import (
+    asks,
+    cards,
+    director,
+    folders,
+    guides,
+    hidden,
+    live,
+    looks,
+    model_map,
+    prompts,
+    scorecard,
+)
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -40,6 +53,7 @@ from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.clips import FinalVideo
 from app.models.freestyles import Freestyle
+from app.models.jobs import WAITING as UNDONE
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.models.script_library import Script, ScriptDraft
@@ -56,6 +70,7 @@ from app.routes.looks import off_reason
 from app.schemas import Note, ScriptText
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
+log = logging.getLogger(__name__)
 ONE_CLIP = "one_clip"  # the other types are the formats on GET /formats
 NO_BRAND = "Pick a brand first: every video is made inside a brand."
 OLD_NO_BRAND = "This older freestyle has no brand, so it can't be changed. Start a new video."
@@ -77,6 +92,12 @@ BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
 MAX_PROMPT = 6000  # what Quick clip sends at most
 TOO_LONG = "That's more changes than one clip can carry. Start a new freestyle from here."
+IDEA = "idea_send"  # in a write job: the send whose script it writes first (`_write`, `written`)
+IDEA_SECONDS = 60  # the length an idea is priced at before its script is written, with no card
+WRITING = "Writing the script from your idea."
+WROTE = "Here's the script I wrote from your idea:\n\n{}"
+NOT_WRITTEN = "I couldn't write the script from your idea: {} Send the idea again to try again."
+NOT_STARTED = "The script is written, but its video couldn't start: {} Send the idea again."
 ONE_CLIP_LONG = ("One clip carries up to {:,} characters with its style, and these words make "
                  "{:,}. Pick a format such as Dialogue for a longer script.")  # fmt: skip
 
@@ -97,6 +118,11 @@ class FreestyleIn(BaseModel):
     cast_ids: list[int] | None = None  # a pasted send's cast; none: the brand's saved cast
     broll_look: str | None = None  # a hosted video's B-roll look; none: the style's own
     attachments: list[int] | None = None  # pictures or clips for this video only (rule 12)
+    card: str | None = None  # a story card (GET /cards): its style and format unless given
+    # "auto" (Make without asking), the owner's alone: Make it is pressed for them; none: ask
+    mode: Literal["ask", "auto"] | None = None
+    product_ids: list[int] | None = None  # the brand's products this video is about
+    idea: bool | None = None  # `text` is an idea, not a script: the script is written first
 
 
 class MessageIn(BaseModel):
@@ -152,7 +178,9 @@ class EstimateOut(BaseModel):
     held: str = ""  # why the caller's send would wait for the owner ("" : it starts at once)
     budget: float | None = None  # a script's video's budget, for "past this video's budget"
     usd: float | None = None  # the owner's: the same most in dollars, rounded up to the cent
-    expected: bool = False  # the owner's, uncapped: what it will probably cost, not a most
+    # what it will probably cost, not a most: the owner's, uncapped; or an idea's, priced at
+    # its card's length (60 s with no card) before its script is written ("about")
+    expected: bool = False
 
 
 def _out_estimate(user: User, credits: Decimal, **more) -> EstimateOut:
@@ -260,18 +288,23 @@ def _from_script(db: Session, user: User, request: Request, fs: Freestyle, scrip
 def _setup(db: Session, user: User, project: Project, body: FreestyleIn, pasted: bool) -> None:
     """New video's picks on its video: the open folder (none: Unsorted), the cast (a pasted
     send's starts as the brand's saved cast; a script's keeps its own unless picked), a hosted
-    video's B-roll look, and the pictures or clips attached for this video only (rule 12)."""
+    video's B-roll look, the pictures or clips attached for this video only (rule 12), its
+    story card and the brand's products it is about."""
     draft = db.get(ScriptDraft, project.script_draft_id)
     project.folder_id = body.folder_id
     if pasted:
         db.get(Script, draft.script_id).folder_id = body.folder_id
+    from app.routes.library import cast_picks
+
     brand = db.get(Brand, body.brand_id) if pasted and body.brand_id else None
     if body.cast_ids is not None and (brand or not pasted):
-        from app.routes.library import cast_picks
-
         project.cast_ids = cast_picks(db, project.workspace_id, body.cast_ids)
     elif brand:
         project.cast_ids = []  # brands keep no default cast (S-gaps-05 L1)
+    project.card = body.card  # its brief reaches the treatment (app/cards.py)
+    if body.product_ids is not None:
+        project.product_ids = cast_picks(db, project.workspace_id, body.product_ids,
+                                         products_of=project.brand_id)  # fmt: skip
     project.broll_look = looks.pick_broll(db, user, project, body.broll_look)
     project.attachments = attachments(db, user, body.attachments)
     project.reel_script_id = getattr(body, "reel_script_id", None) or project.reel_script_id
@@ -341,11 +374,14 @@ def release(db: Session, what: dict) -> None:
 
 
 def _start(db: Session, user: User, fs: Freestyle, text: str, body: FreestyleIn,
-           made=None, script: Script | None = None) -> None:  # fmt: skip
+           made=None, script: Script | None = None, idea: dict | None = None) -> None:  # fmt: skip
     """A director send: its video (`made`: from a script) with New video's picks, then the
     director's run: its plan first, then its start card, held for the owner when `hold` says
-    so (an editor's pasted words, or a script past what's left of its budget)."""
-    at = utcnow().isoformat()  # the message comes before the moves it starts
+    so (an editor's pasted words, or a script past what's left of its budget). The owner's
+    "Make without asking" (`mode`) has that card pressed for them once it's ready
+    (`asks.press_start`); only this run, so Make it again asks as ever. `idea`: the message
+    `text` was written from (`written`): what the person said."""
+    said = idea or {"by": user.id, "text": text, "at": utcnow().isoformat()}  # before its moves
     project, draft = made or _video(db, user, fs, text)
     _setup(db, user, project, body, pasted=made is None)
     wait = hold(db, user, script, draft, project)
@@ -356,13 +392,71 @@ def _start(db: Session, user: User, fs: Freestyle, text: str, body: FreestyleIn,
     db.flush()
     if not wait:
         freeze(db, what, user)
+    auto = body.mode == "auto" and user.is_owner
     turn = director.start(db, user, project, hold=wait, frozen=False,  # its start card
-                          extra={FREESTYLE: fs.id, SAID: text, CHANGE: False,
-                                 PRICE: str(fs.up_to),
+                          extra={FREESTYLE: fs.id, SAID: said["text"], CHANGE: False,
+                                 PRICE: str(fs.up_to), **({asks.AUTO: True} if auto else {}),
                                  **({FREEZE: what} if wait else {})})  # fmt: skip
-    fs.chat = [{"by": user.id, "text": text, "at": at, "job": turn.id, "price": str(fs.up_to),
+    fs.chat = [{**said, "job": turn.id, "price": str(fs.up_to),
                 **({"files": project.attachments} if project.attachments else {})}]  # fmt: skip
     db.commit()
+
+
+def _write(db: Session, user: User, fs: Freestyle, text: str, body: FreestyleIn) -> None:
+    """An idea, not a script (Reed, 10 Nov): the script writer writes the script first, from
+    the idea, the story card's brief and the picks; `written` then starts its video. The
+    picks are checked now, on a video never kept, so nothing is refused once the writing is
+    paid; that video is also what the writer is told (its brand, cast, style and format)."""
+    from app import script_write
+
+    with db.begin_nested() as never_kept:
+        project, _ = _video(db, user, fs, text)
+        _setup(db, user, project, body, pasted=True)
+        project.goal = text  # the brief the writer writes from
+        project.planned_seconds = (cards.find(body.card) or {}).get("seconds")
+        data = script_write.from_idea(db, project)
+        never_kept.rollback()
+    send = body.model_dump(exclude={"text", "idea"})
+    job = enqueue(db, user, "write-claude", {**data, FREESTYLE: fs.id, "brand_id": fs.brand_id,
+                                             IDEA: send}, provider="claude")  # fmt: skip
+    fs.chat = [*fs.chat, {"by": user.id, "text": text, "at": utcnow().isoformat(), "job": job.id}]
+    db.commit()
+
+
+def written(db: Session, job: Job) -> None:
+    """An idea's script is written (the worker, after its write job): its video starts from
+    the first draft exactly as a pasted script's does, the idea staying what the person said
+    and the script shown under it. A start that's refused is said in the thread, with the way
+    to try again."""
+    fs = db.get(Freestyle, job.input[FREESTYLE])
+    idea = fs.chat[-1] if fs and fs.chat else None
+    if idea is None or idea.get("job") != job.id or fs.project_id:
+        return  # stopped and sent again meanwhile, or started already
+    try:
+        body = FreestyleIn(**job.input[IDEA], text=_script(job))
+        _start(db, db.get(User, job.created_by_id), fs, body.text, body,
+               idea={**idea, "wrote": job.id})  # fmt: skip
+    except Exception as no:  # refused (in its own words) or a fault: said, never lost
+        db.rollback()
+        if not isinstance(no, HTTPException):
+            log.exception("freestyle %s: its written script's video couldn't start", fs.id)
+        why = str(getattr(no, "detail", "")) or "something went wrong."
+        fs.chat = [*fs.chat[:-1], {**idea, "error": why}]
+        db.commit()
+
+
+def _script(job: Job) -> str:
+    """The script an idea's write job wrote: its first draft."""
+    return job.output["drafts"][0]["script"]
+
+
+def _retry(db: Session, user: User, fs: Freestyle, text: str) -> None:
+    """An idea whose script was never written, or whose video never started (it failed, or
+    was stopped): the words sent now are written instead, with the same picks."""
+    last = _jobs(db, fs).get(fs.chat[-1].get("job")) if fs.chat else None
+    if last is None or IDEA not in last.input or last.status in UNDONE:
+        raise HTTPException(409, BUSY)
+    _write(db, user, fs, text, FreestyleIn(**last.input[IDEA]))
 
 
 def _change(db: Session, user: User, fs: Freestyle, text: str) -> None:
@@ -429,7 +523,7 @@ def _get(db: Session, user: User, freestyle_id: int) -> Freestyle:
 
 
 def _jobs(db: Session, fs: Freestyle) -> dict[int, Job]:
-    ids = [m["job"] for m in fs.chat if m.get("job")]
+    ids = [m[k] for m in fs.chat for k in ("job", "wrote") if m.get(k)]  # wrote: `written`
     return {j.id: j for j in db.scalars(select(Job).where(Job.id.in_(ids)))} if ids else {}
 
 
@@ -457,16 +551,24 @@ def _send(db: Session, user: User, fs: Freestyle, text: str) -> None:
 
 
 def _move(fs: Freestyle, job: Job) -> tuple[str, str, str]:
-    """(freestyle status, move status, plain words) for one send's job."""
+    """(freestyle status, move status, plain words) for one send's job: a take, or an idea's
+    script being written (its video starts once it is, `written`)."""
     s = job.status
+    idea = IDEA in job.input
     if s == JobStatus.needs_owner_approval:
         return "waiting", "held", WAITING
     if s == JobStatus.queued:
-        return "working", "queued", "Starting the clip."
+        return "working", "queued", WRITING if idea else "Starting the clip."
     if s == JobStatus.running:
-        return "working", "running", "Making the clip."
+        return "working", "running", WRITING if idea else "Making the clip."
+    if s == JobStatus.succeeded and idea:  # written, and its video refused (`written`)
+        why = next((m["error"] for m in fs.chat if m.get("job") == job.id and "error" in m), "")
+        return ("failed", "refused", NOT_STARTED.format(why)) if why else (
+            "working", "running", WRITING)  # fmt: skip
     if s == JobStatus.succeeded:
         return "delivered", "done", "Made the clip."
+    if s == JobStatus.failed and idea:
+        return "failed", "refused", NOT_WRITTEN.format(job.error or "it failed.")
     if s == JobStatus.failed:
         return "failed", "refused", f"Couldn't make it: {job.error or 'it failed'}"
     if job.input.get(DECLINE):
@@ -487,6 +589,10 @@ def _out(db: Session, fs: Freestyle, viewer: User | None = None) -> FreestyleOut
         thread.append(FreestyleItem(id=f"m{n}", kind="message", at=at, who=names.get(m["by"], ""),
                                     text=m["text"], status=None,
                                     files=m.get("files", [])))  # fmt: skip
+        if wrote := jobs.get(m.get("wrote")):  # an idea: the script written from it, first
+            thread.append(FreestyleItem(id=f"w{wrote.id}", kind="move", at=wrote.finished_at,
+                                        who="Director", status="done",
+                                        text=WROTE.format(_script(wrote))))  # fmt: skip
         job = jobs.get(m.get("job"))
         if job is None:
             continue
@@ -576,7 +682,8 @@ def _directed(db: Session, fs: Freestyle, jobs: dict, said: list,
         select(FinalVideo.file_id).where(FinalVideo.project_id == project.id,
                                          FinalVideo.created_at <= delivered)
         .order_by(FinalVideo.id.desc()))  # fmt: skip
-    thread = sorted([*(m for m in said if m.kind == "message"), *moves], key=lambda m: m.at)
+    kept = (m for m in said if m.kind == "message" or m.id[0] == "w")  # and a written script
+    thread = sorted([*kept, *moves], key=lambda m: m.at)
     return status, thread, file_id, director.credits(db, project)
 
 
@@ -587,16 +694,20 @@ def _row(fs: Freestyle, names: dict[int, str], status: str) -> FreestyleRow:
 
 
 def _source(db: Session, user: User, body) -> tuple:
-    """(type, look, brand, words, script, draft) of a send: a pasted script, or a script's
-    version ("Make a video", P1) with the script's own kind, look and brand."""
+    """(type, look, brand, words, script, draft) of a send: a pasted script (or an idea), with
+    its story card's style and format unless it gives its own; or a script's version ("Make a
+    video", P1) with the script's own kind, look and brand."""
     if (body.text is None) == (body.script_id is None):
         raise HTTPException(422, ONE_SOURCE)
+    card = cards.pick(db, user.workspace_id, body.card) if body.card else None
     if body.script_id is None:
-        if not body.look:
+        look = body.look or (card and card["style"])  # the card's, unless the send says
+        type = body.type if "type" in body.model_fields_set or not card else card["format"]
+        if not look:
             raise HTTPException(422, NO_LOOK)
-        if body.type != ONE_CLIP:
-            lib.pick_format(body.type)
-        return body.type, body.look, body.brand_id, body.text, None, None
+        if type != ONE_CLIP:
+            lib.pick_format(type)
+        return type, look, body.brand_id, body.text, None, None
     script = lib.get_script(db, user, body.script_id)
     draft = lib.get_draft(db, script, body.slot or 0)
     return lib.format_id(script), script.look, script.brand_id, draft.text, script, draft
@@ -625,6 +736,9 @@ def estimate_freestyle(
         made = _from_script(db, user, request, fs, script, draft, True) if script else None
         project, draft = made or _video(db, user, fs, text)
         _setup(db, user, project, body, pasted=made is None)
+        idea = bool(body.idea) and made is None  # no script yet: its card's length, "about"
+        if idea:
+            draft.target_seconds = (cards.find(body.card) or {}).get("seconds", IDEA_SECONDS)
         wait = hold(db, user, script, draft, project)
         left = budget(db, project) - budget_used(db, project)  # what's left of it
         if uncapped(user):  # Reed, 6 Nov: his test site shows what it will probably cost
@@ -633,7 +747,7 @@ def estimate_freestyle(
             out = _out_estimate(user, expected(db, draft, project), expected=True)
         else:
             out = _out_estimate(user, run_price(db, draft, project), held=wait,
-                                budget=left if script else None)  # fmt: skip
+                                budget=left if script else None, expected=idea)  # fmt: skip
         db.rollback()
         return out
     fs = Freestyle(id=0, look=look, shape=shape, brand_id=None)
@@ -675,6 +789,8 @@ def create_freestyle(
         _start(db, user, fs, text, body, made, script)
     elif type == ONE_CLIP:
         _send(db, user, fs, text)
+    elif body.idea:
+        _write(db, user, fs, text, body)
     else:
         _start(db, user, fs, text, body)
     return _out(db, fs, user)
@@ -716,8 +832,8 @@ def send_message(
     fs = _get(db, user, freestyle_id)
     if fs.created_by_id != user.id:
         raise HTTPException(403, "Only whoever made this freestyle can change it.")
-    if fs.type != ONE_CLIP:
-        _change(db, user, fs, body.text)
+    if fs.type != ONE_CLIP:  # no video yet: an idea whose script wasn't written
+        (_change if fs.project_id else _retry)(db, user, fs, body.text)
         return _out(db, fs, user)
     if any(j.status in (JobStatus.needs_owner_approval, JobStatus.queued, JobStatus.running)
            for j in _jobs(db, fs).values()):  # fmt: skip

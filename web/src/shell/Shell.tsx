@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
-import { Archive, ChevronDown, Clock, Ellipsis, Film, Inbox, Plus, FileText, Images, Palette, Check, Users, type LucideIcon } from "lucide-react";
+import { Archive, ChevronDown, Clock, Ellipsis, Film, House, Inbox, Package, Plus, FileText, Images, Palette, Check, Users, type LucideIcon } from "lucide-react";
 import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
+import { WORDS_ID } from "../home/Words";
 import { useMyRequests } from "../approvals/HeldRequests";
 import { useArchiveBrand } from "../brand/ArchiveBrand";
 import { useNeedsYou } from "../approvals/NeedsYouPage";
@@ -15,23 +16,29 @@ import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
 
-// v6 S0-01: the rail's Library rows (Scripts first, S-gaps-04 R1); a brand switch keeps you in the same section.
-export const NEW_VIDEO = "videos/new";
-const SECTIONS: { to: string; also?: string; label: string; icon: LucideIcon }[] = [
-  { to: "videos", also: "projects", label: "Videos", icon: Film },
-  { to: "scripts", label: "Scripts", icon: FileText },
-  { to: "library", label: "Cast & places", icon: Users },
-  { to: "media", label: "Media", icon: Images },
+// The rail's rows under a brand: Home (its other address is New video's), All videos, then the brand's assets. A brand
+// switch keeps you in the same section.
+const NEW_VIDEO = "videos/new";
+const HOME = /^\/b\/\d+\/videos\/new$/;
+const PRODUCTS = /^\/b\/\d+\/library\/products(\/|$)/;
+const ASSETS: { to: string; label: string; icon: LucideIcon; except?: RegExp }[] = [
   { to: "brand", label: "Brand kit", icon: Palette },
+  { to: "library/products", label: "Products", icon: Package },
+  { to: "library", label: "Cast & places", icon: Users, except: PRODUCTS }, // Products is a tab of the same library, with its own row
+  { to: "media", label: "Media", icon: Images },
+  { to: "scripts", label: "Scripts", icon: FileText },
 ];
-const LIBRARY = ["scripts", "library", "media", "brand"];
+const SECTIONS = ["videos", "scripts", "library", "media", "brand"];
 
-/** Where a brand switch lands: the same section in the other brand; a video or an item goes to that section's list. */
+/** Where a brand switch lands: the same section in the other brand; a video or an item goes to that section's list, and
+ *  Home (at either address) stays Home. */
 function sectionOf(pathname: string) {
+  if (HOME.test(pathname)) return "";
+  if (PRODUCTS.test(pathname)) return "library/products";
   const m = /^\/b\/\d+\/([^/]+)/.exec(pathname)?.[1];
   if (m === "kit" || m === "screens") return "brand";
   if (m === "projects") return "videos";
-  return m && SECTIONS.some((s) => s.to === m) ? m : "";
+  return m && SECTIONS.includes(m) ? m : "";
 }
 
 const href = (to: string, brand: number) => `/b/${brand}/${to}`;
@@ -39,7 +46,7 @@ const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isConte
 // v5 A_Shell/A_Account: a brand is a small colour square.
 const dot = (brand?: Brand) => <span aria-hidden className="size-3.5 shrink-0 rounded-[3px]" style={{ background: brand?.colours?.[0] || "var(--accent)" }} />; // no colour: the accent, as the Brand page;
 
-/** Desktop: one rail (brand switcher on top; Make, Library and, for Reed, Studio; the account at the bottom), no top bar.
+/** Desktop: one rail (brand switcher on top; Home, All videos, Assets, Projects and, for Reed, Studio; the account at the bottom), no top bar.
  *  Phone: the top bar (switcher, Needs you, account) and the bottom tabs. */
 export function Shell() {
   return (
@@ -79,8 +86,7 @@ function Frame() {
   // Inside one video on a phone, the video's own header line replaces the brand bar.
   const newVideo = useMatch("/b/:brandId/videos/:projectId");
   const newProject = useMatch("/b/:brandId/projects/new");
-  // New video has its own title bar on a phone too (B_PhoneNew).
-  const inVideo = !rail && ((newVideo !== null && (/^\d+$/.test(newVideo.params.projectId ?? "") || newVideo.params.projectId === "new")) || newProject !== null);
+  const inVideo = !rail && ((newVideo !== null && /^\d+$/.test(newVideo.params.projectId ?? "")) || newProject !== null);
   const folderPage = useMatch("/b/:brandId/videos");
   const needsYouPage = useMatch("/approvals");
   const onFolders = !rail && (folderPage !== null || needsYouPage !== null); // P-01, P-02 and P-14 draw their own header
@@ -91,13 +97,14 @@ function Frame() {
     if (fromUrl) rememberBrand(fromUrl);
   }, [fromUrl]);
 
-  // N opens New video from anywhere but a box being typed in or an open dialog (A_Shell's keys).
+  // N opens Home, on its words box, from anywhere but a box being typed in or an open dialog (A_Shell's keys).
   const navigate = useNavigate();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "n" || e.metaKey || e.ctrlKey || e.altKey || typing(e.target) || !current || document.querySelector("[aria-modal]")) return;
       e.preventDefault();
-      navigate(href(NEW_VIDEO, current));
+      navigate(`/b/${current}`);
+      document.getElementById(WORDS_ID)?.focus(); // already Home: straight to the words (a fresh Home focuses them itself)
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -242,10 +249,10 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
 }
 
 /** A nav link that knows when it is current, including for the pages that belong under it (a video sits under Scripts). */
-function NavItem({ to, also, under, className, children, ...rest }: { to: string; also?: string; /** also current on these pages (the phone's Library tab) */ under?: RegExp; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
+function NavItem({ to, also, under, exact, except, className, children, ...rest }: { to: string; also?: string; /** also current on these pages (the phone's Library tab, Home's other address) */ under?: RegExp; /** not current on the pages under it (Home) */ exact?: boolean; /** nor on these (Cast & places, on Products) */ except?: RegExp; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
   const { pathname } = useLocation();
-  const onNew = pathname.endsWith(`/${NEW_VIDEO}`); // under /videos, but its own place
-  const active = pathname === to || !!under?.test(pathname) || (!onNew && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
+  const onNew = pathname.endsWith(`/${NEW_VIDEO}`); // under /videos, but it is Home
+  const active = pathname === to || !!under?.test(pathname) || (!exact && !onNew && !except?.test(pathname) && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
   return (
     <Link to={to} className={className(active)} aria-current={active ? "page" : undefined} {...rest}>
       {children}
@@ -256,8 +263,8 @@ function NavItem({ to, also, under, className, children, ...rest }: { to: string
 function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; wide: boolean; owner: boolean; waiting: number | null }) {
   const mine = (useMyRequests().data ?? []).filter((j) => j.status === "needs_owner_approval").length;
   const item = (isActive: boolean) => `flex h-[30px] items-center gap-2 rounded-md px-2 text-sm font-medium ${wide ? "" : "justify-center"} ${isActive ? "bg-surface-3 text-text" : "text-muted hover:bg-surface-3/60 hover:text-text"}`;
-  const row = (to: string, label: string, Icon: LucideIcon, extra?: ReactNode, also?: string) => (
-    <NavItem key={to} to={to} also={also} className={item} aria-label={wide ? undefined : label} title={wide ? undefined : label}>
+  const row = (to: string, label: string, Icon: LucideIcon, extra?: ReactNode, also?: string, except?: RegExp) => (
+    <NavItem key={to} to={to} also={also} except={except} className={item} aria-label={wide ? undefined : label} title={wide ? undefined : label}>
       <Icon size={14} strokeWidth={1.75} aria-hidden />
       {wide && <span>{label}</span>}
       {wide && extra}
@@ -269,7 +276,6 @@ function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[
       <span className="sr-only"> waiting</span>
     </span>
   );
-  const section = (to: string) => SECTIONS.find((s) => s.to === to)!;
   const group = (label: string, rows: ReactNode) => (
     <div className="flex flex-col gap-0.5">
       {wide && <p className="mt-2.5 flex h-7 items-center px-2 text-xs font-medium text-muted">{label}</p>}
@@ -282,18 +288,19 @@ function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[
       <BrandSwitcher brands={brands} brand={brand} current={current} inRail iconOnly={!wide} />
       {current && (
         <div className={`flex gap-2 pb-1.5 pt-0.5 ${wide ? "" : "flex-col"}`}>
-          {/* v6 S0-01: outlined, with its key; the open folder's own New video is the page's indigo press. */}
-          <Link to={href(NEW_VIDEO, current)} aria-label="New video" title="New video (N)" className={`inline-flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-button bg-surface px-3 text-sm font-medium text-text hover:bg-surface-2 ${wide ? "" : "justify-center"}`}>
-            <Plus size={14} strokeWidth={1.75} aria-hidden />
-            {wide && <span aria-hidden className="flex-1">New video</span>}
+          {/* Home, with its key: N opens it on the words box from anywhere. */}
+          <NavItem to={`/b/${current}`} exact under={HOME} aria-label="Home" title="Home (N)" className={(on) => `${item(on)} h-8! ${wide ? "min-w-0 flex-1" : ""}`}>
+            <House size={14} strokeWidth={1.75} aria-hidden />
+            {wide && <span aria-hidden className="flex-1">Home</span>}
             {wide && <kbd aria-hidden className="rounded-sm border border-border-button px-1 font-sans text-[11px] leading-4 text-muted">N</kbd>}
-          </Link>
+          </NavItem>
           {wide && <QuickSearch brandId={current} />}
         </div>
       )}
       <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
-        {current && (wide ? <FolderTree brandId={current} /> : <div className="mt-2.5">{row(href("videos", current), "Videos", Film, undefined, "projects")}</div>)}
-        {current && group("Library", LIBRARY.map((to) => { const s = section(to); return row(href(s.to, current), s.label, s.icon, undefined, s.also); }))}
+        {current && row(href("videos", current), "All videos", Film, undefined, "projects")}
+        {current && group("Assets", ASSETS.map((a) => row(href(a.to, current), a.label, a.icon, undefined, undefined, a.except)))}
+        {current && wide && <FolderTree brandId={current} />}
         {owner
           ? group(
               "Studio",
@@ -351,12 +358,3 @@ export function GoToBrand() {
   const target = brands?.find((b) => b.id === last) ?? brands?.[0];
   return target ? <Navigate to={`/b/${target.id}`} replace /> : <Navigate to="/team" replace />;
 }
-
-/** Where a brand opens, for the owner and editors alike: its open folder of videos (v6 S1-01 to S1-08, P-02). */
-export function BrandHome() {
-  const { brandId } = useParams();
-  const { data: brands } = useBrands();
-  if (!brands?.some((b) => b.id === Number(brandId))) return <p className="p-6">That brand doesn't exist.</p>;
-  return <Navigate to={`/b/${brandId}/videos`} replace />;
-}
-

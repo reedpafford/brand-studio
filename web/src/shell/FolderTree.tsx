@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Ellipsis, Folder, FolderOpen, FolderPlus, Inbox } from "lucide-react";
+import { ChevronDown, ChevronRight, Ellipsis, Folder, FolderOpen, FolderPlus, Inbox, Plus } from "lucide-react";
 import { Link, useLocation, useMatch, useNavigate, useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
 import { useFolderActions } from "../folders/FolderActions";
@@ -25,7 +25,7 @@ const readOpen = (brandId: number): number[] => {
 type Said = { message: string; undo?: () => void; id: number } | null;
 const row = "flex h-[30px] items-center gap-2 rounded-md px-2 text-sm";
 
-/** The rail's folder tree (v6 S0-01): folders inside folders with their counts, the open folder's newest ideas with their
+/** The rail's Projects (v6 S0-01): New video, then the folder tree: folders inside folders with their counts, the open folder's newest ideas with their
  *  status dots, and Unsorted. Drag an idea onto a folder to move it; right-click or ⋯ for New video here, New folder
  *  inside, Rename (in place), Move to… and Delete folder…; Undo shows at the foot of the rail. */
 export function FolderTree({ brandId }: { brandId: number }) {
@@ -130,11 +130,17 @@ export function FolderTree({ brandId }: { brandId: number }) {
   return (
     <div className="relative flex flex-col gap-0.5">
       <div className="mt-2.5 flex h-7 items-center gap-1.5 px-2 text-xs font-medium text-muted">
-        <span className="flex-1">Videos</span>
+        <span className="flex-1">Projects</span>
         <button type="button" aria-label="New folder" title="New folder" onClick={top.newInside} className="grid size-6 place-items-center rounded-md hover:bg-surface-3 hover:text-text">
           <FolderPlus size={14} strokeWidth={1.75} aria-hidden />
         </button>
       </div>
+      {/* Home, with the open folder kept so the new idea lands in it. */}
+      <Link to={`/b/${brandId}${picked && picked !== UNSORTED ? `?folder=${picked}` : ""}`} className={`${row} font-medium text-muted hover:bg-surface-3/60 hover:text-text`}>
+        <span className="w-3" />
+        <Plus size={14} strokeWidth={1.75} aria-hidden />
+        <span>New video</span>
+      </Link>
       {tree.folders.map((b) => (
         <FolderRow key={b.id} brandId={brandId} b={b} depth={0} here={picked} isOpen={isOpen} toggle={toggle} drop={drop} dropTarget={dropTarget} ideas={ideas} say={say} onDeleted={(parent) => here === String(b.id) && navigate(`/b/${brandId}/videos${parent ? `?folder=${parent}` : ""}`)} />
       ))}

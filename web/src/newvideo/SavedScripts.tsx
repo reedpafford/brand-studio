@@ -9,7 +9,7 @@ import { SendError, directed, sentTo } from "../freestyle/useFreestyle";
 import { lookName, useLooks } from "../scripts/Looks";
 import { letterOf, useDebounced } from "../scripts/status";
 import { ActionBar } from "../shell/ActionBar";
-import { Press, Under, box, row } from "./NewVideoPage";
+import { Press, Under, box, row } from "./Press";
 import { useEstimate, useSend, usd } from "./useNewVideo";
 
 const PAGE = 50;
@@ -29,9 +29,9 @@ function useScripts(brandId: number, owner: boolean, q: string, limit: number) {
   });
 }
 
-/** New video › From a saved script (S2-06; S2-05 past the budget): find a script, pick it; its words are set. The
+/** Home › Use a saved script (S2-06; S2-05 past the budget): find a script, pick it; its words are set. The
  *  newest finished version is made. An editor's starts at once inside its video's budget, else it goes to the owner. */
-export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScript }: { brandId: number; owner: boolean; folder: number | null; broll: string | null; seg: ReactNode; rail: boolean; onScript: (s: { type: string; look: string } | null) => void }) {
+export function SavedScripts({ brandId, owner, folder, broll, head, style, rail, onScript }: { brandId: number; owner: boolean; folder: number | null; broll: string | null; /** its title and the way back (desktop; a phone's page draws it) */ head: ReactNode; /** the picked script's own style and format, as a chip that opens them */ style: ReactNode; rail: boolean; onScript: (s: { type: string; look: string } | null) => void }) {
   const navigate = useNavigate();
   const [text, setText] = useState("");
   const q = useDebounced(text.trim());
@@ -121,12 +121,14 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
     <>
       <div className={box}>
         <div className="flex items-center gap-3 px-3 pt-2.5">
-          {seg}
+          {head}
+          <span className="flex-1" />
           {search}
         </div>
         <div className="px-3 pb-2 pt-3">{list}</div>
         {hasVideo && <div className="px-3 pb-2">{hasVideo}</div>}
         <div className={row}>
+          {style}
           <span className="text-sm text-muted">The script’s words are set. The director can still add a note: “end on the capsule”.</span>
           <span className="flex-1" />
           {press}

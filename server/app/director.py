@@ -1606,6 +1606,8 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         fs.chat = [{**m, "job": job.id} if m.get("job") in mine - {job.id} else m
                    for m in fs.chat]  # fmt: skip
         db.commit()
+    if card and data.get(asks.AUTO):  # "Make without asking": its Make it, pressed for them
+        asks.press_start(db, user, project)
     return job
 
 
@@ -1811,7 +1813,7 @@ def _carried(db: Session, project: Project, run: dict) -> dict:
     from app.routes.jobs import CHANGE, PRICE, SAID
 
     first = next(t for t in turns(db, project) if t.input[RUN]["id"] == run["id"])
-    keys = (FREESTYLE, SAID, CHANGE, PRICE, "freeze")
+    keys = (FREESTYLE, SAID, CHANGE, PRICE, "freeze", asks.AUTO)
     out = {k: first.input[k] for k in keys if k in first.input}
     return {PRICE: str(asks.run_price(db, project)), **out}
 
@@ -2089,7 +2091,7 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
                     redo: bool = False, kept: str | None = None) -> str:  # fmt: skip
     """Queue the treatment (the Director's step: hook, logline, why it holds, beats, ending),
     on the director's own limit like a watch; its words in plain lines."""
-    from app import omni_talker, plans, prompts
+    from app import cards, omni_talker, plans, prompts
     from app.credits import estimate, past_approved
     from app.enhance import project_context
     from app.routes.jobs import enqueue
@@ -2097,6 +2099,7 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     version = plans.script(db, project)
     system, context = project_context(db, project, "treatment")  # its look's skill and craft
     text = f"{context}\n{prompts.treatment_input(version.text, note)}"
+    text += cards.context(db, project)  # its story card's brief, and the products picked
     if omni_talker.on(db, project):  # the presenter speaks on camera: `voices` names them
         text += f"\n{omni_talker.treatment_block(db, project)}"
     said = note.strip() if kept is None else kept  # the person's own note, for a check's redo

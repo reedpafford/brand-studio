@@ -230,6 +230,11 @@ def save_step_result(db: Session, job: Job) -> None:
             explain(db, job)
     if job.input.get("reel_step"):  # a step of reading an imported reel: queue the next
         follow_on(db, job, saved)
+    if saved and "idea_send" in job.input:  # New video's idea is written: its video starts
+        from app.routes.freestyles import written
+
+        db.commit()  # the paid script first: a start that fails never loses it
+        written(db, job)
     if saved and job.input.get("update_run"):  # Update everything after this: the next step
         from app import update_after
 

@@ -64,7 +64,7 @@ export async function emptyBrand(page: Page, name = "Night Owl"): Promise<number
 
 /** A brand's home is its open folder of videos (v6 S1, P-02); the brand name shows in the switcher button. */
 export async function onBrand(page: Page, name: string) {
-  await expect(page).toHaveURL(/\/b\/\d+\/videos/);
+  await expect(page).toHaveURL(/\/b\/\d+/); // sign-in and a brand switch land on the brand's Home (/b/N)
   await expect(page.getByRole("button", { name: `Brand: ${name}` })).toBeVisible();
 }
 

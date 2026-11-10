@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app import cards as story
 from app import credits, guides, look_samples, looks
 from app.auth import current_user, owner_only
 from app.db import get_db, utcnow
@@ -235,3 +236,31 @@ def format_test_sample(format_id: str, user: User = Depends(current_user)):
     if format_id not in {f["id"] for f in guides.formats()}:
         raise HTTPException(404, NO_SAMPLE_FILE)
     return _test_sample("formats", format_id, "jpg")
+
+
+cards = APIRouter(prefix="/cards", tags=["looks"])  # New video's story cards (app/cards.py)
+
+
+class StoryCardOut(BaseModel):
+    """A story card: a preset brief to start a video from. Its picture is its style's sample;
+    its brief is the models' alone."""
+
+    id: str
+    title: str
+    subtitle: str  # its plot in one line
+    style: str  # a look id, and its name
+    style_name: str
+    format: str  # a format id, and its name
+    format_name: str
+    seconds: int  # the length it's written for
+    shape: str
+    on: bool  # it can be started from here: not off, and its style on and made in its format
+
+
+@cards.get("", response_model=list[StoryCardOut])
+def list_cards(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Every story card in Reed's order; the Off ones too, greyed."""
+    return [StoryCardOut(**{**c, "on": story.on(db, user.workspace_id, c)},
+                         style_name=looks.get(c["style"])["name"],
+                         format_name=guides.format_(c["format"])["name"])
+            for c in guides.cards()]  # fmt: skip

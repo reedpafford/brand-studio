@@ -6462,6 +6462,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cards
+         * @description Every story card in Reed's order; the Off ones too, greyed.
+         */
+        get: operations["list_cards_cards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/presenter-ways/{way}.jpg": {
         parameters: {
             query?: never;
@@ -8290,6 +8310,14 @@ export interface components {
             broll_look?: string | null;
             /** Attachments */
             attachments?: number[] | null;
+            /** Card */
+            card?: string | null;
+            /** Mode */
+            mode?: ("ask" | "auto") | null;
+            /** Product Ids */
+            product_ids?: number[] | null;
+            /** Idea */
+            idea?: boolean | null;
         };
         /**
          * FreestyleItem
@@ -12553,6 +12581,33 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /**
+         * StoryCardOut
+         * @description A story card: a preset brief to start a video from. Its picture is its style's sample;
+         *     its brief is the models' alone.
+         */
+        StoryCardOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Subtitle */
+            subtitle: string;
+            /** Style */
+            style: string;
+            /** Style Name */
+            style_name: string;
+            /** Format */
+            format: string;
+            /** Format Name */
+            format_name: string;
+            /** Seconds */
+            seconds: number;
+            /** Shape */
+            shape: string;
+            /** On */
+            on: boolean;
         };
         /** StoryChoice */
         StoryChoice: {
@@ -26764,6 +26819,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cards_cards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryCardOut"][];
                 };
             };
         };

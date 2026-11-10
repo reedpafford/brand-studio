@@ -335,14 +335,19 @@ def owned(item: LibraryItem) -> bool:
     return item.owner_project_id is not None or item.owner_script_id is not None
 
 
-def cast_picks(db: Session, workspace_id: int, ids: list[int]) -> list[int]:
+def cast_picks(db: Session, workspace_id: int, ids: list[int],
+               products_of: int | None = None) -> list[int]:  # fmt: skip
     """A video's picked cast: live characters from this workspace's library (never a look made
-    for one video or script), each once."""
+    for one video or script), each once. `products_of`: its picked products instead, that
+    brand's own (a product's real picture is attached only in its brand's videos)."""
+    kind = Kind.prop if products_of else Kind.character
     for item_id in ids:
         item = db.get(LibraryItem, item_id)
         if (item is None or item.workspace_id != workspace_id or item.archived
-                or item.kind != Kind.character or owned(item)):  # fmt: skip
-            raise HTTPException(422, "Pick characters from the library.")
+                or item.kind != kind or owned(item)
+                or products_of and all(b.id != products_of for b in item.brands)):  # fmt: skip
+            raise HTTPException(422, "Pick products from this brand." if products_of
+                                else "Pick characters from the library.")  # fmt: skip
     return list(dict.fromkeys(ids))
 
 

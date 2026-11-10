@@ -5,7 +5,11 @@ import type { components } from "../api/schema";
 import { SendError, type Freestyle } from "../freestyle/useFreestyle";
 
 export type Estimate = components["schemas"]["app__routes__freestyles__EstimateOut"];
+/** A send. Home adds a story card, the brand's products, whether the words are an idea (the server writes the script
+ *  first) rather than a script kept word for word, and the mode. */
 export type Send = components["schemas"]["FreestyleIn"];
+/** How a run starts: the plan and price wait for an OK ("ask"), or it starts once the plan is ready ("auto", the owner's). */
+export type Mode = NonNullable<Send["mode"]>;
 
 /** The value, once it has stopped changing for a moment. */
 function useSettled<T>(value: T, ms = 400) {
@@ -25,7 +29,7 @@ export type Price = { est?: Estimate; stale?: boolean; failed?: string | null };
 /** What a send could charge at most (rules 34, 36), the owner's in dollars too, and why it would wait for the owner. Free:
  *  the server queues nothing and asks no model. A POST, as the send is: a long script doesn't fit in an address. */
 export function useEstimate(send: Send | null): Price {
-  const q = useSettled(send && { type: send.type, look: send.look, shape: send.shape, text: send.text?.trim() || undefined, script_id: send.script_id, slot: send.slot ?? undefined, brand_id: send.brand_id ?? undefined, broll_look: send.broll_look ?? undefined, cast_ids: send.cast_ids ?? undefined });
+  const q = useSettled(send && { type: send.type, look: send.look, shape: send.shape, text: send.text?.trim() || undefined, script_id: send.script_id, slot: send.slot ?? undefined, brand_id: send.brand_id ?? undefined, broll_look: send.broll_look ?? undefined, cast_ids: send.cast_ids ?? undefined, product_ids: send.product_ids ?? undefined, card: send.card ?? undefined, idea: send.idea ?? undefined });
   const query = useQuery({
     queryKey: ["new-video-estimate", q],
     enabled: !!q && (!!q.script_id || (!!q.text && !!q.look)),

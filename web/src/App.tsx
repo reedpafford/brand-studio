@@ -5,7 +5,7 @@ import { InvitePage, LoginPage, SetupPage } from "./auth/pages";
 import { NewProjectPage } from "./projects/NewProjectPage";
 import { ProductionPage } from "./production/ProductionPage";
 import { VideoRoute } from "./videos/VideoChat";
-import { NewVideoPage } from "./newvideo/NewVideoPage";
+import { HomePage } from "./home/HomePage";
 import { ImportReelPage } from "./scripts/ImportReelPage";
 import { ScriptFlowPage } from "./scripts/ScriptFlowPage";
 import { NewScriptPage } from "./scripts/NewScriptButton";
@@ -19,7 +19,7 @@ import { FreestylePage, ToNewVideo } from "./freestyle/FreestylePage";
 import { ItemPage } from "./library/ItemPage";
 import { LibraryPage } from "./library/LibraryPage";
 import { BrandKit, ToBrand } from "./brand/BrandKit";
-import { BrandHome, GoToBrand, Shell } from "./shell/Shell";
+import { GoToBrand, Shell } from "./shell/Shell";
 import { ToastProvider } from "./toast";
 import { TeamPage } from "./team/TeamPage";
 import { SettingsPage } from "./settings/SettingsPage";
@@ -39,7 +39,7 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route element={<Shell />}>
           <Route index element={<GoToBrand />} />
-          <Route path="b/:brandId" element={<BrandHome />} />
+          <Route path="b/:brandId" element={<HomePage />} />
           <Route path="b/:brandId/scripts" element={<ScriptsRoute />} />
           <Route path="b/:brandId/scripts/import" element={<ImportReelPage />} />
           <Route path="b/:brandId/scripts/new" element={<NewScriptPage />} />
@@ -49,7 +49,7 @@ export function App() {
           <Route path="b/:brandId/projects/new" element={<NewProjectPage />} />
           <Route path="b/:brandId/projects/:projectId" element={<ToVideo />} />
           <Route path="b/:brandId/videos" element={<FolderPage />} />
-          <Route path="b/:brandId/videos/new" element={<NewVideoPage />} />
+          <Route path="b/:brandId/videos/new" element={<HomePage />} />
           <Route path="b/:brandId/videos/:projectId" element={<VideoRoute />} />
           <Route path="b/:brandId/brand" element={<BrandKit />} />
           <Route path="b/:brandId/kit" element={<ToBrand />} />
