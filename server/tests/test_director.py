@@ -5,6 +5,8 @@ its turns are its log. All on the stand-ins: the fake Claude answers each turn w
 
 import json
 
+import pytest
+
 from app import director
 from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
@@ -316,6 +318,55 @@ def test_the_same_refused_tool_again_stops_the_run_with_why(app, db, owner, edit
     assert [t["result"] for t in out["turns"]][-2:] == [
         "Refused: name one clip.", "Refused again: name one clip."]  # fmt: skip
     assert (out["status"], out["ended"]) == ("ended", "It stopped: name one clip.")
+
+
+def test_each_persons_note_has_room_for_its_own_re_plan(app, db, owner, editor, monkeypatch):
+    """Video 342: note 5 asked to re-plan beat 1, and it was refused ("it planned again 1 time
+    this run"): an earlier re-plan had used the run's one. Each note adds one (F16)."""
+    again = {"tool": "plan", "note": "Re-plan: the opening in the aisle.", "why": "Note 1."}
+    monkeypatch.setattr(director, "choose", started(lambda state: again))
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director/messages", json={"text": "Open in the aisle."})
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=40)
+    said = [t["result"] for t in editor.get(f"/projects/{pid}/director").json()["turns"]]
+    assert sum(r.startswith("Planning again: ") for r in said) == 2, said  # 1 + its one note
+    assert "Refused: it planned again 2 times this run." in said
+
+
+@pytest.mark.parametrize("shorter", [True, False])
+def test_a_question_too_long_is_said_shorter_and_never_ends_the_run_at_once(
+    app, db, owner, editor, monkeypatch, shorter
+):
+    """Video 342: a 563-character question was refused twice and the run ended. It's said
+    shorter (never cut); only after LONG_TRIES refusals in a row does the run stop, with Carry
+    on offered."""
+    from tests.test_asks import QUESTION
+
+    tries = []
+
+    def ask(state):
+        if state.get("asks"):
+            return {"tool": "wait", "why": "Waiting on your answer."}
+        tries.append(1)
+        long = len(tries) <= director.LONG_TRIES - 1 or not shorter
+        said = {**QUESTION, "question": "Who's this for? " * 40} if long else QUESTION
+        return {"tool": "ask", "why": "all: only you know.", "ask": said}
+
+    monkeypatch.setattr(director, "choose", started(ask))
+    pid = _made(app, owner, editor, db)
+    editor.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=40)
+    out = owner.get(f"/projects/{pid}/director").json()
+    said = [t["result"] for t in out["turns"] if t["tool"] == "ask"]
+    long = [r for r in said if "is at most 500 characters" in r]
+    if shorter:  # asked on its LONG_TRIES-th try; the run goes on
+        assert len(long) == director.LONG_TRIES - 1 and not out["ended"], said
+        assert [w["topic"] for w in out["waiting"]] == ["Who it's for"]
+    else:
+        assert len(long) == director.LONG_TRIES + 1 and said[-1].startswith("Refused again")
+        assert out["ended"].startswith("It stopped: an ask's question is at most 500")
+        assert out["carry_on"] is not None  # parked: Carry on, never a dead end
 
 
 def test_a_take_for_a_clip_that_isnt_there_is_refused(db, owner, editor, app):

@@ -4,7 +4,7 @@ expensive starts until I say go." The start card and the cast and places OK are 
 
 import pytest
 
-from app import director, director_auto
+from app import director, director_auto, director_tools
 from app.models.jobs import Job
 from app.models.projects import Project
 from app.providers import get_providers
@@ -163,3 +163,36 @@ def test_the_server_asks_for_the_cast_ok_unless_a_look_needs_the_directors_word(
               if (t.output or {}).get("tool") == "ask_cast_ok"]  # fmt: skip
     assert bool(ask.input.get(director_auto.SAID)) is not wrong
     assert _card(owner, pid)["state"] == "open"
+
+
+def test_a_change_to_the_plan_first_plans_again_before_the_card_comes_back(
+    app, db, owner, editor, monkeypatch
+):
+    """Video 342: "Change the plan first" rewrote two beats of the treatment, and the card came
+    back at once with the clip plan from the plan before (the old detective, the old phone).
+    The plan and its shots are made again from the new treatment first; nothing is made from
+    the old ones meanwhile."""
+    from app.clip_prompts import newest
+    from app.settings import get_settings
+    from tests.test_script_library import SCRIPT, _make
+
+    monkeypatch.setattr(get_settings(), "plan_credits_before_ok", 100.0)  # room for a change
+    app.state.settings.fake_providers = True
+    base = f"/scripts/{_make(owner, text=SCRIPT)['id']}"
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = owner.post(f"{base}/drafts/0/produce").json()["project_id"]
+    owner.post(f"/projects/{pid}/director")
+    _run(app, db, ticks=20, start=False)
+    assert _card(owner, pid)["state"] == "open"
+    owner.post(f"/projects/{pid}/director/messages", json={"text": "The detective is a woman."})
+    _run(app, db, ticks=30, start=False)
+    cards = [c["state"] for c in owner.get(f"/projects/{pid}/asks").json() if c["kind"] == "start"]
+    assert cards == ["not_needed", "open"], cards  # the card is back
+    project = db.get(Project, pid)
+    told = max(j.finished_at for j in db.query(Job).filter(Job.project_id == pid)
+               if j.input.get("step") == "treatment")  # fmt: skip
+    plan, shots = project.plan["made_at"], newest(db, project).created_at
+    assert plan > told.isoformat() and shots > told  # both from the new treatment
+    said = [t.input.get("result") for t in director.turns(db, project)]
+    assert director_tools.PLANNED_AGAIN in said and director.PLAN_BEHIND not in said, said
