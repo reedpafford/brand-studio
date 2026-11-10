@@ -38,8 +38,21 @@ One chat agent makes the whole ad. The home page says "Paste your script, pick a
 - It offered next steps as presses: make it, trim the script to cut the cost, or make the reference pictures first.
 - Each agent turn carries about 56,000 tokens of standing instructions (their skill and tools), mostly read from cache.
 
-## How a film is built (Public file, order is a Guess)
-The names in their code for what a run makes, in order: master, character, form, location, prop, plate, frame, clip, film. Each keeps its versions and what it was made from. Sound has three layers in the briefs: the clips' own sound (talk, effects, room), narration, and a score laid when the film is joined. Which image and video models make them is not published.
+## How a film is built (Seen, in a short run on Reed's account: references, then scenes 1-5 at 480p)
+The agent's steps as the chat names them: "viewed skill, loaded tools", "running command", then batches of generations, each shown with its prompt, model and settings before it runs ("Approve 8 image generations", with Always allow, Stop and Approve and the credit cost on the button).
+
+1. **People, one sheet each** (Seedream 5.5, 2K, 2.5 credits). Three panels on a plain grey backdrop: the outfit from the front and from behind, both cropped at the neck, and one large head-and-shoulders. The prompt calls that "the one face of the sheet". Neutral face and pose, empty hands, every garment named with its colour and material. Nothing about the story.
+2. **Props, one sheet each.** Two views, "photographed for real", the label's words stated exactly, and the prop's state at the end of the story (the pin pulled). With no product picture uploaded it invented the product's look.
+3. **Places, one sheet each.** Two panels: the master view and the reverse angle of the same room, so both sides of a conversation share one place and one light. The prompt (about 4,700 characters) fixes a film camera and stock, measures the room, names what stands at each end, where the light falls, and one anchor object. Story details are built in (one lamp head dark).
+4. **Clips: one per scene, no start picture and no storyboard stills.** Seedance 2.5, 9:16, 24 seconds, "High". The first three clips were 54 seconds. Each clip's prompt (about 4,900 characters) is, in order: one line of look; one paragraph of how it is shot, lit and acted, ending with the room's own sound; each reference picture bound to its role in words, the place first and which way each of its panels faces; the shots back to back, timed to a tenth of a second, each with its shot size, the camera's position by the place's panel, one action, and a count of who is in frame ("alone in frame", "Two people in frame"); then the voice in its own block (who, how the voice sounds, lips open or closed, each line with the second it starts); then a fixed last line (language, exact words, no music, no subtitles).
+5. It checks each batch itself before going on ("confirmed generations complete") and reports the running cost in the chat.
+
+Prices seen: 2.5 credits a picture; clips 3 credits a second at 480p, 7 at 720p, 16 at 1080p. The names in their code for what a run makes: master, character, form, location, prop, plate, frame, clip, film.
+
+### Next to ours
+- **Same idea:** our clip prompts already bind each picture to its role, time the shots back to back and repeat the no-music line; one clip is one scene (rule 29).
+- **Different:** they make no still per clip (we draw and review a storyboard still for each, which is most of our steps and waits); their place picture shows both directions of the room; their person sheet has one large face where ours has three small full-body views; they count the people in every shot; they give the voice its own block with start times; their live-action dramas run on Seedance 2.5 in 24-second scenes where our Movie style runs on Omni in clips up to 15 seconds.
+- These change how videos are made, so none is switched on by this study. Each is a small, separate test (see the pull request).
 
 ## What we took
 1. **The front door.** Home is one box with chips (Style, Product, Cast, Shape, Folder), and Styles, Cast and Products open as windows, as theirs do. Our formats sit in the Styles window beside the looks.
@@ -55,4 +68,4 @@ The names in their code for what a run makes, in order: master, character, form,
 
 ## Not learned yet
 - The body of their `/drama-ads` skill (its rules and checks) is not readable anywhere.
-- Their clip length, how shots map to clips, the join, and which models they use: only a finished run shows these. A short run (references, then scenes 1-5 at 480p, about 450 credits) was set up in Reed's account on 10 Nov; add what it shows here.
+- How the clips are joined and what the finished film looks like: add when the run finishes.
