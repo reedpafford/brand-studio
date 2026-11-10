@@ -72,26 +72,31 @@ def relevant(db: Session, project: Project) -> list[MediaUpload]:
 
 
 def line(db: Session, row: MediaUpload) -> str:
-    from app.enhance import escape  # a person's words never close the tag
+    from app.enhance import escape  # a person's words never close the tag, nor pose as a line
+    from app.footage_rank import paths
 
     item = db.get(LibraryItem, row.product_id) if row.product_id else None
-    of = f" | {escape(item.name)}" if item else ""
-    where = folders.path(db, row.live_folder_id)  # its folder often says what it is
+    of = f" | {escape(' '.join(item.name.split()))}" if item else ""
+    where = paths(db, row.brand_id).get(row.folder_id or 0)  # its folder often says what it is
     of += f" | in {escape(where)}" if where else ""
-    return f"- {KEY}{row.id} | {row.seconds or 0:.1f} s{of} | {escape(row.description.strip())}"
+    said = escape(" ".join(row.description.split()))
+    return f"- {KEY}{row.id} | {row.seconds or 0:.1f} s{of} | {said}"
 
 
 def block(db: Session, project: Project, step: str) -> str:
     """The <footage> part of a step's system prompt: the clips that fit, one line each, then
     what this step may do with them. "" when the step isn't told or there are none."""
+    from app import footage_rank
     from app.breakdown import video_model
 
     rows = relevant(db, project) if step in TOLD and project.id else []
     if not rows:
         return ""
-    lines = ["<footage>", "The brand's own real clips that best fit this video, filmed by the "
-             "brand: its products, places and people. Show a product as they do; never invent "
-             "how it works when a clip shows it.", *(line(db, r) for r in rows)]  # fmt: skip
+    what = ("of its products, filmed by the brand: how each product looks, moves and works"
+            if footage_rank.drawn(project) else "that best fit this video, filmed by the "
+            "brand: its products, places and people")  # fmt: skip
+    lines = ["<footage>", f"The brand's own real clips {what}. Show a product as they do; never "
+             "invent how it works when a clip shows it.", *(line(db, r) for r in rows)]  # fmt: skip
     if step in SHOWN and (seen := rows[:SEEN]):
         lines.append(f"The first {len(seen)} images given are a frame of "
                      f"{', '.join(KEY + str(r.id) for r in seen)}, in that order.")  # fmt: skip

@@ -254,7 +254,9 @@ def test_a_take_given_the_real_clip_as_a_reference_is_priced_at_seedances_video_
 ):
     video = _video(db, owner)
     video.look, video.video_model = "house", "seedance-2.5"  # it takes reference videos
-    key = f"{footage.KEY}{_described(app, db, owner, video.brand_id)}"
+    alarm = product(db, video.brand_id, "Pocket alarm")  # a drawn style: product clips only
+    db.commit()
+    key = f"{footage.KEY}{_described(app, db, owner, video.brand_id, product_id=alarm)}"
     assert footage.assets(db, video)[key][1:] == ("video", [db.get(MediaUpload, int(
         key.split(":")[1])).file_id])  # fmt: skip
     m = get_model("seedance-2.5")
