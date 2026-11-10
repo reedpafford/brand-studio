@@ -18,7 +18,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import looks
+from app import folders, looks
 from app.models.clips import ClipTake, ProjectClip
 from app.models.files import MediaUpload, StoredFile
 from app.models.jobs import Job, JobStatus
@@ -86,6 +86,8 @@ def _line(db: Session, row: MediaUpload) -> str:
 
     item = db.get(LibraryItem, row.product_id) if row.product_id else None
     of = f" | {escape(item.name)}" if item else ""
+    where = folders.path(db, row.live_folder_id)  # its folder often says what it is
+    of += f" | in {escape(where)}" if where else ""
     return f"- {KEY}{row.id} | {row.seconds or 0:.1f} s{of} | {escape(row.description.strip())}"
 
 
@@ -357,13 +359,17 @@ def frames(video: bytes) -> list[bytes]:
 
 
 def describe_input(db: Session, row: MediaUpload, brand) -> dict:
-    """The AI description's call (prompts/footage_describe.md): the clip's frames, the
-    brand's products by name, its length."""
+    """The AI description's call (prompts/footage_describe.md): the clip's frames, the brand's
+    products by name, its length, its folder and file name (they often say what it is)."""
+    from app.enhance import escape
     from app.prompts import HERE
 
     names = "\n".join(p.name for p in products(db, row.brand_id)) or "(none)"
+    name = db.get(StoredFile, row.file_id).filename
     prompt = (f"<brand>{brand.name}</brand>\n<products>\n{names}\n</products>\n"
-              f"<seconds>{row.seconds or 0:.1f}</seconds>")  # fmt: skip
+              f"<seconds>{row.seconds or 0:.1f}</seconds>\n"
+              f"<folder>{escape(folders.path(db, row.live_folder_id))}</folder>\n"
+              f"<file>{escape(name)}</file>")  # fmt: skip
     return {"step": STEP, "media_upload_id": row.id, "brand_id": row.brand_id, "effort": "low",
             "system": [(HERE / f"{STEP}.md").read_text()], "prompt": prompt, "max_tokens": 600,
             "files": {"reference_images": row.frame_file_ids}, "fit_images_to": 768}  # fmt: skip

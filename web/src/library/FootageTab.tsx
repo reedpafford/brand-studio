@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Film, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowRightLeft, Film, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Badge, Banner, Button, Select, Skeleton, TextArea, useToast } from "../components";
+import { Crumbs, FolderActions, MoveClip, SubFolders, trail, useFootageFolders, type FootageFolder } from "./FootageFolders";
 import { LibraryFrame, useSearch } from "./LibraryFrame";
 import { upTo, useItems } from "./kinds";
 
@@ -25,14 +26,22 @@ export function useFootage(brandId: number) {
 const length = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 /** Footage (Reed, 9 Nov): real clips of the brand's products, added once, each with what it shows and which product. Every
- *  video's director reads the ones that fit; in UGC it may use one as a B-roll shot. */
+ *  video's director reads the ones that fit; in UGC it may use one as a B-roll shot. In folders, nested as in Reed's Drive
+ *  (10 Nov): the open one's folders and clips; a search looks in every folder. */
 export function FootageTab({ brandId }: { brandId: number }) {
   const [params, setParams] = useSearchParams();
   const adding = params.get("new") === "1";
   const setAdding = (on: boolean) => setParams((p) => (on ? p.set("new", "1") : p.delete("new"), p), { replace: true });
   const clips = useFootage(brandId);
+  const rows = useFootageFolders(brandId).data ?? [];
+  const asked = Number(params.get("folder")) || null;
+  const at = rows.some((f) => f.id === asked) ? asked : null; // a folder that's gone: the top
+  const open = (id: number | null) => setParams((p) => (id ? p.set("folder", String(id)) : p.delete("folder"), p));
   const [q] = useSearch();
-  const shown = (clips.data ?? []).filter((c) => c.description.toLowerCase().includes(q.trim().toLowerCase()));
+  const words = q.trim().toLowerCase();
+  const all = clips.data ?? [];
+  const shown = words ? all.filter((c) => `${c.description} ${c.folder}`.toLowerCase().includes(words)) : all.filter((c) => (c.folder_id ?? null) === at);
+  const here = rows.some((f) => (f.parent_id ?? null) === at);
   const action = !adding && (
     <Button icon={Plus} onClick={() => setAdding(true)}>
       Add a clip
@@ -42,10 +51,10 @@ export function FootageTab({ brandId }: { brandId: number }) {
     <LibraryFrame brandId={brandId} tab="footage" action={action} onAdd={() => setAdding(true)} addLabel="Add a clip">
       <div className="mx-auto flex max-w-content flex-col gap-6">
         {clips.isError && <Banner title="Couldn't load the footage." action={<Button variant="secondary" onClick={() => void clips.refetch()}>Try again</Button>}>Check your connection.</Banner>}
-        {adding && <AddClip brandId={brandId} onClose={() => setAdding(false)} />}
+        {adding && <AddClip brandId={brandId} folder={trail(rows, at).map((f) => f.name).join("/")} onClose={() => setAdding(false)} />}
         {clips.isPending ? (
           <Skeleton className="h-48 w-full max-w-[280px]" />
-        ) : clips.data?.length === 0 && !adding ? (
+        ) : all.length === 0 && rows.length === 0 && !adding ? (
           <section aria-label="No footage yet" className="flex max-w-[560px] flex-col items-start gap-3 rounded-lg border border-border bg-surface p-6">
             <Film size={20} strokeWidth={1.75} aria-hidden className="text-muted" />
             <h2 className="text-md font-semibold">No footage yet</h2>
@@ -54,10 +63,15 @@ export function FootageTab({ brandId }: { brandId: number }) {
           </section>
         ) : (
           <>
-            {q && shown.length === 0 && <p className="text-sm text-muted">No clip says “{q}”.</p>}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {words ? <p className="text-sm text-muted">Every folder, searched for “{q}”</p> : <Crumbs rows={rows} at={at} open={open} />}
+              <FolderActions brandId={brandId} rows={rows} footage={all} at={at} open={open} />
+            </div>
+            {!words && <SubFolders rows={rows} footage={all} at={at} open={open} />}
+            {shown.length === 0 && (words || !here) && <p className="text-sm text-muted">{words ? `No clip says “${q}”.` : "No clips in this folder yet."}</p>}
             <ul aria-label="Footage" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {shown.map((c) => (
-                <ClipCard key={c.id} brandId={brandId} clip={c} />
+                <ClipCard key={c.id} brandId={brandId} clip={c} rows={rows} where={words ? c.folder : ""} />
               ))}
             </ul>
           </>
@@ -83,7 +97,7 @@ function ProductPicker({ brandId, value, onChange }: { brandId: number; value: n
 
 /** Add a clip: the file, then what it shows (left empty, the AI describes it from two of its frames, at the price shown) and
  *  its product. Media's checks: an MP4 or WebM of up to 3 minutes. */
-function AddClip({ brandId, onClose }: { brandId: number; onClose: () => void }) {
+function AddClip({ brandId, folder, onClose }: { brandId: number; folder: string; onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [words, setWords] = useState("");
   const [product, setProduct] = useState<number | null>(null);
@@ -95,8 +109,9 @@ function AddClip({ brandId, onClose }: { brandId: number; onClose: () => void })
       const form = new FormData();
       form.append("upload", file!);
       form.append("description", words.trim());
+      form.append("folder", folder);
       if (product !== null) form.append("product_id", String(product));
-      return must(api.POST("/brands/{brand_id}/footage", { ...path(brandId), body: { upload: "", description: "" }, bodySerializer: () => form })).then((r) => r.data!);
+      return must(api.POST("/brands/{brand_id}/footage", { ...path(brandId), body: { upload: "", description: "", product: "", folder, ai_describe: true }, bodySerializer: () => form })).then((r) => r.data!);
     },
     onSuccess: async (c) => {
       await queryClient.invalidateQueries({ queryKey: ["footage", brandId] });
@@ -108,7 +123,10 @@ function AddClip({ brandId, onClose }: { brandId: number; onClose: () => void })
   const ai = !words.trim();
   return (
     <section aria-label="Add a clip" className="flex max-w-[560px] flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:p-6">
-      <h2 className="text-md font-semibold">Add a clip</h2>
+      <div>
+        <h2 className="text-md font-semibold">Add a clip</h2>
+        <p className="text-sm text-muted">To {folder || "All footage (the top)"}</p>
+      </div>
       <label className="inline-flex min-h-control w-fit cursor-pointer items-center gap-2 rounded-md border border-border-button px-3 text-sm font-medium focus-within:ring-2 focus-within:ring-accent lg:min-h-control-dense">
         <Upload size={16} strokeWidth={1.75} aria-hidden />
         <span className="max-w-[240px] truncate">{file ? file.name : "Choose a clip"}</span>
@@ -129,8 +147,9 @@ function AddClip({ brandId, onClose }: { brandId: number; onClose: () => void })
   );
 }
 
-function ClipCard({ brandId, clip }: { brandId: number; clip: Footage }) {
+function ClipCard({ brandId, clip, rows, where }: { brandId: number; clip: Footage; rows: FootageFolder[]; where: string }) {
   const [editing, setEditing] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [words, setWords] = useState(clip.description);
   const [product, setProduct] = useState<number | null>(clip.product_id ?? null);
   const products = useItems("prop", brandId).data ?? [];
@@ -176,7 +195,10 @@ function ClipCard({ brandId, clip }: { brandId: number; clip: Footage }) {
           </>
         ) : (
           <>
-            <p className="text-xs font-medium text-muted">{name ?? "No product"}</p>
+            <p className="text-xs font-medium text-muted">
+              {name ?? "No product"}
+              {where && ` · in ${where}`}
+            </p>
             {clip.describing ? (
               <p className="text-sm text-muted" role="status">Describing what it shows…</p>
             ) : clip.description ? (
@@ -189,10 +211,14 @@ function ClipCard({ brandId, clip }: { brandId: number; clip: Footage }) {
               <Button variant="secondary" icon={Pencil} onClick={() => (setWords(clip.description), setProduct(clip.product_id ?? null), setEditing(true))}>
                 Edit
               </Button>
+              <Button variant="ghost" icon={ArrowRightLeft} onClick={() => setMoving(true)}>
+                Move to…
+              </Button>
               <Button variant="ghost" icon={Trash2} busy={remove.isPending} onClick={() => remove.mutate()}>
                 Delete
               </Button>
             </div>
+            {moving && <MoveClip brandId={brandId} clip={clip} rows={rows} onClose={() => setMoving(false)} />}
           </>
         )}
       </div>

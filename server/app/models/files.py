@@ -4,6 +4,7 @@ from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
+from app.models.folders import Filed
 
 
 class StoredFile(Entity, Base):
@@ -32,7 +33,7 @@ class VideoUpload(Entity, Base):
     used: Mapped[bool] = mapped_column(default=False)
 
 
-class MediaUpload(Entity, Base):
+class MediaUpload(Filed, Entity, Base):
     """A picture or clip someone added to a brand's Media (v5 C_Media): free, checked by its
     contents. The owner can take it off Media (`removed_at`)."""
 
@@ -52,3 +53,4 @@ class MediaUpload(Entity, Base):
     frame_file_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
     describe_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
     describe_note: Mapped[str] = mapped_column(Text, default="")  # why the AI's words aren't in
+    folder_id: Mapped[int | None] = mapped_column(ForeignKey("folders.id"), index=True)

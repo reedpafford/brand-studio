@@ -28,6 +28,7 @@ ALL = "all"  # ?folder=all: every idea in the brand
 class FolderIn(BaseModel):
     name: str = Name
     parent_id: int | None = None  # inside this folder; null: at the top
+    footage: bool | None = None  # true: a folder of the brand's footage (its own tree)
 
 
 class FolderPatch(BaseModel):
@@ -41,6 +42,7 @@ class Items(BaseModel):
     scripts: int
     videos: int
     clips: int
+    footage: int
 
 
 class FolderOut(BaseModel):
@@ -59,7 +61,7 @@ class DeletedOut(BaseModel):
 
 
 class FileIn(BaseModel):
-    kind: Literal["script", "video", "clip"]
+    kind: Literal["script", "video", "clip", "footage"]
     ids: list[int] = Field(min_length=1, max_length=500)
     folder_id: int | None  # null: Unsorted
 
@@ -126,9 +128,11 @@ def _out(db: Session, user: User, folder: Folder, items: dict | None = None) -> 
 
 
 @router.get("/brands/{brand_id}/folders", response_model=list[FolderOut])
-def list_folders(brand_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """The brand's folders in the order made, each with its `parent_id`; Unsorted isn't listed."""
-    rows = folders.live(db, get_brand(db, user, brand_id).id)
+def list_folders(brand_id: int, footage: bool = False, user: User = Depends(current_user),
+                 db: Session = Depends(get_db)):  # fmt: skip
+    """The brand's folders in the order made, each with its `parent_id`; Unsorted isn't listed.
+    `footage`: the Footage tab's tree instead."""
+    rows = folders.live(db, get_brand(db, user, brand_id).id, footage)
     counts = folders.counts(db, user, [f.id for f in rows])
     return [_out(db, user, f, counts[f.id]) for f in rows]
 
@@ -257,7 +261,8 @@ def make_folder(
 ):
     """New folder, at the top or inside one ("New folder inside")."""
     brand = get_brand(db, user, brand_id)
-    folder = Folder(workspace_id=user.workspace_id, brand_id=brand.id, created_by_id=user.id)
+    folder = Folder(workspace_id=user.workspace_id, brand_id=brand.id, created_by_id=user.id,
+                    footage=bool(body.footage))  # fmt: skip
     folders.place(db, user, folder, body.parent_id)
     folder.name = folders.check_name(db, folder, body.name)
     db.add(folder)

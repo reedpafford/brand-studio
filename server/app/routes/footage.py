@@ -2,24 +2,27 @@
 Media's checks, each with what it shows and which product. Left blank, the words are one AI
 look at two of its frames (a picture check's price, said before the press); typed, they're
 the person's own. Anyone with the brand adds, changes and deletes them (Undo brings one back),
-as in the rest of the library."""
+as in the rest of the library, and files them in the tab's own folders (Reed, 10 Nov: the
+folders' calls, app/folders.py, with `footage`)."""
 
 import hashlib
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import footage
-from app.auth import current_user
+from app import folders, footage
+from app.auth import current_user, owner_only
 from app.credits import estimate, price
 from app.db import get_db, utcnow
 from app.models.accounts import User
 from app.models.brands import Brand
 from app.models.files import MediaUpload, StoredFile
-from app.models.jobs import Job, JobStatus
+from app.models.jobs import Job, JobStatus, Usage
 from app.routes.brands import get_brand
 from app.routes.library import PriceOut, usd
 from app.routes.media import store
@@ -38,6 +41,8 @@ class FootageOut(BaseModel):
     product_id: int | None
     describing: bool  # the AI's words are being written
     note: str = ""  # why they aren't in: refused, waiting for the owner's OK, or failed
+    folder_id: int | None = None  # its footage folder (POST /folders/file, kind footage); null: top
+    folder: str = ""  # where that is: "Product shots/Close-ups"
 
 
 class FootageIn(BaseModel):
@@ -53,10 +58,12 @@ def _out(db: Session, row: MediaUpload) -> FootageOut:
     waiting = job is not None and job.status in (JobStatus.queued, JobStatus.running)
     held = job is not None and job.status == JobStatus.needs_owner_approval
     note = f"The AI’s description waits for the owner’s OK: {job.input.get(HELD)}" if held else ""
+    folder_id = row.live_folder_id
     return FootageOut(id=row.id, file_id=row.file_id, seconds=row.seconds or 0,
                       thumb_file_id=(row.frame_file_ids or [None])[0],
                       description=row.description, product_id=row.product_id,
-                      describing=waiting, note=note or row.describe_note)  # fmt: skip
+                      describing=waiting, note=note or row.describe_note,
+                      folder_id=folder_id, folder=folders.path(db, folder_id))  # fmt: skip
 
 
 def _row(db: Session, user: User, brand_id: int, footage_id: int, removed=False) -> MediaUpload:
@@ -68,8 +75,13 @@ def _row(db: Session, user: User, brand_id: int, footage_id: int, removed=False)
     return row
 
 
-def _product(db: Session, brand_id: int, product_id: int | None) -> int | None:
-    if product_id is not None and product_id not in {p.id for p in footage.products(db, brand_id)}:
+def _product(db: Session, brand_id: int, product_id: int | None, name: str = "") -> int | None:
+    """One of the brand's products, by its id or its name (any case)."""
+    have = footage.products(db, brand_id)
+    if name.strip():
+        product_id = next((p.id for p in have if p.name.strip().lower() == name.strip().lower()),
+                          0)  # fmt: skip
+    if product_id is not None and product_id not in {p.id for p in have}:
         raise HTTPException(422, "Pick one of this brand's products.")
     return product_id
 
@@ -93,6 +105,38 @@ def describe_price(brand_id: int, user: User = Depends(current_user),
     return PriceOut(credits=price(most), usd=usd(user, float(most)))
 
 
+class Spent(BaseModel):
+    id: int  # the clip
+    usd: float  # its AI description's real cost
+    estimated: bool  # the provider didn't say: worked out from its credits
+
+
+class SpendOut(BaseModel):
+    usd: float  # the running total
+    clips: list[Spent]
+
+
+@router.get("/spend", response_model=SpendOut)
+def describe_spend(brand_id: int, since: datetime | None = None, user: User = Depends(owner_only),
+                   db: Session = Depends(get_db)):  # fmt: skip
+    """What each AI description of the brand's footage really cost, and the total (owner only,
+    like every dollar): a bulk upload reads its running total. `since`: those asked from then.
+    One still being written isn't in yet."""
+    get_brand(db, user, brand_id)
+    rows = (select(Job.input["media_upload_id"].as_integer(), Usage.cost_usd, Usage.estimated)
+            .join(Usage, Usage.job_id == Job.id)
+            .where(Job.brand_id == brand_id, Job.input["step"].as_string() == footage.STEP)
+            .order_by(Job.id))  # fmt: skip
+    if since is not None:
+        utc = since.astimezone(UTC).replace(tzinfo=None) if since.tzinfo else since
+        rows = rows.where(Job.created_at >= utc)
+    each: dict[int, Spent] = {}
+    for clip, cost, estimated in db.execute(rows):
+        one = each.setdefault(clip, Spent(id=clip, usd=0, estimated=False))
+        one.usd, one.estimated = one.usd + float(cost), one.estimated or estimated
+    return SpendOut(usd=round(sum(c.usd for c in each.values()), 4), clips=list(each.values()))
+
+
 @router.post("", response_model=FootageOut, status_code=201)
 def add_footage(
     brand_id: int,
@@ -100,15 +144,22 @@ def add_footage(
     request: Request,
     description: str = Form(""),
     product_id: int | None = Form(None),
+    product: str = Form(""),  # or its name: "PalaceGuard"
+    folder: str = Form(""),  # "Product shots/Close-ups": made where missing; "": the top
+    ai_describe: bool = Form(True),  # False: never the paid AI description, even with no words
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """A real clip added once (Media's checks: a clip of up to 3 minutes). Its two frames are
-    kept (its thumbnail, and what the AI and the director see); with no words, the AI
-    describes it."""
+    """A real clip added once (Media's checks: a clip of up to 3 minutes), in its footage
+    folder. Its two frames are kept (its thumbnail, and what the AI and the director see);
+    with no words, the AI describes it, unless `ai_describe` is off (a bulk upload that writes
+    its own words)."""
+    get_brand(db, user, brand_id)
+    product_id = _product(db, brand_id, product_id, product)  # both before the file is stored
+    folder_id = folders.made(db, user, brand_id, folder)
     row, data = store(db, user, brand_id, upload, request, clip=True)
     row.footage, row.description = True, description.strip()[:WORDS]
-    row.product_id = _product(db, brand_id, product_id)
+    row.product_id, row.folder_id = product_id, folder_id
     ids = []
     for n, jpeg in enumerate(footage.frames(data)):
         key = f"{user.workspace_id}/{uuid.uuid4().hex}"
@@ -122,7 +173,7 @@ def add_footage(
         ids.append(frame.id)
     row.frame_file_ids = ids
     db.commit()
-    if not row.description:
+    if not row.description and ai_describe:
         _ask(db, user, row)
     return _out(db, row)
 
