@@ -9,7 +9,16 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, breakdown_fix, clip_prompts, cut_edits, plans, storyboard
+from app import (
+    advice,
+    breakdown,
+    breakdown_fix,
+    cast_roles,
+    clip_prompts,
+    cut_edits,
+    plans,
+    storyboard,
+)
 from app.advice import Said, names
 from app.auth import current_user
 from app.db import get_db
@@ -340,6 +349,10 @@ def save(
     )
     db.add(row)
     db.flush()  # a song video's lengths are the song's (song_breakdown.fit, on insert)
+    same = was is not None and was.script_version == row.script_version
+    if same and cast_roles.recast_only(was.data, row.data):
+        cast_roles.carry_frames(db, project, was, row)  # only who's in shots changed (video
+        cast_roles.carry_clips(db, project, was, row)  # 345): the rest stays current, takes too
     breakdown.record_length(project, Breakdown.model_validate(row.data))
     db.commit()
     clip_prompts.follow(db, project, user)  # stale clip prompts are rewritten, within budget
@@ -351,11 +364,9 @@ def fix_cast(project_id: int, user: User = Depends(current_user), db: Session = 
     """Put the right cast in each shot (free, no model call): a shot whose lines name a role
     but show another role's character gets that role's character instead. Saved as a new
     breakdown version, so stills and clips from the old one are made again."""
-    from app.cast_roles import fix
-
     project, version = _working(db, user, project_id)
     row = _newest(db, project)
-    fixed = fix(db, project, version.text, Breakdown.model_validate(row.data))
+    fixed = cast_roles.fix(db, project, version.text, Breakdown.model_validate(row.data))
     if fixed is None:
         raise HTTPException(409, "Every shot already has the right cast.")
     fixed, landed = breakdown.land(db, project, fixed)
@@ -369,8 +380,6 @@ def fix_cast(project_id: int, user: User = Depends(current_user), db: Session = 
     )
     db.add(new)
     db.flush()
-    from app import cast_roles
-
     redrawn = cast_roles.redraw(db, project, user, cast_roles.carry_frames(db, project, row, new))
     cast_roles.carry_clips(db, project, row, new)
     db.commit()
@@ -390,8 +399,6 @@ def new_version(db: Session, user: User, project, row: BreakdownVersion, text: s
     """A fixed breakdown, saved as a new version (stills and clips are carried, as for
     fix-cast); free, no model call. `follow`: stale clip prompts are rewritten by themselves
     (paid, clip_prompts.follow); off, Clips keeps its priced Rewrite."""
-    from app import cast_roles
-
     bd, landed = breakdown.land(db, project, bd)
     new = BreakdownVersion(
         project_id=project.id,
@@ -426,11 +433,9 @@ def fix(
     every = [f["problem"] for f in breakdown_fix.fixes(row.problems, row.data, version.text)]
     asked = (body.problems if body else []) or every
     m = breakdown.video_model(project)
-    from app.cast_roles import fix as cast
-
     fixed, done = breakdown_fix.repair(
         version.text, Breakdown.model_validate(row.data), asked, m.duration.min, m.duration.max,
-        lambda bd: cast(db, project, version.text, bd),
+        lambda bd: cast_roles.fix(db, project, version.text, bd),
     )  # fmt: skip
     if not done:
         raise HTTPException(409, "Nothing here can be fixed for you. Edit the shot instead.")

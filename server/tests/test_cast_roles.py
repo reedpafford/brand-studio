@@ -430,3 +430,110 @@ def test_an_edit_a_cast_fix_and_a_recast_keep_the_plan_version(owner, editor, db
     made_for(5)
     _recast(owner, editor, db, pid, "Leo")
     assert newest().data["plan_version"] == 5  # a recast at Assets
+
+
+TALK = ("MOM: A twenty-two-year-old ran past my window every morning.\n"
+        "MOM: So one day I asked her why.")  # fmt: skip
+
+
+def _talker(owner, editor, db):
+    """Video 345: Mom talks to camera; her first line plays over B-roll of Laken running."""
+    made = _make(owner, text=TALK)
+    base = f"/scripts/{made['id']}"
+    looks = []
+    for name in ("Mia", "Laken"):
+        body = {"name": name, "image_file_ids": [upload(owner)]}
+        item = owner.post("/library/character", json=body)
+        looks.append(item.json()["id"])
+        with_sheet(db, looks[-1])
+    mia, laken = looks
+    for k, (role, look) in enumerate((("Mom", mia), ("Laken, a young runner", laken))):
+        slot = owner.post(f"{base}/cast", json={"role": role}).json()[k]["id"]
+        owner.post(f"{base}/cast/{slot}/lock", json={"library_item_id": look})
+    bd = copy.deepcopy(BREAKDOWN)
+    talk = bd["scenes"][0]["shots"][0]
+    talk.update(script_lines=[1], speaker="Mom", line=TALK.splitlines()[0][5:],
+                action="Mom talks to the camera.", character_ids=[f"char:{mia}"])  # fmt: skip
+    bd["scenes"][0]["shots"][1].update(
+        script_lines=[1], speaker=None, line=None, character_ids=[f"char:{laken}"],
+        action="A lone young woman runner crosses the bridge at dawn.")  # fmt: skip
+    bd["scenes"][0]["shots"].append({**talk, "id": "1.3", "script_lines": [2],
+                                     "line": TALK.splitlines()[1][5:]})  # fmt: skip
+    bd["clips"] = [{"id": f"c{k}", "shot_ids": [f"1.{k}"], "seconds": 4, "seam": ""}
+                   for k in (1, 2, 3)]  # fmt: skip
+    owner.put(f"{base}/drafts/0/breakdown", json=bd)
+    owner.post(f"{base}/drafts/0/approve")
+    owner.post(f"{base}/publish")
+    pid = editor.post(f"{base}/drafts/0/produce").json()["project_id"]
+    editor.put(f"/projects/{pid}/breakdown", json=bd)
+    return pid, mia, laken
+
+
+def test_a_talkers_line_over_b_roll_never_recasts_who_the_b_roll_shows(owner, editor, db):
+    """Video 345: Mom's talker line over "a lone young woman runner" (Laken) made Mom count as
+    on screen, so the free cast fix put Mom there and her sheet drew the runner. The line's
+    speaker is heard there, not seen: Laken stays, and her sheet reaches the still and clip."""
+    from app import clip_prompts, storyboard
+    from app.prompts.schemas import Breakdown, ClipPrompt, Frame, Reference
+
+    pid, mia, laken = _talker(owner, editor, db)
+    url = f"/projects/{pid}/breakdown"
+    assert not [p for p in editor.get(url).json()["problems"] if p.startswith("Check the cast")]
+    assert editor.post(f"{url}/fix-cast").status_code == 409  # nothing to put right
+    editor.get(f"/projects/{pid}/assets")  # nor does filling the roles in their shots
+    got = editor.get(url).json()["breakdown"]
+    assert got["scenes"][0]["shots"][1]["character_ids"] == [f"char:{laken}"]
+    project, bd = db.get(Project, pid), Breakdown.model_validate(got)
+    still = Frame(clip_id="c2", shot_id="1.2", prompt="A runner at dawn.", reference_ids=[])
+    assert storyboard.with_cast(db, project, still, bd).reference_ids == [f"char:{laken}"]
+    clip = ClipPrompt(clip_id="c2", seconds=4, prompt="References: [Image2] is Laken.", references=[
+        Reference(kind="image", id="frame:c2", role="storyboard frame"),
+        Reference(kind="image", id=f"char:{laken}", role="Laken's look")])  # fmt: skip
+    done = clip_prompts.with_cast(db, project, clip, bd)
+    assert [r.id for r in done.references] == ["frame:c2", f"char:{laken}"]
+    assert "Mia" not in done.prompt
+
+
+def test_a_cast_fix_and_its_undo_leave_the_other_clips_and_their_takes_current(owner, editor, db):
+    """The Producer, for 345's repair while takes render: a new breakdown version that only
+    changes who is in a shot moves every clip to it; only the recast clip's prompt changes,
+    and a take being made for another clip still fits it. Undo (PUT the old one) the same."""
+    from app.clip_takes import still_wanted
+    from app.models.clips import ProjectClip
+
+    pid, mia, kid = _video(owner, editor, db)
+    url = f"/projects/{pid}/breakdown"
+    wrong = copy.deepcopy(BREAKDOWN)
+    wrong["scenes"][0]["shots"][0]["character_ids"] = [f"char:{mia}", f"char:{kid}"]
+    wrong["scenes"][0]["shots"][1]["character_ids"] = [f"char:{mia}"]  # Nate's line, Mom's look
+    wrong["clips"] = [{"id": "c1", "shot_ids": ["1.1"], "seconds": 3, "seam": ""},
+                      {"id": "c2", "shot_ids": ["1.2"], "seconds": 2, "seam": ""}]  # fmt: skip
+    first = editor.put(url, json=wrong).json()["id"]
+
+    def clip(cid, refs):
+        refs = [{"kind": "image", "id": r, "role": r} for r in [f"frame:{cid}", *refs]]
+        return ProjectClip(project_id=pid, breakdown_id=first, clip_id=cid, seconds=3,
+                           prompt=f"{cid}: Mia at the table.", references=refs,
+                           approved=True, prompt_ok=True)  # fmt: skip
+
+    c1, c2 = clip("c1", [f"char:{mia}", f"char:{kid}"]), clip("c2", [f"char:{mia}"])
+    db.add_all([c1, c2])
+    db.flush()
+    sent = {"project_clip_id": c1.id, "clip_prompt": c1.prompt}
+    take = Job(workspace_id=db.get(Project, pid).workspace_id, project_id=pid, kind="video",
+               provider="fake", input=sent)  # fmt: skip
+    db.add(take)
+    db.commit()
+    jobs = db.query(Job).count()
+
+    for press in (lambda: editor.post(f"{url}/fix-cast"), lambda: editor.put(url, json=wrong)):
+        assert press().status_code == 200
+        db.expire_all()
+        newest = db.query(BreakdownVersion).filter_by(project_id=pid).order_by(
+            BreakdownVersion.id.desc()).first()  # fmt: skip
+        assert c1.breakdown_id == c2.breakdown_id == newest.id  # both current: none stale
+        assert (c1.prompt, c1.approved, c1.prompt_ok) == ("c1: Mia at the table.", True, True)
+        assert still_wanted(db, take)  # the take being made still fits its clip
+        assert c2.approved is False  # recast: its takes show the old cast
+        assert db.query(Job).count() == jobs  # free: nothing written again
+    assert [r["id"] for r in c2.references] == ["frame:c2", f"char:{mia}"]  # Undo: Mia again

@@ -158,6 +158,7 @@ def named(role: str, text: str) -> bool:
 
 
 LABEL = re.compile(r"^\s*([A-Z][A-Z .'-]*?)(?: \([^)]*\))?:")  # "NATE:" or "NATE (V.O.):"
+OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
 
 
 def on_screen(lines: list[str]) -> str:
@@ -194,31 +195,52 @@ def mismatches(db: Session, project: Project, script: str, bd) -> list[tuple]:
     (shot, [missing (role, ref)], [wrong (role, ref)]). Only a clear swap counts (a named
     role's look missing *and* another role's look there instead), so someone in a shot
     without lines is never flagged, nor a reaction shot whose action names who it shows
-    (QA-Live, video 16: the boss's line over "Lexi takes the hit")."""
+    (QA-Live, video 16: the boss's line over "Lexi takes the hit"). A line heard over a shot
+    nobody speaks in on screen (B-roll) puts its speaker there only when they say it on
+    screen nowhere else and the plan has people talking (`heard_only`; video 345: Mom's
+    talker line over "a lone young woman runner" swapped Laken for Mom)."""
     roles = role_refs(db, project)
     if not roles:
         return []
     lines = script.splitlines()
-    found = []
-    for scene in bd.scenes:
-        for shot in scene.shots:
-            said = [lines[n - 1] for n in shot.script_lines if 0 < n <= len(lines)]
-            text = "\n".join([on_screen(said), shot.speaker or ""])
-            here = list(dict.fromkeys(shot.character_ids))
-            wanted = {r: s for r, slots in roles.items() for s in slots if named(s.role, text)}
-            missing = [(s.role, r) for r, s in wanted.items() if r not in here]
-            wrong = [(roles[r][0].role, r) for r in here if r in roles and r not in wanted]
-            seen = f"{shot.action} {shot.reaction or ''}"  # "Lexi takes the hit": her reaction
-            insert = (
-                not shot.speaker
-                and not PERSON.search(seen)
-                and not any(named(s.role, seen) for v in roles.values() for s in v)
-            )
-            if insert:  # a close-up of a thing (the vacuum's canister): nobody to swap
-                continue
-            if missing and wrong and not any(named(role, seen) for role, _ in wrong):
-                found.append((shot, missing, wrong))
+    shots = [s for scene in bd.scenes for s in scene.shots]
+    voiced = {}  # a script line -> who says it on screen
+    for shot in (s for s in shots if s.speaker and not OFF_SCREEN.search(s.speaker)):
+        for n in shot.script_lines:
+            voiced.setdefault(n, []).append(shot.speaker)
+    found, anyone = [], bool(voiced)
+    for shot in shots:
+        talks = bool(shot.speaker) and not OFF_SCREEN.search(shot.speaker)
+        said = [x for n in shot.script_lines if 0 < n <= len(lines) for x in [lines[n - 1]]
+                if talks or not heard_only(x, voiced.get(n, []), anyone)]  # fmt: skip
+        text = "\n".join([on_screen(said), shot.speaker if talks else ""])
+        here = list(dict.fromkeys(shot.character_ids))
+        wanted = {r: s for r, slots in roles.items() for s in slots if named(s.role, text)}
+        missing = [(s.role, r) for r, s in wanted.items() if r not in here]
+        wrong = [(roles[r][0].role, r) for r in here if r in roles and r not in wanted]
+        seen = f"{shot.action} {shot.reaction or ''}"  # "Lexi takes the hit": her reaction
+        insert = (
+            not talks
+            and not PERSON.search(seen)
+            and not any(named(s.role, seen) for v in roles.values() for s in v)
+        )
+        if insert:  # a close-up of a thing (the vacuum's canister): nobody to swap
+            continue
+        if missing and wrong and not any(named(role, seen) for role, _ in wrong):
+            found.append((shot, missing, wrong))
     return found
+
+
+def heard_only(line: str, speakers: list[str], talks: bool) -> bool:
+    """A script line whose speaker is only heard in a shot nobody speaks in on screen: a V.O.
+    or O.S. line, any line in a plan where nobody talks on screen (narration, a song), or a
+    line its speaker says on screen in another shot (`speakers`: B-roll laid over a talker).
+    Else the shot may be its speaker's (QA on #812: "Close on a frown" plays the vet)."""
+    label = LABEL.match(line)
+    if label is None:  # an action line: what we see
+        return False
+    return not talks or bool(OFF_SCREEN.search(label[0])) or any(
+        labels(label[1], s) for s in speakers)  # fmt: skip
 
 
 def fix(db: Session, project: Project, script: str, bd):
@@ -234,6 +256,20 @@ def fix(db: Session, project: Project, script: str, bd):
         kept = [r for r in shots[shot.id].character_ids if r not in gone]
         shots[shot.id].character_ids = kept + [r for _, r in missing]
     return fixed
+
+
+def recast_only(old: dict, new: dict) -> bool:
+    """Two saved breakdowns differ at most in who is in each shot (an edit that only recasts,
+    or its Undo), so frames and clips can follow it as they follow a cast fix."""
+    from app.prompts.schemas import Breakdown
+
+    def rest(data: dict) -> dict:
+        out = Breakdown.model_validate(data).model_dump()
+        for shot in (s for scene in out["scenes"] for s in scene["shots"]):
+            shot["character_ids"] = shot["taken_out"] = None
+        return out
+
+    return rest(old) == rest(new)
 
 
 def changed_shots(old, new) -> list[dict]:
@@ -309,13 +345,12 @@ def carry_clips(db: Session, project: Project, old_row, new_row) -> int:
     swaps, renamed = _swaps(old, new), _renamed(old, new)
     out = {c["shot_id"] for c in changed_shots(old, new) if set(c["after"]) < set(c["before"])}
     clips = {c.id: c.shot_ids for c in new.clips}
-    moved, names = 0, {}
+    moved = 0
     for clip in db.scalars(select(ProjectClip).where(ProjectClip.breakdown_id == old_row.id)):
         to = renamed.get(clip.clip_id)  # regrouped (a split): written again
         if to is None or any(swaps.get(s, {}) is None and s not in out for s in clips[to]):
             continue
         swap = {k: v for s in clips[to] for k, v in (swaps.get(s) or {}).items()}
-        names[clip.clip_id] = to
         clip.breakdown_id, clip.clip_id = new_row.id, to
         moved += 1
         if swap:
@@ -328,7 +363,7 @@ def carry_clips(db: Session, project: Project, old_row, new_row) -> int:
             clip.approved = clip.prompt_ok = False
     from app import cut_edits
 
-    cut_edits.follow_clips(db, project, names, {c.id for c in old.clips})  # the cut's edits too
+    cut_edits.follow_clips(db, project, renamed, {c.id for c in old.clips})  # by their shots
     return moved
 
 
