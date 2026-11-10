@@ -118,6 +118,10 @@ class Settings(BaseSettings):
     # app/take_watch) while checks are on; `everything` adds a look at each still.
     # key_takes and all_takes (kept for the env files) both leave stills unchecked.
     item_check_scope: Literal["key_takes", "all_takes", "everything"] = "key_takes"
+    # The one-pass director (app/one_pass.py; Reed, 10 Nov) for NEW Dialogue videos: one call
+    # plans the whole video and the clips are made straight from it. Set false to start new
+    # videos on the step-by-step director again; a video already started keeps its own.
+    one_pass: bool = True
     # Background worker
     worker_poll_seconds: float = 2.0
     # Which providers' jobs this worker takes, e.g. ["local"] for a reel-prep worker; empty: all.

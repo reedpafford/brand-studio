@@ -30,12 +30,13 @@ const credits = (m: Money, upTo = false) => (upTo ? Math.ceil(m.credits - 1e-9) 
 /** The money in the header (S3): the owner's in dollars, an editor's in credits and % of the budget (rule 4). The last part
  *  is the figure that matters, in the text colour: "$6.12 spent · up to $16.86", "96 of up to 164 credits". `short`: the
  *  phone's line (P-04), the most only. */
-export function moneyOf(h: Head, short = false, started = h.spent.credits > 0): [string, string] {
+export function moneyOf(h: Head, short = false, started = h.spent.credits > 0, lean = false): [string, string] {
   const owner = h.spent.usd != null;
   const spent = started; // before Make it: "No stills or clips yet" (its plan and looks are a small spend, in Usage)
   // While it plans before the OK (right after New video's Make it), "Working" beside "No generation started" read as a
   // contradiction (MAIN's Claymation run): it says what it's doing, and still that nothing is generated.
-  const none = h.status.kind === "working" ? "Planning, no stills or clips yet ·" : "No stills or clips yet ·";
+  const what = lean ? "clips" : "stills or clips"; // a video planned in one pass draws no stills (`lean`)
+  const none = h.status.kind === "working" ? `Planning, no ${what} yet ·` : `No ${what} yet ·`;
   const top = h.up_to;
   if (h.actual) {
     // The owner's uncapped test site (Reed, 6 Nov): what the providers really charged, and the likely cost; no budget.
@@ -263,8 +264,8 @@ export function MoveDialog({ brandId, projectId, title, now, onClose }: { brandI
 }
 
 /** The chat's header (S3-01, S3-09; P-04 on a phone): the crumb, Stop and ⋯; the title, status and money; the chips. */
-export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phone, menu, stop, started, onCost }: { brand: { id: number; name: string }; projectId: number; head: Head; status: Status; cast: string[]; lookOnly: boolean; phone: boolean; menu: ReactNode; stop?: { busy: boolean; onPress: () => void } | null; started?: boolean; onCost?: () => void }) {
-  const [lead, most] = moneyOf(head, phone, started);
+export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phone, menu, stop, started, lean, onCost }: { brand: { id: number; name: string }; projectId: number; head: Head; status: Status; cast: string[]; lookOnly: boolean; phone: boolean; menu: ReactNode; stop?: { busy: boolean; onPress: () => void } | null; started?: boolean; lean?: boolean; onCost?: () => void }) {
+  const [lead, most] = moneyOf(head, phone, started, lean);
   if (phone)
     return (
       <header role="banner" className="flex min-h-[52px] items-center gap-2 border-b border-border bg-surface px-3">

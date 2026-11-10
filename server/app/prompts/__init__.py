@@ -43,6 +43,7 @@ SCHEMAS = {
     "treatment": schemas.Treatment,  # the director's first move: why it holds a viewer
     "review_stills": schemas.StillsReview,  # the stills against the treatment, before takes
     "video_variations": schemas.VideoVariations,  # a finished video's other hooks or endings
+    "one_pass": schemas.ShootingPlan,  # the director's one pass: the whole video planned
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {

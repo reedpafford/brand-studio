@@ -50,6 +50,9 @@ export const tabFrom = (params: URLSearchParams): TabId | null => {
 };
 
 /** What a tab's pane gets. `go` opens another tab (a hold's "Open Cast"); `lines`/`line` tie the plan to the script. */
+/** A video the director planned in one pass (the server's `engine`): no stills, and its plan is changed in the chat. */
+export const onePass = (p: { engine?: string | null } | undefined) => p?.engine === "one_pass";
+
 export type PaneProps = { p: Project; head: Head | undefined; run: Progress | null; lookOnly: string | null; progress: VideoProgress; go: (tab: TabId) => void; toChat?: () => void; lines: number[]; line: number | null; showLines: (lines: number[]) => void; pickLine: (n: number) => void; onEditor?: (on: boolean) => void };
 
 
@@ -276,6 +279,7 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
 /** The clips (today's Clips step until screen 8): the stills and the takes, each clip's line, and their holds. */
 function ClipsTab(props: PaneProps) {
   const { progress, go, toChat } = props;
+  const lean = onePass(props.p); // no stills: its clips are made straight from the plan
   // Nothing drawn yet and the stills can't start: what fills in here, why it waits and the one press that gets it going.
   const waits = progress.frames.total === 0 && progress.clips.total === 0 ? videoLock("storyboard", progress) : null;
   if (waits)
@@ -292,10 +296,10 @@ function ClipsTab(props: PaneProps) {
           {held.why}
         </Banner>
       )}
-      {(progress.frames.total === 0 || progress.clips.total === 0) && (
+      {((!lean && progress.frames.total === 0) || progress.clips.total === 0) && (
         // Rule 22: with the step presses gone, the way on is the director (screen 4). On a phone the chat is a press away.
         <p className="text-sm text-muted">
-          The director makes the stills and the clips.{" "}
+          {lean ? "The director makes the clips." : "The director makes the stills and the clips."}{" "}
           {toChat ? (
             <button type="button" onClick={toChat} className="font-medium text-accent-text hover:underline max-lg:min-h-control">
               Start it or tell it what to do in the chat.
@@ -313,6 +317,8 @@ function ClipsTab(props: PaneProps) {
 /** The plan: the treatment and its scenes, then the shots (today's Plan step). Lines tie to the Script tab. */
 function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
   const { script } = useProgress(p.id);
+  const lookOnly = useViewOnly();
+  const lean = onePass(p); // planned in one pass: its scenes and shots are read here, and changed in the chat
   const settings = useVideoSettings(p.id);
   const clips = useProjectClips(p.id).data ?? [];
   const story = newestTreatment(useDirectorRun(p.id).data?.thread); // the director's treatment, its first move
@@ -343,15 +349,18 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
   return (
     <>
       <div className="space-y-4">{choices}</div>
-      <PlanStep
-        project={p as Project & { plan_status?: "none" | "ready" | "approved" | null }}
-        shots={
-          <div className="space-y-4">
-            {p.song && <SongStrip project={p} hasShots={progress.shots.made} hasClips={progress.clips.total > 0} />}
-            <BreakdownPane projectId={p.id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={() => {}} />
-          </div>
-        }
-      />
+      {lean && <p className="text-sm text-muted">The director planned this video in one pass. To change a scene or a shot, tell it in the chat: it plans again only what your note touches.</p>}
+      <ViewOnly on={lookOnly || lean}>
+        <PlanStep
+          project={p as Project & { plan_status?: "none" | "ready" | "approved" | null }}
+          shots={
+            <div className="space-y-4">
+              {p.song && <SongStrip project={p} hasShots={progress.shots.made} hasClips={progress.clips.total > 0} />}
+              <BreakdownPane projectId={p.id} brandId={p.brand_id} scriptVersion={script.data?.version ?? 0} plannedSeconds={p.planned_seconds ?? p.breakdown_seconds ?? 0} used={p.credits_used} budget={p.budget_credits} line={line} onShowLines={showLines} onDirty={() => {}} />
+            </div>
+          }
+        />
+      </ViewOnly>
     </>
   );
 }

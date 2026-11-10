@@ -45,8 +45,11 @@ FRESH = ("created_at", "name", "finished_at", "archived_at", "released_draft_id"
 
 def refusal(db: Session, project: Project) -> str:
     """Why this video can't have variations now, or ""."""
+    from app import one_pass
     from app.clip_prompts import newest
 
+    if one_pass.on(project):  # not made the one-pass way yet: never half one path, half the other
+        return one_pass.NO_VARIATIONS
     if director.active(db, project):
         return director.RUNNING
     if not director.delivered(director.turns(db, project)) or not director.treatment(db, project):

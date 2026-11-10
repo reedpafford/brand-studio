@@ -23,6 +23,7 @@ from app import (
     looks,
     model_map,
     narration,
+    one_pass,
     prompts,
     take_approval,
     take_mute,
@@ -436,6 +437,13 @@ def fix_clip(
     was = clip_prompts.as_written(row)
     if not advice.stops(row):
         raise HTTPException(409, "This clip has nothing to fix.")
+    if one_pass.on(project):  # written again from its plan, free, in code: never a call
+        one_pass.assemble(db, project, newest, {row.clip_id})
+        db.commit()
+        left = advice.stops(row)
+        return FixOut(fixed=not left, before=was.prompt, after=row.prompt,
+                      reason=f"{left[0]} {one_pass.CHAT}" if left else "",
+                      clip=_out(db, row, newest))  # fmt: skip
     if running := clip_prompts.fixing(db, row):  # one in flight per clip: never a second call
         return FixOut(fixed=None, before=was.prompt, job=running, clip=_out(db, row, newest))
     now = clip_prompts.repair_shape(was, bd) if row.prompt else was  # unwritten: Claude
@@ -492,7 +500,9 @@ def undo_auto_fix(
 def list_clips(project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     project = get_project(db, user, project_id)
     # free: a role named another way merged, a look approved or swapped since, never stuck
-    if any([breakdown.complete_cast(db, project), clip_prompts.repair(db, project)]):
+    if any([breakdown.complete_cast(db, project),
+            one_pass.on(project) and one_pass.follow(db, project),  # from its plan, free
+            clip_prompts.repair(db, project)]):  # fmt: skip
         db.commit()
     newest = _newest_breakdown(db, project)
     db.info[FACTS] = (project.id, *_facts(db, project.id))  # one read for every clip's cost

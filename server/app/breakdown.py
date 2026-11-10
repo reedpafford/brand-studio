@@ -456,7 +456,9 @@ def product_shots(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdo
 OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
 
 
-KEPT_KEYS = ("plan_version",)  # a plan's own keys that a new version saved from it keeps
+# a plan's own keys that a new version saved from it keeps: the plan version it was made from,
+# and the one-pass director's plan its clips are written from (app/one_pass_assemble.PLAN)
+KEPT_KEYS = ("plan_version", "shooting_plan")
 
 
 def carried_keys(row: BreakdownVersion | None) -> dict:

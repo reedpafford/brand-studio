@@ -399,6 +399,10 @@ def fits_prompt(db: Session, project: Project, clip: ProjectClip, model, sent: s
     if not most or len(sent) <= most:
         return
     said = {"model": model.name, "n": len(sent), "most": most}
+    from app import one_pass
+
+    if one_pass.on(project):  # its prompts are built in code: never a rewrite by a model
+        raise HTTPException(409, one_pass.LONG.format(**said))
     lock(db, Project, project.id)  # two presses at once queue one fix
     if fixing(db, clip):
         raise HTTPException(409, FITTING.format(**said))

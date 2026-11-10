@@ -116,7 +116,10 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
         head = f"{where[f['clip_id']]}: " if f.get("clip_id") in where else ""
         done = "Kept as it is." if f.get("fix") == "keep" else "Not fixed."
         out.append(f"{head}{says}. {done}")
-    if spans and not item_checks.on():  # checks are off on this site: said once
+    from app import one_pass
+
+    heard = one_pass.on(project)  # each take's check is its free listen, which always runs
+    if spans and not (heard or item_checks.on()):  # checks are off on this site: said once
         out.append("The takes weren't checked one by one.")
     ids = [s["take"].id for s in spans]
     checks = {k: item_checks.latest(db, k, ids) for k in ("take", "words")}
@@ -133,7 +136,9 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
                     continue  # "Not heard" by the take's check, but the cut's words have it
                 out.append(f"{n}: {said(f['text']).rstrip('.')}. Kept as it is.")
         mine = [checks[k].get(take.id) for k in ("take", "words")]
-        if item_checks.on() and (mine[0] is None or any(c and c.status != "done" for c in mine)):
+        unseen = mine[0] is None and not heard  # a one-pass take has no look, only its listen
+        if (heard or item_checks.on()) and (
+                unseen or any(c and c.status != "done" for c in mine)):  # fmt: skip
             out.append(f"{n}'s take wasn't checked.")  # none, failed, skipped or never finished
     out += _host_open(db, project)
     held = db.scalars(select(Job).where(Job.project_id == project.id,

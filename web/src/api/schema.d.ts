@@ -11063,6 +11063,8 @@ export interface components {
              * @default house
              */
             look: string;
+            /** Engine */
+            engine?: string | null;
             /**
              * Look Redo Credits
              * @default 0

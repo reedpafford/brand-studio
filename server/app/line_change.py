@@ -69,12 +69,12 @@ def clips_of(db: Session, project: Project, n: int) -> list[str]:
 def choice(db: Session, user: User, project: Project, words: str, new: str | None) -> dict | None:
     """The owner's "Change the line" on S3-14's card, or None (an editor; no new words; no
     clip says that line)."""
-    from app import plans
+    from app import one_pass, plans
 
     version = plans.script(db, project)
     new = (new or "").strip().strip("“”\"'‘’ ")
-    if not user.is_owner or not new or version is None:
-        return None
+    if not user.is_owner or not new or version is None or one_pass.on(project):
+        return None  # a one-pass video's lines aren't changed this way yet (app/one_pass.py)
     n = line_of(version.text, words)
     clips = clips_of(db, project, n) if n else []
     if not clips:

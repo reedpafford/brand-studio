@@ -79,12 +79,12 @@ function SceneHead({ s, open, onToggle, long, phone }: { s: Scene; open: boolean
 }
 
 /** A clip in the plan with no prompt yet: what it shows and what comes first. */
-function NotMade({ row }: { row: Row }) {
+function NotMade({ row, lean }: { row: Row; lean: boolean }) {
   return (
     <section aria-label={`Clip ${row.number}`} className="flex flex-col gap-2">
       <h3 className="text-lg font-semibold">Clip {row.number}</h3>
       <p className="text-sm text-muted">{row.label}</p>
-      <p className="text-sm">Not made yet: the director writes its prompt first, then makes its still and its take. Ask it in the chat to start.</p>
+      <p className="text-sm">{lean ? "Not made yet: the director makes its take from the plan. Ask it in the chat to start." : "Not made yet: the director writes its prompt first, then makes its still and its take. Ask it in the chat to start."}</p>
     </section>
   );
 }
@@ -181,7 +181,7 @@ export function ClipsPane({ p, head, progress, go }: PaneProps) {
         <Button variant="ghost" icon={ChevronLeft} className="self-start" onClick={() => open(null)}>
           All clips
         </Button>
-        <NotMade row={opened} />
+        <NotMade row={opened} lean={p.engine === "one_pass"} />
       </div>
     );
   if (phone && opened && clip)
@@ -257,7 +257,7 @@ export function ClipsPane({ p, head, progress, go }: PaneProps) {
         // list hides, its "All clips" is the way back), so the clip keeps the width its takes and details need.
         <div className="flex min-h-0 flex-col gap-4 @[720px]:flex-row @[720px]:items-start">
           <div className={`w-full @[720px]:w-[240px] ${long ? "@[760px]:w-[330px]" : "@[760px]:w-[300px]"} max-h-48 shrink-0 overflow-y-auto @[720px]:max-h-[calc(100dvh-220px)] ${rows.length <= GRID && opened ? "hidden @[720px]:block" : ""}`}>{list}</div>
-          <div className="min-w-0 flex-1">{opened && clip ? <ClipOpen key={clip.id} p={p} head={head} row={opened} clip={clip} frames={frames.data ?? []} scene={scenes.find((s) => s.id === opened.scene)!} phone={false} onCast={() => go("cast")} /> : opened ? <NotMade row={opened} /> : <p className="pt-2 text-sm text-muted">Pick a clip to see its takes, its prompt and what the director did.</p>}</div>
+          <div className="min-w-0 flex-1">{opened && clip ? <ClipOpen key={clip.id} p={p} head={head} row={opened} clip={clip} frames={frames.data ?? []} scene={scenes.find((s) => s.id === opened.scene)!} phone={false} onCast={() => go("cast")} /> : opened ? <NotMade row={opened} lean={p.engine === "one_pass"} /> : <p className="pt-2 text-sm text-muted">Pick a clip to see its takes, its prompt and what the director did.</p>}</div>
         </div>
       )}
     </div>

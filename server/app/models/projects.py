@@ -106,6 +106,10 @@ class Project(Filed, Entity, Base):
     # n49, New video's front door: the brand's products picked for it (library props: the ones
     # this ad is about; app/picks.py tells the treatment)
     product_ids: Mapped[list[int] | None] = mapped_column(JSON)
+    # n50: how its director works, stamped once at its first run and never changed
+    # (app/one_pass.py): "one_pass" plans the whole video in one call; null is the step-by-step
+    # director every earlier video was made with
+    engine: Mapped[str | None] = mapped_column(String(20))
     # Choices fixed for the director (director-chat.md §1; app/locks.py): {"cast": true, …,
     # "screens": [ids]}. Unlocking hands the choice back. People's own presses aren't blocked.
     locks: Mapped[dict] = mapped_column(JSON, default=dict)

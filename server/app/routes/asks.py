@@ -380,12 +380,13 @@ def _expected(db: Session, project: Project, ended: bool = False) -> Decimal:
 def _usual(db: Session, project: Project) -> Decimal:
     """The start card's "usually": the version's price; a revision's own estimate, its turns
     and its watch with its work (QA on #1481: 6 credits said, 23 estimated, 18 charged)."""
+    from app import one_pass
     from app.models.script_library import ScriptDraft
     from app.revision import revision
     from app.routes.estimate import version_cost
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    if draft and revision(db, project):
+    if draft and (revision(db, project) or one_pass.on(project)):
         return _expected(db, project)
     return version_cost(db, draft, project) if draft else Decimal(0)
 

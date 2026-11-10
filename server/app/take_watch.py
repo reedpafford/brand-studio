@@ -69,8 +69,11 @@ def per_take(db: Session, workspace_id: int, always: bool = False) -> Decimal:
 
 
 def rides(db: Session, project: Project, clip: ProjectClip | None = None) -> Decimal:
-    """The watch one more take of a clip brings with it."""
-    return per_take(db, project.workspace_id)
+    """The watch one more take of a clip brings with it: none on a one-pass video, whose takes
+    are listened to (free) and never watched one by one (app/one_pass.py)."""
+    from app import one_pass
+
+    return Decimal(0) if one_pass.on(project) else per_take(db, project.workspace_id)
 
 
 def speaks(db: Session, project: Project, clip: ProjectClip, shots: list[dict]) -> bool:
@@ -116,10 +119,15 @@ def queue(db: Session, job: Job, take: ClipTake, clip: ProjectClip) -> None:
     """After a take is saved (in the worker): its free listen, then its look; skipped when the
     watch would leave no room for one more take of the clip ("skipped", never held). The
     words check rides on the same listen."""
-    from app import take_words
+    from app import one_pass, take_words
     from app.clip_takes import take_credits
 
     project = db.get(Project, job.project_id) if job.project_id else None
+    if one_pass.on(project):  # its free listen only, always: no look, no remake by a watch
+        shots = _shots(db, clip)
+        take_words.queue(db, job, take.id, take.file_id, shots, take.prompt or "", None,
+                         speaks(db, project, clip, shots), always=True)  # fmt: skip
+        return
     if not project or not on():
         return
     shots = _shots(db, clip)

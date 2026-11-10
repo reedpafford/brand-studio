@@ -9,7 +9,16 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
-from app import advice, breakdown, breakdown_fix, clip_prompts, cut_edits, plans, storyboard
+from app import (
+    advice,
+    breakdown,
+    breakdown_fix,
+    clip_prompts,
+    cut_edits,
+    one_pass,
+    plans,
+    storyboard,
+)
 from app.advice import Said, names
 from app.auth import current_user
 from app.db import get_db
@@ -164,6 +173,7 @@ def make(project_id: int, user: User = Depends(current_user), db: Session = Depe
     shots of a video made from a script come from an approved plan (flows.md 1b): "Approve
     the plan first" until then. A video made the earlier way makes its breakdown as before."""
     project, version = _working(db, user, project_id)
+    one_pass.refuse(project)  # its shots come from the director's one pass
     if project.script_draft_id:
         plans.require_approved(db, project)
     return queue(db, user, project, version)
@@ -279,6 +289,7 @@ def use_version(
     redo. Undo is this press with `was_id`. Whoever made the video, or the owner."""
     _mine(db, user, project_id)
     project, version = _working(db, user, project_id)
+    one_pass.refuse(project)
     if project.archived_at is not None:
         raise HTTPException(409, "This video is archived. Restore it first.")
     old = db.get(BreakdownVersion, version_id)
@@ -326,6 +337,7 @@ def save(
 ):
     """Save the editor's edited breakdown for the working script (a new row)."""
     project, version = _working(db, user, project_id)
+    one_pass.refuse(project)  # v1: its shots are changed in the chat, never by hand
     body, landed = breakdown.land(db, project, body)  # never blocks on who's in a shot
     if was := db.scalar(select(BreakdownVersion).where(BreakdownVersion.project_id == project.id)
                         .order_by(BreakdownVersion.id.desc()).limit(1)):  # fmt: skip

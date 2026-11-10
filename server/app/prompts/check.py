@@ -332,7 +332,10 @@ def clip_prompts(bd: Breakdown, cp: ClipPrompts, max_images: int, max_audios: in
             said = [_exact(q) for q in QUOTED.findall("\n".join(spoken))]
             line = _exact(shot.line or "")
             times = sum(_exact(shots[s].line or "") == line for s in clip.shot_ids)
-            if shot.line and said.count(line) != times:
+            found = said.count(line)
+            if QUOTED.search(line):  # a line with quotes of its own ('He said "five minutes"…'):
+                found = _exact("\n".join(spoken)).count(f'"{line}"')  # whole, between its quotes
+            if shot.line and found != times:
                 problems.append(f"{c.clip_id}: shot {sid}'s line isn't there once, word for word")
         if IN_BED.search(c.prompt) and BODILY.search(c.prompt):  # Iron Paws #32: "sexual"
             problems.append(f"{ADVICE}{c.clip_id}: {NOT_SEXUAL}")

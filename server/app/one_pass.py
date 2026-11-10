@@ -1,0 +1,700 @@
+"""The one-pass director (Reed, 10 Nov: "I like our outputs and the creativity from the
+director, but like the speed of higgsfield ... ours understanding the context of the whole
+script is good - we just have a lot of fluff"). For a new Dialogue video, one Claude call (step
+"one_pass", app/prompts/one_pass.md, with the rules, the craft, the style's and format's guides
+and the video model's notes) reads the whole script and returns the ShootingPlan: the
+treatment, the voices, who and where, and every clip shot by shot. Code checks it (`checked`:
+every spoken line once, in order, by its number), asks once more inside the same job if it
+fails, and writes it into the tables the tabs read (`save`: the treatment card, the plan, the
+shots, the clips and each clip's prompt, built in app/one_pass_assemble.py). No storyboard, no
+stills, no call per clip, no watch of each take: a take is listened to (free), one that
+misses a scripted line is made once more with the same prompt, and the cut is watched once.
+
+The run is still a director run: its turns, cards, Stop, Carry on, holds and prices are
+app/director.py's. But every turn is the server's own step, chosen by `move` (no Claude turn).
+A video is stamped at its first run (`pick`) and never changes; every other video, and every
+Song, Narrated, Presenter, reel or variation, keeps the step-by-step director."""
+
+import json
+import math
+import re
+from decimal import Decimal
+from pathlib import Path
+
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app import asks, cast_gate, clip_prompts, plans, prompts
+from app.credits import COUNTED, estimate, past_approved, uncapped
+from app.enhance import escape, project_context
+from app.models.accounts import User
+from app.models.breakdowns import BreakdownVersion
+from app.models.clips import ClipTake, ProjectClip
+from app.models.jobs import Job, JobStatus
+from app.models.projects import Project
+from app.one_pass_assemble import OFF, PLAN, assemble, follow, spoken, to_breakdown
+from app.prompts import check
+from app.prompts.schemas import ShootingPlan
+
+ENGINE = STEP = "one_pass"
+KIND = "write-claude"
+RUN = "director_run"  # director.RUN
+CARD = "start_card"  # `move`'s step for "ready for Make it": the run's start card comes
+STORED = ("make_take", "final_cut")  # steps that read files: the worker's own turn takes them
+STILL = "The plan still couldn't be used after one more try: "
+PLAN_FAILED = ("It stopped: the plan couldn't be made ({why}). Nothing was charged for it. "
+               "Start it again to try once more, or change the script first.")  # fmt: skip
+MISSED = "twice running its answer left out or repeated a script line"
+NOT_PLANNED = ("It stopped: planning this change is waiting on the owner's OK, and nothing "
+               "can be made without a plan. Press Make it again to plan it.")  # fmt: skip
+NO_LOOK = ("It stopped: {} and couldn't be drawn. Upload or pick a look in Cast, then press "
+           "Carry on.")  # fmt: skip
+CUT_FAILED = "It stopped: the cut couldn't be made ({}). Fix that in Clips, then press Carry on."
+CHAT = "Tell the director what to change in the chat: it plans again only what your note touches."
+BUILT = f"This video's clip prompts are built from its plan and are up to date. {CHAT}"
+PLANNED = f"The director planned this video's scenes and shots in one pass. {CHAT}"
+NO_VARIATIONS = "Variations aren't available for this video yet. Start a new video from Home."
+UNFIT = ("Clip {n} is planned at {s} s, and {model} makes {low}–{high} s a clip. Ask the director "
+         "in the chat to keep every clip inside that, then switch the model.")  # fmt: skip
+LONG = ("The prompt is too long for {model} ({n:,} of {most:,} characters). Shorten it with "
+        "Edit (free), or tell the director in the chat to split this clip in two. Nothing was "
+        "charged.")  # fmt: skip
+
+
+# --- Which videos ----------------------------------------------------------------------------
+
+
+def on(project) -> bool:
+    """This video is made by the one-pass director (its stamp, never re-read from settings)."""
+    return project is not None and getattr(project, "engine", None) == ENGINE
+
+
+def _story(script, text: str) -> bool:
+    """A script the one-pass director takes: a Dialogue (story) script with someone speaking,
+    never a presenter's, nor one read from a reel."""
+    from app import host
+    from app.settings import get_settings
+
+    return bool(get_settings().one_pass and script is not None and script.kind == "story"
+                and not host.hosted(script) and not script.reel and not script.reference_id
+                and spoken(text))  # fmt: skip
+
+
+def eligible(db: Session, project: Project) -> bool:
+    """A video that would start on the one-pass director: new (nothing ever queued for it, no
+    plan, shots or song), from a Dialogue script, and not a reel remake or a variation."""
+    from app import omni_talker, video_variations
+    from app.narration import video_script
+
+    words = plans.script(db, project)
+    made = (db.scalar(select(Job.id).where(Job.project_id == project.id).limit(1))
+            or clip_prompts.newest(db, project) is not None
+            or project.plan or project.song_take_id)  # fmt: skip
+    reel = project.reference_breakdown or project.reel_script_id or project.reference_file_id
+    return bool(not made and not reel and words is not None
+                and _story(video_script(db, project), words.text)
+                and not omni_talker.on(db, project)
+                and not video_variations.source(db, project))  # fmt: skip
+
+
+def refuse(project) -> None:
+    """A press that would plan or re-shoot the old way, on a one-pass video: refused (409),
+    saying where the change is made instead."""
+    if on(project):
+        raise HTTPException(409, PLANNED)
+
+
+def model_refusal(db: Session, project: Project, model_id: str | None) -> str:
+    """Why a one-pass video can't move to this video model (None: its style's own) now, or "":
+    a clip its plan made longer or shorter than that model makes would never be made. Its
+    plan is changed first, in the chat."""
+    from app.breakdown import video_model
+    from app.catalogue import catalogue
+
+    row = clip_prompts.newest(db, project) if on(project) else None
+    m = catalogue().get(model_id or "") or video_model(None, project.look, "story")
+    for c in (row.data.get("clips") or []) if row and m.duration else []:
+        if not m.duration.min <= c["seconds"] <= m.duration.max:
+            return UNFIT.format(n=c["id"].removeprefix("c"), s=c["seconds"], model=m.name,
+                                low=m.duration.min, high=m.duration.max)  # fmt: skip
+    return ""
+
+
+def pick(db: Session, project: Project) -> None:
+    """The video's first run: its engine is stamped, once. A video that isn't `eligible` now
+    never becomes one (it has turns from then on)."""
+    if not project.engine and eligible(db, project):
+        project.engine = ENGINE
+
+
+def priced(db: Session, draft, video) -> bool:
+    """Whether a price is the one-pass director's: a stamped video's, or one for a video
+    (or a script with none yet) that would start on it."""
+    from app.models.script_library import Script
+
+    if video is not None and video.id is not None:
+        return on(video) or (not video.engine and eligible(db, video))
+    return _story(db.get(Script, draft.script_id), draft.text or "")
+
+
+# --- The plan call ---------------------------------------------------------------------------
+
+
+def model_notes(model_id: str) -> str:
+    """The director's planning notes for a video model (app/prompts/models/<id>.md, else
+    default.md), without the file's own comment."""
+    folder = prompts.HERE / "models"
+    path = folder / f"{Path(model_id).name}.md"
+    text = (path if path.exists() else folder / "default.md").read_text()
+    return re.sub(r"<!--.*?-->\s*", "", text, flags=re.S).strip()
+
+
+def shooting_plan(db: Session, project: Project) -> dict | None:
+    """The plan the video's newest shots were built from, or None."""
+    row = clip_prompts.newest(db, project)
+    return (row.data or {}).get(PLAN) if row else None
+
+
+def job_input(db: Session, project: Project, run: dict) -> dict:
+    """The one call: everything the director reads, and what the free check needs."""
+    from app import director, picks, script_preview
+    from app.breakdown import TOKENS, timing, video_model, video_model_block
+    from app.cast_roles import video_slots
+    from app.storyboard import assets, cast_looks
+
+    version = plans.script(db, project)
+    system, context = project_context(db, project, STEP)
+    if project.script_draft_id:  # its roles with no look yet, as the breakdown reads them
+        from app.models.script_library import ScriptDraft
+
+        draft = db.get(ScriptDraft, project.script_draft_id)
+        context = script_preview.with_slots(db, draft.script_id, context, project)
+    m, known = video_model(project), assets(db, project)
+    lines = "\n".join(dict.fromkeys(line for line, _ in known.values()))
+    text = "\n".join([
+        context, f"<assets>\n{escape(lines)}\n</assets>", video_model_block(m),
+        model_notes(m.id), f"<script>\n{escape(prompts.number_lines(version.text))}\n</script>",
+    ]) + picks.context(db, project)  # fmt: skip
+    notes = [m["text"] for m in director.chat(project, run["id"])]
+    again = not director.fresh(db, project, run)[0] and shooting_plan(db, project)
+    if notes:
+        said = "\n".join(f"Note {n}: {t}" for n, t in enumerate(notes, 1))
+        text += f"\n<notes>\n{escape(said)}\n</notes>"
+    if notes and again:
+        text += f"\n<plan>\n{escape(json.dumps(again, ensure_ascii=False))}\n</plan>"
+    cast = [s.role for s in video_slots(db, project)] + [i.name for i in cast_looks(db, project)]
+    return {"step": STEP, "project_id": project.id, "script_version": version.version,
+            RUN: run, "system": system, "prompt": text, "max_tokens": TOKENS,
+            "script": version.text, "cast": cast, "assets": list(known),
+            "timing": {k: v for k, v in timing(db, project).items() if k != "target"},
+            "limits": {"min": m.duration.min, "max": m.duration.max,
+                       "people": m.max_reference_images},
+            director.NOTES_READ: list(range(1, len(notes) + 1)),
+            **({"fresh": True} if not again else {})}  # fmt: skip
+
+
+def queue(db: Session, user: User, project: Project, run: dict) -> str:
+    """Ask for the plan. Before Make it it's planning, on the video's planning allowance
+    (past it, the owner's OK first); after, it's the run's own step, inside its price."""
+    from app.director import NOTES_READ
+    from app.routes.jobs import enqueue
+
+    data = job_input(db, project, run)
+    price = estimate(db, project.workspace_id, KIND, Decimal(1), data)
+    wait = ""
+    if not run.get("ok", True):
+        data = {**data, asks.BEFORE: True}
+        if not uncapped(user) and asks.past_planning(db, project, price, plan=True):
+            data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
+    else:
+        wait = past_approved(db, project, user, price)
+    try:
+        enqueue(db, user, KIND, data, project=project, provider="claude", prepaid=not wait,
+                wait=wait)  # fmt: skip
+    except HTTPException as no:
+        db.rollback()
+        return f"Refused: {no.detail}"
+    return "Planning the change." if data[NOTES_READ] else "Planning the video."
+
+
+def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
+    """The free check on the answer: every spoken line of the script in exactly one shot, by
+    its number and in order; each clip inside what the video model makes; a line's shot long
+    enough to say it; and everyone a shot shows (and everyone who speaks on camera) either in
+    the cast or described in `roles`. An asset id the video doesn't have is just left out. The
+    plan, and what to fix ([] if fine)."""
+    from app.cast_roles import labels, same
+
+    plan = ShootingPlan.model_validate(output)
+    said, limits, pace = spoken(job_input["script"]), job_input["limits"], job_input["timing"]
+    used = [s.line for c in plan.clips for s in c.shots if s.line]
+    want, fixes = sorted(said), []
+    if missing := [n for n in want if n not in used]:
+        fixes.append(f"{check._lines(missing)} in no shot")
+    if twice := sorted({n for n in used if used.count(n) > 1}):
+        fixes.append(f"{check._lines(twice)} in more than one shot")
+    if extra := sorted({n for n in used if n not in said}):
+        fixes.append(f"{check._lines(extra, 'are not spoken lines', 'is not a spoken line')}"
+                     " of the script: give only a spoken line's number")  # fmt: skip
+    if not (missing or twice or extra) and used != want:
+        fixes.append("the lines are out of order: every line stays where the script has it")
+    ids = [c.id for c in plan.clips]
+    if not ids or len(set(ids)) != len(ids) or any(not re.fullmatch(r"c\d+", i) for i in ids):
+        fixes.append("each clip needs its own id: c1, c2, c3, …")
+    known = [*job_input["cast"], *(r.name for r in plan.roles)]
+    people = [said[n][0] for n in used if n in said and "(" not in said[n][0]]  # on camera
+    for c in plan.clips:
+        c.assets = [a for a in c.assets if a in job_input["assets"]]
+        seconds = sum(s.seconds for s in c.shots)
+        if not c.shots or any(s.seconds < 1 for s in c.shots):
+            fixes.append(f"clip {c.id}: every clip has shots, each at least 1 whole second")
+        elif not limits["min"] <= seconds <= limits["max"]:
+            fixes.append(f"clip {c.id} is {seconds} s: this video model makes "
+                         f"{limits['min']}–{limits['max']} s a clip")  # fmt: skip
+        shown = list(dict.fromkeys(p for s in c.shots for p in s.people))
+        people += shown
+        if len(shown) > limits["people"]:
+            fixes.append(
+                f"clip {c.id} names {len(shown)} people: this video model carries "
+                f"{limits['people']} pictures a clip; say the others in `extras`"
+            )
+        for n, s in enumerate(c.shots, 1):
+            need = check.line_seconds(said[s.line][1], pace["fast"], pace["pause"]) if (
+                s.line in said) else 0  # fmt: skip
+            if s.seconds < need - 0.5:
+                fixes.append(f"clip {c.id} shot {n}: line {s.line} needs about "
+                             f"{math.ceil(need)} s, it has {s.seconds}")  # fmt: skip
+    lost = [p for p in dict.fromkeys(people)
+            if not any(same(p, k) or labels(p, k) for k in known)]  # fmt: skip
+    if lost:
+        fixes.append(f"{', '.join(lost)}: in a shot, but neither in <cast> nor in `roles`; add "
+                     "each to `roles` with what to draw")  # fmt: skip
+    return plan.model_dump(), fixes
+
+
+def again(job_input: dict, fixes: list[str]) -> dict:
+    """The one re-ask inside the same job (charged once): the same ask, with what to fix."""
+    said = "\n".join(f"- {f}" for f in fixes)
+    fix = f"<fix>\nYour last plan can't be used:\n{said}\nWrite the whole plan again.\n</fix>"
+    return {**job_input, "prompt": f"{job_input['prompt']}\n{fix}"}
+
+
+# --- Saving it into the tables the tabs read ---------------------------------------------------
+
+
+def _who(db: Session, project: Project, plan: ShootingPlan, speakers: list[str]) -> dict:
+    """Each person the plan's shots name (and each speaker) -> their asset id: the role or
+    look the video has by that name, else a role added as the cast read adds one, with the
+    plan's own words for what to draw. Someone neither described nor speaking is an extra:
+    said in words, never a role."""
+    from app import breakdown
+    from app.cast_roles import labels, ref, same, video_slots
+    from app.models.script_library import ScriptDraft
+    from app.storyboard import cast_looks
+
+    draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
+    slots = video_slots(db, project)
+    looks = {i.name: f"char:{i.id}" for i in cast_looks(db, project)}
+    told = {r.name: r.description.strip() for r in plan.roles}
+    out: dict[str, str] = {}
+    for name in dict.fromkeys([*(p for c in plan.clips for s in c.shots for p in s.people),
+                               *speakers]):  # fmt: skip
+        slot = (next((s for s in slots if same(name, s.role)), None)
+                or next((s for s in slots if labels(name, s.role)), None))  # fmt: skip
+        if slot is None and (look := next((r for n, r in looks.items() if same(name, n)), None)):
+            out[name] = look
+            continue
+        role = next((n for n in told if same(name, n) or labels(name, n)), None)
+        if slot is None and draft is not None and (role or name in speakers):
+            slot = breakdown._add_role(db, project, draft, role or name)
+            slots.append(slot)
+        if slot is None:
+            continue
+        if role and not (slot.description or "").strip():
+            slot.description = told[role][:2000]
+        out[name] = ref(db, project, slot)
+    return out
+
+
+def _where(db: Session, project: Project, plan: ShootingPlan) -> dict[str, str]:
+    """Each place the clips name -> its asset id: the brand's or the video's own by that name,
+    else a place made for this video only (rule 12) from the plan's description, its look
+    drawn with the cast's (`make_looks`)."""
+    from app.cast_roles import same
+    from app.routes.cast import _own
+    from app.storyboard import _name, assets
+
+    known = assets(db, project)
+    have = {_name(known, r): r for r in known if r.startswith("place:")}
+    told = {p.name: p.description.strip() for p in plan.places}
+    out: dict[str, str] = {}
+    for name in dict.fromkeys(c.place for c in plan.clips if c.place.strip()):
+        found = next((r for n, r in have.items() if same(name, n)), None)
+        described = next((n for n in told if same(name, n)), None)
+        if found is None and described:
+            item = _own(project, described[:120], told[described][:2000])
+            db.add(item)
+            db.flush()
+            found = have[described] = f"place:{item.id}"
+        if found:
+            out[name] = found
+    return out
+
+
+def _structure(clip: dict) -> tuple:
+    """What a clip's take shows, less its wording: its lines, shot lengths, people, place."""
+    return (clip.get("place"), sorted(clip.get("assets") or []),
+            [(s.get("seconds"), s.get("line"), sorted(s.get("people") or []))
+             for s in clip.get("shots") or []])  # fmt: skip
+
+
+def _kept(old: dict | None, new: dict, noted: str) -> dict:
+    """A plan made again for a note: each clip the note leaves alone comes back as it was, so
+    it isn't made again. A clip is left alone when it's the same, or when the note names other
+    clips ("clip 3") and only its wording moved. The plan to save."""
+    from app.revision import named
+
+    was = {c["id"]: c for c in (old or {}).get("clips") or []}
+    asked = named(noted)
+    same = {c["id"] for c in new["clips"] if asked and c["id"] not in asked
+            and c["id"] in was and _structure(was[c["id"]]) == _structure(c)}  # fmt: skip
+    clips = [was[c["id"]] if c["id"] in same else c for c in new["clips"]]
+    return {**new, "clips": clips}
+
+
+def save(db: Session, job: Job) -> None:
+    """The plan lands: its treatment as the chat's card (a treatment's own row, so everything
+    that reads the video's story and voices reads it), its roles and places in Cast, its
+    shots and clips as the newest breakdown, its scene plan approved, and each new or changed
+    clip's prompt written. A clip the plan left as it was keeps its prompt and its take. All
+    of it or none: a plan half written is never shown (the job then fails, uncharged)."""
+    with db.begin_nested():
+        _land(db, job)
+
+
+def _land(db: Session, job: Job) -> None:
+    from app import advice, breakdown, director
+    from app.db import utcnow
+
+    project = db.get(Project, job.input["project_id"])
+    if project is None or project.archived_at is not None:
+        return
+    text, run = job.input["script"], job.input.get(RUN) or {}
+    before = None if job.input.get("fresh") else shooting_plan(db, project)
+    noted = " ".join(m["text"] for m in director.chat(project, run.get("id")))
+    told = _kept(before, ShootingPlan.model_validate(job.output).model_dump(), noted)
+    plan = ShootingPlan.model_validate(told)
+    said = spoken(text)
+    lines = {c.id: [s.line for s in c.shots if s.line in said] for c in plan.clips}
+    beats = [{"id": f"b{k}", "name": c.name, "lines": lines[c.id], "purpose": c.purpose,
+              "picture": c.summary.strip().rstrip("."),
+              "seconds": sum(x.seconds for x in c.shots)}  # its clip's real span on the card
+             for k, c in enumerate(plan.clips, 1)]  # fmt: skip
+    named = director._names_reed(db, project)
+    story = advice.uncited({**told["treatment"], "voices": told["voices"]}, "treatment", named)
+    story["beats"] = [advice.uncited(b, "beat", named) for b in beats]
+    now = utcnow()
+    db.add(Job(workspace_id=project.workspace_id, created_by_id=job.created_by_id,
+               kind="director_step", provider="server", credits=0, project_id=project.id,
+               brand_id=project.brand_id, status=JobStatus.succeeded, started_at=now,
+               finished_at=now, output=story,
+               input={"step": "treatment", "project_id": project.id, RUN: run, STEP: job.id,
+                      director.NOTES_READ: job.input.get(director.NOTES_READ) or []}))  # fmt: skip
+    db.flush()
+    who = _who(db, project, plan, [OFF.sub("", said[n][0]) for ns in lines.values() for n in ns])
+    where = _where(db, project, plan)
+    bd, removed = breakdown.land(db, project, to_breakdown(plan, text, who, where))
+    breakdown.record_length(project, bd)
+    plans._set(project, prompts.plan_from_breakdown(bd).model_dump(), STEP, job.id, text)
+    plans.approve(project, job.created_by_id)
+    row = BreakdownVersion(
+        project_id=project.id, script_version=job.input["script_version"], source="claude",
+        job_id=job.id, created_by_id=job.created_by_id,
+        data={**bd.model_dump(), PLAN: told, "plan_version": project.plan["version"]},
+        problems=breakdown.problems(db, project, text, bd, written=True) + removed)  # fmt: skip
+    db.add(row)
+    db.flush()
+    was = {c["id"]: c for c in (before or {}).get("clips") or []}
+    changed = {c["id"] for c in told["clips"] if was.get(c["id"]) != c}
+    assemble(db, project, row, changed, job.id, job.created_by_id, remake=True)
+    for clip in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)):
+        clip.breakdown_id = row.id  # a clip left as it was moves to the new shots as it is
+
+
+# --- The run: one server step a turn ---------------------------------------------------------
+
+
+def _go(tool: str, why: str, clip_id: str | None = None) -> dict:
+    return {"tool": tool, "why": why, "clip_id": clip_id, "take_id": None, "note": ""}
+
+
+def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
+    """What `move` reads: the video as a director's turn reads it (`seen`: director.video_state
+    with its chat), and this run's own: its plan calls, its open notes, and what each clip's
+    newest take's listen heard."""
+    from app import director, item_checks
+    from app.routes.jobs import DECLINE
+
+    mine = db.scalars(select(Job).where(
+        Job.project_id == project.id, Job.input["step"].as_string() == STEP,
+        Job.input[RUN]["id"].as_string() == run["id"]).order_by(Job.id)).all()  # fmt: skip
+    failed = 0
+    for j in mine:  # this run's plan calls that failed, since one last worked
+        failed = failed + 1 if j.status == JobStatus.failed else 0
+    notes = director.chat(project, run["id"])
+    closed = director.answered(db, run["id"], project.id)
+    kept = any(j.input.get(DECLINE) for j in mine[-1:])  # the owner kept the plan as it is
+    clips = []
+    for c in seen.get("clips") or []:
+        last = c["takes"][-1]["id"] if c["takes"] else 0
+        heard = item_checks.latest(db, "words", [last]).get(last) if last else None
+        missing = [f["text"] for f in (heard.findings or []) if f.get("kind") == "missing"] if (
+            heard and heard.status == "done") else []  # fmt: skip
+        clips.append({"clip_id": c["clip_id"], "takes": len(c["takes"]), "missing": missing,
+                      "picked": bool(c["picked_take_id"]),
+                      "rerolled": (run.get("redos") or {}).get(c["clip_id"], 0)})  # fmt: skip
+    last = next((t for t in reversed(director.turns(db, project))
+                 if t.input[RUN]["id"] == run["id"] and (t.output or {}).get("tool") != "wait"
+                 and "result" in t.input), None)  # fmt: skip
+    return {
+        "planned": shooting_plan(db, project) is not None,
+        "fresh": director.fresh(db, project, run)[0],
+        "open_notes": [n for n in range(1, len(notes) + 1) if n not in closed] if not kept else [],
+        "kept": kept, "plan_failed": failed,
+        "why_failed": next((MISSED if (j.error_detail or "").startswith(STILL) else j.error
+                            for j in reversed(mine) if j.status == JobStatus.failed), ""),
+        "ok": bool(run.get("ok", True)), "hold": bool(run.get("hold")),
+        "being_made": seen.get("being_made", 0), "held": seen.get("held_for_owner") or [],
+        "missing_looks": seen.get("missing_looks") or [],
+        "cast": {k: (seen.get("cast_ok") or {}).get(k) for k in ("state", "asked", "not_ready")},
+        "clips": clips, "cut": seen.get("cut", "none"),
+        "edits": bool((seen.get("timeline") or {}).get("changes")),
+        "cut_failed": (seen.get("cut_failed") or {}).get("why", ""),
+        "watch": {k: (seen.get("watch") or {}).get(k) for k in ("state", "current")},
+        "last": (last.output or {}).get("tool") if last else None,
+    }  # fmt: skip
+
+
+def move(s: dict) -> dict:
+    """The run's next step, always one (the twin of `director_auto.move`, with no turn left to
+    a model): the plan, then the looks, then Make it; after it the cast and places OK, the
+    first clip alone (the pilot: a fault in the set-up costs one take, not all of them), then
+    every other clip at once; a take that misses a scripted line once more, with the same
+    prompt; then the cut, one watch of it, and the delivery."""
+    if s["being_made"] or s["held"]:
+        return _go("wait", "What was started is still being made.")
+    if not s["planned"] or s["open_notes"] or s["fresh"]:
+        if s["plan_failed"] >= 2:
+            return _go("stop", PLAN_FAILED.format(why=(s["why_failed"] or "").rstrip(". ")
+                                                  or "the answer couldn't be used"))  # fmt: skip
+        if s["kept"]:
+            return _go("stop", NOT_PLANNED)
+        # never "Note N" here: a note is answered once its plan lands (`save`), not when asked
+        return _go(
+            "shoot_plan",
+            "Your note changes the plan: only what it touches is planned again."
+            if s["open_notes"]
+            else "The whole video is planned in one pass.",
+        )
+    bare = [c for c in s["clips"] if not c["picked"]]
+    stale = s["cut"] in ("none", "out of date") or s["edits"]
+    if not s["ok"] and not (bare or stale or s["missing_looks"]):
+        return _go("deliver", "The plan stays as it is, so nothing was made again and the cut is "
+                   "as it was." if s["kept"] else "Nothing needed making again, so the cut is as "
+                   "it was.")  # fmt: skip
+    if s["missing_looks"] and (s["ok"] or not s["hold"]):
+        return _go("make_looks", "Everyone and every place the plan shows gets a look.")
+    if not s["ok"]:
+        return _go(CARD, "The plan is made: Make it is the go.")
+    cast = s["cast"]
+    if cast["state"] == "not_ready":
+        return _go("stop", NO_LOOK.format("; ".join(cast["not_ready"] or ["A look is missing"])))
+    if cast["state"] == "ready":
+        if not cast["asked"]:
+            return _go("ask_cast_ok", "Every look is drawn: the cast and places are yours to OK.")
+        return _go("wait", "The takes wait for the cast and places OK.")
+    if bare and not any(c["takes"] for c in s["clips"]):
+        return _go("make_take", "The first clip alone, to check the set-up before the rest.",
+                   bare[0]["clip_id"])  # fmt: skip
+    if bare:
+        return _go("make_take", "The first clip is in: every other clip is made at once.")
+    if again := next((c for c in s["clips"] if c["missing"] and not c["rerolled"]), None):
+        return _go("make_take", f"Its take didn't say a scripted line ({again['missing'][0]}): "
+                   "made once more, with the same prompt.", again["clip_id"])  # fmt: skip
+    if s["cut"] != "made" or s["edits"]:
+        if s["last"] == "final_cut":  # it made the cut just now, and it still isn't one
+            return _go("stop", CUT_FAILED.format((s["cut_failed"] or "a clip changed since")
+                                                 .rstrip(".")))  # fmt: skip
+        return _go("final_cut", "Every clip has its take: the cut is made.")
+    if not s["watch"]["current"]:
+        return _go("watch_cut", "The cut is watched once, as a viewer meets it.")
+    return _go("deliver", "The cut is made and watched.")
+
+
+def step(db: Session, project: Project, run: dict, seen: dict) -> dict:
+    return move(state(db, project, run, seen))
+
+
+READY_FIRST = _go("wait", "The plan is in hand: its start card is next.")
+GOING = _go("wait", "Make it is pressed: the first clip is next.")
+
+
+def act(db: Session, job: Job, storage) -> None:
+    """A one-pass run's turn, acted on: its own steps (the plan, a wait, a stop, the delivery)
+    here, a site action through the director's own tools (each its button's function, with
+    its price, holds and refusals). A step refused twice running stops the run, saying why."""
+    from app import delivery, director, director_tools
+
+    project = db.get(Project, job.project_id)
+    move_, run = dict(job.output or {}), dict(job.input[RUN])
+    tool, user = move_.get("tool"), db.get(User, job.input[RUN]["by"])
+    if tool == "stop":
+        director._end(job, move_["why"], result="Stopped.")
+        return db.commit()
+    if tool == "wait":
+        cast = cast_gate.state(db, project)
+        waits = cast["state"] == "ready" and cast["asked"]
+        return director._record(db, job, run, director.CAST_WAIT if waits else "Waiting.")
+    if tool == "deliver":
+        said = delivery_words(db, project, run, move_["why"])
+        job.output = {**move_, **said, "note": delivery.note(db, project, job, said)}
+        asks.close_run(db, run["id"], "Delivered without it.")
+        director._end(job, move_["why"], result=director.DELIVERED)
+        return db.commit()
+    db.commit()  # the turn is kept whatever its step does
+    if tool == "shoot_plan":
+        result = queue(db, user, project, run)
+    else:
+        if tool == "make_take":  # each clip as its looks are now, free: never a paid rewrite
+            follow(db, project, unmade=True)
+            clip_prompts.repair(db, project)
+            db.commit()
+        result = director_tools.run(db, user, project, move_, storage, run)
+    refused = result.startswith("Refused")
+    if tool == "make_take" and "once more" in move_["why"] and not refused:
+        clip = move_["clip_id"]
+        run["redos"] = {**(run.get("redos") or {}), clip: run["redos"].get(clip, 0) + 1}
+    if tool == "watch_cut" and not refused:
+        run["watches"] = run.get("watches", 0) + 1
+    before = next((t for t in reversed(director.turns(db, project)) if t.id < job.id), None)
+    if refused and before is not None and (before.output or {}).get("tool") == tool and (
+            before.input.get("result") or "").startswith("Refused"):  # fmt: skip
+        job = db.get(Job, job.id)
+        no = result.removeprefix("Refused: ")
+        job.input = {**job.input, RUN: run}
+        director._end(job, f"It stopped: {no}", result=f"Refused again: {no}")
+        return db.commit()
+    director._record(db, job, run, result)
+
+
+def delivery_words(db: Session, project: Project, run: dict, why: str = "") -> dict:
+    """The delivery note's own words, composed from what was made (no model writes it): what
+    was made, and two or three next steps. What it cost against the price shown, what it
+    redid and every known fault (each take's listen, the watch of the cut) are added by
+    `delivery.note`, as on any delivery."""
+    from app import director
+    from app.director_tools import _n
+
+    rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
+                      .order_by(ProjectClip.id)).all()  # fmt: skip
+    first = next((t for t in director.turns(db, project) if t.input[RUN]["id"] == run["id"]), None)
+    new = [r for r in rows if r.picked_take_id and first is not None
+           and db.get(ClipTake, r.picked_take_id).created_at >= first.created_at]  # fmt: skip
+    seconds = sum(r.seconds for r in rows)
+    story = (director.treatment(db, project) or {}).get("logline", "").strip()
+    if len(new) == len(rows):
+        made = f"I made the whole video: {_n(len(rows), 'clip')}, {seconds} seconds. {story}"
+    elif new:
+        again = ", ".join(r.clip_id.removeprefix("c") for r in new)
+        made = (f"I made clip{'s' * (len(new) > 1)} {again} again for your note and cut the "
+                f"video again. The other clips are as they were.")  # fmt: skip
+    else:
+        made = why  # nothing was made: the move's own words say why
+    again = [c for c, n in (run.get("redos") or {}).items() if n]
+    if again:
+        made += (f" Clip{'s' * (len(again) > 1)} {', '.join(c.removeprefix('c') for c in again)} "
+                 "missed a scripted line on the first take, so I made it once more.")  # fmt: skip
+    needs = ("Watch the cut. To change something, tell me which clip and what to change, like "
+             "“Redo clip 2 with a wider shot”: only that clip is made again. To go back to an "
+             "earlier take, pick it in Clips.")  # fmt: skip
+    return {"made": made.strip(), "unsure": "", "needs": needs}
+
+
+# --- Prices (section E of the plan) ------------------------------------------------------------
+
+
+def _watch_units(project: Project | None, seconds: float, clips: int) -> int:
+    """The watch of the cut at its most: a look a strip, the words and the facts."""
+    from app import deep_watch, watch_cut
+
+    w, _, h = ((project.aspect_ratio if project else "") or "9:16").partition(":")
+    each = deep_watch.per_strip(int(w), int(h)) if w.isdigit() and h.isdigit() else 8
+    frames = math.ceil(watch_cut.count_for(seconds, clips) / each)
+    return frames + watch_cut.dense_for(clips) + 1 + 1 + 2  # its ending's, the sound's picture
+
+
+def _work(db: Session, draft, video) -> dict:
+    """What a run still has to make, each part priced as its own press prices it: the plan
+    call (this run's own, as charged, once it's made), the looks at their most and at their
+    usual price, a take of each clip with none, and the watch of the cut. Before the plan
+    there are no clips or places to count: the script's quoted length, and a place a clip."""
+    from app import director, sheets, watch_cut
+    from app.clip_takes import takes_price
+    from app.credits import CLIP_SECONDS_GUESS
+    from app.models.script_library import Script
+    from app.routes.estimate import _video, quoted_seconds
+
+    script = db.get(Script, draft.script_id)
+    ws = script.workspace_id
+    plan = estimate(db, ws, KIND, Decimal(1))
+    place = sheets.sheet_price(db, ws)
+    if video is None or video.id is None or shooting_plan(db, video) is None:
+        seconds = quoted_seconds(db, draft, video)
+        clips = math.ceil(seconds / CLIP_SECONDS_GUESS)
+        roles = len(sheets.roles_needing_look(db, script, video.look if video else None))
+        roles += len(sheets.roles_without_a_look(db, script, draft))
+        most, usual = clips * place, math.ceil(clips / 2) * place
+        takes, each = _video(db, ws, seconds, video), _video(db, ws, CLIP_SECONDS_GUESS, video)
+    else:
+        from app.routes.project_assets import _missing, missing_copies, missing_places
+
+        rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == video.id)).all()
+        bare = [r for r in rows if not r.picked_take_id]
+        seconds, clips = sum(r.seconds for r in rows), len(rows)
+        roles = len(_missing(db, video)) + len(missing_copies(db, video))
+        places = missing_places(db, video)
+        most = sum((sheets.press_price(db, p) for p in places), Decimal(0))
+        usual = sum((sheets.press_usual(db, p) for p in places), Decimal(0))
+        takes = takes_price(db, video, bare)
+        each = takes / len(bare) if bare else Decimal(0)
+        turns = director.turns(db, video)
+        run = turns[-1].input[RUN]["id"] if turns else ""
+        if run and not director.over(db, run, video.id):  # this run's own calls, as charged
+            mine = select(Job).where(Job.project_id == video.id, Job.status.in_(COUNTED),
+                                     Job.input["step"].as_string() == STEP,
+                                     Job.input[RUN]["id"].as_string() == run)  # fmt: skip
+            plan = sum((j.credits for j in db.scalars(mine)), Decimal(0))
+    watch = estimate(db, ws, watch_cut.KIND, Decimal(1), {})
+    return {"plan": plan, "takes": takes, "clip": each, "watch": watch,
+            "looks_most": roles * sheets.look_price(db, ws) + most,
+            "looks_usual": roles * sheets.look_usual(db, ws) + usual,
+            "watch_most": watch * _watch_units(video, seconds, clips)}  # fmt: skip
+
+
+def run_price(db: Session, draft, video=None) -> Decimal:
+    """A one-pass run's "up to" (rule 36): the plan call, each look still to make at its
+    most, every clip with no take made twice (its one re-roll) and the watch of the cut at
+    its most. No watch of each take, no remakes by a watch, no director's own limit: none of
+    them runs."""
+    w = _work(db, draft, video)
+    return w["plan"] + w["looks_most"] + 2 * w["takes"] + w["watch_most"]
+
+
+def expected(db: Session, draft, video=None) -> Decimal:
+    """What a one-pass run will probably cost: the plan, each look at its usual price, every
+    clip once and one of them again, and the watch at its usual pictures."""
+    from app.routes.estimate import WATCH_LOOKS
+
+    w = _work(db, draft, video)
+    return w["plan"] + w["looks_usual"] + w["takes"] + w["clip"] + w["watch"] * WATCH_LOOKS

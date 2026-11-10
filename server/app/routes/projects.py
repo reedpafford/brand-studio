@@ -80,6 +80,9 @@ class ProjectOut(BaseModel):
     song: bool = False  # made from a Song script: timed to its song (song_take_id)
     song_take_id: int | None = None
     look: str = "house"  # how its pictures are drawn (VS1)
+    # "one_pass": the director planned it in one pass, with no stills, and its plan and shots
+    # are changed in the chat (app/one_pass.py); null: the step-by-step director
+    engine: str | None = None
     look_redo_credits: float = 0  # redrawing and remaking what was made in another look (VS1)
     freestyle_id: int | None = None  # P3: made through a freestyle (the director's chat view)
     look_locked: bool = False  # made from a published script: it keeps that style (item 7)
@@ -173,6 +176,7 @@ def _out(db: Session, project: Project, user: User, old: set[int] | None = None)
         song=kind in narration.TIMED,
         song_take_id=project.song_take_id,
         look=project.look,
+        engine=project.engine,
         look_redo_credits=looks.redo_credits(db, project),
         freestyle_id=_freestyle_of(db, project),
         look_locked=looks.script_style(db, project) is not None,

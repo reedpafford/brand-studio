@@ -32,6 +32,7 @@ from app import (
     director_tools,
     live,
     locked_line,
+    one_pass,
     take_mute,
     take_sound,
     talker_sound,
@@ -157,6 +158,7 @@ def start(db: Session, user: User, project: Project, *, hold: str = "",
     again = {FRESH: utcnow().isoformat()} if fresh else _replanning(db, project)
     lock(db, Project, project.id)  # the notes it takes can't change under it
     db.refresh(project)
+    one_pass.pick(db, project)  # a new Dialogue video: the one-pass director's, from here on
     left = set(leftover(db, project))  # every note no run has read: this run reads them
     after = delivered(turns(db, project)) or video_variations.source(db, project)
     if left and not fresh and after:  # notes after a delivery, or on a variation of one: a
@@ -1065,6 +1067,8 @@ def _before_ok(db: Session, project: Project, run: dict, tool: str | None) -> bo
 
 def _act(db: Session, job: Job, storage) -> None:
     project = db.get(Project, job.project_id)
+    if one_pass.on(project):  # its turns are the server's own steps, with their own rules
+        return one_pass.act(db, job, storage)
     decision = dict(job.output or {})
     if CITE_WORDS.intersection(k for k, v in decision.items() if v):  # what people read
         named = _names_reed(db, project)
@@ -1540,12 +1544,25 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
             db.commit()
         return last
     before = not run.get("ok", True)  # before Make it: planning, on its allowance
-    card = (before and last is not None and last.input[RUN]["id"] == run["id"]
+    lean = one_pass.on(project)  # every turn is the server's own step, its card too (below)
+    card = (before and not lean and last is not None and last.input[RUN]["id"] == run["id"]
             and _ready(db, project, run, last))  # its own turn moved it there  # fmt: skip
     run = _refund(db, project, {**run, "turn": run["turn"] + 1, **({"ok": True} if card else {})})
     seen: dict = {}
     prompt = turn_input(db, project, run, seen=seen)
     prompt.pop(READ)  # a note counts as given only once its turn starts (`refresh`)
+    if lean and not carry:  # the one-pass director: never a Claude turn (app/one_pass.move)
+        step = one_pass.step(db, project, run, seen)
+        mine = last is not None and last.input[RUN]["id"] == run["id"]
+        if step["tool"] == one_pass.CARD and mine:
+            card, run = True, {**run, "ok": True}  # its start card, held for Make it (below)
+        elif step["tool"] in one_pass.STORED and STORE.get() is None and mine:
+            db.commit()  # a Carry on's lifted Stop is kept: the run goes on from here
+            return last  # a take or a cut reads files: the worker's own next tick takes it
+        else:  # a run's first turn is logged before its card, which carries what it holds
+            step = one_pass.READY_FIRST if step["tool"] == one_pass.CARD else step
+            return _by_server(db, user, project, run, step, after,
+                              {**(extra or {}), READ: len(seen["chat"])})  # fmt: skip
     free = before and _free_revision(db, run, project.id)  # a revision's free cut changes
     if (not (card or carry) and (not before or _planning(run) or free) and last is not None
             and last.input[RUN]["id"] == run["id"]
@@ -1703,17 +1720,19 @@ def _tried(db: Session, project: Project, run: dict) -> bool:
 
 
 def _by_server(db: Session, user: User, project: Project, run: dict, step: dict,
-               after: int | None) -> Job:  # fmt: skip
+               after: int | None, extra: dict | None = None) -> Job:  # fmt: skip
     """A mechanical step the server takes itself: logged as the run's turn (no Claude call,
-    nothing charged for it) and acted on as the director's own move."""
+    nothing charged for it) and acted on as the director's own move. `extra`: more of the
+    turn's input (a one-pass run's first turn carries its send; each, the notes it read)."""
     from app import director_auto
 
     if (newer := _taken(db, project, run, after)) is not None:
         return newer
     now = utcnow()
     job = Job(workspace_id=project.workspace_id, created_by_id=user.id, kind="director_step",
-              provider="server", input={"step": STEP, RUN: run, director_auto.SAID: True},
-              output=step, project_id=project.id, brand_id=project.brand_id, credits=0,
+              provider="server", output=step, project_id=project.id, credits=0,
+              input={"step": STEP, RUN: run, director_auto.SAID: True, **(extra or {})},
+              brand_id=project.brand_id,
               status=JobStatus.succeeded, started_at=now, finished_at=now)  # fmt: skip
     db.add(job)
     db.commit()
@@ -1850,10 +1869,14 @@ def _go_step(db: Session, job: Job, seen: dict) -> bool:
     from app import director_auto
 
     project, run = db.get(Project, job.project_id), job.input[RUN]
-    if not job.input.get(START) or job.input.get(CARRIES):
+    if one_pass.on(project) and job.input.get(START):  # Make it, or a Carry on the owner OK'd:
+        step = one_pass.step(db, project, run, seen)  # the one-pass director's own next step
+        if step["tool"] in one_pass.STORED and STORE.get() is None:
+            step = one_pass.GOING  # a take or a cut reads files: the worker's next tick
+    elif not job.input.get(START) or job.input.get(CARRIES):
         return False
     # read as of this turn's own start: the Make it just pressed is no question answered
-    if not (step := _auto(db, project, run, seen, job) or _held(db, project, run, job, seen)):
+    elif not (step := _auto(db, project, run, seen, job) or _held(db, project, run, job, seen)):
         return False
     job.kind, job.provider, job.credits, job.output = "director_step", "server", 0, step
     job.input = {**job.input, director_auto.SAID: True}
@@ -2181,8 +2204,9 @@ def _shown(db: Session, project: Project):
 
     def shown(made: dict) -> dict:
         beats, at = [], 0
-        for b in made.get("beats") or []:
-            end = at + max(1, round(sum(words(n) for n in b.get("lines") or []) / WORDS_PER_SECOND))
+        for b in made.get("beats") or []:  # a one-pass plan's beat is a clip: its own length
+            end = at + (b.get("seconds") or max(1, round(
+                sum(words(n) for n in b.get("lines") or []) / WORDS_PER_SECOND)))  # fmt: skip
             beats.append({**b, "start": at, "end": end})
             at = end
         return {**made, "beats": beats, "style": ideas._style(project.look), "format": kind}
@@ -2913,7 +2937,8 @@ NAMED = {"watch_cut": "The watch of the cut", "cut_listen": "The watch of the cu
          STEP: "The director's next step", "treatment": "The treatment",
          "take_watch": "The watch of a take", "review_stills": "The look at the stills",
          "write-claude": "The director's next step", "item_check": "A take's check",
-         "ask_option": "The options for a question"}  # fmt: skip  # plain names, never a step's
+         "ask_option": "The options for a question",
+         "one_pass": "The plan"}  # fmt: skip  # plain names, never a step's
 
 
 def _waiting(db: Session, project: Project) -> list[Job]:

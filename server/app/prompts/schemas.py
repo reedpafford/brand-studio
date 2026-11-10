@@ -725,6 +725,58 @@ class Treatment(BaseModel):
     )
 
 
+# --- The shooting plan (Reed, 10 Nov): the director's one pass; code makes the clips from it ---
+
+
+class PlanTreatment(BaseModel):
+    hook: str = Field(description="The first 2 seconds: what we see and hear.")
+    logline: str = Field(description="The story in one plain sentence.")
+    why_it_holds: str = Field(description="Why a viewer keeps watching, in one or two sentences.")
+    ending: str = Field(description="The payoff, and the call to action, and why they land.")
+
+
+class PlanLook(BaseModel):
+    name: str = Field(description="As the script names them: 'Dana', 'The kitchen'.")
+    description: str = Field(description="What to draw, described once.")
+
+
+class PlanShot(BaseModel):
+    seconds: int = Field(description="A whole number of seconds.")
+    camera: str = Field(description="Shot size and move: 'Close-up, slow push in'.")
+    action: str = Field(description="One thing that happens, seen from outside.")
+    people: list[str] = Field(description="Who is in the picture, by name, most important first.")
+    extras: str = Field(description="Anyone else in the picture, in a few words, or empty.")
+    line: int | None = Field(
+        description="The number of the script line spoken in this shot, or null. Never its words."
+    )
+    how: str = Field(description="How the line is said, in a few words; empty with no line.")
+
+
+class PlanClip(BaseModel):
+    id: str = Field(description="c1, c2, … in order.")
+    name: str = Field(description="A few words, as the team would call it.")
+    purpose: str = Field(description="hook, set-up, escalate, turn, reveal, payoff or CTA.")
+    summary: str = Field(description="Who does what, and what changes, in one sentence.")
+    place: str = Field(description="A name from `places` or <assets>, or empty.")
+    setting: str = Field(description="One line: what this scene adds to the place.")
+    assets: list[str] = Field(
+        description="Ids from <assets> this clip shows besides its people and place."
+    )
+    sound: str = Field(description="The scene's own sound in a few words. Never music.")
+    shots: list[PlanShot] = Field(description="Back to back; the clip's length is their sum.")
+
+
+class ShootingPlan(BaseModel):
+    """The whole video in one answer (app/prompts/one_pass.md): flat on purpose, so its strict
+    schema stays small (the director's own grew past Anthropic's grammar limit)."""
+
+    treatment: PlanTreatment
+    voices: list[SpeakerVoice] = Field(description="Each person who speaks, once.")
+    roles: list[PlanLook] = Field(description="Every person or animal with no line in <cast>.")
+    places: list[PlanLook] = Field(description="Every place the story returns to.")
+    clips: list[PlanClip] = Field(description="The video, in order.")
+
+
 # --- Video variations (Runway #2): a finished video's hook or ending, made another way ---
 
 
