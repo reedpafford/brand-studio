@@ -526,8 +526,11 @@ def ready(db: Session, project: Project, storage) -> None:
         raise HTTPException(409, narration_music.MAKING)
     if host.on(db, project) and not (narrated and host.ready(db, project)):
         raise HTTPException(409, host.NOT_READY)
-    if omni_talker.on(db, project) and talker_sound.waiting(db, project, clips):
-        raise HTTPException(409, talker_sound.WAIT)
+    if omni_talker.on(db, project):
+        if talker_sound.heal(db, project, clips):  # a dropped separation, made again first
+            db.commit()
+        if talker_sound.waiting(db, project, clips):
+            raise HTTPException(409, talker_sound.WAIT)
 
 
 def doing(tl: dict) -> str:
