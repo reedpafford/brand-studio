@@ -77,5 +77,23 @@ Prices seen: 2.5 credits a picture; clips 3 credits a second at 480p, 7 at 720p,
 
 ![Wide](shots/19-clip-frame-wide.jpg) ![Close](shots/20-clip-frame-close.jpg) ![End](shots/21-clip-frame-end.jpg)
 
+## What its director does, and why it is quick (Seen: the chat's own step list, `run/04-director-trace.md`)
+It ran on Sonnet 5.5 at medium effort, as one conversation with a sandbox (files, a terminal, a picture reader). Its replies took 11 to 32 seconds; the whole film took 25 minutes.
+
+- **One pass of thinking plans the whole film.** Per clip: its length, its pictures, its opening picture, each shot and the second each line starts. No treatment, scene plan, shot list or storyboard as separate documents. It moved lines apart when a first pass ran tight and left quiet seconds at each clip's end.
+- **Few, long units.** Six clips for 110 seconds (8 to 24 seconds each), one per scene. A scene longer than one clip is continued by extending the clip, not by starting a new one.
+- **Fixed text is assembled, not rewritten.** The look line, the "shot like a feature film" paragraph, the place prompts' camera and forbidden lists and the last line are pieces on file. The model writes only what changes.
+- **Work is ordered by what depends on what.** One pilot clip alone ("so I can read back its parameters before batching the rest"), then every clip that depends on nothing at once, then the rest.
+- **Voices are kept with samples.** The first clip a person speaks in creates their voice; it cuts 3 seconds of it, and every later clip of that person carries the sample ("@Audio 1 is the voice of @Image 2").
+- **Checks are tools first.** A probe (size, length, sound), a transcript (the words and when they land) and one look at a sheet of frames per clip; then one transcript of the finished film. No per-take watch, no automatic remakes: it reports faults and leaves the call to the person.
+- **It may skip its own heavier steps and says so.** Here it skipped a structured script file with mechanical checks, start pictures for one scene ("it would only add cost and an edit pass") and a cut-and-seam analysis.
+
+### Ours, on the same job (from the 10 Nov review's measurements)
+- Five writing steps in a row (treatment, scenes, shots, storyboard, clip prompts), each re-reading the script and guides; clip prompts are written one call per clip, none seeing the others.
+- Clips of 3 to 8 seconds, so a 5-minute script is about 47 clips, each with its own still, prompt, take, listen, watch and join.
+- Every take is listened to and watched, and weak ones are remade up to twice on their own (about +50% takes).
+- One model call at a time for the whole site, at the largest model and high effort.
+- Measured: about 2.5 to 3 hours for 300 seconds; footage about two thirds of the bill, the director and checks about a third.
+
 ## Not learned
 - The body of their `/drama-ads` skill (its rules and checks) is not readable anywhere.
