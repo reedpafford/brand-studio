@@ -222,6 +222,8 @@ def _download(job: Job, provider: Provider, urls: list[str], storage: Storage) -
     files = []
     for url in urls:
         data, content_type = provider.fetch(url)
+        content_type = {"audio/x-wav": "audio/wav", "audio/wave": "audio/wav"}.get(
+            content_type, content_type)  # a WAV by any of its names (Demucs's voice)  # fmt: skip
         if content_type not in ALLOWED_TYPES or not matches(content_type, data[:16]):
             raise RuntimeError(f"Output {url} isn't an allowed file ({content_type!r}).")
         key = f"{job.workspace_id}/{uuid.uuid4().hex}"

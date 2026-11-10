@@ -4,7 +4,8 @@ import { fileUrl } from "../api/upload";
 import { clock } from "./useCutEdits";
 
 /** The cut playing (S7-01): its own controls over the picture (play, time, sound, full screen) and a scrub line. The
- *  playhead lives on the page, so the words and the timeline follow it, and a click on them moves it. */
+ *  playhead lives on the page, so the words and the timeline follow it, and a click on them moves it. The page's times
+ *  are the takes' own seconds; a cut made `speed` times faster (a UGC talker's) plays its file's seconds that much sooner. */
 export function Player({
   fileId,
   length,
@@ -12,6 +13,7 @@ export function Player({
   onTime,
   width,
   aspect,
+  speed = 1,
 }: {
   fileId: number;
   length: number;
@@ -19,14 +21,15 @@ export function Player({
   onTime: (t: number) => void;
   width: number;
   aspect: string;
+  speed?: number;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   useEffect(() => {
     const v = video.current;
-    if (v && Math.abs(v.currentTime - at) > 0.25) v.currentTime = at;
-  }, [at]);
+    if (v && Math.abs(v.currentTime * speed - at) > 0.25) v.currentTime = at / speed;
+  }, [at, speed]);
   const toggle = () => {
     const v = video.current;
     if (!v) return;
@@ -43,7 +46,7 @@ export function Player({
         playsInline
         preload="metadata"
         aria-label="The cut"
-        onTimeUpdate={(e) => onTime(e.currentTarget.currentTime)}
+        onTimeUpdate={(e) => onTime(e.currentTarget.currentTime * speed)}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onClick={toggle}

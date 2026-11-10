@@ -167,7 +167,8 @@ def test_a_scripted_one_word_line_is_a_line_not_a_gasp():
 def test_takes_are_heard_with_their_sounds_and_the_stand_in_gasps_on_cue(monkeypatch, tmp_path):
     asked = {}
     monkeypatch.setattr("app.reel.transcribe", lambda path, sounds=False, words=False,
-                        first=False: asked.update(sounds=sounds, first=first) or [])  # fmt: skip
+                        first=False, fillers=False: asked.update(sounds=sounds, first=first)
+                        or [])  # fmt: skip
     monkeypatch.setattr("app.deep_watch.probe", lambda path: {"audio": True})  # it has sound
     LocalProvider(None).hear_take(tmp_path / "take.mp4", {})
     assert asked == {"sounds": True, "first": False}  # whisper keeps its "(gasps)" tags

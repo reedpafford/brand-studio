@@ -240,13 +240,15 @@ def name_for(caption_text: str, transcript: list[dict], limit: int = 60) -> str:
 
 
 def transcribe(path: Path, sounds: bool = False, words: bool = False,
-               first: bool = False) -> list[dict]:  # fmt: skip
+               first: bool = False, fillers: bool = False) -> list[dict]:  # fmt: skip
     """faster-whisper small (int8, CPU) in a subprocess: [{start, end, text, speaker}].
     `sounds`: keep whisper's non-speech tags ("(gasps)"), for a take's words check; `words`:
     each line's words and when (`words: [{word, start, end}]`), for a cut's watch; `first`
-    (with `sounds`): a take planned to be silent, read only when a quick check hears speech."""
+    (with `sounds`): a take planned to be silent, read only when a quick check hears speech;
+    `fillers` (with `sounds`): an Omni talker's piece, its "um"s and doubled words kept."""
     flag = ["--sounds"] if sounds else ["--study"] if words else []
     flag += ["--speech-first"] if sounds and first else []
+    flag += ["--fillers"] if sounds and fillers else []
     from app.whisper import timings
 
     args = [sys.executable, "-m", "app.whisper", str(path), *flag]

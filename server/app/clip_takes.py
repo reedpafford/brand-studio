@@ -713,8 +713,9 @@ def _with_note(prompt: str, note: str) -> str:
 def take_credits(db: Session, project: Project, clip: ProjectClip, edit: bool = False) -> Decimal:
     """What one more take costs: the estimate `enqueue` charges, and the director's watch of
     it that rides along while watches are on (`take_watch.rides`). `edit`: an edit of its take
-    (Omni's, `change.editable`), at the edit's price on the same seconds."""
-    from app import take_watch, talker
+    (Omni's, `change.editable`), at the edit's price on the same seconds; an Omni talker's
+    piece, with its voice separated from its room (talker_sound)."""
+    from app import take_watch, talker, talker_sound
 
     if talker.says(db, project, clip):  # cut from the talker's one HeyGen take (video 281)
         from app import host
@@ -724,7 +725,9 @@ def take_credits(db: Session, project: Project, clip: ProjectClip, edit: bool = 
     job = {"model": m.id, "edit": edit, "input": {"resolution": model_map.resolution(m)}}
     seconds = model_map.billed(m, clip.seconds)  # as it's asked for on its own model
     take = estimate(db, project.workspace_id, "video", Decimal(seconds), job)
-    return take + take_watch.rides(db, project, clip)
+    split = talker_sound.price(db, project.workspace_id)
+    return (take + take_watch.rides(db, project, clip)
+            + (split if talker_sound.splits(db, project, clip) else 0))  # fmt: skip
 
 
 def takes_price(db: Session, project: Project, clips) -> Decimal:
@@ -755,9 +758,10 @@ def save_take(db: Session, job: Job) -> None:
     # read as "Out of date", and the edit stays in hand; it's never put back, nor a take bought.
     edited = (take.made_with or {}).get("prompt_version") not in (None, prompt_version(clip))
     pick(clip, take, keep_prompt=edited)
-    from app import take_watch  # rule 11: the director watches and hears it as it lands
+    from app import take_watch, talker_sound  # rule 11: the director watches and hears it
 
     take_watch.queue_safely(db, job, take, clip)
+    talker_sound.queue(db, job, take, clip)  # an Omni talker's: its voice from its room
 
 
 def pick(clip: ProjectClip, take: ClipTake, keep_prompt: bool = False) -> None:

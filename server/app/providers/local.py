@@ -10,23 +10,24 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from app import narration, reel, room, song_study, song_timing
+from app import narration, reel, room, song_study, song_timing, talker_sound
 from app.providers import Result
 
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".png": "image/png"}
 
 
-def _heard(path: Path, sounds: bool = False, words: bool = False,
-           first: bool = False) -> list[dict]:  # fmt: skip
+def _heard(path: Path, sounds: bool = False, words: bool = False, first: bool = False,
+           fillers: bool = False) -> list[dict]:  # fmt: skip
     """Whisper's words for a take or a cut; nothing to hear in a file with no audio track (a
     silent take: Seedance 1 Lite, or nobody speaking), where whisper would crash. `first`: a
     take planned to be silent (B-roll) is read only when a quick check hears speech in it
-    (app/whisper.speech: 281's nine takes took 10.7 minutes of whisper, mostly B-roll)."""
+    (app/whisper.speech: 281's nine takes took 10.7 minutes of whisper, mostly B-roll).
+    `fillers`: an Omni talker's piece, heard with its fillers and doubled words kept."""
     from app import deep_watch
 
     if not deep_watch.probe(path)["audio"]:
         return []
-    return reel.transcribe(path, sounds, words=words, first=first)
+    return reel.transcribe(path, sounds, words=words, first=first, fillers=fillers)
 
 
 class LocalProvider:
@@ -44,7 +45,7 @@ class LocalProvider:
         hear_study: Callable[[Path, song_study.Watch], list[dict]] = song_study.hear,
         fetch_study: Callable[[str, Path], Path] = reel.fetch,
         hear_take: Callable[[Path, dict], list[dict]] = lambda path, input: _heard(
-            path, True, first=bool(input.get("silent"))
+            path, True, first=bool(input.get("silent")), fillers=bool(input.get("talker"))
         ),
         hear_cut: Callable[[Path, dict], list[dict]] = lambda path, _: _heard(path, words=True),
     ):
@@ -133,10 +134,17 @@ class LocalProvider:
         take.write_bytes(self.storage.get(input["video_key"]))
         try:
             heard = self.hear_take(take, input)
+            talks = input.get("talker")  # an Omni talker's piece: its own sound, for the cut
+            own = {"talker": talker_sound.measure(take, input["lines"])} if talks else {}
             if not input.get("watch"):
-                return Result("succeeded", output={"heard": heard})
+                return Result("succeeded", output={"heard": heard, **own})
             output, files = self._watch_take(take, input["watch"], heard, folder)
-            return Result("succeeded", output={"heard": heard, **output}, files=files)
+            if own:  # the checks as measured facts, which can confirm the watch's notes
+                said = talker_sound.told(own["talker"], heard, input["lines"])
+                output["measured_text"] = f"{output['measured_text']}\n{said}"
+                output["measured"]["talker"] = talker_sound.facts(own["talker"], heard,
+                                                                  input["lines"])  # fmt: skip
+            return Result("succeeded", output={"heard": heard, **own, **output}, files=files)
         finally:
             take.unlink()
             if not any(folder.iterdir()):

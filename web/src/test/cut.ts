@@ -46,6 +46,7 @@ export function cutOut(o: Partial<Cut> = {}): Cut {
         { word: "pint", start: 4.4, end: 4.8 },
       ],
       sfx: [{ piece: "c2", start: 4, end: 8, state: "ready", asked: "gurgle", how: "slight", director: true }],
+      speed: 1,
     },
     edits: [],
     changes: 0,

@@ -100,6 +100,7 @@ class TimelineOut(BaseModel):
     music: MusicOut | None
     words: list[WordOut]
     sfx: list[SoundFxOut]
+    speed: float = 1.0  # the made cut plays this much faster than its takes' own seconds
 
 
 class EditOut(BaseModel):
@@ -304,6 +305,7 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
     timeline = TimelineOut(
         mode=tl["mode"], length=tl["length"], pieces=pieces, words=words,
         presenter=tl["presenter"], voice=tl["voice"], sfx=cut.sfx(db, tl),
+        speed=tl.get("speed", 1.0),
         music=MusicOut(**{"name": "Music", "file_id": None, "director": False, **music})
         if music else None)  # fmt: skip
     in_cut = set(playing.edit_ids or []) if playing else set()

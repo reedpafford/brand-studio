@@ -26,16 +26,23 @@ UNWATCHED = "Couldn't watch this one. Nothing was charged."
 
 def facts(measured: dict | None) -> dict:
     """What a confirmation can rest on, from the listen: {clipped}: the peak reached full
-    scale (0 dB) and at least CLIPPED samples sit there."""
+    scale (0 dB) and at least CLIPPED samples sit there; an Omni talker's piece's own checks
+    (talker_sound.facts): {held}: a word held too long, {moved}: the talker moving about."""
     sound = (measured or {}).get("sound") or {}
     peak = sound.get("peak_db")
     full = peak is not None and peak >= -0.1
-    return {"clipped": full and (sound.get("clipped_samples") or 0) >= CLIPPED}
+    return {"clipped": full and (sound.get("clipped_samples") or 0) >= CLIPPED,
+            **((measured or {}).get("talker") or {})}  # fmt: skip
 
 
 def confirmed(kind: str, evidence: str, known: dict) -> bool:
     """A finding unambiguous evidence bears: seen in the frames, or clipped samples measured.
-    Words from the transcript, a silence or a picture-change jump alone never are."""
+    Words from the transcript, a silence or a picture-change jump alone never are. An Omni
+    talker's dragged word or moving about is, when its piece's own measure found it too (an AI
+    watch note is a lead, confirmed by measurement: the UGC playbook, §9)."""
+    measured = {"timing": known.get("held"), "motion": known.get("moved")}
+    if evidence == "measured" and measured.get(kind):
+        return True
     if kind in UNSURE:
         return False
     if evidence == "picture":

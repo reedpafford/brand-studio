@@ -580,7 +580,8 @@ class TakeFault(BaseModel):
     )
     evidence: Literal["picture", "words", "measured", "sound"] = Field(
         description="What shows it: 'picture' (seen in the sampled frames), 'words' (only "
-        "the transcript in <heard> suggests it), 'measured' (clipped samples in <measured>), "
+        "the transcript in <heard> suggests it), 'measured' (clipped samples, or the talker "
+        "checks' held word or moving about, in <measured>), "
         "'sound' (only the spectrogram, the loudness or a silence suggests it)."
     )
 
