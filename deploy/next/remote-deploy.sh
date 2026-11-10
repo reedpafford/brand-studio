@@ -161,7 +161,7 @@ main() {
     if compose exec -T caddy wget -qO- http://localhost/api/health 2>/dev/null | grep -q '"status":"ok"'; then
       compose exec -T api python -m app.seed refresh
       # Nightly backup at 3:30 (server time): database and files into deploy/backups/, 14 days
-      # (Reed's files were 1.1 GB on 9 Nov); backup.sh skips the files when the disk is low.
+      # (each night's files copy costs only what changed); backup.sh skips the files when low.
       mkdir -p backups
       line="30 3 * * * cd $PWD && KEEP_DAYS=14 COMPOSE_PROJECT_NAME=brand-studio-next COMPOSE_FILE=docker-compose.yml:next/compose.yml ./backup.sh >> $PWD/backups/backup.log 2>&1"
       (crontab -l 2>/dev/null | grep -vF 'COMPOSE_PROJECT_NAME=brand-studio-next' || true; echo "$line") | crontab -

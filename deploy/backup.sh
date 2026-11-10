@@ -1,42 +1,68 @@
 #!/usr/bin/env bash
-# Nightly backup of the database and uploaded files into deploy/backups/. Keeps KEEP_DAYS days
-# (default 14), but never deletes the newest 3 of each kind. The files are skipped (database
-# still saved) when the disk has under MIN_FREE_GB (default 15) or twice the last files backup
-# free, so a backup never fills the disk. Cron, installed by deploy/next/remote-deploy.sh for
+# Nightly backup into deploy/backups/: the database as db-DATE.sql.gz, and the uploaded files as
+# files/DATE/, a plain browsable copy of the files volume. Each night's copy hard-links the files
+# unchanged since the night before, so it costs only what's new or changed. Keeps KEEP_DAYS days
+# (default 14), but never deletes the newest 3 of each kind. The files are skipped (database still
+# saved) when copying the changes would leave under MIN_FREE_GB (default 15) free, so a backup never
+# fills the disk. Cron, installed by deploy/next/remote-deploy.sh for
 # Reed's site: 30 3 * * * cd ~/brand-studio-next/deploy && KEEP_DAYS=14
 #   COMPOSE_PROJECT_NAME=brand-studio-next COMPOSE_FILE=docker-compose.yml:next/compose.yml ./backup.sh
 set -euo pipefail
 cd "$(dirname "$0")"
-mkdir -p backups
-trap 'rm -f backups/*.part' EXIT  # a half-written backup never stays behind to fill the disk
+mkdir -p backups/files
+trap 'rm -f backups/*.part' EXIT  # a half-written dump never stays behind to fill the disk
 keep=${KEEP_DAYS:-14}
+stamp=$(date +%Y-%m-%d)
+cutoff=$(date -d "$keep days ago" +%Y-%m-%d 2>/dev/null || date -v-"$keep"d +%Y-%m-%d)
 
-# Old ones first, to make room. Arguments: one kind's files, oldest first (dates in the names sort
-# them). The newest 3 always stay, so failing nights can't age out the last good backups.
+# Old ones first, to make room. Arguments: one kind's backups, oldest first (dates in the names
+# sort them). The newest 3 always stay, so failing nights can't age out the last good backups.
 prune() {
   [ "$#" -gt 3 ] || return 0
   local f
   for f in "${@:1:$#-3}"; do find "$f" -mtime +"$keep" -delete; done
 }
 prune backups/db-*.sql.gz
-prune backups/files-*.tar.gz
 
-stamp=$(date +%Y-%m-%d)
 docker compose exec -T db pg_dump -U brand -d brand --clean --if-exists \
   | gzip > "backups/db-$stamp.sql.gz.part"
 mv "backups/db-$stamp.sql.gz.part" "backups/db-$stamp.sql.gz"
 
+# The files: a throwaway container (rsync on Alpine, built once) reads the volume read-only and
+# writes as root into backups/files/, so it also does the deleting and renaming there.
+vol=$(docker volume ls -q --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME:?}" \
+  --filter label=com.docker.compose.volume=files)
+[ -n "$vol" ] || { echo "ERROR $stamp: no files volume for $COMPOSE_PROJECT_NAME. Database saved."; exit 1; }
+img=brand-studio-backup:1
+docker image inspect "$img" >/dev/null 2>&1 \
+  || printf 'FROM alpine:3.20\nRUN apk add --no-cache rsync\n' | docker build -q -t "$img" - >/dev/null
+box() { docker run --rm -v "$vol:/data/storage:ro" -v "$PWD/backups/files:/backups" "$img" "$@"; }
+
+# Old nights go by the date in the name (a copy keeps the files' own times, not the night's).
+prune_nights() {
+  [ "$#" -gt 3 ] || return 0
+  local d old=()
+  for d in "${@:1:$#-3}"; do [[ "${d##*/}" < "$cutoff" ]] && old+=("/backups/${d##*/}"); done
+  [ "${#old[@]}" -eq 0 ] || box rm -rf "${old[@]}"
+}
+prune_nights backups/files/????-??-??
+prev=""  # the newest copy (tonight's, on a re-run): unchanged files are linked to it
+for d in backups/files/????-??-??; do [ ! -d "$d" ] || prev=${d##*/}; done
+# The full tarballs from before the nightly copies age out too, once a copy exists.
+[ -z "$prev" ] || find backups -maxdepth 1 -name 'files-*.tar.gz' -mtime +"$keep" -delete
+
+# Written into .part (kept after a failed night: the next run picks it up), renamed when complete.
+# Exit code 24 only means a file was deleted on the site mid-copy.
+copy() { box rsync -a --delete --numeric-ids ${prev:+"--link-dest=/backups/$prev"} "$@" /data/storage/ /backups/.part/; }
+stats=$(copy --dry-run --stats) || [ $? -eq 24 ]
+delta_kb=$(( $(awk -F: '/Total transferred file size/ {gsub(/[^0-9]/, "", $2); print $2 + 0}' <<< "$stats") / 1024 ))
 free_kb=$(df -Pk backups | awk 'NR == 2 {print $4}')
-need_kb=$(( ${MIN_FREE_GB:-15} * 1024 * 1024 ))
-last=$(find backups -name 'files-*.tar.gz' | sort | tail -1)
-if [ -n "$last" ]; then
-  last_kb=$(( $(wc -c < "$last") / 1024 ))
-  [ $(( last_kb * 2 )) -le "$need_kb" ] || need_kb=$(( last_kb * 2 ))
-fi
+need_kb=$(( delta_kb + ${MIN_FREE_GB:-15} * 1048576 ))
 if [ "$free_kb" -lt "$need_kb" ]; then
   echo "WARNING $stamp: files not backed up, only $(( free_kb / 1048576 )) GB free (needs $(( need_kb / 1048576 )) GB). Database saved."
   exit 0
 fi
-docker compose exec -T api tar -czf - -C /data storage > "backups/files-$stamp.tar.gz.part"
-mv "backups/files-$stamp.tar.gz.part" "backups/files-$stamp.tar.gz"
-echo "backup ok: $stamp"
+copy || [ $? -eq 24 ]
+box rm -rf "/backups/$stamp"  # a re-run tonight: .part has everything, linked or copied
+box mv /backups/.part "/backups/$stamp"
+echo "backup ok: $stamp (files: $(( delta_kb / 1024 )) MB new or changed)"
