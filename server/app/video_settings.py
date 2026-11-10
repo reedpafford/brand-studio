@@ -310,9 +310,9 @@ def switch(db: Session, user: User, project: Project, values: dict, undo: bool =
         looks.picked_by_person(project)  # a plan's lane leaves it as they chose
         follow_own_looks(db, project)
     if {"look", "broll_look"} & set(values):  # B-roll no longer UGC: no real footage shots
-        from app import footage
+        from app import footage_shot
 
-        footage.settle(db, project, user.id, first=False)
+        footage_shot.settle(db, project, user.id, first=False)
     db.commit()
     return was
 

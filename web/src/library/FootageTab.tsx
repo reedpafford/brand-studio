@@ -95,12 +95,25 @@ function ProductPicker({ brandId, value, onChange }: { brandId: number; value: n
   );
 }
 
+/** A competitor's product (Reed, 10 Nov): the director never shows it as the brand's, never uses it as a shot. */
+function CompetitorToggle({ value, onChange }: { value: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="flex min-h-11 items-center gap-2 text-sm lg:min-h-8">
+      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-[var(--accent)]" />
+      <span>
+        A competitor’s product <span className="text-muted">· never shown as the brand’s</span>
+      </span>
+    </label>
+  );
+}
+
 /** Add a clip: the file, then what it shows (left empty, the AI describes it from two of its frames, at the price shown) and
  *  its product. Media's checks: an MP4 or WebM of up to 3 minutes. */
 function AddClip({ brandId, folder, onClose }: { brandId: number; folder: string; onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [words, setWords] = useState("");
   const [product, setProduct] = useState<number | null>(null);
+  const [competitor, setCompetitor] = useState(false);
   const price = useQuery({ queryKey: ["footage", "price", brandId], queryFn: async () => (await api.GET("/brands/{brand_id}/footage/price", path(brandId))).data ?? null });
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -110,8 +123,9 @@ function AddClip({ brandId, folder, onClose }: { brandId: number; folder: string
       form.append("upload", file!);
       form.append("description", words.trim());
       form.append("folder", folder);
-      if (product !== null) form.append("product_id", String(product));
-      return must(api.POST("/brands/{brand_id}/footage", { ...path(brandId), body: { upload: "", description: "", product: "", folder, ai_describe: true }, bodySerializer: () => form })).then((r) => r.data!);
+      if (competitor) form.append("competitor", "true");
+      else if (product !== null) form.append("product_id", String(product));
+      return must(api.POST("/brands/{brand_id}/footage", { ...path(brandId), body: { upload: "", description: "", product: "", folder, ai_describe: true, competitor }, bodySerializer: () => form })).then((r) => r.data!);
     },
     onSuccess: async (c) => {
       await queryClient.invalidateQueries({ queryKey: ["footage", brandId] });
@@ -133,7 +147,8 @@ function AddClip({ brandId, folder, onClose }: { brandId: number; folder: string
         <input type="file" accept="video/mp4,video/webm" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       <TextArea label="What it shows" rows={3} maxLength={500} value={words} onChange={(e) => setWords(e.target.value)} placeholder="The small alarm opens, beeps and flashes red." hint={ai ? `Leave it empty and the AI describes it from two of its frames · ${upTo(price.data?.credits, price.data?.usd) || "…"}` : "Your words, as the director reads them."} />
-      <ProductPicker brandId={brandId} value={product} onChange={setProduct} />
+      <CompetitorToggle value={competitor} onChange={setCompetitor} />
+      {!competitor && <ProductPicker brandId={brandId} value={product} onChange={setProduct} />}
       {add.isError && <p role="alert" className="text-sm text-danger">{add.error.message}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button disabled={!file} reason={file ? null : "Choose a clip first"} busy={add.isPending} onClick={() => add.mutate()}>
@@ -152,13 +167,14 @@ function ClipCard({ brandId, clip, rows, where }: { brandId: number; clip: Foota
   const [moving, setMoving] = useState(false);
   const [words, setWords] = useState(clip.description);
   const [product, setProduct] = useState<number | null>(clip.product_id ?? null);
+  const [competitor, setCompetitor] = useState(clip.competitor);
   const products = useItems("prop", brandId).data ?? [];
   const queryClient = useQueryClient();
   const toast = useToast();
   const url = { params: { path: { brand_id: brandId, footage_id: clip.id } } };
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["footage", brandId] });
   const save = useMutation({
-    mutationFn: () => must(api.PATCH("/brands/{brand_id}/footage/{footage_id}", { ...url, body: { description: words.trim(), product_id: product, no_product: product === null } })),
+    mutationFn: () => must(api.PATCH("/brands/{brand_id}/footage/{footage_id}", { ...url, body: { description: words.trim(), product_id: competitor ? null : product, no_product: competitor || product === null, competitor } })),
     onSuccess: () => (setEditing(false), refresh()),
   });
   const remove = useMutation({
@@ -181,23 +197,28 @@ function ClipCard({ brandId, clip, rows, where }: { brandId: number; clip: Foota
       <div className="flex flex-1 flex-col gap-3 p-4">
         {editing ? (
           <>
-            <TextArea label="What it shows" rows={3} maxLength={500} value={words} onChange={(e) => setWords(e.target.value)} />
-            <ProductPicker brandId={brandId} value={product} onChange={setProduct} />
+            <TextArea label="What it shows" rows={3} maxLength={500} value={words} onChange={(e) => setWords(e.target.value)} placeholder={competitor ? "A competitor’s keychain alarm; its pin falls out." : undefined} />
+            {/* marked later: its old words may name the brand's product (QA on #1518), so they're written again */}
+            <CompetitorToggle value={competitor} onChange={(on) => (setCompetitor(on), on && !clip.competitor && words === clip.description && setWords(""))} />
+            {!competitor && <ProductPicker brandId={brandId} value={product} onChange={setProduct} />}
             {save.isError && <p role="alert" className="text-sm text-danger">{save.error.message}</p>}
             <div className="flex flex-wrap gap-2">
               <Button disabled={!words.trim()} reason={words.trim() ? null : "Say what it shows"} busy={save.isPending} onClick={() => save.mutate()}>
                 Save
               </Button>
-              <Button variant="ghost" onClick={() => (setEditing(false), setWords(clip.description), setProduct(clip.product_id ?? null))}>
+              <Button variant="ghost" onClick={() => (setEditing(false), setWords(clip.description), setProduct(clip.product_id ?? null), setCompetitor(clip.competitor))}>
                 Cancel
               </Button>
             </div>
           </>
         ) : (
           <>
-            <p className="text-xs font-medium text-muted">
-              {name ?? "No product"}
-              {where && ` · in ${where}`}
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-muted">
+              {clip.competitor && <Badge tone="warning">Competitor</Badge>}
+              <span>
+                {clip.competitor ? "Never shown as the brand’s" : (name ?? "No product")}
+                {where && ` · in ${where}`}
+              </span>
             </p>
             {clip.describing ? (
               <p className="text-sm text-muted" role="status">Describing what it shows…</p>
@@ -208,7 +229,7 @@ function ClipCard({ brandId, clip, rows, where }: { brandId: number; clip: Foota
             )}
             <div className="mt-auto flex flex-wrap gap-2">
               {/* as the server has it now: the AI's words may have come in since the card first drew */}
-              <Button variant="secondary" icon={Pencil} onClick={() => (setWords(clip.description), setProduct(clip.product_id ?? null), setEditing(true))}>
+              <Button variant="secondary" icon={Pencil} onClick={() => (setWords(clip.description), setProduct(clip.product_id ?? null), setCompetitor(clip.competitor), setEditing(true))}>
                 Edit
               </Button>
               <Button variant="ghost" icon={ArrowRightLeft} onClick={() => setMoving(true)}>

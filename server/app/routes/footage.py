@@ -3,7 +3,8 @@ Media's checks, each with what it shows and which product. Left blank, the words
 look at two of its frames (a picture check's price, said before the press); typed, they're
 the person's own. Anyone with the brand adds, changes and deletes them (Undo brings one back),
 as in the rest of the library, and files them in the tab's own folders (Reed, 10 Nov: the
-folders' calls, app/folders.py, with `footage`)."""
+folders' calls, app/folders.py, with `footage`). A clip of another company's product is marked
+a competitor's (Reed, 10 Nov: `competitor`): never shown as the brand's own."""
 
 import hashlib
 import uuid
@@ -30,6 +31,8 @@ from app.routes.media import store
 router = APIRouter(prefix="/brands/{brand_id}/footage", tags=["footage"])
 GONE = "That clip is no longer in this brand's footage."
 WORDS = 500  # characters a description keeps
+MARKED = ("Marked a competitor’s product. Edit it to say what it shows, without your brand’s "
+          "name.")  # fmt: skip
 
 
 class FootageOut(BaseModel):
@@ -43,12 +46,14 @@ class FootageOut(BaseModel):
     note: str = ""  # why they aren't in: refused, waiting for the owner's OK, or failed
     folder_id: int | None = None  # its footage folder (POST /folders/file, kind footage); null: top
     folder: str = ""  # where that is: "Product shots/Close-ups"
+    competitor: bool = False  # another company's product: never shown as the brand's own
 
 
 class FootageIn(BaseModel):
     description: str | None = None
     product_id: int | None = None
     no_product: bool = False  # clear its product
+    competitor: bool | None = None  # another company's product (a competitor's has none of ours)
 
 
 def _out(db: Session, row: MediaUpload) -> FootageOut:
@@ -63,7 +68,8 @@ def _out(db: Session, row: MediaUpload) -> FootageOut:
                       thumb_file_id=(row.frame_file_ids or [None])[0],
                       description=row.description, product_id=row.product_id,
                       describing=waiting, note=note or row.describe_note,
-                      folder_id=folder_id, folder=folders.path(db, folder_id))  # fmt: skip
+                      folder_id=folder_id, folder=folders.path(db, folder_id),
+                      competitor=row.competitor)  # fmt: skip
 
 
 def _row(db: Session, user: User, brand_id: int, footage_id: int, removed=False) -> MediaUpload:
@@ -147,19 +153,21 @@ def add_footage(
     product: str = Form(""),  # or its name: "PalaceGuard"
     folder: str = Form(""),  # "Product shots/Close-ups": made where missing; "": the top
     ai_describe: bool = Form(True),  # False: never the paid AI description, even with no words
+    competitor: bool = Form(False),  # True: another company's product, never shown as ours
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     """A real clip added once (Media's checks: a clip of up to 3 minutes), in its footage
     folder. Its two frames are kept (its thumbnail, and what the AI and the director see);
     with no words, the AI describes it, unless `ai_describe` is off (a bulk upload that writes
-    its own words)."""
+    its own words). `competitor`: a competitor's product, of none of the brand's."""
     get_brand(db, user, brand_id)
     product_id = _product(db, brand_id, product_id, product)  # both before the file is stored
     folder_id = folders.made(db, user, brand_id, folder)
     row, data = store(db, user, brand_id, upload, request, clip=True)
     row.footage, row.description = True, description.strip()[:WORDS]
-    row.product_id, row.folder_id = product_id, folder_id
+    row.product_id, row.folder_id = None if competitor else product_id, folder_id
+    row.competitor = competitor
     ids = []
     for n, jpeg in enumerate(footage.frames(data)):
         key = f"{user.workspace_id}/{uuid.uuid4().hex}"
@@ -198,13 +206,23 @@ def _ask(db: Session, user: User, row: MediaUpload) -> None:
 @router.patch("/{footage_id}", response_model=FootageOut)
 def change_footage(brand_id: int, footage_id: int, body: FootageIn,
                    user: User = Depends(current_user), db: Session = Depends(get_db)):  # fmt: skip
-    """Its words or its product, as the person sets them (the AI's are never put back)."""
+    """Its words, its product or whether it's a competitor's, as the person sets them (the AI's
+    words are never put back). A competitor's clip is of none of the brand's products; marked
+    one later with no new words, its old ones go (they may name the brand's product, QA on
+    #1518), and the director skips it until it's described again."""
     row = _row(db, user, brand_id, footage_id)
+    if body.competitor and not row.competitor and body.description is None:
+        row.description, row.describe_job_id = "", None
+        row.describe_note = MARKED
     if body.description is not None:
         row.description, row.describe_job_id = body.description.strip()[:WORDS], None
         row.describe_note = ""
     if body.product_id is not None or body.no_product:
         row.product_id = None if body.no_product else _product(db, brand_id, body.product_id)
+    if body.competitor is not None:
+        row.competitor = body.competitor
+    if row.competitor:
+        row.product_id = None
     db.commit()
     return _out(db, row)
 

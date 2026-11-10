@@ -415,9 +415,6 @@ class FootageDescription(BaseModel):
         "the product, what it does and how it moves or works ('The small round alarm opens, "
         "beeps and flashes red lights on a desk')."
     )
-    product: str = Field(
-        description="The product it shows, by its name in <products>, or '' when none."
-    )
 
 
 class LookFit(BaseModel):

@@ -904,7 +904,7 @@ class FakeWriter:
         first = next(iter(_tag(prompt, "products").splitlines()), "")
         product = "" if first == "(none)" else first
         return {"description": f"The {product or 'product'} shown working, close up, on a desk.",
-                "product": product}  # fmt: skip
+                "product": product}  # fmt: skip  # named as a model might: never saved
 
     def _look_fit(self, prompt):  # every look fits
         return {"fits": True, "seen": _tag(prompt, "character"), "problem": ""}

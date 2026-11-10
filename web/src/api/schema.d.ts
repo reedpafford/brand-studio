@@ -915,7 +915,7 @@ export interface paths {
          * @description A real clip added once (Media's checks: a clip of up to 3 minutes), in its footage
          *     folder. Its two frames are kept (its thumbnail, and what the AI and the director see);
          *     with no words, the AI describes it, unless `ai_describe` is off (a bulk upload that writes
-         *     its own words).
+         *     its own words). `competitor`: a competitor's product, of none of the brand's.
          */
         post: operations["add_footage_brands__brand_id__footage_post"];
         delete?: never;
@@ -986,7 +986,10 @@ export interface paths {
         head?: never;
         /**
          * Change Footage
-         * @description Its words or its product, as the person sets them (the AI's are never put back).
+         * @description Its words, its product or whether it's a competitor's, as the person sets them (the AI's
+         *     words are never put back). A competitor's clip is of none of the brand's products; marked
+         *     one later with no new words, its old ones go (they may name the brand's product, QA on
+         *     #1518), and the director skips it until it's described again.
          */
         patch: operations["change_footage_brands__brand_id__footage__footage_id__patch"];
         trace?: never;
@@ -6805,6 +6808,11 @@ export interface components {
              * @default true
              */
             ai_describe: boolean;
+            /**
+             * Competitor
+             * @default false
+             */
+            competitor: boolean;
         };
         /** Body_add_media_brands__brand_id__media_post */
         Body_add_media_brands__brand_id__media_post: {
@@ -8077,6 +8085,8 @@ export interface components {
              * @default false
              */
             no_product: boolean;
+            /** Competitor */
+            competitor?: boolean | null;
         };
         /** FootageOut */
         FootageOut: {
@@ -8106,6 +8116,11 @@ export interface components {
              * @default
              */
             folder: string;
+            /**
+             * Competitor
+             * @default false
+             */
+            competitor: boolean;
         };
         /** FootageUse */
         FootageUse: {

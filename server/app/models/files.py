@@ -54,3 +54,4 @@ class MediaUpload(Filed, Entity, Base):
     describe_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
     describe_note: Mapped[str] = mapped_column(Text, default="")  # why the AI's words aren't in
     folder_id: Mapped[int | None] = mapped_column(ForeignKey("folders.id"), index=True)
+    competitor: Mapped[bool] = mapped_column(default=False)  # another company's product: never ours

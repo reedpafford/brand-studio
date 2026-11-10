@@ -658,7 +658,7 @@ def save_frames(db: Session, job: Job) -> None:
     data = bd.model_dump()
     shared = one_frame.shared(db, project, data)  # one talker in one spot: one still, at rest
     leads = {one_frame.opening(data, c) for c in shared.values()}
-    from app.footage import uses
+    from app.footage_shot import uses
 
     real = uses(data)  # a real footage clip: no still (it's cut from the clip)
     for f in (with_cast(db, project, f, bd, known) for f in result.frames):
