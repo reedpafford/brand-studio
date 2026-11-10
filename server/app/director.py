@@ -101,6 +101,9 @@ REVISE_FREE = ("edit_cut", "final_cut", "mute", "unmute", "pick_take", "splice_w
                "watch_cut", "deliver")  # fmt: skip
 ON_YOU = "Waiting on your answer; everything else is made."  # parked on open questions
 CAST_WAIT = "Waiting for the cast and places OK."  # its run waits on that point only
+# The treatment's answer room. Adaptive thinking counts against it, and a long script (3-4 min
+# UGC, 10 Nov: project 338) ran out at 6000 twice. Only what is used is charged.
+TREATMENT_TOKENS = 32000
 
 
 def start(db: Session, user: User, project: Project, *, hold: str = "",
@@ -1981,7 +1984,7 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
         text += f"\n{omni_talker.treatment_block(db, project)}"
     said = note.strip() if kept is None else kept  # the person's own note, for a check's redo
     data = {"step": "treatment", "project_id": project.id, RUN: run, "system": system,
-            "prompt": text, "max_tokens": 6000, **({"redo": True} if redo else {}),
+            "prompt": text, "max_tokens": TREATMENT_TOKENS, **({"redo": True} if redo else {}),
             **({"note": said} if said else {})}  # fmt: skip
     from app import footage
 
