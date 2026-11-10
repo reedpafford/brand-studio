@@ -44,7 +44,7 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
   const version = script && (script.versions.filter(finished).at(-1) ?? script.versions.at(-1));
   const send = script && version ? { type: script.format, script_id: script.id, slot: version.slot, shape: "9:16" as const, folder_id: folder, broll_look: broll } : null;
   useEffect(() => onScript(script ? { type: script.format, look: script.look } : null), [script, onScript]);
-  const est = useEstimate(send).data;
+  const price = useEstimate(send);
   const sent = useSend((fs) => navigate(sentTo(fs, owner, brandId)));
   const had = sent.error instanceof SendError ? sent.error.hasVideo : undefined;
   const go = (another = false) => send && !sent.isPending && sent.mutate({ ...send, ...(another ? { make_another: true } : {}) });
@@ -87,7 +87,7 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
       <input type="search" value={text} onChange={(e) => (setText(e.target.value), setLimit(PAGE))} placeholder="Search scripts" className="min-w-0 flex-1 bg-transparent text-text outline-none! placeholder:text-muted" />
     </label>
   );
-  const press = <Press owner={owner} est={est} busy={sent.isPending} disabled={!send || !!had} onClick={() => go()} wide={!rail} />;
+  const press = <Press owner={owner} price={price} busy={sent.isPending} disabled={!send || !!had} onClick={() => go()} wide={!rail} />;
   const hasVideo = had && (
     <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
       <span className="flex-1">
@@ -97,7 +97,7 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
         </Link>
       </span>
       <Button variant="secondary" dense busy={sent.isPending} onClick={() => go(true)}>
-        Make another{had.up_to != null && ` · up to ${owner && est?.usd != null ? usd(est.usd) : `${Math.ceil(had.up_to)} credits`}`}
+        Make another{had.up_to != null && ` · up to ${owner && price.est?.usd != null ? usd(price.est.usd) : `${Math.ceil(had.up_to)} credits`}`}
       </Button>
     </div>
   );
@@ -112,7 +112,7 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
         <ActionBar phone>
           <div className="flex flex-col gap-1">
             {press}
-            {send && <Under owner={owner} est={est} phone />}
+            {send && <Under owner={owner} {...price} phone />}
           </div>
         </ActionBar>
       </div>
@@ -132,7 +132,7 @@ export function SavedScripts({ brandId, owner, folder, broll, seg, rail, onScrip
           {press}
         </div>
       </div>
-      <div className="flex min-h-6 items-center px-1 py-1.5">{send && !owner && <Under owner={owner} est={est} />}</div>
+      <div className="flex min-h-6 items-center px-1 py-1.5">{send && !owner && <Under owner={owner} {...price} />}</div>
       {error}
     </>
   );

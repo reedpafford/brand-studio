@@ -40,9 +40,8 @@ from app.routes.references import catalogue
 from app.routes.references import find as find_reference
 from app.routes.script_cast import SamePair, SlotOut, slots
 from app.routes.script_import import UNTITLED, one_at_a_time, prepare
-from app.routes.scripts import ScriptText
 from app.routes.uploads import get_upload
-from app.schemas import LongText, UtcTime
+from app.schemas import LongText, ScriptText, ScriptWords, UtcTime
 from app.song_study import SongStudyOut
 
 router = APIRouter(prefix="/scripts", tags=["script library"])
@@ -65,7 +64,7 @@ class ScriptIn(BaseModel):
     reference_id: str | None = None  # a reel from GET /references
     reference_replace: LongText = ""
     new_lines: bool | None = None  # write new lines in the reel's style, not its own
-    text: Annotated[str, StringConstraints(max_length=50_000)] = ""  # the original, if ready
+    text: ScriptWords = ""  # the original, if ready
     kind: Literal["story", "song", "narrated"] = "story"  # song: lyrics; narrated: one voice
     format: str | None = None  # a format on GET /formats; its engine becomes the kind
     look: str | None = None  # how the pictures are drawn (ST1); None: House

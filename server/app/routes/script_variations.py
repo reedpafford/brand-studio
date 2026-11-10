@@ -18,14 +18,14 @@ from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.references import for_script as script_reference
 from app.routes.script_preview import EstimateOut
-from app.schemas import LongText
+from app.schemas import NoteText
 
 router = APIRouter(prefix="/scripts/{script_id}/variations", tags=["script library"])
 
 
 class VariationsIn(BaseModel):
     slots: Annotated[list[Literal[1, 2]], Field(min_length=1, max_length=2)] = [1, 2]
-    note: LongText = ""  # what to change, e.g. "make the second one about a car"
+    note: NoteText = ""  # what to change, read whole (never cut): "make the second one a car"
 
 
 @router.get("/estimate", response_model=EstimateOut)

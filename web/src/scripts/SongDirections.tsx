@@ -8,6 +8,7 @@ import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { Stopwatch } from "../clip/History";
 import type { components } from "../api/schema";
+import { scriptSize } from "./ScriptFrame";
 import { lengthNote, type Song } from "./SongStep";
 import type { Script } from "./useScript";
 
@@ -58,7 +59,8 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
   const [asking, setAsking] = useState<Direction | null>(null);
   // "Nothing to go on" (no brand facts) lifts once a script is pasted to adapt; any other stop (an approved version) holds.
   const serverStop = d.directions_stop_kind === "no_facts" && source.trim() ? null : d.directions_stop;
-  const stop = serverStop;
+  const size = scriptSize(source);
+  const stop = size.error ?? serverStop;
   const job = d.directions_job;
   const busy = job?.status === "queued" || job?.status === "running";
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["script-lib", s.id] });
@@ -110,7 +112,7 @@ export function SongDirections({ script: s, brandId, saved, hasWords, typing, ta
           <h2 className="type-card">Write 2 song directions <span className="text-muted">(optional)</span></h2>
           <p className="text-sm text-muted">Claude writes 2 songs from the brand. Nothing goes into your lyrics until you pick one.</p>
         </div>
-        <TextArea label="From a script (optional)" rows={3} maxLength={20000} placeholder="Paste a script or voice-over to turn into a song" value={source} onChange={(e) => setSource(e.target.value)} hint="Its lines stay in order, as close to word for word as the rhyme allows, and no claims are added." />
+        <TextArea label="From a script (optional)" rows={3} placeholder="Paste a script or voice-over to turn into a song" value={source} onChange={(e) => setSource(e.target.value)} counter={size.counter} error={size.error} hint="Its lines stay in order, as close to word for word as the rhyme allows, and no claims are added." />
         <Field label="Sounds like (optional)" maxLength={200} placeholder="A song or an artist" value={soundsLike} onChange={(e) => setSoundsLike(e.target.value)} hint="The style describes the sound and never names it: Suno won't take names." />
         {busy && job ? (
           <div role="status" className="flex flex-wrap items-center gap-3">

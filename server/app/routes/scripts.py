@@ -1,9 +1,7 @@
 """A project's script: paste or upload (txt/docx/pdf), with every change kept as a version."""
 
-from typing import Annotated
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,16 +13,12 @@ from app.models.accounts import User
 from app.models.projects import Project
 from app.models.scripts import ScriptVersion
 from app.routes.projects import get_project, video_writer
-from app.schemas import UtcTime
+from app.schemas import SCRIPT_LONGEST, ScriptText, UtcTime
 
 router = APIRouter(
     prefix="/projects/{project_id}/script", tags=["scripts"], dependencies=[Depends(video_writer)]
 )
 MAX_DOC_BYTES = 10 * 1024 * 1024
-MAX_SCRIPT_CHARS = 50_000
-ScriptText = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_SCRIPT_CHARS)
-]
 
 
 class ScriptIn(BaseModel):
@@ -111,7 +105,7 @@ def upload_script(
     if len(data) > MAX_DOC_BYTES:
         raise HTTPException(413, "That document is too big (10 MB max).")
     try:
-        text = to_text(data, kind_of(upload.filename or "", upload.content_type), MAX_SCRIPT_CHARS)
+        text = to_text(data, kind_of(upload.filename or "", upload.content_type), SCRIPT_LONGEST)
     except DocumentError as exc:
         raise HTTPException(422, str(exc)) from None
     return _out(save_version(db, user, project, text, "upload"))

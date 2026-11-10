@@ -45,7 +45,7 @@ const posted = (calls: { key: string; body: unknown }[], key = "POST /freestyles
 
 test("S2-01/02: the owner's cards come from the guides; the press says the most in dollars, and Make it lands on the video in the open folder", async () => {
   setViewport(1440);
-  const calls = server(owner, { "GET /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }], "POST /freestyles": [201, fs()] });
+  const calls = server(owner, { "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }], "POST /freestyles": [201, fs()] });
   renderApp("/b/1/videos/new?folder=4");
   expect(await screen.findByRole("heading", { name: "What should the director make?" })).toBeInTheDocument();
   await loaded();
@@ -101,7 +101,7 @@ test("S2-03: Song is coming next, Zack D and UGC are off on this site, with the 
 
 test("S-gaps-01 (1): a format with a host offers Change B-roll look…; the picked look is sent", async () => {
   setViewport(1440);
-  const calls = server(owner, { "GET /freestyles/estimate": [200, { credits: 170, usd: 17.48, held: "", budget: null }], "POST /freestyles": [201, fs()] });
+  const calls = server(owner, { "POST /freestyles/estimate": [200, { credits: 170, usd: 17.48, held: "", budget: null }], "POST /freestyles": [201, fs()] });
   renderApp("/b/1/videos/new");
   await userEvent.click(await screen.findByRole("radio", { name: /^Dr\. Pickle/ }));
   await loaded();
@@ -120,7 +120,7 @@ test("S-gaps-01 (1): a format with a host offers Change B-roll look…; the pick
 
 test("S-gaps-01 (3): Upload attaches pictures for this video only, and Adapt a reel instead opens Use a reel", async () => {
   setViewport(1440);
-  const calls = server(owner, { "POST /files": [201, { id: 61, filename: "capsule-pack.jpg", content_type: "image/jpeg", size: 9, created_at: at }], "GET /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }], "POST /freestyles": [201, fs()] });
+  const calls = server(owner, { "POST /files": [201, { id: 61, filename: "capsule-pack.jpg", content_type: "image/jpeg", size: 9, created_at: at }], "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }], "POST /freestyles": [201, fs()] });
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:x" }));
   renderApp("/b/1/videos/new");
   await userEvent.type(await words(), SCRIPT);
@@ -136,7 +136,7 @@ test("S-gaps-01 (3): Upload attaches pictures for this video only, and Adapt a r
 
 test("S2-04: an editor's pasted script goes to the owner, in credits, never dollars", async () => {
   setViewport(1440);
-  server(editor, { "GET /freestyles/estimate": [200, { credits: 163.2, usd: null, held: "Waiting for the owner's OK: every freestyle send is checked first.", budget: null }] });
+  server(editor, { "POST /freestyles/estimate": [200, { credits: 163.2, usd: null, held: "Waiting for the owner's OK: every freestyle send is checked first.", budget: null }] });
   renderApp("/b/1/videos/new");
   await userEvent.type(await words(), SCRIPT);
   expect(await screen.findByRole("button", { name: "Send to the owner · up to 164 credits" }, { timeout: 3000 })).toBeInTheDocument();
@@ -152,7 +152,7 @@ test("S2-06/S2-05: an editor's saved script starts inside its budget, or goes to
     scriptRow(6, "Why IPAs hit harder", { versions: [version(0, { project_id: 60 })] }), // every version has its video: still listed
     scriptRow(5, "My own draft", { published: false, versions: [version(0, { status: "draft" })] }), // an editor's own draft isn't
   ];
-  const calls = server(editor, { "GET /scripts": [200, rows], "GET /freestyles/estimate": [200, { credits: 158, usd: null, held: "", budget: 194 }], "POST /freestyles": [201, fs()] });
+  const calls = server(editor, { "GET /scripts": [200, rows], "POST /freestyles/estimate": [200, { credits: 158, usd: null, held: "", budget: 194 }], "POST /freestyles": [201, fs()] });
   renderApp("/b/1/videos/new?from=script&folder=4");
   const list = await screen.findByRole("radiogroup", { name: "Scripts" });
   expect(await within(list).findByText("1 of 2 videos made")).toBeInTheDocument();
@@ -173,7 +173,7 @@ test("S2-06/S2-05: an editor's saved script starts inside its budget, or goes to
 
 test("saved scripts: searching asks the server, which finds a script by its title or its words", async () => {
   setViewport(1440);
-  const calls = server(owner, { "GET /scripts": [200, [scriptRow(113, "Small city apartment", { look: "pixar" })]], "GET /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: 194 }] });
+  const calls = server(owner, { "GET /scripts": [200, [scriptRow(113, "Small city apartment", { look: "pixar" })]], "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: 194 }] });
   renderApp("/b/1/videos/new?from=script");
   await screen.findByRole("radio", { name: /Small city apartment/ });
   await userEvent.type(screen.getByPlaceholderText("Search scripts"), "sushi");
@@ -207,7 +207,7 @@ test("saved scripts: a short page has no Show more", async () => {
 
 test("S2-05: past the video's budget the press goes to the owner and the line says the budget", async () => {
   setViewport(1440);
-  server(editor, { "GET /scripts": [200, [scriptRow(7, "Beer gut doctor rant")]], "GET /freestyles/estimate": [200, { credits: 212, usd: null, held: "Waiting for the owner's OK: up to 212 credits is past this video's budget of 194.", budget: 194 }] });
+  server(editor, { "GET /scripts": [200, [scriptRow(7, "Beer gut doctor rant")]], "POST /freestyles/estimate": [200, { credits: 212, usd: null, held: "Waiting for the owner's OK: up to 212 credits is past this video's budget of 194.", budget: 194 }] });
   renderApp("/b/1/videos/new?from=script");
   await userEvent.click(await screen.findByRole("radio", { name: /Beer gut doctor rant/ }));
   expect(await screen.findByRole("button", { name: "Send to the owner · up to 212 credits" }, { timeout: 3000 })).toBeInTheDocument();
@@ -221,7 +221,7 @@ test("S2-07: Use a reel uploads it, Copy it shot by shot reads it at its price; 
     "POST /scripts/import/upload": [201, { ...ready, status: "preparing" }],
     "GET /scripts/30/import": [200, ready],
     "GET /freestyles/reel/estimate": [200, { credits: 3.9, usd: 0.4, ready: true }],
-    "GET /freestyles/estimate": [200, { credits: 168, usd: 17.3, held: "", budget: null }],
+    "POST /freestyles/estimate": [200, { credits: 168, usd: 17.3, held: "", budget: null }],
     "POST /freestyles/reel": [201, fs({ reel_script_id: 30 })],
   });
   renderApp("/b/1/videos/new?from=reel");
@@ -237,7 +237,7 @@ test("S2-07: Use a reel uploads it, Copy it shot by shot reads it at its price; 
 test("S-gaps-01 (2): Just its look makes your script in the reel's look", async () => {
   setViewport(1440);
   const ready = { script_id: 30, status: "ready", source: "upload", seconds: 104, video_file_id: 31, transcript: [], problem: "", steps_done: [] };
-  const calls = server(owner, { "GET /scripts/30/import": [200, ready], "GET /freestyles/estimate": [200, { credits: 168, usd: 17.3, held: "", budget: null }], "POST /freestyles/reel": [201, fs()] });
+  const calls = server(owner, { "GET /scripts/30/import": [200, ready], "POST /freestyles/estimate": [200, { credits: 168, usd: 17.3, held: "", budget: null }], "POST /freestyles/reel": [201, fs()] });
   renderApp("/b/1/videos/new?from=reel&reel=30");
   await loaded();
   await screen.findByRole("radio", { name: /^Dr\. Pickle/ });
@@ -255,7 +255,7 @@ test("S-gaps-01: a silent reel can't be read, but Just its look takes it with no
   setViewport(1440);
   const NO_SOUND = "This video has no sound, so there's no dialogue to read.";
   const silent = { script_id: 30, status: "failed", failed_step: "prepare", problem_code: "no_sound", problem: NO_SOUND, source: "upload", seconds: 12, video_file_id: 31, transcript: [], steps_done: [] };
-  const calls = server(owner, { "GET /scripts/30/import": [200, silent], "GET /freestyles/estimate": [200, { credits: 168, usd: 17.3, held: "", budget: null }], "POST /freestyles/reel": [201, fs()] });
+  const calls = server(owner, { "GET /scripts/30/import": [200, silent], "POST /freestyles/estimate": [200, { credits: 168, usd: 17.3, held: "", budget: null }], "POST /freestyles/reel": [201, fs()] });
   renderApp("/b/1/videos/new?from=reel&reel=30");
   await loaded();
   expect(await screen.findByText(`${NO_SOUND} Just its look can still use it.`)).toHaveClass("text-danger");
@@ -270,7 +270,7 @@ test("S-gaps-01: a silent reel can't be read, but Just its look takes it with no
 
 test("P-03: on a phone, the three ways in, cards that scroll, and Make it in the bar at the bottom", async () => {
   setViewport(390);
-  server(owner, { "GET /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }] });
+  server(owner, { "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }] });
   renderApp("/b/1/videos/new?folder=4");
   expect(await screen.findByText("Resilia · Week of 3 Nov")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", "/b/1/videos");
@@ -286,7 +286,7 @@ test("P-03: on a phone, the three ways in, cards that scroll, and Make it in the
 test("From a saved script: the cards show the script's own format and style, locked; the owner's drafts show too", async () => {
   setViewport(1440);
   const rows = [scriptRow(7, "Beer gut doctor rant", { format: "presenter", kind: "narrated" }), scriptRow(9, "Gut glow-up", { published: false, look: "claymation", versions: [version(0, { status: "draft" })] }), scriptRow(10, "Untitled reel", { published: false, versions: [version(0, { status: "draft", lines: 0 })] })];
-  server(owner, { "GET /scripts": [200, rows], "GET /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: 194 }] });
+  server(owner, { "GET /scripts": [200, rows], "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: 194 }] });
   renderApp("/b/1/videos/new?from=script");
   const list = await screen.findByRole("radiogroup", { name: "Scripts" });
   expect(await within(list).findByText("owner only")).toBeInTheDocument();
@@ -300,7 +300,7 @@ test("From a saved script: the cards show the script's own format and style, loc
 
 test("uncapped (Reed, 6 Nov): the owner's press says about what it will cost, an estimate, never up to", async () => {
   setViewport(1440);
-  server(owner, { "GET /freestyles/estimate": [200, { credits: 91, usd: 9.1, held: "", budget: null, expected: true }] });
+  server(owner, { "POST /freestyles/estimate": [200, { credits: 91, usd: 9.1, held: "", budget: null, expected: true }] });
   renderApp("/b/1/videos/new");
   await userEvent.type(await words(), SCRIPT);
   expect(await screen.findByRole("button", { name: "Make it · about $9.10" }, { timeout: 3000 })).toBeInTheDocument();
@@ -350,4 +350,47 @@ test("MAIN's Claymation run: a narrated script is read whole at a narrator's pac
   const clay = ["NARRATOR: Most owners think an itchy dog has a skin problem.", "It usually starts in the belly.", "The good guys in there need more than plain kibble to win.", "[Camera] Close on the paws.", "When they lose, the itch shows up in the paws."].join("\n");
   expect(counts(clay, true)).toMatchObject({ words: 44, seconds: 15 }); // 38 read words at 2.6 a second; it said "about 2 s"
   expect(counts(clay).seconds).toBe(2); // as dialogue only the NAME: line is spoken, as before
+});
+
+/** A two-hander about `chars` long, every line its own words, ending on the line Reed's paste lost (10 Nov). */
+const longScript = (chars: number) => {
+  const lines: string[] = [];
+  for (let n = 1; lines.join("\n").length < chars - 40; n++) lines.push(`${n % 2 ? "MIA" : "LEO"}: Line ${n}, the market opened at nine and we were ready for it.`);
+  return [...lines, "MIA: Share this with everyone you know."].join("\n");
+};
+
+test("Reed, 10 Nov: a 20,000-character script is pasted, priced and sent word for word, never cut at 5,000", async () => {
+  setViewport(1440);
+  const long = longScript(20_000);
+  const calls = server(owner, { "POST /freestyles/estimate": [200, { credits: 2719.46, usd: 279.57, held: "", budget: null }], "POST /freestyles": [201, fs()] });
+  renderApp("/b/1/videos/new");
+  (await words()).focus();
+  await userEvent.paste(long);
+  await userEvent.click(await screen.findByRole("button", { name: "Make it · up to $279.57" }, { timeout: 3000 }));
+  expect(posted(calls, "POST /freestyles/estimate")).toMatchObject({ text: long }); // in the body, never the address
+  await vi.waitFor(() => expect(posted(calls)).toMatchObject({ text: long }));
+});
+
+test("Reed, 10 Nov: a paste past the most is kept whole, says so, and is neither priced nor sent", async () => {
+  setViewport(1440);
+  const over = `MIA: ${"go ".repeat(16_666)}go`; // 50,005 characters
+  const calls = server(owner, { "POST /freestyles/estimate": [200, { credits: 9, usd: 0.9, held: "", budget: null }] });
+  renderApp("/b/1/videos/new");
+  const box = await words();
+  box.focus();
+  await userEvent.paste(over);
+  expect(box).toHaveValue(over); // not cut
+  expect(screen.getByRole("alert")).toHaveTextContent("This script is 50,005 characters; the most is 50,000. Trim it or split it.");
+  expect(screen.getByRole("button", { name: /^Make it/ })).toBeDisabled();
+  await new Promise((r) => setTimeout(r, 500)); // past the estimate's settle
+  expect(calls.some((c) => c.key === "POST /freestyles/estimate")).toBe(false);
+});
+
+test("Reed, 10 Nov: a price that can't be worked out says so on the press, never the last price kept", async () => {
+  setViewport(1440);
+  server(owner, { "POST /freestyles/estimate": [500, { detail: "The server had a problem." }] });
+  renderApp("/b/1/videos/new");
+  await userEvent.type(await words(), SCRIPT);
+  expect(await screen.findByRole("button", { name: "Make it · price unavailable" }, { timeout: 3000 })).toBeInTheDocument();
+  expect(screen.getByText("Price unavailable: The server had a problem.")).toBeInTheDocument();
 });

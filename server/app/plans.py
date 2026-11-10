@@ -280,7 +280,7 @@ def update_note(plan: dict) -> str:
         for s in plan["scenes"]
     )
     return ("The script's words changed since this plan. Keep the scenes and actions whose "
-            f"lines didn't change, and plan the rest: {said}")[:3000]  # fmt: skip
+            f"lines didn't change, and plan the rest: {said}")  # fmt: skip
 
 
 def price(db: Session, project: Project) -> Decimal:

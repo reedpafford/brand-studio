@@ -96,7 +96,7 @@ def test_the_owners_run_at_once_and_only_the_maker_and_owner_see_one(
 
 
 def test_the_estimate_is_free_and_a_style_that_isnt_one_is_refused(owner, editor, db):
-    r = editor.get("/freestyles/estimate", params={**HOUSE, "text": SCRIPT})
+    r = editor.post("/freestyles/estimate", json={**HOUSE, "text": SCRIPT})
     assert r.status_code == 200 and r.json()["credits"] > 0
     assert db.query(Job).count() == 0
     r = editor.post("/freestyles", json={**HOUSE, "look": "nope", "text": SCRIPT})

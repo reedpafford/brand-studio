@@ -518,14 +518,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /**
          * Estimate Freestyle
          * @description What a send would cost, at most, and whether it would wait for the owner. Free: nothing
-         *     is queued and nothing is asked of a model; the video it weighs is never kept.
+         *     is queued and nothing is asked of a model; the video it weighs is never kept. A POST, as
+         *     the send is: a long script doesn't fit in an address (uvicorn refuses a request head past
+         *     16 KB; Reed, 10 Nov, saw one price on every long script).
          */
-        get: operations["estimate_freestyle_freestyles_estimate_get"];
-        put?: never;
-        post?: never;
+        post: operations["estimate_freestyle_freestyles_estimate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15307,24 +15309,18 @@ export interface operations {
             };
         };
     };
-    estimate_freestyle_freestyles_estimate_get: {
+    estimate_freestyle_freestyles_estimate_post: {
         parameters: {
-            query: {
-                shape: "9:16" | "1:1" | "16:9";
-                type?: string;
-                look?: string | null;
-                text?: string | null;
-                script_id?: number | null;
-                slot?: number;
-                brand_id?: number | null;
-                broll_look?: string | null;
-                cast_ids?: number[] | null;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreestyleIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

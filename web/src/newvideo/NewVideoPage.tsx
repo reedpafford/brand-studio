@@ -8,7 +8,7 @@ import { Button, Segmented, creditsLabel, wholeCredits } from "../components";
 import { useFolders } from "../folders/Projects";
 import { SHAPES, sentTo } from "../freestyle/useFreestyle";
 import { notMadeAs, useLooks } from "../scripts/Looks";
-import { counts } from "../scripts/ScriptFrame";
+import { counts, scriptSize } from "../scripts/ScriptFrame";
 import { useFormats } from "../scripts/useFormats";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
@@ -18,7 +18,7 @@ import { BrollPicker, FormatCards, StyleCards, onlyShort, type Look } from "./Ca
 import { CastIcon, Chip, FolderIcon } from "./Chips";
 import { Reel } from "./Reel";
 import { SavedScripts } from "./SavedScripts";
-import { useEstimate, useSend, usd, type Estimate, type Send } from "./useNewVideo";
+import { useEstimate, useSend, usd, type Price, type Send } from "./useNewVideo";
 
 export type Tab = "paste" | "script" | "reel";
 const TABS: { id: Tab; name: string; phone: string }[] = [
@@ -30,17 +30,19 @@ const PLACEHOLDER = "Paste a script, or describe the video. “A Dr. Pickle rant
 export const box = "rounded-xl border border-border bg-surface shadow-soft transition-[border-color,box-shadow] duration-(--dur-fast) ease-out hover:border-border-button focus-within:border-accent focus-within:shadow-ring";
 export const row = "flex flex-wrap items-center gap-1.5 border-t border-border px-3 py-2.5";
 
-/** The press's label (rules 34, 36): the owner sees the most in dollars, an editor in credits; a held send goes to the owner. */
-export function pressWords(owner: boolean, est: Estimate | undefined, go = "Make it") {
+/** The press's label (rules 34, 36): the owner sees the most in dollars, an editor in credits; a held send goes to the owner.
+ *  A price on its way says so, and one that failed says it's unavailable: never the last price, kept silently. */
+export function pressWords(owner: boolean, { est, stale, failed }: Price, go = "Make it") {
   const held = !owner && !!est?.held;
   // The owner's uncapped test site (Reed, 6 Nov): what it will probably cost, never a most.
-  const most = !est ? "" : est.expected && est.usd != null ? `about ${usd(est.usd)}` : owner && est.usd != null ? `up to ${usd(est.usd)}` : `up to ${creditsLabel(est.credits)}`;
+  const most = failed ? "price unavailable" : !est ? "" : stale ? "updating the price…" : est.expected && est.usd != null ? `about ${usd(est.usd)}` : owner && est.usd != null ? `up to ${usd(est.usd)}` : `up to ${creditsLabel(est.credits)}`;
   return { label: held ? "Send to the owner" : go, most, held };
 }
 
 /** The line under the box: what the price means, or why it waits and that no generation starts until then (S2-02, -04,
  *  -05; Reed, 4 Nov: never "nothing spent" before Make it, as the plan is a small spend). */
-export function Under({ owner, est, phone }: { owner: boolean; est: Estimate | undefined; phone?: boolean }) {
+export function Under({ owner, est, failed, phone }: { owner: boolean; phone?: boolean } & Price) {
+  if (failed) return <span role="alert" className="animate-fade text-xs text-danger">Price unavailable: {failed}</span>;
   if (!est) return null;
   if (!owner && est.held) {
     const past = est.budget != null ? `Up to ${wholeCredits(est.credits)} credits is past this video’s budget of ${wholeCredits(est.budget)}, so it goes to the owner first. No generation starts while it waits.` : "The owner approves before any generation starts. You’ll see it in My requests.";
@@ -56,8 +58,8 @@ export function Under({ owner, est, phone }: { owner: boolean; est: Estimate | u
 }
 
 /** The main press, with the most it can charge after a dot ("Make it · up to $16.86"). */
-export function Press({ owner, est, busy, disabled, onClick, go, wide, shortcut }: { owner: boolean; est: Estimate | undefined; busy: boolean; disabled: boolean; onClick: () => void; go?: string; wide?: boolean; /** ⌘↵ sends from this box (the Paste tab only) */ shortcut?: boolean }) {
-  const w = pressWords(owner, est, go);
+export function Press({ owner, price, busy, disabled, onClick, go, wide, shortcut }: { owner: boolean; price: Price; busy: boolean; disabled: boolean; onClick: () => void; go?: string; wide?: boolean; /** ⌘↵ sends from this box (the Paste tab only) */ shortcut?: boolean }) {
+  const w = pressWords(owner, price, go);
   return (
     <Button busy={busy} disabled={disabled} icon={w.held ? ArrowUp : undefined} onClick={onClick} kbd={shortcut && !wide && !disabled ? "⌘↵" : undefined} className={`${wide ? "w-full" : "shrink-0 whitespace-nowrap"} lg:min-h-8 lg:px-3`}>
       {w.label}
@@ -116,11 +118,12 @@ export function NewVideoPage() {
   const broll = format?.host ? (picked.broll_look ?? null) : null;
   const settings = { type: format?.id ?? "dialogue", look: look?.id ?? "", shape: picked.shape ?? "9:16", brand_id: brandId, folder_id: folder, broll_look: broll };
   const send: Send = { ...settings, text: text.trim(), cast_ids: cast, attachments: files.ids };
-  const est = useEstimate(tab === "paste" && text.trim() && look ? send : null).data;
+  const size = scriptSize(text); // never cut: past the most it says so, and nothing is priced or sent
+  const price = useEstimate(tab === "paste" && text.trim() && look && !size.over ? send : null);
   const pickFormat = (type: string) => !fixed && setPicked({ ...picked, type });
   const pickLook = (l: string) => !fixed && setPicked({ ...picked, look: l, broll_look: null });
   const sent = useSend((fs) => navigate(sentTo(fs, owner, brandId)));
-  const empty = !text.trim() || !look || !format || files.busy;
+  const empty = !text.trim() || size.over || !look || !format || files.busy;
   const go = () => !empty && !sent.isPending && sent.mutate(send);
   const folderName = folders.find((f) => f.id === folder)?.name ?? "Unsorted";
 
@@ -140,7 +143,7 @@ export function NewVideoPage() {
       <div className={box}>
         {rail && <div className="px-3 pt-3">{seg}</div>}
         <div className="px-4 pb-3 pt-3">
-          <Words text={text} setText={setText} go={go} rail={rail} narrated={format?.engine === "narrated"} />
+          <Words text={text} size={size} setText={setText} go={go} rail={rail} narrated={format?.engine === "narrated"} />
           <Attached files={files} />
         </div>
         {rail && (
@@ -148,11 +151,11 @@ export function NewVideoPage() {
             <Attach files={files} onReel={() => setTab("reel")} />
             {chips(true)}
             <span className="flex-1" />
-            <Press owner={owner} est={est} busy={sent.isPending} disabled={empty} onClick={go} shortcut />
+            <Press owner={owner} price={price} busy={sent.isPending} disabled={empty} onClick={go} shortcut />
           </div>
         )}
       </div>
-      {rail && <div className="flex min-h-7 items-center justify-end px-1 pt-2">{!empty && <Under owner={owner} est={est} />}</div>}
+      {rail && <div className="flex min-h-7 items-center justify-end px-1 pt-2">{!empty && <Under owner={owner} {...price} />}</div>}
     </>
   );
   const body =
@@ -200,7 +203,7 @@ export function NewVideoPage() {
           {seg}
           {tab === "paste" ? (
             <div className={`${box} p-3`}>
-              <Words text={text} setText={setText} go={go} rail={false} narrated={format?.engine === "narrated"} />
+              <Words text={text} size={size} setText={setText} go={go} rail={false} narrated={format?.engine === "narrated"} />
               <Attached files={files} />
             </div>
           ) : (
@@ -214,8 +217,8 @@ export function NewVideoPage() {
         {tab === "paste" && (
           <ActionBar phone>
             <div className="flex flex-col gap-1">
-              <Press owner={owner} est={est} busy={sent.isPending} disabled={empty} onClick={go} wide />
-              {!empty && <Under owner={owner} est={est} phone />}
+              <Press owner={owner} price={price} busy={sent.isPending} disabled={empty} onClick={go} wide />
+              {!empty && <Under owner={owner} {...price} phone />}
             </div>
           </ActionBar>
         )}
@@ -252,21 +255,26 @@ export function NewVideoPage() {
   );
 }
 
-/** The words box: the script font as you type; away from it, a long script folds to four lines and its length (S2-02). */
-function Words({ text, setText, go, rail, narrated }: { text: string; setText: (t: string) => void; go: () => void; rail: boolean; narrated: boolean }) {
+/** The words box: the script font as you type; away from it, a long script folds to four lines and its length (S2-02).
+ *  It never cuts a paste: near the most it counts the characters, past it it says so (`scriptSize`). */
+function Words({ text, size, setText, go, rail, narrated }: { text: string; size: ReturnType<typeof scriptSize>; setText: (t: string) => void; go: () => void; rail: boolean; narrated: boolean }) {
   const [editing, setEditing] = useState(false);
   const lines = text.split("\n").filter((l) => l.trim());
   const c = counts(text, narrated);
   const fold = !editing && lines.length > (rail ? 5 : 3);
+  const note = size.error ? <p role="alert" className="pt-1 text-sm text-danger">{size.error}</p> : size.counter ? <p className="pt-1 text-xs tabular-nums text-muted">{size.counter}</p> : null;
   if (fold)
     return (
-      <button type="button" onClick={() => setEditing(true)} className="block min-h-24 w-full text-left font-script text-sm leading-[1.6]">
-        <span className="sr-only">Edit the words: </span>
-        {lines.slice(0, rail ? 4 : 2).map((l, i) => (
-          <span key={i} className="block">{l}</span>
-        ))}
-        <span className="block text-muted">{`+ ${lines.length - (rail ? 4 : 2)} more lines${rail ? ` · ${c.words} words · about ${c.seconds} s` : ""}`}</span>
-      </button>
+      <>
+        <button type="button" onClick={() => setEditing(true)} className="block min-h-24 w-full text-left font-script text-sm leading-[1.6]">
+          <span className="sr-only">Edit the words: </span>
+          {lines.slice(0, rail ? 4 : 2).map((l, i) => (
+            <span key={i} className="block">{l}</span>
+          ))}
+          <span className="block text-muted">{`+ ${lines.length - (rail ? 4 : 2)} more lines${rail ? ` · ${c.words} words · about ${c.seconds} s` : ""}`}</span>
+        </button>
+        {note}
+      </>
     );
   return (
     <>
@@ -277,7 +285,7 @@ function Words({ text, setText, go, rail, narrated }: { text: string; setText: (
         id="new-video-words"
         autoFocus={rail || editing}
         rows={rail ? 4 : 3}
-        maxLength={5000}
+        aria-invalid={size.over || undefined}
         value={text}
         placeholder={PLACEHOLDER}
         onChange={(e) => setText(e.target.value)}
@@ -285,6 +293,7 @@ function Words({ text, setText, go, rail, narrated }: { text: string; setText: (
         onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing && (e.preventDefault(), go())}
         className="field-sizing-content min-h-24 w-full resize-none bg-transparent font-script text-sm leading-[1.6] text-text outline-none! placeholder:font-sans placeholder:text-base placeholder:text-muted"
       />
+      {note}
     </>
   );
 }

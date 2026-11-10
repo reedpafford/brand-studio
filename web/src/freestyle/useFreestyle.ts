@@ -110,7 +110,7 @@ export function useEstimate(source: Source | null) {
     enabled: !!query && ("script_id" in query || (!!query.text && !!query.look)),
     retry: false,
     placeholderData: keepPreviousData,
-    queryFn: async () => (await call(api.GET("/freestyles/estimate", { params: { query: query! } }))).credits,
+    queryFn: async () => (await call(api.POST("/freestyles/estimate", { body: { type: "dialogue", ...query! } }))).credits, // a script's own format wins
   });
 }
 

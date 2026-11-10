@@ -155,7 +155,7 @@ test("the Overview's credits count the director's time too, and a video with not
 
 test("an unpublished script opens on Overview too: Publish to library, Make a video · up to N on the next version, and Open the steps", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, full({ published: false, status: "draft" })], "GET /projects": [200, [project]], "GET /scripts/7/cast": [200, []], "GET /freestyles/estimate": [200, { credits: 187.4 }], "GET /scripts/7/drafts/0/suggestions": [200, []], "GET /scripts/7/drafts/0/notes": [200, []] });
+  fakeServer({ ...base, "GET /scripts/7": [200, full({ published: false, status: "draft" })], "GET /projects": [200, [project]], "GET /scripts/7/cast": [200, []], "POST /freestyles/estimate": [200, { credits: 187.4 }], "GET /scripts/7/drafts/0/suggestions": [200, []], "GET /scripts/7/drafts/0/notes": [200, []] });
   renderApp("/b/1/scripts/7");
   expect(await screen.findByRole("listitem", { name: "Version A" })).toBeInTheDocument();
   expect(screen.getByText("Overview")).toHaveAttribute("aria-current", "page");
@@ -177,7 +177,7 @@ test("an unpublished script opens on Overview too: Publish to library, Make a vi
 
 test("a published script has no Publish to library; a script with no words yet opens on its first step", async () => {
   setViewport(1440);
-  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/cast": [200, []], "GET /freestyles/estimate": [200, { credits: 50 }] });
+  fakeServer({ ...base, "GET /scripts/7": [200, full()], "GET /scripts/7/cast": [200, []], "POST /freestyles/estimate": [200, { credits: 50 }] });
   renderApp("/b/1/scripts/7");
   expect(await screen.findByRole("listitem", { name: "Version A" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Publish to library" })).toBeNull();

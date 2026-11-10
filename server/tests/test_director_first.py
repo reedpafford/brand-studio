@@ -23,7 +23,7 @@ def test_make_a_video_from_a_scripts_version_freezes_it_and_reuses_its_shots(
     base = f"/scripts/{made['id']}"
     assert owner.put(f"{base}/drafts/0/breakdown", json=BREAKDOWN).status_code == 200
     draft = db.query(ScriptDraft).filter_by(script_id=made["id"], slot=0).one()
-    est = owner.get("/freestyles/estimate", params={"shape": "9:16", "script_id": made["id"]})
+    est = owner.post("/freestyles/estimate", json={"shape": "9:16", "script_id": made["id"]})
     assert est.json()["credits"] == float(run_price(db, draft))
     r = owner.post("/freestyles", json={"shape": "9:16", "script_id": made["id"], "slot": 0})
     assert r.status_code == 201, r.text

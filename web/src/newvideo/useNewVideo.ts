@@ -18,21 +18,27 @@ function useSettled<T>(value: T, ms = 400) {
   return (settled ? JSON.parse(settled) : null) as T;
 }
 
+/** The press's price: the estimate, the last one while the new one comes (`stale`), or why there is none (`failed`).
+ *  A price that failed is never kept silently (Reed, 10 Nov: every long script showed the same $33.12). */
+export type Price = { est?: Estimate; stale?: boolean; failed?: string | null };
+
 /** What a send could charge at most (rules 34, 36), the owner's in dollars too, and why it would wait for the owner. Free:
- *  the server queues nothing and asks no model. */
-export function useEstimate(send: Send | null) {
+ *  the server queues nothing and asks no model. A POST, as the send is: a long script doesn't fit in an address. */
+export function useEstimate(send: Send | null): Price {
   const q = useSettled(send && { type: send.type, look: send.look, shape: send.shape, text: send.text?.trim() || undefined, script_id: send.script_id, slot: send.slot ?? undefined, brand_id: send.brand_id ?? undefined, broll_look: send.broll_look ?? undefined, cast_ids: send.cast_ids ?? undefined });
-  return useQuery({
+  const query = useQuery({
     queryKey: ["new-video-estimate", q],
     enabled: !!q && (!!q.script_id || (!!q.text && !!q.look)),
     retry: false,
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      const { data, error } = await api.GET("/freestyles/estimate", { params: { query: q! } });
+      const { data, error } = await api.POST("/freestyles/estimate", { body: q! });
       if (!data) throw new Error(errorText(error));
       return data;
     },
   });
+  if (query.isError) return { failed: query.error.message };
+  return { est: query.data, stale: query.isPlaceholderData };
 }
 
 /** Make it: one send, as the freestyle route takes it; a version that has a video answers 409 with it (SendError). */

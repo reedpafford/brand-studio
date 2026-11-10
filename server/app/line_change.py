@@ -83,7 +83,7 @@ def choice(db: Session, user: User, project: Project, words: str, new: str | Non
     what = f"clip{'s' if len(clips) > 1 else ''} {named}"
     what += " and the narration are" if _narrated(db, project) else (
         " are" if len(clips) > 1 else " is")  # fmt: skip
-    return {"title": TITLE, "do": DO, "line": n, "new": new[:200], "clips": clips,
+    return {"title": TITLE, "do": DO, "line": n, "new": new, "clips": clips,
             "why": f"A new version of the script says “{new}” for “{words}”. Only {what} made "
                    "again, then the cut"}  # fmt: skip
 

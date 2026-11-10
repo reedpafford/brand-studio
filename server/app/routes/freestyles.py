@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -53,7 +53,7 @@ from app.routes.estimate import run_price
 from app.routes.files import get_file
 from app.routes.jobs import CHANGE, DECLINE, PRICE, SAID, WITHDRAWN, enqueue, stop_jobs
 from app.routes.looks import off_reason
-from app.schemas import Note
+from app.schemas import Note, ScriptText
 
 router = APIRouter(prefix="/freestyles", tags=["freestyles"])
 ONE_CLIP = "one_clip"  # the other types are the formats on GET /formats
@@ -61,7 +61,6 @@ NO_BRAND = "Pick a brand first: every video is made inside a brand."
 OLD_NO_BRAND = "This older freestyle has no brand, so it can't be changed. Start a new video."
 Shape = Literal["9:16", "1:1", "16:9"]
 Status = Literal["waiting", "working", "delivered", "declined", "stopped", "withdrawn", "failed"]
-Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=5000)]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 ONE_SOURCE = "Paste a script, or pick one: not both."
 NO_LOOK = "Pick a style."
@@ -78,6 +77,8 @@ BUSY = "Wait for the last send to finish, or stop it."
 NONE = "No such freestyle."
 MAX_PROMPT = 6000  # what Quick clip sends at most
 TOO_LONG = "That's more changes than one clip can carry. Start a new freestyle from here."
+ONE_CLIP_LONG = ("One clip carries up to {:,} characters with its style, and these words make "
+                 "{:,}. Pick a format such as Dialogue for a longer script.")  # fmt: skip
 
 
 class FreestyleIn(BaseModel):
@@ -88,7 +89,7 @@ class FreestyleIn(BaseModel):
     look: str | None = None
     shape: Shape
     brand_id: int | None = None
-    text: Text | None = None
+    text: ScriptText | None = None
     script_id: int | None = None
     slot: int | None = None  # the script's version (A is 0, the default)
     make_another: bool | None = None  # a version that has a video: make a new one from it too
@@ -432,12 +433,19 @@ def _jobs(db: Session, fs: Freestyle) -> dict[int, Job]:
     return {j.id: j for j in db.scalars(select(Job).where(Job.id.in_(ids)))} if ids else {}
 
 
+def _fits(input: dict, changed: bool) -> dict:
+    """One clip's prompt within what Quick clip sends, never cut: every change rides in it
+    (409 past it), and a first send too long for one clip is told to pick a format (422)."""
+    if (n := len(input["input"]["prompt"])) <= MAX_PROMPT:
+        return input
+    if changed:
+        raise HTTPException(409, TOO_LONG)
+    raise HTTPException(422, ONE_CLIP_LONG.format(MAX_PROMPT, n))
+
+
 def _send(db: Session, user: User, fs: Freestyle, text: str) -> None:
     """Add a message and start its take: held for the owner when an editor sends it."""
-    texts = [m["text"] for m in fs.chat] + [text]
-    input = _job_input(fs, texts)
-    if len(input["input"]["prompt"]) > MAX_PROMPT:  # every change rides in one clip's prompt
-        raise HTTPException(409, TOO_LONG)
+    input = _fits(_job_input(fs, [m["text"] for m in fs.chat] + [text]), bool(fs.chat))
     input = {**input, SAID: text, CHANGE: bool(fs.chat)}  # for Needs you: what this send asks
     if fs.brand_id is None:  # charged to the hidden Freestyle brand: Usage shows it as such
         input["brand_id"] = _freestyle_brand(db, user.workspace_id).id
@@ -594,28 +602,20 @@ def _source(db: Session, user: User, body) -> tuple:
     return lib.format_id(script), script.look, script.brand_id, draft.text, script, draft
 
 
-@router.get("/estimate", response_model=EstimateOut)
+@router.post("/estimate", response_model=EstimateOut)
 def estimate_freestyle(
-    shape: Shape,
-    type: str = "dialogue",
-    look: str | None = None,
-    text: Text | None = None,
-    script_id: int | None = None,
-    slot: int = 0,
-    brand_id: int | None = None,
-    broll_look: str | None = None,
-    cast_ids: Annotated[list[int] | None, Query()] = None,
-    *,
+    body: FreestyleIn,
     request: Request,
     user: User = Depends(current_user),
     db: Session = Depends(_db),
 ):
     """What a send would cost, at most, and whether it would wait for the owner. Free: nothing
-    is queued and nothing is asked of a model; the video it weighs is never kept."""
-    body = FreestyleIn(type=type, look=look, shape=shape, text=text, script_id=script_id,
-                       slot=slot, brand_id=brand_id, broll_look=broll_look,
-                       cast_ids=cast_ids)  # fmt: skip
+    is queued and nothing is asked of a model; the video it weighs is never kept. A POST, as
+    the send is: a long script doesn't fit in an address (uvicorn refuses a request head past
+    16 KB; Reed, 10 Nov, saw one price on every long script)."""
+    body = body.model_copy(update={"folder_id": None, "attachments": None})  # the price only
     type, look, brand_id, text, script, draft = _source(db, user, body)
+    shape = body.shape
     _check(db, user, request, type, look, brand_id)
     if type != ONE_CLIP:  # the video's own price, from a video never kept
         fs = Freestyle(workspace_id=user.workspace_id, created_by_id=user.id, title="Estimate",
@@ -637,7 +637,7 @@ def estimate_freestyle(
         db.rollback()
         return out
     fs = Freestyle(id=0, look=look, shape=shape, brand_id=None)
-    input = _job_input(fs, [text])
+    input = _fits(_job_input(fs, [text]), False)
     units = Decimal(input["input"]["duration"])
     return _out_estimate(user, estimate(db, user.workspace_id, "video", units, input))
 
