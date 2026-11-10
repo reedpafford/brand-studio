@@ -74,7 +74,9 @@ services:
   claude-worker:
     <<: *server
     command: ["python", "-m", "app.worker"]
-    stop_grace_period: 10m  # a deploy lets the Claude call in hand finish
+    # A deploy lets the Claude call in hand finish: a full-length song's shots, 128k tokens
+    # at most, stream for 20-30 minutes (Reed, 10 Nov)
+    stop_grace_period: 30m
     environment:
       <<: *server-env
       STUDIO_ANTHROPIC_KEY: ${STUDIO_ANTHROPIC_KEY:-}

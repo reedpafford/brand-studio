@@ -17,7 +17,8 @@ holds ports 80, 443 and 8443 and forwards here over a private Docker network,
 
 **Deploys:** every push to `next` runs `.github/workflows/deploy-next.yml` (checks first, then
 `deploy/next/remote-deploy.sh` over SSH). Safe to re-run. A deploy lets each worker finish the job
-in hand (up to 10 minutes), then restarts in about a minute. **It refuses to deploy** (nothing
+in hand (up to 10 minutes; the Claude worker up to 30, for a long video's shots), then restarts
+in about a minute. **It refuses to deploy** (nothing
 changes) unless repo variable `NEXT_FAKE_PROVIDERS` is `false`.
 
 **Backups:** every night at 3:30 (server time) the database and all files are saved to

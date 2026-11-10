@@ -18,6 +18,11 @@ from app.models.storyboards import StoryboardFrame
 STEP, KIND = "review_stills", "check-claude"
 NO_STILLS = "Draw the stills first."
 REDRAWS = 2  # a still redrawn for the review, a run
+# Anthropic's limits on one request (vision docs, 10 Nov): 600 pictures for a 1M-token model,
+# a stricter size past 20 (3,000 px on a side is safe) and 128 MB in all. A full-length song's
+# 150-280 stills and their sheets are well under 600, and past MANY pictures each goes at
+# SMALLER px on its long side (about 150 KB as sent), so 300 are about 50 MB.
+MANY, SIDE, SMALLER = 100, 1024, 768
 SHEET = re.compile(r"\bsheets?\b", re.I)  # "match her character sheet"
 OWNED = re.compile(r"\b([A-Z][\w-]+)['’]s (?:\w+ ){0,2}sheet")  # "Maya's character sheet"
 
@@ -61,7 +66,8 @@ def start(db: Session, user: User, project: Project, run: dict | None) -> str:
     system, _ = project_context(db, project, STEP)  # its look's skill and craft
     text = treatment_block(db, project) + prompts.review_stills_input(beats, seen)
     data = {"step": STEP, "project_id": project.id, "director_run": run, "system": system,
-            "prompt": text, "effort": "high", "max_tokens": 32_000, "fit_images_to": 1024,
+            "prompt": text, "effort": "high", "max_tokens": 32_000,
+            "fit_images_to": SIDE if len(images) <= MANY else SMALLER,
             "seen": {str(f.id): f.file_id for f in drawn},
             "files": {"reference_images": images}}  # fmt: skip
     units = len(drawn)

@@ -7,7 +7,8 @@ import re
 
 import pytest
 
-from app import claude, director, watch_cut
+from app import claude, director, still_review, watch_cut
+from app.models.accounts import User
 from app.models.asks import Ask
 from app.models.clips import ClipTake, ProjectClip
 from app.models.freestyles import Freestyle
@@ -93,3 +94,55 @@ def test_a_thousand_word_script_goes_through_every_step(app, db, owner):
     listen = next(j for j in jobs if j.kind == "cut_listen")  # its watch: about 3 frames a clip
     overview = [x for x in listen.output["strips"] if "over the whole" in x["what"]]
     assert len(overview) * 8 >= watch_cut.PER_CLIP * clips - 8  # 8 upright frames a strip
+
+
+SUNG = ["Wake up hungry", "Bowl is bright", "Iron Paws tonight", "Tail so high",
+        "Gut so happy", "My best ally", "Crunch and run", "Here comes the sun"]  # fmt: skip
+SHOT_TOKENS = 230  # a real shot's answer (294: 19 shots, 14,800 characters)
+FRAME_TOKENS = 300  # a real still prompt's
+MOST_PICTURES = 600  # a request's pictures on a 1M-token model (Anthropic's vision docs)
+
+
+def test_a_full_length_song_has_room_for_its_shots_and_stills(app, db, owner, monkeypatch):
+    """Reed's full-length Pixar songs (about 1,000 words, 5.5 minutes) at song density, a shot
+    a sung line, 160 of them, reach the stills and the clip prompts on the stand-ins; the
+    shots and storyboard calls have the model's whole room (Reed, 10 Nov: the stopgap), and
+    a stills review of 150-odd stills stays well under Anthropic's 600 pictures a request."""
+    monkeypatch.setattr(app.state.settings, "kie_suno", True)
+    long = f"{director.STAND_IN_STYLE} fake:long=400"  # a word a beat: 800 words, 6.5 minutes
+    monkeypatch.setattr(director, "STAND_IN_STYLE", long)
+    lyrics = "\n".join(f"{SUNG[n % len(SUNG)]}, bar {n + 1}" for n in range(160))
+    body = {"type": "song", "look": "house", "shape": "9:16", "text": lyrics,
+            "brand_id": first_brand(owner)}  # fmt: skip
+    r = owner.post("/freestyles", json=body)
+    assert r.status_code == 201, r.text
+    video = db.get(Project, db.get(Freestyle, r.json()["id"]).project_id,
+                   execution_options={"see_hidden": True})  # fmt: skip
+    _run(app, db, ticks=300)
+    jobs = db.query(Job).filter(Job.project_id == video.id).order_by(Job.id).all()
+
+    assert not [(j.id, j.input.get("step"), j.error) for j in jobs if j.status == "failed"]
+    done = {j.input.get("step") for j in jobs if j.status == "succeeded"}
+    assert {"song_breakdown", "storyboard", "clip_prompts"} <= done, done
+    (shots_job,) = [j for j in jobs if j.input.get("step") == "song_breakdown"]
+    shots = sum(len(sc["shots"]) for sc in shots_job.output["scenes"])
+    assert shots >= 150, shots
+    for step in ("song_breakdown", "storyboard"):  # the model's most, never past it
+        rooms = {j.input["max_tokens"] for j in jobs if j.input.get("step") == step}
+        assert rooms == {claude.MOST_TOKENS}, (step, rooms)
+    # Real answers this size, with as much again for the thinking, still fit (a still a shot
+    # at most: one a clip is fewer)
+    assert 2 * shots * SHOT_TOKENS < claude.MOST_TOKENS > 2 * shots * FRAME_TOKENS
+    (review,) = [j for j in jobs if j.input.get("step") == still_review.STEP]
+    assert review.input["fit_images_to"] == still_review.SIDE  # a few stills: as before
+
+    drawn = still_review.frames(db, video)  # one still a shot: the stills review's pictures
+    monkeypatch.setattr(still_review, "frames", lambda db, project: drawn * (shots // len(drawn)))
+    still_review.start(db, db.get(User, video.created_by_id), video, None)
+    review = db.query(Job).filter(Job.project_id == video.id).order_by(Job.id.desc()).first()
+    seen = len(review.input["files"]["reference_images"])
+    assert (
+        review.input["step"] == still_review.STEP
+        and 150 <= seen <= MOST_PICTURES
+        and review.input["fit_images_to"] == still_review.SMALLER
+    )
