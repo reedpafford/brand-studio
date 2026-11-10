@@ -300,10 +300,10 @@ def test_deploy_gives_claude_stills_and_reel_prep_a_worker_each():
     assert compose.count("stop_grace_period: 10m") == len(lanes)
 
 
-def test_a_restart_asks_the_job_it_cut_off_mid_answer_again_once(db, user):
+def test_a_restart_asks_the_job_it_cut_off_mid_answer_again_once(db, user, caplog):
     """P1: a deploy failed the Claude call or local job in hand ("The server restarted… try
     again"). It goes back in the queue once (its answer was never kept, so nothing is applied
-    twice); cut off a second time, it fails as before."""
+    twice), logged so a billed call cut off can be found; cut off again, it fails as before."""
     from app.worker import RESTARTED
 
     providers = {"claude": SlowClaude(), "local": SlowClaude()}
@@ -313,6 +313,9 @@ def test_a_restart_asks_the_job_it_cut_off_mid_answer_again_once(db, user):
     db.commit()
     recover(db, providers)
     assert _statuses(db, jobs) == [JobStatus.queued] * 2
+    logged = [m for r in caplog.records if "cut off by a restart" in (m := r.getMessage())]
+    assert logged == [f"job {j.id} (write-claude, {j.provider}, video None) was cut off by a "
+                      "restart: queued again" for j in jobs]  # fmt: skip
     run_once(db, providers)
     assert [p.asked for p in providers.values()] == [["write-claude"]] * 2
     assert _statuses(db, jobs) == [JobStatus.succeeded] * 2
@@ -362,12 +365,17 @@ def _statuses(db, jobs) -> list[str]:
 
 def test_each_local_lane_gets_its_own_share_of_the_cpus(monkeypatch):
     """S1: two lanes' whisper reads and ffmpeg encodes never crowd onto the same cores: each
-    lane (and what it starts) is pinned to its share, which whisper sizes its threads to."""
+    lane (and what it starts) is pinned to its share, which whisper sizes its threads to. Only
+    with 2 CPUs a lane or more: on the 2-CPU server each lane sees both, so a lone cut render
+    isn't held to half the machine (QA on #1526)."""
     import os
 
     from app.worker import shares
 
-    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: {0, 1, 2, 3}, raising=False)
+    cpus = {0, 1, 2, 3}
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: cpus, raising=False)
     monkeypatch.setattr(os, "sched_setaffinity", lambda pid, cpus: None, raising=False)
     assert shares(2) == [[0, 2], [1, 3]]
-    assert shares(1) == [None] and shares(5) == [None] * 5  # one lane, or too few cores
+    assert shares(1) == [None] and shares(3) == [None] * 3  # one lane, or under 2 CPUs a lane
+    cpus = {0, 1}  # the live server (Hostinger KVM 2)
+    assert shares(2) == [None, None]

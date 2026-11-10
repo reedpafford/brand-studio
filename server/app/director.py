@@ -804,6 +804,7 @@ def _again(db: Session, job: Job) -> bool:
     (audit 6 Nov: one bad answer ended the run): the same turn, needing no new OK; only its
     answer, if it comes, is charged. Whether it was asked again."""
     from app.claude import RAN_OUT, UNREADABLE
+    from app.worker import RESTART
 
     if job.retry_of_id or (job.error_detail or "") not in (RAN_OUT, UNREADABLE):
         return False
@@ -812,7 +813,8 @@ def _again(db: Session, job: Job) -> bool:
         return True
     db.refresh(job)
     db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
-               provider=job.provider, input={k: v for k, v in job.input.items() if k != RETRIED},
+               provider=job.provider,  # a fresh turn: its own restart, if any, re-queues it
+               input={k: v for k, v in job.input.items() if k not in (RETRIED, RESTART)},
                project_id=job.project_id, brand_id=job.brand_id, credits=job.credits,
                approved_by_id=job.approved_by_id, status=JobStatus.queued,
                retry_of_id=job.id))  # fmt: skip

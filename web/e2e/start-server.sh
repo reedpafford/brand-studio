@@ -14,6 +14,7 @@ export BS_GENERATION_ENABLED=false  # real paid generation is off
 export BS_FAKE_PROVIDERS=true       # the stand-ins are free, so tests may press Generate
 export BS_OWNER_UNCAPPED=false      # Reed is held as the team is, as server/tests/conftest.py does
 export BS_WORKER_POLL_SECONDS=0.2
+export BS_LOCAL_WORKERS=1           # one local job at a time on the shared SQLite file
 uv run alembic upgrade head
 uv run python -m app.worker &
 worker=$!

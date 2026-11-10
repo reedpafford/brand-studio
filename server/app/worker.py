@@ -210,8 +210,10 @@ RESTART = "restarted"  # in a job's input: put back in the queue after a restart
 def recover(db: Session, providers: dict[str, Provider], only: set[str] | None = None) -> None:
     """On boot: jobs marked running but never handed to the provider. One cut off mid-answer
     by a restart (a deploy) goes back in the queue once: its answer is kept in the same commit
-    as its status (`_finish`), so nothing of it was kept and nothing is applied twice; Claude
-    bills at most one more call. Cut off a second time, it fails as before."""
+    as its status (`_finish`), so nothing of it was kept and nothing is applied twice. The
+    call cut off may have been billed, so a Claude job costs at most one more run of itself
+    (clip prompts in parts ask every part again); each is logged so it can go in SPEND.md.
+    Cut off a second time, it fails as before."""
     query = select(Job).where(Job.status == JobStatus.running, Job.provider_ref.is_(None))
     for job in db.scalars(_mine(query, only)).all():
         if job.provider not in providers:
@@ -221,9 +223,10 @@ def recover(db: Session, providers: dict[str, Provider], only: set[str] | None =
                 _stop(db, job)
             elif job.input.get(RESTART):
                 _fail(db, job, RESTARTED)
-            else:
-                _move(db, job, JobStatus.running, JobStatus.queued,
-                      input={**job.input, RESTART: True})  # fmt: skip
+            elif _move(db, job, JobStatus.running, JobStatus.queued,
+                       input={**job.input, RESTART: True}):  # fmt: skip
+                log.warning("job %s (%s, %s, video %s) was cut off by a restart: queued again",
+                            job.id, job.kind, job.provider, job.project_id)  # fmt: skip
         elif providers[job.provider].paid:
             _fail(db, job, UNSURE, CHECK)
         else:
@@ -663,19 +666,23 @@ def serve(ticks: list, poll: float) -> None:
               for n, (t, c) in enumerate(zip(ticks, cpus, strict=True)) if n]  # fmt: skip
     for t in others:
         t.start()
-    loop(ticks[0], cpus[0])
-    for t in others:
-        t.join()
+    try:
+        loop(ticks[0], cpus[0])
+    finally:  # Ctrl-C, or this lane dying: the others finish their job in hand and stop too
+        STOP.set()
+        for t in others:
+            t.join()
 
 
 def shares(lanes: int) -> list[list[int] | None]:
     """Each lane's share of the CPUs this process may use (Linux), so two lanes' whisper reads
     and ffmpeg encodes never crowd onto the same cores (app/whisper.threads sizes to it). None
-    (no pinning) for one lane, off Linux, or with fewer CPUs than lanes."""
+    (no pinning: each sees every CPU) for one lane, off Linux, or with under 2 CPUs a lane: on
+    the 2-CPU server, pinning would halve a lone cut render's speed."""
     if lanes < 2 or not hasattr(os, "sched_setaffinity"):
         return [None] * lanes
     cpus = sorted(os.sched_getaffinity(0))
-    if len(cpus) < lanes:
+    if len(cpus) < 2 * lanes:
         return [None] * lanes
     return [cpus[n::lanes] for n in range(lanes)]
 
