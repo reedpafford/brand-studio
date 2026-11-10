@@ -70,6 +70,21 @@ def test_three_hooks_are_three_videos_beside_it_each_priced_as_its_first_clip(
             db, source)["hook"]  # fmt: skip
 
 
+def test_a_variations_new_treatment_never_plans_the_video_again(app, db, owner, editor,
+                                                               monkeypatch):  # fmt: skip
+    """QA on #1530: tonight's hooks are Variations; their run's treatments never re-plan the
+    whole finished video (`director.plan_behind`: only a run planning before Make it)."""
+    from tests.test_direction_card import two_treatments
+
+    pid = _delivered(app, db, owner, editor, monkeypatch)
+    video = _variations(app, db, owner, pid, count=2, part="hook", note="Open on the money.")[0]
+    run = {**director.turns(db, video)[-1].input[director.RUN], "ok": False}  # before Make it
+    two_treatments(db, video, run["id"])
+    assert run.get(director.REVISION) and not director.plan_behind(db, video, run)
+    planning = {**run, director.REVISION: False, "hold": ""}  # as a first run plans: control
+    assert director.plan_behind(db, video, planning)
+
+
 def test_make_it_on_a_variation_makes_only_its_changed_clip(app, db, owner, editor, monkeypatch):
     from tests.test_line_change import _charged
 

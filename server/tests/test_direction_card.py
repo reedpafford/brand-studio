@@ -194,5 +194,51 @@ def test_a_change_to_the_plan_first_plans_again_before_the_card_comes_back(
                if j.input.get("step") == "treatment")  # fmt: skip
     plan, shots = project.plan["made_at"], newest(db, project).created_at
     assert plan > told.isoformat() and shots > told  # both from the new treatment
-    said = [t.input.get("result") for t in director.turns(db, project)]
+    turns = director.turns(db, project)
+    said = [t.input.get("result") for t in turns]
     assert director_tools.PLANNED_AGAIN in said and director.PLAN_BEHIND not in said, said
+    ok = turns[said.index(director_tools.PLANNED_AGAIN) + 1]  # the server approves its re-plan
+    assert ok.input["result"] == "Approved the plan; making the shots.", said
+    assert ok.provider == "server"  # no paid turn only to approve it
+
+
+def two_treatments(db, project: Project, run_id: str) -> None:
+    """Two of the run's treatments, its plan and shots made between them: what a run still
+    planning before Make it plans again from (`plan_behind`)."""
+    from datetime import timedelta
+
+    from app import plans
+    from app.clip_prompts import newest
+    from app.db import utcnow
+    from app.models.jobs import JobStatus
+
+    now = utcnow()
+    for at in (now - timedelta(minutes=10), now):
+        db.add(Job(workspace_id=project.workspace_id, created_by_id=project.created_by_id,
+                   kind="write-claude", provider="claude", project_id=project.id, credits=0,
+                   input={"step": "treatment", "project_id": project.id,
+                          director.RUN: {"id": run_id}},
+                   status=JobStatus.succeeded, finished_at=at))  # fmt: skip
+    plans.current(db, project)
+    project.plan = {**project.plan, "made_at": (now - timedelta(minutes=5)).isoformat()}
+    newest(db, project).created_at = now - timedelta(minutes=4)
+    db.commit()
+
+
+def test_a_new_treatment_redoes_the_plan_only_while_a_run_plans_before_make_it(
+    app, db, owner, editor
+):
+    """QA on #1530: a revision, a Variation (a revision run too: test_video_variations), one
+    held for the owner, or any run after Make it keeps its plan whatever its treatments."""
+    pid, _ = _video(app, owner, editor, db)
+    project = db.get(Project, pid)
+    two_treatments(db, project, "r")
+    planning = {"id": "r", "ok": False}
+    assert director.plan_behind(db, project, planning)  # still planning before its Make it
+    for run in ({**planning, "ok": True}, {**planning, director.REVISION: True},
+                {**planning, "hold": "Ed's send waits for Reed."}, {"id": "r"}, None):  # fmt: skip
+        assert not director.plan_behind(db, project, run), run
+    assert director._behind(db, project, planning) == director.PLAN_BEHIND
+    project.plan = {**project.plan, "made_at": director.utcnow().isoformat()}  # planned again
+    db.commit()
+    assert director._behind(db, project, planning) == director.SHOTS_BEHIND  # its shots: older

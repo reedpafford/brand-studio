@@ -339,8 +339,8 @@ def test_a_question_too_long_is_said_shorter_and_never_ends_the_run_at_once(
     app, db, owner, editor, monkeypatch, shorter
 ):
     """Video 342: a 563-character question was refused twice and the run ended. It's said
-    shorter (never cut); only after LONG_TRIES refusals in a row does the run stop, with Carry
-    on offered."""
+    shorter (never cut); the LONG_TRIES-th refusal in a row stops the run, with Carry on
+    offered, and a question said right on that try is asked (QA on #1530: never dropped)."""
     from tests.test_asks import QUESTION
 
     tries = []
@@ -364,7 +364,8 @@ def test_a_question_too_long_is_said_shorter_and_never_ends_the_run_at_once(
         assert len(long) == director.LONG_TRIES - 1 and not out["ended"], said
         assert [w["topic"] for w in out["waiting"]] == ["Who it's for"]
     else:
-        assert len(long) == director.LONG_TRIES + 1 and said[-1].startswith("Refused again")
+        assert len(long) == len(said) == director.LONG_TRIES, said  # no try past the last
+        assert said[-1].startswith("Refused again")
         assert out["ended"].startswith("It stopped: an ask's question is at most 500")
         assert out["carry_on"] is not None  # parked: Carry on, never a dead end
 
