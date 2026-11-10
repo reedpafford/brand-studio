@@ -2208,24 +2208,57 @@ def treatment_block(db: Session, project: Project, notes: bool = True) -> str:
 
     told = prompts.treatment_block(treatment(db, project))
     asked = run_notes(db, project) if notes else []
-    said = "\n".join(f"Note {n}: {text}" for n, text in asked)
+    said = "\n".join(f"Note {n}: {text}" for n, text, _ in asked)
     return (f"{told}\n" if told else "") + (f"<notes>\n{said}\n</notes>\n" if said else "")
 
 
-def run_notes(db: Session, project: Project) -> list[tuple[int, str]]:
+def run_notes(db: Session, project: Project) -> list[tuple[int, str, str]]:
     """The going run's notes from people, numbered as the director reads them ("Note 1")."""
     going = active(db, project)
-    return list(enumerate((m["text"] for m in chat(project, going.input[RUN]["id"])), 1)) if (
-        going) else []  # fmt: skip
+    return timed_notes(project, going.input[RUN]["id"]) if going else []
 
 
-def against_notes(row: ProjectClip, notes: list[tuple[int, str]]) -> dict:
+def timed_notes(project: Project, run_id: str | None) -> list[tuple[int, str, str]]:
+    """A run's notes: (number, text, when it came: "" unknown)."""
+    return [(n, m.get("text") or "", m.get("at") or "") for n, m in enumerate(
+        (m for m in project.director_chat or [] if m.get("run") == run_id), 1)]  # fmt: skip
+
+
+def against_notes(db: Session, row: ProjectClip, notes: list[tuple[int, str, str]]) -> dict:
     """The run's notes that take away something this clip's prompt still shows ("no phone"
-    and a phone in the prompt), for the director to check before its take: {} with none."""
+    and a phone in the prompt), for the director to check before its take: {} with none.
+    Video 345 held 41 first takes for one clip a turn: a sentence or clause that names clips
+    ("Remove from clip 10's prompt any man") is about those alone (`about`), and a note the
+    clip prompts call that wrote the prompt in hand was given is done (`read_by_writer`: the
+    brief's "no phone screen" held every selfie prompt that keeps the phone out of sight)."""
     from app.clip_takes import contradicts
 
-    said = [f"Note {n}" for n, text in notes if contradicts(row.prompt, text)]
+    said = [f"Note {n}" for n, text, at in notes
+            if contradicts(row.prompt, about(text, row.clip_id))
+            and not read_by_writer(db, row, at)]  # fmt: skip
     return {"against_notes": said} if said else {}
+
+
+def about(note: str, clip_id: str) -> str:
+    """What a note says about this clip: a sentence or clause that names clips ("clip 10",
+    "clips 3 to 5") is about those alone, the rest about every clip ("No phone anywhere;
+    clip 1 ends on her face.")."""
+    from app.revision import named
+
+    parts = re.split(r"(?<=[.!?;\n])\s+", note or "")
+    return " ".join(p for p in parts if clip_id in (named(p) or {clip_id}))
+
+
+def read_by_writer(db: Session, row: ProjectClip, at: str) -> bool:
+    """The clip prompts call that wrote the prompt in hand began after `at` (a note's time;
+    "" unknown: never), so the run's notes it was given (<notes>) had it. Change it…, a hand
+    edit, the free fix and a fit to the model's limit never read the notes: never counted."""
+    history = row.prompt_history or []
+    wrote = history[0].get("job_id") if history else row.job_id
+    writer = db.get(Job, wrote) if wrote and at else None
+    return bool(writer and writer.input.get("step") == "clip_prompts"
+                and not writer.input.get("fix") and not writer.input.get("fit")
+                and writer.created_at.isoformat() > at)  # fmt: skip
 
 
 def old_take(row: ProjectClip) -> dict:
@@ -2311,7 +2344,7 @@ def video_state(db: Session, project: Project) -> dict:
                         **({"unscripted": extra} if extra else {}),
                         "set_aside": False})  # Start the plan again: `set_aside`  # fmt: skip
         clips.append({"clip_id": row.clip_id, "stale": bool(bd and row.breakdown_id != bd.id),
-                      **old_take(row), **against_notes(row, notes_now),
+                      **old_take(row), **against_notes(db, row, notes_now),
                       "shots": [{"id": i, "action": shots[i].get("action", ""),
                                  "line": shots[i].get("line")}
                                 for i in ids_of.get(row.clip_id, []) if i in shots],

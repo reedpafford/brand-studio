@@ -755,14 +755,15 @@ def take_warning(db: Session, row: ProjectClip) -> str | None:
 # car"): the thing it names, to look for in the prompt (226 c4, A7 in session 35's costs)
 TAKES_AWAY = re.compile(
     r"\b(?:no|without|remove|replace|instead of)\s+"  # never "not": "not wide enough"
-    r"(?:the |a |an |any |his |her |their |its )?([a-z][a-z-]{2,})",
+    r"(?:the |a |an |any |all |every |his |her |their |its )?([a-z][a-z-]{2,})",
     re.I,
 )
 
 
 NOT_SEEN = ("Audio:", "Language:", "Style:")  # a clip prompt's sound, language and style lines
 FIXED = ("No one speaks.", "No subtitles.")  # every wordless shot's own words, never a picture
-NOT_A_THING = {"one", "else", "more", "other", "others", "longer", "matter", "way", "need"}
+NOT_A_THING = {"one", "else", "more", "other", "others", "longer", "matter", "way", "need",
+               "from"}  # fmt: skip  # 345: "Remove from clip 10's prompt…" took "from"
 
 
 def contradicts(prompt: str, note: str) -> bool:
@@ -772,12 +773,23 @@ def contradicts(prompt: str, note: str) -> bool:
     Setting, the shots, Keep, References; never `NOT_SEEN`): the Audio lines and the fixed
     "No one speaks." / "No subtitles." name music, voices and subtitles in every prompt (QA on
     #1410: "No music, please." isn't in the picture), and "no one else" takes away no thing."""
+    return bool(still_shown(prompt, note))
+
+
+def still_shown(prompt: str, note: str) -> set[str]:
+    """What the note takes away that the prompt's picture still shows (`contradicts`), each
+    as `taken_away` names it."""
     shown = "\n".join(x for x in (prompt or "").splitlines() if not x.startswith(NOT_SEEN))
     for said in FIXED:
         shown = shown.replace(said, "")
-    words = set(re.findall(r"[a-z-]+", shown.lower()))
-    found = [w for m in TAKES_AWAY.finditer(note or "") if (w := m[1].lower()) not in NOT_A_THING]
-    return any(w in words or w.removesuffix("s") in words or f"{w}s" in words for w in found)
+    words = {w.removesuffix("s") for w in re.findall(r"[a-z-]+", shown.lower())}
+    return taken_away(note) & words
+
+
+def taken_away(note: str) -> set[str]:
+    """The things a note takes away ("no phones": phone), never `NOT_A_THING`."""
+    return {w.removesuffix("s") for m in TAKES_AWAY.finditer(note or "")
+            if (w := m[1].lower()) not in NOT_A_THING}  # fmt: skip
 
 
 NOTE_MAX = 500  # a Redo note's characters at most (project_clips.TakeIn)
