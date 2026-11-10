@@ -82,8 +82,8 @@ export function Direction({ projectId }: { projectId: number }) {
                 <li key={c.id} className="flex items-center gap-1.5">
                   <span className="shrink-0 tabular-nums text-muted">{`Clip ${i + 1} · ${c.seconds} s`}</span>
                   {real && (
-                    <span className="shrink-0" title={`From your footage, ${real.start}–${real.end} s${real.sound ? "" : ", muted"}`}>
-                      <Badge>Real footage</Badge>
+                    <span className="shrink-0">
+                      <Badge>{`Real footage · ${real.start}–${real.end} s`}</Badge>
                     </span>
                   )}
                   <span className="min-w-0 truncate">{shot?.action}</span>

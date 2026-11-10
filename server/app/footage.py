@@ -37,6 +37,11 @@ TOLD = {"director", "treatment", "plan", "storyboard", "clip_prompts", "narrated
 SHOWN = ("treatment", *PLANS)  # its frames are seen where the story and the shots are made
 NOT_MADE = ("This shot is the brand's real footage: it's cut from the clip, never made. Change "
             "its in and out points in the plan, or take the footage off the shot.")  # fmt: skip
+NOT_UGC = "real footage is a shot only in UGC"
+DROPPED = ("The B-roll isn't in the UGC look now, so its real footage shots are made like the "
+           "rest: write their clip prompts and make their takes, then make the video.")  # fmt: skip
+WATCHED = ("Real footage isn't remade. If this stretch doesn't show its line, tell the director "
+           "which part of the clip to use, and the plan picks it again.")  # fmt: skip
 
 
 def live(db: Session, brand_id: int) -> list[MediaUpload]:
@@ -160,8 +165,10 @@ def checked(db: Session, project: Project, bd, timed: bool = False):
     """Each footage shot as it can be used (free, in code; each change said as Advice): only
     in UGC, only on a B-roll shot nobody speaks in that is a clip of its own, only a clip of the
     brand's, each once in the video; its stretch kept inside the clip. It shows the real thing:
-    no cast sheet or screen goes with it. Not `timed` (a song's or a narration's clock): the
-    shot is as long as its stretch."""
+    no cast sheet or screen goes with it. Not `timed`: the shot is as long as its stretch.
+    `timed` (a narration's or a song's clock sets the shot's seconds): the stretch is fitted to
+    them, from its in point, moved back to stay inside the clip; a clip shorter than the shot
+    is never held on a frozen frame: the shot is made instead (QA on #1513)."""
     shots = [s for scene in bd.scenes for s in scene.shots]
     if not any(s.footage for s in shots):
         return bd, []
@@ -170,20 +177,25 @@ def checked(db: Session, project: Project, bd, timed: bool = False):
     seen, notes = set(), []
     for s in (s for s in shots if s.footage):
         use, clip = s.footage, clips.get(s.id)
-        why = ("real footage is a shot only in UGC" if not ugc(project)
+        length = (have[use.id].seconds or 0) if use.id in have else 0
+        why = (NOT_UGC if not ugc(project)
                else "someone speaks in it" if _talks(s)
                else "that clip isn't in the brand's footage" if use.id not in have
                else f"{use.id} is already shown in this video" if use.id in seen
                else "it shares its clip with other shots" if clip and len(clip.shot_ids) > 1
+               else f"the clip is {length:.1f} s, shorter than the shot's {s.seconds:.1f} s"
+               if timed and length < s.seconds - 0.05
                else "")  # fmt: skip
         if why:
             s.footage = None
             notes.append(f"Advice: Shot {s.id} is made, not real footage: {why}.")
             continue
         seen.add(use.id)
-        length = have[use.id].seconds or 0
         start = round(min(max(use.start, 0.0), max(length - SHORTEST, 0.0)), 2)
         end = round(min(max(use.end, start + SHORTEST), length), 2)
+        if timed:  # exactly the shot's time on its clock, inside the clip
+            start = round(max(0.0, min(start, length - s.seconds)), 2)
+            end = round(min(start + s.seconds, length), 2)
         s.footage = use.model_copy(update={"start": start, "end": end})
         s.character_ids, s.screen_ids, s.screen_figure = [], [], None
         if not timed:
@@ -216,28 +228,44 @@ def is_footage(take: ClipTake | None) -> bool:
     return bool(take and (take.made_with or {}).get("footage"))
 
 
+HEAD = "Real footage from the brand's library"  # a footage clip's prompt: it has no other
+
+
 def _prompt(row: MediaUpload, use: dict) -> str:
-    return (f"Real footage from the brand's library ({KEY}{row.id}, {use['start']:.1f}–"
+    return (f"{HEAD} ({KEY}{row.id}, {use['start']:.1f}–"
             f"{use['end']:.1f} s{'' if use.get('sound') else ', muted'}): "
             f"{row.description.strip()}")  # fmt: skip
 
 
-def settle(db: Session, project: Project, user_id: int | None = None, first: bool = True) -> None:
+def settle(db: Session, project: Project, user_id: int | None = None, first: bool = True) -> bool:
     """The newest plan's footage clips, free: each has its row (the plan's, so its prompt is
     never written) and its take, cut from the clip on our server (`TAKE`), picked once it's
     made; one cut for this use already is picked again. A clip the plan now makes stops using
-    a footage take. Not `first`: only once the video's clips are written (their prompts come
-    first, as the director asks for them)."""
+    a footage take, and one that never had a prompt of its own goes (its prompt is written and
+    its take made like any clip's). Not `first`: only once the video's clips are written
+    (their prompts come first, as the director asks for them). Never outside UGC: a video
+    whose B-roll look changed has its footage shots taken out of the plan (True: it had some),
+    whenever its clips are written, its look switched or its cut made (QA on #1513)."""
+    from sqlalchemy import delete
+
     from app.clip_prompts import newest
 
     bd = newest(db, project)
+    dropped = bd is not None and not ugc(project) and _unplan(bd)
     rows = {r.clip_id: r for r in db.scalars(select(ProjectClip).where(
         ProjectClip.project_id == project.id))}  # fmt: skip
     if bd is None or not (first or rows):
-        return
+        return dropped
     wanted = uses(bd.data)
     for clip_id, row in rows.items():
-        if clip_id not in wanted and is_footage(db.get(ClipTake, row.picked_take_id or 0)):
+        if clip_id in wanted:
+            continue
+        if (row.prompt or "").startswith(HEAD):  # never written: written now, as any clip
+            row.picked_take_id = None
+            db.flush()
+            db.execute(delete(ClipTake).where(ClipTake.clip_id == row.id))
+            db.delete(row)
+        elif is_footage(db.get(ClipTake, row.picked_take_id or 0)):
             row.picked_take_id = row.file_id = None
     for clip_id, use in wanted.items():
         source = db.get(MediaUpload, int(use["id"].removeprefix(KEY)))
@@ -263,6 +291,22 @@ def settle(db: Session, project: Project, user_id: int | None = None, first: boo
                           "footage": use, "video_key": db.get(StoredFile, source.file_id).key,
                           "clip_prompt": row.prompt}))  # fmt: skip
     db.flush()
+    return dropped
+
+
+def _unplan(bd) -> bool:
+    """The plan's footage shots made like the rest, each said as Advice on it (its video isn't
+    UGC now: its B-roll look was switched after the plan). True when it took any out."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    notes = []
+    for shot in (s for sc in bd.data.get("scenes", []) for s in sc.get("shots", [])):
+        if shot.pop("footage", None):
+            notes.append(f"Advice: Shot {shot['id']} is made, not real footage: {NOT_UGC}.")
+    if notes:
+        bd.problems = [*(bd.problems or []), *notes]
+        flag_modified(bd, "data")
+    return bool(notes)
 
 
 def _cutting(db: Session, row_id: int, use: dict) -> bool:
@@ -346,3 +390,5 @@ def describe_failed(db: Session, job: Job) -> None:
     row = db.get(MediaUpload, job.input.get("media_upload_id") or 0)
     if row is not None and row.describe_job_id == job.id:
         row.describe_job_id = None
+        row.describe_note = ("The AI couldn’t describe it, and nothing was charged. Edit it to "
+                             "say what it shows.")  # fmt: skip

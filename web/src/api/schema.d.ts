@@ -8053,6 +8053,11 @@ export interface components {
             product_id: number | null;
             /** Describing */
             describing: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** FootageUse */
         FootageUse: {

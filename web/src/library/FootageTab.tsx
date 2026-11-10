@@ -182,10 +182,11 @@ function ClipCard({ brandId, clip }: { brandId: number; clip: Footage }) {
             ) : clip.description ? (
               <p className="text-sm">{clip.description}</p>
             ) : (
-              <p className="text-sm text-warning">Not described yet. Edit it to say what it shows; the director skips it until then.</p>
+              <p className="text-sm text-warning">{clip.note || "Not described yet. Edit it to say what it shows; the director skips it until then."}</p>
             )}
             <div className="mt-auto flex flex-wrap gap-2">
-              <Button variant="secondary" icon={Pencil} onClick={() => setEditing(true)}>
+              {/* as the server has it now: the AI's words may have come in since the card first drew */}
+              <Button variant="secondary" icon={Pencil} onClick={() => (setWords(clip.description), setProduct(clip.product_id ?? null), setEditing(true))}>
                 Edit
               </Button>
               <Button variant="ghost" icon={Trash2} busy={remove.isPending} onClick={() => remove.mutate()}>

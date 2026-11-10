@@ -153,6 +153,50 @@ def test_a_footage_shot_is_only_a_ugc_b_roll_clip_of_its_own_used_once(app, db, 
                     "in UGC."]  # fmt: skip
 
 
+def test_a_narrated_footage_shot_fills_its_narration_time_and_is_never_held_frozen(app, db, owner):
+    video = _video(db, owner)  # a corner presenter's narration is the clock (QA on #1513)
+    a, b, c = (f"{footage.KEY}{_described(app, db, owner, video.brand_id)}" for _ in range(3))
+
+    def use(of, start, end, seconds):
+        return {"seconds": seconds, "footage": {"id": of, "start": start, "end": end,
+                                                "sound": False}}  # fmt: skip
+
+    bd, said = footage.checked(db, video, _plan(
+        ("1.1", use(a, 2.0, 4.0, 3.4)), ("1.2", use(b, 4.0, 5.0, 3.4)),
+        ("1.3", use(c, 0.0, 6.0, 7.0))), timed=True)  # fmt: skip
+    shots = {s.id: s for s in bd.scenes[0].shots}
+    one, two = shots["1.1"].footage, shots["1.2"].footage
+    assert (one.start, one.end) == (2.0, 5.4)  # from its in point, as long as its narration
+    assert two.end - two.start == pytest.approx(3.4) and two.start < 4.0  # moved back inside
+    assert shots["1.2"].seconds == 3.4 and shots["1.3"].footage is None  # never a frozen hold
+    assert said == ["Advice: Shot 1.3 is made, not real footage: the clip is 6.0 s, shorter "
+                    "than the shot's 7.0 s."]  # fmt: skip
+
+
+def test_a_footage_shot_is_made_again_once_the_b_roll_look_isnt_ugc(app, db, owner):
+    _described(app, db, owner, first_brand(owner))
+    video = _made(app, db, owner)
+    ((clip, _),) = footage.uses(clip_prompts.newest(db, video).data).items()
+    video.broll_look = "disney-pixar"  # switched after the plan (QA on #1513)
+    with pytest.raises(HTTPException) as no:  # checked again at the cut
+        cut.ready(db, video, app.state.storage)
+    assert no.value.detail == footage.DROPPED
+    plan = clip_prompts.newest(db, video)
+    assert footage.uses(plan.data) == {}
+    assert any(p.endswith(f"{footage.NOT_UGC}.") for p in plan.problems)
+    assert clip not in {r.clip_id for r in _clips(db, video)}  # its prompt is written now
+    assert clip in clip_prompts.to_rewrite(db, video)
+
+
+def test_a_refused_ai_description_says_why_on_the_card(app, db, owner, monkeypatch):
+    def refused(*_, **__):
+        raise HTTPException(409, "That's past your weekly allowance.")
+
+    monkeypatch.setattr("app.routes.jobs.enqueue", refused)
+    clip = _add(owner, first_brand(owner)).json()
+    assert not clip["describing"] and "past your weekly allowance" in clip["note"]
+
+
 def test_a_ugc_footage_shot_is_cut_free_and_laid_over_the_talker_like_any_b_roll(
     app, db, owner, tmp_path
 ):
@@ -200,7 +244,7 @@ def test_the_cut_watch_is_told_a_real_footage_shot_and_never_remakes_it():
         "note": "Make it in the scene.",
     }
     (kept,) = watch_cut.checked({"findings": [pasted]}, spans, [], "")
-    assert kept["fix"] == "keep" and "real footage" in kept["note"]
+    assert kept["fix"] == "keep" and kept["note"] == footage.WATCHED  # how to change its stretch
 
 
 def test_a_take_given_the_real_clip_as_a_reference_is_priced_at_seedances_video_rate(

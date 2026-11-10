@@ -37,6 +37,7 @@ class FootageOut(BaseModel):
     description: str  # "" while it's described, or when it couldn't be
     product_id: int | None
     describing: bool  # the AI's words are being written
+    note: str = ""  # why they aren't in: refused, waiting for the owner's OK, or failed
 
 
 class FootageIn(BaseModel):
@@ -46,12 +47,16 @@ class FootageIn(BaseModel):
 
 
 def _out(db: Session, row: MediaUpload) -> FootageOut:
+    from app.routes.jobs import HELD
+
     job = db.get(Job, row.describe_job_id) if row.describe_job_id else None
     waiting = job is not None and job.status in (JobStatus.queued, JobStatus.running)
+    held = job is not None and job.status == JobStatus.needs_owner_approval
+    note = f"The AI’s description waits for the owner’s OK: {job.input.get(HELD)}" if held else ""
     return FootageOut(id=row.id, file_id=row.file_id, seconds=row.seconds or 0,
                       thumb_file_id=(row.frame_file_ids or [None])[0],
                       description=row.description, product_id=row.product_id,
-                      describing=waiting)  # fmt: skip
+                      describing=waiting, note=note or row.describe_note)  # fmt: skip
 
 
 def _row(db: Session, user: User, brand_id: int, footage_id: int, removed=False) -> MediaUpload:
@@ -130,8 +135,10 @@ def _ask(db: Session, user: User, row: MediaUpload) -> None:
     data = footage.describe_input(db, row, db.get(Brand, row.brand_id))
     try:
         job = enqueue(db, user, footage.KIND, data, provider="claude")
-    except HTTPException:
+    except HTTPException as no:  # the card says why; its words are the person's to type
         db.rollback()
+        row.describe_note = f"The AI didn’t describe it: {no.detail} Edit it to say what it shows."
+        db.commit()
         return
     row.describe_job_id = job.id
     db.commit()
@@ -144,6 +151,7 @@ def change_footage(brand_id: int, footage_id: int, body: FootageIn,
     row = _row(db, user, brand_id, footage_id)
     if body.description is not None:
         row.description, row.describe_job_id = body.description.strip()[:WORDS], None
+        row.describe_note = ""
     if body.product_id is not None or body.no_product:
         row.product_id = None if body.no_product else _product(db, brand_id, body.product_id)
     db.commit()

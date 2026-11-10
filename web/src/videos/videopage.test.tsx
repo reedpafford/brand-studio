@@ -649,7 +649,7 @@ test("Reed, 8 Nov: the start card is the direction card: concept, beats, the loo
   expect(within(card).getByRole("region", { name: "Beats" })).toHaveTextContent("1.Hook · The glowing gut2.Payoff · The capsule held up");
   expect(await within(card).findByRole("img", { name: "Dr. Pickle" })).toBeInTheDocument(); // the look: what the cast step drew
   expect(await within(card).findByText("Clip plan · 2 clips · about 11 s")).toBeInTheDocument();
-  expect(within(within(card).getByText("He holds up the capsule").closest("li")!).getByText("Real footage")).toBeInTheDocument(); // UGC: the brand's own clip
+  expect(within(within(card).getByText("He holds up the capsule").closest("li")!).getByText("Real footage · 0–6 s")).toBeInTheDocument(); // UGC: the brand's own clip
   expect(within(card).getByText(/approves this cast and places/)).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Cast & places waiting for your OK" })).toBeNull(); // one card, one press
   await userEvent.click(within(card).getByRole("button", { name: "Make it · up to $14.40" }));

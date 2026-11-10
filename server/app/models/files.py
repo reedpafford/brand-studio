@@ -51,3 +51,4 @@ class MediaUpload(Entity, Base):
     product_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))
     frame_file_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
     describe_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))
+    describe_note: Mapped[str] = mapped_column(Text, default="")  # why the AI's words aren't in

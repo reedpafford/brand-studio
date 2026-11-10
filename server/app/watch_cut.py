@@ -269,8 +269,10 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
                 "it, but the frames don't show it.",
             }
         span = spans.get(f.get("clip_id"))
-        if span and span.get("real_footage") and f["fix"] in ("redo", "pick"):
-            f = {**f, "fix": "keep", "note": "The brand's own real footage: kept as filmed."}
+        if span and span.get("real_footage") and f["fix"] in ("redo", "pick"):  # never remade:
+            from app.footage import WATCHED  # the owner is told how to change its stretch
+
+            f = {**f, "fix": "keep", "note": WATCHED}
         why = ""
         if span is None or f["fix"] not in FIXES:
             why = "names no clip of the cut" if span is None else f"fix {f['fix']!r}"

@@ -485,8 +485,12 @@ def sfx(db: Session, tl: dict) -> list[dict]:
 def ready(db: Session, project: Project, storage) -> None:
     """What a cut needs before it's made, each in plain words (rule 22). A UGC talker's clips
     are cut from its one take first (free: talker.fill)."""
+    from app import footage
     from app.routes.project_clips import _newest_breakdown, _stale
 
+    if footage.settle(db, project, first=False):  # its B-roll isn't UGC now: no real footage
+        db.commit()
+        raise HTTPException(409, footage.DROPPED)
     clips = rows(db, project)
     if not clips:
         raise HTTPException(409, "Write the clip prompts and make the clips first.")

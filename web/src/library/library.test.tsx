@@ -361,3 +361,18 @@ test("Footage (Reed, 9 Nov): each real clip with its thumbnail, length, product 
   await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/footage/3/restore")).toBe(true));
 });
+
+test("Footage (QA on #1513): Edit starts from the AI's words that came in after the card drew; a refused description says why", async () => {
+  const clip = { id: 3, file_id: 70, thumb_file_id: 71, seconds: 6, description: "", product_id: null, describing: true, note: "" };
+  const refused = { ...clip, id: 4, describing: false, note: "The AI didn’t describe it: That's past your weekly allowance. Edit it to say what it shows." };
+  const routes = server(owner, { "GET /brands/1/footage": [200, [clip, refused]] });
+  fakeServer(routes);
+  renderApp("/b/1/library/footage");
+  expect(await screen.findByText("Describing what it shows…")).toBeInTheDocument();
+  expect(screen.getByText(refused.note)).toBeInTheDocument();
+  routes["GET /brands/1/footage"] = [200, [{ ...clip, describing: false, description: "The alarm flashing red." }, refused]]; // the next poll
+  const card = (await screen.findByText("The alarm flashing red.", undefined, { timeout: 5_000 })).closest("li")!;
+  await userEvent.click(within(card).getByRole("button", { name: "Edit" }));
+  expect(within(card).getByLabelText("What it shows")).toHaveValue("The alarm flashing red.");
+  expect(within(card).getByRole("button", { name: "Save" })).toBeEnabled();
+});
