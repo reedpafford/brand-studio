@@ -82,6 +82,7 @@ def ask[T: BaseModel](
     cache_ttl: Literal["5m", "1h"] = "5m",
     started: Callable[[], None] | None = None,
     strict: bool = True,
+    before: Sequence[str] = (),
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
     the cache mark on the last part caches them all together. `images` (data URLs) go
@@ -93,15 +94,20 @@ def ask[T: BaseModel](
     begins (its first streamed event): the cache it writes can be read from then on.
     `strict` False: no constrained decoding (for a schema too complex for Anthropic's grammar
     limit, the director's): the schema goes in the system prompt, the answer is JSON in text,
-    checked here against `schema`, and asked once more with the problems if it doesn't fit."""
+    checked here against `schema`, and asked once more with the problems if it doesn't fit.
+    `before`: a run's earlier parts' answers (parts written in order), after `shared`, one
+    block each, the last cached: each later part reads what the one before it wrote."""
     max_tokens = min(max_tokens, MOST_TOKENS)
     blocks = [{"type": "text", "text": text} for text in system]
     if not strict:
         blocks.append({"type": "text", "text": SHAPE + json.dumps(schema.model_json_schema())})
     content = [_image(url) for url in images] + [{"type": "text", "text": prompt}]
+    earlier = [{"type": "text", "text": text} for text in before]
+    if earlier:
+        earlier[-1]["cache_control"] = {"type": "ephemeral"}
     if shared:
         cached = {"type": "text", "text": shared, "cache_control": {"type": "ephemeral"}}
-        content = [cached, *content]
+        content = [cached, *earlier, *content]
     blocks[-1]["cache_control"] = (
         {"type": "ephemeral", "ttl": "1h"} if cache_ttl == "1h" else {"type": "ephemeral"}
     )  # an hour-long entry before the 5-minute `shared` one, as the API requires
