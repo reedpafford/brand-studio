@@ -179,7 +179,9 @@ def test_claude_busy_is_retried_and_lost_contact_is_unsure(db, user):
     providers = _claude(busy_then_drop)
     run_once(db, providers)
     db.refresh(job)
-    assert job.status == JobStatus.queued and job.attempts == 1  # busy: not started, retry
+    assert job.status == JobStatus.queued and job.attempts == 0  # busy: not started, not a try
+    job.input = {**job.input, "wait_until": ""}  # its wait is over
+    db.commit()
     run_once(db, providers)
     db.refresh(job)
     assert (job.status, job.error) == (JobStatus.failed, UNSURE)
@@ -217,14 +219,16 @@ def test_a_claude_check_sees_its_picture(app, db, editor):
     assert db.get(Job, job.id).output == answered  # answered (no clip to save it on)
 
 
-def test_a_job_running_past_its_time_limit_fails_plainly_uncharged_and_is_cancelled(db, user):
+def test_a_job_running_past_its_time_limit_fails_plainly_and_is_cancelled(db, user):
     """Producer, 2026-10-28: a running job had no time limit, so "Drawing…" could last
     forever with nothing coming back. Past it, the job is cancelled at the provider and fails
-    like any failure, said plainly; a failed job isn't counted against anyone's credits."""
+    like any failure, said plainly; a failed job isn't counted against anyone's credits. A
+    cancelled run may still be billed (Replicate's billing docs), so it never says "Nothing was
+    charged", and its price is listed in Usage as an estimate."""
     from datetime import timedelta
 
     from app.credits import COUNTED
-    from app.worker import LIMITS
+    from app.worker import LIMITS, SLOW
 
     fake = FakeProvider(polls_until_done=10**6)  # says "running" for ever
     cancelled = []
@@ -236,10 +240,10 @@ def test_a_job_running_past_its_time_limit_fails_plainly_uncharged_and_is_cancel
     db.commit()
     fake.network_errors_on_poll = 1  # checking failing counts too
     assert _run(db, fake, job).status == JobStatus.failed
-    assert (
-        job.error == "The image service didn't finish this in time. Nothing was charged; try again."
-    )
+    assert job.error == SLOW.format("The image service") and "Nothing" not in job.error
     assert cancelled == [job.provider_ref] and job.status not in COUNTED
+    usage = db.query(Usage).one()
+    assert (usage.unit, usage.estimated, usage.cost_usd > 0) == ("job", True, True)
 
 
 def test_a_job_waiting_a_while_to_start_says_why_plainly(db, user, owner):
@@ -379,3 +383,107 @@ def test_each_local_lane_gets_its_own_share_of_the_cpus(monkeypatch):
     assert shares(1) == [None] and shares(3) == [None] * 3  # one lane, or under 2 CPUs a lane
     cpus = {0, 1}  # the live server (Hostinger KVM 2)
     assert shares(2) == [None, None]
+
+
+class Busy(FakeProvider):
+    """Says "busy" (a 429: nothing started) to every start; counts how often it was asked."""
+
+    def __init__(self):
+        super().__init__()
+        self.asked = 0
+
+    def submit(self, kind, input):
+        from app.providers import NotStarted
+
+        self.asked += 1
+        raise NotStarted("Replicate is rate limiting; try later.")
+
+
+def test_a_busy_service_waits_longer_each_time_and_a_burst_keeps_its_tries(db, user):
+    """FABLE B3: a "busy" answer put the job back, and the same tick picked it again at once, so
+    a burst of takes used all their tries in one tick and failed. Now the busy job waits longer
+    each time (BUSY_WAITS), the service is left alone for the rest of the tick, a busy answer
+    isn't a try, and only a busy that lasts through every wait fails, plainly."""
+    from datetime import datetime
+
+    from app.db import utcnow
+    from app.worker import BUSY, BUSY_WAITS
+
+    busy = Busy()
+    first, *others = [enqueue(db, user, "video-480p", {}) for _ in range(3)]
+    run_once(db, {"fake": busy})
+    assert busy.asked == 1  # one busy answer: nothing more asked of it this tick
+    assert all(db.get(type(j), j.id).status == JobStatus.queued for j in others)
+    for j in others:  # the rest of the burst, out of the way
+        db.get(type(j), j.id).status = JobStatus.cancelled
+    db.commit()
+    for n, wait in enumerate(BUSY_WAITS):
+        db.refresh(first)
+        assert (first.status, first.attempts, first.input["busy"]) == (JobStatus.queued, 0, n + 1)
+        left = (datetime.fromisoformat(first.input["wait_until"]) - utcnow()).total_seconds()
+        assert wait - 5 < left <= wait  # a longer wait each time
+        run_once(db, {"fake": busy})  # still waiting: not asked again
+        assert busy.asked == n + 1
+        first.input = {**first.input, "wait_until": ""}  # its wait is over
+        db.commit()
+        run_once(db, {"fake": busy})
+    db.refresh(first)
+    assert (first.status, first.error) == (JobStatus.failed, BUSY.format("The service"))
+
+
+def test_a_busy_answer_while_checking_keeps_the_take_running_and_asks_less_often(
+    db, user, monkeypatch
+):
+    """FABLE B4: a 429 while checking on a take that was still rendering (and billing) failed
+    it. Busy means still running: that take is checked less often (CHECK_WAIT), the service is
+    left alone for the rest of the tick, and the take lands when the service answers again."""
+    from app import worker
+    from app.providers import NotStarted
+
+    monkeypatch.setattr(worker, "_check_after", {})
+    fake = FakeProvider()
+    jobs = [enqueue(db, user, "video-480p", {}) for _ in range(2)]
+    run_once(db, {"fake": fake})
+    refs = [db.get(type(j), j.id).provider_ref for j in jobs]
+    answers, asked = fake.poll, []
+
+    def busy(ref):
+        asked.append(ref)
+        raise NotStarted("Replicate is rate limiting; try later.")
+
+    fake.poll = busy
+    run_once(db, {"fake": fake})
+    assert asked == refs[:1]  # busy: the second isn't asked this tick
+    run_once(db, {"fake": fake})
+    assert asked == refs  # the first waits its CHECK_WAIT; the second is asked now
+    assert all(db.get(type(j), j.id).status == JobStatus.running for j in jobs)
+    fake.poll = answers
+    worker._check_after.clear()  # their waits are over
+    run_once(db, {"fake": fake})
+    assert all(db.get(type(j), j.id).status == JobStatus.succeeded for j in jobs)
+
+
+def test_a_take_its_service_cant_cancel_is_checked_longer_and_never_made_again_on_its_own(
+    db, user, monkeypatch
+):
+    """FABLE B9: HeyGen has no cancel, yet a timed-out HeyGen piece was made again on its own,
+    while the first could still finish and be billed. A paid service that can't cancel gets
+    one more limit's time, then fails plainly, and its step isn't tried again on its own."""
+    from datetime import timedelta
+
+    from app import worker
+    from app.worker import LATE, LIMITS
+
+    told = []
+    monkeypatch.setattr(worker, "step_failed", lambda db, job, again=True: told.append(again))
+    fake = FakeProvider(polls_until_done=10**6)  # paid, says "running" for ever, can't cancel
+    job = enqueue(db, user, "image", {"step": "host_still"})
+    _run(db, fake, job)
+    job.started_at -= LIMITS["image"] + timedelta(minutes=1)
+    db.commit()
+    assert _run(db, fake, job).status == JobStatus.running  # checked once more, later
+    job.started_at -= LIMITS["image"]
+    db.commit()
+    assert _run(db, fake, job).status == JobStatus.failed
+    assert job.error == LATE.format("The image service")
+    assert told == [False] and len(fake.submitted) == 1  # never made again on its own

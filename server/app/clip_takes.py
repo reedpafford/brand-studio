@@ -609,6 +609,7 @@ def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
     user = db.get(User, job.created_by_id)
     if not user or fits(db, project, user, job.credits):
         return  # it would go over: nothing more runs on its own
+    data = {k: v for k, v in data.items() if k != "busy"}  # its own busy waits start afresh
     if wait:
         data = {**data, "wait_until": (utcnow() + RETRY_WAIT).isoformat()}
     db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,

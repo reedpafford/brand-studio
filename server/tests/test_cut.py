@@ -641,3 +641,25 @@ def test_a_split_that_renumbers_clips_moves_the_cut_edits_with_them(db, owner, p
     assert (keep.data["piece"], keep.said, keep.undone_at) == ("c3.7", "Clip 3 trimmed", None)
     assert split.undone_at is not None and split.data["piece"] == cut_edits.GONE  # never lands
     assert span.undone_at is None and span.data == {"start": 0, "end": 2, "side": "left"}
+
+
+def test_a_cut_that_runs_out_of_time_is_made_once_more_with_longer_limits_then_says_so(
+    tmp_path, monkeypatch
+):
+    """FABLE B7: a cut too slow to put together was called "a clip's file couldn't be read".
+    It's made once more with each step's limit doubled, then says it ran out of time."""
+    from app.providers import local
+    from app.storage import LocalStorage
+
+    limits = []
+
+    def slow(recipe, storage, progress):
+        limits.append(cut_render._limit())
+        raise subprocess.TimeoutExpired("ffmpeg", limits[-1])
+
+    monkeypatch.setattr(cut_render, "render", slow)
+    local_lane = LocalProvider(LocalStorage(tmp_path))
+    made = local_lane.run("cut_make", {"recipe": {}, "progress_key": "p"})
+    assert limits == [cut_render.STAGE_LIMIT, 2 * cut_render.STAGE_LIMIT]
+    assert made.output == {"problem": local.TOO_SLOW, "fixes": ["again"]}
+    assert cut_render._limit() == cut_render.STAGE_LIMIT  # the next cut has the usual limits

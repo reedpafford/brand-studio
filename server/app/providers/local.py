@@ -5,6 +5,7 @@
 to the worker as `local://` paths, which `fetch` reads once and deletes."""
 
 import shutil
+import subprocess
 import tempfile
 import time
 from collections.abc import Callable
@@ -14,6 +15,8 @@ from app import footage_shot, narration, reel, room, song_study, song_timing, ta
 from app.providers import Result
 
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".png": "image/png"}
+TOO_SLOW = ("it ran out of time on our server, twice (the second time with double the time). "
+            "Try again when fewer videos are being made")  # fmt: skip
 
 
 def _heard(path: Path, sounds: bool = False, words: bool = False, first: bool = False,
@@ -219,12 +222,28 @@ class LocalProvider:
 
         key = input["progress_key"]
         folder = Path(tempfile.mkdtemp(dir=self.root))
-        try:
-            data = cut_render.render(input["recipe"], self.storage,
+
+        def render() -> bytes:
+            return cut_render.render(input["recipe"], self.storage,
                                      lambda n: self.storage.put(key, str(n).encode()))  # fmt: skip
+
+        try:
+            try:
+                data = render()
+            except subprocess.TimeoutExpired:  # slow, not broken (B7): once more, more time
+                logging.getLogger(__name__).warning("the cut ran out of time; once more")
+                longer = cut_render.slower.set(cut_render.LONGER)
+                try:
+                    data = render()
+                finally:
+                    cut_render.slower.reset(longer)
         except cut_render.Problem as no:
             shutil.rmtree(folder, ignore_errors=True)
             return Result("succeeded", output={"problem": no.said, "fixes": no.fixes})
+        except subprocess.TimeoutExpired:
+            logging.getLogger(__name__).exception("the cut ran out of time twice")
+            shutil.rmtree(folder, ignore_errors=True)
+            return Result("succeeded", output={"problem": TOO_SLOW, "fixes": ["again"]})
         except Exception:  # an odd file: plain words, Try again
             logging.getLogger(__name__).exception("the cut couldn't be made")
             shutil.rmtree(folder, ignore_errors=True)
