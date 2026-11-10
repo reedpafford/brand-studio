@@ -287,3 +287,16 @@ def make_cut(app, db, client, base: str):
     run_once(db, {"local": LocalProvider(app.state.storage)}, app.state.storage, only={"local"})
     db.expire_all()
     return client.get(f"{base}/video")
+
+
+@pytest.fixture(autouse=True)
+def _style_voices_just_cloned(monkeypatch):
+    """A style's own cloned voice (Dr. Pickle) is seeded with the day it was really cloned
+    (3 Nov), and a clone unused for 7 days reads as expired: from 10 Nov every test that meets
+    the voice in a fresh workspace failed on the calendar. In tests it was cloned now; a test of
+    expiry sets `last_used_at` itself."""
+    from app import voices
+    from app.db import utcnow
+
+    fresh = tuple({**v, "cloned_at": utcnow().isoformat()} for v in voices.STYLE_VOICES)
+    monkeypatch.setattr(voices, "STYLE_VOICES", fresh)
