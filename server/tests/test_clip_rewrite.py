@@ -22,7 +22,10 @@ def _rewrites(db, pid):
 
 
 def _current(db, pid):
-    return copy.deepcopy(clip_prompts.newest(db, db.get(Project, pid)).data)
+    """The breakdown with a shot's action edited (a change to who's in it only carries)."""
+    data = copy.deepcopy(clip_prompts.newest(db, db.get(Project, pid)).data)
+    data["scenes"][0]["shots"][0]["action"] += " She sighs."
+    return data
 
 
 def _newer_breakdown(db, pid):

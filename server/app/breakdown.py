@@ -453,9 +453,6 @@ def product_shots(db: Session, project: Project, bd: Breakdown) -> tuple[Breakdo
     return bd, notes
 
 
-OFF_SCREEN = re.compile(r"\((?:V\.?\s?O|O\.?\s?[SC])\b", re.I)  # "NATE (V.O.):", "(O.S.)"
-
-
 KEPT_KEYS = ("plan_version",)  # a plan's own keys that a new version saved from it keeps
 
 
@@ -524,7 +521,7 @@ def show_roles(db: Session, project: Project, bd: Breakdown, text: str) -> dict[
     O.S.), and, in a plan with no cast lists, the shots whose action names them (`shows`);
     never a shot a person took them out of (`taken_out`). In place; {shot id: names added}.
     Free."""
-    from app.cast_roles import ref, short, video_slots
+    from app.cast_roles import OFF_SCREEN, ref, short, video_slots
 
     slots = [s for s in video_slots(db, project) if short(s.role)]
     lines, added, lists = text.splitlines(), {}, listed(bd)
