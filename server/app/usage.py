@@ -9,6 +9,7 @@ from decimal import Decimal
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from app import spend
 from app.credits import week_start
 from app.db import utcnow
 from app.models.clips import ProjectClip
@@ -62,8 +63,7 @@ def money(value) -> float:
 class Figures:
     """Per brand id (None = not tied to one brand)."""
 
-    spend: dict
-    estimated: dict
+    charges: dict  # spend.Charge lists: the dollars, by provider and by kind
     finished: dict
     finished_spend: dict
     in_progress: dict
@@ -71,6 +71,11 @@ class Figures:
     versions_left: dict
     last_activity: dict
     credits: dict  # charged in the period, in credits (as the owner's Needs you prices them)
+
+    def spent(self, brand_ids: list | None = None) -> spend.Split:
+        """These brands' (None among them: not tied to one brand) dollars together; else all."""
+        picked = self.charges if brand_ids is None else brand_ids
+        return spend.split([c for b in picked for c in self.charges.get(b, [])])
 
     def cost_per(self, brand_id) -> float | None:
         done = self.finished.get(brand_id, 0)
@@ -93,17 +98,12 @@ def director_spend(db: Session, workspace_id: int, when: Period) -> Decimal:
 
 
 def figures(db: Session, workspace_id: int, when: Period) -> Figures:
-    charged = (
-        select(
-            Job.brand_id, func.sum(Usage.cost_usd), func.sum(case((Usage.estimated, 1), else_=0))
-        )
-        .join(Job, Job.id == Usage.job_id)
-        .where(Usage.workspace_id == workspace_id, *when.has(Usage.created_at))
-        .group_by(Job.brand_id)
-    )
-    spend, estimated = {}, {}
-    for brand_id, total, guessed in db.execute(charged).all():
-        spend[brand_id], estimated[brand_id] = Decimal(total or 0), bool(guessed)
+    found, _ = spend.charges(db, Job.workspace_id == workspace_id,
+                             usage_at=when.has(Usage.created_at),
+                             job_at=when.has(Job.created_at))  # fmt: skip
+    brands: dict = {}
+    for c in found:
+        brands.setdefault(c.brand_id, []).append(c)
     done = select(Project.id).where(  # all time has no dates: finished_at must still be set
         Project.workspace_id == workspace_id,
         Project.finished_at.is_not(None),
@@ -115,14 +115,11 @@ def figures(db: Session, workspace_id: int, when: Period) -> Figures:
         .where(Project.id.in_(done))
         .group_by(Project.brand_id),
     )
-    finished_spend = _grouped(  # those videos' whole life, every take and redo
-        db,
-        select(Project.brand_id, func.sum(Usage.cost_usd))
-        .join(Job, Job.id == Usage.job_id)
-        .join(Project, Project.id == Job.project_id)
-        .where(Project.id.in_(done))
-        .group_by(Project.brand_id),
-    )
+    finished_spend: dict = {}  # those videos' whole life, every take and redo
+    brand_of = _grouped(db, select(Project.id, Project.brand_id).where(Project.id.in_(done)))
+    for c in spend.charges(db, Job.project_id.in_(brand_of))[0] if brand_of else []:
+        b = brand_of[c.project_id]
+        finished_spend[b] = finished_spend.get(b, Decimal(0)) + c.usd
     in_progress = _grouped(
         db,
         select(Project.brand_id, func.count())
@@ -169,8 +166,8 @@ def figures(db: Session, workspace_id: int, when: Period) -> Figures:
     credits = _grouped(db, select(Job.brand_id, func.sum(Job.credits)).where(
         Job.workspace_id == workspace_id, Job.status.in_(COUNTED), *when.has(Job.created_at))
         .group_by(Job.brand_id))  # fmt: skip
-    return Figures(spend, estimated, finished, finished_spend, in_progress, scripts,
-                   versions_left, last, credits)  # fmt: skip
+    return Figures(brands, finished, finished_spend, in_progress, scripts, versions_left, last,
+                   credits)  # fmt: skip
 
 
 def editors_active(db: Session, brand_id: int, when: Period) -> int:
@@ -244,19 +241,12 @@ def project_totals(db: Session, project_ids: list[int]) -> tuple[dict, dict, dic
     """Per project: lifetime dollars, whether any is estimated, credits, last job time."""
     from app.credits import COUNTED
 
-    spend, guessed, credits, last = {}, {}, {}, {}
+    dollars, guessed, credits, last = {}, {}, {}, {}
     if not project_ids:
-        return spend, guessed, credits, last
-    rows = db.execute(
-        select(
-            Job.project_id, func.sum(Usage.cost_usd), func.sum(case((Usage.estimated, 1), else_=0))
-        )
-        .join(Job, Job.id == Usage.job_id)
-        .where(Job.project_id.in_(project_ids))
-        .group_by(Job.project_id)
-    ).all()
-    for pid, total, est in rows:
-        spend[pid], guessed[pid] = Decimal(total or 0), bool(est)
+        return dollars, guessed, credits, last
+    for c in spend.charges(db, Job.project_id.in_(project_ids))[0]:
+        dollars[c.project_id] = dollars.get(c.project_id, Decimal(0)) + c.usd
+        guessed[c.project_id] = guessed.get(c.project_id, False) or c.listed
     rows = db.execute(
         select(
             Job.project_id,
@@ -268,7 +258,7 @@ def project_totals(db: Session, project_ids: list[int]) -> tuple[dict, dict, dic
     ).all()
     for pid, total, at in rows:
         credits[pid], last[pid] = Decimal(total or 0), at
-    return spend, guessed, credits, last
+    return dollars, guessed, credits, last
 
 
 def video_statuses(db: Session, projects: list[Project]) -> dict[int, str]:

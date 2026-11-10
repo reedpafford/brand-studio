@@ -1497,6 +1497,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Videos
+         * @description Every video with a charge in the period, each with its whole life's spend.
+         */
+        get: operations["videos_usage_videos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/videos/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Video
+         * @description One video's whole-life spend: by provider, by kind and by the director's runs.
+         */
+        get: operations["video_usage_videos__project_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usage/by-format-and-style": {
         parameters: {
             query?: never;
@@ -8194,6 +8234,16 @@ export interface components {
             spend_usd: number;
             /** Videos */
             videos: number;
+            /**
+             * Providers
+             * @default []
+             */
+            providers: components["schemas"]["Part"][];
+            /**
+             * Spend Estimated
+             * @default false
+             */
+            spend_estimated: boolean;
         };
         /** GenerateIn */
         GenerateIn: {
@@ -10117,6 +10167,18 @@ export interface components {
             /** Average Score */
             average_score: number | null;
         };
+        /**
+         * Part
+         * @description One provider's (or one kind's) share of a figure, most first.
+         */
+        Part: {
+            /** Name */
+            name: string;
+            /** Usd */
+            usd: number;
+            /** Estimated */
+            estimated: boolean;
+        };
         /** Person */
         Person: {
             /** Id */
@@ -11232,6 +11294,17 @@ export interface components {
             done: number;
             /** Clips */
             clips: components["schemas"]["ClipCellOut"][];
+        };
+        /** RunSpend */
+        RunSpend: {
+            /** Name */
+            name: string;
+            /** Started At */
+            started_at: string | null;
+            /** Usd */
+            usd: number;
+            /** Estimated */
+            estimated: boolean;
         };
         /** RunStepOut */
         RunStepOut: {
@@ -12735,6 +12808,11 @@ export interface components {
              * @default 0
              */
             videos: number;
+            /**
+             * Providers
+             * @default []
+             */
+            providers: components["schemas"]["Part"][];
             previous: components["schemas"]["UsagePrevious"] | null;
             /** Editors Active */
             editors_active: number;
@@ -12782,6 +12860,11 @@ export interface components {
              * @default 0
              */
             videos: number;
+            /**
+             * Providers
+             * @default []
+             */
+            providers: components["schemas"]["Part"][];
         };
         /** UsageBrandsOut */
         UsageBrandsOut: {
@@ -12964,6 +13047,21 @@ export interface components {
              */
             unassigned_credits: number;
             freestyle: components["schemas"]["FreestyleUsage"];
+            /**
+             * Providers
+             * @default []
+             */
+            providers: components["schemas"]["Part"][];
+            /**
+             * Unassigned Providers
+             * @default []
+             */
+            unassigned_providers: components["schemas"]["Part"][];
+            /**
+             * Unassigned Estimated
+             * @default false
+             */
+            unassigned_estimated: boolean;
         };
         /** UsageVideo */
         UsageVideo: {
@@ -13197,6 +13295,73 @@ export interface components {
             songs_note?: string | null;
             /** Song Take Id */
             song_take_id: number | null;
+        };
+        /** VideoSpend */
+        VideoSpend: {
+            /** Project Id */
+            project_id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Brand */
+            brand: string;
+            /** Title */
+            title: string;
+            /** Freestyle Id */
+            freestyle_id?: number | null;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Providers */
+            providers: components["schemas"]["Part"][];
+            /** Kinds */
+            kinds: components["schemas"]["Part"][];
+            /**
+             * Last At
+             * Format: date-time
+             */
+            last_at: string;
+        };
+        /** VideoSpendOut */
+        VideoSpendOut: {
+            /** Project Id */
+            project_id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** Brand */
+            brand: string;
+            /** Title */
+            title: string;
+            /** Freestyle Id */
+            freestyle_id?: number | null;
+            /** Spend Usd */
+            spend_usd: number;
+            /** Spend Estimated */
+            spend_estimated: boolean;
+            /** Providers */
+            providers: components["schemas"]["Part"][];
+            /** Kinds */
+            kinds: components["schemas"]["Part"][];
+            /**
+             * Last At
+             * Format: date-time
+             */
+            last_at: string;
+            /** Unreported */
+            unreported: boolean;
+            /** Runs */
+            runs: components["schemas"]["RunSpend"][];
+        };
+        /** VideoSpendsOut */
+        VideoSpendsOut: {
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Kinds */
+            kinds: string[];
+            /** Items */
+            items: components["schemas"]["VideoSpend"][];
         };
         /** VideoVariationsIn */
         VideoVariationsIn: {
@@ -16900,6 +17065,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    videos_usage_videos_get: {
+        parameters: {
+            query?: {
+                period?: "week" | "month" | "all";
+                month?: string | null;
+                sort?: "spend" | "recent" | "title";
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoSpendsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    video_usage_videos__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoSpendOut"];
                 };
             };
             /** @description Validation Error */

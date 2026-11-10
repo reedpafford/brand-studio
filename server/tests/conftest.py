@@ -33,6 +33,9 @@ def pytest_configure(config):
     before any are. The stand-in switch is left to each test: some test the real paths' rules."""
     for key in ("STUDIO_ANTHROPIC_KEY", "REPLICATE_API_TOKEN", "KIE_API_KEY"):
         os.environ[key] = ""
+    # The tests' owner is held as the team is, so the team's holds stay tested through either
+    # account; tests/test_owner_uncapped.py turns the owner's no-hold mode (the sites' own) on.
+    os.environ["BS_OWNER_UNCAPPED"] = "false"
     # Passwords hash with argon2's lightest settings here: every test signs people up and in,
     # and the real settings are built to be slow (the hash and its check are the same code).
     from argon2 import PasswordHasher

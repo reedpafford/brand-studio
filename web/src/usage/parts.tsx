@@ -42,10 +42,35 @@ export function useMonth() {
   return { month: picked.id, label: picked.label, thisMonth: picked === options[0], options, set };
 }
 
-export function MonthPicker({ value, options, onChange }: { value: string; options: { id: string; label: string }[]; onChange: (id: string) => void }) {
+/** The owner's Usage period (Reed, 9 Nov: this week, this month, all time), or an earlier month, kept in the address
+ *  (?period=week|all or ?month=2026-10; none for this month). `query` is what the server is asked; `csv` the month to download. */
+export function useSpan() {
+  const [params, setParams] = useSearchParams();
+  const [now, ...before] = months();
+  const earlier = before.find((m) => m.id === params.get("month"));
+  const asked = params.get("period");
+  const value = earlier?.id ?? (asked === "week" || asked === "all" ? asked : "month");
+  const set = (id: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("period");
+        next.delete("month");
+        if (id === "week" || id === "all") next.set("period", id);
+        else if (id !== "month") next.set("month", id);
+        return next;
+      },
+      { replace: true },
+    );
+  const words = earlier ? `in ${earlier.label}` : value === "all" ? "so far" : periodWord(value as Period);
+  const query: { period?: Period; month?: string } = earlier ? { month: earlier.id } : { period: value as Period };
+  return { value, options: [...PERIODS, ...before], set, words, query, csv: earlier?.id ?? now.id };
+}
+
+export function MonthPicker({ value, options, onChange, label = "Month" }: { value: string; options: { id: string; label: string }[]; onChange: (id: string) => void; label?: string }) {
   return (
     <span className="relative inline-flex">
-      <select aria-label="Month" value={value} onChange={(e) => onChange(e.target.value)} className="min-h-control appearance-none rounded-md border border-border bg-transparent pl-3 pr-8 text-sm font-medium hover:bg-surface-2 lg:min-h-control-dense">
+      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="min-h-control appearance-none rounded-md border border-border bg-transparent pl-3 pr-8 text-sm font-medium hover:bg-surface-2 lg:min-h-control-dense">
         {options.map((m) => (
           <option key={m.id} value={m.id}>{m.label}</option>
         ))}
