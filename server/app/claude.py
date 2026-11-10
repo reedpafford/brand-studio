@@ -7,6 +7,8 @@
 - Key only from STUDIO_ANTHROPIC_KEY; always https://api.anthropic.com (ANTHROPIC_BASE_URL in
   the environment is ignored on purpose)."""
 
+import json
+import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -28,6 +30,8 @@ PRICE_PER_MTOK = {
     "cache_write_1h": Decimal(8),
 }
 
+
+log = logging.getLogger(__name__)
 
 RAN_OUT = "Claude's answer ran out of room (the output limit) before it was finished."
 UNREADABLE = "Claude's answer came back unreadable (not the shape asked for)."
@@ -72,6 +76,7 @@ def ask[T: BaseModel](
     shared: str = "",
     cache_ttl: Literal["5m", "1h"] = "5m",
     started: Callable[[], None] | None = None,
+    strict: bool = True,
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
     the cache mark on the last part caches them all together. `images` (data URLs) go
@@ -80,8 +85,13 @@ def ask[T: BaseModel](
     the fixed parts stay cached an hour, for a step that comes back after more than 5 minutes
     (the director's turns while takes render): the same words, a dearer first write (2x
     against 1.25x), and no re-write on each later call. `started` is called once the answer
-    begins (its first streamed event): the cache it writes can be read from then on."""
+    begins (its first streamed event): the cache it writes can be read from then on.
+    `strict` False: no constrained decoding (for a schema too complex for Anthropic's grammar
+    limit, the director's): the schema goes in the system prompt, the answer is JSON in text,
+    checked here against `schema`, and asked once more with the problems if it doesn't fit."""
     blocks = [{"type": "text", "text": text} for text in system]
+    if not strict:
+        blocks.append({"type": "text", "text": SHAPE + json.dumps(schema.model_json_schema())})
     content = [_image(url) for url in images] + [{"type": "text", "text": prompt}]
     if shared:
         cached = {"type": "text", "text": shared, "cache_control": {"type": "ephemeral"}}
@@ -89,12 +99,16 @@ def ask[T: BaseModel](
     blocks[-1]["cache_control"] = (
         {"type": "ephemeral", "ttl": "1h"} if cache_ttl == "1h" else {"type": "ephemeral"}
     )  # an hour-long entry before the 5-minute `shared` one, as the API requires
+    messages = [{"role": "user", "content": content if images or shared else prompt}]
+    if not strict:
+        return _loose(client, schema, started, len(images), messages=messages,
+                      max_tokens=max_tokens, system=blocks, effort=effort)  # fmt: skip
     # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
     with client.beta.messages.stream(
         model=MODEL,
         max_tokens=max_tokens,
         system=blocks,
-        messages=[{"role": "user", "content": content if images or shared else prompt}],
+        messages=messages,
         thinking={"type": "adaptive"},
         output_config={"effort": effort},
         output_format=schema,
@@ -118,6 +132,75 @@ def ask[T: BaseModel](
     if response.parsed_output is None:
         raise ClaudeError(UNREADABLE, cost)
     return Answer(response.parsed_output, response.model, cost, tokens)
+
+
+SHAPE = (
+    "Answer with one JSON object that matches this JSON schema, and nothing else (no words "
+    "before or after it, no code fence):\n"
+)
+
+
+def _loose[T: BaseModel](
+    client: Anthropic, schema: type[T], started, images: int, *, messages: list,
+    max_tokens: int, system: list, effort: str,
+) -> Answer[T]:  # fmt: skip
+    """`ask` without constrained decoding: the answer's JSON is read from its text and checked
+    against `schema` (fields left out take their defaults). One that doesn't fit is asked once
+    more, with what was wrong; a second miss is UNREADABLE. Both calls are charged."""
+    cost, tokens = Decimal(0), {}
+    for attempt in (1, 2):
+        with client.beta.messages.stream(
+            model=MODEL,
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,
+            thinking={"type": "adaptive"},
+            output_config={"effort": effort},
+            betas=[FALLBACK_BETA],
+            fallbacks="default",
+        ) as stream:
+            if started and attempt == 1:
+                next(stream, None)  # the first event: the prompt is read and cached by now
+                started()
+            response = stream.get_final_message()
+        cost += _cost(response.usage)
+        for key, n in counts(response.usage, images).items():
+            tokens[key] = tokens.get(key, 0) + n
+        if response.stop_reason == "refusal":
+            category = response.stop_details.category if response.stop_details else None
+            raise ClaudeError(f"Claude declined this request ({category or 'no category'}).", cost)
+        if response.stop_reason == "max_tokens":
+            raise ClaudeError(RAN_OUT, cost)
+        text = "".join(b.text for b in response.content if b.type == "text").strip()
+        try:
+            return Answer(schema.model_validate(_json(text)), response.model, cost, tokens)
+        except (ValueError, ValidationError) as exc:
+            problems = _problems(exc)
+            log.warning("Claude's answer didn't fit %s (try %d): %s", schema.__name__, attempt,
+                        problems)  # fmt: skip
+        messages = [
+            *messages,
+            {"role": "assistant", "content": text or "(no answer)"},
+            {"role": "user", "content": f"That answer doesn't fit the JSON schema: {problems}. "
+             "Send the whole answer again, fixed, as one JSON object and nothing else."},
+        ]  # fmt: skip
+    raise ClaudeError(UNREADABLE, cost)  # exactly UNREADABLE: the director's own retry applies
+
+
+def _json(text: str):
+    """The JSON object in an answer's text (a code fence or words around it are dropped)."""
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end < start:
+        raise ValueError("no JSON object in the answer")
+    return json.loads(text[start : end + 1])
+
+
+def _problems(exc: Exception) -> str:
+    """What was wrong with an answer, short enough to send back."""
+    if not isinstance(exc, ValidationError):
+        return str(exc)
+    return "; ".join(f"{'.'.join(map(str, e['loc'])) or 'answer'}: {e['msg']}"
+                     for e in exc.errors()[:20])  # fmt: skip
 
 
 def _image(url: str) -> dict:

@@ -1925,29 +1925,16 @@ def test_every_claude_answer_fits_the_strict_schema_limits():
     assert _limits(sent) == (0, 10) and "{default" not in json.dumps(sent)
 
 
-def test_the_director_answer_stays_inside_the_grammar_anthropic_last_accepted():
-    """Video 326, 10 Nov: every director turn failed with a 400, "The compiled grammar is too
-    large", once the director's schema grew (find_footage, three more voices, edit_take, an
-    ask's voices). Anthropic compiles the strict schema into a grammar; descriptions aside, the
-    last one it accepted (9 Nov, run 315) was 4,125 characters with 86 enum values. The voice
-    and the emotion now go as plain strings named in their descriptions; the schema stays
-    smaller than that one."""
-    from anthropic.lib._parse._transform import to_json_output_format
-
-    def bare(s):  # what the grammar is built from: no description or title text
-        if isinstance(s, dict):
-            return {k: bare(v) for k, v in s.items()
-                    if k not in ("description", "title") or isinstance(v, dict)}  # fmt: skip
-        return [bare(v) for v in s] if isinstance(s, list) else s
-
-    sent = bare(to_json_output_format(schemas.DirectorTurn)["schema"])
-    text = json.dumps(sent)
-    enums = sum(len(m.split(",")) for m in re.findall(r'"enum": \[([^\]]*)\]', text))
-    assert len(text) < 4125 and enums < 86, (len(text), enums)
+def test_the_directors_voice_and_emotion_are_plain_strings_named_in_their_descriptions():
+    """Video 326, 10 Nov (#1521): the voice and the emotion go as plain strings, their values
+    named in the descriptions, still checked in code. (The grammar limit itself is met by
+    sending the director's turn without constrained decoding: test_claude.py.)"""
+    sent = schemas.DirectorTurn.model_json_schema()
     props = sent["properties"]
-    assert props["voice"] == {"type": "string"} and props["emotion"] == {"type": "string"}
+    assert props["voice"]["type"] == "string" and "enum" not in props["voice"]
+    assert props["emotion"]["type"] == "string" and "enum" not in props["emotion"]
     for name in (*schemas.VOICES, *schemas.EMOTIONS):  # still named for the director
-        assert name in json.dumps(to_json_output_format(schemas.DirectorTurn)["schema"])
+        assert name in json.dumps(sent)
     turn = schemas.DirectorTurn(tool="narration", voice="English_Jovialman", emotion="sad",
                                 why="the brief")  # fmt: skip
     assert (turn.voice, turn.emotion) == ("English_Jovialman", "sad")

@@ -33,6 +33,10 @@ def clean(value):
 # analysis, session 35): the director's turns wait on takes and on people, and take watches
 # land as takes finish. Their cache lives an hour; every other step keeps the 5-minute one.
 LONG_CACHE = {"director": "1h", "take_watch": "1h"}
+# Steps sent without constrained decoding (strict structured output): the director's answer
+# schema compiles to a grammar Anthropic refuses as too large (jobs 3234-3236, 10 Nov), so its
+# answer is checked against the same model on our side instead (`claude.ask`, strict=False).
+LOOSE = {"director"}
 
 
 class ClaudeProvider:
@@ -111,6 +115,7 @@ class ClaudeProvider:
                 shared=shared,
                 cache_ttl=LONG_CACHE.get(input["step"], "5m"),
                 started=started,
+                strict=input["step"] not in LOOSE,
                 **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
         except (
