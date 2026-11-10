@@ -128,7 +128,9 @@ def apply(video: bytes, cuts: list[tuple[bytes, float, float]], planned: float) 
         command = ["ffmpeg", "-v", "error", "-y", *args, "-filter_complex", ";".join(chains)]
         command += ["-map", f"[v{len(cuts)}]", "-map", "0:a?", "-c:v", "libx264"]
         command += ["-pix_fmt", "yuv420p", "-c:a", "copy", "out.mp4"]
-        done = subprocess.run(command, cwd=folder, capture_output=True, timeout=600)  # noqa: S603
+        from app.cut_render import _limit  # longer on a timed-out cut's retry
+
+        done = subprocess.run(command, cwd=folder, capture_output=True, timeout=_limit())  # noqa: S603
         if done.returncode:
             raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
         return (folder / "out.mp4").read_bytes()

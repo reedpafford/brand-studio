@@ -19,7 +19,7 @@ import signal
 import threading
 import time
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select, update
@@ -62,19 +62,35 @@ EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "i
 DOWNLOAD_GIVE_UP = timedelta(hours=1)
 UNKNOWN = "This job names a service we don't have."
 # How long the provider may take once it has the work (Replicate: a still takes seconds to a
-# minute, a video take a few minutes); past it the job fails, uncharged, and is cancelled there.
+# minute, a video take a few minutes); past it the job fails and is cancelled there.
 # A song takes a minute or two (Starpop's music stalled for good: never wait past this).
 LIMITS = {"image": timedelta(minutes=15), "video": timedelta(minutes=45),
           "music": timedelta(minutes=15), "voice_split": timedelta(minutes=10)}  # fmt: skip
 LIMIT = timedelta(hours=1)  # anything else, e.g. a reel's local prep
-SLOW = "{} didn't finish this in time. Nothing was charged; try again."
+SLOW = "{} didn't finish this in time, so it was stopped. It may still be charged; try again."
+SLOW_FREE = "{} didn't finish this in time. Nothing was charged; try again."  # our own server's
+# A provider that can't stop work (HeyGen) gets one more limit's time, then fails without an
+# automatic remake: the first may still finish there and be billed (FABLE B9).
+LATE = ("{} didn't finish this in time. It can't be stopped there and may still finish and be "
+        "charged, so it wasn't made again on its own: making it again could charge "
+        "twice.")  # fmt: skip
+# "Busy" (a 429) when starting: nothing started. Back in the queue after a wait that grows, not
+# counted as a try, and nothing more goes to that provider this tick (FABLE B3: 47 takes in
+# one burst used up all their tries in one tick). Still busy after the last wait: it fails.
+BUSY_WAITS = (10, 30, 90, 180, 300, 300)  # seconds: about 15 minutes in all
+BUSY = "{} stayed too busy to start this. Nothing was charged; try again later."
+# "Busy" while checking on running work: it is still running (FABLE B4); that job is checked
+# less often, and nothing more is asked of that provider this tick.
+CHECK_WAIT = timedelta(seconds=30)
+_check_after: dict[int, datetime] = {}  # job id: when to check it again (this process only)
 DAY = 24 * 60 * 60
 
 
-def _move(db: Session, job: Job, old: JobStatus, new: JobStatus, **values) -> bool:
-    """Change status only if nobody else did first (safe with several workers)."""
+def _move(db: Session, job: Job, old: JobStatus, new: JobStatus, *where, **values) -> bool:
+    """Change status only if nobody else did first (safe with several workers); `where`: and
+    only while these hold."""
     done = db.execute(
-        update(Job).where(Job.id == job.id, Job.status == old).values(status=new, **values)
+        update(Job).where(Job.id == job.id, Job.status == old, *where).values(status=new, **values)
     )
     if done.rowcount == 1:
         live.note(db, job.project_id, new)
@@ -259,10 +275,16 @@ def _download(job: Job, provider: Provider, urls: list[str], storage: Storage) -
 
 
 def _finish(
-    db: Session, job: Job, provider: Provider, result: Result, storage: Storage | None
+    db: Session,
+    job: Job,
+    provider: Provider,
+    result: Result,
+    storage: Storage | None,
+    again: bool = True,
 ) -> bool:
     """Record a finished job: outputs, status, real credits and usage, then the step's own
-    saving (e.g. Enhance suggestions). Returns False to try again on the next tick."""
+    saving (e.g. Enhance suggestions). Returns False to try again on the next tick. `again`
+    off: a failed step isn't tried again on its own."""
     if job.input.get("discard"):  # its video was released or archived while it ran: nothing
         moved = _stop(db, job)
         if moved:  # is downloaded or kept, but what it cost the owner is still listed
@@ -309,7 +331,7 @@ def _finish(
             save_step_result(db, job)
         elif new == JobStatus.failed and job.input.get("step"):
             db.refresh(job)
-            step_failed(db, job)
+            step_failed(db, job, again=again)
     db.commit()
     if moved:
         _then(db, job, storage)
@@ -346,48 +368,79 @@ def check_running(
     query = select(Job).where(
         (Job.status == JobStatus.running) | stopped, Job.provider_ref.is_not(None)
     )
+    busy: set[str] = set()  # providers that said "busy" this tick: not asked again in it
     for job in db.scalars(_mine(query, only)).all():
         if job.provider not in providers:
             _stop(db, job) if job.input.get("discard") else _fail(db, job, UNKNOWN, job.provider)
             db.commit()
             continue
-        try:
-            result = providers[job.provider].poll(job.provider_ref)
-        except NetworkError:
-            log.warning("job %s: network error while checking; will retry", job.id)
-            result = Result("running")
-        except Exception as exc:  # noqa: BLE001 - a broken answer fails the job, not the worker
-            _stop(db, job) if job.input.get("discard") else _fail(db, job, FAILED, repr(exc))
-            db.commit()
-            continue
+        if job.provider in busy or _check_after.get(job.id, datetime.min) > utcnow():
+            result = Result("running")  # asked less often while its provider is busy
+        else:
+            try:
+                result = providers[job.provider].poll(job.provider_ref)
+                _check_after.pop(job.id, None)
+            except NetworkError:
+                log.warning("job %s: network error while checking; will retry", job.id)
+                result = Result("running")
+            except NotStarted:  # busy (a 429) while it renders: it's still running
+                log.warning("job %s: %s busy while checking; will retry", job.id, job.provider)
+                busy.add(job.provider)
+                _check_after[job.id] = utcnow() + CHECK_WAIT
+                result = Result("running")
+            except Exception as exc:  # noqa: BLE001 - a broken answer fails the job, not the worker
+                _stop(db, job) if job.input.get("discard") else _fail(db, job, FAILED, repr(exc))
+                db.commit()
+                continue
         if result.state == "running":
-            if _overdue(job):  # the provider keeps saying "running", or checking keeps failing
+            if _overdue(job, providers[job.provider]):  # it keeps saying "running", or checking
+                _check_after.pop(job.id, None)  # keeps failing
                 _time_out(db, job, providers[job.provider])
             continue
         if not _finish(db, job, providers[job.provider], result, storage):
             continue
 
 
-def _overdue(job: Job) -> bool:
+def _unstoppable(provider: Provider) -> bool:
+    """Paid work it can't cancel (HeyGen): it may go on, and be billed, after we give up."""
+    return provider.paid and not hasattr(provider, "cancel")
+
+
+def _limit(job: Job, provider: Provider) -> timedelta:
+    limit = LIMITS.get(job.kind, LIMIT)
+    return 2 * limit if _unstoppable(provider) else limit  # checked once more, later (B9)
+
+
+def _overdue(job: Job, provider: Provider) -> bool:
     started = job.started_at or job.created_at
-    return utcnow() - started > LIMITS.get(job.kind, LIMIT)
+    return utcnow() - started > _limit(job, provider)
+
+
+def _service(job: Job) -> str:
+    return {"image": "The image service", "video": "The video service",
+            "music": "The music service"}.get(job.kind, "The service")  # fmt: skip
 
 
 def _time_out(db: Session, job: Job, provider: Provider) -> None:
     """Still running past its time limit (the provider keeps saying "running", or checking
     keeps failing): cancelled at the provider if it can, then failed like any failure (its
-    step's own handling, nothing charged), said plainly (Producer, 2026-10-28)."""
+    step's own handling), said plainly (Producer, 2026-10-28). A paid one may still be billed,
+    so its price is listed as an estimate; one it can't cancel isn't made again on its own (B9)."""
     try:
         getattr(provider, "cancel", lambda ref: None)(job.provider_ref)
     except Exception:  # noqa: BLE001 - cancelling is a courtesy; the job fails either way
         log.warning("job %s: couldn't cancel it at the provider", job.id, exc_info=True)
-    limit = LIMITS.get(job.kind, LIMIT)
-    _finish(db, job, provider, Result("failed", error=f"No answer within {limit}."), None)
-    what = {"image": "The image service", "video": "The video service",
-            "music": "The music service"}.get(job.kind)  # fmt: skip
-    message = SLOW.format(what or "The service")
+    stoppable = not _unstoppable(provider)
+    said = f"No answer within {_limit(job, provider)}." + ("" if stoppable else " Not cancellable.")
+    # Replicate: "If you cancel a run for an official model, you may still be charged"
+    # (replicate.com/docs/topics/billing): listed as an estimate, never under-counted
+    maybe = provider.paid and job.credits and not (job.provider_ref or "").startswith(STAND_IN)
+    paid = [UsageItem(Decimal(1), "job", (job.credits * USD_PER_CREDIT).quantize(Decimal("0.0001")),
+                      estimated=True)] if maybe else []  # fmt: skip
+    _finish(db, job, provider, Result("failed", error=said, usage=paid), None, again=stoppable)
+    message = LATE if not stoppable else SLOW if provider.paid else SLOW_FREE
     db.execute(update(Job).where(Job.id == job.id, Job.status == JobStatus.failed)
-               .values(error=message))  # fmt: skip
+               .values(error=message.format(_service(job))))  # fmt: skip
     db.commit()
 
 
@@ -456,13 +509,17 @@ def start_next(
     storage: Storage | None = None,
     allow_paid: bool = True,
     only: set[str] | None = None,
+    busy: set[str] | None = None,
 ) -> bool:
     """Hand the oldest queued job to its provider. Returns False if the queue is empty.
-    With `allow_paid` off (generation switched off), paid providers' jobs are left queued."""
+    With `allow_paid` off (generation switched off), paid providers' jobs are left queued.
+    `busy`: providers that said "busy" this tick, left alone until the next; added to."""
     query = _mine(select(Job).where(Job.status == JobStatus.queued), only)
     if not allow_paid:
         paid = [name for name, p in providers.items() if p.paid]
         query = query.where(Job.provider.not_in(paid))
+    if busy:
+        query = query.where(Job.provider.not_in(busy))
     now = utcnow().isoformat()  # an automatic retry after a busy service waits a moment (P3)
     job = next((j for j in db.scalars(query.order_by(Job.id))
                 if (j.input or {}).get("wait_until", "") <= now), None)  # fmt: skip
@@ -491,15 +548,11 @@ def start_next(
     if provider.paid and not _within_real_budget(db, job):
         return True
     if getattr(provider, "sync", False):  # answers in the same call (e.g. Claude)
-        return _run_sync(db, job, provider, storage)
+        return _run_sync(db, job, provider, storage, busy)
     try:
         ref = provider.submit(job.kind, _files_as_data(db, storage, job))
     except NotStarted as exc:
-        db.refresh(job)
-        if job.attempts < MAX_SUBMIT_TRIES:
-            _move(db, job, JobStatus.running, JobStatus.queued)
-        else:
-            _fail(db, job, FAILED, repr(exc))
+        _busy(db, job, exc, busy)
     except NetworkError:
         db.refresh(job)
         if provider.paid:
@@ -535,7 +588,26 @@ def _within_real_budget(db: Session, job: Job) -> bool:
     return True
 
 
-def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None) -> bool:
+def _busy(db: Session, job: Job, exc: NotStarted, busy: set[str] | None) -> None:
+    """The provider said "busy" (nothing started): queued again after the next of BUSY_WAITS,
+    not counted as a try; nothing more goes to it this tick. Past the last wait: failed."""
+    if busy is not None:
+        busy.add(job.provider)
+    db.refresh(job)
+    times = job.input.get("busy", 0)
+    if times >= len(BUSY_WAITS):
+        _fail(db, job, BUSY.format(_service(job)), repr(exc))
+        return
+    later = (utcnow() + timedelta(seconds=BUSY_WAITS[times])).isoformat()
+    unstopped = Job.input["ended"].as_string().is_(None)  # a Stop since: kept (director._write)
+    if not _move(db, job, JobStatus.running, JobStatus.queued, unstopped,
+                 attempts=job.attempts - 1,
+                 input={**job.input, "busy": times + 1, "wait_until": later}):  # fmt: skip
+        _move(db, job, JobStatus.running, JobStatus.queued, attempts=job.attempts - 1)
+
+
+def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None,
+              busy: set[str] | None = None) -> bool:  # fmt: skip
     if job.input.get("step") == director.STEP and not director.refresh(db, job):
         _move(db, job, JobStatus.running, JobStatus.cancelled, finished_at=utcnow())
         db.commit()  # stopped before its call: no call is made, so nothing is charged
@@ -548,11 +620,7 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         result = provider.run(job.kind, _files_as_data(db, storage, job))
         result = recheck(job.input, result, lambda again: provider.run(job.kind, again))
     except NotStarted as exc:
-        db.refresh(job)
-        if job.attempts < MAX_SUBMIT_TRIES:
-            _move(db, job, JobStatus.running, JobStatus.queued)
-        else:
-            _fail(db, job, FAILED, repr(exc))
+        _busy(db, job, exc, busy)
         db.commit()
         return True
     except NetworkError:  # it left, then the connection dropped or timed out: maybe charged
@@ -578,12 +646,14 @@ def run_once(
 ) -> None:
     hidden.see(db)  # the worker works on every job, a freestyle's hidden video's too
     check_running(db, providers, storage, only)
-    # At most one start per queued job per tick, so a requeued job waits for the next tick.
+    # At most one start per queued job per tick; a job its provider called busy waits its
+    # `wait_until`, and that provider gets nothing more this tick.
     queued = db.scalar(
         _mine(select(func.count(Job.id)).where(Job.status == JobStatus.queued), only)
     )
+    busy: set[str] = set()
     for _ in range(queued):
-        if STOP.is_set() or not start_next(db, providers, storage, allow_paid, only):
+        if STOP.is_set() or not start_next(db, providers, storage, allow_paid, only, busy):
             break  # stopping: the next start waits for the new worker
     if only and "claude" not in only:
         return  # the director's turns are Claude's: only that lane's worker sweeps

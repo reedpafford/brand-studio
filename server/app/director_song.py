@@ -241,6 +241,10 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
             return f"Fetching the {what} again: it was made, only saving it failed. Free."
         failed = takes
         reason = song_takes.state(db, failed[0])[1] or ""
+        from app.worker import LATE
+
+        if reason == LATE.format("The music service"):  # may still finish there, and be charged
+            return f"Refused: {reason}"  # never a second paid request on its own
         if reason in REFUSED or run.get("song_retries", 0) >= 1:  # the same would fail again
             return f"Refused: the {what} didn't come out ({reason}) Make it again with a note."
         last = run.get("song_note", "")  # the same request again: its style line too
