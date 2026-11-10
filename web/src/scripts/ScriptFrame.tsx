@@ -67,6 +67,22 @@ export function counts(text: string, narrated = false) {
   return { speakers: new Set(said.map((m) => m[1].trim())).size, lines: said.length, words, seconds: Math.round(spoken / (narrated ? 2.6 : 4.8)) };
 }
 
+/** The most a script may be, as the server's (app/schemas.py SCRIPT_LONGEST): about 8,000 words, well over 10 minutes. */
+export const MOST_SCRIPT = 50_000;
+
+/** A script box never cuts a paste (Reed, 10 Nov: a long script stopped at "Share this with ev"): near the most it counts
+ *  the characters, and past it it says so in the server's own words, so its press can wait. Counted as the server counts
+ *  them (characters, not UTF-16 units), after trimming. */
+export function scriptSize(text: string) {
+  const length = [...text.trim()].length;
+  const n = (x: number) => x.toLocaleString("en-US");
+  return {
+    over: length > MOST_SCRIPT,
+    counter: length >= MOST_SCRIPT * 0.9 ? `${n(length)} / ${n(MOST_SCRIPT)} characters` : undefined,
+    error: length > MOST_SCRIPT ? `This script is ${n(length)} characters; the most is ${n(MOST_SCRIPT)}. Trim it or split it.` : null,
+  };
+}
+
 /** "68 words · about 14 s" under the box; "0 words · 0 s" when it's empty. */
 export const lengthLine = (c: ReturnType<typeof counts>) => `${c.words} word${c.words === 1 ? "" : "s"} · ${c.words ? "about " : ""}${c.seconds} s`;
 /** "2 speakers · 4 lines": only when the script has dialogue. */
@@ -78,6 +94,7 @@ export function ScriptBox({ label, status, note, words, ...rest }: { label: stri
   const id = useId();
   const viewOnly = useViewOnly();
   const c = counts(words);
+  const size = scriptSize(words);
   return (
     <div className="mx-auto flex w-full max-w-[680px] flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -89,14 +106,14 @@ export function ScriptBox({ label, status, note, words, ...rest }: { label: stri
       <textarea
         id={id}
         rows={18}
-        maxLength={50000}
-        className="min-h-[420px] w-full rounded-lg border border-border-strong bg-surface p-4 type-script text-text placeholder:text-muted"
+        aria-invalid={size.over || undefined}
+        className={`min-h-[420px] w-full rounded-lg border bg-surface p-4 type-script text-text placeholder:text-muted ${size.over ? "border-danger" : "border-border-strong"}`}
         {...rest}
         readOnly={rest.readOnly || viewOnly}
       />
       <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs text-muted">
-        <span>{note ?? speakersLine(c)}</span>
-        <span className="tabular-nums">{lengthLine(c)}</span>
+        {size.error ? <span role="alert" className="text-danger">{size.error}</span> : <span>{note ?? speakersLine(c)}</span>}
+        <span className="tabular-nums">{size.counter ?? lengthLine(c)}</span>
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ def test_an_editors_dialogue_waits_then_the_director_delivers_it_in_its_brand(
     app, owner, editor, db, monkeypatch
 ):
     monkeypatch.setattr(director, "own_limit", lambda: director.OWN_CREDITS * 2)  # its looks
-    est = editor.get("/freestyles/estimate", params=BODY).json()["credits"]
+    est = editor.post("/freestyles/estimate", json=BODY).json()["credits"]
     r = editor.post("/freestyles", json=BODY)
     assert r.status_code == 201, r.text
     assert r.json()["up_to"] == est > 0
@@ -126,7 +126,7 @@ def test_an_approved_run_never_spends_past_its_price_without_a_new_ok(app, owner
     from app.credits import COUNTED, PAST_APPROVED
 
     sent = {**BODY, "brand_id": first_brand(owner)}
-    est = Decimal(str(editor.get("/freestyles/estimate", params=sent).json()["credits"]))
+    est = Decimal(str(editor.post("/freestyles/estimate", json=sent).json()["credits"]))
     fs = editor.post("/freestyles", json=sent).json()
     assert Decimal(str(fs["up_to"])) == est >= director.OWN_CREDITS  # its turns too
     _run(app, db, ticks=4, start=False)  # its plan, then its start card

@@ -60,9 +60,9 @@ def test_the_real_budget_never_stops_the_owner_when_it_is_0(db, owner, editor):
 
 
 def test_new_videos_press_says_about_what_it_will_cost(app, db, owner, editor, on):
-    est = owner.get("/freestyles/estimate", params={k: v for k, v in BODY.items()}).json()
+    est = owner.post("/freestyles/estimate", json={k: v for k, v in BODY.items()}).json()
     assert est["expected"] is True and est["held"] == "" and est["usd"] > 0
-    theirs = editor.get("/freestyles/estimate", params={k: v for k, v in BODY.items()}).json()
+    theirs = editor.post("/freestyles/estimate", json={k: v for k, v in BODY.items()}).json()
     assert theirs["expected"] is False  # an editor's is the most, in credits, as before
     assert est["credits"] < theirs["credits"]  # no allowance or remakes bound in it
 

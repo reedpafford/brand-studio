@@ -20,7 +20,7 @@ from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.projects import get_project, video_writer
 from app.routes.script_library import Slot
-from app.schemas import LongText, UtcTime
+from app.schemas import LongText, ScriptWords, UtcTime
 
 router = APIRouter(tags=["songs"])
 SONGS_OFF = "Songs aren't switched on here."
@@ -384,7 +384,7 @@ def use_video_song(
 
 
 class DirectionsIn(BaseModel):
-    source: LongText = ""  # a script or voice-over to adapt into lyrics
+    source: ScriptWords = ""  # a script or voice-over to adapt into lyrics
     sounds_like: Annotated[str, StringConstraints(max_length=300)] = ""
     note: LongText = ""
 

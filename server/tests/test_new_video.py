@@ -98,9 +98,9 @@ def test_an_editors_published_script_starts_at_once_inside_its_budget(
 ):
     pick = {"shape": "9:16", "script_id": _published(owner, SCRIPT)}
     monkeypatch.setattr(freestyles, "budget", lambda db, project: Decimal(10_000))
-    est = editor.get("/freestyles/estimate", params=pick).json()
+    est = editor.post("/freestyles/estimate", json=pick).json()
     assert est["held"] == "" and est["budget"] == 10_000 and est["usd"] is None  # credits only
-    usd = owner.get("/freestyles/estimate", params=pick).json()
+    usd = owner.post("/freestyles/estimate", json=pick).json()
     assert usd["usd"] >= usd["credits"] * 0.1028 and usd["usd"] - usd["credits"] * 0.1028 < 0.01
     sent = editor.post("/freestyles", json=pick)
     assert sent.status_code == 201, sent.text
@@ -115,7 +115,7 @@ def test_an_editors_published_script_past_its_budget_waits_and_says_by_how_much(
 ):
     pick = {"shape": "9:16", "script_id": _published(owner, SCRIPT)}
     monkeypatch.setattr(freestyles, "budget", lambda db, project: Decimal("1.2"))
-    est = editor.get("/freestyles/estimate", params=pick).json()
+    est = editor.post("/freestyles/estimate", json=pick).json()
     words = est["held"]
     assert words.startswith("Waiting for the owner's OK: up to ") and est["budget"] == 1.2
     assert words.endswith(" credits is past this video's budget of 2.")
@@ -126,9 +126,9 @@ def test_an_editors_published_script_past_its_budget_waits_and_says_by_how_much(
     (card,) = db.query(Job).filter_by(project_id=fs["project_id"],
                                       status=JobStatus.needs_owner_approval).all()  # fmt: skip
     assert card.input["held"] == words  # its start card, waiting for the owner, says why
-    pasted = editor.get("/freestyles/estimate", params={**BODY, "shape": "9:16"}).json()
+    pasted = editor.post("/freestyles/estimate", json={**BODY, "shape": "9:16"}).json()
     assert pasted["held"] == freestyles.HELD and pasted["budget"] is None  # S2-04
-    assert owner.get("/freestyles/estimate", params=pick).json()["held"] == ""  # the owner's
+    assert owner.post("/freestyles/estimate", json=pick).json()["held"] == ""  # the owner's
 
 
 def test_pictures_attached_stay_with_the_video_and_the_director_is_told(owner, db, monkeypatch):
@@ -150,7 +150,7 @@ def test_pictures_attached_stay_with_the_video_and_the_director_is_told(owner, d
 def test_a_presenters_b_roll_look_is_set_from_new_video_and_only_with_a_host(owner, db):
     brand = first_brand(owner)
     sent = {**BODY, "type": "presenter", "brand_id": brand, "broll_look": "skeleton"}
-    est = owner.get("/freestyles/estimate", params={**sent, "text": SCRIPT}).json()
+    est = owner.post("/freestyles/estimate", json={**sent, "text": SCRIPT}).json()
     assert est["credits"] > 0
     fs = owner.post("/freestyles", json=sent).json()
     assert db.get(Project, fs["project_id"]).broll_look == "skeleton"
@@ -161,7 +161,7 @@ def test_a_presenters_b_roll_look_is_set_from_new_video_and_only_with_a_host(own
 def test_the_estimate_is_never_below_what_the_send_approves(owner, editor, db):
     brand = first_brand(owner)
     sent = {**BODY, "brand_id": brand, "text": SCRIPT + "\nLEO: And the estimate holds."}
-    est = owner.get("/freestyles/estimate", params=sent).json()
+    est = owner.post("/freestyles/estimate", json=sent).json()
     fs = owner.post("/freestyles", json=sent).json()
     assert est["credits"] >= fs["up_to"]  # rule 36: "up to" never under what it can charge
     many = owner.post("/freestyles", json={**sent, "text": "More.", "attachments": [1] * 3})

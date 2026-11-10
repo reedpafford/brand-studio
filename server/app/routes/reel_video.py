@@ -33,6 +33,7 @@ from app.routes import freestyles as fs_routes
 from app.routes.clips import generation_on
 from app.routes.estimate import run_price
 from app.routes.jobs import CHANGE, PRICE, SAID
+from app.schemas import ScriptText
 
 router = APIRouter(prefix="/freestyles/reel", tags=["freestyles"])
 Mode = Literal["copy", "structure", "look"]
@@ -55,7 +56,7 @@ class ReelVideoIn(BaseModel):
     cast_ids: list[int] | None = None
     broll_look: str | None = None
     attachments: list[int] | None = None
-    text: fs_routes.Text | None = None  # Just its look: your own script
+    text: ScriptText | None = None  # Just its look: your own script
 
 
 class _Send(fs_routes.FreestyleIn):

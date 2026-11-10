@@ -22,7 +22,7 @@ function server(me: object, routes: Record<string, [number, unknown]> = {}) {
     "GET /looks": [200, [look("house", "House"), look("pixar", "Disney Pixar"), look("zack", "Zack D", false)]],
     "GET /jobs": [200, []],
     "GET /freestyles": [200, []],
-    "GET /freestyles/estimate": [200, { credits: 33.2 }],
+    "POST /freestyles/estimate": [200, { credits: 33.2 }],
     ...routes,
   });
 }

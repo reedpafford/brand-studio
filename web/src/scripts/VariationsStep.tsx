@@ -8,6 +8,7 @@ import { useMe } from "../auth/useMe";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
+import { scriptSize } from "./ScriptFrame";
 import type { Script } from "./useScript";
 import { serverTime } from "../time";
 import { refreshJobs } from "../jobs/refresh";
@@ -211,7 +212,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
       )}
       {written.length === 0 && !s.published && free.length > 0 && (
         <div className="max-w-[680px]">
-          <TextArea label="Direction (optional)" rows={2} maxLength={2000} placeholder="e.g. swap the altar for a car showroom; keep the payoff about money" value={note} onChange={(e) => setNote(e.target.value)} />
+          <TextArea label="Direction (optional)" rows={2} placeholder="e.g. swap the altar for a car showroom; keep the payoff about money" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
       )}
       {error && <p role="alert" className={errorClass}>{error.message}</p>}
@@ -229,6 +230,7 @@ export function VariationsStep({ script: s, own }: { script: Script; own: boolea
 
 function Column({ version: v, mayReadEarlier, scriptId, published, original, act, writing, regenerate, price }: { version: Version; mayReadEarlier: boolean; scriptId: number; published: boolean; original: string; act: ReturnType<typeof useVariations>; writing: boolean; regenerate: (note: string) => void; price?: number }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const size = scriptSize(editing ?? "");
   const [asking, setAsking] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const toast = useToast();
@@ -290,12 +292,12 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, act
       {v.slot > 0 && v.changes.length > 0 && <p className="line-clamp-2 text-xs text-muted">What changed: {v.changes.join("; ")}</p>}
       {editing !== null ? (
         <div className="space-y-2">
-          <TextArea label={`Words of version ${letter}`} rows={12} maxLength={50000} value={editing} onChange={(e) => setEditing(e.target.value)} />
+          <TextArea label={`Words of version ${letter}`} rows={12} value={editing} onChange={(e) => setEditing(e.target.value)} counter={size.counter} error={size.error} />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button busy={act.edit.isPending} disabled={!editing.trim()} onClick={() => act.edit.mutate({ slot: v.slot, text: editing }, { onSuccess: () => setEditing(null) })}>
+            <Button busy={act.edit.isPending} disabled={!editing.trim() || size.over} onClick={() => act.edit.mutate({ slot: v.slot, text: editing }, { onSuccess: () => setEditing(null) })}>
               Save
             </Button>
           </div>
@@ -311,7 +313,7 @@ function Column({ version: v, mayReadEarlier, scriptId, published, original, act
       )}
       {asking !== null && (
         <div className="space-y-2">
-          <TextArea label="What should change? (optional)" rows={2} maxLength={2000} value={asking} onChange={(e) => setAsking(e.target.value)} />
+          <TextArea label="What should change? (optional)" rows={2} value={asking} onChange={(e) => setAsking(e.target.value)} />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setAsking(null)}>
               Cancel

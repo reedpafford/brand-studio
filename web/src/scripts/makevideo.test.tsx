@@ -21,7 +21,7 @@ test("an editor's ready row has Make a video: the panel picks a version (its pla
     "GET /jobs": [200, []],
     "GET /scripts": [200, [script]],
     "GET /scripts/7": [200, script],
-    "GET /freestyles/estimate": [200, { credits: 187.4 }],
+    "POST /freestyles/estimate": [200, { credits: 187.4 }],
     "POST /freestyles": [201, { id: 9, brand_id: 1, project_id: 80, status: "waiting", thread: [] }],
   });
   renderApp("/b/1/scripts");
