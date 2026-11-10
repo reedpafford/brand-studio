@@ -66,6 +66,16 @@ Prices seen: 2.5 credits a picture; clips 3 credits a second at 480p, 7 at 720p,
 - Music is added in post (their cards ask for a score at the join; ours describe only the scene's own sound).
 - Our prices, our approvals for editors, and our looks' own guides, which win over a card on anything visual.
 
-## Not learned yet
+## How the run ended (Seen)
+![Sheets](shots/23-sheets.jpg)
+- Scenes 1-5 of Reed's script came back as one joined film: 110.75 seconds, 9:16, 480p, every line word for word, in 25 minutes from the go-ahead, with no remakes.
+- Cost: 357.5 credits (about $17.50 at $49 per 1,000): 27.5 for 11 reference pictures, 330 for 110 seconds of clips. Its estimate before starting was 334.
+- Five scenes, one clip each (the last scene took two). Each clip's viewer shows its prompt, the three or four pictures it was given, and "Seedance 2.5, 480p, 480x854".
+- Before delivering it listened to the finished film for every line and looked at frames for doubled people, broken faces and on-screen text. It names "script, cut and seam checks" it can run by machine (skipped this time). Sound is levelled to -14 LUFS. It added a 0.4 second black cut after the cold open.
+- It reported its own faults plainly: the van has cab windows; one line ends right at its clip's end; the tall 9:16 sheets came out cramped (Reed had asked for 9:16; it had chosen 16:9).
+- Frames from the store scene (one 24 second clip): the place matches its sheet from both directions, and Paige and the men match theirs.
+
+![Wide](shots/19-clip-frame-wide.jpg) ![Close](shots/20-clip-frame-close.jpg) ![End](shots/21-clip-frame-end.jpg)
+
+## Not learned
 - The body of their `/drama-ads` skill (its rules and checks) is not readable anywhere.
-- How the clips are joined and what the finished film looks like: add when the run finishes.
