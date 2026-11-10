@@ -506,7 +506,7 @@ def test_whispers_read_has_time_for_a_long_take(tmp_path, monkeypatch):
     monkeypatch.setattr(song_timing, "_run", slow)
     with pytest.raises(RuntimeError, match=r"^Reading the sung words took too long\.$"):
         song_timing.words(tmp_path / "v.mp3", "Hi.")
-    assert asked == [600, 900]  # never twice in one job
+    assert asked == [600, song_timing.MOST]  # never twice in one job
 
 
 def test_a_plan_that_lost_its_narration_times_names_the_press_that_times_it(

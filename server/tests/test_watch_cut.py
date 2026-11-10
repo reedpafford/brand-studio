@@ -30,6 +30,9 @@ def test_each_clip_sits_where_the_cut_put_it_and_the_strips_spread_over_it():
     assert [(s["clip_id"], s["start"], s["end"], s["seconds"]) for s in spans] == [
         ("c1", 0.0, 3.6, 4.0), ("c2", 3.6, 9.0, 6.0)]  # fmt: skip
     assert [watch_cut.count_for(n) for n in (6, 30, 90)] == [16, 24, 48]  # 0.8 a second
+    assert watch_cut.count_for(90, clips=12) == 48 and watch_cut.dense_for(12) == 4  # a short cut
+    assert watch_cut.count_for(300, clips=47) == 141 and watch_cut.dense_for(47) == 9  # 5 min
+    assert watch_cut.count_for(900, clips=200) == 144 and watch_cut.dense_for(200) == 12  # most
     assert watch_cut.clip_at(spans, 5.0) == "c2"
     assert (watch_cut._clips(spans, 0.0, 2.0), watch_cut._clips(spans, 2.0, 5.0)) == ("c1", "c1–c2")
 

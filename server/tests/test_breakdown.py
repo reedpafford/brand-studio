@@ -2,6 +2,7 @@
 
 import copy
 
+from app import breakdown
 from app.models.jobs import Job
 from tests.helpers import assert_hidden, assert_no_dollars
 from tests.test_enhance import SCRIPT, FakeClaude, _run, setup  # noqa: F401 - fixture
@@ -51,7 +52,7 @@ def test_breakdown_made_checked_and_edited(app, db, editor, setup):  # noqa: F81
     _run(app, db, fake)
     assert db.get(Job, job.json()["id"]).status == "succeeded"
     sent = fake.requests[0]
-    assert sent["max_tokens"] == 32000
+    assert sent["max_tokens"] == breakdown.TOKENS
     message = sent["messages"][0]["content"]
     assert "<places>" in message and "<video_model>Seedance 2.5: 4–30 s" in message
     assert "3| MOM: Nate, where is all your money?" in message

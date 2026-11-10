@@ -37,7 +37,7 @@ TIMEOUT = 180
 # the test site). One try a job: the local lane is one worker every cut and listen shares; a
 # failed read is read again as its own job (song_takes.time_again). A read that uses over
 # NEAR of its time logs a warning, so the trend shows before one runs out.
-FLOOR, PER_SECOND, MOST, NEAR = 300, 6, 900, 0.75
+FLOOR, PER_SECOND, MOST, NEAR = 300, 6, 1800, 0.75  # MOST: a 5-minute cut (long scripts)
 MAX_SECONDS = 900  # far longer than any ad (the stand-ins make one past the cap)
 PEAKS = 200  # waveform points for the screens
 # Quiet: this far under a voice's own loud level (its 95th-percentile 10 ms frame). In video

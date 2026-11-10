@@ -191,7 +191,7 @@ def test_the_stills_review_and_the_cut_watch_have_room_to_answer():
     from app import still_review, watch_cut
 
     for module in (still_review, watch_cut):
-        assert '"max_tokens": 16000' in inspect.getsource(module), module.__name__
+        assert '"max_tokens": 32_000' in inspect.getsource(module), module.__name__
 
 
 def test_retried_answers_never_count_as_failures(app, db, owner, editor):

@@ -186,7 +186,7 @@ def heard(db: Session, listen: Job) -> None:
     system, _ = project_context(db, project, STEP)  # the style's guide: its must-keeps
     known = watch_report.facts(out.get("measured"))
     data = {"step": STEP, "item_check_id": row.id, "take_id": take.id, "project_id": project.id,
-            "system": system, "prompt": text, "effort": "medium", "max_tokens": 8000,
+            "system": system, "prompt": text, "effort": "medium", "max_tokens": 16_000,
             "known": known,
             "fit_images_to": 1024, "ref_ids": seen.get("ref_ids", []),
             "files": {"reference_images": [*files, *seen.get("images", [])]}}  # fmt: skip

@@ -22,7 +22,6 @@ SLACK = 0.5  # a "90 s" file often measures a little over (audio padding)
 SCENE = 0.3  # ffmpeg scene score that counts as a cut
 FETCH_TIMEOUT = 90
 FETCH_PAUSE = 5  # seconds after each Instagram fetch
-TRANSCRIBE_TIMEOUT = 180
 LINK = re.compile(
     r"https://(?:www\.)?instagram\.com/(?:reels?|p)/([A-Za-z0-9_-]{5,40})/?(?:\?\S*)?"
 )
@@ -249,11 +248,12 @@ def transcribe(path: Path, sounds: bool = False, words: bool = False,
     flag = ["--sounds"] if sounds else ["--study"] if words else []
     flag += ["--speech-first"] if sounds and first else []
     flag += ["--fillers"] if sounds and fillers else []
+    from app.song_timing import read_timeout
     from app.whisper import timings
 
     args = [sys.executable, "-m", "app.whisper", str(path), *flag]
-    try:
-        done = _run(args, TRANSCRIBE_TIMEOUT)
+    try:  # its length's time: a 1,000-word script's whole cut runs 5 minutes (long scripts)
+        done = _run(args, read_timeout(path))
     except subprocess.TimeoutExpired as late:  # where the time went: the load, or the read
         log.warning("whisper transcription ran out of time: %s", timings(late.stderr))
         raise RuntimeError("Transcription took too long.") from None

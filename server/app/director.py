@@ -4,8 +4,9 @@ site's own actions (`director_tools`). Each turn is one Claude call on the video
 "director", paid from its budget like any press, so held for the owner past it): it reads the
 video's state and its last actions and picks one tool; the server runs it. When the work it
 started is all done, the next turn starts. The run's turns are its log, on the video.
-Server-side limits whatever the answer: MAX_TURNS, MAX_REDOS a clip and MAX_USD of its own
-Claude time. On the stand-ins (BS_FAKE_PROVIDERS) `choose` answers each turn: no paid call."""
+Server-side limits whatever the answer: its turns (`most_turns`), MAX_REDOS a clip and
+MAX_USD of its own Claude time. On the stand-ins (BS_FAKE_PROVIDERS) `choose` answers each
+turn: no paid call."""
 
 import json
 import logging
@@ -51,10 +52,14 @@ from app.models.storyboards import StoryboardFrame
 log = logging.getLogger(__name__)
 STEP = "director"
 RUN = "director_run"
-MAX_TURNS = 40  # a run's turns at most
+# A run's turns at most: 40, or 2 a planned clip on a long video (a 1,000-word UGC talker's 47
+# clips took 33 turns to its first cut, 10 Nov), never past 200 (`most_turns`)
+MAX_TURNS, TURNS_PER_CLIP, MOST_TURNS = 40, 2, 200
 MAX_REDOS = 2  # takes made again for one clip a run, its watch's remakes too (rule 34)
 MAX_REPLANS = 1  # plans made again from the watch ("Re-plan: …"), a run
-MAX_WATCHES = 3  # watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes")
+# Watches of the cut a run (watch_cut, Reed 1 Nov: "watch and make those fixes"): 3, and one
+# more for every 20 planned clips on a long video, never past 6 (`most_watches`)
+MAX_WATCHES, CLIPS_PER_WATCH, MOST_WATCHES = 3, 20, 6
 MAX_USD = Decimal(5)  # its own Claude time a video (Reed: "ideally less"); measured per run
 OWN_CREDITS = Decimal(75)  # its turns and watches a run, as charged and quoted (the Producer)
 NOT_PUBLISHED = "The director builds from a published script. Publish it first."
@@ -104,6 +109,23 @@ CAST_WAIT = "Waiting for the cast and places OK."  # its run waits on that point
 # The treatment's answer room. Adaptive thinking counts against it, and a long script (3-4 min
 # UGC, 10 Nov: project 338) ran out at 6000 twice. Only what is used is charged.
 TREATMENT_TOKENS = 32000
+
+
+def planned_clips(db: Session, project: Project) -> int:
+    """The clips of the video's newest breakdown (0 before one): its turns and watches scale
+    with them."""
+    from app import clip_prompts
+
+    row = clip_prompts.newest(db, project)
+    return len((row.data or {}).get("clips") or []) if row else 0
+
+
+def most_turns(clips: int) -> int:
+    return min(MOST_TURNS, max(MAX_TURNS, TURNS_PER_CLIP * clips))
+
+
+def most_watches(clips: int) -> int:
+    return min(MOST_WATCHES, MAX_WATCHES + clips // CLIPS_PER_WATCH)
 
 
 def start(db: Session, user: User, project: Project, *, hold: str = "",
@@ -1023,7 +1045,8 @@ def _act(db: Session, job: Job, storage) -> None:
                                                          why=old["old_take"]))  # fmt: skip
         if (state.get("timeline") or {}).get("changes") or state["cut"] == "out of date":
             return _record(db, job, run, REBUILD)  # rebuilt (and watched) before it's shown
-        if (state["cut"] != "none" and run.get("watches", 0) < MAX_WATCHES
+        watches = most_watches(planned_clips(db, project))
+        if (state["cut"] != "none" and run.get("watches", 0) < watches
                 and not watched):  # a watch still going isn't one (QA-10)  # fmt: skip
             return _record(db, job, run, UNWATCHED)  # the Director: it watches what it delivers
         named = {int(n) for n in NOTE.findall(move_words(decision))}  # its note answers "Note N"
@@ -1073,10 +1096,10 @@ def _act(db: Session, job: Job, storage) -> None:
         return _record(db, job, run, f"Refused: it planned again {MAX_REPLANS} time this run.")
     if tool == "watch_cut" and (cut_edits.for_director(db, project) or {}).get("changes"):
         return _record(db, job, run, REBUILD)  # a watch is for the cut with the edits in it
-    if tool == "watch_cut":  # its own eyes on the cut: 3 a run, never the same cut twice
-        watch = _watch(db, project)
-        if run.get("watches", 0) >= MAX_WATCHES:
-            return _record(db, job, run, f"Refused: it watched {MAX_WATCHES} times this run.")
+    if tool == "watch_cut":  # its own eyes on the cut: 3 a run (more on a long video), never
+        watch = _watch(db, project)  # the same cut twice
+        if run.get("watches", 0) >= (most := most_watches(planned_clips(db, project))):
+            return _record(db, job, run, f"Refused: it watched {most} times this run.")
         if watch.get("state") in ("watching", "done") and watch.get("current"):
             return _record(db, job, run, WATCHED_AGAIN)  # not a watch; it goes on
     db.commit()  # the turn's answer is kept whatever the tool does
@@ -1417,9 +1440,9 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
              result=DELIVERED if made else "")  # fmt: skip
         db.commit()
         return last
-    most = own_usd(db, run, project.id)
-    if run["turn"] >= MAX_TURNS or spent(db, run["id"], project.id) >= most:
-        why = (f"It stopped after {MAX_TURNS} turns." if run["turn"] >= MAX_TURNS
+    most, cap = own_usd(db, run, project.id), most_turns(planned_clips(db, project))
+    if run["turn"] >= cap or spent(db, run["id"], project.id) >= most:
+        why = (f"It stopped after {cap} turns." if run["turn"] >= cap
                else f"It stopped at ${most} of its own time.")  # fmt: skip
         if last is not None:
             _end(last, why)
@@ -1872,8 +1895,9 @@ def _turn_input(db: Session, project: Project, run: dict, job_id: int | None,
              "result": RETRIED_SAID if j.input.get(RETRIED) else _listed(j.input.get("result"))}
             for j in turns(db, project)
             if j.input[RUN]["id"] == run["id"] and j.id != job_id]  # the whole run  # fmt: skip
-    allowed = {"turns_left": MAX_TURNS - run["turn"], "redos_per_clip": MAX_REDOS,
-               "watches_left": MAX_WATCHES - run.get("watches", 0),
+    clips = planned_clips(db, project)
+    allowed = {"turns_left": most_turns(clips) - run["turn"], "redos_per_clip": MAX_REDOS,
+               "watches_left": most_watches(clips) - run.get("watches", 0),
                "redos_used": _redos(db, project, run),
                "own_time_usd": float(spent(db, run["id"], project.id)),
                "own_time_limit_usd": _limit_usd(own_usd(db, run, project.id)),
