@@ -647,19 +647,29 @@ def test_a_cut_that_runs_out_of_time_is_made_once_more_with_longer_limits_then_s
     tmp_path, monkeypatch
 ):
     """FABLE B7: a cut too slow to put together was called "a clip's file couldn't be read".
-    It's made once more with each step's limit doubled, then says it ran out of time."""
+    It's made once more with every ffmpeg step's limit longer (a cut-in's too: QA on #1527),
+    then says it ran out of time."""
+    import io
+
+    from PIL import Image
+
+    from app import cut_in
     from app.providers import local
     from app.storage import LocalStorage
 
-    limits = []
+    limits, picture = [], io.BytesIO()
+    Image.new("RGB", (8, 8)).save(picture, "PNG")
 
-    def slow(recipe, storage, progress):
-        limits.append(cut_render._limit())
-        raise subprocess.TimeoutExpired("ffmpeg", limits[-1])
+    def slow(*args, timeout, **kwargs):
+        limits.append(timeout)
+        raise subprocess.TimeoutExpired("ffmpeg", timeout)
 
-    monkeypatch.setattr(cut_render, "render", slow)
+    monkeypatch.setattr(cut_in, "_probe", lambda path: (720, 1280, 24.0, 4.0))
+    monkeypatch.setattr(subprocess, "run", slow)
+    monkeypatch.setattr(cut_render, "render", lambda recipe, storage, progress: cut_in.apply(
+        b"", [(picture.getvalue(), 0.0, 1.0)], 4.0))  # fmt: skip
     local_lane = LocalProvider(LocalStorage(tmp_path))
     made = local_lane.run("cut_make", {"recipe": {}, "progress_key": "p"})
-    assert limits == [cut_render.STAGE_LIMIT, 2 * cut_render.STAGE_LIMIT]
+    assert limits == [cut_render.WHOLE, cut_render.WHOLE * cut_render.LONGER]
     assert made.output == {"problem": local.TOO_SLOW, "fixes": ["again"]}
-    assert cut_render._limit() == cut_render.STAGE_LIMIT  # the next cut has the usual limits
+    assert cut_render._limit() == cut_render.WHOLE  # the next cut has the usual limits

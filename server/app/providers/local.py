@@ -15,7 +15,7 @@ from app import footage_shot, narration, reel, room, song_study, song_timing, ta
 from app.providers import Result
 
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".png": "image/png"}
-TOO_SLOW = ("it ran out of time on our server, twice (the second time with double the time). "
+TOO_SLOW = ("it ran out of time on our server, twice (the second time with more time). "
             "Try again when fewer videos are being made")  # fmt: skip
 
 
