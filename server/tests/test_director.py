@@ -98,6 +98,7 @@ def test_the_server_holds_the_limits_whatever_the_answer(app, db, owner, editor,
     """A director that keeps asking for a redo of one clip: refused past MAX_REDOS, and the
     run stops at MAX_TURNS."""
     monkeypatch.setattr(director, "MAX_TURNS", 16)  # room past the treatment and the stills
+    monkeypatch.setattr(director, "TURNS_PER_CLIP", 0)  # the base cap alone
     real = director.choose
 
     def stubborn(state):
@@ -130,6 +131,8 @@ def test_a_redo_refused_before_any_take_is_made_never_counts_as_one(
     from app import director_tools
 
     monkeypatch.setattr(director, "MAX_TURNS", 18)
+
+    monkeypatch.setattr(director, "TURNS_PER_CLIP", 0)  # the base cap alone
     real, run = director.choose, director_tools.run
     monkeypatch.setattr(director, "choose", lambda state: {
         "tool": "make_take", "clip_id": "c1", "take_id": None, "note": "Again.",
@@ -180,6 +183,7 @@ def test_refusals_that_wait_on_something_being_made_never_stop_the_run(
     """QA on #1457: "The host is being made" refused, then another step, then the first
     again would go: while anything of the video is being made, it's never a loop."""
     monkeypatch.setattr(director, "MAX_TURNS", 16)
+    monkeypatch.setattr(director, "TURNS_PER_CLIP", 0)  # the base cap alone
     real, steps = director.choose, iter(range(10**6))
     ping = {"tool": "redraw_still", "shot_id": "9.9", "note": "Alone.", "why": "Ping."}
     pong = {"tool": "make_take", "clip_id": "c9", "take_id": None, "note": "", "why": "Pong."}

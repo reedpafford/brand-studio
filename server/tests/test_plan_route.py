@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 
+from app import plans
 from app.db import utcnow
 from app.models.jobs import Job
 from app.models.projects import Project
@@ -104,7 +105,7 @@ def test_write_it_myself_earlier_plans_stop_and_the_time_limit(app, db, editor, 
 
     slow = editor.post(url, json={}).json()
     row = db.get(Job, slow["id"])
-    row.status, row.started_at = "running", utcnow() - timedelta(minutes=11)
+    row.status, row.started_at = "running", utcnow() - plans.LIMIT - timedelta(minutes=1)
     db.commit()
     said = editor.get(url).json()["job"]
     assert (said["status"], said["reason"]) == ("failed", "The plan took too long and was "
@@ -152,8 +153,6 @@ def test_change_this_scene_and_update_the_plan(app, db, editor, setup):  # noqa:
 def test_a_plan_finished_mid_read_is_never_missed(app, db, editor, setup, monkeypatch):  # noqa: F811
     """Next-Screens' flake: the job finished and saved its plan between reading the video and
     reading the job, and the page was told "no plan yet"."""
-    from app import plans
-
     url = f"/projects/{setup['project']}/plan"
     editor.post(url, json={})
     real = plans.job_state

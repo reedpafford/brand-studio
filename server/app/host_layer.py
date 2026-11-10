@@ -82,7 +82,7 @@ def lay_over(cut: bytes, hosts: list[bytes], spans: list[dict], key: str = KEY,
     """The B-roll cut with the host layer over it, as an MP4. Each host clip is cut to its
     own sound (the narration piece it lip-syncs), so the pieces stay in time with the voice.
     Hidden everywhere: the cut as it is."""
-    from app.cut_render import _probe
+    from app.cut_render import WHOLE, _probe
 
     if not _spans(spans):
         return cut
@@ -100,7 +100,7 @@ def lay_over(cut: bytes, hosts: list[bytes], spans: list[dict], key: str = KEY,
         lengths = [float(s) if re.fullmatch(r"[\d.]+", s) else None for s in heard]
         args = command("cut.mp4", names, spans, (w, h), key,
                        "narration" if narration else None, lengths)  # fmt: skip
-        done = subprocess.run(args, cwd=folder, capture_output=True, timeout=600)  # noqa: S603
+        done = subprocess.run(args, cwd=folder, capture_output=True, timeout=WHOLE)  # noqa: S603
         if done.returncode:
             raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
         return (folder / "out.mp4").read_bytes()

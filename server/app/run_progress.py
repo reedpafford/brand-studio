@@ -575,7 +575,7 @@ def carry_left(db: Session, project: Project, whole: bool = False) -> Decimal | 
     less what the run has charged against it (`asks.approved_run`). None when the newest run
     wasn't stopped (by a person, or by itself at a fault: video 240), had no Make it (the
     owner's priced press is one: `director.priced`), or has
-    nothing of its price left, or is at its own hard limit (MAX_TURNS, or its real-cost
+    nothing of its price left, or is at its own hard limit (`most_turns`, or its real-cost
     backstop `own_usd`). A delivered, declined or withdrawn run isn't carried on."""
     from app.credits import COUNTED
 
@@ -594,7 +594,8 @@ def carry_left(db: Session, project: Project, whole: bool = False) -> Decimal | 
     if not priced and (card is None or (card.input.get(RUN) or {}).get("id") != run_id):
         return None  # stopped before its Make it (at its start card): a new run's own card
     run = rows[-1].input[RUN]  # at its own hard limit it would end again at once (rule 22)
-    if run["turn"] >= director.MAX_TURNS or director.spent(
+    cap = director.most_turns(director.planned_clips(db, project))
+    if run["turn"] >= cap or director.spent(
             db, run_id, project.id) >= director.own_usd(db, run, project.id):  # fmt: skip
         return None  # so a new run, with its own start card
     got = asks.approved_run(db, project)  # a priced run's: its press's price (no card)

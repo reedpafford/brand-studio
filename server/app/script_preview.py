@@ -91,7 +91,7 @@ def job_input(db: Session, script: Script, draft: ScriptDraft, reference: dict |
         ),
         "system": system,
         "prompt": "\n".join(parts),
-        "max_tokens": 32000,
+        "max_tokens": breakdown.TOKENS,
     }
 
 

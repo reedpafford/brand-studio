@@ -31,6 +31,9 @@ log = logging.getLogger(__name__)
 
 OVERVIEW = (0.8, 16, 48)  # frames a second spread over the cut, 16 to 48 of them
 DENSE = 4  # windows sampled at 10 a second, on its jumps and cuts
+# A long cut's more (long scripts, 10 Nov: 48 frames over a 5-minute cut's 47 clips was one a
+# clip): 3 frames a clip, 144 at most (18 strips), and a window for every 5 clips, 12 at most
+PER_CLIP, MOST_FRAMES, CLIPS_A_WINDOW, MOST_DENSE = 3, 144, 5, 12
 LISTEN, STEP, KIND = "cut_listen", "watch_cut", "check-claude"
 NO_CUT = "Make the cut first."
 SEEN = ("story", "picture", "cast", "text", "screen")  # kinds the frames can show
@@ -56,10 +59,17 @@ def spans_of(lengths: list[tuple[str, int, float]], total: float) -> list[dict]:
     return out
 
 
-def count_for(length: float) -> int:
-    """Frames spread over the whole cut: about 0.8 a second, 16 to 48."""
+def count_for(length: float, clips: int = 0) -> int:
+    """Frames spread over the whole cut: about 0.8 a second, 16 to 48, or to 3 a clip on a long
+    cut (MOST_FRAMES at most)."""
     every, fewest, most = OVERVIEW
+    most = min(MOST_FRAMES, max(most, PER_CLIP * clips))
     return max(fewest, min(most, round(length * every)))
+
+
+def dense_for(clips: int) -> int:
+    """Dense windows on a cut: DENSE, or one for every CLIPS_A_WINDOW clips on a long one."""
+    return min(MOST_DENSE, max(DENSE, clips // CLIPS_A_WINDOW))
 
 
 def _cut(db: Session, project: Project) -> FinalVideo | None:
@@ -153,7 +163,7 @@ def heard_cut(db: Session, job: Job) -> None:
     data = {"step": STEP, "project_id": project.id, "final_video_id": job.input["final_video_id"],
             "system": [prompts.system(STEP, project.look or "house",
                                       broll=project.broll_look or "")], "prompt": text,
-            "effort": "high", "max_tokens": 16000,
+            "effort": "high", "max_tokens": 32_000,
             "fit_images_to": 1024, "director_run": job.input.get("director_run"),
             "cut": cut, "words": out.get("words", []), "ending": ending,
             "script": version.text if version else "",

@@ -159,6 +159,9 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
 
 
 TYPICAL_TURNS = 14  # a run's usual turns, treatment to deliver: for its expected cost only
+# A long video's turns, a planned clip each (its splits, its takes' redos): a 1,000-word talker's
+# 47 clips took 33 turns to its first cut on the stand-ins (long scripts, 10 Nov)
+TURNS_A_CLIP = 0.8
 WATCH_LOOKS = 12  # a cut watch's usual pictures (its frame strips, the words and the facts)
 # A revision's turns, as real ones took them (QA on #1481): its own (the note, its card, the
 # cut, its watch, the delivery), and more for each clip (its still, its take, its remake) and
@@ -172,10 +175,11 @@ def expected(db: Session, draft: ScriptDraft, video=None, ended: bool = False) -
     with enough finished videos of its format and style, their credits a second
     (`scorecard.forecast`); else the version's own price (its first takes and their checks),
     its song or narration and the presenter's host made once, and the director's usual turns
-    and one watch of the cut, at their own prices. A revision (`revision`; `ended`: the run
-    that ended, for its own record): what it makes again, each of its clips once more (real
-    ones remake one: 261's clip 7 was made twice), its turns at what a turn really costs, and
-    one watch. No allowance, no remakes bound: an estimate, never a limit."""
+    (more on a long video: TURNS_A_CLIP) and one watch of the cut, at their own prices. A
+    revision (`revision`; `ended`: the run that ended, for its own record): what it makes
+    again, each of its clips once more (real ones remake one: 261's clip 7 was made twice),
+    its turns at what a turn really costs, and one watch. No allowance, no remakes bound: an
+    estimate, never a limit."""
     from app import director, director_song, host, narration, scorecard, watch_cut
 
     script = db.get(Script, draft.script_id)
@@ -183,8 +187,8 @@ def expected(db: Session, draft: ScriptDraft, video=None, ended: bool = False) -
     watch = estimate(db, ws, watch_cut.KIND, Decimal(WATCH_LOOKS), {})
     if change := revision(db, video, ended):
         clips, looks = change
-        turns = min(director.MAX_TURNS, REVISION_TURNS + CLIP_TURNS * len(clips)
-                    + LOOK_TURNS * looks)  # fmt: skip
+        cap = director.most_turns(director.planned_clips(db, video))
+        turns = min(cap, REVISION_TURNS + CLIP_TURNS * len(clips) + LOOK_TURNS * looks)
         return (_work(db, video, change) + clip_takes.takes_price(db, video, clips)
                 + turns * turn_price(db, ws) + watch)  # fmt: skip
     found = scorecard.forecast(db, draft, video)
@@ -195,7 +199,9 @@ def expected(db: Session, draft: ScriptDraft, video=None, ended: bool = False) -
     made_once = director_song.price(db, draft) / (1 + director_song.REMAKES)
     audio = Decimal(0) if omni_talker.films(script, video) else made_once  # a UGC talker has none
     talks = host.run_price(db, draft, said, video, 0)
-    turns = TYPICAL_TURNS * estimate(db, ws, "write-claude", Decimal(1), {})
+    clips = director.planned_clips(db, video) if video is not None and video.id else 0
+    turns = max(TYPICAL_TURNS, math.ceil(TURNS_A_CLIP * clips))
+    turns *= estimate(db, ws, "write-claude", Decimal(1), {})
     return version_cost(db, draft, video) + audio + talks + turns + watch
 
 
