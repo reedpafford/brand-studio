@@ -189,6 +189,19 @@ test("Reed, 10 Nov: Change… counts its note, never cuts a paste past 500, and 
   await userEvent.type(box, "!");
   expect(within(m).queryByText("Sheets are for characters and places.")).toBeNull(); // editing the note clears it
 });
+
+test("Change… counts an emoji as one character, as the server does", async () => {
+  setViewport(1440);
+  server(owner, [marcus], { "GET /models": [200, []] });
+  open();
+  const m = await screen.findByRole("region", { name: "Marcus" });
+  await userEvent.click(within(m).getByRole("button", { name: "Change…" }));
+  await userEvent.click(within(m).getByLabelText("Change Marcus…"));
+  await userEvent.paste("😀".repeat(499)); // 998 UTF-16 units, 499 characters
+  expect(within(m).getByText("499 / 500 characters")).toBeInTheDocument();
+  expect(within(m).queryByText(/the most is 500/)).toBeNull();
+  expect(within(m).getByRole("button", { name: /Change it · up to/ })).toBeEnabled();
+});
 test("S5-01: two roles that may be one person show as one card: Merge into one, with Undo, or They're different", async () => {
   setViewport(1440);
   const mom = role({ ref: "char:30", role: "Mom", name: "Mom", library_item_id: 30, slot_id: 5, clip_ids: ["c1"], description: "" });

@@ -263,7 +263,7 @@ function RoleCard({ a, c }: { a: Asset; c: Ctx }) {
   // An open Change… box says a refusal next to its press until the note is edited; anywhere else it's a toast.
   const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSuccess: done, onError: (e: Error) => changing === null && toast(e.message, undefined, "error") });
   const go = (f: () => Promise<unknown>) => run.mutate(f);
-  const edit = (text: string | null) => (setChanging(text), run.reset());
+  const edit = (text: string | null) => (setChanging(text), run.isPending || run.reset()); // a send's result stays
   // A look made for this video is redrawn from the note: counted, and past the most it waits, said plainly (never cut).
   const size = ownLook ? textSize(changing ?? "", SHEET_NOTE) : null;
   const refused = size?.error ?? (changing !== null && run.isError ? run.error.message : null);
