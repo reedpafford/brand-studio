@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, Entity
@@ -43,3 +43,11 @@ class MediaUpload(Entity, Base):
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
     seconds: Mapped[float | None]  # a clip's length; null for a picture
     removed_at: Mapped[datetime | None]
+    # Brand footage (Reed, 9 Nov, app/footage.py): a real clip on the library's Footage tab,
+    # given to the director; what it shows and which product, two frames (the first its
+    # thumbnail), and the AI description's job while it's being written
+    footage: Mapped[bool] = mapped_column(default=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("library_items.id"))
+    frame_file_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    describe_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"))

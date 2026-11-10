@@ -159,6 +159,16 @@ class ScreenFigure(BaseModel):
     )
 
 
+class FootageUse(BaseModel):
+    id: str = Field(description="The clip's id from <footage>, e.g. 'footage:3'.")
+    start: float = Field(description="Where the shot starts in that clip, in its seconds.")
+    end: float = Field(description="Where the shot ends in that clip, in its seconds.")
+    sound: bool = Field(
+        description="True keeps the clip's own sound under the voice (a beep or click the "
+        "line names); false mutes it."
+    )
+
+
 def _unnoted(line):
     """A shot's words never keep a note in brackets ("I said [quietly] no"): it's direction,
     and the video model would say it (prompts.without_notes)."""
@@ -215,6 +225,13 @@ class Shot(BaseModel):
         description="Only when this shot shows a brand screen with a figure on it: the figure, "
         "for the first screen in screen_ids; the server draws it onto that screen. Each winning "
         "beat's figure is bigger than the last; a loss is signed '-'. Null otherwise.",
+    )
+    footage: FootageUse | None = Field(
+        default=None,
+        exclude_if=lambda v: v is None,  # saved only on a shot that uses it
+        description="Only when <footage> says a B-roll shot may be one of the brand's real "
+        "clips: this shot IS that clip, from start to end, instead of being made. Null "
+        "otherwise.",
     )
     # Who a person took out of this shot (remove-ref): nothing puts them back by itself.
     # The server's own, never the writer's (no schema).
@@ -390,6 +407,17 @@ class ImprovedPrompt(BaseModel):
 
 
 # --- Look fit: does a made look read as its role? (Reed, "looks must fit the role") ---
+
+
+class FootageDescription(BaseModel):
+    description: str = Field(
+        description="What the clip shows, in one or two plain sentences under 200 characters: "
+        "the product, what it does and how it moves or works ('The small round alarm opens, "
+        "beeps and flashes red lights on a desk')."
+    )
+    product: str = Field(
+        description="The product it shows, by its name in <products>, or '' when none."
+    )
 
 
 class LookFit(BaseModel):

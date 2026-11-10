@@ -22,6 +22,7 @@ class Price(BaseModel):
     unit: Literal["second", "image", "call", "thousand_characters"]
     usd: dict[str, Decimal]  # per resolution ("any" when it doesn't matter)
     gpu_usd_per_second: Decimal | None = None  # billed by GPU time: the real cost is its run time
+    with_video: dict[str, Decimal] | None = None  # per resolution, when a reference video goes too
 
 
 class Edit(BaseModel):
@@ -70,16 +71,20 @@ class CatalogueModel(BaseModel):
             return "480p"
         return min(self.resolutions, key=lambda r: int(r[:-1]) * (1000 if r.endswith("k") else 1))
 
-    def usd_per_unit(self, resolution: str | None = None, edit: bool = False) -> Decimal:
-        usd = (self.edit.price if edit and self.edit else self.price).usd
+    def usd_per_unit(self, resolution: str | None = None, edit: bool = False,
+                     video_in: bool = False) -> Decimal:  # fmt: skip
+        """`video_in`: a reference video goes with it (Seedance: a dearer rate)."""
+        price = self.edit.price if edit and self.edit else self.price
+        usd = price.with_video if video_in and price.with_video else price.usd
         if "any" in usd:
             return usd["any"]
         if resolution not in usd:
             raise ValueError(f"{self.name} has no {resolution!r} resolution.")
         return usd[resolution]
 
-    def credits_per_unit(self, resolution: str | None = None, edit: bool = False) -> Decimal:
-        credits = self.usd_per_unit(resolution, edit) / USD_PER_CREDIT
+    def credits_per_unit(self, resolution: str | None = None, edit: bool = False,
+                         video_in: bool = False) -> Decimal:  # fmt: skip
+        credits = self.usd_per_unit(resolution, edit, video_in) / USD_PER_CREDIT
         return credits.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 

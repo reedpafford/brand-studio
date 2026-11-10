@@ -272,7 +272,7 @@ test("P-13: on a phone the tabs are a strip with every tab, and cards say how ma
   fakeServer(server(owner));
   renderApp("/b/1/library/characters");
   const tabs = await screen.findByRole("navigation", { name: "Library" });
-  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Characters", "Places", "Products", "Presenters", "Brand kit"]);
+  expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["Characters", "Places", "Products", "Footage", "Presenters", "Brand kit"]);
   expect(await screen.findByText("6 videos")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "New character" })).toBeInTheDocument();
 });
@@ -342,4 +342,22 @@ test("a New character whose sheet is refused can be tried again without making a
   await userEvent.click(within(form).getByRole("button", { name: /^Make it/ }));
   await vi.waitFor(() => expect(calls.filter((c) => c.key === "POST /library/character/12/sheet")).toHaveLength(2));
   expect(calls.filter((c) => c.key === "POST /library/character")).toHaveLength(1);
+});
+
+test("Footage (Reed, 9 Nov): each real clip with its thumbnail, length, product and words; Add says the AI's price; Delete has Undo", async () => {
+  const clip = { id: 3, file_id: 70, thumb_file_id: 71, seconds: 8.4, description: "The alarm opens, beeps and flashes red.", product_id: 9, describing: false };
+  const calls = fakeServer(server(owner, { "GET /brands/1/footage": [200, [clip]], "GET /brands/1/footage/price": [200, { credits: 1, usd: 0.02 }], "DELETE /brands/1/footage/3": [204, null], "POST /brands/1/footage/3/restore": [200, clip] }));
+  renderApp("/b/1/library/footage");
+  const tabs = await screen.findByRole("navigation", { name: "Library" });
+  expect(await within(tabs).findByRole("link", { name: /^Footage\s*1$/ })).toHaveAttribute("aria-current", "page");
+  const card = (await screen.findByText("The alarm opens, beeps and flashes red.")).closest("li")!;
+  expect(within(card).getByText("0:08")).toBeInTheDocument();
+  expect(await within(card).findByText("Peanut butter bag")).toBeInTheDocument();
+  expect(card.querySelector("video")).toHaveAttribute("poster", "/api/files/71");
+  await userEvent.click(screen.getAllByRole("button", { name: "Add a clip" })[0]);
+  expect(await screen.findByText("Leave it empty and the AI describes it from two of its frames · up to $0.02")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add clip" })).toBeDisabled(); // a clip first
+  await userEvent.click(within(card).getByRole("button", { name: "Delete" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /brands/1/footage/3/restore")).toBe(true));
 });

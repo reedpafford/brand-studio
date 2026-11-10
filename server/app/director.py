@@ -1982,6 +1982,9 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     data = {"step": "treatment", "project_id": project.id, RUN: run, "system": system,
             "prompt": text, "max_tokens": 6000, **({"redo": True} if redo else {}),
             **({"note": said} if said else {})}  # fmt: skip
+    from app import footage
+
+    data = footage.with_frames(db, project, data)  # how the brand's product really works
     again = treatment(db, project) is not None
     before = not (run or {}).get("ok", True)  # before Make it: on the planning allowance
     price = estimate(db, project.workspace_id, "write-claude", Decimal(1), data)
@@ -2156,9 +2159,10 @@ def video_state(db: Session, project: Project) -> dict:
     data = bd.data if bd else {}  # what each clip shows and says (the Director: not only verdicts)
     shots = {x["id"]: x for sc in data.get("scenes", []) for x in sc.get("shots", [])}
     ids_of = {c["id"]: c["shot_ids"] for c in data.get("clips", [])}
-    from app import model_map, talker
+    from app import footage, model_map, talker
 
     clips, said = [], talker.clips(db, project)  # a talker's clips come from its take, at the cut
+    reals = footage.uses(data)  # the brand's real footage clips (UGC B-roll)
     cut_seen, notes_now = cut_findings(db, project), run_notes(db, project)
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
                           .order_by(ProjectClip.id)):  # fmt: skip
@@ -2176,8 +2180,9 @@ def video_state(db: Session, project: Project) -> dict:
             watched = {k: (t.watch or {}).get(k) for k in ("found", "did", "action")}
             mark = verdict(checks)  # a transcript's finding alone is a doubt, as an unsure watch:
             doubt = watched["action"] == "unsure" or (mark == "flagged" and not notes)
+            real = footage.is_footage(t)  # the brand's real clip: never watched or remade
             out.append({"id": t.id, "number": t.number,  # the owner's, never a paid redo
-                        "verdict": "unsure" if doubt else mark,
+                        "verdict": "clean" if real else "unsure" if doubt else mark,
                         "notes": [] if doubt else notes, "watch": watched,
                         **({"cut_watch": cut_seen[t.id]} if t.id in cut_seen else {}),
                         **({"unscripted": extra} if extra else {}),
@@ -2196,6 +2201,7 @@ def video_state(db: Session, project: Project) -> dict:
                       **({"own_sound": True} if take_sound.own(db, picked) else {}),
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
+                      **({"footage": reals[row.clip_id]["id"]} if row.clip_id in reals else {}),
                       **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
     have = {c["clip_id"] for c in clips}  # a planned clip with no prompt yet (after a split)
     clips += [{"clip_id": c["id"], "stale": True, "picked_take_id": None,

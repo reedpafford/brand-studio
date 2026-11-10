@@ -641,7 +641,7 @@ test("Reed, 8 Nov: the start card is the direction card: concept, beats, the loo
   const thread = [item("t1", "move", "Director", "The treatment: …", "done", at, { treatment: story }), item("a9", "move", "Director", "", null, later, { kind: "ask", ask_id: 9 })];
   const look = { ref: "char:5", kind: "character", name: "Dr. Pickle", preview_file_id: 31, readiness: "ready", approval: "new", sig: "abc", look_fit: null };
   const shot = (id: string, action: string) => ({ id, script_lines: [1], speaker: null, line: null, action, reaction: null, camera: "", seconds: 5, character_ids: [], place_id: null, moment: null, screen_ids: [] });
-  const plan = { breakdown: { hook: "", scenes: [{ shots: [shot("s1", "He slaps the glowing gut"), shot("s2", "He holds up the capsule")] }], clips: [{ id: "c1", shot_ids: ["s1"], seconds: 5, seam: "" }, { id: "c2", shot_ids: ["s2"], seconds: 6, seam: "end" }] } };
+  const plan = { breakdown: { hook: "", scenes: [{ shots: [shot("s1", "He slaps the glowing gut"), { ...shot("s2", "He holds up the capsule"), footage: { id: "footage:3", start: 0, end: 6, sound: false } }] }], clips: [{ id: "c1", shot_ids: ["s1"], seconds: 5, seam: "" }, { id: "c2", shot_ids: ["s2"], seconds: 6, seam: "end" }] } };
   const calls = server(owner, null, run({ status: "running", thread }), { ...cards(start), "GET /projects/50/cast": [200, { state: "ready", asked: true, can_approve: true, items: [look] }], "GET /projects/50/breakdown": [200, plan], "POST /asks/9/answer": [200, { ...start, state: "answered" }] });
   renderApp("/b/1/videos/50");
   const card = await screen.findByRole("region", { name: "Make it for up to $14.40?" });
@@ -649,7 +649,7 @@ test("Reed, 8 Nov: the start card is the direction card: concept, beats, the loo
   expect(within(card).getByRole("region", { name: "Beats" })).toHaveTextContent("1.Hook · The glowing gut2.Payoff · The capsule held up");
   expect(await within(card).findByRole("img", { name: "Dr. Pickle" })).toBeInTheDocument(); // the look: what the cast step drew
   expect(await within(card).findByText("Clip plan · 2 clips · about 11 s")).toBeInTheDocument();
-  expect(within(card).getByText("He holds up the capsule")).toBeInTheDocument();
+  expect(within(within(card).getByText("He holds up the capsule").closest("li")!).getByText("Real footage")).toBeInTheDocument(); // UGC: the brand's own clip
   expect(within(card).getByText(/approves this cast and places/)).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Cast & places waiting for your OK" })).toBeNull(); // one card, one press
   await userEvent.click(within(card).getByRole("button", { name: "Make it · up to $14.40" }));

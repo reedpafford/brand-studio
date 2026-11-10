@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { fileUrl } from "../api/upload";
+import { Badge } from "../components";
 import { lookFitNote } from "../library/sheets";
 import { useBreakdown } from "../projects/BreakdownPane";
 import { useCast } from "../projects/CastOk";
@@ -74,12 +75,21 @@ export function Direction({ projectId }: { projectId: number }) {
       {clips.length > 0 && (
         <Part title={`Clip plan · ${clips.length} clip${clips.length === 1 ? "" : "s"} · about ${seconds} s`}>
           <ol className="space-y-0.5">
-            {clips.map((c, i) => (
-              <li key={c.id} className="flex gap-1.5">
-                <span className="shrink-0 tabular-nums text-muted">{`Clip ${i + 1} · ${c.seconds} s`}</span>
-                <span className="min-w-0 truncate">{shots.get(c.shot_ids[0])?.action}</span>
-              </li>
-            ))}
+            {clips.map((c, i) => {
+              const shot = shots.get(c.shot_ids[0]);
+              const real = c.shot_ids.length === 1 ? shot?.footage : null; // the brand's own clip, cut free (UGC)
+              return (
+                <li key={c.id} className="flex items-center gap-1.5">
+                  <span className="shrink-0 tabular-nums text-muted">{`Clip ${i + 1} · ${c.seconds} s`}</span>
+                  {real && (
+                    <span className="shrink-0" title={`From your footage, ${real.start}–${real.end} s${real.sound ? "" : ", muted"}`}>
+                      <Badge>Real footage</Badge>
+                    </span>
+                  )}
+                  <span className="min-w-0 truncate">{shot?.action}</span>
+                </li>
+              );
+            })}
           </ol>
         </Part>
       )}

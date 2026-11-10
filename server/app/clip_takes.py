@@ -35,8 +35,11 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     which), the project's aspect ratio, and its references by file id in the clip's order.
     `drop`: references left out for a look-alike retry ("frame:", then "char:"), each of their
     [ImageN] said in words instead and the rest renumbered (`LOOKALIKE`)."""
+    from app import footage
     from app.breakdown import would_show
 
+    if footage.of_clip(db, clip):  # cut from the brand's real clip, never made
+        raise HTTPException(409, footage.NOT_MADE)
     fits_model(db, project, clip)
     known = assets(db, project)
     breakdown = db.get(BreakdownVersion, clip.breakdown_id).data
@@ -52,8 +55,8 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     prompt = _in_words(db, clip.prompt, images, drop, known) if drop else clip.prompt
     images = [i for i in images if not _out(i, drop)]
     for ref in clip.references:
-        if _out(ref["id"], drop):
-            continue
+        if _out(ref["id"], drop) or (ref["kind"] == "video" and files[KEYS["video"]]):
+            continue  # one reference video a take (the brand's real clip, app/footage.py)
         if ref["id"] not in known:
             raise HTTPException(
                 409, "A picture on this clip is no longer part of this video. Edit the prompt."
@@ -714,15 +717,19 @@ def take_credits(db: Session, project: Project, clip: ProjectClip, edit: bool = 
     """What one more take costs: the estimate `enqueue` charges, and the director's watch of
     it that rides along while watches are on (`take_watch.rides`). `edit`: an edit of its take
     (Omni's, `change.editable`), at the edit's price on the same seconds; an Omni talker's
-    piece, with its voice separated from its room (talker_sound)."""
-    from app import take_watch, talker, talker_sound
+    piece, with its voice separated from its room (talker_sound). A clip of real footage is cut
+    from it, free; a take given a reference video is at its model's dearer rate (app/footage)."""
+    from app import footage, take_watch, talker, talker_sound
 
     if talker.says(db, project, clip):  # cut from the talker's one HeyGen take (video 281)
         from app import host
 
         return host.price(db, project, 1)
+    if footage.of_clip(db, clip):
+        return Decimal(0)
     m = model_map.of_clip(project, clip)
-    job = {"model": m.id, "edit": edit, "input": {"resolution": model_map.resolution(m)}}
+    job = {"model": m.id, "edit": edit, "input": {"resolution": model_map.resolution(m)},
+           "video_in": any(r["kind"] == "video" for r in clip.references or [])}  # fmt: skip
     seconds = model_map.billed(m, clip.seconds)  # as it's asked for on its own model
     take = estimate(db, project.workspace_id, "video", Decimal(seconds), job)
     split = talker_sound.price(db, project.workspace_id)

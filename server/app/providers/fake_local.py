@@ -648,6 +648,10 @@ class FakeWriter:
             groups = [g for k, group in enumerate(groups, 1)
                       for g in (group, [{**group[0], **broll, "id": f"1.b{k}"}])]  # fmt: skip
             shots = [s for group in groups for s in group]
+            real = re.search(r"- (footage:\d+) \| ([\d.]+) s", self._system)
+            if real and "This video is UGC" in self._system:  # its first B-roll is the real clip
+                end = min(float(real[2]), float(low))
+                groups[1][0]["footage"] = {"id": real[1], "start": 0.0, "end": end, "sound": False}
         clips = [
             {
                 "id": f"c{k}",
@@ -895,6 +899,12 @@ class FakeWriter:
                               "kind": "picture", "evidence": "picture",
                               "note": "The other take keeps the line."})  # fmt: skip
         return {"lands": True, "summary": "It plays; two small fixes.", "findings": found}
+
+    def _footage_describe(self, prompt):  # a brand's real clip: of its first product
+        first = next(iter(_tag(prompt, "products").splitlines()), "")
+        product = "" if first == "(none)" else first
+        return {"description": f"The {product or 'product'} shown working, close up, on a desk.",
+                "product": product}  # fmt: skip
 
     def _look_fit(self, prompt):  # every look fits
         return {"fits": True, "seen": _tag(prompt, "character"), "problem": ""}

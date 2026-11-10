@@ -3,6 +3,7 @@ import { ChevronRight, Plus, Search } from "lucide-react";
 import { Link, NavLink, useSearchParams } from "react-router-dom";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
+import { useFootage } from "./FootageTab";
 import { useVoices } from "./Voices";
 import { useCounts, type TabSlug } from "./kinds";
 
@@ -10,6 +11,7 @@ const TABS: { slug: TabSlug; title: string; phone?: string }[] = [
   { slug: "characters", title: "Characters" },
   { slug: "places", title: "Places" },
   { slug: "products", title: "Products" },
+  { slug: "footage", title: "Footage" },
   { slug: "presenters", title: "Presenters & voices", phone: "Presenters" },
   { slug: "kit", title: "Brand kit" },
 ];
@@ -29,6 +31,7 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
   const brand = useBrands().data?.find((b) => b.id === brandId);
   const counts = useCounts(brandId);
   const voices = useVoices(brandId).length; // the brand's own voices (L4); the app's are everyone's
+  const footage = useFootage(brandId).data?.length;
   const rail = useRail();
   const [q, setQ] = useSearch();
   const name = brand?.name ?? "";
@@ -38,7 +41,7 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
     void strip.current?.querySelector<HTMLElement>("[aria-current=page]")?.scrollIntoView?.({ block: "nearest", inline: "nearest" }); // it may return a promise
   }, [tab, rail]);
   const count = (slug: TabSlug) =>
-    slug === "kit" ? undefined : slug === "presenters" ? (counts.presenters === undefined ? undefined : counts.presenters + voices) : counts[slug];
+    slug === "kit" ? undefined : slug === "footage" ? footage : slug === "presenters" ? (counts.presenters === undefined ? undefined : counts.presenters + voices) : counts[slug];
   if (!rail) {
     return (
       <main className="min-h-screen pb-24">

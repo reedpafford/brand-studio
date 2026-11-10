@@ -899,6 +899,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brands/{brand_id}/footage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Footage */
+        get: operations["list_footage_brands__brand_id__footage_get"];
+        put?: never;
+        /**
+         * Add Footage
+         * @description A real clip added once (Media's checks: a clip of up to 3 minutes). Its two frames are
+         *     kept (its thumbnail, and what the AI and the director see); with no words, the AI
+         *     describes it.
+         */
+        post: operations["add_footage_brands__brand_id__footage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/footage/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe Price
+         * @description What the AI description of one clip costs at most, said before a clip is added blank.
+         */
+        get: operations["describe_price_brands__brand_id__footage_price_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}/footage/{footage_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Footage
+         * @description Off the tab, Media and the director's list (Undo: …/restore). A video already cut
+         *     from it keeps its take.
+         */
+        delete: operations["delete_footage_brands__brand_id__footage__footage_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change Footage
+         * @description Its words or its product, as the person sets them (the AI's are never put back).
+         */
+        patch: operations["change_footage_brands__brand_id__footage__footage_id__patch"];
+        trace?: never;
+    };
+    "/brands/{brand_id}/footage/{footage_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Footage */
+        post: operations["restore_footage_brands__brand_id__footage__footage_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/locks": {
         parameters: {
             query?: never;
@@ -6066,8 +6151,7 @@ export interface paths {
         put?: never;
         /**
          * Add Media
-         * @description Add a picture or a clip to a brand's Media (anyone with the brand; free). It is checked
-         *     by its contents: its type, its size, a picture's pixels, a clip's video and length.
+         * @description Add a picture or a clip to a brand's Media (anyone with the brand; free).
          */
         post: operations["add_media_brands__brand_id__media_post"];
         delete?: never;
@@ -6670,6 +6754,18 @@ export interface components {
             undone: boolean;
             /** Before */
             before: string;
+        };
+        /** Body_add_footage_brands__brand_id__footage_post */
+        Body_add_footage_brands__brand_id__footage_post: {
+            /** Upload */
+            upload: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Product Id */
+            product_id?: number | null;
         };
         /** Body_add_media_brands__brand_id__media_post */
         Body_add_media_brands__brand_id__media_post: {
@@ -7928,6 +8024,58 @@ export interface components {
             name?: string | null;
             /** Parent Id */
             parent_id?: number | null;
+        };
+        /** FootageIn */
+        FootageIn: {
+            /** Description */
+            description?: string | null;
+            /** Product Id */
+            product_id?: number | null;
+            /**
+             * No Product
+             * @default false
+             */
+            no_product: boolean;
+        };
+        /** FootageOut */
+        FootageOut: {
+            /** Id */
+            id: number;
+            /** File Id */
+            file_id: number;
+            /** Thumb File Id */
+            thumb_file_id: number | null;
+            /** Seconds */
+            seconds: number;
+            /** Description */
+            description: string;
+            /** Product Id */
+            product_id: number | null;
+            /** Describing */
+            describing: boolean;
+        };
+        /** FootageUse */
+        FootageUse: {
+            /**
+             * Id
+             * @description The clip's id from <footage>, e.g. 'footage:3'.
+             */
+            id: string;
+            /**
+             * Start
+             * @description Where the shot starts in that clip, in its seconds.
+             */
+            start: number;
+            /**
+             * End
+             * @description Where the shot ends in that clip, in its seconds.
+             */
+            end: number;
+            /**
+             * Sound
+             * @description True keeps the clip's own sound under the voice (a beep or click the line names); false mutes it.
+             */
+            sound: boolean;
         };
         /** FormatOut */
         FormatOut: {
@@ -11880,6 +12028,8 @@ export interface components {
             screen_ids: string[];
             /** @description Only when this shot shows a brand screen with a figure on it: the figure, for the first screen in screen_ids; the server draws it onto that screen. Each winning beat's figure is bigger than the last; a loss is signed '-'. Null otherwise. */
             screen_figure?: components["schemas"]["ScreenFigure"] | null;
+            /** @description Only when <footage> says a B-roll shot may be one of the brand's real clips: this shot IS that clip, from start to end, instead of being made. Null otherwise. */
+            footage?: components["schemas"]["FootageUse"] | null;
         };
         /** ShotRow */
         ShotRow: {
@@ -15999,6 +16149,201 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_footage_brands__brand_id__footage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FootageOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_footage_brands__brand_id__footage_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_footage_brands__brand_id__footage_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FootageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    describe_price_brands__brand_id__footage_price_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__library__PriceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_footage_brands__brand_id__footage__footage_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                footage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_footage_brands__brand_id__footage__footage_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                footage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FootageIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FootageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_footage_brands__brand_id__footage__footage_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+                footage_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FootageOut"];
                 };
             };
             /** @description Validation Error */

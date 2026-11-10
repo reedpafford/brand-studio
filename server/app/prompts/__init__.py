@@ -26,6 +26,7 @@ SCHEMAS = {
     "variations": schemas.Variations,
     "cast_slots": schemas.CastSlots,
     "look_fit": schemas.LookFit,
+    "footage_describe": schemas.FootageDescription,  # a brand's footage, what it shows
     "song_directions": schemas.SongDirections,
     "song_breakdown": schemas.SongBreakdown,
     "song_clip_prompts": schemas.ClipPrompts,
@@ -54,6 +55,7 @@ EXTENDS = {
 }
 NO_RULES = {
     "look_fit",
+    "footage_describe",
     "narration_music",
     "item_check",
     "watch_cut",

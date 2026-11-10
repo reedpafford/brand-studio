@@ -1,8 +1,8 @@
 """Free work done on our own server (`paid = False`, so it runs even with generation off):
 `reel_prepare` (app/reel.py), `song_timing` (app/song_timing.py), `song_study`
-(app/song_study.py), `take_listen` (app/take_words.py), `cut_listen` (app/watch_cut.py) and
-`cut_make` (app/cut_render.py). Files it makes are handed to the worker as `local://` paths,
-which `fetch` reads once and deletes."""
+(app/song_study.py), `take_listen` (app/take_words.py), `cut_listen` (app/watch_cut.py),
+`cut_make` (app/cut_render.py) and `footage_take` (app/footage.py). Files it makes are handed
+to the worker as `local://` paths, which `fetch` reads once and deletes."""
 
 import shutil
 import tempfile
@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from app import narration, reel, room, song_study, song_timing, talker_sound
+from app import footage, narration, reel, room, song_study, song_timing, talker_sound
 from app.providers import Result
 
 TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".png": "image/png"}
@@ -69,6 +69,8 @@ class LocalProvider:
             return self._hear_cut(input)
         if kind == "cut_make":
             return self._make_cut(input)
+        if kind == footage.TAKE:
+            return self._cut_footage(input)
         if kind != "reel_prepare":
             raise ValueError(f"Unknown local job {kind!r}.")
         folder = Path(tempfile.mkdtemp(dir=self.root))
@@ -87,6 +89,18 @@ class LocalProvider:
         except Exception:
             shutil.rmtree(folder, ignore_errors=True)
             raise
+
+    def _cut_footage(self, input: dict) -> Result:
+        """A real footage shot's take: its stretch of the brand's clip (app/footage.py)."""
+        use = input["footage"]
+        folder = Path(tempfile.mkdtemp(dir=self.root))
+        try:
+            out = footage.cut(self.storage.get(input["video_key"]), use["start"], use["end"],
+                              bool(use.get("sound")), folder)  # fmt: skip
+        except Exception:
+            shutil.rmtree(folder, ignore_errors=True)
+            raise
+        return Result("succeeded", output={}, files=[f"local://{out}"])
 
     def _time_song(self, input: dict) -> Result:
         with tempfile.TemporaryDirectory(dir=self.root) as folder:

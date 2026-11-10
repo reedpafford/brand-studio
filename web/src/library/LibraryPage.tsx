@@ -11,6 +11,7 @@ import { useRail } from "../useMedia";
 import { LibraryCard, Picture } from "./Cards";
 import { LibraryFrame, useSearch } from "./LibraryFrame";
 import { NewItem } from "./NewItem";
+import { FootageTab } from "./FootageTab";
 import { PresentersTab } from "./PresentersTab";
 import { KINDS, PRODUCT_TYPE, cover, day, isKindSlug, upTo, useItems, useNewPrice, videos, type Item, type KindSlug } from "./kinds";
 import { addPicture } from "./products";
@@ -21,6 +22,7 @@ export function LibraryPage() {
   const id = Number(brandId);
   if (kindSlug === "props") return <Navigate to={`/b/${id}/library/products`} replace />; // the old Props tab
   if (kindSlug === "presenters") return <PresentersTab key={id} brandId={id} />;
+  if (kindSlug === "footage") return <FootageTab key={id} brandId={id} />;
   if (!isKindSlug(kindSlug)) return <Navigate to={`/b/${id}/library/characters`} replace />;
   return <KindTab key={`${id}/${kindSlug}`} brandId={id} slug={kindSlug} />;
 }
