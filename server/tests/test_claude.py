@@ -7,7 +7,7 @@ import httpx2 as httpx
 import pytest
 from anthropic import DefaultHttpxClient
 
-from app.claude import MODEL, ClaudeError, ask, make_client
+from app.claude import MODEL, UNREADABLE, ClaudeError, ask, make_client
 from app.prompts.schemas import EnhanceResult
 from app.settings import Settings
 from tests.helpers import claude_stream
@@ -194,3 +194,56 @@ def test_the_provider_sends_its_steps_cache_lifetime_and_keeps_the_token_counts(
         (item,) = out.usage
         assert item.tokens["cache_read"] == 30000 and item.tokens["images"] == 3
     assert asked == {"DirectorTurn": "1h", "ScenePlan": "5m"}
+
+
+def _replies(texts, seen):
+    """A stand-in API answering each call with the next text in turn."""
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        body = claude_stream(texts[len(seen) - 1])
+        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+
+    return make_client("test-key", DefaultHttpxClient(transport=httpx.MockTransport(handler)))
+
+
+def test_the_director_turn_goes_without_constrained_decoding_and_is_checked_here():
+    """Jobs 3234-3236, 10 Nov: Anthropic refused the director's strict schema ("The compiled
+    grammar is too large"), even after #1521 shrank it. Its turn now goes without
+    `output_config.format`: the schema rides in the system prompt, the JSON is read from the
+    answer's text and checked against DirectorTurn here; one that doesn't fit is asked once
+    more with what was wrong. Every other step stays strict."""
+    from app.prompts.schemas import DirectorTurn
+    from app.providers.claude import LOOSE, ClaudeProvider
+
+    assert LOOSE == {"director"}
+    seen = []
+    good = '```json\n{"tool": "narration", "voice": "English_Jovialman", "why": "the brief"}\n```'
+    client = _replies(['{"tool": "fly", "why": "x"}', good], seen)
+    out = ClaudeProvider("k", client).run(
+        "write-claude", {"step": "director", "system": ["Rules.", "Brand."], "prompt": "p"}
+    )
+    assert out.state == "succeeded"
+    assert out.output["tool"] == "narration" and out.output["voice"] == "English_Jovialman"
+    assert out.output["clip_id"] is None and out.output["redraws"] == []  # left out: defaults
+    first, second = seen
+    assert "format" not in first.get("output_config", {})  # no strict grammar to compile
+    assert first["thinking"] == {"type": "adaptive"}
+    shape = first["system"][-1]
+    assert '"DirectorTurn"' in shape["text"]
+    assert shape["cache_control"] == {"type": "ephemeral", "ttl": "1h"}  # cached with the rules
+    assert [m["role"] for m in second["messages"]] == ["user", "assistant", "user"]
+    assert "tool" in second["messages"][2]["content"]  # what was wrong, fed back
+    (item,) = out.usage
+    assert item.cost_usd == 2 * Decimal("0.0144")  # both calls charged
+
+    seen = []
+    with pytest.raises(ClaudeError, match="unreadable") as err:  # twice wrong: a clear failure
+        ask(_replies(["no json here", '{"why": "x"}'], seen), system=["R."], prompt="p",
+            schema=DirectorTurn, strict=False)  # fmt: skip
+    assert len(seen) == 2 and err.value.cost_usd == 2 * Decimal("0.0144")
+    assert str(err.value) == UNREADABLE  # so the director's own once-more still applies
+
+    seen = []
+    ask(_replies([json.dumps(ANSWER)], seen), system=["R."], prompt="p", schema=EnhanceResult)
+    assert seen[0]["output_config"]["format"]["type"] == "json_schema"  # the rest: strict
