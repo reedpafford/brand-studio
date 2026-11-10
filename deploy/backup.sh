@@ -3,7 +3,7 @@
 # (default 14), but never deletes the newest 3 of each kind. The files are skipped (database
 # still saved) when the disk has under MIN_FREE_GB (default 15) or twice the last files backup
 # free, so a backup never fills the disk. Cron, installed by deploy/next/remote-deploy.sh for
-# Reed's site: 30 3 * * * cd ~/brand-studio-next/deploy && KEEP_DAYS=5
+# Reed's site: 30 3 * * * cd ~/brand-studio-next/deploy && KEEP_DAYS=14
 #   COMPOSE_PROJECT_NAME=brand-studio-next COMPOSE_FILE=docker-compose.yml:next/compose.yml ./backup.sh
 set -euo pipefail
 cd "$(dirname "$0")"
