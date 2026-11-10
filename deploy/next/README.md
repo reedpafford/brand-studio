@@ -21,9 +21,11 @@ in hand (up to 10 minutes), then restarts in about a minute. **It refuses to dep
 changes) unless repo variable `NEXT_FAKE_PROVIDERS` is `false`.
 
 **Backups:** every night at 3:30 (server time) the database and all files are saved to
-`~/brand-studio-next/deploy/backups/` for 14 days (`deploy/backup.sh`, installed by each deploy;
-log in `backups/backup.log`). They don't survive losing the server: now and then copy that folder
-elsewhere. **Restore** (Web console, replace the date; this replaces what's on the site now):
+`~/brand-studio-next/deploy/backups/` (`deploy/backup.sh`, installed by each deploy; log in
+`backups/backup.log`). Kept 5 days for now (`KEEP_DAYS=5` in the cron line: each night is a full
+copy of the files), and the newest 3 of each are never deleted. If the disk has under 15 GB free
+(or under twice the last files backup), that night saves only the database and writes a WARNING
+line in the log. They don't survive losing the server: now and then copy that folder elsewhere. **Restore** (Web console, replace the date; this replaces what's on the site now):
 ```
 cd ~/brand-studio-next/deploy
 c="docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml"
