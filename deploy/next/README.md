@@ -22,18 +22,32 @@ changes) unless repo variable `NEXT_FAKE_PROVIDERS` is `false`.
 
 **Backups:** every night at 3:30 (server time) the database and all files are saved to
 `~/brand-studio-next/deploy/backups/` (`deploy/backup.sh`, installed by each deploy; log in
-`backups/backup.log`). Kept 14 days (`KEEP_DAYS=14` in the cron line; each night is a full copy of
-the files, 1.1 GB on 9 Nov), and the newest 3 of each are never deleted. If the disk has under 15 GB free
-(or under twice the last files backup), that night saves only the database and writes a WARNING
-line in the log. They don't survive losing the server: now and then copy that folder elsewhere. **Restore** (Web console, replace the date; this replaces what's on the site now):
+`backups/backup.log`). The database is `backups/db-DATE.sql.gz`. The files are `backups/files/DATE/`,
+a plain folder you can browse, with every file as it was that night; files unchanged since the
+night before are shared between nights (hard links), so a night costs only what's new or changed
+(about 13 GB in all for 13 GB of files, plus whatever changes over the 14 days). Kept 14 days
+(`KEEP_DAYS=14` in the cron line), and the newest 3 of each are never deleted. If copying the
+night's changes would leave under 15 GB free, that night saves only the database and writes a
+WARNING line in the log. Each night ends with one line in the log, `backup DATE: ok` (or `WARNING`
+or `FAILED`) with the MB copied and the nights kept; every deploy prints the newest one. The copy
+runs at the lowest CPU and disk priority, without network, so it doesn't slow the site. Each
+deploy also builds its small image (`brand-studio-backup:1`), which the restore below uses. A night that fails halfway leaves `backups/files/.part`, which the next
+night finishes. The old full copies (`backups/files-DATE.tar.gz`, until 10 Nov) age out after 14
+days. They don't survive losing the server: now and then copy that folder elsewhere with
+`rsync -aH` (plain `cp` or `scp` stores every night in full). **Restore** (Web console, replace the
+date; this replaces what's on the site now):
 ```
 cd ~/brand-studio-next/deploy
 c="docker compose -p brand-studio-next -f docker-compose.yml -f next/compose.yml"
 $c stop api worker claude-worker reel-worker
 gunzip -c backups/db-2026-11-10.sql.gz | $c exec -T db psql -q -U brand -d brand
-$c run --rm --no-deps -T api tar -xzf - -C /data < backups/files-2026-11-10.tar.gz   # files too, if needed
+# files too, if needed (puts back that night's files; files added since stay):
+docker run --rm -v brand-studio-next_files:/data/storage -v "$PWD/backups/files/2026-11-10:/from:ro" brand-studio-backup:1 rsync -a --numeric-ids /from/ /data/storage/
+# (an old full copy instead: $c run --rm --no-deps -T api tar -xzf - -C /data < backups/files-2026-11-09.tar.gz)
 $c up -d --no-build
 ```
+One file only: find it under `backups/files/DATE/` (same folders as on the site) and copy it back
+the same way, with its path after `/from/` and `/data/storage/`.
 
 **One-time setup (done; kept for reference)**
 1. The front door's side (merged to `main`): `deploy/Caddyfile` answers on 8443,
