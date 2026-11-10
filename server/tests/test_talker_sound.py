@@ -4,16 +4,22 @@ only, no paid calls."""
 
 import json
 import subprocess
-from datetime import timedelta
+from datetime import datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 from app import cut, cut_render, director, reel, song_timing, spend, talker_sound, watch_report
 from app.catalogue import get_model
+from app.credits import never_billed
 from app.db import utcnow
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
+from app.models.jobs import Job, Usage
+from app.providers import Result, UsageItem
 from app.settings import get_settings
+from app.worker import check_running, start_next
 from tests.test_omni_talker import SAYS, _clips, _jobs, _made
 
 DEMUCS = Path(__file__).parent / "fixtures/replicate/ryan5453_demucs.json"
@@ -248,6 +254,125 @@ def test_a_separation_is_waited_for_three_minutes_at_most_and_never_with_paid_wo
     assert talker_sound.waiting(db, video, rows)
     monkeypatch.setattr(get_settings(), "generation_enabled", False)  # paid work is off: it
     assert not talker_sound.waiting(db, video, rows)  # would never run, so never waited for
+
+
+PA = "Prediction interrupted; please retry (code: PA)"  # Replicate, video 345 (22 at 12:38Z)
+
+
+class Dropping:
+    """Replicate's place, paid: drops the first runs it's given (PA), then separates."""
+
+    name, paid = "replicate", True
+
+    def __init__(self, drops: int):
+        self.drops, self.sent = drops, []
+
+    def submit(self, kind, input):
+        self.sent.append(input["take_id"])
+        return f"r{len(self.sent)}"
+
+    def poll(self, ref):
+        if int(ref[1:]) <= self.drops:
+            return Result("failed", error=PA)  # not billed: no usage
+        run = UsageItem(Decimal("3.1"), "second", Decimal("0.0043"))  # its run's GPU seconds
+        return Result("succeeded", output={}, files=["https://x/vocals.wav"], usage=[run])
+
+    def fetch(self, url):
+        return b"RIFF\0\0\0\0WAVEfmt " + b"\0" * 32, "audio/wav"
+
+
+def _split(db, video):
+    """A picked talker take's separation, its voice not yet kept."""
+    picked = {r.picked_take_id for r in _clips(db, video) if SAYS in r.prompt}
+    job = next(j for j in _jobs(db, video, talker_sound.STEP) if j.input["take_id"] in picked)
+    take = db.get(ClipTake, job.input["take_id"])
+    take.made_with = {k: v for k, v in take.made_with.items() if k != talker_sound.KEY}
+    return job, take
+
+
+@pytest.fixture
+def paid_on(monkeypatch):
+    monkeypatch.setattr(get_settings(), "generation_enabled", True)  # a queued one is waited for
+
+
+def test_a_dropped_separation_is_made_again_twice_at_most_and_billed_only_as_a_run(
+    app, db, owner, paid_on
+):
+    """Video 345: 22 separations Replicate dropped ("Prediction interrupted; please retry")
+    were never made again, so their pieces lost the steady room. Now one is queued again after
+    a short wait, at most twice; a dropped run counts nothing spent (Replicate doesn't bill a
+    failed run), and the one that's made is priced and listed in Usage like the first."""
+    video = _made(app, db, owner)
+    first, take = _split(db, video)
+    first.status, first.provider_ref, first.output = "running", "r0", None
+    db.commit()
+    dropping = Dropping(drops=1)
+    check_running(db, {"replicate": dropping}, app.state.storage)
+    tries, job = [], first
+    for n, wait in enumerate(talker_sound.RETRY_WAITS):
+        db.expire_all()
+        assert job.status == "failed" and never_billed(job)
+        assert not spend.charges(db, Job.id == job.id)[0]  # $0 spent on a dropped run
+        job = db.query(Job).filter_by(retry_of_id=job.id).one()
+        assert (job.status, job.auto, job.input["retry"], job.credits, job.input["take_id"]) == (
+            "queued", True, n + 1, first.credits, take.id)  # fmt: skip
+        left = (datetime.fromisoformat(job.input["wait_until"]) - utcnow()).total_seconds()
+        assert wait - 5 < left <= wait  # a short wait first
+        assert talker_sound.waiting(db, video, _clips(db, video))  # the cut waits for it
+        job.input = {**job.input, "wait_until": ""}
+        db.commit()
+        start_next(db, {"replicate": dropping}, app.state.storage)
+        check_running(db, {"replicate": dropping}, app.state.storage)
+        tries.append(job)
+    db.expire_all()
+    assert dropping.sent == [take.id, take.id] and tries[-1].status == "succeeded"
+    assert db.get(ClipTake, take.id).made_with[talker_sound.KEY] == tries[-1].output["file_ids"][0]
+    (usage,) = db.query(Usage).filter(Usage.job_id.in_([first.id, *[j.id for j in tries]]))
+    assert (usage.job_id, usage.kind, usage.provider, usage.cost_usd) == (
+        tries[-1].id, talker_sound.STEP, "replicate", Decimal("0.0043"))  # fmt: skip
+    tries[-1].status, tries[-1].error_detail = "failed", PA  # dropped a third time: never again
+    assert talker_sound.again(db, tries[-1]) is None
+    refused = Job(
+        **{
+            c: getattr(first, c)
+            for c in ("workspace_id", "created_by_id", "kind", "provider", "input", "project_id")
+        },
+        status="failed",
+        credits=first.credits,
+        error_detail="The input was flagged as sensitive (E005). Please retry.",
+    )
+    db.add(refused)
+    db.flush()
+    assert talker_sound.again(db, refused) is None  # a refusal never is
+
+
+def test_a_cut_makes_a_dropped_separation_again_once_and_never_waits_forever(
+    app, db, owner, paid_on
+):
+    """Runs hit before the retry (video 345): when the cut is asked for, a picked talker take
+    with no voice whose separations were all dropped gets one more, queued now; the cut waits
+    for it (WAIT_FOR from when it was queued), and it's never queued a second time."""
+    video = _made(app, db, owner)
+    dropped, take = _split(db, video)
+    dropped.status, dropped.error_detail, dropped.output = "failed", PA, None
+    db.commit()
+    with pytest.raises(HTTPException) as said:
+        cut.ready(db, video, app.state.storage)
+    assert said.value.detail == talker_sound.WAIT
+    db.rollback()  # the request ends: what was queued is kept
+    again = db.query(Job).filter_by(retry_of_id=dropped.id).one()
+    assert (again.status, again.auto, again.input["take_id"]) == ("queued", True, take.id)
+    assert again.input["wait_until"] <= utcnow().isoformat()  # no wait: it's long overdue
+    with pytest.raises(HTTPException):  # still waiting for it: nothing more queued
+        cut.ready(db, video, app.state.storage)
+    again.created_at = utcnow() - talker_sound.WAIT_FOR - timedelta(seconds=1)
+    db.commit()
+    cut.ready(db, video, app.state.storage)  # past its WAIT_FOR: the take's own sound
+    again.status, again.error_detail = "failed", PA
+    db.commit()
+    cut.ready(db, video, app.state.storage)  # dropped again: never queued a third time here
+    splits = db.query(Job).filter(Job.kind == talker_sound.STEP, Job.retry_of_id.is_not(None))
+    assert splits.count() == 1
 
 
 def test_a_separation_that_cant_be_queued_never_stops_the_take(db, monkeypatch, caplog):

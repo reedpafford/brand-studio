@@ -555,6 +555,12 @@ def refused(db: Session, job: Job) -> None:
 
 
 BUSY_SAID = re.compile(r"service is (temporarily|currently) unavailable|^No answer within", re.I)
+# The provider dropped the run, not the request (video 345: 22 voice separations "Prediction
+# interrupted; please retry (code: PA)" after a burst of takes): read as busy, unless it was
+# refused or invalid. A failed run isn't billed (replicate.com/docs/topics/billing).
+DROPPED = re.compile(r"interrupted|please retry|\bE004\b|timed? ?out|(?:Replicate|HTTP|status|"
+                     r"code)\W{0,3}50[0234]\b|\b50[0234] (?:Internal|Server|Bad Gateway|"
+                     r"Service Unavailable|Gateway)", re.I)  # fmt: skip
 RETRY_WAIT = timedelta(seconds=30)  # a busy service gets a moment before the one retry
 
 
@@ -575,15 +581,18 @@ def invalid(detail: str) -> str:
 
 
 def why_failed(job: Job) -> str:
-    """ "busy" (the service was busy or didn't answer), "refused" (its content check or
-    copyright refusal: never charged), "invalid" (the request itself refused before it ran:
-    never charged, never sent again as it is), or "" for anything else."""
+    """ "busy" (the service was busy, didn't answer or dropped the run), "refused" (its content
+    check or copyright refusal: never charged), "invalid" (the request itself refused before it
+    ran: never charged, never sent again as it is), or "" for anything else."""
     detail = job.error_detail or ""
     if BUSY_SAID.search(detail):
         return "busy"
     if refusal(detail) or "copyright" in detail.lower():  # its content: before a 400's "invalid"
         return "refused"
-    return "invalid" if invalid(detail) else ""
+    if invalid(detail):
+        return "invalid"
+    made = detail.startswith(("Gave up downloading", "Saving the output failed"))  # and billed
+    return "busy" if DROPPED.search(detail) and not made else ""
 
 
 def retry(db: Session, job: Job) -> None:
@@ -688,19 +697,21 @@ def once_more(db: Session, job: Job) -> None:
     _again(db, job, job.input, wait=bool(BUSY_SAID.search(job.error_detail or "")))
 
 
-def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
+def _again(db: Session, job: Job, data: dict, wait: bool) -> Job | None:
     project = db.get(Project, job.project_id)
     user = db.get(User, job.created_by_id)
     if not user or fits(db, project, user, job.credits):
-        return  # it would go over: nothing more runs on its own
+        return None  # it would go over: nothing more runs on its own
     data = {k: v for k, v in data.items() if k != "busy"}  # its own busy waits start afresh
     if wait:
         data = {**data, "wait_until": (utcnow() + RETRY_WAIT).isoformat()}
-    db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
-               provider=job.provider, input=data, project_id=job.project_id,
-               brand_id=job.brand_id, credits=job.credits, approved_by_id=job.approved_by_id,
-               status="queued", retry_of_id=job.id, auto=True))  # fmt: skip
+    new = Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
+              provider=job.provider, input=data, project_id=job.project_id,
+              brand_id=job.brand_id, credits=job.credits, approved_by_id=job.approved_by_id,
+              status="queued", retry_of_id=job.id, auto=True)  # fmt: skip
+    db.add(new)
     db.flush()
+    return new
 
 
 def retried(db: Session, row: ProjectClip) -> str | None:
@@ -717,7 +728,8 @@ def still_wanted(db: Session, job: Job) -> bool:
     prompt is the one it was made from (Flow-QA: an edit during a busy wait)."""
     row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
     project = db.get(Project, job.project_id) if job.project_id else None
-    if row is None and job.input.get("step") in ("host_still", "host_piece", "take_sound"):
+    if row is None and job.input.get("step") in ("host_still", "host_piece", "take_sound",
+                                                 "voice_split"):  # fmt: skip
         return bool(project and project.archived_at is None)  # not a take: only its video
     if job.input.get("step") == "song_timing":  # a take's timing read again (song_takes):
         return project is None or project.archived_at is None  # a script's take, or its video's

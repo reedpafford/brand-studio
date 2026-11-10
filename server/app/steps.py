@@ -29,7 +29,7 @@ def step_failed(db: Session, job: Job, again: bool = True) -> None:
     """A step's job failed: what waits on it is told (a check, a take's watch, a voice); and
     when the provider said so (`again`), the reel watch retries, then falls back, and a
     refused or busy take, a presenter's host and a take's added sound are tried again once on
-    their own (P3)."""
+    their own (P3), and a talker's voice separation the provider dropped up to twice."""
     from app.clip_takes import retry
     from app.reel_read import watch_failed
 
@@ -58,6 +58,13 @@ def step_failed(db: Session, job: Job, again: bool = True) -> None:
             once_more(db, job)
         except Exception:  # never let a retry break the worker
             log.exception("job %s: trying it again failed", job.id)
+    if job.input.get("step") == "voice_split" and again:  # dropped: queued again, at most twice
+        from app.talker_sound import again as split_again
+
+        try:
+            split_again(db, job)
+        except Exception:  # never let a retry break the worker
+            log.exception("job %s: separating the voice again failed", job.id)
     if job.input.get("step") == "song_timing":  # a take's timing: read once more, free and local
         from app.song_takes import time_again
 

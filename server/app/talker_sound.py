@@ -31,6 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import room
+from app.db import utcnow
 from app.models.clips import ClipTake, ProjectClip
 from app.models.jobs import WAITING, Job, JobStatus
 
@@ -59,6 +60,9 @@ WAIT_FOR = timedelta(minutes=3)  # past this a separation isn't waited for: the 
 # Nor a piece's free measure (whisper can queue): as made. 15 minutes, and a minute more for each
 # talker piece, all queued on the one local whisper lane (a 1,000-word talker has ~25: long scripts)
 MEASURE_FOR, PER_PIECE = timedelta(minutes=15), timedelta(minutes=1)
+# A separation the provider dropped (video 345: 22 "Prediction interrupted; please retry" after a
+# burst of takes) is queued again after these waits, so at most twice (`again`)
+RETRY_WAITS = (20, 60)  # s: well inside each one's own WAIT_FOR
 
 
 def measure(path: Path, lines: list[dict], vad=None) -> dict:
@@ -295,12 +299,50 @@ def saved(db: Session, job: Job) -> None:
     take.made_with = {**(take.made_with or {}), KEY: files[min(n, len(files) - 1)]}
 
 
+def again(db: Session, job: Job, wait: bool = True) -> Job | None:
+    """A separation the provider dropped (interrupted, busy, timed out: clip_takes.why_failed's
+    "busy") is queued again on its own after RETRY_WAITS, so at most twice; never one refused or
+    invalid. Its failed run isn't billed (credits.never_billed); the new one is priced, held and
+    listed in Usage like the first, with its own WAIT_FOR from when it's queued."""
+    from app.clip_takes import _again, why_failed
+
+    n = job.input.get("retry", 0)
+    if (why_failed(job) != "busy" or n >= len(RETRY_WAITS) or job.input.get("discard")
+            or db.get(ClipTake, job.input.get("take_id") or 0) is None
+            or db.scalar(select(Job.id).where(Job.retry_of_id == job.id))):  # fmt: skip
+        return None
+    later = utcnow() + timedelta(seconds=RETRY_WAITS[n] if wait else 0)
+    return _again(db, job, {**job.input, "retry": n + 1, "wait_until": later.isoformat()}, False)
+
+
+def heal(db: Session, project, rows: list[ProjectClip]) -> bool:
+    """Before the cut: a picked talker take with no separated voice whose separations all failed
+    as dropped, none tried again on its own (video 345, before `again`), gets one more now. True
+    when one was queued (the cut waits for it, as for any)."""
+    from app.clip_takes import why_failed
+
+    picked = {r.picked_take_id for r in rows if r.picked_take_id}
+    jobs: dict[int, list[Job]] = {}
+    for j in db.scalars(select(Job).where(Job.project_id == project.id,
+                                          Job.input["step"].as_string() == STEP)
+                        .order_by(Job.id)):  # fmt: skip
+        if j.input.get("take_id") in picked:
+            jobs.setdefault(j.input["take_id"], []).append(j)
+    healed = False
+    for take_id, tried in jobs.items():
+        if KEY in (db.get(ClipTake, take_id).made_with or {}) or any(
+            j.auto or j.status != JobStatus.failed or why_failed(j) != "busy" for j in tried
+        ):
+            continue
+        healed = again(db, tried[-1], wait=False) is not None or healed
+    return healed
+
+
 def given_up(job: Job) -> bool:
     """A separation no longer waited for: queued while paid generation is off (it would never
     run), or older than WAIT_FOR. The cut then plays the take's own sound (`even`); the
     separation may still land for the next cut. Its failure is never the director's (the
     fallback is automatic: director.py leaves it out)."""
-    from app.db import utcnow
     from app.settings import get_settings
 
     settings = get_settings()
@@ -313,7 +355,6 @@ def waiting(db: Session, project, rows: list[ProjectClip]) -> bool:
     measure still taken (MEASURE_FOR, and PER_PIECE for each piece, at most: then it plays
     as made)."""
     from app import item_checks
-    from app.db import utcnow
 
     picked = [r.picked_take_id for r in rows if r.picked_take_id]
     jobs = db.scalars(select(Job).where(Job.project_id == project.id, Job.status.in_(WAITING),
