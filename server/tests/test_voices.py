@@ -130,6 +130,10 @@ def test_a_voice_is_cloned_from_a_sample_through_the_cloning_model(app, db, owne
                                   "need_noise_reduction": False}  # fmt: skip
     assert job.input["files"] == {"voice_file": [body["sample_file_id"]]}
     assert job.credits == get_model(voices.CLONER).credits_per_unit()  # one clone
+    from app.worker import _files_as_data
+
+    sent = _files_as_data(db, app.state.storage, job)["input"]["voice_file"]
+    assert isinstance(sent, str) and sent.startswith("data:audio/")  # one file, never a list
     _run(app, db, ticks=3)
     mark = next(v for v in _saved(owner, brand) if v["name"] == "Mark")
     assert mark["state"] == "ready" and mark["preview_file_id"] and mark["cloned_at"]
