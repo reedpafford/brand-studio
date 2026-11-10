@@ -85,6 +85,9 @@ test("Footage: a competitor's clip wears a Competitor badge; the card's toggle m
   expect(within(ours).getByRole("combobox", { name: /Product/ })).toBeInTheDocument();
   await userEvent.click(within(ours).getByRole("checkbox", { name: /A competitor’s product/ }));
   expect(within(ours).queryByRole("combobox", { name: /Product/ })).not.toBeInTheDocument();
+  const words = within(ours).getByRole("textbox", { name: /What it shows/ });
+  expect(words).toHaveValue(""); // its old words may name the brand's product: written again
+  await userEvent.type(words, "A rival's alarm.");
   await userEvent.click(within(ours).getByRole("button", { name: "Save" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1/footage/10")?.body).toEqual({ description: "The alarm on a desk.", product_id: null, no_product: true, competitor: true }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "PATCH /brands/1/footage/10")?.body).toEqual({ description: "A rival's alarm.", product_id: null, no_product: true, competitor: true }));
 });

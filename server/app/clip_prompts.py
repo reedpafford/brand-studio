@@ -272,8 +272,8 @@ def assets(db: Session, project: Project) -> Assets:
 
 def written(bd: Breakdown, clip_ids: list[str] | None = None) -> list[str]:
     """The clips a run writes, in order: one Claude call (a part) and one price each. A real
-    footage clip has no prompt to write (app/footage.py)."""
-    from app.footage import uses
+    footage clip has no prompt to write (app/footage_shot.py)."""
+    from app.footage_shot import uses
 
     real = uses(bd.model_dump())
     return [c.id for c in bd.clips if (clip_ids is None or c.id in clip_ids) and c.id not in real]
@@ -988,9 +988,9 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         from app.clip_takes import after_fix
 
         after_fix(db, row, failed)
-    from app import footage
+    from app import footage_shot
 
-    real = footage.uses(bd_row.data)  # real footage clips: no prompt, a free take (settle)
+    real = footage_shot.uses(bd_row.data)  # real footage clips: no prompt, a free take (settle)
     for clip in bd.clips:  # never a dead end: a clip left unwritten gets a free one-click fix
         if clip.id in written or clip.id in real or (only is not None and clip.id not in only):
             continue
@@ -1006,7 +1006,7 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         row.problems = [f"{UNWRITTEN}: {reason}."]  # the card names the way out (free, then priced)
         row.kept, row.approved, row.prompt_ok = [], False, False
         row.free_fix_used = bool(job.input.get("fix"))  # once per version, then priced (QA)
-    footage.settle(db, project, job.created_by_id)
+    footage_shot.settle(db, project, job.created_by_id)
 
 
 LIP_SYNC = re.compile(r"lip[- ]?sync|voice-?over|mouth stays closed", re.I)
@@ -1362,10 +1362,10 @@ def follow(db: Session, project: Project, user) -> Job | None:
     2026-10-26), like frames. Paid, so only within the video's budget or the editor's week
     (the owner's work too, as for looks Assets makes); past it, or while a take is being
     made, nothing is queued and Clips keeps its Rewrite button. Never blocks the change."""
-    from app import footage
+    from app import footage_shot
     from app.credits import fits
 
-    footage.settle(db, project, user.id if user else None, first=False)  # its real clips: free
+    footage_shot.settle(db, project, user.id if user else None, first=False)  # its real clips: free
     ids = to_rewrite(db, project)
     if not ids or "clip_take" in _waiting(db, project) or not user:
         return None

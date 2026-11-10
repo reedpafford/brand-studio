@@ -111,7 +111,7 @@ def plan_cost(db: Session, ws: int, seconds: int, bd, roles: int, breakdown=True
     from app.storyboard import image_model, still_credits
 
     clips = len(bd.clips) if bd else math.ceil(seconds / CLIP_SECONDS_GUESS)
-    from app.footage import uses
+    from app.footage_shot import uses
 
     real = uses(bd.model_dump()) if bd else {}  # cut from the brand's real clips: free
     stills = clips - len(one_frame.shared(db, video, bd.model_dump()) if bd else {}) - len(real)

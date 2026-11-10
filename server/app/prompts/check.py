@@ -210,8 +210,8 @@ def breakdown(
 def clip_lengths(bd, min_s: int, max_s: int) -> list[str]:
     """Clips the video model can't make at their length (blocking; one over its longest has
     the Split fix). Also run on a video-model switch (breakdown.follow_model). A clip of the
-    brand's real footage is cut from it, never made: any length (app/footage.py)."""
-    from app.footage import uses
+    brand's real footage is cut from it, never made: any length (app/footage_shot.py)."""
+    from app.footage_shot import uses
 
     real = uses(bd.model_dump())
     return [f"clip {c.id}: {c.seconds} s is outside {min_s}–{max_s} s"

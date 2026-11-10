@@ -31,6 +31,8 @@ from app.routes.media import store
 router = APIRouter(prefix="/brands/{brand_id}/footage", tags=["footage"])
 GONE = "That clip is no longer in this brand's footage."
 WORDS = 500  # characters a description keeps
+MARKED = ("Marked a competitor’s product. Edit it to say what it shows, without your brand’s "
+          "name.")  # fmt: skip
 
 
 class FootageOut(BaseModel):
@@ -205,8 +207,13 @@ def _ask(db: Session, user: User, row: MediaUpload) -> None:
 def change_footage(brand_id: int, footage_id: int, body: FootageIn,
                    user: User = Depends(current_user), db: Session = Depends(get_db)):  # fmt: skip
     """Its words, its product or whether it's a competitor's, as the person sets them (the AI's
-    words are never put back). A competitor's clip is of none of the brand's products."""
+    words are never put back). A competitor's clip is of none of the brand's products; marked
+    one later with no new words, its old ones go (they may name the brand's product, QA on
+    #1518), and the director skips it until it's described again."""
     row = _row(db, user, brand_id, footage_id)
+    if body.competitor and not row.competitor and body.description is None:
+        row.description, row.describe_job_id = "", None
+        row.describe_note = MARKED
     if body.description is not None:
         row.description, row.describe_job_id = body.description.strip()[:WORDS], None
         row.describe_note = ""

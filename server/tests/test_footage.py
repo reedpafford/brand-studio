@@ -8,7 +8,7 @@ from decimal import Decimal
 import pytest
 from fastapi import HTTPException
 
-from app import clip_prompts, clip_takes, cut, director, footage, watch_cut
+from app import clip_prompts, clip_takes, cut, director, footage, footage_shot, watch_cut
 from app.catalogue import get_model
 from app.credits import estimate
 from app.enhance import project_context
@@ -127,7 +127,7 @@ def test_a_footage_shot_is_only_a_ugc_b_roll_clip_of_its_own_used_once(app, db, 
     def use(start=1.0, end=3.0, of=key):
         return {"footage": {"id": of, "start": start, "end": end, "sound": False}}
 
-    bd, said = footage.checked(
+    bd, said = footage_shot.checked(
         db,
         video,
         _plan(
@@ -150,7 +150,7 @@ def test_a_footage_shot_is_only_a_ugc_b_roll_clip_of_its_own_used_once(app, db, 
         ("1.4", "that clip isn't in the brand's footage"),
         ("1.6", "it shares its clip with other shots"))]  # fmt: skip
     video.look = "disney-pixar"
-    _, said = footage.checked(db, video, _plan(("1.1", use())))
+    _, said = footage_shot.checked(db, video, _plan(("1.1", use())))
     assert said == ["Advice: Shot 1.1 is made, not real footage: real footage is a shot only "
                     "in UGC."]  # fmt: skip
 
@@ -163,7 +163,7 @@ def test_a_narrated_footage_shot_fills_its_narration_time_and_is_never_held_froz
         return {"seconds": seconds, "footage": {"id": of, "start": start, "end": end,
                                                 "sound": False}}  # fmt: skip
 
-    bd, said = footage.checked(db, video, _plan(
+    bd, said = footage_shot.checked(db, video, _plan(
         ("1.1", use(a, 2.0, 4.0, 3.4)), ("1.2", use(b, 4.0, 5.0, 3.4)),
         ("1.3", use(c, 0.0, 6.0, 7.0))), timed=True)  # fmt: skip
     shots = {s.id: s for s in bd.scenes[0].shots}
@@ -178,14 +178,14 @@ def test_a_narrated_footage_shot_fills_its_narration_time_and_is_never_held_froz
 def test_a_footage_shot_is_made_again_once_the_b_roll_look_isnt_ugc(app, db, owner):
     _described(app, db, owner, first_brand(owner))
     video = _made(app, db, owner)
-    ((clip, _),) = footage.uses(clip_prompts.newest(db, video).data).items()
+    ((clip, _),) = footage_shot.uses(clip_prompts.newest(db, video).data).items()
     video.broll_look = "disney-pixar"  # switched after the plan (QA on #1513)
     with pytest.raises(HTTPException) as no:  # checked again at the cut
         cut.ready(db, video, app.state.storage)
-    assert no.value.detail == footage.DROPPED
+    assert no.value.detail == footage_shot.DROPPED
     plan = clip_prompts.newest(db, video)
-    assert footage.uses(plan.data) == {}
-    assert any(p.endswith(f"{footage.NOT_UGC}.") for p in plan.problems)
+    assert footage_shot.uses(plan.data) == {}
+    assert any(p.endswith(f"{footage_shot.NOT_UGC}.") for p in plan.problems)
     assert clip not in {r.clip_id for r in _clips(db, video)}  # its prompt is written now
     assert clip in clip_prompts.to_rewrite(db, video)
 
@@ -206,12 +206,12 @@ def test_a_ugc_footage_shot_is_cut_free_and_laid_over_the_talker_like_any_b_roll
     clip_id = _described(app, db, owner, brand)
     video = _made(app, db, owner)
     plan = clip_prompts.newest(db, video).data
-    ((clip, use),) = footage.uses(plan).items()  # the stand-in director picked it
+    ((clip, use),) = footage_shot.uses(plan).items()  # the stand-in director picked it
     assert use == {"id": f"{footage.KEY}{clip_id}", "start": 0.0, "end": 3.0, "sound": False}
     row = next(r for r in _clips(db, video) if r.clip_id == clip)
     take = db.get(ClipTake, row.picked_take_id)
     job = db.get(Job, take.job_id)  # cut on our server, free, never a paid take or a watch
-    assert (job.kind, job.provider, job.credits) == (footage.TAKE, "local", 0)
+    assert (job.kind, job.provider, job.credits) == (footage_shot.TAKE, "local", 0)
     assert take.made_with["footage"] == use and take.watch is None
     (tmp_path / "t.mp4").write_bytes(app.state.storage.get(db.get(StoredFile, take.file_id).key))
     from app.cut_render import _probe, seconds
@@ -227,7 +227,7 @@ def test_a_ugc_footage_shot_is_cut_free_and_laid_over_the_talker_like_any_b_roll
     assert clip_takes.take_credits(db, video, row) == 0
     with pytest.raises(HTTPException) as no:  # never remade
         clip_takes.take_input(db, video, row)
-    assert no.value.detail == footage.NOT_MADE
+    assert no.value.detail == footage_shot.NOT_MADE
     state = next(c for c in director.video_state(db, video)["clips"] if c["clip_id"] == clip)
     assert state["footage"] == use["id"] and state["takes"][-1]["verdict"] == "clean"
 
@@ -246,7 +246,7 @@ def test_the_cut_watch_is_told_a_real_footage_shot_and_never_remakes_it():
         "note": "Make it in the scene.",
     }
     (kept,) = watch_cut.checked({"findings": [pasted]}, spans, [], "")
-    assert kept["fix"] == "keep" and kept["note"] == footage.WATCHED  # how to change its stretch
+    assert kept["fix"] == "keep" and kept["note"] == footage_shot.WATCHED  # how to change it
 
 
 def test_a_take_given_the_real_clip_as_a_reference_is_priced_at_seedances_video_rate(
@@ -276,7 +276,7 @@ def test_a_take_given_the_real_clip_as_a_reference_is_priced_at_seedances_video_
 def test_a_local_cut_keeps_the_footages_sound_when_the_plan_asks(tmp_path):
     folder = tmp_path / "x"
     folder.mkdir()
-    made = footage.cut(mp4("9:16", 4, sound=True), 1.0, 2.5, True, folder)
+    made = footage_shot.cut(mp4("9:16", 4, sound=True), 1.0, 2.5, True, folder)
     from app.cut_render import _probe, seconds
 
     assert seconds(made.read_bytes()) == pytest.approx(1.5, abs=0.15)

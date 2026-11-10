@@ -2160,10 +2160,10 @@ def video_state(db: Session, project: Project) -> dict:
     data = bd.data if bd else {}  # what each clip shows and says (the Director: not only verdicts)
     shots = {x["id"]: x for sc in data.get("scenes", []) for x in sc.get("shots", [])}
     ids_of = {c["id"]: c["shot_ids"] for c in data.get("clips", [])}
-    from app import footage, model_map, talker
+    from app import footage_shot, model_map, talker
 
     clips, said = [], talker.clips(db, project)  # a talker's clips come from its take, at the cut
-    reals = footage.uses(data)  # the brand's real footage clips (UGC B-roll)
+    reals = footage_shot.uses(data)  # the brand's real footage clips (UGC B-roll)
     cut_seen, notes_now = cut_findings(db, project), run_notes(db, project)
     for row in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)
                           .order_by(ProjectClip.id)):  # fmt: skip
@@ -2181,7 +2181,7 @@ def video_state(db: Session, project: Project) -> dict:
             watched = {k: (t.watch or {}).get(k) for k in ("found", "did", "action")}
             mark = verdict(checks)  # a transcript's finding alone is a doubt, as an unsure watch:
             doubt = watched["action"] == "unsure" or (mark == "flagged" and not notes)
-            real = footage.is_footage(t)  # the brand's real clip: never watched or remade
+            real = footage_shot.is_footage(t)  # the brand's real clip: never watched or remade
             out.append({"id": t.id, "number": t.number,  # the owner's, never a paid redo
                         "verdict": "clean" if real else "unsure" if doubt else mark,
                         "notes": [] if doubt else notes, "watch": watched,

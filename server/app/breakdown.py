@@ -404,10 +404,10 @@ def land(
     bd, removed = drop_unknown(bd, known, lambda ref: _called(db, ref, project.workspace_id))
     bd, shown = cta_screen(db, project, bd)  # the end line's shot shows the brand's screen
     bd, bags = product_shots(db, project, bd)  # a shot that shows the product attaches it
-    from app import footage
+    from app import footage_shot
 
     timed = song_breakdown.take_for(db, project) is not None  # its clock sets each shot's length
-    bd, real = footage.checked(db, project, bd, timed)  # UGC's real B-roll shots, as they can be
+    bd, real = footage_shot.checked(db, project, bd, timed)  # UGC's real B-roll shots
     return bd, notes + removed + shown + bags + real
 
 

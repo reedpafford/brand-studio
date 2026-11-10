@@ -108,7 +108,7 @@ def heard_cut(db: Session, job: Job) -> None:
     data = bd.data if bd else {"scenes": [], "clips": []}
     shots = {s["id"]: s for sc in data.get("scenes", []) for s in sc.get("shots", [])}
     ids = {c["id"]: c["shot_ids"] for c in data.get("clips", [])}
-    from app.footage import uses
+    from app.footage_shot import uses
 
     real, cut = uses(data), []  # the brand's real footage, said so: never a pasted still
     for span in spans:
@@ -270,7 +270,7 @@ def checked(answer: dict, cut: list[dict], words: list[dict], script: str) -> li
             }
         span = spans.get(f.get("clip_id"))
         if span and span.get("real_footage") and f["fix"] in ("redo", "pick"):  # never remade:
-            from app.footage import WATCHED  # the owner is told how to change its stretch
+            from app.footage_shot import WATCHED  # the owner is told how to change its stretch
 
             f = {**f, "fix": "keep", "note": WATCHED}
         why = ""

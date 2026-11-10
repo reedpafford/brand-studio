@@ -137,7 +137,7 @@ def _shots_follow(job_input: dict, result, ask):
 
 
 def save_step_result(db: Session, job: Job) -> None:
-    from app import footage
+    from app import footage, footage_shot
     from app.breakdown import save_breakdown
     from app.change import save_changed
     from app.clip_prompts import save_clip_prompts
@@ -196,7 +196,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "look_sample_clip": save_sample_clip,
         "clip_prompts": save_clip_prompts,
         "clip_take": save_take,
-        footage.TAKE: footage.save_take,
+        footage_shot.TAKE: footage_shot.save_take,
         footage.STEP: footage.save_description,
         "take_sound": save_sound,
         "voice_split": save_voice_split,

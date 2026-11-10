@@ -987,7 +987,9 @@ export interface paths {
         /**
          * Change Footage
          * @description Its words, its product or whether it's a competitor's, as the person sets them (the AI's
-         *     words are never put back). A competitor's clip is of none of the brand's products.
+         *     words are never put back). A competitor's clip is of none of the brand's products; marked
+         *     one later with no new words, its old ones go (they may name the brand's product, QA on
+         *     #1518), and the director skips it until it's described again.
          */
         patch: operations["change_footage_brands__brand_id__footage__footage_id__patch"];
         trace?: never;

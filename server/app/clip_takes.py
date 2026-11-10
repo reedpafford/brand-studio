@@ -35,11 +35,11 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     which), the project's aspect ratio, and its references by file id in the clip's order.
     `drop`: references left out for a look-alike retry ("frame:", then "char:"), each of their
     [ImageN] said in words instead and the rest renumbered (`LOOKALIKE`)."""
-    from app import footage
+    from app import footage_shot
     from app.breakdown import would_show
 
-    if footage.of_clip(db, clip):  # cut from the brand's real clip, never made
-        raise HTTPException(409, footage.NOT_MADE)
+    if footage_shot.of_clip(db, clip):  # cut from the brand's real clip, never made
+        raise HTTPException(409, footage_shot.NOT_MADE)
     fits_model(db, project, clip)
     known = assets(db, project)
     breakdown = db.get(BreakdownVersion, clip.breakdown_id).data
@@ -719,13 +719,13 @@ def take_credits(db: Session, project: Project, clip: ProjectClip, edit: bool = 
     (Omni's, `change.editable`), at the edit's price on the same seconds; an Omni talker's
     piece, with its voice separated from its room (talker_sound). A clip of real footage is cut
     from it, free; a take given a reference video is at its model's dearer rate (app/footage)."""
-    from app import footage, take_watch, talker, talker_sound
+    from app import footage_shot, take_watch, talker, talker_sound
 
     if talker.says(db, project, clip):  # cut from the talker's one HeyGen take (video 281)
         from app import host
 
         return host.price(db, project, 1)
-    if footage.of_clip(db, clip):
+    if footage_shot.of_clip(db, clip):
         return Decimal(0)
     m = model_map.of_clip(project, clip)
     job = {"model": m.id, "edit": edit, "input": {"resolution": model_map.resolution(m)},

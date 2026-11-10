@@ -197,8 +197,9 @@ function ClipCard({ brandId, clip, rows, where }: { brandId: number; clip: Foota
       <div className="flex flex-1 flex-col gap-3 p-4">
         {editing ? (
           <>
-            <TextArea label="What it shows" rows={3} maxLength={500} value={words} onChange={(e) => setWords(e.target.value)} />
-            <CompetitorToggle value={competitor} onChange={setCompetitor} />
+            <TextArea label="What it shows" rows={3} maxLength={500} value={words} onChange={(e) => setWords(e.target.value)} placeholder={competitor ? "A competitor’s keychain alarm; its pin falls out." : undefined} />
+            {/* marked later: its old words may name the brand's product (QA on #1518), so they're written again */}
+            <CompetitorToggle value={competitor} onChange={(on) => (setCompetitor(on), on && !clip.competitor && words === clip.description && setWords(""))} />
             {!competitor && <ProductPicker brandId={brandId} value={product} onChange={setProduct} />}
             {save.isError && <p role="alert" className="text-sm text-danger">{save.error.message}</p>}
             <div className="flex flex-wrap gap-2">
