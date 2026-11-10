@@ -808,6 +808,23 @@ def _pick(*values: str):
     return Annotated[Literal[values] | None, *_none({"type": "string", "enum": ["", *values]})]
 
 
+def _named(*values: str):
+    """`_pick` sent as a plain string, its values named in the field's description: every enum
+    value grows the grammar Anthropic compiles from a strict schema, and the director's went
+    past its limit (a 400, "The compiled grammar is too large": video 326, 10 Nov). A value not
+    among them reads as none."""
+    return Annotated[Literal[values] | None, WithJsonSchema({"type": "string"}),
+                     BeforeValidator(lambda v: v if v in values else None)]  # fmt: skip
+
+
+VOICES = ("Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger", "English_FriendlyPerson",
+          "English_Trustworth_Man", "English_Upbeat_Woman", "English_ConfidentWoman",
+          "English_Graceful_Lady", "English_DecentYoungMan", "English_Jovialman",
+          "English_Diligent_Man")  # fmt: skip
+EMOTIONS = ("auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent",
+            "neutral")  # fmt: skip
+
+
 class Strict(BaseModel):
     model_config = ConfigDict(json_schema_extra=_all_required)
 
@@ -974,24 +991,18 @@ class DirectorTurn(Strict):
         description="For redraw_still: every still to draw again, each with its own note; "
         "they're drawn at once. Else empty.",
     )
-    voice: _pick(
-        "Sarah", "Alexandra", "Hope", "Jane", "Austin", "Roger", "English_FriendlyPerson",
-        "English_Trustworth_Man", "English_Upbeat_Woman", "English_ConfidentWoman",
-        "English_Graceful_Lady", "English_DecentYoungMan", "English_Jovialman",
-        "English_Diligent_Man",
-    ) = Field(
+    voice: _named(*VOICES) = Field(
         default=None,
-        description="For narration being made: the narrator's voice. A person's pick or the "
+        description=f"For narration being made: the narrator's voice, one of {', '.join(VOICES)}"
+        ". A person's pick or the "
         "video's own voice (its presenter's, else its style's, e.g. Dr. Pickle's) is kept "
         "whatever this says, and a presenter's is picked at their audition. Empty keeps the "
         "voice in use on a remake, else gives Sarah. Else empty.",
     )  # fmt: skip
-    emotion: _pick(
-        "auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent",
-        "neutral",
-    ) = Field(
+    emotion: _named(*EMOTIONS) = Field(
         default=None,
-        description="For narration in an English_ voice (MiniMax): the delivery's emotion; empty "
+        description=f"For narration in an English_ voice (MiniMax): the delivery's emotion, one "
+        f"of {', '.join(EMOTIONS)}; empty "
         "or 'auto' lets the voice choose from the words, as MiniMax's docs advise ('manual "
         "specification is only recommended when explicitly needed'): keep auto for a talker "
         "unless the whole read is one clear mood (fearful, sad). An emotion is never the way to "
