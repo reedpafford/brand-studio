@@ -517,15 +517,23 @@ def shots_checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
     """The Director's check on the shots: they follow the approved plan (#892: a breakdown
     scene that mixes plan scenes, a ★ line whose shot doesn't show its product), and with
     `timing` (a story video, critique 276) each line has room at the style's pace (free) and
-    the clips land within a tenth of the length asked for. Fixes, and Advice."""
+    the clips land within a tenth of the length asked for; an Omni `talker`'s pieces are sized
+    to their words and end on whole sentences (omni_talker.pieces). Fixes, and Advice."""
+    from app import omni_talker
+
     bd = Breakdown.model_validate(output)
     found = check.follows_plan(ScenePlan.model_validate(job_input["plan"]), bd) if (
         job_input.get("plan")) else []  # fmt: skip
-    if t := job_input.get("timing"):
+    t, talker = job_input.get("timing"), job_input.get("talker")
+    if t:
         bd, grown = check.line_room(bd, t["fast"], t["pause"])
-        found += grown + check.planned_length(bd, t.get("target"), t["fast"], t["pause"])
-        output = bd.model_dump()
-    return output, found
+        found += grown
+    if talker:
+        bd, said = omni_talker.pieces(bd, talker["script"], *talker["seconds"])
+        found += said
+    if t:
+        found += check.planned_length(bd, t.get("target"), t["fast"], t["pause"])
+    return (bd.model_dump() if t or talker else output), found
 
 
 def shots_again(job_input: dict, fixes: list[str]) -> dict:

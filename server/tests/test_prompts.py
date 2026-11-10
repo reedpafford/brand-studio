@@ -683,6 +683,17 @@ def test_clip_prompt_checks_catch_music_and_aspect():
     ]  # the cast's order is the server's (clip_prompts.with_cast), never a problem
 
 
+def test_a_filler_padding_a_line_is_sent_back():
+    """Reed, 9 Nov: "Scripts words are final": no "…Okay." to pad a piece, even as a trick."""
+    _, bd = example("breakdown")
+    _, cp = example("clip_prompts")
+    clip = cp.clips[0]
+    clip.prompt = clip.prompt.replace('"Come on. One more."', '"Come on. One more." "…Okay."')
+    assert check.clip_prompts(bd, cp, 30, 10) == [
+        "c3: “…Okay.” isn't the script's; say only its lines, never a filler to pad a piece"
+    ]
+
+
 def test_the_keep_line_holds_every_attached_characters_look():
     _, bd = example("breakdown")
     _, cp = example("clip_prompts")

@@ -184,11 +184,12 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
     viewer = project.created_by_id
     if block := payoffs_block(recent_payoffs(db, project.brand_id, project.id, viewer=viewer)):
         parts.append(block)
-    parts.append(video_model_block(video_model(project)))
+    m = video_model(project)
+    parts.append(video_model_block(m))
     from app import omni_talker
 
-    if omni_talker.on(db, project):  # the talker's own pieces, and the B-roll laid over them
-        parts.append(omni_talker.breakdown_block(db, project, video_model(project).duration.max))
+    if talks := omni_talker.on(db, project):  # the talker's own pieces, the B-roll laid over
+        parts.append(omni_talker.breakdown_block(db, project, m.duration.max))
     timed = None if take else timing(db, project)  # a song or narration is timed to its audio
     if timed:
         parts.append(timing_block(timed))
@@ -214,6 +215,11 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
             else {}
         ),
         **({"timing": timed} if timed else {}),
+        **(
+            {"talker": {"script": version.text, "seconds": [m.duration.min, m.duration.max]}}
+            if talks  # its pieces sized to their words, on whole sentences
+            else {}
+        ),
         "project_id": project.id,
         "script_version": version.version,
         "system": system,
