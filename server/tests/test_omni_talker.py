@@ -319,19 +319,21 @@ def test_the_quote_before_a_plan_is_never_below_what_its_pieces_are_sized_to():
 
 
 def test_a_filler_is_sent_back_only_on_a_talkers_piece(db, owner):
-    """Reed, 9 Nov: "Scripts words are final" is for the talker's prompts: elsewhere a quoted
-    "OK" (a button) or a sound the story motivates is fine (QA on #1511)."""
+    """Reed, 9 Nov: "Scripts words are final" is for the talker's spoken pieces: their B-roll's
+    "Okay" button, or a corner talker's clips, are never checked (QA on #1511)."""
     video = _video(db, owner)
-    bd = _pieces(("Then he showed me the balance.", 4.0))
-    said = 'Marcus (in English, flat): "Then he showed me the balance." "…Okay."'
-    clip = ClipPrompt(clip_id="c1", seconds=4, references=[], prompt=said)
+    piece = _pieces(("Then he showed me the balance.", 4.0))
+    said = 'Marcus (in English, flat): "Then he showed me the balance." '
 
-    def padded():
+    def padded(bd, prompt):
+        clip = ClipPrompt(clip_id="c1", seconds=4, references=[], prompt=prompt)
         return any("never a filler" in p for p in clip_prompts.clip_problems(db, video, bd, clip))
 
-    assert omni_talker.on(db, video) and padded()
+    assert omni_talker.on(db, video)
+    assert padded(piece, said + '"…Okay."') and padded(piece, said + '"Um"')  # a bare "Um" too
+    assert not padded(_pieces((None, 4.0)), 'He taps the "Okay" button. No one speaks.')  # B-roll
     video.presenter = "corner"  # a HeyGen talker: no Omni pieces
-    assert not omni_talker.on(db, video) and not padded()
+    assert not omni_talker.on(db, video) and not padded(piece, said + '"…Okay."')
 
 
 def test_each_talker_piece_is_sized_to_its_words():

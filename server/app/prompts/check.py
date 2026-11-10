@@ -286,14 +286,15 @@ def _screens_climb(prompt: str) -> list[str]:
 
 
 def padded(bd: Breakdown, c) -> list[str]:
-    """An Omni talker's piece quoting a filler its shots don't say (Reed, 9 Nov: "Scripts words
-    are final": no "…Okay." to pad a piece, even as a trick). Run on a talker's pieces only: a
-    sound the story motivates, or an "OK" on a screen, is fine elsewhere."""
+    """An Omni talker's spoken piece quoting a filler its shots don't say (Reed, 9 Nov: "Scripts
+    words are final": no "…Okay." or "Um" to pad a piece, even as a trick). Only a piece with a
+    line: a B-roll clip's "Okay" button, or a sound the story motivates elsewhere, is fine."""
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
     ids = next((x.shot_ids for x in bd.clips if x.id == c.clip_id), [])
     lines = {_exact(shots[s].line) for s in ids if s in shots and shots[s].line}
+    said = re.findall(r'["“]([^"”]+)["”]', c.prompt) if lines else []  # "Um" too
     return [f"{c.clip_id}: “{q}” isn't the script's; say only its lines, never a filler to pad "
-            "a piece" for q in dict.fromkeys(QUOTED.findall(c.prompt))
+            "a piece" for q in dict.fromkeys(said)
             if PADDING.fullmatch(q) and _exact(q) not in lines]  # fmt: skip
 
 
