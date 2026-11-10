@@ -18,19 +18,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import (
-    asks,
-    cards,
-    director,
-    folders,
-    guides,
-    hidden,
-    live,
-    looks,
-    model_map,
-    prompts,
-    scorecard,
-)
+from app import asks, director, folders, guides, hidden, live, looks, model_map, prompts, scorecard
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -93,7 +81,7 @@ NONE = "No such freestyle."
 MAX_PROMPT = 6000  # what Quick clip sends at most
 TOO_LONG = "That's more changes than one clip can carry. Start a new freestyle from here."
 IDEA = "idea_send"  # in a write job: the send whose script it writes first (`_write`, `written`)
-IDEA_SECONDS = 60  # the length an idea is priced at before its script is written, with no card
+IDEA_SECONDS = 60  # the length an idea is priced at before its script is written
 WRITING = "Writing the script from your idea."
 WROTE = "Here's the script I wrote from your idea:\n\n{}"
 NOT_WRITTEN = "I couldn't write the script from your idea: {} Send the idea again to try again."
@@ -118,7 +106,6 @@ class FreestyleIn(BaseModel):
     cast_ids: list[int] | None = None  # a pasted send's cast; none: the brand's saved cast
     broll_look: str | None = None  # a hosted video's B-roll look; none: the style's own
     attachments: list[int] | None = None  # pictures or clips for this video only (rule 12)
-    card: str | None = None  # a story card (GET /cards): its style and format unless given
     # "auto" (Make without asking), the owner's alone: Make it is pressed for them; none: ask
     mode: Literal["ask", "auto"] | None = None
     product_ids: list[int] | None = None  # the brand's products this video is about
@@ -179,7 +166,7 @@ class EstimateOut(BaseModel):
     budget: float | None = None  # a script's video's budget, for "past this video's budget"
     usd: float | None = None  # the owner's: the same most in dollars, rounded up to the cent
     # what it will probably cost, not a most: the owner's, uncapped; or an idea's, priced at
-    # its card's length (60 s with no card) before its script is written ("about")
+    # 60 s before its script is written ("about")
     expected: bool = False
 
 
@@ -288,8 +275,8 @@ def _from_script(db: Session, user: User, request: Request, fs: Freestyle, scrip
 def _setup(db: Session, user: User, project: Project, body: FreestyleIn, pasted: bool) -> None:
     """New video's picks on its video: the open folder (none: Unsorted), the cast (a pasted
     send's starts as the brand's saved cast; a script's keeps its own unless picked), a hosted
-    video's B-roll look, the pictures or clips attached for this video only (rule 12), its
-    story card and the brand's products it is about."""
+    video's B-roll look, the pictures or clips attached for this video only (rule 12), and
+    the brand's products it is about."""
     draft = db.get(ScriptDraft, project.script_draft_id)
     project.folder_id = body.folder_id
     if pasted:
@@ -301,7 +288,6 @@ def _setup(db: Session, user: User, project: Project, body: FreestyleIn, pasted:
         project.cast_ids = cast_picks(db, project.workspace_id, body.cast_ids)
     elif brand:
         project.cast_ids = []  # brands keep no default cast (S-gaps-05 L1)
-    project.card = body.card  # its brief reaches the treatment (app/cards.py)
     if body.product_ids is not None:
         project.product_ids = cast_picks(db, project.workspace_id, body.product_ids,
                                          products_of=project.brand_id)  # fmt: skip
@@ -404,16 +390,15 @@ def _start(db: Session, user: User, fs: Freestyle, text: str, body: FreestyleIn,
 
 def _write(db: Session, user: User, fs: Freestyle, text: str, body: FreestyleIn) -> None:
     """An idea, not a script (Reed, 10 Nov): the script writer writes the script first, from
-    the idea, the story card's brief and the picks; `written` then starts its video. The
-    picks are checked now, on a video never kept, so nothing is refused once the writing is
-    paid; that video is also what the writer is told (its brand, cast, style and format)."""
+    the idea and the picks; `written` then starts its video. The picks are checked now, on a
+    video never kept, so nothing is refused once the writing is paid; that video is also what
+    the writer is told (its brand, cast, style and format)."""
     from app import script_write
 
     with db.begin_nested() as never_kept:
         project, _ = _video(db, user, fs, text)
         _setup(db, user, project, body, pasted=True)
         project.goal = text  # the brief the writer writes from
-        project.planned_seconds = (cards.find(body.card) or {}).get("seconds")
         data = script_write.from_idea(db, project)
         never_kept.rollback()
     send = body.model_dump(exclude={"text", "idea"})
@@ -694,20 +679,16 @@ def _row(fs: Freestyle, names: dict[int, str], status: str) -> FreestyleRow:
 
 
 def _source(db: Session, user: User, body) -> tuple:
-    """(type, look, brand, words, script, draft) of a send: a pasted script (or an idea), with
-    its story card's style and format unless it gives its own; or a script's version ("Make a
-    video", P1) with the script's own kind, look and brand."""
+    """(type, look, brand, words, script, draft) of a send: a pasted script (or an idea), or a
+    script's version ("Make a video", P1) with the script's own kind, look and brand."""
     if (body.text is None) == (body.script_id is None):
         raise HTTPException(422, ONE_SOURCE)
-    card = cards.pick(db, user.workspace_id, body.card) if body.card else None
     if body.script_id is None:
-        look = body.look or (card and card["style"])  # the card's, unless the send says
-        type = body.type if "type" in body.model_fields_set or not card else card["format"]
-        if not look:
+        if not body.look:
             raise HTTPException(422, NO_LOOK)
-        if type != ONE_CLIP:
-            lib.pick_format(type)
-        return type, look, body.brand_id, body.text, None, None
+        if body.type != ONE_CLIP:
+            lib.pick_format(body.type)
+        return body.type, body.look, body.brand_id, body.text, None, None
     script = lib.get_script(db, user, body.script_id)
     draft = lib.get_draft(db, script, body.slot or 0)
     return lib.format_id(script), script.look, script.brand_id, draft.text, script, draft
@@ -736,9 +717,9 @@ def estimate_freestyle(
         made = _from_script(db, user, request, fs, script, draft, True) if script else None
         project, draft = made or _video(db, user, fs, text)
         _setup(db, user, project, body, pasted=made is None)
-        idea = bool(body.idea) and made is None  # no script yet: its card's length, "about"
+        idea = bool(body.idea) and made is None  # no script yet: priced at 60 s, "about"
         if idea:
-            draft.target_seconds = (cards.find(body.card) or {}).get("seconds", IDEA_SECONDS)
+            draft.target_seconds = IDEA_SECONDS
         wait = hold(db, user, script, draft, project)
         left = budget(db, project) - budget_used(db, project)  # what's left of it
         if uncapped(user):  # Reed, 6 Nov: his test site shows what it will probably cost

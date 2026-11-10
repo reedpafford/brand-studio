@@ -91,7 +91,7 @@ test("at 390, Breakdown's Version picker is a 44 × 44 px press even before any 
 
 // Board comparison S10 / P-03: New video (now Home) at 390 was 392 px wide (the card rows' edge) and its tabs, chips and
 // "Settings → Looks" were under 44 px.
-test("at 390: Home fits the screen, and its chips, the script or idea switch and the Styles dialog's presses are 44 px", async ({ page }) => {
+test("at 390: Home fits the screen, a style tile picks its style, and the chips, the script or idea switch and the Styles dialog's presses are 44 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
@@ -105,6 +105,11 @@ test("at 390: Home fits the screen, and its chips, the script or idea switch and
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
   };
+  await fits();
+  const tile = page.getByRole("region", { name: "Styles" }).locator("button:not([aria-disabled])").last(); // the gallery under the box: a style that is on
+  await tile.click();
+  await expect(tile).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Paste a script, or describe the video")).toBeFocused(); // picked: on to the words
   await fits();
   await style.click();
   const styles = page.getByRole("dialog", { name: "Styles" });

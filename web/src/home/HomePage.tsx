@@ -3,6 +3,7 @@ import { ArrowLeft, Package, Palette } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SHAPES, sentTo } from "../freestyle/useFreestyle";
 import { Attach, Attached } from "../newvideo/Attach";
+import { StyleGallery } from "../newvideo/Cards";
 import { CastIcon, Chip, FolderIcon, ShapeIcon } from "../newvideo/Chips";
 import { Press, Under, box } from "../newvideo/Press";
 import { Reel } from "../newvideo/Reel";
@@ -12,21 +13,19 @@ import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import { useRail } from "../useMedia";
 import { AssetDialog, type AssetTab } from "./AssetDialog";
-import { CardDialog } from "./CardDialog";
 import { ModeMenu, PickChip } from "./Chips";
-import { StoryCards } from "./StoryCards";
 import { StylesDialog, styleWords } from "./StylesDialog";
-import { Words, WordsAre } from "./Words";
-import { useCards, useDraft, useSaved, type StoryCard } from "./useDraft";
+import { WORDS_ID, Words, WordsAre } from "./Words";
+import { useDraft, useSaved } from "./useDraft";
 
 type View = "paste" | "script" | "reel";
 const HEADS = { script: "Use a saved script", reel: "Use a reel" };
 
 /** Home (a brand's front door, and New video's address): paste a script or an idea, pick a style, and the director makes
  *  it in a chat. A centred headline over one box, no wider than 720 px, with its settings as small pills (style, product,
- *  cast, shape, folder, mode) and the price on the press; under it the story cards. The + menu also starts from a saved
- *  script or a reel (?from=script|reel). The idea lands in the open folder (?folder=) or Unsorted, and Make it opens the
- *  video. */
+ *  cast, shape, folder, mode) and the price on the press; under it the styles, as a gallery: pressing one picks it for
+ *  the box and goes to the words. The + menu also starts from a saved script (its own style: no gallery) or a reel
+ *  (?from=script|reel). The idea lands in the open folder (?folder=) or Unsorted, and Make it opens the video. */
 export function HomePage() {
   const brandId = Number(useParams().brandId);
   const [params, setParams] = useSearchParams();
@@ -39,15 +38,13 @@ export function HomePage() {
   // From a saved script: the Styles dialog shows the script's own format and style, locked (its words, format and style are set).
   const [locked, setLocked] = useState<{ type: string; look: string } | null>(null);
   const draft = useDraft(brandId, Number(params.get("folder")) || null, view === "script" ? locked : null);
-  const cards = useCards();
   const [dialog, setDialog] = useState<"styles" | AssetTab | null>(null);
-  const [card, setCard] = useState<StoryCard | null>(null);
   const cast = useSaved("character", brandId).data ?? [];
   const products = useSaved("prop", brandId).data ?? [];
   const { owner, format, look, folder, folders, files, size } = draft;
-  const send = draft.send();
+  const send = draft.send;
   const empty = !send.text || size.over || !look || !format || files.busy;
-  const price = useEstimate(view === "paste" && !card && !empty ? send : null);
+  const price = useEstimate(view === "paste" && !empty ? send : null);
   const sent = useSend((fs) => navigate(sentTo(fs, owner, brandId)));
   const go = () => !empty && !sent.isPending && sent.mutate(send);
   if (brands && !brands.some((b) => b.id === brandId)) return <p className="p-6">That brand doesn't exist.</p>;
@@ -95,7 +92,12 @@ export function HomePage() {
     ) : view === "reel" ? (
       <Reel brandId={brandId} owner={owner} folder={folder} head={head} style={style} rail={rail} format={send.type} formatName={format?.name} look={look} broll={draft.broll} />
     ) : null;
-  const error = sent.isError && <p role="alert" className="text-sm text-danger">{sent.error.message}</p>;
+  const error = (
+    <>
+      {sent.isError && <p role="alert" className="text-sm text-danger">{sent.error.message}</p>}
+      {draft.moved && <p role="status" className="text-sm text-warning">{draft.moved}</p>}
+    </>
+  );
   const hero = (
     <div className={`flex flex-col gap-3 ${rail ? "items-center text-center" : ""}`}>
       <h1 className="type-hero">
@@ -104,10 +106,17 @@ export function HomePage() {
       <p className="max-w-[520px] text-base text-muted">The director plans it, asks what it can’t decide, and makes it in a chat with you.</p>
     </div>
   );
-  const gallery = <StoryCards cards={cards.data ?? []} loading={cards.isPending} looks={draft.looks} onOpen={setCard} />;
+  const gallery = view !== "script" && draft.looks.length > 0 && (
+    <section aria-labelledby="home-styles" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1 lg:text-center">
+        <h2 id="home-styles" className="type-section">Styles</h2>
+        <p className="text-sm text-muted">Pick a look. Each one comes with its own way of shooting.</p>
+      </div>
+      <StyleGallery looks={draft.looks} value={look?.id ?? ""} onPick={(l) => (draft.pickStyle(l), document.getElementById(WORDS_ID)?.focus())} />
+    </section>
+  );
   const dialogs = (
     <>
-      {card && <CardDialog card={card} cards={cards.data ?? []} draft={draft} cast={cast} products={products} onCard={setCard} onAssets={setDialog} onSent={(fs) => navigate(sentTo(fs, owner, brandId))} onClose={() => setCard(null)} />}
       {dialog === "styles" && <StylesDialog draft={draft} onClose={() => setDialog(null)} />}
       {dialog && dialog !== "styles" && <AssetDialog brandId={brandId} draft={draft} start={dialog} onClose={() => setDialog(null)} />}
     </>

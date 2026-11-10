@@ -23,23 +23,10 @@ KIND = {"": "dialogue", "story": "dialogue"}  # a script's kind names its format
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
 
 
-def front(text: str) -> tuple[dict, list[str]]:
-    """(front matter, the lines after it): `key: value` lines up to the first blank line (or
-    the first section). A story card starts the same way (app/cards.py)."""
-    lines, meta = text.splitlines(), {}
-    for n, line in enumerate(lines):
-        if not line.strip() or line.startswith("## "):
-            return meta, lines[n:]
-        key, _, value = line.partition(": ")
-        meta[key.strip()] = value.strip()
-    return meta, []
-
-
 def _read(path: Path) -> tuple[dict, dict]:
     """(front matter, sections). A `## ` line inside a ``` block is the block's, not a heading."""
-    meta, lines = front(path.read_text())
-    sections, name, fence = {}, None, False
-    for line in lines:
+    meta, sections, name, fence, top = {}, {}, None, False, True
+    for line in path.read_text().splitlines():
         if line.lstrip().startswith("```"):
             fence = not fence
         if not fence and line.startswith("## "):
@@ -49,40 +36,12 @@ def _read(path: Path) -> tuple[dict, dict]:
             sections[name] = []
         elif name is not None:
             sections[name].append(line)
+        elif top and line.strip():
+            key, _, value = line.partition(": ")
+            meta[key.strip()] = value.strip()
+        else:
+            top = False  # the front matter ends at its first blank line
     return meta, {k: "\n".join(v).strip() for k, v in sections.items()}
-
-
-CARDS = ROOT / "cards"  # the story cards (app/cards.py): cards/<id>.md, a header then a brief
-SHAPES = ("9:16", "1:1", "16:9")
-
-
-def card(path: Path) -> dict:
-    """One story card, or a ValueError naming the file: a missing key, a style or format that
-    doesn't exist, a length or shape that can't be, or no brief."""
-    meta, lines = front(path.read_text())
-    try:
-        found = {"id": path.stem, "title": meta["title"], "subtitle": meta["subtitle"],
-                 "style": style(meta["style"])["id"], "format": format_(meta["format"])["id"],
-                 "seconds": int(meta["seconds"]), "shape": meta.get("shape", "9:16"),
-                 "order": float(meta["order"]), "on": meta.get("on") != "no",
-                 "brief": "\n".join(lines).strip()}  # fmt: skip
-    except (KeyError, ValueError) as bad:
-        raise ValueError(f"{path}: not a story card ({bad})") from bad
-    if not (found["title"] and found["brief"] and found["seconds"] > 0
-            and found["shape"] in SHAPES):  # fmt: skip
-        raise ValueError(f"{path}: a story card needs a title, a brief, a length and a shape")
-    return found
-
-
-@cache
-def _cards(root: Path) -> list[dict]:
-    return sorted((card(p) for p in root.glob("*.md") if p.stem.islower()),
-                  key=lambda c: c["order"])  # fmt: skip
-
-
-def cards() -> list[dict]:
-    """Every story card (a lower-case id; a README isn't one), in Reed's order."""
-    return _cards(CARDS)
 
 
 def _style(path: Path, parent: dict | None = None) -> dict:

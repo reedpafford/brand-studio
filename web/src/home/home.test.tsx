@@ -14,8 +14,6 @@ const look = (id: string, name: string, o: object = {}) => ({ id, name, blurb: `
 const LOOKS = [look("movie", "Movie"), look("house", "House"), look("ugc", "UGC", { on: false })];
 const format = (id: string, name: string, o: object = {}) => ({ id, name, engine: "story", on: true, blurb: `${name} blurb.`, card: `${name} line`, host: false, off: null, test_still: false, ...o });
 const FORMATS = [format("dialogue", "Dialogue"), format("presenter", "Presenter", { engine: "narrated", host: true })];
-const card = (id: string, title: string, o: object = {}) => ({ id, title, subtitle: `${title}, the short of it.`, style: "movie", style_name: "Movie", format: "dialogue", format_name: "Dialogue", seconds: 30, shape: "9:16", on: true, ...o });
-const CARDS = [card("public-failure", "Public failure"), card("family-sabotage", "Family sabotage"), card("bear-proof", "Bear proof", { style: "house", style_name: "House", format: "presenter", format_name: "Presenter", seconds: 45, shape: "1:1" }), card("last-goodbye", "Last goodbye", { on: false })];
 const item = (id: number, name: string) => ({ id, name, owner_project_id: null, owner_script_id: null, pictures: [], image_file_ids: [] });
 const fs = { id: 9, title: "Coffee", type: "dialogue", look: "movie", shape: "9:16", brand_id: 1, status: "working", created_by_name: "Reed", created_at: at, credits: 0, file_id: null, project_id: 50, thread: [] };
 const PRICE = { credits: 164, usd: 16.86, held: "", budget: null };
@@ -26,7 +24,6 @@ function server(me: object, routes: Record<string, [number, unknown]> = {}) {
     "GET /brands": [200, [{ id: 1, name: "Resilia", colours: [], tone_notes: "" }]],
     "GET /looks": [200, LOOKS],
     "GET /formats": [200, FORMATS],
-    "GET /cards": [200, CARDS],
     "GET /brands/1/folders": [200, []],
     "GET /library/character": [200, [item(3, "Dr. Pickle"), item(5, "Nurse Kim"), { ...item(8, "A video's own extra"), owner_project_id: 50 }]],
     "GET /library/prop": [200, [item(21, "Capsule pack"), item(22, "Gut tea")]],
@@ -84,93 +81,81 @@ test("My words are: a short description is an idea and is sent as one; a script 
   await vi.waitFor(() => expect(posted(calls)).toMatchObject({ text: `${SCRIPT} NATE: Same.`, idea: true, type: "dialogue", look: "movie" }));
 });
 
-test("story cards: a grid by style with filter pills; a card off on this site is greyed and doesn't open", async () => {
+test("the styles gallery under the box: the styles that are on first, then the off ones greyed; a tile plays its sample under the pointer, one at a time", async () => {
   setViewport(1440);
-  server(owner);
+  server(owner, { "GET /looks": [200, [look("ugc", "UGC", { on: false }), look("movie", "Movie", { card: "Filmed like a drama" }), look("house", "House")]] });
   renderApp("/b/1");
-  const gallery = await screen.findByRole("region", { name: "Story cards" });
-  await within(gallery).findByRole("list");
-  expect(within(gallery).getByText("Proven story shapes. Pick one, add your product and idea.")).toBeInTheDocument();
-  expect(within(within(gallery).getByRole("group", { name: "Show cards in" })).getAllByRole("button").map((b) => b.textContent)).toEqual(["All", "Movie", "House"]);
-  expect(within(gallery).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["MoviePublic failure", "MovieFamily sabotage", "HouseBear proof", "MovieLast goodbyeOff on this site"]);
-  expect(gallery.querySelector("img")).toHaveAttribute("src", "/api/looks/movie/test-sample.jpg"); // a card's picture is its style's sample
-  await userEvent.hover(within(gallery).getByRole("button", { name: /Bear proof/ }));
-  expect(gallery.querySelectorAll("video")).toHaveLength(1); // one plays at a time, under the pointer
+  const gallery = await screen.findByRole("region", { name: "Styles" });
+  expect(within(gallery).getByRole("heading", { name: "Styles" }).parentElement).toHaveClass("lg:text-center");
+  expect(within(gallery).getByText("Pick a look. Each one comes with its own way of shooting.")).toBeInTheDocument();
+  expect(within(gallery).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["MovieFilmed like a drama", "HouseHouse blurb.", "UGCUGC blurb.Off on this site"]);
+  const movie = within(gallery).getByRole("button", { name: /^Movie/ });
+  expect(movie).toHaveClass("rounded-xl", "aspect-[9/16]");
+  expect(movie.querySelector("img")).toHaveAttribute("src", "/api/looks/movie/test-sample.jpg");
+  expect(movie).toHaveAttribute("aria-pressed", "true"); // the style the box starts on
+  await userEvent.hover(within(gallery).getByRole("button", { name: /^House/ }));
+  expect(gallery.querySelectorAll("video")).toHaveLength(1);
   expect(gallery.querySelector("video")).toHaveAttribute("src", "/api/looks/house/test-sample.mp4");
-  await userEvent.click(within(gallery).getByRole("button", { name: "House" }));
-  expect(within(gallery).getAllByRole("listitem")).toHaveLength(1);
-  await userEvent.click(within(gallery).getByRole("button", { name: "All" }));
-  const off = within(gallery).getByRole("button", { name: /Last goodbye/ });
+  await userEvent.hover(movie);
+  expect(gallery.querySelectorAll("video")).toHaveLength(1);
+  expect(gallery.querySelector("video")).toHaveAttribute("src", "/api/looks/movie/test-sample.mp4");
+  const off = within(gallery).getByRole("button", { name: /^UGC/ });
+  await userEvent.hover(off);
+  expect(gallery.querySelector("video")).toBeNull(); // an off style doesn't play
   expect(off).toHaveAttribute("aria-disabled", "true");
   await userEvent.click(off);
-  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(off).toHaveAttribute("aria-pressed", "false"); // and can't be picked
+  expect(screen.getByRole("button", { name: "Style: Movie · Dialogue" })).toBeInTheDocument();
 });
 
-test("the story cards simply don't show when the server offers none, or doesn't offer them yet: no error box", async () => {
-  setViewport(1440);
-  for (const cards of [[404, { detail: "Not Found" }], [200, []], [500, { detail: "busy" }]] as [number, unknown][]) {
-    const calls = server(owner, { "GET /cards": cards });
-    const view = renderApp("/b/1");
-    await words();
-    await vi.waitFor(() => expect(calls.some((c) => c.key === "GET /cards")).toBe(true));
-    await vi.waitFor(() => expect(screen.queryByRole("status", { name: "Loading story cards" })).toBeNull());
-    expect(screen.queryByRole("region", { name: "Story cards" })).toBeNull();
-    expect(screen.queryByRole("alert")).toBeNull();
-    view.unmount();
-    vi.unstubAllGlobals();
-  }
-});
-
-test("a card opens its dialog; Make this ad sends the card with its style and format, the idea, the picks and the mode, and lands on the video", async () => {
+test("pressing a style in the gallery picks it for the box: the Style pill and the send follow, the tile is marked, and focus goes to the words", async () => {
   setViewport(1440);
   const calls = server(owner);
   renderApp("/b/1");
-  await loaded();
-  const opener = await screen.findByRole("button", { name: /Bear proof/ });
-  await userEvent.click(opener);
-  const dialog = await screen.findByRole("dialog", { name: "Bear proof" });
-  expect(within(dialog).getByRole("heading", { name: "Bear proof" })).toBeInTheDocument();
-  expect(within(dialog).getByText("Bear proof, the short of it.")).toBeInTheDocument();
-  expect(within(dialog).getByText("House · Presenter · about 45 s")).toBeInTheDocument();
-  expect(within(dialog).queryByRole("navigation", { name: "House story cards" })).toBeNull(); // the only House card: nothing to switch to
-  expect(within(dialog).getByRole("button", { name: /^Make this ad/ })).toBeDisabled();
-  expect(within(dialog).getByRole("radio", { name: /^An idea/ })).toHaveAttribute("aria-checked", "true"); // empty: an idea
-  expect(within(dialog).getByRole("button", { name: "Shape: 1:1" })).toBeInTheDocument(); // the card's own shape
-  await userEvent.click(within(dialog).getByRole("button", { name: "Mode: Ask before making" }));
-  await userEvent.keyboard("{Escape}"); // closes the menu alone: the card stays open
-  expect(screen.queryByRole("menu")).toBeNull();
-  expect(screen.getByRole("dialog", { name: "Bear proof" })).toBeInTheDocument();
-  // Cast and Product open the same picker, over the card.
-  await userEvent.click(within(dialog).getByRole("button", { name: /^Product/ }));
-  const picker = await screen.findByRole("dialog", { name: "Cast and products" });
-  await userEvent.click(within(picker).getByRole("checkbox", { name: "Capsule pack" }));
-  await userEvent.click(within(picker).getByRole("button", { name: "Done" }));
-  expect(within(dialog).getByRole("button", { name: /^Product\s*Capsule pack/ })).toBeInTheDocument();
-  await userEvent.type(within(dialog).getByLabelText("Describe your idea or paste a script"), IDEA);
-  await userEvent.click(await within(dialog).findByRole("button", { name: "Make this ad · up to $16.86" }, { timeout: 3000 }));
-  expect(posted(calls, "POST /freestyles/estimate")).toMatchObject({ card: "bear-proof", type: "presenter", look: "house", shape: "1:1", text: IDEA, idea: true, product_ids: [21] });
-  await vi.waitFor(() => expect(posted(calls)).toEqual({ card: "bear-proof", type: "presenter", look: "house", shape: "1:1", brand_id: 1, folder_id: null, broll_look: null, text: IDEA, cast_ids: [], product_ids: [21], attachments: [], idea: true, mode: "ask" }));
-  expect(await screen.findByRole("list", { name: "Conversation with the director" })).toBeInTheDocument(); // the video's chat, as Make it
+  const box = await words();
+  const gallery = await screen.findByRole("region", { name: "Styles" });
+  const house = within(gallery).getByRole("button", { name: /^House/ });
+  expect(house.querySelector("svg")).toBeNull();
+  await userEvent.click(house);
+  expect(house).toHaveAttribute("aria-pressed", "true");
+  expect(house).toHaveClass("border-accent", "ring-accent");
+  expect(house.querySelector("svg")).not.toBeNull(); // its check
+  expect(within(gallery).getByRole("button", { name: /^Movie/ })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("button", { name: "Style: House · Dialogue" })).toBeInTheDocument();
+  expect(box).toHaveFocus();
+  expect(screen.queryByText(/The format is/)).toBeNull(); // House is made as Dialogue: nothing to say
+  await userEvent.type(box, SCRIPT);
+  await userEvent.click(await press());
+  await vi.waitFor(() => expect(posted(calls)).toMatchObject({ look: "house", type: "dialogue" }));
 });
 
-test("a card's dialog: the strip switches between the cards in the same style; Escape closes it and focus returns to the card", async () => {
+test("a style in the gallery that isn't made in the picked format switches the format to one it is made in, and says so", async () => {
   setViewport(1440);
-  server(owner);
+  const movie = look("movie", "Movie", { formats: ["dialogue"], formats_why: "its scenes are filmed whole" });
+  server(owner, { "GET /looks": [200, [look("house", "House"), movie]], "GET /formats": [200, [FORMATS[1], FORMATS[0]]] });
   renderApp("/b/1");
-  const opener = await screen.findByRole("button", { name: /Public failure/ });
-  await userEvent.click(opener);
-  const dialog = await screen.findByRole("dialog", { name: "Public failure" });
-  expect(within(dialog).getByLabelText("Describe your idea or paste a script")).toHaveFocus(); // straight to the words
-  const strip = within(dialog).getByRole("navigation", { name: "Movie story cards" });
-  expect(within(strip).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Public failure", "Family sabotage", "Last goodbye"]);
-  expect(within(strip).getByRole("button", { name: "Public failure" })).toHaveAttribute("aria-current", "true");
-  expect(within(strip).getByRole("button", { name: "Last goodbye" })).toHaveAttribute("aria-disabled", "true"); // off on this site
-  await userEvent.click(within(strip).getByRole("button", { name: "Family sabotage" }));
-  expect(await screen.findByRole("dialog", { name: "Family sabotage" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Family sabotage" })).toBeInTheDocument();
-  await userEvent.keyboard("{Escape}");
-  expect(screen.queryByRole("dialog")).toBeNull();
-  expect(opener).toHaveFocus();
+  const chip = await loaded();
+  expect(chip).toHaveAccessibleName("Style: House · Presenter");
+  await userEvent.click(await screen.findByRole("button", { name: /^Movie/ }));
+  expect(chip).toHaveAccessibleName("Style: Movie · Dialogue");
+  expect(screen.getByText("Movie is made only as Dialogue: its scenes are filmed whole. The format is Dialogue now.")).toHaveAttribute("role", "status");
+  expect(await words()).toHaveFocus();
+  await userEvent.click(screen.getByRole("button", { name: /^House/ }));
+  expect(chip).toHaveAccessibleName("Style: House · Dialogue"); // the format stays where it was put
+  expect(screen.queryByText(/The format is/)).toBeNull();
+});
+
+test("a style with no sample picture is a text poster in the gallery: its line on a tint, grey when it is off", async () => {
+  setViewport(1440);
+  server(owner, { "GET /looks": [200, [look("movie", "Movie", { test_still: false, test_clip: false }), look("house", "House"), look("ugc", "UGC", { on: false, test_still: false, test_clip: false })]] });
+  renderApp("/b/1");
+  const tile = await screen.findByRole("button", { name: /^Movie/ });
+  expect(tile).toHaveClass("bg-accent-soft", "text-accent-text");
+  expect(tile.querySelector("img")).toBeNull();
+  expect(within(tile).getAllByText("Movie blurb.")).toHaveLength(1); // the poster, not said twice
+  expect(within(tile).getByText("Movie blurb.")).toHaveClass("sm:text-base", "font-medium", "line-clamp-5");
+  expect(screen.getByRole("button", { name: /^UGC/ })).toHaveClass("bg-surface-2", "text-muted");
+  expect(screen.getByRole("button", { name: /^House/ }).querySelector("img")).not.toBeNull();
 });
 
 test("Mode: the owner picks Make without asking, it is sent and remembered; the menu says what each does", async () => {
@@ -285,6 +270,7 @@ test("the + menu's saved scripts have Manage scripts, to the brand's Scripts pag
     const view = renderApp("/b/1?from=script");
     expect(await screen.findByRole("heading", { name: "Use a saved script" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage scripts" })).toHaveAttribute("href", "/b/1/scripts");
+    expect(screen.queryByRole("region", { name: "Styles" })).toBeNull(); // a saved script has its own style
     view.unmount();
     vi.unstubAllGlobals();
   }
@@ -311,26 +297,6 @@ test("Home's composition: a two-line headline, the second muted, over a box no w
   expect(screen.getByText(/^Most it can charge/).parentElement).toHaveClass("min-h-10"); // its line has its room before the price
 });
 
-test("a story card whose style has no sample picture is a text poster: its plot line, larger, centred on a tint; in the card's dialog too", async () => {
-  setViewport(1440);
-  server(owner, { "GET /looks": [200, [look("movie", "Movie", { test_still: false, test_clip: false }), look("house", "House")]] });
-  renderApp("/b/1");
-  const gallery = await screen.findByRole("region", { name: "Story cards" });
-  expect(within(gallery).getByRole("heading", { name: "Story cards" }).parentElement).toHaveClass("lg:text-center");
-  const card = await within(gallery).findByRole("button", { name: /Public failure/ });
-  expect(card).toHaveClass("rounded-xl");
-  const plot = within(card).getByText("Public failure, the short of it.");
-  expect(plot).toHaveClass("sm:text-base", "font-medium", "line-clamp-5");
-  expect(plot.parentElement).toHaveClass("items-center");
-  expect(card.firstElementChild).toHaveClass("bg-accent-soft", "text-accent-text");
-  expect(card.querySelector("img")).toBeNull();
-  expect(within(gallery).getByRole("button", { name: /Last goodbye/ }).firstElementChild).toHaveClass("bg-surface-2", "text-muted"); // off on this site: grey, not tinted
-  expect(within(gallery).getByRole("button", { name: /Bear proof/ }).querySelector("img")).not.toBeNull(); // a style with a sample keeps its picture
-  await userEvent.click(card);
-  const dialog = await screen.findByRole("dialog", { name: "Public failure" });
-  expect(within(dialog).getAllByText("Public failure, the short of it.")[0]).toHaveClass("line-clamp-5"); // the poster, in the phone frame
-});
-
 test("the picker's Uploads tab attaches pictures for this video; a brand with no products says what to do", async () => {
   setViewport(1440);
   const calls = server(owner, { "GET /library/prop": [200, []], "POST /files": [201, { id: 61, filename: "pack.jpg", content_type: "image/jpeg", size: 9, created_at: at }] });
@@ -350,14 +316,12 @@ test("the picker's Uploads tab attaches pictures for this video; a brand with no
   await vi.waitFor(() => expect(posted(calls)).toMatchObject({ attachments: [61] }));
 });
 
-test("on a phone the story cards are two across, and a card's dialog fills the screen with a full-width press", async () => {
+test("on a phone the styles gallery is two across, and four then five on wider screens", async () => {
   setViewport(390);
   server(owner);
   renderApp("/b/1");
-  const gallery = await screen.findByRole("region", { name: "Story cards" });
-  expect(await within(gallery).findByRole("list")).toHaveClass("grid-cols-2", "lg:grid-cols-4", "xl:grid-cols-5");
-  await userEvent.click(within(gallery).getByRole("button", { name: /Public failure/ }));
-  const dialog = await screen.findByRole("dialog", { name: "Public failure" });
-  expect(dialog).toHaveClass("inset-0", "sm:max-w-[960px]"); // the whole screen on a phone; never wider than 960 px
-  expect(within(dialog).getByRole("button", { name: /^Make this ad/ })).toHaveClass("w-full");
+  const gallery = await screen.findByRole("region", { name: "Styles" });
+  expect(within(gallery).getByRole("list")).toHaveClass("grid-cols-2", "gap-3", "lg:grid-cols-4", "xl:grid-cols-5");
+  await userEvent.click(within(gallery).getByRole("button", { name: /^House/ }));
+  expect(screen.getByRole("button", { name: "Style: House · Dialogue" })).toBeInTheDocument();
 });

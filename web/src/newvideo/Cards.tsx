@@ -6,9 +6,9 @@ import { Button } from "../components";
 import type { Format } from "../scripts/useFormats";
 
 export type Look = components["schemas"]["LookOut"];
-/** S2-03: Song's music provider is off ("coming next"); a format, style or story card off on this site. */
+/** S2-03: Song's music provider is off ("coming next"); a format or style off on this site. */
 const SOON = "coming next";
-export const OFF = "Off on this site";
+const OFF = "Off on this site";
 
 /** A look's card pictures: the owner's approved sample (Settings → Looks) once there is one, else the 3 Nov test sample
  *  shipped with the site; `tag` says "Test sample" on the paid tests, never on the site's own frame (House). A sample the
@@ -59,9 +59,10 @@ function Sample({ name, clip, still, testTag, playing, onPlay, w, h }: { name: s
   );
 }
 
-// A card lifts under the pointer; the picked one has an indigo edge. An off one keeps its words readable and greys its picture.
+// A card or tile lifts under the pointer; the picked one has an indigo edge. An off one keeps its words readable and greys its
+// picture. Its corners and ground are its own.
 const card = (sel: boolean, off: boolean) =>
-  `group flex shrink-0 flex-col overflow-hidden rounded-lg border bg-surface text-left transition-[border-color,box-shadow,transform] duration-(--dur-fast) ease-out ${sel ? "border-accent ring-1 ring-accent" : off ? "border-border" : "border-border hover:-translate-y-px hover:border-border-button hover:shadow-hover active:translate-y-0"} ${off ? "cursor-not-allowed [&_img]:opacity-60 [&_img]:grayscale [&_video]:opacity-60 [&_video]:grayscale" : ""}`;
+  `group flex shrink-0 flex-col overflow-hidden border text-left transition-[border-color,box-shadow,transform] duration-(--dur-fast) ease-out ${sel ? "border-accent ring-1 ring-accent" : off ? "border-border" : "border-border hover:-translate-y-px hover:border-border-button hover:shadow-hover active:translate-y-0"} ${off ? "cursor-not-allowed [&_img]:opacity-60 [&_img]:grayscale [&_video]:opacity-60 [&_video]:grayscale" : ""}`;
 const Check = () => <CircleCheckBig size={14} strokeWidth={2} aria-hidden className="animate-fade shrink-0 text-accent" />;
 
 /** The formats as a radio list (the Styles dialog): each with its line; Song says why it is "coming next" while its
@@ -104,7 +105,7 @@ export function StyleCards({ looks, value, onPick, locked, only }: { looks: Look
         const can = l.on && !locked && !why;
         // The picture plays its sample; the words under it pick the style (a radio holds no other button).
         return (
-          <div key={l.id} className={`${card(sel, !l.on || !!why)} w-full ${locked && !sel ? "opacity-55" : ""}`}>
+          <div key={l.id} className={`${card(sel, !l.on || !!why)} w-full rounded-lg bg-surface ${locked && !sel ? "opacity-55" : ""}`}>
             <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h="aspect-[4/5]" />
             <button type="button" role="radio" aria-checked={sel} aria-disabled={!can || undefined} title={why ?? undefined} onClick={() => can && onPick(l.id)} className={`flex min-h-control flex-1 flex-col gap-0.5 px-3 py-2.5 text-left ${can ? "" : "cursor-default"}`}>
               <span className="flex items-center gap-1">
@@ -121,6 +122,46 @@ export function StyleCards({ looks, value, onPick, locked, only }: { looks: Look
         );
       })}
     </div>
+  );
+}
+
+/** The styles as a gallery (Home, under the box): 9:16 picture tiles, the ones switched on first. A tile shows its sample
+ *  still and plays the sample clip under the pointer or on focus (muted, one at a time), with the style's name and line
+ *  over a shade at the foot; a style with no sample is a text poster, its line on a tint. Pressing a tile picks the style
+ *  (the indigo ring and a check); one off on this site is greyed and says so. */
+export function StyleGallery({ looks, value, onPick }: { looks: Look[]; value: string; onPick: (l: Look) => void }) {
+  const [playing, setPlaying] = useState<string | null>(null);
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {[...looks.filter((l) => l.on), ...looks.filter((l) => !l.on)].map((l) => {
+        const m = lookMedia(l);
+        const sel = l.id === value;
+        const play = (on: boolean) => setPlaying((p) => (on ? l.id : p === l.id ? null : p));
+        return (
+          <li key={l.id} className="min-w-0">
+            <button type="button" aria-pressed={sel} aria-disabled={!l.on || undefined} onClick={() => l.on && onPick(l)} onMouseEnter={() => play(true)} onMouseLeave={() => play(false)} onFocus={() => play(true)} onBlur={() => play(false)} className={`${card(sel, !l.on)} relative aspect-[9/16] w-full rounded-xl ${m.still ? "bg-surface-3" : l.on ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-muted"}`}>
+              {m.still && <img src={m.still} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />}
+              {playing === l.id && m.clip && l.on && <video ref={(v) => void v?.play?.()?.catch(() => {})} src={m.clip} poster={m.still} muted loop playsInline aria-hidden className="absolute inset-0 size-full object-cover" />}
+              <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-(image:--media-shade) px-3 pb-3 pt-12 text-white">
+                <span className="text-sm font-semibold leading-snug">{l.name}</span>
+                {m.still && <span className="line-clamp-2 text-xs text-white/80">{sub(l)}</span>}
+                {!l.on && <span className="self-start rounded-sm bg-black/45 px-1.5 text-xs font-medium text-white/90">{OFF}</span>}
+              </span>
+              {!m.still && (
+                <span className="absolute inset-x-0 bottom-16 top-0 flex items-center px-4">
+                  <span className="line-clamp-5 text-sm font-medium leading-snug sm:text-base sm:leading-snug">{sub(l)}</span>
+                </span>
+              )}
+              {sel && (
+                <span className="animate-fade absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-accent text-on-accent">
+                  <CheckIcon size={14} strokeWidth={2.5} aria-hidden />
+                </span>
+              )}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

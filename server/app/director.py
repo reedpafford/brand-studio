@@ -2091,7 +2091,7 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
                     redo: bool = False, kept: str | None = None) -> str:  # fmt: skip
     """Queue the treatment (the Director's step: hook, logline, why it holds, beats, ending),
     on the director's own limit like a watch; its words in plain lines."""
-    from app import cards, omni_talker, plans, prompts
+    from app import omni_talker, picks, plans, prompts
     from app.credits import estimate, past_approved
     from app.enhance import project_context
     from app.routes.jobs import enqueue
@@ -2099,7 +2099,7 @@ def write_treatment(db: Session, user: User, project: Project, run: dict | None,
     version = plans.script(db, project)
     system, context = project_context(db, project, "treatment")  # its look's skill and craft
     text = f"{context}\n{prompts.treatment_input(version.text, note)}"
-    text += cards.context(db, project)  # its story card's brief, and the products picked
+    text += picks.context(db, project)  # the products picked for it
     if omni_talker.on(db, project):  # the presenter speaks on camera: `voices` names them
         text += f"\n{omni_talker.treatment_block(db, project)}"
     said = note.strip() if kept is None else kept  # the person's own note, for a check's redo

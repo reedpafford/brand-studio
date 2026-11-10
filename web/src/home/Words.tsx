@@ -14,7 +14,7 @@ export function readsAsScript(text: string): boolean {
 
 /** The words box: the script font as you type; away from it, a long script folds to four lines and its length (S2-02).
  *  It never cuts a paste: near the most it counts the characters, past it it says so (`scriptSize`). */
-export function Words({ text, size, setText, go, rail, narrated, id = WORDS_ID, label = "Paste a script, or describe the video", placeholder = PLACEHOLDER, inDialog }: { text: string; size: ReturnType<typeof scriptSize>; setText: (t: string) => void; go: () => void; rail: boolean; narrated: boolean; id?: string; label?: string; placeholder?: string; /** the dialog focuses it itself, after noting what opened it (focus goes back there on closing) */ inDialog?: boolean }) {
+export function Words({ text, size, setText, go, rail, narrated }: { text: string; size: ReturnType<typeof scriptSize>; setText: (t: string) => void; go: () => void; rail: boolean; narrated: boolean }) {
   const [editing, setEditing] = useState(false);
   const lines = text.split("\n").filter((l) => l.trim());
   const c = counts(text, narrated);
@@ -23,7 +23,7 @@ export function Words({ text, size, setText, go, rail, narrated, id = WORDS_ID, 
   if (fold)
     return (
       <>
-        <button id={id} type="button" onClick={() => setEditing(true)} className="block min-h-24 w-full text-left font-script text-sm leading-[1.6]">
+        <button id={WORDS_ID} type="button" onClick={() => setEditing(true)} className="block min-h-24 w-full text-left font-script text-sm leading-[1.6]">
           <span className="sr-only">Edit the words: </span>
           {lines.slice(0, rail ? 4 : 2).map((l, i) => (
             <span key={i} className="block">{l}</span>
@@ -35,17 +35,16 @@ export function Words({ text, size, setText, go, rail, narrated, id = WORDS_ID, 
     );
   return (
     <>
-      <label htmlFor={id} className="sr-only">
-        {label}
+      <label htmlFor={WORDS_ID} className="sr-only">
+        Paste a script, or describe the video
       </label>
       <textarea
-        id={id}
-        autoFocus={editing || (rail && !inDialog)}
-        data-autofocus={(rail && inDialog) || undefined}
+        id={WORDS_ID}
+        autoFocus={editing || rail}
         rows={rail ? 4 : 3}
         aria-invalid={size.over || undefined}
         value={text}
-        placeholder={placeholder}
+        placeholder={PLACEHOLDER}
         onChange={(e) => setText(e.target.value)}
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing && (e.preventDefault(), go())}

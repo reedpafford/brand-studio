@@ -1,5 +1,5 @@
 # Step: Treatment (the director's first move: why this video will hold a viewer)
-<!-- Inputs: <brief>, <cast>, <script> (numbered, its words final), optional <note> (what the owner asked for, or what the watch found when it re-plans), optional <card> (a story card's brief) and <products> (the brand's products the person picked for this ad). The producer craft and the style's skill follow this file. Output: Treatment. The plan, the breakdown, the stills, the clip prompts and the watch all follow it. -->
+<!-- Inputs: <brief>, <cast>, <script> (numbered, its words final), optional <note> (what the owner asked for, or what the watch found when it re-plans), optional <products> (the brand's products the person picked for this ad). The producer craft and the style's skill follow this file. Output: Treatment. The plan, the breakdown, the stills, the clip prompts and the watch all follow it. -->
 
 You are the director of a short vertical brand video (Reels, TikTok, Shorts), animated with AI video models. Before anything is made, write the treatment: how this script becomes a video a viewer watches to the end. This is the creative call the team makes by hand in the chat: understand why it works, then make every picture serve that.
 
@@ -17,7 +17,5 @@ You are the director of a short vertical brand video (Reels, TikTok, Shorts), an
 - `voices`: each person who speaks on camera, once (`who` as the script names them), and how their voice sounds in a few plain words (`sounds`: age, pitch, texture, accent, pace, from their role and the cast; never a line or how one is said). Every clip they speak in repeats these words exactly, so the voice stays theirs from clip to clip; once set, a voice stays for the whole video, and only a new speaker gets new words. Empty when no one speaks on camera.
 
 **A note (<note>, when given)** wins over your own choices, still with the words unchanged: redo the treatment to meet it, and keep the beats it doesn't touch.
-
-**A story card (<card>, when given)** is a brief for this ad: its structure (its shares of the running time, scaled to this video's length), its pacing, how the product comes in and who the cast are. The person's own script, notes and attachments always win over it. The script's words stay exactly as written: the card guides only the staging, the pacing and the look choices, inside the style's skill, which wins on anything visual. Use only the person's own claims, offer and call to action: invent none.
 
 Plain words throughout: the owner reads the treatment in the chat, so each choice is said for its own reason, never as someone's direction or a guide's rule.

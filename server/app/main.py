@@ -174,7 +174,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(breakdown.shots)
     app.include_router(director.watched)
     app.include_router(looks.formats)
-    app.include_router(looks.cards)
     app.include_router(host.ways)
     app.add_middleware(UploadLimit, path="/files", max_bytes=settings.max_upload_mb * 1024 * 1024)
     app.add_middleware(UploadLimit, path=r"/brands/\d+/(media|footage)",

@@ -51,27 +51,25 @@ function useOverlay(onClose: () => void) {
 
 type Props = { title: string; onClose: () => void; children: ReactNode; /** Pinned under the scrolling body: the panel's one press. */ footer?: ReactNode };
 
-function Frame({ title, onClose, className, grabber, footer, bare, children }: Props & { className: string; grabber?: boolean; /** No header bar: the body draws its own heading; the title names the dialog and Close floats in the corner. */ bare?: boolean }) {
+function Frame({ title, onClose, className, grabber, footer, children }: Props & { className: string; grabber?: boolean }) {
   const heading = useId();
   const panel = useOverlay(onClose);
   // Rendered into the page body, so a sticky bar or tab bar can never sit on top of it.
   return createPortal(
     <>
       <div aria-hidden onClick={onClose} className="fixed inset-0 z-50 bg-scrim" />
-      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={bare ? undefined : heading} aria-label={bare ? title : undefined} tabIndex={-1} className={`fixed z-50 flex flex-col bg-surface shadow-overlay ${className}`}>
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className={`fixed z-50 flex flex-col bg-surface shadow-overlay ${className}`}>
         {grabber && <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-border-strong" />}
         {/* v5 panels (E_ScriptMakeVideo): a 56 px header and 20 px sides. */}
-        <div className={bare ? "absolute right-2 top-2 z-10" : `flex min-h-14 items-center justify-between gap-3 px-5 py-2 ${footer ? "mb-4 border-b border-border" : ""}`}>
-          {!bare && (
-            <h2 id={heading} className="font-display text-md font-bold">
-              {title}
-            </h2>
-          )}
+        <div className={`flex min-h-14 items-center justify-between gap-3 px-5 py-2 ${footer ? "mb-4 border-b border-border" : ""}`}>
+          <h2 id={heading} className="font-display text-md font-bold">
+            {title}
+          </h2>
           <button type="button" aria-label="Close" onClick={onClose} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2">
             <X size={20} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
-        <div className={`min-h-0 flex-1 overflow-y-auto px-5 ${bare ? "pt-5" : ""} ${footer ? "pb-4" : "pb-[calc(1rem+env(safe-area-inset-bottom))]"}`}>{children}</div>
+        <div className={`min-h-0 flex-1 overflow-y-auto px-5 ${footer ? "pb-4" : "pb-[calc(1rem+env(safe-area-inset-bottom))]"}`}>{children}</div>
         {footer && <div className="space-y-3 border-t border-border px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">{footer}</div>}
       </div>
     </>,
@@ -89,9 +87,9 @@ export function SidePanel({ wide, ...props }: Props & { wide?: boolean }) {
   return <Frame {...props} className={`bottom-0 right-0 top-topbar ${wide ? "w-[480px]" : "w-[380px]"} max-w-full border-l border-border`} />;
 }
 
-/** A centred dialog for a picker (Styles, cast and products, a story card): never wider than 960 px, however wide the
+/** A centred dialog for a picker (Styles, cast and products): never wider than 960 px, however wide the
  *  screen; on a phone it fills the screen and scrolls inside. */
-export function Modal(props: Props & { bare?: boolean }) {
+export function Modal(props: Props) {
   return <Frame {...props} className="inset-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[min(88dvh,760px)] sm:w-[calc(100%-3rem)] sm:max-w-[960px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl" />;
 }
 
