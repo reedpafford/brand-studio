@@ -947,7 +947,7 @@ class DirectorTurn(Strict):
         "redraw_still", "clip_prompts", "make_take", "pick_take", "final_cut", "watch_cut",
         "mute", "unmute", "splice_word", "add_sound", "song", "narration", "host", "edit_cut",
         "ask", "add_place", "change_look", "ask_cast_ok", "wait", "deliver", "stop", "clip_model",
-        "settings", "split_clip", "outfit", "locked_line",
+        "settings", "split_clip", "outfit", "locked_line", "find_footage",
     ] = Field(
         description="The one action to take now. 'wait' only while something it started is "
         "still being made or waits for the owner; 'deliver' when the cut is made and good; "
@@ -1072,7 +1072,8 @@ class DirectorTurn(Strict):
         "(the server adds that to every take), all said as what happens ('close to tears, "
         "fighting it: chin trembles, lips pressed between phrases, a glance down and back; "
         "both hands stay on the steering wheel'); for add_sound, the sounds "
-        "asked for and how much, in the person's words ('slight sound effects'); else empty. "
+        "asked for and how much, in the person's words ('slight sound effects'); for "
+        "find_footage, the words to find ('church exterior at night'); else empty. "
         "Made from a person's note, it keeps every instruction the note gives, in your own "
         "concise words. At most 500 characters (a talker's motion 600, add_sound 300): a "
         "longer one is refused, never cut.",

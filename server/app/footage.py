@@ -1,7 +1,7 @@
 """Brand footage (Reed, 9 Nov, the runway's item 10): a brand's own real clips on its library's
 Footage tab, added once (a Media upload marked `footage`), each with what it shows and which
 product: one AI look at two of its frames (a picture check's price) or the owner's own words.
-Every style's director gets the clips that fit the video (by product) as context: their words
+Every style's director gets the clips that fit the video best (footage_rank) as context: their words
 in its steps (`block`), and a frame of each in the treatment and the plan (`frame_ids`). On a
 video model that takes reference videos (Seedance), a clip may go with a take as a reference,
 at the model's dearer rate (`assets`, credits.estimate). In UGC only, a B-roll shot nobody
@@ -27,7 +27,7 @@ from app.models.projects import Project
 
 KEY = "footage:"
 FRAMES = 2  # kept per clip at upload: the first is its thumbnail
-MOST, SEEN = 6, 4  # clips listed for one video, and how many of them with a frame
+MOST, SEEN = 8, 4  # clips listed for one video (the best fits), and how many with a frame
 STEP, KIND = "footage_describe", "check-claude"  # the AI description: a picture check
 TAKE = "footage_take"  # a footage shot's take, cut from its clip (the local lane, free)
 SHORTEST = 0.5  # seconds a footage shot is at least
@@ -65,43 +65,38 @@ def ugc(project: Project) -> bool:
 
 
 def relevant(db: Session, project: Project) -> list[MediaUpload]:
-    """The described clips that fit this video, at most MOST: when its script or goal names
-    some of the brand's products, only theirs (and clips of no product); else all of them."""
-    from app.routes.scripts import latest
+    """The clips that fit this video best, at most MOST (footage_rank: free, in code)."""
+    from app import footage_rank
 
-    script = latest(db, project)
-    words = " ".join((script.text if script else "", project.goal or "", project.name or ""))
-    words = words.lower()
-    have = {p.id: p for p in products(db, project.brand_id)}
-    named = {i for i, p in have.items() if p.name.strip().lower() in words}
-    rows = [r for r in live(db, project.brand_id) if r.description.strip()
-            and (r.product_id is None or r.product_id in have)]  # fmt: skip
-    if named:
-        rows = [r for r in rows if r.product_id is None or r.product_id in named]
-    return rows[:MOST]
+    return footage_rank.fit(db, project, MOST)
 
 
-def _line(db: Session, row: MediaUpload) -> str:
-    from app.enhance import escape  # a person's words never close the tag
+def line(db: Session, row: MediaUpload) -> str:
+    from app.enhance import escape  # a person's words never close the tag, nor pose as a line
+    from app.footage_rank import paths
 
     item = db.get(LibraryItem, row.product_id) if row.product_id else None
-    of = f" | {escape(item.name)}" if item else ""
-    where = folders.path(db, row.live_folder_id)  # its folder often says what it is
+    of = f" | {escape(' '.join(item.name.split()))}" if item else ""
+    where = paths(db, row.brand_id).get(row.folder_id or 0)  # its folder often says what it is
     of += f" | in {escape(where)}" if where else ""
-    return f"- {KEY}{row.id} | {row.seconds or 0:.1f} s{of} | {escape(row.description.strip())}"
+    said = escape(" ".join(row.description.split()))
+    return f"- {KEY}{row.id} | {row.seconds or 0:.1f} s{of} | {said}"
 
 
 def block(db: Session, project: Project, step: str) -> str:
     """The <footage> part of a step's system prompt: the clips that fit, one line each, then
     what this step may do with them. "" when the step isn't told or there are none."""
+    from app import footage_rank
     from app.breakdown import video_model
 
     rows = relevant(db, project) if step in TOLD and project.id else []
     if not rows:
         return ""
-    lines = ["<footage>", "The brand's own real clips of its products, filmed by the brand: how "
-             "each product looks, moves and works. Show the product as they do; never invent how "
-             "it works when a clip shows it.", *(_line(db, r) for r in rows)]  # fmt: skip
+    what = ("of its products, filmed by the brand: how each product looks, moves and works"
+            if footage_rank.drawn(project) else "that best fit this video, filmed by the "
+            "brand: its products, places and people")  # fmt: skip
+    lines = ["<footage>", f"The brand's own real clips {what}. Show a product as they do; never "
+             "invent how it works when a clip shows it.", *(line(db, r) for r in rows)]  # fmt: skip
     if step in SHOWN and (seen := rows[:SEEN]):
         lines.append(f"The first {len(seen)} images given are a frame of "
                      f"{', '.join(KEY + str(r.id) for r in seen)}, in that order.")  # fmt: skip
@@ -123,7 +118,7 @@ def block(db: Session, project: Project, step: str) -> str:
         )  # fmt: skip
     if step == "director":
         lines.append("A shot whose `footage` is set is the brand's real clip: free, never "
-                     "remade or watched.")  # fmt: skip
+                     "remade or watched. `find_footage` finds others by words.")  # fmt: skip
     return "\n".join([*lines, "</footage>"])
 
 

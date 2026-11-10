@@ -82,8 +82,10 @@ def test_the_director_gets_only_the_clips_that_fit_in_a_few_lines_and_frames(app
     brand = video.brand_id
     app_id, alarm = product(db, brand, "fomo"), product(db, brand, "Pocket alarm")
     db.commit()
-    mine = [_described(app, db, owner, brand, f"The fomo app, take {n}.", product_id=app_id)
-            for n in range(7)]  # fmt: skip
+    mine = [
+        _described(app, db, owner, brand, f"The fomo app on a {n} phone.", product_id=app_id)
+        for n in ("red", "blue", "gold", "black", "pink", "green", "white", "grey", "teal")
+    ]
     _described(app, db, owner, brand, "The alarm flashing.", product_id=alarm)  # not this video's
     told = project_context(db, video, "director")[0][-1]
     assert told.startswith("<footage>") and "alarm" not in told
@@ -252,7 +254,9 @@ def test_a_take_given_the_real_clip_as_a_reference_is_priced_at_seedances_video_
 ):
     video = _video(db, owner)
     video.look, video.video_model = "house", "seedance-2.5"  # it takes reference videos
-    key = f"{footage.KEY}{_described(app, db, owner, video.brand_id)}"
+    alarm = product(db, video.brand_id, "Pocket alarm")  # a drawn style: product clips only
+    db.commit()
+    key = f"{footage.KEY}{_described(app, db, owner, video.brand_id, product_id=alarm)}"
     assert footage.assets(db, video)[key][1:] == ("video", [db.get(MediaUpload, int(
         key.split(":")[1])).file_id])  # fmt: skip
     m = get_model("seedance-2.5")

@@ -26,7 +26,8 @@ CAST_LOCKED = "Approve the missing looks in Cast, or unlock the cast, then start
 TOOLS = ("plan", "make_looks", "storyboard", "stills", "clip_prompts", "make_take",
          "pick_take", "mute", "unmute", "splice_word", "add_sound", "song", "narration", "host",
          "edit_cut", "final_cut", "watch_cut", "ask", "clip_model", "settings", "add_place",
-         "change_look", "ask_cast_ok", "split_clip", "outfit", "locked_line")  # fmt: skip
+         "change_look", "ask_cast_ok", "split_clip", "outfit", "locked_line",
+         "find_footage")  # fmt: skip
 WAITING = "{} for the cast and places OK."
 LONG_NOTE = ("Refused: a {what} note is at most {most} characters (this one is {n}); say it "
              "shorter, keeping everything it asks.")  # fmt: skip  # never cut (261: its end lost)
@@ -361,6 +362,10 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 return no
             storyboard.change_frame(frame_id=frame.id, body=storyboard.ChangeIn(note=note), **me)
             return f"Drawing shot {sid} again: {note}"
+        if tool == "find_footage":  # the brand's clips by words, free, in code (no AI)
+            from app import footage_rank
+
+            return footage_rank.search(db, project, decision.get("note") or "")
         if tool == "ask":  # a question for a person: it waits on that point only (asks.py)
             from app import asks
 
