@@ -2272,7 +2272,7 @@ def _audio_key(db: Session, project: Project) -> str:
 def video_state(db: Session, project: Project) -> dict:
     """Where the video is, as the director reads it (and `choose` on the stand-ins)."""
     from app.clip_prompts import newest
-    from app.clip_takes import take_credits
+    from app.clip_takes import last_refused, take_credits
     from app.item_checks import latest, shown, verdict
     from app.routes.project_clips import out_of_date
 
@@ -2325,7 +2325,8 @@ def video_state(db: Session, project: Project) -> dict:
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
                       **({"footage": reals[row.clip_id]["id"]} if row.clip_id in reals else {}),
-                      **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
+                      **({"talker": True} if row.clip_id in said else {}),
+                      **last_refused(db, row)})  # fmt: skip
     have = {c["clip_id"] for c in clips}  # a planned clip with no prompt yet (after a split)
     clips += [{"clip_id": c["id"], "stale": True, "picked_take_id": None,
                "shots": [{"id": i, "action": shots[i].get("action", ""), "line": shots[i].get(
@@ -2864,9 +2865,8 @@ def _failed_too_often(db: Session, project: Project, run: dict) -> str:
 
 
 REFUSALS = 3  # one item refused on its content, a run: its first prompt and two rewordings
-PARKED = ("It stopped for your answer: {what} was refused {n} times by the service (it last "
-          "said: {said}). How should it change? Tell the director in a note, then press Carry "
-          "on.")  # fmt: skip
+PARKED = ("It stopped for your answer: {what} was {how}, {n} times. How should it "
+          "change? Tell the director in a note, then press Carry on.")  # fmt: skip
 
 
 def _refused_too_often(db: Session, project: Project, run: dict) -> str:
@@ -2874,7 +2874,7 @@ def _refused_too_often(db: Session, project: Project, run: dict) -> str:
     (video 345: clip 10's take, E006, ended the run as "failed 3 times"), else "". The run
     stops there with Carry on, never delivering without it. The server's own retries (a
     look-alike's steps, the free reword's take) aren't the director's wordings: not counted."""
-    from app.clip_takes import refusal, why_failed
+    from app.clip_takes import refused_how, why_failed
 
     counts: dict[str, int] = {}
     for job in _failures(db, project, run):
@@ -2883,8 +2883,7 @@ def _refused_too_often(db: Session, project: Project, run: dict) -> str:
         what = _item(db, job)
         counts[what] = counts.get(what, 0) + 1
         if counts[what] >= REFUSALS:
-            said = refusal(job.error_detail or "") or "it may be related to copyright"
-            return PARKED.format(what=what, n=counts[what], said=said)
+            return PARKED.format(what=what, how=refused_how(job.error_detail), n=counts[what])
     return ""
 
 

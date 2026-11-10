@@ -129,10 +129,10 @@ def _plain(job: Job, detail: str) -> str:
             return music.TIMING_TOO_LONG
         return music.TIMING_UNREADABLE if detail.startswith("ValueError") else music.TIMING_FAILED
     from app import song_directions
-    from app.clip_takes import REFUSED_SAID, invalid, refusal
+    from app.clip_takes import REFUSED_SAID, invalid, refusal, refused_how
 
-    if said := refusal(detail):  # its content refused (video 345: E006): never "try again"
-        return REFUSED_SAID.format(said)
+    if refusal(detail):  # its content refused (video 345: E006): never "try again"
+        return REFUSED_SAID.format(refused_how(detail))
     if reason := invalid(detail):  # refused as sent: trying the same again won't help
         return f"The service refused this request as invalid, so nothing was charged: {reason}."
     return song_directions.failure(detail) or FAILED

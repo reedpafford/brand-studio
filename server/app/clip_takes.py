@@ -316,9 +316,8 @@ SAME_INVALID = ("The service refused this take's request as invalid ({reason}), 
                 "Nothing was charged.")  # fmt: skip
 
 
-SAME_REFUSED = ("The service refused this same prompt for this clip before (it said: {}), so "
-                "it would be refused again. Change the prompt first. Nothing was "
-                "charged.")  # fmt: skip
+SAME_REFUSED = ("This same prompt for this clip was {} before, so it would be again. "
+                "Change the prompt first. Nothing was charged.")  # fmt: skip
 
 
 def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: dict) -> None:
@@ -346,8 +345,7 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: d
         return
     for job in takes:
         if job.status == JobStatus.failed and why_failed(job) == "refused" and same(job, False):
-            said = refusal(job.error_detail or "") or "it may be related to copyright"
-            raise HTTPException(409, SAME_REFUSED.format(said))
+            raise HTTPException(409, SAME_REFUSED.format(refused_how(job.error_detail)))
 
 
 FIT = "fit"  # in a free fix's input: it shortens the prompt to its model's limit
@@ -439,6 +437,11 @@ BUSY = ("The video service was busy and couldn't finish this. Nothing was charge
         "to try again.")  # fmt: skip
 REFUSED = "The video model thinks this clip looks too much like someone else's character or video."
 
+
+SENSITIVE = ("The video model flagged this take as sensitive. Nothing was charged. Its check is "
+             "a little random, so making it again may pass; if it keeps failing, change the "
+             "wording.")  # fmt: skip
+
 # The service refused the request for what it asks or shows (its content or safety check), by
 # whatever code: Replicate's E006 "The input was invalid" over Omni's "Request blocked due to
 # safety violations" or "prohibited content guidelines" (video 345, jobs 3357 and 3359), E005
@@ -449,8 +452,10 @@ REFUSED = "The video model thinks this clip looks too much like someone else's c
 REFUSAL = re.compile(r"\bE00[56]\b|flagged (?:as|for)|ContentModeration|content[_ ]policy|"
                      r"safety violation|prohibited content|\"code\"\s*:\s*\"(?:safety|"
                      r"prohibited_content)\"", re.I)  # fmt: skip
-REFUSED_SAID = ("The service refused this prompt (it said: {}). Change the prompt before trying "
-                "again. Nothing was charged.")  # fmt: skip
+# Omni's safety filter (E006 over "code": "safety" or "prohibited_content"): said as such
+SAFETY_FILTER = re.compile(r'\bE006\b|safety violation|prohibited content|"code"\s*:\s*"'
+                           r'(?:safety|prohibited_content)"', re.I)  # fmt: skip
+REFUSED_SAID = "This prompt was {}. Change the prompt before trying again. Nothing was charged."
 
 
 def refusal(detail: str) -> str:
@@ -465,6 +470,29 @@ def refusal(detail: str) -> str:
     said = re.sub(r"\s*Please [^.]*(?:\.|$)|['\")]+$", "", said)  # its "try again" isn't ours
     said = re.sub(r"\s+", " ", said).strip(" .:-")[:200]
     return said[:1].upper() + said[1:] if said else "its content check"
+
+
+def refused_how(detail: str | None) -> str:
+    """How it was refused, with the service's own words, for the owner and the director alike:
+    "blocked by the service's safety filter (it said: …)" or "refused by the service (it said:
+    …)". A failed run isn't billed, blocked or not (replicate.com/docs/topics/billing)."""
+    said = refusal(detail or "") or "it may be related to copyright"
+    how = ("blocked by the service's safety filter" if SAFETY_FILTER.search(detail or "")
+           else "refused by the service")  # fmt: skip
+    return f"{how} (it said: {said})"
+
+
+def last_refused(db: Session, row: ProjectClip) -> dict:
+    """The clip's newest take when the service refused it: how, and the prompt it was sent
+    in full, so the director sees what tripped it (video 345: a script line carried into a
+    B-roll prompt, blocked 6 times); {} otherwise."""
+    job = db.scalar(select(Job).where(Job.input["project_clip_id"].as_integer() == row.id,
+                                      Job.input["step"].as_string() == "clip_take")
+                    .order_by(Job.id.desc()).limit(1))  # fmt: skip
+    if job is None or job.status != JobStatus.failed or why_failed(job) != "refused":
+        return {}
+    sent = (job.input.get("input") or {}).get("prompt", "")
+    return {"refused": {"how": refused_how(job.error_detail), "prompt": sent}}
 
 
 def moderated(detail: str) -> str:
@@ -495,13 +523,13 @@ def refused(db: Session, job: Job) -> None:
         job.error = (
             f"{MODERATED}{term}. Nothing was charged. Change the wording, then make it again."
         )
-        if term == "sensitive":  # its own words; the free reword once it's refused again
-            job.error = REFUSED_SAID.format(refusal(job.error_detail or ""))
+        if term == "sensitive":  # at random: made again once, then reworded if it keeps failing
+            job.error = SENSITIVE
             videos = select(Job).where(Job.project_id == job.project_id, Job.kind == "video",
                                        Job.id < job.id).order_by(Job.id.desc())  # fmt: skip
             last = row and next((j for j in db.scalars(videos)
                                  if j.input.get("project_clip_id") == row.id), None)  # fmt: skip
-            if not last or moderated(last.error_detail or "") != "sensitive":
+            if not last or last.error != SENSITIVE:
                 return
         if row and row.prompt == job.input.get("clip_prompt"):  # the prompt it was made from
             said = (f"{MODERATED}{term}. Keep the story and the spoken lines; remove what "
@@ -556,11 +584,11 @@ def retry(db: Session, job: Job) -> None:
     tried again once on its own. A busy service gets a short wait; a refusal read as
     something ("flagged for: sexual") is reworded first by the free fix, then retried
     (`after_fix`). A look-alike refusal steps down instead (`_again_without`: without the
-    still, then without the sheets). Any other refusal ("flagged as sensitive", E006) is
-    never sent again as it was (its prompt changes first). No other second automatic retry,
-    never on a video that's gone, and never past the video's limit, budget or the editor's
-    week. The failed take isn't counted, so the credits are held once and come back if the
-    retry fails too."""
+    still, then without the sheets). "Flagged as sensitive" (E005, at random) is made again
+    once as it is; any other refusal (E006, the safety filter) never is: its prompt changes
+    first (video 345). No other second automatic retry, never on a video that's gone, and
+    never past the video's limit, budget or the editor's week. The failed take isn't counted,
+    so the credits are held once and come back if the retry fails too."""
     from app.clip_prompts import fix_job, is_stale, newest
 
     why = why_failed(job)
@@ -585,7 +613,7 @@ def retry(db: Session, job: Job) -> None:
         fix.input = {**fix.input, "then_take": job.id}
         row.free_fix_used = True
         return
-    if why == "refused":  # never the same refused request again (video 345: E006 three times)
+    if why == "refused" and term != "sensitive":  # never the same again (345: E006 3 times)
         return
     _again(db, job, job.input, wait=why == "busy")
 
@@ -645,10 +673,10 @@ def after_fix(db: Session, row: ProjectClip, failed_id: int) -> None:
 
 def once_more(db: Session, job: Job) -> None:
     """A failed host still or piece, or a take's added sound: tried again once on its own
-    (never charged twice); after that Make again makes it (rule 22). Never a refused one: it
-    would be refused the same way."""
-    if job.auto or why_failed(job) == "refused" or db.scalar(select(Job.id).where(
-            Job.retry_of_id == job.id)):  # fmt: skip
+    (never charged twice); after that Make again makes it (rule 22). Never one refused on its
+    content but "sensitive" (at random): it would be refused the same way."""
+    refused = why_failed(job) == "refused" and moderated(job.error_detail or "") != "sensitive"
+    if job.auto or refused or db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
         return
     _again(db, job, job.input, wait=bool(BUSY_SAID.search(job.error_detail or "")))
 

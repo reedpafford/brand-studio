@@ -335,7 +335,7 @@ def test_refused_takes_park_the_run_for_the_owner_never_end_it(app, db, owner, e
     end the run, and the third parks it with a question for the owner and Carry on."""
     from app.clip_takes import SAME_REFUSED
     from app.providers.fake_local import FakeMedia
-    from tests.test_clip_takes import E006, SAFETY
+    from tests.test_clip_takes import BLOCKED, E006
 
     real_poll = FakeMedia.poll
 
@@ -361,9 +361,9 @@ def test_refused_takes_park_the_run_for_the_owner_never_end_it(app, db, owner, e
     out = owner.get(f"/projects/{pid}/director").json()
     takes = [t["result"] for t in out["turns"] if t["tool"] == "make_take"]
     assert takes[0].startswith("Making 1 take"), takes  # the server's own first take: refused
-    assert takes[1] == f"Refused: {SAME_REFUSED.format(SAFETY)}"  # the same prompt again
+    assert takes[1] == f"Refused: {SAME_REFUSED.format(BLOCKED)}"  # the same prompt again
     assert all(r.startswith("Making 1 take") for r in takes[2:]) and len(takes) == 4
-    said = director.PARKED.format(what="Clip 1's take", n=3, said=SAFETY)
+    said = director.PARKED.format(what="Clip 1's take", how=BLOCKED, n=3)
     assert out["ended"] == said and "failed" not in out["ended"]  # never "failed 3 times"
     assert out["carry_on"] is not None  # parked: the owner's answer, then Carry on
     assert not any(t["result"] == director.DELIVERED for t in out["turns"])

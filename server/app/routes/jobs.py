@@ -152,6 +152,11 @@ class JobOut(BaseModel):
             "freestyle": _freestyle(db, job) if db else None,
             "note": _note(job),
             **({"cost_usd": _usd(db, job)} if "cost_usd" in cls.model_fields and db else {}),
+            **(
+                {"sent_prompt": str(given.get("prompt") or "")}
+                if "sent_prompt" in cls.model_fields and job.status == JobStatus.failed
+                else {}
+            ),
         }
 
 
@@ -250,6 +255,9 @@ class JobDetailOut(JobOut):
     provider_ref: str | None
     error_detail: str
     cost_usd: float = 0.0
+    # a failed job's prompt as the model was sent it, whole (video 345: what tripped the safety
+    # filter could only be guessed from the 140-character summary)
+    sent_prompt: str = ""
 
 
 OVER_BUDGET = "Waiting for the owner's OK: this goes past the video's budget."
