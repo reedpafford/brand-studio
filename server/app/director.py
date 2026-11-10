@@ -2227,37 +2227,38 @@ def timed_notes(project: Project, run_id: str | None) -> list[tuple[int, str, st
 def against_notes(db: Session, row: ProjectClip, notes: list[tuple[int, str, str]]) -> dict:
     """The run's notes that take away something this clip's prompt still shows ("no phone"
     and a phone in the prompt), for the director to check before its take: {} with none.
-    Video 345 held 41 first takes for one clip per turn: a note that names clips ("clip 10")
-    is about those alone, and a note the prompt has read is done: the prompt was written, or
-    rewritten, after it came (its writer reads the run's notes), so the brief's "no phone
-    screen" never holds a selfie prompt that already keeps the phone out of sight."""
+    Video 345 held 41 first takes for one clip a turn: a sentence or clause that names clips
+    ("Remove from clip 10's prompt any man") is about those alone (`about`), and a note the
+    clip prompts call that wrote the prompt in hand was given is done (`read_by_writer`: the
+    brief's "no phone screen" held every selfie prompt that keeps the phone out of sight)."""
     from app.clip_takes import contradicts
-    from app.revision import named
 
     said = [f"Note {n}" for n, text, at in notes
-            if contradicts(row.prompt, text) and row.clip_id in (named(text) or {row.clip_id})
-            and not read_since(db, row, at)]  # fmt: skip
+            if contradicts(row.prompt, about(text, row.clip_id))
+            and not read_by_writer(db, row, at)]  # fmt: skip
     return {"against_notes": said} if said else {}
 
 
-def read_since(db: Session, row: ProjectClip, at: str) -> bool:
-    """The clip's prompt was written after `at` (a note's time; "" unknown: never), or a
-    rewrite of it with a note (Change it…) began after it and didn't fail: it read the note."""
-    if not at:
-        return False
-    job = db.get(Job, row.job_id) if row.job_id and not row.prompt_history else None
-    made = (row.prompt_history or [{}])[0].get("made_at") or (job or row).created_at.isoformat()
-    return made > at or changed_since(db, row, at)
+def about(note: str, clip_id: str) -> str:
+    """What a note says about this clip: a sentence or clause that names clips ("clip 10",
+    "clips 3 to 5") is about those alone, the rest about every clip ("No phone anywhere;
+    clip 1 ends on her face.")."""
+    from app.revision import named
+
+    parts = re.split(r"(?<=[.!?;\n])\s+", note or "")
+    return " ".join(p for p in parts if clip_id in (named(p) or {clip_id}))
 
 
-def changed_since(db: Session, row: ProjectClip, at: str) -> bool:
-    """A rewrite of this clip with a note (Change it…) began after `at` ("": ever) and didn't
-    fail or get cancelled: it's done, or on its way."""
-    asked = select(Job.created_at).where(
-        Job.project_id == row.project_id, Job.input["step"].as_string() == "change",
-        Job.input["target"].as_string() == "clip", Job.input["target_id"].as_integer() == row.id,
-        Job.status.not_in((JobStatus.failed, JobStatus.cancelled)))  # fmt: skip
-    return any(t.isoformat() > at for t in db.scalars(asked))
+def read_by_writer(db: Session, row: ProjectClip, at: str) -> bool:
+    """The clip prompts call that wrote the prompt in hand began after `at` (a note's time;
+    "" unknown: never), so the run's notes it was given (<notes>) had it. Change it…, a hand
+    edit, the free fix and a fit to the model's limit never read the notes: never counted."""
+    history = row.prompt_history or []
+    wrote = history[0].get("job_id") if history else row.job_id
+    writer = db.get(Job, wrote) if wrote and at else None
+    return bool(writer and writer.input.get("step") == "clip_prompts"
+                and not writer.input.get("fix") and not writer.input.get("fit")
+                and writer.created_at.isoformat() > at)  # fmt: skip
 
 
 def old_take(row: ProjectClip) -> dict:

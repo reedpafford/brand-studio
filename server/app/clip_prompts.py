@@ -56,8 +56,11 @@ OLDER_PROMPT = "Advice: Its take was made from another version of this prompt."
 HISTORY = 10  # OR3: a clip's prompt versions kept, the one in hand first
 
 
-def _version(db: Session, row: ProjectClip, v: int, made_at, by_id: int | None) -> dict:
-    return {"v": v, "made_at": made_at.isoformat(), "made_by_id": by_id, "prompt": row.prompt,
+def _version(db: Session, row: ProjectClip, v: int, made_at, by_id: int | None,
+             job_id: int | None = None) -> dict:  # fmt: skip
+    """`job_id`: the clip prompts call that wrote it (it was given the run's notes)."""
+    return {"v": v, "made_at": made_at.isoformat(), "made_by_id": by_id, "job_id": job_id,
+            "prompt": row.prompt,
             "references": row.references, "breakdown_id": row.breakdown_id,
             "seconds": row.seconds, "problems": row.problems, "kept": row.kept}  # fmt: skip
 
@@ -69,7 +72,8 @@ def before_change(db: Session, row: ProjectClip) -> None:
     if not row.prompt_history and row.prompt:
         job = db.get(Job, row.job_id) if row.job_id else None
         made = job.created_at if job else row.created_at
-        row.prompt_history = [_version(db, row, 1, made, job.created_by_id if job else None)]
+        row.prompt_history = [_version(db, row, 1, made, job.created_by_id if job else None,
+                                       row.job_id)]  # fmt: skip
         for take in db.scalars(select(ClipTake).where(ClipTake.clip_id == row.id)):
             if "prompt_version" not in (take.made_with or {}):
                 take.made_with = {**(take.made_with or {}), "prompt_version": 1}
@@ -81,14 +85,16 @@ def before_change(db: Session, row: ProjectClip) -> None:
                     **waiting.input["made_with"], "prompt_version": 1}}  # fmt: skip
 
 
-def log_prompt(db: Session, row: ProjectClip, by_id: int | None) -> None:
+def log_prompt(db: Session, row: ProjectClip, by_id: int | None,
+               job_id: int | None = None) -> None:  # fmt: skip
     """The prompt in hand is a new version (a rewrite, a change note or an edit): Versions
-    keeps it first, at most HISTORY. A free code repair amends the version in hand instead."""
+    keeps it first, at most HISTORY. A free code repair amends the version in hand instead.
+    `job_id`: the clip prompts call that wrote it."""
     from app.db import utcnow
 
     history = list(row.prompt_history or [])
     v = max((e["v"] for e in history), default=0) + 1
-    row.prompt_history = [_version(db, row, v, utcnow(), by_id), *history][:HISTORY]
+    row.prompt_history = [_version(db, row, v, utcnow(), by_id, job_id), *history][:HISTORY]
 
 
 def prompt_version(row: ProjectClip) -> int | None:
@@ -975,7 +981,7 @@ def save_clip_prompts(db: Session, job: Job) -> None:
         row.breakdown_id, row.job_id, row.seconds = bd_row.id, job.id, c.seconds
         row.prompt, row.references = c.prompt, [r.model_dump() for r in c.references]
         row.problems, row.kept = problems, []
-        log_prompt(db, row, job.created_by_id)  # OR3: Versions
+        log_prompt(db, row, job.created_by_id, job.id)  # OR3: Versions
         row.approved, row.prompt_ok, row.change = False, False, None
         row.auto_fix = {"before": written_as, "after": c.prompt, "fixed": words[1],
                         "undone": False} if words[1] else None  # fmt: skip

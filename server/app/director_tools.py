@@ -178,7 +178,8 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             writing, making = _in_hand(db, pid, first)  # a take waits for the prompt in hand
             if not decision.get("clip_id"):  # first takes, all at once (345: one a turn)
                 rewrite = _rewrite_for_notes(db, user, project, first, notes, writing | making)
-                rows = [r for r in rows if r.clip_id not in writing | making | set(rewrite[0])]
+                kept = writing | making | set(rewrite[0]) | set(rewrite[2])
+                rows = [r for r in rows if r.clip_id not in kept]
                 if not rows:
                     return _rewriting(*rewrite, writing, making, made=False)
             elif first and first[0].clip_id in writing:
@@ -187,7 +188,7 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
             elif (
                 first
                 and contradicts(first[0].prompt, asked_note)
-                and not _rewritten(db, first[0], asked_note, notes)
+                and not _rewritten(db, first[0], asked_note)
             ):  # once: a rewrite that kept the thing goes ahead as the director asked
                 # 226's clip 4: a first take's note takes away what its prompt shows ("no
                 # phone"): the note rewrites the prompt first (Change it…), its take after; a
@@ -646,24 +647,22 @@ def _fixed_first(db: Session, row: ProjectClip, me: dict) -> str:
     )
 
 
-def _rewritten(db: Session, row: ProjectClip, note: str, notes: list) -> bool:
-    """This clip's prompt was already rewritten for this note: with these words, or with any
-    note (Change it…) or by its writer since the run's newest note came (345: clip 13 was
-    rewritten three times, the director wording its note anew each turn). A rewrite that
-    failed or was cancelled never ran, so it isn't one."""
-    from app.director import changed_since, read_since
+def _rewritten(db: Session, row: ProjectClip, note: str) -> bool:
+    """This clip's prompt was already rewritten (Change it…) for this note: with these words,
+    or with notes that took away everything this one finds the prompt still shows (345: clip
+    13 was rewritten three times, the director wording "no phone screen" anew each turn, and
+    its line keeps "her phone"). A rewrite that failed or was cancelled never ran."""
+    from app.clip_takes import still_shown, taken_away
     from app.models.jobs import Job, JobStatus
 
-    since = max((at for _, _, at in notes), default="")
-    if changed_since(db, row, since) or read_since(db, row, since):
-        return True
     asked = select(Job).where(Job.project_id == row.project_id,
                               Job.input["step"].as_string() == "change",
                               Job.status.not_in((JobStatus.failed,
                                                  JobStatus.cancelled)))  # fmt: skip
-    said = note.strip()
-    return any(j.input.get("target") == "clip" and j.input.get("target_id") == row.id
-               and j.input.get("note") == said for j in db.scalars(asked))  # fmt: skip
+    said = [j.input.get("note") or "" for j in db.scalars(asked)
+            if j.input.get("target") == "clip" and j.input.get("target_id") == row.id]  # fmt: skip
+    away = set().union(*map(taken_away, said))
+    return note.strip() in said or still_shown(row.prompt, note) <= away
 
 
 def _in_hand(db: Session, project_id: int, rows: list[ProjectClip]) -> tuple[set[str], set[str]]:
@@ -687,32 +686,41 @@ def _in_hand(db: Session, project_id: int, rows: list[ProjectClip]) -> tuple[set
 
 
 def _rewrite_for_notes(db: Session, user: User, project: Project, first: list[ProjectClip],
-                       notes: list, writing: set[str]) -> tuple[dict, str]:  # fmt: skip
+                       notes: list, writing: set[str]) -> tuple[dict, str, set]:  # fmt: skip
     """The first takes whose prompt still shows what a note takes away (`against_notes`) are
     rewritten first, all in one clip prompts call (a part a clip, all at once: #1467) that
     reads the run's notes; once written they've read them, so the next make_take makes them
-    (345: one clip a turn, each rewritten again and again). What's held, with its notes, and
-    why it couldn't be rewritten now ("": it's on its way)."""
+    (345: one clip a turn, each rewritten again and again). Once only: a clip that call
+    failed or left unwritten since the run's newest note is named, never queued again. What's
+    queued, with its notes; why it couldn't be now ("": it's on its way); those tried once."""
     from app import clip_prompts
     from app.director import against_notes
+    from app.models.jobs import WAITING, Job
 
-    waits = {r.clip_id: w for r in first if r.clip_id not in writing
-             and (w := against_notes(db, r, notes).get("against_notes"))}  # fmt: skip
+    held = {r.clip_id: w for r in first if r.clip_id not in writing
+            and (w := against_notes(db, r, notes).get("against_notes"))}  # fmt: skip
+    since = max((at for _, _, at in notes), default="")
+    ran = select(Job).where(Job.project_id == project.id, Job.status.not_in(WAITING),
+                            Job.input["step"].as_string() == "clip_prompts")  # fmt: skip
+    tried = {c for j in db.scalars(ran) if not (j.input.get("fix") or j.input.get("fit"))
+             and j.created_at.isoformat() > since
+             for c in j.input.get("clip_ids") or () if c in held}  # fmt: skip
+    waits = {c: w for c, w in held.items() if c not in tried}
     if not waits:
-        return {}, ""
+        return {}, "", tried
     try:
         clip_prompts.queue_rewrite(db, user, project, list(waits), others_taking=True)
     except HTTPException as no:
         db.rollback()
-        return waits, str(no.detail)
-    return waits, ""
+        return waits, str(no.detail), tried
+    return waits, "", tried
 
 
-def _rewriting(waits: dict[str, list[str]], no: str, writing: set[str], making: set[str],
-               made: bool) -> str:  # fmt: skip
+def _rewriting(waits: dict[str, list[str]], no: str, tried: set[str], writing: set[str],
+               making: set[str], made: bool) -> str:  # fmt: skip
     """What make_take says of the first takes it didn't make: those whose prompts it rewrites
-    first for the notes, all at once, those whose prompt is still being written, and (when it
-    made none) those already being made."""
+    first for the notes, all at once, those a rewrite didn't clear, those whose prompt is
+    still being written, and (when it made none) those already being made."""
     said, then = [], "make_take with no clip_id makes the takes once they're written."
     if waits:
         why = ", ".join(dict.fromkeys(n for w in waits.values() for n in w))
@@ -720,6 +728,10 @@ def _rewriting(waits: dict[str, list[str]], no: str, writing: set[str], making: 
                     f"a note takes away ({why}): " + (
                         f"not rewritten now: {no}" if no else
                         f"rewriting first, all at once; {then}"))  # fmt: skip
+    if tried:
+        said.append(f"{_prompts_of(tried)} still {'shows' if len(tried) == 1 else 'show'} what "
+                    "a note takes away after one rewrite for it: make each of those takes "
+                    "alone (with its clip_id) and a note saying what to take out.")  # fmt: skip
     if writing:
         said.append(f"{_prompts_of(writing)} {'is' if len(writing) == 1 else 'are'} being "
                     f"rewritten; {then}")  # fmt: skip
