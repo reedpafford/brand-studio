@@ -1519,6 +1519,11 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
     from app.routes.jobs import enqueue
 
     last = next(reversed(turns(db, project)), None)
+    if last is not None and (asked := _refused_too_often(db, project, run)):
+        last = db.get(Job, last.id)  # the owner's answer, then Carry on: never delivered
+        _end(last, asked)
+        db.commit()
+        return last
     if last is not None and (gave_up := _failed_too_often(db, project, run)):
         made = video_state(db, project)["cut"] == "made"  # what it has: a cut, or nothing
         last = db.get(Job, last.id)
@@ -2267,7 +2272,7 @@ def _audio_key(db: Session, project: Project) -> str:
 def video_state(db: Session, project: Project) -> dict:
     """Where the video is, as the director reads it (and `choose` on the stand-ins)."""
     from app.clip_prompts import newest
-    from app.clip_takes import take_credits
+    from app.clip_takes import last_refused, take_credits
     from app.item_checks import latest, shown, verdict
     from app.routes.project_clips import out_of_date
 
@@ -2320,7 +2325,8 @@ def video_state(db: Session, project: Project) -> dict:
                       **word_splice.state(db, row),  # splice_word
                       **model_map.state(db, project, row),  # clip_model
                       **({"footage": reals[row.clip_id]["id"]} if row.clip_id in reals else {}),
-                      **({"talker": True} if row.clip_id in said else {})})  # fmt: skip
+                      **({"talker": True} if row.clip_id in said else {}),
+                      **last_refused(db, row)})  # fmt: skip
     have = {c["clip_id"] for c in clips}  # a planned clip with no prompt yet (after a split)
     clips += [{"clip_id": c["id"], "stale": True, "picked_take_id": None,
                "shots": [{"id": i, "action": shots[i].get("action", ""), "line": shots[i].get(
@@ -2823,30 +2829,61 @@ def _muted(clip: dict, span: list[float]) -> bool:
     return [round(x, 2) for x in span] in (clip.get("muted") or [])
 
 
-def _failed_too_often(db: Session, project: Project, run: dict) -> str:
-    """Plain words for the first item of the run's work that failed more than MAX_REDOS
-    times since the run began (tried, then retried twice), e.g. "Clip 3's still failed 3
-    times"; else "". The run then delivers what it has or stops, never spending turns on it.
-    A free check that failed (video 240: the takes' words, on an overloaded server) never
-    counts: its take reads "wasn't checked" in the delivery note (delivery.open_items).
-    Counted since its last Carry on, which is a press to try again."""
+def _failures(db: Session, project: Project, run: dict) -> list[Job]:
+    """The run's failed work since it began, or since its last Carry on (a press to try
+    again), oldest first. Never one asked again on its own (`_again`), nor a free check on our
+    own server that couldn't run (video 240: the takes' words, on an overloaded server): its
+    take reads "wasn't checked" in the delivery note (delivery.open_items)."""
     own = [j for j in turns(db, project) if j.input[RUN]["id"] == run["id"]]
     if not own:
-        return ""
+        return []
     since = max([own[0].created_at, *(datetime.fromisoformat(w["carried_at"]) for j in own
                  if (w := j.input.get(WAS_STOPPED)) and w.get("carried_at"))])  # fmt: skip
-    counts: dict[str, int] = {}  # since its last Carry on: a press to try again
-    for job in db.scalars(select(Job).where(Job.project_id == project.id,
-                                            Job.status == JobStatus.failed,
-                                            Job.created_at >= since)):  # fmt: skip
-        if job.input.get(RETRIED):  # asked again on its own (`_again`): not a failure
+    failed = db.scalars(select(Job).where(Job.project_id == project.id,
+                                          Job.status == JobStatus.failed,
+                                          Job.created_at >= since).order_by(Job.id))  # fmt: skip
+    return [j for j in failed if not j.input.get(RETRIED) and j.provider not in FREE_LANES]
+
+
+def _failed_too_often(db: Session, project: Project, run: dict) -> str:
+    """Plain words for the first item of the run's work that failed more than MAX_REDOS
+    times (tried, then retried twice), e.g. "Clip 3's still failed 3 times"; else "". The run
+    then delivers what it has or stops, never spending turns on it. A refusal on its content
+    isn't counted: the same prompt is never sent again, so each is a new wording
+    (`_refused_too_often`)."""
+    from app.clip_takes import why_failed
+
+    counts: dict[str, int] = {}
+    for job in _failures(db, project, run):
+        if why_failed(job) == "refused":
             continue
-        if job.provider in FREE_LANES:  # a check on our own server that couldn't run (a take's
-            continue  # words, the cut's sound): never the run's end; the note says so
         what = _item(db, job)
         counts[what] = counts.get(what, 0) + 1
         if counts[what] > MAX_REDOS:
             return f"{what} failed {counts[what]} times"
+    return ""
+
+
+REFUSALS = 3  # one item refused on its content, a run: its first prompt and two rewordings
+PARKED = ("It stopped for your answer: {what} was {how}, {n} times. How should it "
+          "change? Tell the director in a note, then press Carry on.")  # fmt: skip
+
+
+def _refused_too_often(db: Session, project: Project, run: dict) -> str:
+    """The question for the owner once one item was refused on its content REFUSALS times
+    (video 345: clip 10's take, E006, ended the run as "failed 3 times"), else "". The run
+    stops there with Carry on, never delivering without it. The server's own retries (a
+    look-alike's steps, the free reword's take) aren't the director's wordings: not counted."""
+    from app.clip_takes import refused_how, why_failed
+
+    counts: dict[str, int] = {}
+    for job in _failures(db, project, run):
+        if job.auto or why_failed(job) != "refused":
+            continue
+        what = _item(db, job)
+        counts[what] = counts.get(what, 0) + 1
+        if counts[what] >= REFUSALS:
+            return PARKED.format(what=what, how=refused_how(job.error_detail), n=counts[what])
     return ""
 
 

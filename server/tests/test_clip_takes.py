@@ -460,6 +460,97 @@ def test_a_sensitive_take_is_made_again_on_its_own_then_reworded(app, db, editor
     assert shown["free_fix_used"] is False and editor.post(f"{url}/generate").status_code == 409
 
 
+# Video 345 (job 3357): Omni 1.2 on Replicate refused clip 10's prompt, said as a passing fault
+E006 = ('Prediction failed: Async prediction failed: ModelError: The input was invalid. Please '
+        'try again with different inputs. (E006) (uIJ6l3ruRD): HTTP 400: {"error":{"message":'
+        '"Request blocked due to safety violations (harmful content). Please modify your input '
+        'and retry.","code":"safety"}}')  # fmt: skip
+SAFETY = "Request blocked due to safety violations (harmful content)"
+BLOCKED = f"blocked by the service's safety filter (it said: {SAFETY})"
+
+
+class Unsafe(Flagged):
+    error = E006
+
+
+class UnsafeAtStart(FakeSeedance):
+    """The same refusal said as the take is sent (a 400), before it runs."""
+
+    def __call__(self, request):
+        if request.method == "POST":
+            said = {"message": f"{SAFETY}. Please modify your input.", "code": "safety"}
+            return httpx.Response(400, json={"error": said})
+        return super().__call__(request)
+
+
+@pytest.mark.parametrize("fake", [Unsafe, UnsafeAtStart])
+def test_a_refused_prompt_is_said_and_never_sent_again(app, db, owner, editor, setup, clip, fake):  # noqa: F811
+    from app.credits import credits_used, never_billed
+    from app.models.projects import Project
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    before = credits_used(db, db.get(Project, setup["project"]))
+    editor.post(f"{url}/generate")
+    _work(app, db, fake([]))
+    _work(app, db, fake([]))  # nothing more is sent on its own
+    (job,) = [j for j in editor.get("/jobs").json() if j["kind"] == "video"]
+    assert job["error"] == (f"This prompt was {BLOCKED}. Change the prompt before trying again. "
+                            "Nothing was charged.")  # never "try again"  # fmt: skip
+    db.expire_all()
+    failed = db.get(Job, job["id"])
+    assert SAFETY in failed.error_detail and never_billed(failed)  # the raw words kept
+    detail = owner.get(f"/jobs/{job['id']}/detail").json()  # the owner reads what was sent
+    assert detail["sent_prompt"] == failed.input["input"]["prompt"] and detail["cost_usd"] == 0
+    assert clip["prompt"].splitlines()[1] in detail["sent_prompt"]  # whole, not a summary
+    assert editor.get(f"/jobs/{job['id']}/detail").status_code == 403  # owner only
+    assert credits_used(db, db.get(Project, setup["project"])) == before
+    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
+    assert shown["retrying"] is None and shown["problems"] == []
+
+
+def test_only_the_safety_code_says_safety_filter():
+    """QA on #1532: a bare E006 (a bad picture, say) is refused, not a safety block."""
+    from app.clip_takes import refused_how
+
+    bare = "ModelError: The input was invalid. Please try again with different inputs. (E006)"
+    assert refused_how(bare) == "refused by the service (it said: The input was invalid)"
+    assert refused_how(E006) == BLOCKED
+    held = E006.replace('"safety"', '"prohibited_content"')
+    assert refused_how(held).startswith("blocked by the service's safety filter")
+
+
+def test_the_director_never_sends_a_refused_prompt_again(app, db, editor, setup, clip):  # noqa: F811
+    """Video 345: the director read E006 as a passing fault and sent the same prompt again."""
+    from app import director, director_tools
+    from app.clip_takes import SAME_REFUSED
+    from app.models.accounts import User
+    from app.models.projects import Project
+
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    editor.post(f"{url}/generate")
+    _work(app, db, Unsafe([]))
+    project = db.get(Project, setup["project"])
+    user = db.query(User).filter_by(email="ed@example.com").one()
+
+    def take(note: str = "") -> str:
+        move = {"tool": "make_take", "clip_id": clip["clip_id"], "note": note}
+        return director_tools.run(db, user, project, move, None)
+
+    seen = director.video_state(db, project)["clips"][0]["refused"]  # what it was sent, whole
+    sent = db.query(Job).filter(Job.kind == "video").one().input["input"]["prompt"]
+    assert seen == {"how": BLOCKED, "prompt": sent}
+    assert take() == f"Refused: {SAME_REFUSED.format(BLOCKED)}"
+    spaced = db.query(Job).filter(Job.kind == "video").one()  # spaces don't make it another
+    spaced.input = {**spaced.input, "input": {**spaced.input["input"], "prompt": f" {sent}\n "}}
+    db.commit()
+    assert take() == f"Refused: {SAME_REFUSED.format(BLOCKED)}"
+    assert take("She only reaches for the phone.").startswith("Making 1 take")  # reworded
+    assert "refused" not in director.video_state(db, project)["clips"][0]  # being made
+    _work(app, db, Unsafe([]))
+    assert take("She only reaches for the phone.").startswith("Refused: This same prompt")
+    assert editor.post(f"{url}/generate").status_code == 201  # a person may still try
+
+
 def test_wording_flags_fix_themselves_with_undo(app, db, editor, setup, clip):  # noqa: F811
     clips = f"/projects/{setup['project']}/clips"
     url = f"{clips}/{clip['id']}"

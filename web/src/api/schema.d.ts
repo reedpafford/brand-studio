@@ -9173,6 +9173,11 @@ export interface components {
              * @default 0
              */
             cost_usd: number;
+            /**
+             * Sent Prompt
+             * @default
+             */
+            sent_prompt: string;
         };
         /** JobOut */
         JobOut: {
