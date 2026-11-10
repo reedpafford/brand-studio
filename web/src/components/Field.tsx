@@ -31,6 +31,18 @@ function Frame({ label, hideLabel, hint, error, counter, counterOk, id, children
   );
 }
 
+/** A box never cuts a person's words (Reed, 8 and 10 Nov): it counts them as the server does (characters, not UTF-16
+ *  units, after trimming) from `from` on, and past `most` says so in the server's own words, so its press can wait. */
+export function textSize(text: string, most: number, { what = "note", then = "Say it shorter.", from = 0 } = {}) {
+  const length = [...text.trim()].length;
+  const n = (x: number) => x.toLocaleString("en-US");
+  return {
+    over: length > most,
+    counter: length >= from ? `${n(length)} / ${n(most)} characters` : undefined,
+    error: length > most ? `This ${what} is ${n(length)} characters; the most is ${n(most)}. ${then}` : null,
+  };
+}
+
 const edge = (error?: string | null) => (error ? "border-danger" : "border-border-strong");
 
 /** A labelled one-line field. The error replaces the hint and is announced with the field. */

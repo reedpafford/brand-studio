@@ -6,10 +6,10 @@ import { Link } from "react-router-dom";
 import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl, uploadFile } from "../api/upload";
-import { Button, Dot, Menu, MenuItem, Skeleton, TextArea, useToast, type Tone } from "../components";
+import { Button, Dot, Menu, MenuItem, Skeleton, TextArea, textSize, useToast, type Tone } from "../components";
 import { refreshJobs } from "../jobs/refresh";
 import { useFrames } from "../projects/useProgress";
-import { lookFitNote, useSheetPrice } from "../library/sheets";
+import { lookFitNote, SHEET_NOTE, useSheetPrice } from "../library/sheets";
 import { RoleTextFit } from "../projects/RoleTextFit";
 import { MergeRole, mergedText } from "../projects/MergeRole";
 import { useBrands } from "../shell/useBrands";
@@ -260,8 +260,13 @@ function RoleCard({ a, c }: { a: Asset; c: Ctx }) {
     await refreshJobs(queryClient);
     await c.refresh();
   };
-  const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSuccess: done, onError: (e: Error) => toast(e.message, undefined, "error") });
+  // An open Change… box says a refusal next to its press until the note is edited; anywhere else it's a toast.
+  const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSuccess: done, onError: (e: Error) => changing === null && toast(e.message, undefined, "error") });
   const go = (f: () => Promise<unknown>) => run.mutate(f);
+  const edit = (text: string | null) => (setChanging(text), run.isPending || run.reset()); // a send's result stays
+  // A look made for this video is redrawn from the note: counted, and past the most it waits, said plainly (never cut).
+  const size = ownLook ? textSize(changing ?? "", SHEET_NOTE) : null;
+  const refused = size?.error ?? (changing !== null && run.isError ? run.error.message : null);
   // The frames follow the new cast for free; stills of the old look are redrawn when the video can pay, and that is said.
   const pick = (id: number) =>
     go(async () => {
@@ -363,7 +368,7 @@ function RoleCard({ a, c }: { a: Asset; c: Ctx }) {
   // together above, never on a card.
   else if ((a.sheet_status === "needs_approval" || a.sheet_status === "approved") && !a.locked && !lockedHere)
     actions = (
-      <Button variant="ghost" icon={MessageSquare} onClick={() => setChanging(a.look_fit?.problem ?? "")}>
+      <Button variant="ghost" icon={MessageSquare} onClick={() => edit(a.look_fit?.problem ?? "")}>
         Change…
       </Button>
     );
@@ -492,16 +497,16 @@ function RoleCard({ a, c }: { a: Asset; c: Ctx }) {
         {a.look_fit && !a.locked && <p className="text-sm text-warning">{lookFitNote(a.look_fit)}</p>}
         {changing !== null ? (
           <div className="flex flex-col gap-2">
-            <TextArea label={`Change ${a.role || a.name}…`} rows={2} placeholder="What should change?" value={changing} onChange={(e) => setChanging(e.target.value)} />
+            <TextArea label={`Change ${a.role || a.name}…`} rows={2} placeholder="What should change?" value={changing} counter={size?.counter} error={refused} onChange={(e) => edit(e.target.value)} />
             <div className="flex flex-wrap gap-2">
               {ownLook ? (
-                <Priced icon={WandSparkles} label="Change it" price={price} busy={run.isPending} disabled={!changing.trim()} reason={changing.trim() ? null : "Say what should change"} onClick={() => change(changing.trim())} />
+                <Priced icon={WandSparkles} label="Change it" price={price} busy={run.isPending} disabled={!changing.trim() || !!size?.over} reason={changing.trim() ? null : "Say what should change"} onClick={() => change(changing.trim())} />
               ) : (
                 <Button variant="secondary" icon={MessageSquare} busy={run.isPending} disabled={!changing.trim()} reason={changing.trim() ? "Asking is free. The director shows any price before it makes a new look, and the cast and places are approved again together." : "Say what should change"} onClick={() => change(changing.trim())}>
                   Ask the director
                 </Button>
               )}
-              <Button variant="ghost" onClick={() => setChanging(null)}>
+              <Button variant="ghost" onClick={() => edit(null)}>
                 Cancel
               </Button>
             </div>

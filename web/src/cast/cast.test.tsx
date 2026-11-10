@@ -164,6 +164,44 @@ test("Change… redraws a look made for this video from the note (priced); a sav
   await userEvent.click(within(b).getByRole("button", { name: "Ask the director" }));
   await vi.waitFor(() => expect(calls.find((x) => x.key === "POST /projects/50/director/messages")?.body).toEqual({ text: "Bo: a red coat" }));
 });
+
+test("Reed, 10 Nov: Change… counts its note, never cuts a paste past 500, and says a refusal next to Change it", async () => {
+  setViewport(1440);
+  const calls = server(owner, [marcus], { "POST /library/character/5/sheet": [422, { detail: [{ msg: "Sheets are for characters and places." }] }], "GET /models": [200, []] });
+  open();
+  const m = await screen.findByRole("region", { name: "Marcus" });
+  await userEvent.click(within(m).getByRole("button", { name: "Change…" }));
+  const box = within(m).getByLabelText("Change Marcus…");
+  expect(within(m).getByText("0 / 500 characters")).toBeInTheDocument();
+  await userEvent.click(box);
+  await userEvent.paste("x".repeat(612));
+  expect(box).toHaveValue("x".repeat(612)); // the whole paste stays
+  expect(within(m).getByText("612 / 500 characters")).toBeInTheDocument();
+  expect(within(m).getByText("This note is 612 characters; the most is 500. Say it shorter.")).toBeInTheDocument();
+  expect(within(m).getByRole("button", { name: /Change it · up to/ })).toBeDisabled();
+  await userEvent.clear(box);
+  await userEvent.type(box, "older, greyer beard");
+  expect(within(m).getByText("19 / 500 characters")).toBeInTheDocument();
+  await userEvent.click(within(m).getByRole("button", { name: /Change it · up to/ }));
+  expect(await within(m).findByText("Sheets are for characters and places.")).toBeInTheDocument();
+  expect(box).toHaveValue("older, greyer beard"); // the box stays open with the note
+  expect(calls.filter((x) => x.key === "POST /library/character/5/sheet")).toHaveLength(1);
+  await userEvent.type(box, "!");
+  expect(within(m).queryByText("Sheets are for characters and places.")).toBeNull(); // editing the note clears it
+});
+
+test("Change… counts an emoji as one character, as the server does", async () => {
+  setViewport(1440);
+  server(owner, [marcus], { "GET /models": [200, []] });
+  open();
+  const m = await screen.findByRole("region", { name: "Marcus" });
+  await userEvent.click(within(m).getByRole("button", { name: "Change…" }));
+  await userEvent.click(within(m).getByLabelText("Change Marcus…"));
+  await userEvent.paste("😀".repeat(499)); // 998 UTF-16 units, 499 characters
+  expect(within(m).getByText("499 / 500 characters")).toBeInTheDocument();
+  expect(within(m).queryByText(/the most is 500/)).toBeNull();
+  expect(within(m).getByRole("button", { name: /Change it · up to/ })).toBeEnabled();
+});
 test("S5-01: two roles that may be one person show as one card: Merge into one, with Undo, or They're different", async () => {
   setViewport(1440);
   const mom = role({ ref: "char:30", role: "Mom", name: "Mom", library_item_id: 30, slot_id: 5, clip_ids: ["c1"], description: "" });
