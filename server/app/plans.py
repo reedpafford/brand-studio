@@ -32,7 +32,9 @@ STEP = "plan"
 SCENE_STEP = "plan_scene"  # Change this scene… (the Director's plan_scene, on top of plan)
 KIND = "write-claude"
 HISTORY = 10  # Earlier plans kept
-LIMIT = timedelta(minutes=10)  # a plan still not back after this is stopped, uncharged
+# A plan still not back after this is stopped, uncharged: a 1,000-word script's plan with its
+# thinking streams for several minutes (long scripts, 10 Nov)
+LIMIT = timedelta(minutes=30)
 SLOW = "The plan took too long and was stopped. Nothing was charged."
 FAILED = "The plan didn't finish. Nothing was charged."
 STILL = "The plan still left out or repeated script lines after one more try: "
@@ -204,7 +206,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion, note: str =
     if (block := _song(db, project)) is not None:  # the song or narration made before the plan
         message = f"{message}\n{block}"
     return {"step": STEP, "project_id": project.id, "script_version": version.version,
-            "system": system, "prompt": message, "max_tokens": 16000,
+            "system": system, "prompt": message, "max_tokens": 32_000,
             "script": version.text, "fmt": fmt(db, project),
             "cast_ids": re.findall(r"^((?:char|slot):\d+)", "\n".join(cast), re.M),
             "stars": _stars(db, project), "max_seconds": model.duration.max}  # fmt: skip

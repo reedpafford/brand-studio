@@ -56,7 +56,9 @@ SPEED = 1.1
 GAP = 1.4  # s: back-to-back B-roll runs together, or leaves the talker on longer than this
 WAIT = "The talker's pieces are still being measured and their voices cleaned. Ready in a moment."
 WAIT_FOR = timedelta(minutes=3)  # past this a separation isn't waited for: the take's own sound
-MEASURE_FOR = timedelta(minutes=15)  # nor a piece's free measure (whisper can queue): as made
+# Nor a piece's free measure (whisper can queue): as made. 15 minutes, and a minute more for each
+# talker piece, all queued on the one local whisper lane (a 1,000-word talker has ~25: long scripts)
+MEASURE_FOR, PER_PIECE = timedelta(minutes=15), timedelta(minutes=1)
 
 
 def measure(path: Path, lines: list[dict], vad=None) -> dict:
@@ -308,7 +310,8 @@ def given_up(job: Job) -> bool:
 
 def waiting(db: Session, project, rows: list[ProjectClip]) -> bool:
     """A picked talker take's voice is still being separated (`given_up` aside), or its
-    measure still taken (MEASURE_FOR at most: then it plays as made)."""
+    measure still taken (MEASURE_FOR, and PER_PIECE for each piece, at most: then it plays
+    as made)."""
     from app import item_checks
     from app.db import utcnow
 
@@ -318,10 +321,11 @@ def waiting(db: Session, project, rows: list[ProjectClip]) -> bool:
     if any(j.input.get("take_id") in picked and not given_up(j) for j in jobs):
         return True
     checks = item_checks.latest(db, "words", picked)
-    return any(row.status == "checking" and (job := db.get(Job, row.job_id or 0))
-               and job.status in WAITING and job.input.get("talker")
-               and utcnow() - job.created_at <= MEASURE_FOR
-               for row in checks.values())  # fmt: skip
+    talks = [(row, job) for row in checks.values()
+             if (job := db.get(Job, row.job_id or 0)) and job.input.get("talker")]  # fmt: skip
+    most = MEASURE_FOR + PER_PIECE * len(talks)
+    return any(row.status == "checking" and job.status in WAITING
+               and utcnow() - job.created_at <= most for row, job in talks)  # fmt: skip
 
 
 # --- The cut's sound (cut_render.render) ---

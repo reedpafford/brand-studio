@@ -7,7 +7,7 @@ import httpx2 as httpx
 import pytest
 from anthropic import DefaultHttpxClient
 
-from app.claude import MODEL, UNREADABLE, ClaudeError, ask, make_client
+from app.claude import MODEL, MOST_TOKENS, UNREADABLE, ClaudeError, ask, make_client
 from app.prompts.schemas import EnhanceResult
 from app.settings import Settings
 from tests.helpers import claude_stream
@@ -112,11 +112,15 @@ def test_missing_key_is_a_clear_error():
 
 
 def test_long_answers_are_allowed(monkeypatch):
-    """The Director's breakdowns use 32k max_tokens: the SDK refuses that without streaming."""
+    """The Director's breakdowns use 64k max_tokens: the SDK refuses that without streaming.
+    No call asks past the model's own limit (128K), which the API would refuse."""
     seen = []
     client = _client(_reply(), seen)
-    answer = ask(client, system=["Base."], prompt="p", schema=EnhanceResult, max_tokens=32000)
-    assert answer.parsed and json.loads(seen[0].content)["max_tokens"] == 32000
+    answer = ask(client, system=["Base."], prompt="p", schema=EnhanceResult, max_tokens=64000)
+    assert answer.parsed and json.loads(seen[0].content)["max_tokens"] == 64000
+    ask(_client(_reply(), seen), system=["Base."], prompt="p", schema=EnhanceResult,
+        max_tokens=500_000)  # fmt: skip
+    assert json.loads(seen[1].content)["max_tokens"] == MOST_TOKENS == 128_000
 
 
 def test_a_shared_prompt_is_cached_before_the_part():

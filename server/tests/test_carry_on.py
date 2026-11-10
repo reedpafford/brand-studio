@@ -438,9 +438,10 @@ def _carries_on_as_a_new_run(app, db, owner, pid: int) -> None:
     assert _starts(db, pid) == cards + 1  # with its own start card, never a dead press
 
 
-def test_a_run_at_its_turn_limit_carries_on_as_a_new_run(app, db, owner, editor):
+def test_a_run_at_its_turn_limit_carries_on_as_a_new_run(app, db, owner, editor, monkeypatch):
     """QA on #1420: carried on as the same run, a run at MAX_TURNS ended again at once and
     offered the same Carry on (rule 22)."""
+    monkeypatch.setattr(director, "TURNS_PER_CLIP", 0)  # the base cap alone
     pid = _stopped_itself(app, db, owner, editor, turn=director.MAX_TURNS)
     _carries_on_as_a_new_run(app, db, owner, pid)
 

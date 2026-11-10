@@ -19,6 +19,11 @@ from pydantic import BaseModel, ValidationError
 
 MODEL = "claude-opus-5-5"
 API_URL = "https://api.anthropic.com"
+# Opus 5.5's answer room at most (Anthropic: 128K output tokens, streamed). Adaptive thinking
+# counts against a call's max_tokens, so a long script's steps get more (long scripts, 10 Nov);
+# only what is used is charged. No call asks past this.
+MOST_TOKENS = 128_000
+ROOM = 32_000  # a call's room unless its step sets one
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 # Claude Opus 5.5, USD per million tokens. Cache writes cost 1.25x input for the 5-minute
 # lifetime and 2x for the 1-hour one; reads 0.05x.
@@ -71,12 +76,13 @@ def ask[T: BaseModel](
     prompt: str,
     schema: type[T],
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "high",
-    max_tokens: int = 16000,
+    max_tokens: int = ROOM,
     images: Sequence[str] = (),
     shared: str = "",
     cache_ttl: Literal["5m", "1h"] = "5m",
     started: Callable[[], None] | None = None,
     strict: bool = True,
+    before: Sequence[str] = (),
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
     the cache mark on the last part caches them all together. `images` (data URLs) go
@@ -88,14 +94,20 @@ def ask[T: BaseModel](
     begins (its first streamed event): the cache it writes can be read from then on.
     `strict` False: no constrained decoding (for a schema too complex for Anthropic's grammar
     limit, the director's): the schema goes in the system prompt, the answer is JSON in text,
-    checked here against `schema`, and asked once more with the problems if it doesn't fit."""
+    checked here against `schema`, and asked once more with the problems if it doesn't fit.
+    `before`: a run's earlier parts' answers (parts written in order), after `shared`, one
+    block each, the last cached: each later part reads what the one before it wrote."""
+    max_tokens = min(max_tokens, MOST_TOKENS)
     blocks = [{"type": "text", "text": text} for text in system]
     if not strict:
         blocks.append({"type": "text", "text": SHAPE + json.dumps(schema.model_json_schema())})
     content = [_image(url) for url in images] + [{"type": "text", "text": prompt}]
+    earlier = [{"type": "text", "text": text} for text in before]
+    if earlier:
+        earlier[-1]["cache_control"] = {"type": "ephemeral"}
     if shared:
         cached = {"type": "text", "text": shared, "cache_control": {"type": "ephemeral"}}
-        content = [cached, *content]
+        content = [cached, *earlier, *content]
     blocks[-1]["cache_control"] = (
         {"type": "ephemeral", "ttl": "1h"} if cache_ttl == "1h" else {"type": "ephemeral"}
     )  # an hour-long entry before the 5-minute `shared` one, as the API requires

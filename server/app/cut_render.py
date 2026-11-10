@@ -48,6 +48,9 @@ RAMP = 0.25  # seconds the music takes to dip under the voice and rise after it
 SAME = "aformat=sample_rates=44100:channel_layouts=stereo"
 LATE = "aresample=async=1:first_pts=0,"  # a take's sound that starts late keeps its place
 SHORT_MUSIC = "the music file stops at {}, and the cut runs to {}"
+# Seconds an ffmpeg pass over the whole cut may take: a 1,000-word script's cut runs 5 minutes,
+# 3-5x a short ad's, so its re-encodes get 3x the old 600 s on the shared server (long scripts)
+WHOLE = 1800
 
 
 class Problem(Exception):
@@ -221,7 +224,7 @@ def looped(folder: Path, name: str, total: float) -> str:
     done = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", name, "-filter_complex",  # noqa: S603, S607
                            ";".join(parts), "-map", f"[{last}]", "-t", f"{total + 0.1:.3f}",
                            "-c:a", "pcm_s16le", "looped.wav"],
-                          cwd=folder, capture_output=True, timeout=600)  # fmt: skip
+                          cwd=folder, capture_output=True, timeout=WHOLE)  # fmt: skip
     if done.returncode:
         raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
     return "looped.wav"
@@ -280,7 +283,7 @@ def _loudness(folder: Path, name: str) -> dict | None:
     measure = ["ffmpeg", "-hide_banner", "-nostats", "-i", name, "-vn", "-af",
                f"{AIM}:print_format=json", "-f", "null", "-"]  # fmt: skip
     said = subprocess.run(measure, cwd=folder, capture_output=True, text=True,  # noqa: S603
-                          timeout=600).stderr  # fmt: skip
+                          timeout=WHOLE).stderr  # fmt: skip
     try:
         return json.JSONDecoder().raw_decode(said[said.rindex("{") :])[0]  # its report, last
     except ValueError:
@@ -327,7 +330,7 @@ def stitch(videos: list[bytes]) -> bytes | None:
         (folder / "list.txt").write_text("\n".join(f"file '{f}'" for f in names))
         copy = ["ffmpeg", "-v", "error", "-y", "-f", "concat", "-i", "list.txt", "-c", "copy"]
         done = subprocess.run([*copy, "out.mp4"], cwd=folder, capture_output=True,  # noqa: S603
-                              timeout=600)  # fmt: skip
+                              timeout=WHOLE)  # fmt: skip
         return (folder / "out.mp4").read_bytes() if done.returncode == 0 else None
 
 
@@ -412,7 +415,7 @@ def joined(videos: list[bytes], cuts: list[tuple[float, float | None]],
 
 def _run(folder: Path, args: list[str]) -> bytes:
     done = subprocess.run(["ffmpeg", "-v", "error", "-y", *args, "out.mp4"],  # noqa: S603, S607
-                          cwd=folder, capture_output=True, timeout=600)  # fmt: skip
+                          cwd=folder, capture_output=True, timeout=WHOLE)  # fmt: skip
     if done.returncode:
         raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
     return (folder / "out.mp4").read_bytes()

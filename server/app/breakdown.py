@@ -24,6 +24,10 @@ from app.prompts.schemas import Breakdown, SongBreakdown
 # A song's sung shots need lip-sync (Seedance 2.5), whatever the style. Every other kind follows
 # its style (dialogue, narrated; a Movie style on Omni comes later).
 LIP_SYNC_KINDS = ("song",)
+# A breakdown's answer room, its thinking included: it repeats every line with each shot's
+# details, about 20-25k tokens of answer for a 1,000-word script's 50-odd shots, plus the
+# thinking (long scripts, 10 Nov). Only what is used is charged.
+TOKENS = 64_000
 
 
 def video_model(project: Project | None = None, look: str | None = None,
@@ -224,7 +228,7 @@ def job_input(db: Session, project: Project, version: ScriptVersion) -> dict:
         "script_version": version.version,
         "system": system,
         "prompt": "\n".join(parts),
-        "max_tokens": 32000,
+        "max_tokens": TOKENS,
     }
     from app import footage
 

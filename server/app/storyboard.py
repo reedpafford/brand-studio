@@ -183,6 +183,11 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     return out
 
 
+# The storyboard's answer room: one call writes every frame's still prompt, about 15k tokens
+# of answer for a 1,000-word script's 50-odd clips, plus the thinking (long scripts, 10 Nov)
+TOKENS = 64_000
+
+
 def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: bool) -> dict:
     system, _ = project_context(db, project, "storyboard")
     lines = "\n".join(dict.fromkeys(line for line, _ in assets(db, project).values()))
@@ -201,7 +206,7 @@ def job_input(db: Session, project: Project, bd: BreakdownVersion, per_shot: boo
         "breakdown_id": bd.id,
         "system": system,
         "prompt": "\n".join(parts),
-        "max_tokens": 32000,
+        "max_tokens": TOKENS,
     }
 
 
