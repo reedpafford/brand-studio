@@ -83,6 +83,10 @@ def test_a_piece_is_trimmed_by_numbers_every_cut_quiet_on_the_frame_grid(tmp_pat
     assert talker_sound.measure(path, [{"text": "When I told him,"}])["comma"]
     first, *_, last = talker_sound.keep(m, first=True, last=True)  # rule 29: as made
     assert (first[0], last[1]) == (0.0, 5.0)
+    # video 390: a sentence made up after the line, muted: the piece ends on the line itself
+    *_, (_, end) = talker_sound.keep(m, False, False, muted=[[2.9, 4.3]])
+    assert 2.4 <= end < 2.4 + talker_sound.SENTENCE + 1 / 30 + 0.02
+    assert talker_sound.keep(m, False, False, muted=[[1.55, 2.45]])[-1][1] == b  # mid-piece: no
 
 
 def test_the_talkers_pieces_play_their_kept_stretches_back_to_back(app, db, owner, monkeypatch):
