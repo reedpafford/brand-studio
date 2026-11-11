@@ -80,3 +80,12 @@ def test_a_take_its_provider_refused_counts_nothing_spent(app, db, owner, editor
     detail = owner.get(f"/jobs/{refused.id}").json()
     assert detail.get("cost_usd", 0) == 0
     assert db.query(Usage).count() == 0
+    # video 398: Google stopped a take it had started, six times, each counted at its price
+    from app.clip_takes import why_failed
+
+    said = (
+        'Google failed: [{"message": "There was a problem processing your request. You will '
+        'only be charged for tokens successfully generated.", "code": "INVALID_ARGUMENT"}]'
+    )
+    stopped = Job(**{**base, "provider_ref": "g1", "provider": "google"}, error_detail=said)
+    assert why_failed(stopped) == "invalid" and credits.never_billed(stopped)

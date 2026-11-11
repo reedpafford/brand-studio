@@ -595,7 +595,11 @@ RETRY_WAIT = timedelta(seconds=30)  # a busy service gets a moment before the on
 # The provider refused the request itself as invalid, before running it (a 400 or 422: "input.
 # prompt: String length must be less than or equal to 4000"): never billed, and the same
 # request is refused the same way every time.
-INVALID = re.compile(r"(?:Replicate|Google) (?:400|422)\b|Input validation failed", re.I)
+# Google also says so after it starts (video 398's clip 1, six times: "There was a problem
+# processing your request. You will only be charged for tokens successfully generated",
+# code INVALID_ARGUMENT, with no usage): nothing was made, and it's the same every time.
+INVALID = re.compile(r"(?:Replicate|Google) (?:400|422)\b|Input validation failed"
+                     r'|"code": "INVALID_ARGUMENT"', re.I)  # fmt: skip
 
 
 def invalid(detail: str) -> str:
