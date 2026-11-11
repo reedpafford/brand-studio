@@ -23,8 +23,11 @@ A video is stamped at its first run (`pick`) and never changes; a video already 
 a format left out of `settings.one_pass_engines`, keeps the step-by-step director."""
 
 import json
+import logging
 import math
 import re
+import subprocess
+import tempfile
 from decimal import Decimal
 from pathlib import Path
 
@@ -32,7 +35,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import asks, cast_gate, clip_prompts, omni_talker, one_pass_timed, plans, prompts
+from app import asks, cast_gate, clip_prompts, looks, omni_talker, one_pass_timed, plans, prompts
 from app.credits import COUNTED, estimate, past_approved
 from app.enhance import escape, escape_block, project_context
 from app.models.accounts import User
@@ -54,6 +57,7 @@ from app.one_pass_assemble import (
 from app.prompts import check
 from app.prompts.schemas import Breakdown, ShootingPlan
 
+log = logging.getLogger(__name__)
 ENGINE = STEP = "one_pass"
 KIND = "write-claude"
 RUN = "director_run"  # director.RUN
@@ -84,6 +88,15 @@ UNFIT = ("Clip {n} is planned at {s} s, and {model} makes {low}–{high} s a cli
 LONG = ("The prompt is too long for {model} ({n:,} of {most:,} characters). Shorten it with "
         "Edit (free), or tell the director in the chat to split this clip in two. Nothing was "
         "charged.")  # fmt: skip
+# Zack D is one continuous camera (Reed, 11 Nov: "the next clip's start frame was the end frame
+# of the previous"; video 383 came out as "3 separate clips, not one chained camera")
+ONE_CAMERA = ("One continuous camera: the clips are made one at a time, each opening on the last "
+              "frame of the one before.")  # fmt: skip
+SEAM = ("<camera>\nThis video is one continuous camera: each clip after the first is made "
+        "starting on the exact last frame of the clip before it, so write its first shot as a "
+        "move that carries on from there (the same place, the camera where that clip left it) to "
+        "what comes next, never as a cut to a new angle or place.\n</camera>")  # fmt: skip
+LAST_FRAME = "The last frame of clip {}: this clip opens on it, so the camera never cuts."
 
 
 # --- Which videos ----------------------------------------------------------------------------
@@ -126,6 +139,12 @@ def eligible(db: Session, project: Project) -> bool:
     return bool(not made and not project.reference_file_id and words is not None
                 and takes(video_script(db, project), words.text)
                 and not video_variations.source(db, project))  # fmt: skip
+
+
+def chained(project) -> bool:
+    """A video in the Zack D look (its guide is the one continuous camera): its clips are made
+    one at a time, each opening on the last frame of the one before (`move`, `_hand_on`)."""
+    return looks.base(project.look or looks.DEFAULT) == "zack-d"
 
 
 def refuse(project) -> None:
@@ -258,6 +277,8 @@ def job_input(db: Session, project: Project, run: dict) -> dict:
     text += reel
     if films:  # a presenter filmed on Omni: they say the lines themselves, B-roll laid over
         text += "\n" + escape_block(one_pass_timed.talker_block(films, m.duration.max))
+    if chained(project):
+        text += f"\n{SEAM}"
     notes = [m["text"] for m in director.chat(project, run["id"])]
     if notes:
         said = "\n".join(f"Note {n}: {t}" for n, t in enumerate(notes, 1))
@@ -638,8 +659,11 @@ def _land(db: Session, job: Job) -> None:
     was = {c["id"]: c for c in (before or {}).get("clips") or []}
     changed = {c["id"] for c in told["clips"] if was.get(c["id"]) != c}
     assemble(db, project, row, changed, job.id, job.created_by_id, remake=True)
-    for clip in db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)):
-        clip.breakdown_id = row.id  # a clip left as it was moves to the new shots as it is
+    from app.models.storyboards import StoryboardFrame
+
+    for kept in (ProjectClip, StoryboardFrame):  # a clip left as it was moves to the new shots
+        for x in db.scalars(select(kept).where(kept.project_id == project.id)):  # as it is,
+            x.breakdown_id = row.id  # with the frame it opens on
     if films:
         _opening_still(db, project, row, films)
     from app import footage_shot
@@ -774,6 +798,7 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
                             else clip_prompts.cause(j.error or "", j.error_detail or "")
                             for j in reversed(mine) if j.status == JobStatus.failed), ""),
         "ok": bool(run.get("ok", True)), "hold": bool(run.get("hold")),
+        "chained": chained(project),
         "being_made": len(busy) - len(beside), "held": seen.get("held_for_owner") or [],
         "missing_looks": seen.get("missing_looks") or [],
         "cast": {k: (seen.get("cast_ok") or {}).get(k) for k in ("state", "asked", "not_ready")},
@@ -789,7 +814,8 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
 def move(s: dict) -> dict:
     """The run's next step, always one (the twin of `director_auto.move`, with no turn left to
     a model): the plan, then the looks, then Make it; after it the cast and places OK, then
-    every clip at once; a take that misses a scripted line once more, with the same
+    every clip at once (a `chained` video's one a turn, in order, each with the clip whose
+    last frame it opens on); a take that misses a scripted line once more, with the same
     prompt; words a take says that the script doesn't have silenced (free); then the cut,
     one watch of it, and the delivery."""
     if s["being_made"] or s["held"]:
@@ -834,6 +860,11 @@ def move(s: dict) -> dict:
         return _go("host", "The presenter's take of the whole narration is the long job: it "
                    "starts first, and the B-roll is made beside it.", note=s["motion"])  # fmt: skip
     made = [c for c in bare if not (c["talker"] or c["footage"])]  # those need a take of their own
+    if made and s["chained"]:  # `only`, not `clip_id`: a first take, never read as a remake
+        k = s["clips"].index(made[0])
+        last = s["clips"][k - 1] if k else None  # its frame, unless it's a talker's or real
+        after = last["clip_id"] if last and not (last["talker"] or last["footage"]) else None
+        return _go("make_take", ONE_CAMERA, only=made[0]["clip_id"], after=after)
     if made:
         return _go("make_take", "Every clip is made at once.")
     if again := next((c for c in s["clips"] if c["missing"] and not c["rerolled"]), None):
@@ -928,6 +959,9 @@ def act(db: Session, job: Job, storage) -> None:
         if tool == "make_take":  # each clip as its looks are now, free: never a paid rewrite
             from app import footage_shot
 
+            if move_.get("after"):  # before its prompt is written again: it names the frame
+                _hand_on(db, project, move_["after"], move_["only"], storage)
+            move_["clip_id"] = move_.get("only") or move_["clip_id"]
             follow(db, project, unmade=True)
             clip_prompts.repair(db, project)
             footage_shot.settle(db, project, user.id)  # a real footage clip stays as it is
@@ -953,6 +987,47 @@ def act(db: Session, job: Job, storage) -> None:
         director._end(job, f"It stopped: {no}", result=f"Refused again: {no}")
         return db.commit()
     director._record(db, job, run, result)
+
+
+def last_frame(video: bytes) -> bytes:
+    """A video's last frame, as a PNG (ffmpeg, free)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        src, out = Path(tmp) / "take.mp4", Path(tmp) / "last.png"
+        src.write_bytes(video)
+        subprocess.run(  # noqa: S603
+            ["ffmpeg", "-v", "error", "-y", "-sseof", "-1", "-i", str(src),  # noqa: S607
+             "-update", "1", str(out)], timeout=60, check=True)  # fmt: skip
+        return out.read_bytes()
+
+
+def _hand_on(db: Session, project: Project, before: str, clip_id: str, storage) -> None:
+    """One continuous camera: the last frame of the take before becomes this clip's own
+    picture (`frame:<clip>`), which its take is sent alone, as its start frame
+    (clip_takes.take_input). A frame that can't be had never stops the run: the clip is made
+    from its reference pictures, as the first clip is."""
+    from app import one_frame
+    from app.host import _store
+    from app.models.files import StoredFile
+    from app.models.storyboards import StoryboardFrame as Frame
+
+    try:
+        with db.begin_nested():
+            video = db.scalar(select(ProjectClip.file_id).where(
+                ProjectClip.project_id == project.id, ProjectClip.clip_id == before))  # fmt: skip
+            still = last_frame(storage.get(db.get(StoredFile, video).key))
+            row = clip_prompts.newest(db, project)
+            frame = db.scalar(select(Frame).where(Frame.project_id == project.id,
+                                                  Frame.clip_id == clip_id))  # fmt: skip
+            if frame is None:
+                words = LAST_FRAME.format(before.removeprefix("c"))
+                frame = Frame(project_id=project.id, clip_id=clip_id, prompt=words)
+                db.add(frame)
+            frame.breakdown_id, frame.shot_id = row.id, one_frame.opening(row.data, clip_id)
+            frame.look = looks.drawn(project)
+            frame.file_id = _store(db, storage, project, still, f"start {clip_id}.png",
+                                   "image/png").id  # fmt: skip
+    except Exception:
+        log.exception("clip %s has no last frame of %s to open on", clip_id, before)
 
 
 def delivery_words(db: Session, project: Project, run: dict, why: str = "") -> dict:

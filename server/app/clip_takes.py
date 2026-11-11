@@ -63,8 +63,9 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     start = next((i for i in images if i.startswith("frame:") and not _out(i, drop)), None) if (
         model.first_frame and one_pass.on(project)) else None  # fmt: skip
     prompt = clip.prompt
-    if start:
-        drop = tuple(dict.fromkeys(drop + tuple(i for i in images if i != start)))
+    if start:  # its other pictures are never sent: not "an older look" of them after (`UNSENT`)
+        unsent += tuple(i for i in images if i != start)
+        drop = tuple(dict.fromkeys(drop + unsent))
         prompt = "\n".join(x for x in prompt.splitlines()
                            if not x.startswith(("References:", "Keep:")))  # fmt: skip
     prompt = _in_words(db, prompt, images, drop, known) if drop else prompt
