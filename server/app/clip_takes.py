@@ -50,6 +50,11 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
     unsent = model_map.left_out(looks.drawn(project), model.id, _shots(breakdown, shots), images)
     drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
+    if db.scalar(select(Job.id).where(  # a sheet of this clip's was refused as a real person:
+            Job.project_id == project.id, Job.status == JobStatus.failed,  # never sent again
+            Job.input["project_clip_id"].as_integer() == clip.id,
+            Job.error_detail.ilike(f"%{REAL}%")).limit(1)):  # fmt: skip
+        drop = tuple(dict.fromkeys(drop + LOOKALIKE))
     files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
     exact: list[int] = []
     prompt = _in_words(db, clip.prompt, images, drop, known) if drop else clip.prompt

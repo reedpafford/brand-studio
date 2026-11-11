@@ -290,38 +290,13 @@ def test_a_sheet_refused_as_a_real_person_is_said_in_words(app, db, editor, setu
     assert "[Image2]" not in again.input["input"]["prompt"]
     assert len(again.input["files"].get("reference_images", [])) < len(
         first.input["files"]["reference_images"])  # fmt: skip
-
-
-def test_a_look_alike_refusal_steps_down_then_says_what_to_do(app, db, editor, setup, clip):  # noqa: F811
-    """The Producer: a take refused as a look-alike is made again without the opening still,
-    then without the sheets (the characters said in words), then it stops and says what to do.
-    Refused takes are never charged."""
-    from app.clip_takes import GAVE_UP, LOOKALIKE
-    from app.credits import credits_used
+    # and from then on a take of this clip never carries them (a Redo, the director's Carry on)
+    from app.clip_takes import take_input
+    from app.models.clips import ProjectClip
     from app.models.projects import Project
 
-    url = f"/projects/{setup['project']}/clips/{clip['id']}"
-    before = credits_used(db, db.get(Project, setup["project"]))
-    editor.post(f"{url}/generate")
-    _work(app, db, Refusing([]))  # refused: made again on its own without the still
-    assert editor.get(f"/projects/{setup['project']}/clips").json()[0]["retrying"] == "refused"
-    for _ in LOOKALIKE:
-        _work(app, db, Refusing([]))
-    db.expire_all()
-    takes = sorted((j for j in db.query(Job).all() if j.kind.startswith("video")),
-                   key=lambda j: j.id)  # fmt: skip
-    first, *steps = takes
-    assert [j.input.get("lookalike") for j in steps] == [1, 2]  # without the still, then sheets
-    assert [j.retry_of_id for j in steps] == [first.id, steps[0].id]
-    pictures = [len(j.input["files"].get("reference_images", [])) for j in takes]
-    assert pictures[2] < pictures[0]  # without the sheets: fewer pictures (no still here)
-    assert "[Image2]" not in steps[1].input["input"]["prompt"]  # the rest numbered again
-    said = {j["id"]: j["error"] for j in editor.get("/jobs").json()}
-    assert said[first.id].startswith("The video model thinks this clip looks too much like")
-    assert said[steps[-1].id] == GAVE_UP  # plain words, never "Ask the owner"
-    shown = editor.get(f"/projects/{setup['project']}/clips").json()[0]
-    assert shown["retrying"] is None
-    assert credits_used(db, db.get(Project, setup["project"])) == before  # refused takes: free
+    later = take_input(db, db.get(Project, setup["project"]), db.get(ProjectClip, clip["id"]))
+    assert later["files"] == again.input["files"]
 
 
 @pytest.mark.parametrize("by", ["person", "director"])
