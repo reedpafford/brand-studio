@@ -11,11 +11,12 @@ type Result = { data?: Me; error?: unknown; response?: { status: number } };
 
 class Throttled extends Error {}
 
-/** No shell here (v5 A_SignIn, A_Setup, A_Invite): the page alone in the middle, in a 400 px column. */
+/** No shell here (v5 A_SignIn, A_Setup, A_Invite): the page alone in the middle, in a 400 px column. It is a white
+ *  panel on the canvas, the app's own frame, so signing in looks like where it leads. */
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <main className="grid min-h-screen place-items-center p-4">
-      <div className="w-full max-w-[400px] space-y-4">{children}</div>
+    <main className="grid min-h-screen place-items-center bg-canvas p-4">
+      <div className="animate-rise w-full max-w-[464px] space-y-4 rounded-2xl border border-border bg-bg p-6 shadow-soft sm:p-8">{children}</div>
     </main>
   );
 }

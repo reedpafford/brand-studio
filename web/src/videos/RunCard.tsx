@@ -249,7 +249,7 @@ export function RunCard({ progress: r, phone, projectId }: { progress: Progress;
         </ol>
       )}
     </div>
-  ) : long ? (
+  ) : !r.scenes.length ? null : long ? ( // nothing planned (it stopped at the plan): no empty strip holding a gap open
     <div>
       <div className="mb-2 h-1 overflow-hidden rounded-sm bg-surface-3" aria-hidden>
         <i className="block h-full rounded-sm bg-accent" style={{ width: `${r.clips ? Math.round((100 * r.made) / r.clips) : 0}%` }} />
@@ -301,7 +301,7 @@ export function RunCard({ progress: r, phone, projectId }: { progress: Progress;
           </p>
         )}
         {r.actual_usd != null && (
-          <p className="mt-2 text-xs tabular-nums text-muted">
+          <p className="mt-2 text-xs tabular-nums text-muted first:mt-0">
             {[r.cost || `$${r.actual_usd.toFixed(2)} spent on this run`, r.expected_usd != null && `about $${r.expected_usd.toFixed(2)} (estimate)`].filter(Boolean).join(" · ")}
           </p>
         )}
