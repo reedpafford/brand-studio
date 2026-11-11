@@ -46,7 +46,7 @@ export function ByVideo({ query, words }: { query: { period?: Period; month?: st
     </Button>
   );
   return (
-    <section aria-label="By video" className="space-y-3 lg:max-w-[1100px]">
+    <section aria-label="By video" className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="type-section">By video</h2>

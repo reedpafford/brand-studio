@@ -57,12 +57,12 @@ function Frame({ title, onClose, className, grabber, footer, children }: Props &
   // Rendered into the page body, so a sticky bar or tab bar can never sit on top of it.
   return createPortal(
     <>
-      <div aria-hidden onClick={onClose} className="fixed inset-0 z-50 bg-scrim" />
+      <div aria-hidden onClick={onClose} className="animate-fade fixed inset-0 z-50 bg-scrim" />
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className={`fixed z-50 flex flex-col bg-surface shadow-overlay ${className}`}>
         {grabber && <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-border-strong" />}
         {/* v5 panels (E_ScriptMakeVideo): a 56 px header and 20 px sides. */}
         <div className={`flex min-h-14 items-center justify-between gap-3 px-5 py-2 ${footer ? "mb-4 border-b border-border" : ""}`}>
-          <h2 id={heading} className="font-display text-md font-bold">
+          <h2 id={heading} className="type-card">
             {title}
           </h2>
           <button type="button" aria-label="Close" onClick={onClose} className="grid size-control place-items-center rounded-md text-muted hover:bg-surface-2">
@@ -79,18 +79,18 @@ function Frame({ title, onClose, className, grabber, footer, children }: Props &
 
 /** A bottom sheet (phones): up to 90dvh, scrolls inside, radius 20 on top. */
 export function Sheet(props: Props) {
-  return <Frame {...props} grabber className="inset-x-0 bottom-0 max-h-[90dvh] rounded-t-xl" />;
+  return <Frame {...props} grabber className="animate-sheet inset-x-0 bottom-0 max-h-[90dvh] rounded-t-xl" />;
 }
 
 /** A side panel (desktop): 380px from the right (`wide`: 480, E_ScriptMakeVideo), full height below the top bar. */
 export function SidePanel({ wide, ...props }: Props & { wide?: boolean }) {
-  return <Frame {...props} className={`bottom-0 right-0 top-topbar ${wide ? "w-[480px]" : "w-[380px]"} max-w-full border-l border-border`} />;
+  return <Frame {...props} className={`animate-side bottom-0 right-0 top-topbar ${wide ? "w-[480px]" : "w-[380px]"} max-w-full border-l border-border`} />;
 }
 
 /** A centred dialog for a picker (Styles, cast and products): never wider than 960 px, however wide the
  *  screen; on a phone it fills the screen and scrolls inside. */
 export function Modal(props: Props) {
-  return <Frame {...props} className="inset-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[min(88dvh,760px)] sm:w-[calc(100%-3rem)] sm:max-w-[960px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl" />;
+  return <Frame {...props} className="animate-rise inset-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[min(88dvh,760px)] sm:w-[calc(100%-3rem)] sm:max-w-[960px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl" />;
 }
 
 /** For confirmations only. A destructive action says what is lost and uses the danger button. */
@@ -120,8 +120,8 @@ export function Dialog({
   const panel = useOverlay(onCancel);
   return createPortal(
     <>
-      <div aria-hidden onClick={onCancel} className="fixed inset-0 z-50 bg-scrim" />
-      <div ref={panel} role="alertdialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-5 shadow-overlay">
+      <div aria-hidden onClick={onCancel} className="animate-fade fixed inset-0 z-50 bg-scrim" />
+      <div ref={panel} role="alertdialog" aria-modal="true" aria-labelledby={heading} tabIndex={-1} className="animate-rise fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface p-5 shadow-overlay">
         <h2 id={heading} className="text-md font-semibold">
           {title}
         </h2>

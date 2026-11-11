@@ -34,7 +34,7 @@ export function SettingsPage() {
     </>
   );
   return (
-    <main className="space-y-4 p-4 sm:p-6">
+    <main className="mx-auto max-w-content space-y-4 p-4 sm:p-6">
       {tab === "studio" ? (
         <StudioName owner={me.name} top={top} />
       ) : tab === "limits" ? (

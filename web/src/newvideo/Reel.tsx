@@ -89,7 +89,7 @@ export function Reel({ brandId, owner, folder, head, style, rail, format, format
         {mode !== "look" && <span className="text-sm text-muted">{[reel?.seconds ? mmss(reel.seconds) : null, "uploaded", `the director watches and listens to it, then writes a script that keeps its shape with ${brand?.name ?? "the brand"}’s product`].filter(Boolean).join(" · ")}</span>}
         <div role="radiogroup" aria-label="What to take from it" className="flex flex-wrap gap-2">
           {MODES.map((m) => (
-            <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => setMode(m.id)} className={`inline-flex h-11 lg:h-[26px] items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium ${mode === m.id ? "border-[#c9ccf6] bg-accent-soft text-accent-text" : "border-border-button bg-surface hover:bg-surface-2"}`}>
+            <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => setMode(m.id)} className={`inline-flex h-11 lg:h-[26px] items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium ${mode === m.id ? "border-accent-line bg-accent-soft text-accent-text" : "border-border-button bg-surface hover:bg-surface-2"}`}>
               {mode === m.id && (m.id === "copy" ? <Copy size={12} aria-hidden /> : <Check size={12} aria-hidden />)}
               {m.name}
             </button>

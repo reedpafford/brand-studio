@@ -73,7 +73,7 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
     );
   }
   return (
-    <main className="flex min-h-screen flex-col lg:min-h-full">
+    <main className="mx-auto flex min-h-screen max-w-content flex-col lg:min-h-full">
       <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border bg-surface px-5">
         <p className="flex items-center gap-1.5 whitespace-nowrap text-sm text-muted">
           <span>{name}</span>

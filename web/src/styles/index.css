@@ -31,14 +31,24 @@
 @keyframes rise-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes sheet-in { from { transform: translateY(100%); } }
+@keyframes side-in { from { transform: translateX(100%); } }
 @utility animate-rise { animation: rise-in var(--dur) var(--ease-out) both; }
 @utility animate-fade { animation: fade-in var(--dur) var(--ease-out) both; }
-/* Something is being worked on: a bar that keeps crossing its track, and a place being filled that catches the light. */
+@utility animate-pop { animation: pop-in var(--dur-fast) var(--ease-out) both; transform-origin: top; }
+@utility animate-sheet { animation: sheet-in var(--dur) var(--ease-out) both; }
+@utility animate-side { animation: side-in var(--dur) var(--ease-out) both; }
+/* Something is being worked on. A bar that keeps crossing its track; a place being filled (a loading block, a clip being
+   made) that catches the light; the words for it ("Planning", "Thinking"), crossed by the same light; three dots. */
 @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes dot { 0%, 60%, 100% { opacity: 0.35; } 30% { opacity: 1; } }
 @utility animate-sweep { animation: sweep 1.6s var(--ease-out) infinite; }
-@utility animate-shimmer { background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-@utility animate-pop { animation: pop-in var(--dur-fast) var(--ease-out) both; transform-origin: top; }
+@utility shimmer { background: linear-gradient(110deg, var(--surface-2) 30%, var(--surface) 45%, var(--surface-2) 60%) 0 0 / 200% 100%; animation: shimmer 1.4s linear infinite; }
+@utility text-shimmer { background: linear-gradient(110deg, currentColor 50%, color-mix(in srgb, currentColor 35%, transparent) 75%, currentColor) 0 0 / 200% 100%; background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 2s linear infinite; }
+@utility animate-dots { & > * { animation: dot 1.2s var(--ease-out) infinite; } & > :nth-child(2) { animation-delay: 0.15s; } & > :nth-child(3) { animation-delay: 0.3s; } }
+/* A card that opens something rises a little under the pointer (its own, or its group's). */
+@utility lift { transition: translate var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); &:hover, :where(.group:hover) & { translate: 0 -2px; box-shadow: var(--shadow-hover); } }
 
 body {
   @apply bg-bg font-sans text-text antialiased;
@@ -58,4 +68,10 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+}
+/* Every button answers a press: it dips a touch. Not one that covers the page (a sheet's scrim). */
+@media (prefers-reduced-motion: no-preference) {
+  @layer base {
+    :where(button:not(:disabled, [aria-disabled="true"], .fixed)):active { scale: 0.98; }
+  }
 }

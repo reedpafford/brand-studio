@@ -176,7 +176,7 @@ function Picture({ a, wide, phone }: { a: Asset; wide?: boolean; phone?: boolean
     return (
       <div aria-hidden className={`flex shrink-0 gap-1 ${wide ? "w-[150px]" : ""}`}>
         {[0, 1, 2].map((i) => (
-          <span key={i} className={`${wide ? "h-[100px] flex-1" : "h-[118px] w-[42px]"} animate-pulse rounded-md bg-surface-3 motion-reduce:animate-none`} />
+          <span key={i} className={`${wide ? "h-[100px] flex-1" : "h-[118px] w-[42px]"} shimmer rounded-md`} />
         ))}
       </div>
     );

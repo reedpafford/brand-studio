@@ -62,7 +62,7 @@ function Frame({ c, className, onPick }: { c: Cell; className: string; onPick?: 
     l === "todo" ? (
       <span className={`block border border-dashed border-border-strong bg-surface-2 ${className}`} />
     ) : l === "making" || c.frame_file_id == null ? (
-      <span className={`block bg-[linear-gradient(110deg,#ececf0_30%,#f6f6f8_45%,#ececf0_60%)] ${l === "making" ? "animate-shimmer" : ""} ${className} ${RING[l]}`} />
+      <span className={`block ${l === "making" ? "shimmer" : "bg-surface-3"} ${className} ${RING[l]}`} />
     ) : (
       <img src={fileUrl(c.frame_file_id)} alt="" className={`block object-cover ${className} ${RING[l]}`} />
     );
@@ -167,13 +167,13 @@ function Thinking({ words }: { words: string }) {
   return (
     <div className="animate-fade rounded-md bg-surface-2 px-3 py-2">
       <div className="flex items-center gap-2 pb-1">
-        <span className="text-xs font-semibold text-muted">Thinking</span>
+        <span className="text-shimmer text-xs font-semibold text-muted">Thinking</span>
         <span className="flex-1" />
         <button type="button" aria-expanded={all} onClick={() => setAll(!all)} className="rounded-sm text-xs text-muted hover:text-text">
           {all ? "Show less" : "Show all"}
         </button>
       </div>
-      <p ref={box} aria-live="off" className={`overflow-y-auto whitespace-pre-wrap text-sm text-muted ${all ? "max-h-80" : "fade-top max-h-20"}`}>
+      <p ref={box} aria-live="off" className={`overflow-y-auto whitespace-pre-wrap text-sm text-muted motion-safe:scroll-smooth ${all ? "max-h-80" : "fade-top max-h-20"}`}>
         {words}
       </p>
     </div>
@@ -282,7 +282,7 @@ export function RunCard({ progress: r, phone, projectId }: { progress: Progress;
     <section aria-label={r.title} className="rounded-lg border border-border bg-surface shadow-soft">
       <div className="flex min-w-0 items-center gap-2 px-4 py-2.5">
         {ICON[r.tone]}
-        <span className="shrink-0 text-sm font-semibold">{r.title}</span>
+        <span className={`shrink-0 text-sm font-semibold ${r.tone === "now" ? "text-shimmer" : ""}`}>{r.title}</span>
         {!phone && r.sub && !banner && <span className="min-w-0 truncate text-sm text-muted">· {r.sub}</span>}
         {quiet && (
           <span role="timer" aria-label="Time on this step" className="shrink-0 text-sm tabular-nums text-muted">
@@ -363,14 +363,14 @@ export function Failed({ progress: r, projectId, onCarryOn, onSettings, busy, bl
     x.kind === "again" ? again.mutate() : x.kind === "split" ? split.mutate(x.problem) : x.kind === "model" ? onSettings() : onCarryOn(); // the video's settings: the Plan tab, on a phone too
   const then = f.fixes.find((x) => x.kind === "split")?.then;
   return (
-    <section aria-label={f.title} className="overflow-hidden rounded-lg border border-[#f1c6c1] bg-surface">
-      <p className="flex items-center gap-2 bg-danger-soft px-3 py-2.5 text-[13px] font-semibold text-danger">
-        <TriangleAlert size={14} strokeWidth={1.75} aria-hidden />
+    <section aria-label={f.title} className="rounded-lg border border-border bg-surface shadow-soft">
+      <p className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold">
+        {ICON.bad}
         {f.title}
       </p>
-      <div className="flex flex-col gap-3 px-3 pb-3 pt-2.5">
-        <p className="text-[13px] leading-[19px]">{f.why}</p>
-        {f.offer && <p className="text-[13px] leading-[19px]">{f.offer}</p>}
+      <div className="flex flex-col gap-3 px-4 pb-3.5">
+        <p className="text-sm">{f.why}</p>
+        {f.offer && <p className="text-sm">{f.offer}</p>}
         <div className="flex flex-wrap gap-2">
           {f.fixes.map((x, i) => (
             <Button

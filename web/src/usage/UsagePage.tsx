@@ -62,7 +62,7 @@ export function UsagePage() {
         <a href={`/api/usage/charges.csv?month=${span.csv}`} download className={buttonClass("secondary")}>Download CSV</a>
       </PageTop>
       {summary.isError && <Banner title="Couldn't load usage." action={<Button variant="secondary" onClick={() => void summary.refetch()}>Try again</Button>}>Check your connection.</Banner>}
-      <div role="group" aria-label="Totals" className="grid gap-3 sm:grid-cols-3 lg:max-w-[1100px]">
+      <div role="group" aria-label="Totals" className="grid gap-3 sm:grid-cols-3">
         {!f ? (
           [0, 1, 2].map((i) => <Skeleton key={i} className="h-28" />)
         ) : (
@@ -80,7 +80,7 @@ export function UsagePage() {
         )}
       </div>
 
-      <section aria-label="By brand" className="space-y-3 lg:max-w-[1100px]">
+      <section aria-label="By brand" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="type-section">By brand</h2>
@@ -118,7 +118,7 @@ function People({ query, words }: { query: { period?: Period; month?: string }; 
   });
   const week = (p: Person) => (p.week_allowance === null ? "No limit" : `${count(p.week_used)} of ${count(p.week_allowance)} quick credits`);
   return (
-    <section aria-label="By person" className="space-y-3 lg:max-w-[1100px]">
+    <section aria-label="By person" className="space-y-3">
       <h2 className="type-section">By person</h2>
       {people.isError && <Banner title="Couldn't load usage by person." action={<Button variant="secondary" onClick={() => void people.refetch()}>Try again</Button>}>Check your connection.</Banner>}
       {people.isPending && <Skeleton className="h-24" />}

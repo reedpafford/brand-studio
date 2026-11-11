@@ -7,7 +7,7 @@ export function Empty({ title, children, action, busy }: { title: string; childr
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
       <div aria-hidden className="flex gap-2">
         {[0, 1, 2].map((i) => (
-          <span key={i} style={busy ? { animationDelay: `${i * 220}ms` } : undefined} className={`h-[114px] w-16 rounded-md border border-dashed border-border-strong ${busy ? "animate-shimmer bg-[linear-gradient(110deg,var(--surface-2)_30%,var(--surface)_45%,var(--surface-2)_60%)]" : "bg-surface-2"}`} />
+          <span key={i} style={busy ? { animationDelay: `${i * 220}ms` } : undefined} className={`h-[114px] w-16 rounded-md border border-dashed border-border-strong ${busy ? "shimmer" : "bg-surface-2"}`} />
         ))}
       </div>
       <p className="text-lg font-semibold">{title}</p>

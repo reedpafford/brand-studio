@@ -110,10 +110,10 @@ export function Item({ t, words, why, owner, children, first, excerpt, earlier, 
               <TreatmentCard t={story} changed={t.text.startsWith("Changed the treatment")} />
             ) : going && words != null ? (
               <p className="flex items-center gap-2 text-sm text-muted">
-                <span aria-hidden className="inline-flex h-5 items-center gap-1">
-                  <i className="size-1.5 rounded-full bg-faint" />
-                  <i className="size-1.5 rounded-full bg-faint opacity-70" />
-                  <i className="size-1.5 rounded-full bg-faint opacity-40" />
+                <span aria-hidden className="animate-dots inline-flex h-5 items-center gap-1 *:size-1.5 *:rounded-full *:bg-muted">
+                  <i />
+                  <i />
+                  <i />
                 </span>
                 <span className="break-words">{words}</span>
                 <span className="sr-only"> (working)</span>

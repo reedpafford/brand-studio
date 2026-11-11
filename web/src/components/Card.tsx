@@ -65,7 +65,7 @@ export function MediaCard({
         </span>
       )}
       <span className={`absolute inset-x-3 bottom-3 text-left ${image || video ? "text-on-media" : "text-text"}`}>
-        <span className="block font-display text-md font-bold">{title}</span>
+        <span className="type-card block">{title}</span>
         {meta && <span className={`block text-sm ${image || video ? "" : "text-muted"}`}>{meta}</span>}
       </span>
     </>
@@ -73,11 +73,11 @@ export function MediaCard({
   return (
     <div className="flex flex-col gap-3">
       {to ? (
-        <Link to={to} aria-label={label ?? title} className="relative block w-full overflow-hidden rounded-lg border border-border bg-surface-2 shadow-card" style={{ aspectRatio: aspect }}>
+        <Link to={to} aria-label={label ?? title} className="lift relative block w-full overflow-hidden rounded-lg border border-border bg-surface-2" style={{ aspectRatio: aspect }}>
           {media}
         </Link>
       ) : onOpen ? (
-        <button type="button" onClick={onOpen} aria-label={title} className="relative block w-full overflow-hidden rounded-lg border border-border bg-surface-2 shadow-card" style={{ aspectRatio: aspect }}>
+        <button type="button" onClick={onOpen} aria-label={title} className="lift relative block w-full overflow-hidden rounded-lg border border-border bg-surface-2" style={{ aspectRatio: aspect }}>
           {media}
         </button>
       ) : (

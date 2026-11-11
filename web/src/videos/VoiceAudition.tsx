@@ -21,7 +21,7 @@ function Row({ v, on, canPick, busy, owner, onPick }: { v: Voice; on: boolean; c
   const held = !src && v.state === "needs_owner_approval";
   const note = src || !v.state ? v.note : held ? (owner ? "Waiting for your OK" : "Waiting for the owner’s OK") : reading ? "Reading your script…" : "Didn’t read. Nothing was charged.";
   return (
-    <div className={`flex items-center gap-3 rounded-md border px-3 py-2 ${on ? "border-[#c9ccf6] bg-accent-soft" : "border-border"}`}>
+    <div className={`flex items-center gap-3 rounded-md border px-3 py-2 ${on ? "border-accent-line bg-accent-soft" : "border-border"}`}>
       <button type="button" disabled={!src} aria-label={`${playing ? "Pause" : "Play"} ${v.name}${v.state ? " reading your script" : ""}`} onClick={() => (playing ? audio.current?.pause() : void audio.current?.play()?.catch(() => {}))} className="grid size-control shrink-0 place-items-center rounded-md border border-border-button bg-surface disabled:opacity-50">
         {reading ? <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="animate-spin motion-reduce:animate-none" /> : held ? <Clock size={14} strokeWidth={1.75} aria-hidden /> : playing ? <Pause size={14} strokeWidth={1.75} aria-hidden /> : <Play size={14} strokeWidth={1.75} aria-hidden />}
         {src && <audio ref={audio} src={src} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />}
