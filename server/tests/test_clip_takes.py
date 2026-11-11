@@ -304,6 +304,23 @@ def test_a_sheet_refused_as_a_real_person_is_said_in_words(app, db, editor, setu
 
     later = take_input(db, db.get(Project, setup["project"]), db.get(ProjectClip, clip["id"]))
     assert later["files"] == again.input["files"]
+    # and that take, made with no sheet, is never "from an older look" of the person it left
+    # out (392: three such takes held the cut out of date and the run stopped)
+    from app import clip_prompts
+    from app.models.clips import ClipTake
+
+    fake = FakeSeedance([_mp4("red"), _mp4("blue")])
+    _work(app, db, fake)  # the retry is made; then a person's own take (Carry on, a Redo)
+    assert (
+        editor.post(f"/projects/{setup['project']}/clips/{clip['id']}/generate").status_code == 201
+    )
+    _work(app, db, fake)
+    db.expire_all()
+    row = db.get(ProjectClip, clip["id"])
+    take = db.query(ClipTake).filter_by(clip_id=row.id).order_by(ClipTake.id.desc()).first()
+    assert not db.get(Job, take.job_id).auto
+    known = clip_prompts.assets(db, db.get(Project, setup["project"]))
+    assert clip_prompts.older_take(db, known, row, take) == []
 
 
 @pytest.mark.parametrize("by", ["person", "director"])

@@ -178,12 +178,14 @@ def _left_out(db: Session, row: ProjectClip, take: ClipTake | None) -> list[str]
     (Omni's third person, photoreal Seedance's sheets): never sent, so never "older" (video
     276: every take of c5 was "made from an older look of Granny", Omni's third person), as
     its job saved them; a take made before that, worked out from the clip now."""
-    from app.clip_takes import UNSENT, _out, _shots
+    from app.clip_takes import LOOKALIKE, UNSENT, _out, _shots, real_refused
     from app.model_map import left_out
 
     job = _source(db, db.get(Job, _take(db, row, take).job_id))
     if job is not None and UNSENT in job.input:  # as the take was made (QA on #1453)
-        return [r for r in _images(row) if _out(r, tuple(job.input[UNSENT]))]
+        # and no sheet, once one was taken for a real person (392: its cut never got made)
+        gone = (*job.input[UNSENT], *(LOOKALIKE if real_refused(db, row) else ()))
+        return [r for r in _images(row) if _out(r, gone)]
     bd = db.get(BreakdownVersion, row.breakdown_id).data
     ids = next((c["shot_ids"] for c in bd.get("clips", []) if c["id"] == row.clip_id), [])
     look = looks.drawn(db.get(Project, row.project_id))

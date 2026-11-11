@@ -50,10 +50,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
     unsent = model_map.left_out(looks.drawn(project), model.id, _shots(breakdown, shots), images)
     drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
-    if db.scalar(select(Job.id).where(  # a sheet of this clip's was refused as a real person:
-            Job.project_id == project.id, Job.status == JobStatus.failed,  # never sent again
-            Job.input["project_clip_id"].as_integer() == clip.id,
-            Job.error_detail.ilike(f"%{REAL}%")).limit(1)):  # fmt: skip
+    if real_refused(db, clip):  # a sheet of this clip's taken for a real person: never sent again
         drop = tuple(dict.fromkeys(drop + LOOKALIKE))
     files: dict[str, list[int]] = {key: [] for key in (*KEYS.values(), "image")}
     exact: list[int] = []
@@ -137,6 +134,15 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
 
 
 LOOKALIKE = ("frame:", "char:")  # left out in turn when a take is refused as a look-alike
+
+
+def real_refused(db: Session, clip: ProjectClip) -> bool:
+    """A take of this clip was refused for a sheet that "may contain real person": its takes
+    carry no still and no sheets from then on, and are never "from an older look" for it."""
+    return bool(db.scalar(select(Job.id).where(
+        Job.project_id == clip.project_id, Job.status == JobStatus.failed,
+        Job.input["project_clip_id"].as_integer() == clip.id,
+        Job.error_detail.ilike(f"%{REAL}%")).limit(1)))  # fmt: skip
 
 
 def _out(ref: str, drop: tuple[str, ...]) -> bool:
