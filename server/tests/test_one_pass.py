@@ -541,3 +541,25 @@ def test_a_take_the_service_refuses_stops_the_run_naming_its_clip(app, owner, db
     _run(app, db)
     ended = owner.get(f"/projects/{_video(db).id}/director").json()["ended"]
     assert ended.startswith("It stopped: This same prompt for clip 2 was blocked by the service")
+
+
+def test_two_people_who_share_every_clip_are_never_taken_for_one(app, owner, db):
+    """Reed, 11 Nov (videos 377, 379, 383): "These may be the same person" on Paige and the
+    man following her, on a young woman and a detective, on a girl and the first man (nobody
+    speaks on camera in a song or a narrated video). The flagged one's look was never drawn
+    and its clips never made, until a person said so."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.cast_roles import ref, video_slots
+    from app.routes.project_assets import _flagged, _newest
+
+    project = db.get(Project, _delivered(app, owner, db))
+    mia, leo = video_slots(db, project)
+    row, both = _newest(db, project), [ref(db, project, mia), f"slot:{leo.id}"]
+    for shot in (x for sc in row.data["scenes"] for x in sc["shots"]):  # Leo: no look yet,
+        shot["speaker"] = None  # and only ever seen beside Mia
+        shot["character_ids"] = both if shot["character_ids"] else []
+    flag_modified(row, "data")
+    project.slot_looks = {str(mia.id): project.slot_looks[str(mia.id)]}
+    db.commit()
+    assert _flagged(db, project) == set()
