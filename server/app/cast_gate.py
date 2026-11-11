@@ -489,8 +489,8 @@ SHEET_TRIES = 2  # a look that didn't draw is drawn again once; then the card sh
 def redrawable(db: Session, project: Project, items: list[dict]) -> list[LibraryItem]:
     """The looks of `items` that didn't draw (no picture, nothing drawing, a sheet failed)
     and may be drawn again: the director's make_looks does, once (QA on #1482), and again
-    after a stop and Carry on (Reed, 11 Nov, video 379: looks that failed while the picture service was
-    down were never tried again, and the run stopped at every Carry on)."""
+    after a stop and Carry on (Reed, 11 Nov, video 379: looks that failed while the picture
+    service was down were never tried again, and the run stopped at every Carry on)."""
     from app import director
 
     rows = director.all_turns(db, project.id)
