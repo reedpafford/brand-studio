@@ -154,13 +154,14 @@ SAYS_WHAT = re.compile(
 def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...],
               known: dict) -> str:  # fmt: skip
     """A clip prompt with its dropped pictures said in words: a character's [ImageN] becomes
-    their name and sheet description; a dropped opening still's or place's own sentences
-    ("[Image1] is the first frame. It sets…", "[Image4] is the lot.") go, and any other mention
-    is the place's name or "the opening shot"; the pictures it keeps are numbered again."""
+    their name, with their sheet description the first time; a dropped opening still's or
+    place's own sentences ("[Image1] is the first frame. It sets…", "[Image4] is the lot.") go,
+    and any other mention is the place's name or "the opening shot"; the pictures it keeps are
+    numbered again."""
     from app.clip_prompts import TAGS_N
 
     kept = [i for i in images if not _out(i, drop)]
-    said = names(known)
+    said, told_of = names(known), set()
 
     def unsaid(m: re.Match) -> str:
         n = int(m.group(1))
@@ -180,7 +181,9 @@ def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...]
             item = db.get(LibraryItem, int(ref.split(":")[1]))
             told = (item.notes or item.short_description or "").strip() if item else ""
             who = said.get(ref) or (item.name if item else "the character")
-            return f"{who} ({told.rstrip('.')})" if told else who
+            first = ref not in told_of  # described once: each later mention is their name
+            told_of.add(ref)  # (392's c3: said at every mention, it ran past Seedance's limit)
+            return f"{who} ({told.rstrip('.')})" if told and first else who
         if ref.startswith("place:"):
             return said.get(ref) or "the place"
         return "the opening shot" if ref.startswith("frame:") else said.get(ref) or "it"
