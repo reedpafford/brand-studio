@@ -20,12 +20,17 @@ def test_the_cards_are_looks_only_house_first_and_on(editor):
     cards = editor.get("/looks").json()
     assert cards[0]["id"] == "house" and cards[0]["on"]
     assert [c["id"] for c in cards[1:4]] == ["disney-pixar", "zack-d", "skeleton"]  # Reed's order
-    assert [c["id"] for c in cards[1:] if c["on"]] == ["movie"]  # Reed, 7 Nov: on the site
+    assert [c["id"] for c in cards[1:] if c["on"]] == [
+        "disney-pixar", "zack-d", "skeleton", "claymation", "dr-pickle", "ugc",
+        "movie"]  # fmt: skip  # Reed, 10 Nov: every style on the site
     assert {"song"}.isdisjoint(c["id"] for c in cards)  # formats aren't looks
 
 
 def test_an_editor_picks_only_a_look_thats_on_and_the_owner_may_try_any(owner, editor):
     brand = owner.get("/brands").json()[0]["id"]
+    on = editor.post("/scripts", json={"brand_id": brand, "title": "T", "look": "zack-d"})
+    assert on.status_code == 201  # on from the start (Reed, 10 Nov: every style)
+    assert not owner.patch("/looks/zack-d", json={"on": False}).json()["on"]  # the owner's own
     tried = editor.post("/scripts", json={"brand_id": brand, "title": "T", "look": "zack-d"})
     assert tried.status_code == 409 and tried.json()["detail"] == looks.OFF.format("Zack D")
     mine = owner.post("/scripts", json={"brand_id": brand, "title": "T", "look": "zack-d"})

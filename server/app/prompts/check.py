@@ -1239,6 +1239,7 @@ def song_breakdown(
     *args,
     written: bool = False,
     hold: float = 0.0,
+    when: dict | None = None,
     **kwargs,
 ) -> list[str]:
     """`breakdown(...)`'s checks on the lyrics (tags left out), plus the song's: shots back to
@@ -1248,7 +1249,9 @@ def song_breakdown(
     beats, inside a section (advice). Only on a breakdown the AI `written` (off unless said, so
     an edit stays quiet): a Sung shot the
     script didn't ask for (advice); an editor's own Sung flips are theirs (rule 31), and the
-    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's."""
+    lyrics are never asked to change. `song` is song_block's dict; the rest are breakdown's.
+    `when`: each script line's own time in the take, where the caller has worked it out (a
+    one-pass video's: a narrated line of several sentences is one line, one_pass_timed.clock)."""
     clean = "\n".join("" if SECTION.match(x) else LIP_SYNC.sub("", x).strip()
                       for x in lyrics.splitlines())  # fmt: skip
     problems = breakdown(clean, bd, *args, **kwargs)
@@ -1270,7 +1273,7 @@ def song_breakdown(
         problems.append(f"the shots end at {at:.2f} s, the song at {end:.2f} s")
     sections = song.get("sections") or []
     beats = (song.get("beats") or []) + [c for x in sections for c in x.get("cuts", [])]
-    problems += _line_clock(lyrics, shots, song.get("lines") or [])
+    problems += _line_clock(lyrics, shots, song.get("lines") or [], when)
     asked = lip_synced(lyrics)
     for shot in shots:
         edges = [shot.song_start, shot.song_end]
@@ -1286,12 +1289,16 @@ def song_breakdown(
     return problems
 
 
-def _line_clock(lyrics: str, shots: list, timed: list[dict]) -> list[str]:
+def _line_clock(lyrics: str, shots: list, timed: list[dict],
+                when: dict | None = None) -> list[str]:  # fmt: skip
     """The measured line times are the clock (the pilot re-timed every shot by hand): a shot
-    holding a sung line plays while that line is sung, and no shot edge cuts a line (advice)."""
+    holding a sung line plays while that line is sung, and no shot edge cuts a line (advice).
+    `when`: each script line's time as given (a line of several sentences is cut only inside
+    one of them), else each sung line's, in order."""
     sung = [n for n, x in enumerate(lyrics.splitlines(), 1)
             if not SECTION.match(x) and LIP_SYNC.sub("", x).strip()]  # fmt: skip
-    when = {n: (x["start"], x["end"]) for n, x in zip(sung, timed, strict=False)}
+    whole = [(x["start"], x["end"]) for x in timed] if when else None
+    when = when or {n: (x["start"], x["end"]) for n, x in zip(sung, timed, strict=False)}
     problems = []
     for shot in shots:
         for n in shot.script_lines:
@@ -1305,7 +1312,7 @@ def _line_clock(lyrics: str, shots: list, timed: list[dict]) -> list[str]:
                     f"shot runs {shot.song_start:.2f}–{shot.song_end:.2f} s"
                 )
         edges = [shot.song_end]
-        if any(a + 0.15 < e < b - 0.15 for e in edges for a, b in when.values()):
+        if any(a + 0.15 < e < b - 0.15 for e in edges for a, b in whole or when.values()):
             problems.append(f"{ADVICE}shot {shot.id}: ends in the middle of a sung line")
     return problems
 

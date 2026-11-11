@@ -18,7 +18,19 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import asks, director, folders, guides, hidden, live, looks, model_map, prompts, scorecard
+from app import (
+    asks,
+    director,
+    folders,
+    guides,
+    hidden,
+    live,
+    looks,
+    model_map,
+    one_pass,
+    prompts,
+    scorecard,
+)
 from app import script_library as lib
 from app.auth import current_user
 from app.breakdown import video_model
@@ -267,8 +279,9 @@ def _from_script(db: Session, user: User, request: Request, fs: Freestyle, scrip
     if had and not another:  # "Open it · Make another · up to N credits"
         raise HTTPException(409, {"text": HAS_VIDEO, "project_id": had,
                                   "up_to": float(run_price(db, draft))})  # fmt: skip
+    lean = one_pass.takes(script, draft.text or "")  # the one-pass director plans it itself
     project, _, _ = make_video(db, user, request, script, draft, {"aspect_ratio": fs.shape},
-                               another=bool(another))  # fmt: skip
+                               another=bool(another), planned=not lean)  # fmt: skip
     return project, draft
 
 
@@ -421,6 +434,8 @@ def written(db: Session, job: Job) -> None:
         body = FreestyleIn(**job.input[IDEA], text=_script(job))
         _start(db, db.get(User, job.created_by_id), fs, body.text, body,
                idea={**idea, "wrote": job.id})  # fmt: skip
+        job.project_id = fs.project_id  # its writing is this video's spend too (its brand's
+        db.commit()  # already: `brand_id` in its input)
     except Exception as no:  # refused (in its own words) or a fault: said, never lost
         db.rollback()
         if not isinstance(no, HTTPException):

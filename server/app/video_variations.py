@@ -6,7 +6,9 @@ stills, clips and takes (the same files: nothing is made again for them). Only t
 idea names lose their take, and its treatment carries the new hook or ending. Its run is a
 revision (the source's story stands), so its direction card, before anything is made, prices
 only those clips (`revision.revision`). The script's words never change, except for words the
-owner quoted in the note for that line (a new version of the script for that video only)."""
+owner quoted in the note for that line (a new version of the script for that video only). A
+one-pass video's variation is one too (its engine is copied): its note is the run's note, so
+its one plan call changes only the clips the note names (one_pass._kept)."""
 
 import copy
 import json
@@ -45,11 +47,8 @@ FRESH = ("created_at", "name", "finished_at", "archived_at", "released_draft_id"
 
 def refusal(db: Session, project: Project) -> str:
     """Why this video can't have variations now, or ""."""
-    from app import one_pass
     from app.clip_prompts import newest
 
-    if one_pass.on(project):  # not made the one-pass way yet: never half one path, half the other
-        return one_pass.NO_VARIATIONS
     if director.active(db, project):
         return director.RUNNING
     if not director.delivered(director.turns(db, project)) or not director.treatment(db, project):

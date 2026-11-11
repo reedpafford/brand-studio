@@ -1,6 +1,6 @@
 name: Skeleton
 order: 4
-on: no
+on: yes
 own_sample: yes
 image_model: auto
 video_model: seedance-2.0

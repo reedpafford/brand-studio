@@ -190,6 +190,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     style from the note (the director's music words); after that a note is a remake, REMAKES
     a run (counted in `run`). A MiniMax narrator's `emotion` and `reading` ask like a note,
     and so does an ElevenLabs narrator's `speed` (its pace) on a remake."""
+    from app import one_pass
+
     tool, note = decision["tool"], (decision.get("note") or "").strip()
     delivery = {k: decision[k] for k in ("emotion", "reading") if decision.get(k)}
     if delivery and (speed := _speed(db, project, delivery.get("emotion"))):
@@ -204,6 +206,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     what = "song" if found == "song" else "narration"
     takes = song_takes.for_video(db, project)
     ready = [t for t in takes if song_takes.state(db, t)[0] == "ready"]
+    before = one_pass.on(project) and not run.get("ok", True)  # its plan is timed to it
     left = run.get(REMADE, 0) < REMAKES  # a remake is left to fix a take that says more
     if (chosen := decision.get("take_id")) is not None:
         take = next((t for t in ready if t.id == chosen), None)
@@ -250,7 +253,7 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         last = run.get("song_note", "")  # the same request again: its style line too
         voice = run.get("song_voice") or narration.VOICE  # a narration keeps its voice
         song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice,
-                        delivery=run.get("song_delivery"))  # fmt: skip
+                        delivery=run.get("song_delivery"), before=before)  # fmt: skip
         run["song_retries"] = run.get("song_retries", 0) + 1  # charged only if it's made
         if any(song_takes.state(db, t)[0] == "timing_failed" for t in takes):
             return (f"Making the {what} again: its timing couldn't be read, so nothing used "
@@ -274,8 +277,16 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     if pace and takes and voice in narration.ELEVENLABS:  # the first read: the voice's own
         delivery = {"speed": pace}
     song_takes.make(
-        db, user, draft, project, kie=_real(db, found), note=note, voice=voice, delivery=delivery
-    )  # a reading that changes a word is refused (422)
+        db,
+        user,
+        draft,
+        project,
+        kie=_real(db, found),
+        note=note,
+        voice=voice,
+        delivery=delivery,
+        before=before,
+    )  # a reading that changes a word: a 422
     run["song_note"], run["song_voice"], run["song_delivery"] = note, voice, delivery
     if takes:  # a remake; the first song's note is its style line, not a remake
         run[REMADE] = run.get(REMADE, 0) + 1
@@ -350,6 +361,89 @@ def _real(db: Session, found: str) -> float:
 def _rank(take: dict, take_id: int) -> tuple:
     """The best take first: fewest lines missing, then the shorter (cheaper to film)."""
     return (len(take["missing"] or []), take["seconds"] or 0, take_id)
+
+
+def still_wrong(state: dict) -> str:
+    """For the delivery note: the brand's name the narration in use still says wrong, or the
+    words it says that the script doesn't have, once its remakes are used (director.md: say
+    what's off)."""
+    audio = state.get("narration") or {}
+    used = next((t for t in audio.get("takes") or [] if t["used"]), None)
+    said = []
+    if used and used.get("misheard"):
+        w = used["misheard"][0]
+        said.append(f"The narration still says “{w['heard']}” for {w['word']} at {w['at']:.1f} s")
+    if used and used.get("extras"):
+        x = used["extras"][0]
+        said.append(f"The narration says “{x['text']}” at {x['start']:.1f} s, which the "
+                    "script doesn't have")  # fmt: skip
+    return (f"{'. '.join(said)}: it was read again as often as allowed, so listen before you "
+            "share it.") if said else ""  # fmt: skip
+
+
+def audio_move(state: dict, go, style: str, voices) -> dict | None:
+    """A run's next move on its song or narration, with no model deciding (the stand-in
+    director's, and every one-pass run's): make it, wait for it, then use its best take; a
+    failed one is tried again (free when the service failed; refused, it says so). A narration
+    that says the brand's name wrong is read again with the pronunciation note (while
+    narrations are left), and the plan follows one that says it right. `style`: the style line
+    a song with none is first made in; `voices`: who reads for a presenter with no voice yet
+    (app/audition.py). None: the audio is in use, so the plan is next."""
+    tool = "song" if "song" in state else "narration" if "narration" in state else None
+    audio = state.get(tool) if tool else None
+    if audio is None:
+        return None
+    if tool == "narration" and (said := _say_it_right(audio, state, go)):
+        return said
+    if audio.get("used_take_id"):
+        return None
+    what = "song" if tool == "song" else "narration"
+    if heard := audio.get("audition"):  # the presenter's voice first: the person picks it
+        if heard["state"] == "asked":
+            return go("wait", f"{heard['who']}'s voice is being auditioned.")
+        who = heard["who"]
+        return go(
+            "ask",
+            f"{who}'s voice first: everything is timed to it.",
+            ask={
+                "kind": "voice",
+                "subject": who,
+                "topic": f"{who}'s voice"[:80],
+                "question": f"Which voice is {who}?",
+                "voices": list(voices),
+                "why": "Each reads the script's opening. The one you pick is saved on them.",
+            },
+        )
+    if audio["state"] == "none":
+        style = {} if audio.get("style", True) else {"note": style}  # a song's first
+        return go(tool, f"The {what} first: its timing is what the shots follow.", **style)
+    if audio["state"] == "making":
+        return go("wait", f"The {what} is being made.")
+    if audio["state"] == "ready":
+        return go(tool, f"The {what} is made and timed: use its best take.")
+    return go(tool, f"The {what} didn't come out: try it again.")  # free once; then a note
+
+
+def _say_it_right(audio: dict, state: dict, go) -> dict | None:
+    """A narration that says the brand's name wrong, before the plan: read again with the
+    pronunciation note while narrations are left, then the one that says it right is used."""
+    if audio["state"] not in ("ready", "making") or state["shots"] != "none":
+        return None
+    timed = [t for t in audio["takes"] if t["state"] == "ready" and t["timed"]]
+    used = next((t for t in timed if t["used"]), None)
+    good = [t for t in timed if not t.get("misheard")]
+    if used and not used.get("misheard") or not timed:
+        return None
+    if audio["state"] == "making":
+        return go("wait", "The narration is being read again.")
+    if good:
+        return go("narration", "This narration says the brand's name right: use it.",
+                  take_id=good[-1]["id"])  # fmt: skip
+    wrong = timed[-1]["misheard"][0]
+    if state.get("allowed", {}).get("narrations_left", 0) > 0:
+        return go("narration", f"The narration says “{wrong['heard']}” for {wrong['word']} at "
+                  f"{wrong['at']:.1f} s: read it again.", note=audio["say"])  # fmt: skip
+    return None
 
 
 def _settings():

@@ -1,6 +1,6 @@
 name: Zack D
 order: 3
-on: no
+on: yes
 image_model: auto
 video_model: seedance-2.0
 blurb: One continuous camera follows the thing being explained through one real set, in realistic game-engine 3D: cutaways and glowing marks show what happens inside.

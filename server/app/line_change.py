@@ -25,6 +25,9 @@ DO = "change_line"
 TITLE = "Change the line"
 OWNER_ONLY = "Only the owner can change the script's words."
 MOVED = "That line has changed since. Ask again in the chat."
+SENTENCES = ("This line is said a sentence at a time across its clips, and the new words add or "
+             "take away a sentence. Change the words inside one sentence, or make a new video "
+             "from the edited script.")  # fmt: skip
 # never quoting the words or "change … line" (a take's note can't: check.redo_note)
 WROTE = "The owner wrote line {n} of the script again, in a new version."  # variations' too
 NOTE = WROTE + " {what}; keep every other clip and take, then make the cut and watch it."
@@ -50,19 +53,23 @@ def _narrated(db: Session, project: Project) -> bool:
     return video_kind(db, project) == "narrated"
 
 
-def clips_of(db: Session, project: Project, n: int) -> list[str]:
+def clips_of(db: Session, project: Project, n: int, words: str = "") -> list[str]:
     """The clips of the newest plan whose shots carry script line `n`, in plan order; a UGC
     talker on Omni's only where it's said: their silent B-roll of it is laid over the new
-    piece as it was (QA on #1497)."""
+    piece as it was (QA on #1497). `words`: of a line said a sentence a shot (a one-pass
+    video's long line), only the clips whose shots say these words, when some do."""
     from app import omni_talker
     from app.clip_prompts import newest
+    from app.locked_line import _in
 
     bd = newest(db, project)
     if bd is None:
         return []
     said = omni_talker.on(db, project)
-    shots = {s["id"] for sc in bd.data.get("scenes", []) for s in sc.get("shots", [])
-             if n in (s.get("script_lines") or []) and (s.get("line") or not said)}  # fmt: skip
+    mine = [s for sc in bd.data.get("scenes", []) for s in sc.get("shots", [])
+            if n in (s.get("script_lines") or []) and (s.get("line") or not said)]  # fmt: skip
+    exact = [s for s in mine if words and s.get("line") and _in(words, s["line"])]
+    shots = {s["id"] for s in exact or mine}
     return [c["id"] for c in bd.data.get("clips", []) if shots & set(c["shot_ids"])]
 
 
@@ -73,10 +80,10 @@ def choice(db: Session, user: User, project: Project, words: str, new: str | Non
 
     version = plans.script(db, project)
     new = (new or "").strip().strip("“”\"'‘’ ")
-    if not user.is_owner or not new or version is None or one_pass.on(project):
-        return None  # a one-pass video's lines aren't changed this way yet (app/one_pass.py)
+    if not user.is_owner or not new or version is None:
+        return None
     n = line_of(version.text, words)
-    clips = clips_of(db, project, n) if n else []
+    clips = clips_of(db, project, n, words if one_pass.on(project) else "") if n else []
     if not clips:
         return None
     named = ", ".join(c.removeprefix("c") for c in clips)
@@ -96,7 +103,9 @@ def price(db: Session, project: Project, found: dict) -> Decimal | None:
     again with its prompt written again, and once more if the cut's watch asks; its stills
     drawn again as often as a run may; a turn for each take and for the cut, its watch and the
     delivery, and one watch. Narrated: the narration read again moves every clip's times, so
-    any clip may need making again: the video's whole run price."""
+    any clip may need making again: the video's whole run price. A one-pass video's Dialogue
+    line: its clips made again and one watch of the cut (no call writes anything)."""
+    from app import one_pass
     from app.clip_prompts import rewrite_price
     from app.clip_takes import take_credits
     from app.credits import estimate
@@ -113,6 +122,11 @@ def price(db: Session, project: Project, found: dict) -> Decimal | None:
         read = estimate(db, project.workspace_id, "speech", song_takes._units(job), job)
         whole = run_price(db, db.get(ScriptDraft, project.script_draft_id), project)
         return whole + (1 + director_song.REMAKES) * read
+    if one_pass.on(project):  # its prompts are built in code: each clip made again, once more
+        look = estimate(db, project.workspace_id, KIND, Decimal(1), {})  # if it misses a line,
+        every = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)).all()
+        units = one_pass._watch_units(project, sum(r.seconds for r in every), len(every))
+        return TAKES * sum((take_credits(db, project, r) for r in rows), Decimal(0)) + look * units
     each = [take_credits(db, project, r) + rewrite_price(db, project, [r.clip_id]) for r in rows]
     shots = sum(len(_shots(db, project, r.clip_id)) for r in rows)
     ws = project.workspace_id
@@ -149,6 +163,13 @@ def cannot(db: Session, project: Project, found: dict, words: str, user: User | 
         return MOVED
     if any(_row(db, project, c) is None for c in found.get("clips") or []):
         return MOVED
+    from app import one_pass
+
+    if one_pass.on(project) and found.get("new"):  # its plan names this line's sentences
+        new = _new_text(version.text, {**found, "old": words})
+        if one_pass.script_units(db, project, new)[1] != one_pass.script_units(
+                db, project, version.text)[1]:  # fmt: skip
+            return SENTENCES
     return ""
 
 
@@ -168,8 +189,10 @@ def _new_text(text: str, found: dict) -> str:
 def press(db: Session, user: User, project: Project, ask: Ask, found: dict, storage) -> dict:
     """The owner's press: the new version, the plan on it with only the line's clips left to
     make again, the narration read again if it's narrated, and a run (already approved: the
-    owner's press is the OK) whose note says what to make. Nothing else is made again."""
-    from app import clip_prompts, director
+    owner's press is the OK) whose note says what to make. Nothing else is made again. A
+    one-pass video keeps its plan and takes no model call: the line's clips are written again
+    from it with the new words and made; a narrated one's shots follow the new reading."""
+    from app import clip_prompts, director, one_pass
     from app.credits import lock
     from app.db import utcnow
 
@@ -191,10 +214,16 @@ def press(db: Session, user: User, project: Project, ask: Ask, found: dict, stor
             f"new take of {some} once its prompt is written again" if narrated else
             f"Make a new take of {some} once its prompt is written again")  # fmt: skip
     note = NOTE.format(n=found["line"], what=what)
-    project.director_chat = [
-        *(project.director_chat or []),
-        {"text": note, "by": user.id, "at": utcnow().isoformat()},
-    ]
+    if one_pass.on(project):  # no note: nothing is planned again, the same plan with the new
+        row = clip_prompts.newest(db, project)  # words put in by their line's number
+        remade = one_pass.reworded(db, project, row, draft.text)  # B-roll says nothing: none
+        one_pass.assemble(db, project, row, remade, by_id=user.id, remake=True)
+        one_pass.follow(db, project)
+    else:
+        project.director_chat = [
+            *(project.director_chat or []),
+            {"text": note, "by": user.id, "at": utcnow().isoformat()},
+        ]
     db.commit()
     if not narrated:  # its prompts are written again now, as after any edit (a narrated
         clip_prompts.follow(db, project, user)  # one's, once its new reading is timed)

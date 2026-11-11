@@ -1,6 +1,6 @@
 name: Claymation
 order: 5
-on: no
+on: yes
 image_model: auto
 video_model: seedance-2.0
 blurb: Hand-sculpted plasticine on a miniature set: clay skin with thumbprints, real woven fabric, warm light, gentle handmade movement.

@@ -221,6 +221,7 @@ def test_every_other_video_keeps_the_step_by_step_director(app, owner, db, monke
     owner.post(f"/projects/{pid}/director/stop")
     owner.post(f"/projects/{pid}/director")
     assert _video(db).engine is None and not _jobs(db, "one_pass")
+    monkeypatch.setattr(get_settings(), "one_pass_engines", ["dialogue"])  # a format left out
     narrated = owner.post("/freestyles", json={**BODY, "type": "narrated",
                                                "text": "The market opened at nine."})  # fmt: skip
     assert narrated.status_code == 201, narrated.text
@@ -385,18 +386,14 @@ def test_a_note_while_takes_are_being_made_waits_for_them_then_changes_only_its_
     assert db.query(FinalVideo).count() == 1  # one cut, with the new take in it
 
 
-def test_variations_are_refused_plainly_and_make_it_again_works(app, owner, db):
+def test_make_it_again_on_a_delivered_video_buys_nothing(app, owner, db):
     pid = _delivered(app, owner, db)
-    assert owner.get(f"/projects/{pid}/variations").json()["blocked"] == one_pass.NO_VARIATIONS
-    asked = owner.post(f"/projects/{pid}/variations", json={"count": 2, "part": "hook"})
-    assert asked.status_code == 409 and asked.json()["detail"] == one_pass.NO_VARIATIONS
     assert owner.post(f"/projects/{pid}/director").status_code == 201  # Make it again
     _run(app, db)
     out = owner.get(f"/projects/{pid}/director").json()
     assert out["status"] == "delivered" and "nothing needed making again" in out["ended"].lower()
     assert db.query(ClipTake).count() == 3 and len(_jobs(db, "one_pass")) == 1  # nothing bought
     assert all(j.provider == "server" for j in _jobs(db, "director"))
-    assert not _jobs(db, "video_variations")
 
 
 def test_the_owner_keeping_the_plan_leaves_the_video_as_it_was(app, owner, db, monkeypatch):

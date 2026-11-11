@@ -267,6 +267,10 @@ def problems(
     if take:
         timed, timing = song_breakdown.joined(bd, song), take.timing or {}
         hold = narration.FINAL_HOLD if take.kind == narration.KIND else 0.0  # its last shot's
+        if project.engine:  # a one-pass video's lines are timed by its own clock
+            from app import one_pass_timed
+
+            extra["when"] = one_pass_timed.clock(script, timing, take.kind == narration.KIND)
         found = check.song_breakdown(script, timed, timing, screens, m.duration.min,
                                      m.duration.max, written=written, hold=hold,
                                      **extra)  # fmt: skip

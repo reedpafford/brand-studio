@@ -23,9 +23,10 @@ FRAMES = 2  # kept per clip at upload: the first is its thumbnail
 MOST, SEEN = 8, 4  # clips listed for one video (the best fits), and how many with a frame
 STEP, KIND = "footage_describe", "check-claude"  # the AI description: a picture check
 PLANS = ("breakdown", "narrated_breakdown", "song_breakdown")
+ONE_PASS = ("one_pass", "narrated_one_pass", "song_one_pass")  # the one-pass director's plan
 TOLD = {"director", "treatment", "plan", "storyboard", "clip_prompts", "narrated_clip_prompts",
-        "song_clip_prompts", *PLANS}  # fmt: skip
-SHOWN = ("treatment", *PLANS)  # its frames are seen where the story and the shots are made
+        "song_clip_prompts", *PLANS, *ONE_PASS}  # fmt: skip
+SHOWN = ("treatment", *PLANS, *ONE_PASS)  # its frames are seen where the story and shots are made
 
 
 def live(db: Session, brand_id: int) -> list[MediaUpload]:
@@ -90,6 +91,14 @@ def block(db: Session, project: Project, step: str) -> str:
             "seconds, as long as the shot) and whether its own sound plays under the voice. A "
             "footage shot is a clip of its own; each clip is used once in the video at most; "
             "never for a shot someone speaks in."
+        )  # fmt: skip
+    if step in ONE_PASS and ugc(project):  # the same offer, in the shooting plan's own fields
+        lines.append(
+            "This video is UGC: a B-roll clip nobody speaks in may BE one of these clips instead "
+            "of being made, where it fits the story and shows what its line says. Give that clip "
+            "one shot, set the clip's `footage` to the footage's id and `footage_at` to the "
+            "second of it to start from; it runs as long as the shot. Each is used once in the "
+            "video at most; never for a clip someone speaks in."
         )  # fmt: skip
     if step.endswith("clip_prompts") and video_model(project).max_reference_videos:
         lines.append(

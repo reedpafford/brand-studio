@@ -7,7 +7,14 @@ Asset ids are strings with a kind prefix, as listed in the brand block and the u
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, WithJsonSchema
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    WithJsonSchema,
+    model_validator,
+)
 from pydantic.json_schema import SkipJsonSchema
 
 # --- Enhance: suggestions anchored to the editor's script ---
@@ -740,8 +747,18 @@ class PlanLook(BaseModel):
     description: str = Field(description="What to draw, described once.")
 
 
+def _older(**missing):
+    """A plan saved before a field existed reads with that field at its empty value."""
+    return model_validator(mode="before")(
+        lambda v: {**missing, **v} if isinstance(v, dict) else v)  # fmt: skip
+
+
 class PlanShot(BaseModel):
     seconds: int = Field(description="A whole number of seconds.")
+    at: float = Field(
+        description="With <song>: the second in the track this shot starts, copied from its "
+        "times. Else 0."
+    )
     camera: str = Field(description="Shot size and move: 'Close-up, slow push in'.")
     action: str = Field(description="One thing that happens, seen from outside.")
     people: list[str] = Field(description="Who is in the picture, by name, most important first.")
@@ -750,6 +767,7 @@ class PlanShot(BaseModel):
         description="The number of the script line spoken in this shot, or null. Never its words."
     )
     how: str = Field(description="How the line is said, in a few words; empty with no line.")
+    _older = _older(at=0)
 
 
 class PlanClip(BaseModel):
@@ -764,6 +782,16 @@ class PlanClip(BaseModel):
     )
     sound: str = Field(description="The scene's own sound in a few words. Never music.")
     shots: list[PlanShot] = Field(description="Back to back; the clip's length is their sum.")
+    kind: str = Field(
+        description="Empty, or with <song>: 'broll' (silent picture under the voice), 'host' "
+        "(the presenter says this stretch to the lens) or 'sung'."
+    )
+    footage: str = Field(
+        description="Only when <footage> says a clip may be one of the brand's real clips: "
+        "its id ('footage:12'); this clip is that footage, not made. Else empty."
+    )
+    footage_at: float = Field(description="With `footage`: the second of it to start from. Else 0.")
+    _older = _older(kind="", footage="", footage_at=0)
 
 
 class ShootingPlan(BaseModel):

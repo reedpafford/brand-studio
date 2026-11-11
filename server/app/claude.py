@@ -34,6 +34,26 @@ PRICE_PER_MTOK = {
     "cache_write": Decimal(5),
     "cache_write_1h": Decimal(8),
 }
+# Each model a step may be asked on, at its own price. Claude Sonnet 5.5 (the one-pass plan
+# can be set to it: BS_ONE_PASS_MODEL): $2 in, $10 out and $0.10 a cache read per million
+# tokens (Anthropic's model table, as of 3 Nov 2026); its cache writes by the same multiples
+# of its input price as above (1.25x and 2x).
+PRICES = {
+    MODEL: PRICE_PER_MTOK,
+    "claude-sonnet-5-5": {
+        "input": Decimal(2),
+        "output": Decimal(10),
+        "cache_read": Decimal("0.10"),
+        "cache_write": Decimal("2.50"),
+        "cache_write_1h": Decimal(4),
+    },
+}
+
+
+def price_ratio(model: str) -> Decimal:
+    """What a call on `model` costs beside the same call on the usual one (MODEL), by their
+    output price: a step's flat estimate, made for the usual model, scales by it."""
+    return PRICES[model]["output"] / PRICE_PER_MTOK["output"]
 
 
 log = logging.getLogger(__name__)
@@ -82,6 +102,7 @@ def ask[T: BaseModel](
     cache_ttl: Literal["5m", "1h"] = "5m",
     started: Callable[[], None] | None = None,
     strict: bool = True,
+    model: str = MODEL,
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
     the cache mark on the last part caches them all together. `images` (data URLs) go
@@ -93,7 +114,8 @@ def ask[T: BaseModel](
     begins (its first streamed event): the cache it writes can be read from then on.
     `strict` False: no constrained decoding (for a schema too complex for Anthropic's grammar
     limit, the director's): the schema goes in the system prompt, the answer is JSON in text,
-    checked here against `schema`, and asked once more with the problems if it doesn't fit."""
+    checked here against `schema`, and asked once more with the problems if it doesn't fit.
+    `model`: the model asked (one of PRICES); the call is costed at that model's price."""
     max_tokens = min(max_tokens, MOST_TOKENS)
     blocks = [{"type": "text", "text": text} for text in system]
     if not strict:
@@ -107,11 +129,11 @@ def ask[T: BaseModel](
     )  # an hour-long entry before the 5-minute `shared` one, as the API requires
     messages = [{"role": "user", "content": content if images or shared else prompt}]
     if not strict:
-        return _loose(client, schema, started, len(images), messages=messages,
+        return _loose(client, schema, started, len(images), messages=messages, model=model,
                       max_tokens=max_tokens, system=blocks, effort=effort)  # fmt: skip
     # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
     with client.beta.messages.stream(
-        model=MODEL,
+        model=model,
         max_tokens=max_tokens,
         system=blocks,
         messages=messages,
@@ -128,8 +150,8 @@ def ask[T: BaseModel](
             response = stream.get_final_message()
         except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
             cut = any("EOF" in e["msg"] for e in exc.errors())  # the JSON stops mid-way
-            raise ClaudeError(RAN_OUT if cut else UNREADABLE, _cost_so_far(stream)) from exc
-    cost, tokens = _cost(response.usage), counts(response.usage, len(images))
+            raise ClaudeError(RAN_OUT if cut else UNREADABLE, _cost_so_far(stream, model)) from exc
+    cost, tokens = _cost(response.usage, model), counts(response.usage, len(images))
     if response.stop_reason == "refusal":
         category = response.stop_details.category if response.stop_details else None
         raise ClaudeError(f"Claude declined this request ({category or 'no category'}).", cost)
@@ -148,7 +170,7 @@ SHAPE = (
 
 def _loose[T: BaseModel](
     client: Anthropic, schema: type[T], started, images: int, *, messages: list,
-    max_tokens: int, system: list, effort: str,
+    max_tokens: int, system: list, effort: str, model: str = MODEL,
 ) -> Answer[T]:  # fmt: skip
     """`ask` without constrained decoding: the answer's JSON is read from its text and checked
     against `schema` (fields left out take their defaults). One that doesn't fit is asked once
@@ -156,7 +178,7 @@ def _loose[T: BaseModel](
     cost, tokens = Decimal(0), {}
     for attempt in (1, 2):
         with client.beta.messages.stream(
-            model=MODEL,
+            model=model,
             max_tokens=max_tokens,
             system=system,
             messages=messages,
@@ -169,7 +191,7 @@ def _loose[T: BaseModel](
                 next(stream, None)  # the first event: the prompt is read and cached by now
                 started()
             response = stream.get_final_message()
-        cost += _cost(response.usage)
+        cost += _cost(response.usage, model)
         for key, n in counts(response.usage, images).items():
             tokens[key] = tokens.get(key, 0) + n
         if response.stop_reason == "refusal":
@@ -216,9 +238,9 @@ def _image(url: str) -> dict:
     return {"type": "image", "source": {"type": "base64", "media_type": media, "data": data}}
 
 
-def _cost_so_far(stream) -> Decimal | None:
+def _cost_so_far(stream, model: str = MODEL) -> Decimal | None:
     try:
-        return _cost(stream.current_message_snapshot.usage)
+        return _cost(stream.current_message_snapshot.usage, model)
     except AssertionError:  # nothing received yet
         return None
 
@@ -230,7 +252,8 @@ def _writes(usage) -> tuple[int, int]:
     return (usage.cache_creation_input_tokens or 0) - long, long
 
 
-def _cost(usage) -> Decimal:
+def _cost(usage, model: str = MODEL) -> Decimal:
+    """What a call cost, at the price of the model it was asked on."""
     short, long = _writes(usage)
     tokens = {
         "input": usage.input_tokens,
@@ -239,7 +262,7 @@ def _cost(usage) -> Decimal:
         "cache_write": short,
         "cache_write_1h": long,
     }
-    return sum((Decimal(n) * PRICE_PER_MTOK[k] / 1_000_000 for k, n in tokens.items()), Decimal(0))
+    return sum((Decimal(n) * PRICES[model][k] / 1_000_000 for k, n in tokens.items()), Decimal(0))
 
 
 def counts(usage, images: int = 0) -> dict:

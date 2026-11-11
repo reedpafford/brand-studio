@@ -36,9 +36,9 @@ def pytest_configure(config):
     # The tests' owner is held as the team is, so the team's holds stay tested through either
     # account; tests/test_owner_uncapped.py turns the owner's no-hold mode (the sites' own) on.
     os.environ["BS_OWNER_UNCAPPED"] = "false"
-    # The one-pass director is on for new Dialogue videos on the sites; here it's off, so the
-    # tests of the step-by-step director (every video already made, and every Song, Narrated and
-    # Presenter one) keep running on it. tests/test_one_pass*.py turn it on.
+    # The one-pass director is on for new videos on the sites; here it's off, so the tests of
+    # the step-by-step director (every video already made, and any format switched back to
+    # it) keep running on it. tests/test_one_pass*.py turn it on.
     os.environ["BS_ONE_PASS"] = "false"
     # Passwords hash with argon2's lightest settings here: every test signs people up and in,
     # and the real settings are built to be slow (the hash and its check are the same code).

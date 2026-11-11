@@ -87,7 +87,10 @@ def test_only_a_video_with_a_host_has_a_b_roll_look_and_an_editor_picks_one_that
     same = owner.post(f"/projects/{video.id}/settings", json={"broll_look": "house"}).json()
     assert same["settings"]["broll_look"] is None  # the style's own reads as none
     kel = db.query(User).filter(User.name == "Ed").one()
-    with pytest.raises(HTTPException) as off:  # Skeleton is off for editors until switched on
+    assert looks.pick_broll(db, kel, video, "skeleton") == "skeleton"  # on from the start now
+    db.add(LookSwitch(workspace_id=kel.workspace_id, look_id="skeleton", on=False))
+    db.commit()
+    with pytest.raises(HTTPException) as off:  # the owner switched Skeleton off: it stays off
         looks.pick_broll(db, kel, video, "skeleton")
     assert off.value.status_code == 409
 

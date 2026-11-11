@@ -185,8 +185,8 @@ def _host_open(db: Session, project: Project) -> list[str]:
         for f in _found(check):
             if f.get("verified", True):
                 out.append(f"{who}: {said(f['text']).rstrip('.')}. Kept as it is.")
-        if item_checks.on() and (check is None or check.status != "done"):
-            out.append(f"{who} wasn't checked.")
+        if item_checks.on() and not project.engine and (check is None or check.status != "done"):
+            out.append(f"{who} wasn't checked.")  # a one-pass video's is seen in its cut's watch
     return out
 
 

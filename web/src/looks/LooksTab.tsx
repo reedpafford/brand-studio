@@ -17,7 +17,7 @@ export function LooksTab() {
   const brandId = picked ?? brands[0]?.id ?? null;
   return (
     <section aria-label="Styles" className="space-y-4">
-      <p className="text-sm text-muted">How the pictures are drawn. A style is on for editors once you've seen its sample.</p>
+      <p className="text-sm text-muted">How the pictures are drawn. Editors can pick any style that's on. Switching one on needs its sample first.</p>
       {brands.length > 1 && (
         <div className="max-w-xs">
           <Select label="Sample with" hint="The sample uses this brand's hero." value={brandId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
@@ -72,21 +72,15 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
   const clip = s?.clip_id ?? l.sample_clip_id;
   const clipComing = s?.status === "making" && !!s.still_id; // the still is in, the 5 s clip is still being made
   const refused = [make, turn].find((m) => m.isError)?.error?.message;
-  const actions = (
-    <>
-      {refused && <p role="alert" className={errorClass}>{refused}</p>}
-      {house ? (
-        <p className="text-sm text-muted">The House style is always on.</p>
-      ) : l.on ? (
-        <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(false)}>Switch off</Button>
-      ) : brandId === null ? null : !s ? (
+  // A style that's on from the start has no sample yet: its sample is still made here, to see it.
+  const sampling = brandId === null ? null : !s ? (
         sample.isError ? <p className="text-sm text-muted">{sample.error.message}</p> : <Skeleton className="h-control w-48" />
       ) : s.status === "making" ? (
         <p role="status" className="text-sm text-muted">{clipComing ? "The still is in. Clip coming…" : "Making the sample: one still, then a 5 s clip…"}</p>
       ) : s.status === "ready" ? (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>
+            {!l.on && <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(true)}>Switch on for editors</Button>}
             <Button variant="ghost" busy={make.isPending} charge="estimate" price={s.credits} onClick={() => make.mutate(s.hero ? s.hero.id : who === "sample" ? null : who)}>Make another sample</Button>
           </div>
         </div>
@@ -110,6 +104,17 @@ function LookCard({ look: l, brandId }: { look: Look; brandId: number | null }) 
             {s.status === "failed" ? "Try again" : "Make a sample"}
           </Button>
         </div>
+      );
+  const actions = (
+    <>
+      {refused && <p role="alert" className={errorClass}>{refused}</p>}
+      {house ? (
+        <p className="text-sm text-muted">The House style is always on.</p>
+      ) : (
+        <>
+          {l.on && <Button variant="secondary" busy={turn.isPending} onClick={() => turn.mutate(false)}>Switch off</Button>}
+          {sampling}
+        </>
       )}
     </>
   );

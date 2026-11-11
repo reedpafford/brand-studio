@@ -129,6 +129,28 @@ def checked(keys) -> list[str] | None:
     return keys if ok else None
 
 
+def candidates(db: Session, project: Project) -> list[str]:
+    """The voices that read for a presenter when no model names them (a one-pass run): the
+    MOST app voices nearest who they are (voices.nearest: the gender, age and tone their
+    look's words and the script's first lines say), from the everyday voices for someone
+    filming themselves (MiniMax's, as the UGC listening test chose), else from them all. When
+    nothing says whether they are a man or a woman, two of each."""
+    from app import host, talker
+    from app.models.script_library import ScriptDraft
+
+    item = host.host_look(db, project)
+    told = " ".join(x for x in (item.name, item.short_description, item.notes) if x) if item else ""
+    draft = db.get(ScriptDraft, project.script_draft_id or 0)
+    about = (draft.text if draft else "")[:400]
+    pool = narration.MINIMAX_VOICES if talker.minimax(db, project) else None
+    ranked = voices.nearest(told, about, pool)
+    if not voices.gender(told, about):
+        each = [[k for k in ranked if voices.TRAITS[k][0] == sex][:MOST // 2]
+                for sex in ("woman", "man")]  # fmt: skip
+        ranked = [k for pair in zip(*each, strict=False) for k in pair]
+    return ranked[:MOST]
+
+
 def start(db: Session, user: User, project: Project, ask: Ask, keys, before: bool) -> str:
     """The director's candidates read the opening, one voice call each, priced like the
     narration. Before Make it they count on the video's planning allowance, as the treatment
@@ -150,7 +172,6 @@ def _read(db: Session, user: User, project: Project, ask: Ask, keys, before: boo
     treatment is: past it, the owner's OK on a planning card first (never for an uncapped
     owner's own run)."""
     from app import asks
-    from app.credits import estimate, uncapped
     from app.routes.jobs import enqueue
 
     said = line(db, project)
@@ -159,10 +180,7 @@ def _read(db: Session, user: User, project: Project, ask: Ask, keys, before: boo
         units = Decimal(len(said)) / 1000
         wait = ""
         if before:
-            data = {**data, asks.BEFORE: True}
-            price = estimate(db, project.workspace_id, "speech", units, data)
-            if not uncapped(user) and asks.past_planning(db, project, price, plan=False):
-                data, wait = {**data, asks.PLAN_OK: True}, asks.PLANNING
+            data, wait = asks.before_ok(db, user, project, "speech", data, units)
         enqueue(db, user, "speech", data, project=project, provider="replicate", units=units,
                 prepaid=before and not wait, wait=wait)  # fmt: skip
 

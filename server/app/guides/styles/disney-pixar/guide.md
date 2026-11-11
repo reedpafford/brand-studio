@@ -1,6 +1,6 @@
 name: Disney Pixar
 order: 1
-on: no
+on: yes
 image_model: auto
 video_model: seedance-2.5
 blurb: Like a frame from a Pixar feature: designed 3D characters with big glossy eyes and sculpted hair, in a warm, softly lit world.

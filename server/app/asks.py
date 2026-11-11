@@ -812,6 +812,20 @@ def past_planning(db: Session, project: Project, credits: Decimal, plan: bool) -
     return used + credits > cap or plan and plans >= settings.plans_before_ok + oks
 
 
+def before_ok(db: Session, user: User, project: Project, kind: str, data: dict,
+              units: Decimal | int = 1, plan: bool = False) -> tuple[dict, str]:  # fmt: skip
+    """A job made before Make it, on the video's planning allowance: its input marked so, and
+    why it waits ("": it doesn't). Past the allowance it waits for the owner's OK on a
+    planning card, never an uncapped owner's own run. `plan`: it writes a plan."""
+    from app.credits import estimate, uncapped
+
+    data = {**data, BEFORE: True}
+    price = estimate(db, project.workspace_id, kind, Decimal(units), data)
+    if not uncapped(user) and past_planning(db, project, price, plan=plan):
+        return {**data, PLAN_OK: True}, PLANNING
+    return data, ""
+
+
 def run_price(db: Session, project: Project) -> Decimal:
     """The most a run on this video can charge (rule 34): `estimate.run_price`; a freestyle's
     video is held to the price its maker was quoted."""

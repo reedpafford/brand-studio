@@ -9,7 +9,7 @@ from decimal import Decimal
 
 import anthropic
 
-from app.claude import ClaudeError, ask, make_client
+from app.claude import MODEL, ClaudeError, ask, make_client
 from app.prompts import SCHEMAS
 from app.providers import NetworkError, NoKey, NotStarted, Result, UsageItem
 
@@ -37,6 +37,14 @@ LONG_CACHE = {"director": "1h", "take_watch": "1h"}
 # schema compiles to a grammar Anthropic refuses as too large (jobs 3234-3236, 10 Nov), so its
 # answer is checked against the same model on our side instead (`claude.ask`, strict=False).
 LOOSE = {"director"}
+
+
+def model_for(step: str) -> str:
+    """The model a step is asked on: the usual one, but for the one-pass director's plan when
+    the site sets another (`Settings.one_pass_model`, BS_ONE_PASS_MODEL); no other step."""
+    from app.settings import get_settings
+
+    return (get_settings().one_pass_model or MODEL) if step == "one_pass" else MODEL
 
 
 class ClaudeProvider:
@@ -116,6 +124,7 @@ class ClaudeProvider:
                 cache_ttl=LONG_CACHE.get(input["step"], "5m"),
                 started=started,
                 strict=input["step"] not in LOOSE,
+                model=model_for(input["step"]),
                 **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
         except (

@@ -80,14 +80,25 @@ def _request(
     voice: str = narration.VOICE,
     delivery: dict | None = None,
     task: str = "",
+    before: bool = False,
 ) -> Job:
     """One request for 2 songs of the version's words as they are now. One that can't be
     made says why (422); past an allowance or budget, enqueue declines with the reason.
     `free`: a request already paid for (it gave back fewer songs than asked). `kie`: the price
     a real song through KIE counts at (0: not a real one). `delivery`: a MiniMax voice's
     emotion and reading (narration.job). `task`: no new request, the KIE task whose songs
-    were made but not saved, read again (free; `fetch_again`)."""
+    were made but not saved, read again (free; `fetch_again`). `before`: a one-pass run makes
+    it before Make it (the plan is timed to it), so it counts on the video's planning
+    allowance, as its plan does (asks.before_ok)."""
+    from app import asks
     from app.routes.jobs import enqueue
+
+    def send(kind: str, data: dict, provider: str, units) -> Job:
+        wait = ""
+        if before and project is not None and units:
+            data, wait = asks.before_ok(db, user, project, kind, data, units)
+        return enqueue(db, user, kind, data, project=project, provider=provider, units=units,
+                       **({"prepaid": not wait, "wait": wait} if before else {}))  # fmt: skip
 
     if narrated(db, draft):  # one voice call (flows N1)
         said = words(db, draft, project)  # a UGC talker's approved spoken version, else the script
@@ -104,8 +115,7 @@ def _request(
             from app import cast_gate
 
             cast_gate.require_voice(db, project, voice)
-        return enqueue(db, user, "speech", job_input, project=project,
-                       provider="replicate", units=_units(job_input))  # fmt: skip
+        return send("speech", job_input, "replicate", _units(job_input))
     try:
         style = " ".join(x for x in (draft.style_line.strip(), note.strip()) if x)
         job_input = music.job(draft.text, style)  # a director's remake note: this request only
@@ -119,8 +129,7 @@ def _request(
         **({"kie": True} if kie or task else {}),
         **({AGAIN: task} if task else {}),
     }
-    job = enqueue(db, user, "music", job_input, project=project,
-                  provider=music.PROVIDER, units=0 if free or task else 1)  # fmt: skip
+    job = send("music", job_input, music.PROVIDER, 0 if free or task else 1)
     if kie and not task:  # each real song, for ops/SPEND.md (CLAUDE.md: every paid call is logged)
         made = sum(1 for j in _real_jobs(db))
         log.warning("Real song request: job %s, about $%.2f, %s so far (about $%.2f)", job.id,
@@ -137,13 +146,16 @@ def make(
     note: str = "",
     voice: str = narration.VOICE,
     delivery: dict | None = None,
+    before: bool = False,
 ) -> list[SongTake]:
     """Make 2 takes (one request) of the version's lyrics and style line. `kie`: a real
-    song through KIE (KieSuno sings only those, never a request queued before)."""
+    song through KIE (KieSuno sings only those, never a request queued before). `before`: a
+    one-pass run's, made before Make it (`_request`)."""
     reads = {"kind": narration.KIND, "voice": voice} if narrated(db, draft) else {}
     if reads and any(state(db, t)[0] in ("making", "timing") for t in takes(db, draft, project)):
         raise HTTPException(409, narration.MAKING)  # one at a time: never two charged at once
-    job = _request(db, user, draft, project, kie=kie, note=note, voice=voice, delivery=delivery)
+    job = _request(db, user, draft, project, kie=kie, note=note, voice=voice,
+                   delivery=delivery, before=before)  # fmt: skip
     numbered = select(func.max(SongTake.number)).where(
         SongTake.draft_id == draft.id, SongTake.project_id == (project.id if project else None)
     )
@@ -194,10 +206,10 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
     kind = "narration_timing" if take.kind == narration.KIND else "song_timing"
     lyrics = check.narration_text(take.lyrics) if take.kind == narration.KIND else take.lyrics
     read = {}
+    video = db.get(Project, take.project_id) if take.project_id else None
     if take.kind == narration.KIND:  # its marked pauses kept; a UGC talker's a breath, in a room
         from app import talker
 
-        video = db.get(Project, take.project_id) if take.project_id else None
         ugc = bool(video and talker.minimax(db, video))
         read = {
             "pause": narration.TALKER_KEEP if ugc
@@ -209,6 +221,8 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
                    "spread": spread, **read},
                   units=0, provider="local", prepaid=True)  # fmt: skip
     job.project_id = take.project_id  # it shows with its video's jobs (free: no video checks)
+    draft = db.get(ScriptDraft, take.draft_id)  # and with its brand's, as every job of it does
+    job.brand_id = video.brand_id if video else db.get(Script, draft.script_id).brand_id
     take.timing_job_id = job.id
     db.commit()
 
@@ -339,8 +353,13 @@ def video_credits(db: Session, take: SongTake, video=None) -> Decimal:
 
 def song_video_cost(db: Session, draft: ScriptDraft, seconds: float, video=None) -> Decimal:
     """A song video of `seconds`, every step at plan (`video_credits` above): the one sum a
-    take's card and "Make 2 more" both show (B2: 39 on a take, 41 under Make 2 more)."""
+    take's card and "Make 2 more" both show (B2: 39 on a take, 41 under Make 2 more). A
+    version the one-pass director would make is priced as its run will probably cost."""
+    from app import one_pass
     from app.plans import plan_first
+
+    if one_pass.priced(db, draft, video):
+        return one_pass.expected(db, draft, video)
     from app.sheets import look_price, roles_needing_look, roles_without_a_look
 
     script = db.get(Script, draft.script_id)

@@ -1,6 +1,6 @@
 name: UGC
 order: 11
-on: no
+on: yes
 image_model: auto
 video_model: gemini-omni-1.2
 blurb: A real person talks straight into a phone in their own room, cut with fast literal B-roll of what they're saying.
