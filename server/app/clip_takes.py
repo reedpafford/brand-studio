@@ -316,7 +316,7 @@ SAME_INVALID = ("The service refused this take's request as invalid ({reason}), 
                 "Nothing was charged.")  # fmt: skip
 
 
-SAME_REFUSED = ("This same prompt for this clip was {} before, so it would be again. "
+SAME_REFUSED = ("This same prompt for clip {} was {} before, so it would be again. "
                 "Change the prompt first. Nothing was charged.")  # fmt: skip
 
 
@@ -346,7 +346,8 @@ def not_again(db: Session, clip: ProjectClip, model_id: str, take: dict, sent: d
         return
     for job in takes:
         if job.status == JobStatus.failed and why_failed(job) == "refused" and same(job, False):
-            raise HTTPException(409, SAME_REFUSED.format(refused_how(job.error_detail)))
+            raise HTTPException(409, SAME_REFUSED.format(  # which clip: a run may stop on it
+                clip.clip_id.removeprefix("c"), refused_how(job.error_detail)))  # fmt: skip
 
 
 def _words(prompt) -> str:

@@ -539,11 +539,11 @@ def test_the_director_never_sends_a_refused_prompt_again(app, db, editor, setup,
     seen = director.video_state(db, project)["clips"][0]["refused"]  # what it was sent, whole
     sent = db.query(Job).filter(Job.kind == "video").one().input["input"]["prompt"]
     assert seen == {"how": BLOCKED, "prompt": sent}
-    assert take() == f"Refused: {SAME_REFUSED.format(BLOCKED)}"
+    assert take() == f"Refused: {SAME_REFUSED.format(1, BLOCKED)}"
     spaced = db.query(Job).filter(Job.kind == "video").one()  # spaces don't make it another
     spaced.input = {**spaced.input, "input": {**spaced.input["input"], "prompt": f" {sent}\n "}}
     db.commit()
-    assert take() == f"Refused: {SAME_REFUSED.format(BLOCKED)}"
+    assert take() == f"Refused: {SAME_REFUSED.format(1, BLOCKED)}"
     assert take("She only reaches for the phone.").startswith("Making 1 take")  # reworded
     assert "refused" not in director.video_state(db, project)["clips"][0]  # being made
     _work(app, db, Unsafe([]))

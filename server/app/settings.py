@@ -150,6 +150,10 @@ class Settings(BaseSettings):
     # its own speech model in memory (and its own CPUs, with 2 or more each): check the
     # server's cores and memory before raising it.
     local_workers: int = 2
+    # How many Claude calls the Claude worker makes at once (BS_CLAUDE_WORKERS), each in its own
+    # lane. A video's id picks its lane, so one video's steps still run one at a time, in
+    # order; other videos' run beside them. Each call in hand is one more a deploy waits for.
+    claude_workers: int = 1
     # One-time secret needed to create the first owner (POST /auth/setup). Empty = disabled.
     setup_token: str = ""
 

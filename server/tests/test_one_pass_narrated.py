@@ -336,3 +336,10 @@ def test_carry_on_after_a_failed_narration_reads_in_the_videos_own_voice(app, ow
     assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
     _run(app, db, ticks=4)
     assert _jobs(db, "song_take")[-1].input["input"]["voice"] == "Austin"
+
+
+def test_a_zack_d_video_is_read_in_the_styles_own_voice(app, owner, db):
+    """Reed, 11 Nov: "zack d's voice is not implemented" (video 383 was read by Sarah)."""
+    _delivered(app, owner, db, type="zack-d", look="zack-d")
+    read = db.query(Job).filter(Job.kind == "speech").order_by(Job.id).first().input["input"]
+    assert read["voice_id"] == "R8_BHEBN0NI" and read["emotion"] == "surprised"
