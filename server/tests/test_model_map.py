@@ -85,9 +85,10 @@ SEEDANCE_SHAPED = (
 
 
 def test_omni_reads_its_own_prompt_words_and_two_people(owner):
-    """QA on #1394, docs/prompting/omni-1.2.md's "must" rows: one short sound line instead of
-    Seedance's two; the opening still a guide, never "the first frame"; references named in
-    words by order; one continuous shot asked for; 2 people a clip, the rest said in words."""
+    """docs/prompting/omni-1.2.md's "must" rows, in the order Google's Flow guide gives (Reed,
+    11 Nov): the shot first, then the references named in words by order, the style with one
+    continuous shot asked for, and one audio line instead of Seedance's two; a line is
+    `Dialogue: Theo says, "…"`; 2 people a clip, the rest said in words."""
     from app.clip_takes import _out
 
     omni = get_model(model_map.OMNI)
@@ -95,11 +96,13 @@ def test_omni_reads_its_own_prompt_words_and_two_people(owner):
              "aspect_ratio": "9:16", "generate_audio": False}  # fmt: skip
     sent, files = model_map.fit(omni, asked, {"reference_images": [11, 12]})
     said = sent["prompt"]
-    assert "Audio:" not in said and "[Image" not in said and said.count("Sound:") == 1
-    assert said.startswith("References: the first reference picture guides the opening picture "
-                           "(not an exact first frame). It sets")  # fmt: skip
-    assert "the second reference picture is Theo." in said
-    assert said.endswith(f"{model_map.ONE_SHOT}\n" + model_map.SILENT.format(room="kitchen sounds"))
+    assert "[Image" not in said and said.count("Audio:") == 1 and "Shot 1 |" not in said
+    assert said.splitlines() == [
+        "Theo lifts the bowl.",
+        "References: The first image is the first frame. It sets the opening composition only. "
+        "The second image is Theo.",
+        f"Style: {model_map.ONE_SHOT}",
+        model_map.SILENT.format(room="kitchen sounds")]  # fmt: skip
     assert (sent["duration"], sent["resolution"], files) == (
         15,
         "720p",
@@ -109,7 +112,13 @@ def test_omni_reads_its_own_prompt_words_and_two_people(owner):
     two = SEEDANCE_SHAPED.replace("No one speaks.\n", 'Theo: "Mm."\nShot 2 | 4-6 s. Dad nods.\n')
     spoken = model_map.fit(omni, {**asked, "prompt": two, "generate_audio": True}, {})[0]["prompt"]
     assert model_map.ONE_SHOT not in spoken
+    assert spoken.startswith('[00:00-00:04] Theo lifts the bowl.\nDialogue: Theo says, "Mm."\n'
+                             "[00:04-00:06] Dad nods.")  # fmt: skip
     assert spoken.endswith(model_map.SPOKEN.format(room="kitchen sounds"))
+    # A clip's own start frame goes alone, as the start frame (Omni: a frame or references)
+    framed, files = model_map.fit(omni, asked, {"image": [9], "reference_images": [11, 12]})
+    assert files == {"image": [9]} and "References:" not in framed["prompt"]
+    assert f"Style: {model_map.ONE_SHOT} {model_map.FROM_FRAME}" in framed["prompt"]
     cast = ["frame:1", "char:1", "char:15", "char:150", "screen:2"]
     assert model_map.unsent_pictures(model_map.OMNI, cast) == ("char:150",)
     assert model_map.unsent_pictures("seedance-2.5", cast) == ()
@@ -135,7 +144,7 @@ def test_the_ugc_sample_and_a_one_clip_freestyle_are_sent_as_omni_reads_them(db,
     assert clip["model"] == model_map.OMNI and sent["resolution"] == "720p"
     assert clip["fit_images_to"] == 1280 and clip["files"] == {"reference_images": [7]}
     assert "generate_audio" not in sent and "[Image" not in sent["prompt"]
-    assert ". The first reference picture guides the opening picture" in sent["prompt"]
+    assert ". The first image is the first frame" in sent["prompt"]
     quoted = look_samples.clip_input("ugc", 0, 0, "", quote=True)
     assert quoted["input"]["resolution"] == "480p"  # the price reads it as it always has
     ws = 1
@@ -156,8 +165,8 @@ def test_omni_takes_get_its_own_inputs(app, db, owner, ugc):
     assert set(sent) == {"prompt", "duration", "resolution", "aspect_ratio"}
     assert sent["resolution"] == "720p" and 3 <= sent["duration"] <= 15
     said = sent["prompt"].splitlines()
-    assert "[Image" not in sent["prompt"] and not any(x.startswith("Audio:") for x in said)
-    assert said[-1].startswith("Sound: no one speaks in this shot") and "No music" in said[-1]
+    assert "[Image" not in sent["prompt"] and sum(x.startswith("Audio:") for x in said) == 1
+    assert said[-1].startswith("Audio: no one speaks") and "No music" in said[-1]
     assert len(job["files"].get("reference_images", [])) <= 6
 
 
@@ -324,7 +333,7 @@ def test_a_narrated_video_keeps_its_narration_and_its_omni_broll_has_no_one_spea
     said = talker.clips(db, ugc)
     broll = next(r for c, r in _rows(db, ugc).items() if c not in said)
     prompt = take_input(db, ugc, broll)["input"]["prompt"]
-    assert prompt.splitlines()[-1].startswith("Sound: no one speaks in this shot")
+    assert prompt.splitlines()[-1].startswith("Audio: no one speaks")
     shown = owner.get(f"/projects/{ugc.id}/settings").json()
     assert "narration_only" not in shown  # nothing to switch off: the narration runs throughout
 

@@ -35,7 +35,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     which), the project's aspect ratio, and its references by file id in the clip's order.
     `drop`: references left out for a look-alike retry ("frame:", then "char:"), each of their
     [ImageN] said in words instead and the rest renumbered (`LOOKALIKE`)."""
-    from app import footage_shot
+    from app import footage_shot, one_pass
     from app.breakdown import would_show
 
     if footage_shot.of_clip(db, clip):  # cut from the brand's real clip, never made
@@ -55,9 +55,19 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
             Job.input["project_clip_id"].as_integer() == clip.id,
             Job.error_detail.ilike(f"%{REAL}%")).limit(1)):  # fmt: skip
         drop = tuple(dict.fromkeys(drop + LOOKALIKE))
-    files: dict[str, list[int]] = {key: [] for key in KEYS.values()}
+    files: dict[str, list[int]] = {key: [] for key in (*KEYS.values(), "image")}
     exact: list[int] = []
-    prompt = _in_words(db, clip.prompt, images, drop, known) if drop else clip.prompt
+    # A one-pass clip's own start frame (a talker's opening still, the last frame of the clip
+    # before it) is sent as the model's start frame, alone: it already shows who and where
+    # (Reed, 11 Nov: "If he is meant to have a hat, the starting frame should have a hat")
+    start = next((i for i in images if i.startswith("frame:") and not _out(i, drop)), None) if (
+        model.first_frame and one_pass.on(project)) else None  # fmt: skip
+    prompt = clip.prompt
+    if start:
+        drop = tuple(dict.fromkeys(drop + tuple(i for i in images if i != start)))
+        prompt = "\n".join(x for x in prompt.splitlines()
+                           if not x.startswith(("References:", "Keep:")))  # fmt: skip
+    prompt = _in_words(db, prompt, images, drop, known) if drop else prompt
     images = [i for i in images if not _out(i, drop)]
     for ref in clip.references:
         if _out(ref["id"], drop) or (ref["kind"] == "video" and files[KEYS["video"]]):
@@ -74,7 +84,7 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
             where = ("the brand's library, under Products (a photo, or the app's screens)"
                      if ref["id"].startswith("prop:") else "Cast & places")  # fmt: skip
             raise HTTPException(422, f"{name} has no picture yet. Add one in {where}.")
-        files[KEYS[kind]].append(file_ids[0])
+        files["image" if ref["id"] == start else KEYS[kind]].append(file_ids[0])
         if ref["id"].startswith(("screen:", "prop:")):
             exact.append(file_ids[0])  # Reed: screens and products show exactly, never lossy
     attached = [r["id"] for r in clip.references or []]
@@ -172,7 +182,7 @@ def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...]
             return f"{who} ({told.rstrip('.')})" if told else who
         if ref.startswith("place:"):
             return said.get(ref) or "the place"
-        return "the opening shot"
+        return "the opening shot" if ref.startswith("frame:") else said.get(ref) or "it"
 
     return TAGS_N.sub(word, prompt)
 

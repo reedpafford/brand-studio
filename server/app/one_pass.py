@@ -647,13 +647,26 @@ def _land(db: Session, job: Job) -> None:
     footage_shot.settle(db, project, job.created_by_id)  # a real footage clip: cut, free
 
 
+# A talker's start frame, as Flow's guide places a person in a scene (Reed, 11 Nov: "If he is
+# meant to have a hat, the starting frame should have a hat": the HeyGen still's "no hat brim"
+# took the cap off video 390's presenter, and the take put it back on for two seconds)
+START_FRAME = (
+    "Place {who} from their sheet into {where}. Take only the person from the sheet, keeping "
+    "their face, hair, build and outfit exactly the same, with everything they wear. "
+    "Composition: filmed by themselves on their phone, chest-up, centred, at eye level, the "
+    "whole head and both shoulders in frame, the place in focus behind them. Lighting: soft "
+    "daylight lights them from the front. Camera and color: one frame from a phone video, "
+    "natural muted color, real skin, this one person alone in the frame."
+)
+
+
 def _opening_still(db: Session, project: Project, row: BreakdownVersion, who: str) -> None:
     """A presenter filmed on Omni keeps ONE opening still for all their clips in one place
     (app/one_frame.py: it is what holds their room from clip to clip): the first such clip's,
-    drawn once with them at rest, as the talker's own still is (talker.STILL_PROMPT); each
+    drawn once with them at rest, as Flow places a person in a scene (START_FRAME); each
     later clip there opens on it (clip_prompts.assets). A still drawn for an earlier plan
     stays with its clip while the plan still has it."""
-    from app import one_frame, talker
+    from app import one_frame
     from app.models.storyboards import StoryboardFrame
 
     shots = {s["id"]: (s, sc) for sc in row.data["scenes"] for s in sc["shots"]}
@@ -670,12 +683,12 @@ def _opening_still(db: Session, project: Project, row: BreakdownVersion, who: st
         if (frame := had.get(clip["id"])) is not None:
             frame.breakdown_id, frame.shot_id = row.id, first["id"]
             continue
-        where = f"where the plan puts them, {scene['heading']}: {scene.get('look') or ''}"
+        where = f"{scene['heading']}: {scene.get('look') or ''}".strip(": ")[:400]
+        place = [first["place_id"]] if first.get("place_id") else []
         db.add(StoryboardFrame(
             project_id=project.id, breakdown_id=row.id, clip_id=clip["id"], shot_id=first["id"],
-            look=project.look or "house", reference_ids=list(first["character_ids"]),
-            prompt=talker.STILL_PROMPT.format(who=who, where=where.strip(": ")[:400])
-            + one_frame.NEUTRAL))  # fmt: skip
+            look=project.look or "house", reference_ids=[*first["character_ids"], *place],
+            prompt=START_FRAME.format(who=who, where=where) + one_frame.NEUTRAL))  # fmt: skip
     for clip_id in set(had) - {c["id"] for c in row.data["clips"]}:
         db.delete(had[clip_id])
 

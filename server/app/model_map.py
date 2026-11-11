@@ -61,22 +61,29 @@ PERSONS = "Refused: {who} chose {model} for this video's clips themselves; their
 SUNG = "Refused: this clip's shots are sung, so it needs a model that lip-syncs to the song."
 SHAPE = "Refused: {model} makes {shapes} videos only; this one is {shape}."
 LONG = "Refused: this clip is {seconds} s and {model} makes about {most} s at most."
-# Omni's prompt words (docs/prompting/omni-1.2.md): no sound switch, so one short sound line
-# in place of Seedance's (§5); references named by order (§2, §6), the opening still a guide,
-# never "the first frame" (row 3); one shot asked for in words, as it cuts by default (§3)
-SILENT = ("Sound: no one speaks in this shot (no voices, narration or dialogue), only {room}. "
-          "No music.")  # fmt: skip
-SPOKEN = "Sound: only the spoken lines, each from the person who says it, and {room}. No music."
+# Omni's prompt, in the order Google's Flow guide gives (camera, then subject and action, the
+# line as `Dialogue: … says, "…"`, context, style, audio; Reed, 11 Nov: "Words and dialogue
+# should be prompted exactly as google flow recommends") and docs/prompting/omni-1.2.md: no
+# sound switch, so one audio line (§5); references named by order (§2, §6); a clip's own start
+# frame sent as the start frame, alone (row 3); one shot asked for in words (§3)
+SILENT = "Audio: no one speaks (no voices, narration or dialogue), only {room}. No music."
+SPOKEN = ("Audio: only the quoted lines are spoken, word for word, in American English, each "
+          "by the person named, with {room}. No music.")  # fmt: skip
 PLACE = "the sounds of the place"
-ONE_SHOT = "One continuous shot, no scene cuts."
+ONE_SHOT = "One continuous shot."
+FROM_FRAME = "It starts on the start frame given, in the same light and colour."
 # a take made at Omni's nearest shape is cropped to the video's in the cut (`nearest`)
 FRAMED = ("Framing: this shot is cropped to {shape} in the edit, so keep the action and faces "
           "inside the centre {area}.")  # fmt: skip
-AUDIO = re.compile(r"^Audio:.*(?:\n|$)", re.M)  # Seedance's audio line, first and last
 ROOM = re.compile(r"\bonly (?:the spoken lines and )?(.+?)\. No music", re.I)
-FIRST = re.compile(r"\[Image(\d+)\] is the first frame\b")
 IMAGE = re.compile(r"\[Image(\d+)\]")
-SHOT = re.compile(r"^Shot \d+ \|", re.M)
+HEAD = re.compile(r"^(Audio|References|Language|Summary|Style|Setting|Keep):\s*(.*)$")
+SHOT = re.compile(r"^Shot \d+ \| ([\d.]+)-([\d.]+) s\.\s*(.*)$")
+VOICE = re.compile(r"^.{1,60}'s voice: ")
+# a shot's line as the house prompt writes it: 'Mom (in English, warm): "…"'
+SAID = re.compile(r'^(?P<seen>.*?)\s*(?P<who>[^.()"“]+?)(?: \((?P<how>[^)]*)\))?: '
+                  r'(?P<line>["“].*)$', re.S)  # fmt: skip
+THOUGHT = re.compile(r"voice-?over|lips closed|inner voice|thought|V\.O\.", re.I)
 ORDINAL = ("first", "second", "third", "fourth", "fifth", "sixth")
 PEOPLE = 2  # Omni: 2 people a clip, 3 pictures each (§6); each sends one sheet
 PICTURES = 6  # Omni's reference pictures at most (the catalogue's max_reference_images)
@@ -298,34 +305,70 @@ def _too_long(db, project, clip, was, reason: str) -> bool:
 
 
 def fit(model, input: dict, files: dict) -> tuple[dict, dict]:
-    """A take's input as Omni reads it (docs/prompting/omni-1.2.md): prompt, duration (3–15 s),
-    resolution, shape and up to 6 reference pictures. Seedance's audio lines become one short
-    sound line (no one speaking says so, as there's no sound switch: a narrated video keeps its
-    narration throughout, Reed, 5 Nov); references are named in words by their order, the
-    opening still as a guide, never a literal first frame; a one-shot clip asks for one
-    continuous shot. Extra people are said in words before this (`unsent`)."""
+    """A take's input as Omni reads it: the prompt in Flow's order (`_flow`), duration (3–15
+    s), resolution and shape, and either the clip's own start frame, alone (`image`: Omni
+    takes a start frame or references, never both), or up to 6 reference pictures. No one
+    speaking says so, as there's no sound switch: a narrated video keeps its narration
+    throughout (Reed, 5 Nov). Extra people are said in words before this (`unsent`)."""
     if model.id != OMNI:
         return input, files
-    pictures = files.get("reference_images", [])[: model.max_reference_images]
-    asked = input["prompt"]
-    audio = AUDIO.search(asked)
-    room = (m.group(1) if audio and (m := ROOM.search(audio.group(0))) else PLACE).strip()
-    body = AUDIO.sub("", asked).strip()
-    prompt = FIRST.sub(lambda m: _guide(m, body, len(pictures)), body)
-    prompt = IMAGE.sub(lambda m: _picture(int(m.group(1)), len(pictures)), prompt)
-    if len(SHOT.findall(prompt)) <= 1:
-        prompt += f"\n{ONE_SHOT}"
-    if not input.get("generate_audio"):
-        prompt += "\n" + SILENT.format(room=room)
-    elif audio:
-        prompt += "\n" + SPOKEN.format(room=room)
+    start = files.get("image", [])[:1]
+    pictures = [] if start else files.get("reference_images", [])[: model.max_reference_images]
+    prompt = _flow(input["prompt"], len(pictures), bool(start), bool(input.get("generate_audio")))
     if (shape := nearest(input["aspect_ratio"], model.aspect_ratios)) != input["aspect_ratio"]:
         area = "square" if input["aspect_ratio"] == "1:1" else f"{input['aspect_ratio']} area"
         prompt += "\n" + FRAMED.format(shape=input["aspect_ratio"], area=area)
     shaped = {"prompt": prompt, "duration": max(model.duration.min, min(input["duration"],
               model.duration.max)), "resolution": resolution(model),
               "aspect_ratio": shape}  # fmt: skip
-    return shaped, {"reference_images": pictures} if pictures else {}
+    sent = {"image": start} if start else {"reference_images": pictures} if pictures else {}
+    return shaped, sent
+
+
+def _flow(prompt: str, sent: int, start: bool, speaks: bool) -> str:
+    """The house clip prompt (its Audio, References, Style, Setting, voice and Shot lines) as
+    Flow lays a video prompt out: each shot (camera, action, its line), the setting, the
+    references by their order, the style, then the voices and one audio line. The Summary
+    (it says the lines again in other words, and Omni said them: video 390), the Keep line
+    and the Language line go: the audio line says the language once."""
+    part: dict[str, list[str]] = {}
+    for line in filter(str.strip, prompt.splitlines()):
+        m = HEAD.match(line)
+        key = "Shot" if SHOT.match(line) else "Voice" if VOICE.match(line) else m[1] if m else ""
+        part.setdefault(key, []).append(m[2] if m else line)
+    shots = part.get("Shot", [])
+    room = ROOM.search(" ".join(part.get("Audio", [])))
+    out = [_shot(x, len(shots) > 1) for x in shots]
+    out += [f"Setting: {x}" for x in part.get("Setting", [])]
+    out += [x for x in part.get("", []) if not re.match(r"Shots?\b[^.]*:$", x)]  # a list's head
+    if sent:
+        out += [f"References: {x}" for x in part.get("References", [])]
+    one = [ONE_SHOT] * (len(shots) <= 1) + [FROM_FRAME] * start
+    out.append(" ".join(["Style:", *part.get("Style", []), *one]) if part.get("Style") or one
+               else "")  # fmt: skip
+    out += part.get("Voice", [])
+    out.append((SPOKEN if speaks else SILENT).format(room=(room[1] if room else PLACE).strip()))
+    said = IMAGE.sub(lambda m: _picture(int(m[1]), sent), "\n".join(filter(None, out)))
+    return re.sub(r"(?<=[.:] )the (?=\w+ image is )", "The ", said)
+
+
+def _shot(line: str, many: bool) -> str:
+    """One shot as Flow writes it: its time in brackets when the clip has several, the camera
+    and the action as the plan gave them, then `Dialogue: Mom says, "…"` with how it is said
+    after it (a thought: heard as a voice-over, lips closed)."""
+    a, b, text = SHOT.match(line).groups()
+    text = text.replace(" No one speaks.", "").replace("No one speaks.", "").strip()
+    if (d := SAID.match(text)) and d["who"].strip():
+        how = [x.strip() for x in (d["how"] or "").split(",")]
+        how = [x for x in how if x and x.lower() not in ("in english", "in american english")]
+        inner = any(THOUGHT.search(x) for x in how)
+        told = ", ".join(x for x in how if not THOUGHT.search(x))
+        who = d["who"].strip()
+        tag = f"{who} thinks, heard as a voice-over with lips closed" if inner else f"{who} says"
+        text = (f"{d['seen'].strip()}\nDialogue: {tag}, {d['line']}"
+                + (f" Delivery: {told}." if told else "")).strip()  # fmt: skip
+    clock = lambda t: f"00:{float(t):04.1f}".replace(".0", "")  # noqa: E731
+    return (f"[{clock(a)}-{clock(b)}] " if many else "") + text
 
 
 def nearest(shape: str, shapes: list[str]) -> str:
@@ -368,14 +411,6 @@ def unsent_pictures(model_id: str, images: list[str]) -> tuple[str, ...]:
     return tuple(out)
 
 
-def _guide(m: re.Match, prompt: str, sent: int) -> str:
-    """`[Image1] is the first frame` → "The first reference picture guides the opening"."""
-    picture = _picture(int(m.group(1)), sent)
-    said = f"{picture} guides the opening picture (not an exact first frame)"
-    before = prompt[: m.start()].rstrip(" ")
-    return said[0].upper() + said[1:] if not before or before.endswith((".", "\n")) else said
-
-
 def _picture(n: int, sent: int) -> str:
-    """[Image2] → "the second reference picture" (one past the six sent: "a picture")."""
-    return f"the {ORDINAL[n - 1]} reference picture" if 0 < n <= min(sent, 6) else "a picture"
+    """[Image2] → "the second image" (one past the six sent: "a picture")."""
+    return f"the {ORDINAL[n - 1]} image" if 0 < n <= min(sent, 6) else "a picture"
