@@ -183,17 +183,18 @@ def test_the_narration_is_on_the_planning_allowance_and_the_run_stays_inside_its
     assert done["up_to"] >= float(price + voice.credits)  # the narration is in the video's total
 
 
-def test_a_shot_that_starts_too_soon_is_asked_for_again_inside_the_same_job(
+def test_a_shot_that_starts_too_soon_is_left_out_and_the_plan_is_never_asked_again(
     app, owner, db, monkeypatch
 ):
     from app.providers.fake_local import FakeWriter
 
     asked, real = [], FakeWriter._one_pass
     monkeypatch.setattr(FakeWriter, "_one_pass", lambda self, p: asked.append(p) or real(self, p))
-    _delivered(app, owner, db, text=NARRATION + "\n[fake:bad-at]")
-    assert len(asked) == 2 and "<fix>" in asked[1]
-    assert "clip c1 shot 1 runs from 0.00 s to 0.10 s of the track, under a second" in asked[1]
-    assert len(_jobs(db, "one_pass")) == 1  # one job, charged once
+    pid = _delivered(app, owner, db, text=NARRATION + "\n[fake:bad-at]")
+    assert len(asked) == 1 and len(_jobs(db, "one_pass")) == 1  # no second answer to pay for
+    ats = [s["at"] for c in one_pass.shooting_plan(db, db.get(Project, pid))["clips"]
+           for s in c["shots"]]  # fmt: skip
+    assert ats[0] == 0 and all(b - a >= 1 for a, b in zip(ats, ats[1:], strict=False))
 
 
 def test_a_zack_d_video_is_planned_the_same_way_with_its_formats_guide(app, owner, db):
@@ -259,8 +260,8 @@ def test_an_at_lands_on_the_nearest_measured_start_and_the_first_on_zero():
     assert fixes == [] and plan["voices"] == []
     assert [s["at"] for s in plan["clips"][0]["shots"]] == [0.0, 1.4, 2.8, 4.3]
     assert plan["clips"][0]["kind"] == "broll"
-    _, fixes = one_pass.checked(asked, _plan([0.0, 0.2, 2.8]))
-    assert fixes[0].startswith("clip c1 shot 1 runs from 0.00 s to 0.10 s of the track")
+    plan, fixes = one_pass.checked(asked, _plan([0.0, 0.2, 2.8, 2.9]))  # two start too soon
+    assert fixes == [] and [s["at"] for s in plan["clips"][0]["shots"]] == [0.0, 2.8]
 
 
 def test_a_clip_the_model_cannot_make_in_one_go_is_cut_where_a_shot_starts():
@@ -284,3 +285,54 @@ def test_a_narration_heard_saying_a_word_more_is_still_used(app, owner, db, monk
         {"word": "Quickly", "start": 0.0, "end": 0.1}, *heard(path, text)])  # fmt: skip
     pid = _delivered(app, owner, db)
     assert db.get(Project, pid).song_take_id
+
+
+def test_a_narration_longer_than_its_voice_reads_at_once_is_read_in_parts_and_joined(
+    app, owner, db, monkeypatch
+):
+    """Reed, 11 Nov: a 9,900-character script was refused by the default voice ("Request text
+    length (9901) exceeds the maximum text length of 5000 characters") and the run stopped."""
+    from app import narration
+    from app.models.files import StoredFile
+
+    monkeypatch.setitem(narration.MOST, narration.MODEL, 80)  # the stand-in refuses past it too
+    pid = _delivered(app, owner, db)
+    (voice,) = _jobs(db, "song_take")
+    parts = voice.input["parts"]
+    assert len(parts) == 2 and all(len(p) <= 80 for p in parts)
+    assert " ".join(parts).split() == NARRATION.split()  # every word once, cut between sentences
+    assert voice.input["input"]["voice"] == narration.VOICE  # the same voice, never another
+    take = db.query(SongTake).one()
+    assert take.id == db.get(Project, pid).song_take_id and take.file_id not in voice.output[
+        "file_ids"]  # fmt: skip  # the joined track, not one part of it
+    assert [x["text"] for x in take.timing["lines"]] == narration.sentences(NARRATION)
+    assert db.get(StoredFile, take.file_id).size > 0 and all(x["heard"] for x in take.timing[
+        "lines"])  # fmt: skip
+
+
+def test_a_v3_note_opens_every_part_and_short_words_stay_one_request():
+    from app import narration
+
+    short = narration.job(NARRATION, note="clearly")
+    assert narration.in_parts(short) == short and "parts" not in short
+    long = narration.in_parts(narration.job("One two three. " * 400, note="clearly"))
+    assert len(long["parts"]) == 2 and all(
+        p.startswith("[clearly] One") and p.endswith("three.") and len(p) <= 5000
+        for p in long["parts"])  # fmt: skip
+    assert narration.characters(long) == len(long["input"]["prompt"])  # priced once, whole
+
+
+def test_carry_on_after_a_failed_narration_reads_in_the_videos_own_voice(app, owner, db):
+    """Reed, 11 Nov: after the stop he set the video's voice, and Carry on made the narration
+    in the default voice again."""
+    fs = owner.post("/freestyles", json={**BODY, "text": NARRATION + " fake:fail"})
+    _run(app, db, ticks=8)
+    pid = _video(db).id
+    out = owner.get(f"/freestyles/{fs.json()['id']}").json()
+    assert out["status"] == "stopped" and "narration didn't come out" in out["thread"][-1]["text"]
+    assert {j.input["input"]["voice"] for j in _jobs(db, "song_take")} == {"Sarah"}
+    set_voice = owner.post(f"/projects/{pid}/settings", json={"voice": "stock:Austin"})
+    assert set_voice.status_code == 200, set_voice.text
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    _run(app, db, ticks=4)
+    assert _jobs(db, "song_take")[-1].input["input"]["voice"] == "Austin"
