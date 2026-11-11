@@ -590,3 +590,27 @@ def test_stop_cancels_the_looks_not_yet_drawn_and_carry_on_draws_them(app, owner
     _run(app, db)
     out = owner.get(f"/projects/{pid}/director").json()
     assert out["status"] == "delivered", (out["ended"], _turns(db))
+
+
+def test_words_a_take_adds_to_the_script_are_silenced_free_before_the_cut(app, owner, db):
+    """Video 390 (11 Nov): the presenter finished his line early and made up a sentence ("If
+    I have to hear about another detention, then I'm going to change"). The listen found it,
+    and it was delivered with a note. Now that stretch is muted, as the Mute button does."""
+    from app.providers import fake_local
+
+    app.state.settings.fake_providers = True
+    app.state.stand_ins = providers = get_providers(app.state.settings, app.state.storage)
+    real, more = providers["local"].hear_take, "Cannot believe it worked."
+
+    def hear(path, job):  # every take says a sentence more, after its lines
+        heard = real(path, job)
+        at = heard[-1]["end"] + 0.5 if heard else 0.5
+        return [*heard, {"start": at, "end": at + 1, "text": more, "speaker": None,
+                         "words": fake_local._spread(more, at, at + 1)}]  # fmt: skip
+
+    providers["local"].hear_take = hear
+    _delivered(app, owner, db)
+    muted = [said for tool, _, said in _turns(db) if tool == "mute"]
+    assert muted and all(said.startswith("Muted a stretch") for said in muted), _turns(db)
+    assert all((t.made_with or {}).get("mutes") for t in db.query(ClipTake))
+    assert db.query(ClipTake).count() == 3  # nothing was made again for it
