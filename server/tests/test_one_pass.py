@@ -81,15 +81,10 @@ def test_a_dialogue_video_is_planned_in_one_call_and_delivered(app, owner, db):
     assert "3 clips" in note["made"] and "tell me which clip" in note["needs"]
 
 
-def test_the_pilot_clip_is_made_alone_then_the_others_together(app, owner, db):
+def test_every_clip_is_made_at_once(app, owner, db):
     _delivered(app, owner, db)
     takes = [(tool, clip, said) for tool, clip, said in _turns(db) if tool == "make_take"]
-    assert takes == [("make_take", "c1", "Making 1 take."), ("make_take", None, "Making 2 takes.")]
-    first, *rest = _jobs(db, "clip_take")
-    turn = next(j for j in _jobs(db, "director") if (j.output or {}).get("clip_id") is None
-                and (j.output or {}).get("tool") == "make_take")  # fmt: skip
-    assert first.finished_at <= turn.created_at  # the pilot landed before the rest started
-    assert all(j.created_at >= turn.created_at for j in rest)
+    assert takes == [("make_take", None, "Making 3 takes.")]  # no pilot clip first
 
 
 def test_the_tabs_read_what_the_plan_made(app, owner, db):
@@ -168,6 +163,21 @@ def test_a_take_that_misses_a_line_is_made_once_more_with_the_same_prompt(app, o
     assert db.get(Project, pid).engine == one_pass.ENGINE
 
 
+def test_the_one_pass_directors_cut_needs_no_clip_approved(app, owner, db):
+    """Reed, 11 Nov (video 370): a real-footage clip's prompt had problems, so it was never
+    approved, the director's cut was refused for it, and the run stopped at every Carry on."""
+    from app import cut
+    from app.routes.jobs import DIRECTOR_TOOL
+
+    project = db.get(Project, _delivered(app, owner, db))
+    db.query(ProjectClip).update({"approved": False})
+    token = DIRECTOR_TOOL.set(True)
+    try:
+        cut.ready(db, project, app.state.storage)  # never "Approve every clip"
+    finally:
+        DIRECTOR_TOOL.reset(token)
+
+
 def test_a_note_after_delivery_remakes_only_the_clip_it_names(app, owner, db):
     pid = _delivered(app, owner, db)
     before = {r.clip_id: (r.picked_take_id, r.prompt) for r in db.query(ProjectClip)}
@@ -242,6 +252,20 @@ def test_stop_then_carry_on_makes_no_claude_turn(app, owner, db):
     assert all(j.provider == "server" for j in _jobs(db, "director"))
     assert len(_jobs(db, "one_pass")) == 1 and db.query(ClipTake).count() == 3  # nothing twice
     assert len({j.input[director.RUN]["id"] for j in _jobs(db, "director")}) == 1  # the same run
+
+
+def test_a_brands_place_with_no_picture_is_never_offered_to_the_plan(app, owner, db):
+    """Reed, 11 Nov (videos 373, 383): the plan named a brand place nobody had drawn, no step
+    draws one, and its clips waited on a person's Make one."""
+    from app.models.brands import Brand
+    from app.models.library import Kind, LibraryItem
+
+    place = LibraryItem(workspace_id=1, kind=Kind.place, name="Kitchen", brands=[db.get(Brand, 1)])
+    db.add(place)
+    db.commit()
+    _delivered(app, owner, db)
+    (plan,) = _jobs(db, "one_pass")
+    assert f"place:{place.id}" not in plan.input["assets"]
 
 
 def test_the_picked_products_reach_the_plan_call(app, owner, db):
