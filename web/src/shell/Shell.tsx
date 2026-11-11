@@ -104,7 +104,8 @@ function Frame() {
     return () => void root.removeProperty("--brand");
   }, [brand]);
 
-  // The panel is the same element from page to page: each page opens at its top.
+  // The panel is the same element from page to page: each page opens at its top. It is `relative`, so what a page places
+  // absolutely (a screen reader's hidden words too) scrolls inside it and never makes the window itself scroll.
   const panel = useRef<HTMLDivElement>(null);
   const { pathname: at } = useLocation();
   useEffect(() => {
@@ -113,7 +114,7 @@ function Frame() {
 
   const waiting = owner ? (needsYou?.total ?? null) : null; // no count until it's read: never a 0 that isn't so
   const work = (
-    <div ref={panel} className={`min-w-0 flex-1 ${rail ? "my-2 mr-2 overflow-y-auto rounded-2xl border border-border bg-bg shadow-soft" : ""}`} style={rail || onVideo ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
+    <div ref={panel} className={`min-w-0 flex-1 ${rail ? "relative my-2 mr-2 overflow-y-auto rounded-2xl border border-border bg-bg shadow-soft" : ""}`} style={rail || onVideo ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
       {!online && !onVideo && (
         <div className="mx-auto max-w-content px-4 pt-4 sm:px-8">
           <Banner tone="warning" title="You're offline.">
