@@ -335,3 +335,31 @@ def _work(app, db) -> None:
             {"replicate": ReplicateProvider(BASE, client, token="test-token")},
             app.state.storage,
         )
+
+
+def test_start_and_end_frames_go_to_the_model_as_its_first_and_last_frame(app, editor, fomo, db):
+    """A chained clip opens on one picture and lands on another (Reed, 11 Nov: "use start and end
+    frames"): Seedance gets `image` and `last_frame_image`, one file each, and no reference list
+    (it takes frames or references, never both)."""
+    from app.worker import _files_as_data
+
+    first, last = upload(editor), upload(editor)
+    body = _clip(fomo, model_id="seedance-2.0", character_ids=[fomo["character"]],
+                 first_frame_file_id=first, last_frame_file_id=last)  # fmt: skip
+    r = editor.post("/clips", json=body)
+    assert r.status_code == 201, r.text
+    job = db.get(Job, r.json()["id"])
+    assert job.input["files"] == {"image": [first], "last_frame_image": [last]}
+    sent = _files_as_data(db, app.state.storage, job)["input"]
+    assert isinstance(sent["image"], str) and isinstance(sent["last_frame_image"], str)
+    assert "reference_images" not in sent and "[Image" not in sent["prompt"]
+
+
+def test_an_end_frame_needs_a_start_frame_and_a_model_that_takes_frames(editor, fomo):
+    pic = upload(editor)
+    r = editor.post("/clips/estimate", json=_clip(fomo, model_id="seedance-2.0",
+                                                  last_frame_file_id=pic))  # fmt: skip
+    assert r.status_code == 422 and "start frame" in r.json()["detail"]
+    both = {"first_frame_file_id": pic, "last_frame_file_id": pic}
+    r = editor.post("/clips/estimate", json=_clip(fomo, model_id="gemini-omni-1.2", **both))
+    assert r.status_code == 422 and "start and end frames" in r.json()["detail"]

@@ -7460,6 +7460,10 @@ export interface components {
              * @default []
              */
             skip_screen_ids: number[];
+            /** First Frame File Id */
+            first_frame_file_id?: number | null;
+            /** Last Frame File Id */
+            last_frame_file_id?: number | null;
         };
         /**
          * ClipModelOut
@@ -8793,6 +8797,10 @@ export interface components {
              * @default []
              */
             skip_screen_ids: number[];
+            /** First Frame File Id */
+            first_frame_file_id?: number | null;
+            /** Last Frame File Id */
+            last_frame_file_id?: number | null;
             /**
              * Direction
              * @default Cinematic

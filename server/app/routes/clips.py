@@ -54,6 +54,11 @@ class ClipIn(BaseModel):
     screen_ids: list[int] = []
     file_ids: list[int] = []  # extra images, videos or audio
     skip_screen_ids: list[int] = []  # auto-added screens the editor removed: don't re-add
+    # Exact start and end frames (models with first_frame / last_frame): the clip opens on the
+    # first and lands on the last, so clips chain without a seam. They replace the reference
+    # pictures (Seedance takes frames or references, never both).
+    first_frame_file_id: int | None = None
+    last_frame_file_id: int | None = None
 
 
 class EstimateOut(BaseModel):
@@ -154,7 +159,20 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     if files["reference_audios"] and not (files["reference_images"] or files["reference_videos"]):
         raise HTTPException(422, "Audio references need at least one image or video with them.")
     _check_media_length(db, storage, model, files)
-    references, text = _references(body.prompt, refs, files["reference_images"])
+    if body.last_frame_file_id and not body.first_frame_file_id:
+        raise HTTPException(422, "An end frame needs a start frame too.")
+    if body.first_frame_file_id:
+        if not model.first_frame or (body.last_frame_file_id and not model.last_frame):
+            raise HTTPException(422, f"{model.name} doesn't take start and end frames.")
+        frames = {"image": [body.first_frame_file_id]}
+        if body.last_frame_file_id:
+            frames["last_frame_image"] = [body.last_frame_file_id]
+        for ids in frames.values():
+            get_file(db, user, ids[0], "image")
+        files = {**frames, "reference_videos": files["reference_videos"],
+                 "reference_audios": files["reference_audios"]}  # fmt: skip
+        refs, exact = {}, []
+    references, text = _references(body.prompt, refs, files.get("reference_images", []))
     if body.improved:  # sent as written; its References line must match today's pieces
         if references and f"References: {references}" not in body.prompt.splitlines():
             raise HTTPException(

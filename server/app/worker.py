@@ -467,12 +467,12 @@ def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
             data, content_type = storage.get(stored.key), stored.content_type
             if figure := (job.input.get("screen_figures") or {}).get(str(file_id)):
                 data, content_type = screen_figures.draw(data, figure), "image/png"
-            if max_side and key in ("reference_images", "image"):
+            if max_side and key in ("reference_images", "image", "last_frame_image"):
                 data, content_type = fit_image(data, content_type, max_side, file_id in exact)
             urls.append(f"data:{content_type};base64,{base64.b64encode(data).decode()}")
         # Single-file inputs: P-Video's and MMAudio's, and MiniMax voice cloning's sample
         # (Replicate refuses a list there: "voice_file: Expected: string, given: array").
-        one = key in ("image", "audio", "video", "voice_file")
+        one = key in ("image", "audio", "video", "voice_file", "last_frame_image")
         payload["input"] = {**payload.get("input", {}), key: urls[0] if one else urls}
     for file_id in job.input.get("clip_frames") or []:  # the director's eyes on a clip, after
         stored = _stored(db, storage, job, file_id)  # its pictures (director._eyes)
