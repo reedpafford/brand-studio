@@ -723,6 +723,8 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
     closed = director.answered(db, run["id"], project.id)
     kept = any(j.input.get(DECLINE) for j in mine[-1:])  # the owner kept the plan as it is
     clips = []
+    rows = {r.clip_id: r for r in db.scalars(select(ProjectClip).where(
+        ProjectClip.project_id == project.id))}  # fmt: skip
     for c in seen.get("clips") or []:
         last = c["takes"][-1]["id"] if c["takes"] else 0
         heard = item_checks.latest(db, "words", [last]).get(last) if last else None
@@ -731,6 +733,8 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
         clips.append({"clip_id": c["clip_id"], "takes": len(c["takes"]), "missing": missing,
                       "picked": bool(c["picked_take_id"]), "talker": bool(c.get("talker")),
                       "footage": bool(c.get("footage")),
+                      "extra": c["clip_id"] not in run.get("muted", []) and bool(
+                          director.to_mute(db, rows[c["clip_id"]])),
                       "rerolled": (run.get("redos") or {}).get(c["clip_id"], 0)})  # fmt: skip
     last = next((t for t in reversed(director.turns(db, project))
                  if t.input[RUN]["id"] == run["id"] and (t.output or {}).get("tool") != "wait"
@@ -773,7 +777,8 @@ def move(s: dict) -> dict:
     """The run's next step, always one (the twin of `director_auto.move`, with no turn left to
     a model): the plan, then the looks, then Make it; after it the cast and places OK, then
     every clip at once; a take that misses a scripted line once more, with the same
-    prompt; then the cut, one watch of it, and the delivery."""
+    prompt; words a take says that the script doesn't have silenced (free); then the cut,
+    one watch of it, and the delivery."""
     if s["being_made"] or s["held"]:
         return _go("wait", "What was started is still being made.")
     if sound := _audio(s):  # a narration or a song is the clock: made and timed before the plan
@@ -831,6 +836,9 @@ def move(s: dict) -> dict:
                     (s["cut_failed"] or s["refused"] or "a clip changed since").rstrip(".")
                 ),
             )
+        if said := next((c for c in s["clips"] if c["extra"]), None):
+            return _go("mute", "Its take says words the script doesn't have: that stretch is "
+                       "silenced, free.", said["clip_id"])  # fmt: skip
         return _go("final_cut", "Every clip has its take: the cut is made.")
     if not s["watch"]["current"]:
         return _go("watch_cut", "The cut is watched once, as a viewer meets it.")
@@ -912,6 +920,9 @@ def act(db: Session, job: Job, storage) -> None:
             footage_shot.settle(db, project, user.id)  # a real footage clip stays as it is
             db.commit()
         result = director_tools.run(db, user, project, move_, storage, run)
+    if tool == "mute":  # tried once a clip; a stretch it may not silence stays, never a stop
+        run["muted"] = [*run.get("muted", []), move_["clip_id"]]
+        result = result.replace("Refused: ", "Kept as it is: ", 1)
     refused = result.startswith("Refused")
     if tool == "make_take" and "once more" in move_["why"] and not refused:
         clip = move_["clip_id"]

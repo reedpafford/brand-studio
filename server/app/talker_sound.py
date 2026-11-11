@@ -133,14 +133,19 @@ def _grid(t: float, lo: float, hi: float, up: bool) -> float:
     return round(first if lo <= first <= hi else other if lo <= other <= hi else t, 3)
 
 
-def keep(m: dict | None, first: bool, last: bool) -> list[tuple[float, float]]:
+def keep(m: dict | None, first: bool, last: bool, muted=()) -> list[tuple[float, float]]:
     """The stretches of a piece the cut plays, in its own seconds, as `measure` found it: from
     HEAD before its first sound (the video's first piece from 0) to SENTENCE or COMMA after its
     last (the last piece to its end), never into another sound; each silence inside it over
-    LONG cut down to BEAT. All of it when nothing in it was heard."""
+    LONG cut down to BEAT. All of it when nothing in it was heard. Words `muted` at its end (a
+    sentence the talker made up after their line, video 390) aren't played at all: the piece
+    ends on the last sound before them, so nobody mouths words in silence."""
     if not m or not m.get("speech"):
         return [(0.0, float(m["length"]) if m else 0.0)]
     length, runs, (start, end) = float(m["length"]), m["sounds"], m["speech"]
+    for s, e in muted:
+        if start < s < end <= e + LONG:
+            end = max([b for _, b in runs if b <= s + HEAD], default=s)
     before = max([b for _, b in runs if b <= start], default=0.0)  # a sound before the speech
     after = min([a for a, _ in runs if a >= end], default=length)  # and one after it
     a = 0.0 if first else _grid(max(start - HEAD, before), before, start, up=False)

@@ -25,6 +25,7 @@ from app import (
     narration,
     narration_music,
     omni_talker,
+    take_mute,
     take_sound,
     talker,
     talker_sound,
@@ -166,8 +167,10 @@ def base(db: Session, project: Project) -> dict:
     voiced = made.file_id if made else None  # the talker take in use (a take's made_with "talker")
     places = 3 if omni else 2  # an Omni talker's stretches sit on the frame grid
     for i, (r, d) in enumerate(zip(clips, lengths, strict=False)):
-        m = talker_sound.measured(db, db.get(ClipTake, r.picked_take_id or 0)) if omni else None
-        kept = talker_sound.keep(m, not i, i == len(clips) - 1) if m else [(0.0, d)]
+        take = db.get(ClipTake, r.picked_take_id or 0) if omni else None
+        m = talker_sound.measured(db, take) if omni else None
+        kept = (talker_sound.keep(m, not i, i == len(clips) - 1, take_mute.spans(take))
+                if m else [(0.0, d)])  # fmt: skip
         for k, (frm, end) in enumerate(kept):  # each stretch kept, a piece of its own
             d, whole = round(end - frm, places), not frm and end == lengths[i]
             pieces.append({"id": f"{r.clip_id}.s{k}" if k else r.clip_id,
