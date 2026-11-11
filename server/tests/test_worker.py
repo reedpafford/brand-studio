@@ -365,6 +365,89 @@ def test_two_local_lanes_never_take_the_same_job(app, db, user, monkeypatch):
     assert _statuses(db, jobs) == [JobStatus.succeeded, JobStatus.queued]
 
 
+class TwoAtOnce(SlowClaude):
+    """Claude's place for two lanes: each call waits until two are in hand at once, and fails
+    if both are the same video's."""
+
+    def __init__(self):
+        import threading
+
+        super().__init__()
+        self.together, self.in_hand = threading.Barrier(2, timeout=10), []
+
+    def run(self, kind, input):
+        from app.providers import Result
+
+        assert input["video"] not in self.in_hand  # one video's steps: never two at once
+        self.in_hand.append(input["video"])
+        try:
+            self.together.wait()  # the other lane's call, for another video, is in hand too
+            self.asked.append((input["video"], input["n"]))
+        finally:
+            self.in_hand.remove(input["video"])
+        return Result("succeeded", output={})
+
+
+def test_claude_lanes_plan_two_videos_side_by_side_and_keep_each_video_in_order(app, db, owner):
+    """Six videos' plans waited in one line: Claude answered one call at a time for the whole
+    site. With BS_CLAUDE_WORKERS lanes, a video's id picks its lane: two videos' calls are in
+    hand at the same moment, no job is ever asked twice, and one video's steps still run one
+    at a time, oldest first."""
+    import threading
+
+    from app import worker
+    from app.models.projects import Project
+
+    user, fomo = db.query(User).one(), owner.get("/brands").json()[0]["id"]
+    videos = [db.get(Project, owner.post("/projects", json={
+        "brand_id": fomo, "name": f"Video {n}", "planned_seconds": 10}).json()["id"])
+        for n in range(2)]  # fmt: skip
+    assert {v.id % 2 for v in videos} == {0, 1}  # one to each of two lanes
+    # queued a video at a time: lanes taking any job would have the first video's two at once
+    jobs = [enqueue(db, user, "write-claude", {"video": v.id, "n": n}, provider="claude",
+                    project=v, units=0) for v in videos for n in range(2)]  # fmt: skip
+    claude = TwoAtOnce()
+
+    def lane(k):
+        with app.state.sessionmaker() as mine:
+            worker.run_once(mine, {"claude": claude}, app.state.storage, only={"claude"},
+                            share=(k, 2))  # fmt: skip
+
+    lanes = [threading.Thread(target=lane, args=(k,)) for k in range(2)]
+    for t in lanes:
+        t.start()
+    for t in lanes:
+        t.join()
+    assert _statuses(db, jobs) == [JobStatus.succeeded] * 4  # none failed: never one video twice
+    assert sorted(claude.asked) == sorted((v.id, n) for v in videos for n in range(2))  # each once
+    for v in videos:
+        assert [n for video, n in claude.asked if video == v.id] == [0, 1]  # in order
+
+
+def test_a_job_with_no_video_goes_to_the_first_claude_lane(db, user):
+    claude = SlowClaude()
+    job = enqueue(db, user, "write-claude", {}, provider="claude", units=0)
+    run_once(db, {"claude": claude}, only={"claude"}, share=(1, 3))
+    assert claude.asked == [] and _statuses(db, [job]) == [JobStatus.queued]
+    run_once(db, {"claude": claude}, only={"claude"}, share=(0, 3))
+    assert claude.asked == ["write-claude"] and _statuses(db, [job]) == [JobStatus.succeeded]
+
+
+def test_only_the_first_claude_lane_sweeps_the_directors_runs(db, monkeypatch):
+    """Each tick's sweep wakes every run that can go on. It stays one lane's job, so more
+    Claude lanes never sweep the same run at the same time."""
+    from app import worker
+
+    swept = []
+    monkeypatch.setattr(worker.director, "sweep", lambda db_, storage: swept.append(1))
+    run_once(db, {}, only={"claude"}, share=(1, 2))
+    run_once(db, {}, only={"claude"}, share=(2, 3))
+    assert swept == []
+    run_once(db, {}, only={"claude"}, share=(0, 2))
+    run_once(db, {}, only={"claude"})  # one lane, as before
+    assert swept == [1, 1]
+
+
 def _statuses(db, jobs) -> list[str]:
     for job in jobs:
         db.refresh(job)

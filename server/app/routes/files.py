@@ -98,6 +98,8 @@ def download(
     job = made and db.get(Job, int(made[1]))  # a job's output, named for it by the worker
     if job and job.workspace_id == user.workspace_id and someone_elses_quick_clip(user, job):
         raise HTTPException(404, f"No such file: {file_id}.")
+    db.close()  # its database connection goes back now, not once the file is read and sent: a
+    # page's pictures and videos each held one of the API's 15 until their last byte left
     try:
         data = request.app.state.storage.get(stored.key)
     except FileNotFoundError:
