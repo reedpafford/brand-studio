@@ -5491,7 +5491,8 @@ export interface paths {
         /**
          * Make Video Songs
          * @description More takes for this video only, charged to its budget (or the editor's week). A
-         *     narration is read in the video's own voice; a presenter's waits for their audition.
+         *     narration is read in the video's own voice, with the delivery note when one is sent (as
+         *     the director's remake: `narration.tag`); a presenter's waits for their audition.
          */
         post: operations["make_video_songs_projects__project_id__songs_post"];
         delete?: never;
@@ -13654,6 +13655,14 @@ export interface components {
             kinds: string[];
             /** Items */
             items: components["schemas"]["VideoSpend"][];
+        };
+        /** VideoTakeIn */
+        VideoTakeIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** VideoVariationsIn */
         VideoVariationsIn: {
@@ -24937,7 +24946,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VideoTakeIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

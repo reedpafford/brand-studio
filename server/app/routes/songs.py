@@ -302,6 +302,10 @@ class VideoSongIn(BaseModel):
     take_id: int
 
 
+class VideoTakeIn(BaseModel):
+    note: str = ""  # a narration's delivery tag for this take only ("slight Southern accent")
+
+
 class VideoSongOut(BaseModel):
     song_take_id: int
     was_song_take_id: int | None  # Undo: use that one again
@@ -340,11 +344,13 @@ def video_songs(
 def make_video_songs(
     project_id: int,
     request: Request,
+    body: VideoTakeIn | None = None,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     """More takes for this video only, charged to its budget (or the editor's week). A
-    narration is read in the video's own voice; a presenter's waits for their audition."""
+    narration is read in the video's own voice, with the delivery note when one is sent (as
+    the director's remake: `narration.tag`); a presenter's waits for their audition."""
     from app import audition, director_song, voices
 
     project, draft = _song_video(db, user, project_id)
@@ -358,7 +364,8 @@ def make_video_songs(
     if kept and not voices.usable(db, project.workspace_id, project.brand_id, kept):
         kept = None  # removed since: the video's own voice now, as the director's remake does
     voice = director_song.narrator(db, project, kept=kept) if reads else narration.VOICE
-    song_takes.make(db, user, draft, project, _real(request, db, draft), voice=voice)
+    song_takes.make(db, user, draft, project, _real(request, db, draft), voice=voice,
+                    note=body.note if body and reads else "")  # fmt: skip
     return _video_songs(request, db, user, project, draft)
 
 
