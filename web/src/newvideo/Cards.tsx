@@ -145,7 +145,11 @@ export function StyleGallery({ looks, value, onPick }: { looks: Look[]; value: s
         return (
           <li key={l.id} className="animate-rise group/poster relative min-w-0" style={{ animationDelay: `${i * 45}ms` }}>
             {/* The poster's own colours, soft and low under it: only for the one under the pointer or picked. */}
-            {m.still && l.on && <img src={m.still} alt="" aria-hidden className={`pointer-events-none absolute inset-x-5 bottom-0 top-8 translate-y-3 rounded-xl object-cover blur-xl saturate-150 transition-opacity duration-(--dur) ease-out ${sel ? "opacity-45" : "opacity-0 group-hover/poster:opacity-55"}`} />}
+            {m.still && l.on && (
+              <span aria-hidden className={`pointer-events-none absolute inset-x-5 bottom-0 top-8 translate-y-3 transition-opacity duration-(--dur) ease-out ${sel ? "opacity-45" : "opacity-0 group-hover/poster:opacity-55"}`}>
+                <img src={m.still} alt="" className="size-full rounded-xl object-cover blur-xl saturate-150" />
+              </span>
+            )}
             <button type="button" aria-pressed={sel} aria-disabled={!l.on || undefined} onClick={() => l.on && onPick(l)} onMouseEnter={() => play(true)} onMouseLeave={() => play(false)} onFocus={() => play(true)} onBlur={() => play(false)} className={`${poster(sel, !l.on)} relative aspect-[9/16] w-full rounded-xl ${m.still ? "bg-surface-3" : l.on ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-muted"}`}>
               {m.still && <img src={m.still} alt="" loading="lazy" className="absolute inset-0 size-full object-cover transition-transform duration-(--dur-slow) ease-out group-hover:scale-[1.04]" />}
               {playing === l.id && m.clip && l.on && <video ref={(v) => void v?.play?.()?.catch(() => {})} src={m.clip} poster={m.still} muted loop playsInline aria-hidden className="animate-fade absolute inset-0 size-full scale-[1.04] object-cover" />}
