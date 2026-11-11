@@ -291,7 +291,7 @@ test("Home's composition: a two-line headline, the second muted, over a box no w
   const pills = right.previousElementSibling!;
   expect(pills).toHaveClass("flex-wrap", "min-w-0", "flex-1");
   expect(pills).toContainElement(screen.getByRole("button", { name: "Shape: 9:16" }));
-  for (const pill of [/^Style: /, "Product: None", "Cast: Nobody", "Shape: 9:16", "Folder: Unsorted"]) expect(screen.getByRole("button", { name: pill }).querySelector("svg")).not.toBeNull(); // an icon and a label each
+  for (const pill of [/^Style: /, "Product: None", "Cast: Nobody", "Shape: 9:16", "Folder: Unsorted"]) expect(screen.getByRole("button", { name: pill }).querySelector("svg, img")).not.toBeNull(); // an icon and a label each (Style: its sample's picture)
   await userEvent.type(box, SCRIPT);
   expect((await press()).parentElement).toBe(right);
   expect(screen.getByText(/^Most it can charge/).parentElement).toHaveClass("min-h-10"); // its line has its room before the price
@@ -316,12 +316,12 @@ test("the picker's Uploads tab attaches pictures for this video; a brand with no
   await vi.waitFor(() => expect(posted(calls)).toMatchObject({ attachments: [61] }));
 });
 
-test("on a phone the styles gallery is two across, and four then five on wider screens", async () => {
+test("on a phone the styles gallery is two across, then three, and four on a desktop", async () => {
   setViewport(390);
   server(owner);
   renderApp("/b/1");
   const gallery = await screen.findByRole("region", { name: "Styles" });
-  expect(within(gallery).getByRole("list")).toHaveClass("grid-cols-2", "gap-3", "lg:grid-cols-4", "xl:grid-cols-5");
+  expect(within(gallery).getByRole("list")).toHaveClass("grid-cols-2", "gap-3", "sm:grid-cols-3", "lg:grid-cols-4"); // four big posters across, never five small ones
   await userEvent.click(within(gallery).getByRole("button", { name: /^House/ }));
   expect(screen.getByRole("button", { name: "Style: House · Dialogue" })).toBeInTheDocument();
 });

@@ -19,12 +19,15 @@ from app.routes.clips import generation_on
 
 router = APIRouter(prefix="/looks", tags=["looks"])
 HOUSE_STAYS = "House is the default style, so it stays on."
-# New video's cards: the paid test samples of 3 Nov, until the owner approves the look's own
-# sample (Settings → Looks), which then shows instead. A look with no file here has none.
+# New video's cards: a frame and a 4 s clip from a video the site made (House: 3 Nov; the others
+# from the Round 2 videos, 8–9 Nov), until the owner approves the look's own sample (Settings →
+# Looks), which then shows instead. A look with no file here has none.
 SAMPLES = Path(__file__).parent.parent / "samples"
 KINDS = {"mp4": "video/mp4", "jpg": "image/jpeg"}
 NO_SAMPLE_FILE = "There's no test sample for that."
-SITE_OUTPUT = {"house"}  # its card's still and clip are the site's own output, not test samples
+# Their card's still and clip are the site's own output, not test samples (no "Test sample" tag).
+SITE_OUTPUT = {"house", "movie", "disney-pixar", "zack-d", "skeleton", "claymation", "dr-pickle",
+               "ugc"}  # fmt: skip
 SONG_OFF = "its music provider isn't switched on for this site yet"
 
 
