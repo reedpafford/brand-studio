@@ -368,3 +368,60 @@ def test_the_stand_in_answers_for_omni_on_either_road_with_no_key(app, owner, db
     real = get_providers(Settings(google_api_key=""), app.state.storage)["google"]
     with pytest.raises(NoKey):  # a job left on Google's lane after the key went: unsent
         real.submit("video", {"model": OMNI, "input": TAKE})
+
+
+# --- Pictures (Reed, 11 Nov: "any nano banana... through googles api directly") --------------
+
+SHEET = {"prompt": "A character turnaround sheet of one woman.", "aspect_ratio": "16:9",
+         "resolution": "2K", "image_input": [PNG]}  # fmt: skip
+PICTURE = {"type": "image", "mime_type": "image/png", "data": PNG.split(",")[1]}
+
+
+def _drawn(model: str = "gemini-3-pro-image", **more) -> dict:
+    steps = [{"type": "model_output", "content": [{"type": "text", "text": "Here."}, PICTURE]}]
+    used = {"total_input_tokens": 1000, "total_output_tokens": 1120,
+            "output_tokens_by_modality": [{"modality": "image", "tokens": 1120}]}  # fmt: skip
+    return {"id": "v1_pic", "status": "completed", "model": model, "steps": steps, "usage": used,
+            **more}  # fmt: skip
+
+
+def test_a_picture_is_made_in_one_call_as_googles_docs_say_and_read_from_its_answer():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_drawn())
+
+    google, seen = _google(handler)
+    ref = google.submit("image", {"model": "nano-banana-pro", "input": SHEET})
+    sent = json.loads(seen[0].content)
+    assert ref == "v1_pic" and seen[0].headers["x-goog-api-key"] == KEY
+    assert sent == {"model": "gemini-3-pro-image",
+                    "input": [{"type": "text", "text": SHEET["prompt"]}, PICTURE],
+                    "response_format": {"type": "image", "aspect_ratio": "16:9",
+                                        "image_size": "2K"}}  # fmt: skip  # no background form
+    found = google.poll(ref)
+    assert found.state == "succeeded" and found.files == [f"{BASE}/interactions/v1_pic"]
+    # 1,120 picture tokens at $120 and 1,000 read at $2.00, per 1M
+    (cost,) = found.usage
+    assert (cost.units, cost.unit, cost.cost_usd, cost.estimated) == (
+        1,
+        "image",
+        Decimal("0.1364"),
+        False,
+    )
+    assert google.fetch(found.files[0]) == (base64.b64decode(PICTURE["data"]), "image/png")
+
+
+def test_a_picture_google_counted_no_tokens_for_costs_the_catalogue_price_as_an_estimate():
+    google, _ = _google(
+        lambda r: httpx.Response(200, json=_drawn("gemini-nano-banana-2.1", usage={}))
+    )
+    (cost,) = google.poll("v1_pic").usage
+    assert (cost.unit, cost.cost_usd, cost.estimated) == ("image", Decimal("0.051"), True)
+
+
+def test_with_a_google_key_pictures_go_to_google_and_cost_googles_price(app, owner, db, direct):
+    from app.catalogue import get_model, provider_for
+
+    assert provider_for("nano-banana-pro", "replicate") == "google"
+    assert provider_for("nano-banana-2.1", "replicate") == "google"
+    assert get_model("nano-banana-pro").usd_per_unit("2K") == Decimal("0.14")
+    assert get_model("nano-banana-pro", listed=True).usd_per_unit("2K") == Decimal("0.1542")
