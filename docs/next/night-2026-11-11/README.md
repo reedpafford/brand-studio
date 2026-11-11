@@ -22,7 +22,7 @@ Six Palace Guard test videos were started on the live site, one per style. Four 
 | #1559 | The UI stack in one: Home as a studio, the director's live thinking, one clean frame, the polish pass (#1543, #1544, #1545, #1556) | |
 | #1560 | Words a take adds to the script are silenced, free, before the cut; a talker's piece ends on its line | 390 |
 | #1561 | Stop also cancels the video's paid work that hasn't started | 391 |
-| #1562 | A sheet the video model takes for a real person is left out and the character said in words | 392 |
+| #1562, #1565 | A sheet the video model takes for a real person is left out and the character said in words, at once and on every later take of that clip | 392 |
 | #1548 | NOT merged, needs Reed's Approve (a guide file): Movie makes a whole scene one clip, with an early wide | 366, 389 |
 | #1563 | NOT merged (into `main`): the night's spend log, $53.10 | |
 
