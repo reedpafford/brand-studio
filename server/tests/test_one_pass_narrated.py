@@ -207,6 +207,9 @@ def test_a_zack_d_video_is_planned_the_same_way_with_its_formats_guide(app, owne
     assert db.get(Project, pid).engine == one_pass.ENGINE
     (plan,) = _jobs(db, "one_pass")
     assert "## Format: Zack D" in plan.input["system"][0] and plan.input["audio"]
+    assert "<camera>" not in plan.input["prompt"]  # one camera is the Zack D look's
+    (made,) = [j.output for j in _jobs(db, "director") if j.output["tool"] == "make_take"]
+    assert "only" not in made  # so in another look its clips are still made at once
     assert "This script is narrated" in plan.input["system"][0]
 
 
@@ -348,3 +351,46 @@ def test_a_zack_d_video_is_read_in_the_styles_own_voice(app, owner, db):
     _delivered(app, owner, db, type="zack-d", look="zack-d")
     read = db.query(Job).filter(Job.kind == "speech").order_by(Job.id).first().input["input"]
     assert read["voice_id"] == "R8_BHEBN0NI" and read["emotion"] == "surprised"
+
+
+LONG = " ".join(f"Step {n} of the lock is the part nobody ever looks at closely." for n in
+                ("one", "two", "three", "four", "five", "six", "seven", "eight"))  # fmt: skip
+
+
+def test_a_zack_d_look_is_one_camera_each_clip_opens_on_the_last_frame_before(app, owner, db):
+    """Reed, 11 Nov: "the next clip's start frame was the end frame of the previous" (video
+    383 was "3 separate clips, not one chained camera")."""
+    from app import clip_prompts
+    from app.models.files import StoredFile
+
+    _delivered(app, owner, db, type="zack-d", look="zack-d", text=LONG)
+    (plan,) = _jobs(db, "one_pass")
+    assert "<camera>\nThis video is one continuous camera" in plan.input["prompt"]
+    takes, rows = _jobs(db, "clip_take"), db.query(ProjectClip).order_by(ProjectClip.id).all()
+    assert [j.input["project_clip_id"] for j in takes] == [r.id for r in rows] and len(rows) == 4
+    assert all(b.created_at >= a.finished_at for a, b in zip(takes, takes[1:], strict=False))
+    turns = [j.output for j in _jobs(db, "director") if j.output["tool"] == "make_take"]
+    assert [(t["only"], t["after"]) for t in turns] == [
+        ("c1", None), ("c2", "c1"), ("c3", "c2"), ("c4", "c3")]  # fmt: skip  # one a turn, in order
+    first, second = takes[0].input, takes[1].input
+    assert list(first["files"]) == ["reference_images"]  # the first clip: made as before
+    assert list(second["files"]) == ["image"]  # its start frame alone, no reference pictures
+    assert "[Image" not in second["input"]["prompt"]
+    held = app.state.storage.get
+    ended_on = one_pass.last_frame(held(db.get(StoredFile, rows[0].file_id).key))
+    assert held(db.get(StoredFile, second["files"]["image"][0]).key) == ended_on
+    assert not any(clip_prompts.take_stale(r) for r in rows)  # never "an older look" after
+    assert _jobs(db, "director")[-1].output["note"]["redid"] == []  # first takes, not remakes
+
+
+def test_a_last_frame_that_cannot_be_had_never_stops_the_run(app, owner, db, monkeypatch):
+    from app.models.storyboards import StoryboardFrame
+
+    def broken(video):
+        raise RuntimeError("ffmpeg failed")
+
+    monkeypatch.setattr(one_pass, "last_frame", broken)
+    _delivered(app, owner, db, type="zack-d", look="zack-d", text=LONG)
+    takes = _jobs(db, "clip_take")  # each made from its reference pictures, as before
+    assert len(takes) == 4 and all(list(j.input["files"]) == ["reference_images"] for j in takes)
+    assert db.query(StoryboardFrame).count() == 0

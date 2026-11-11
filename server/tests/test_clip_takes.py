@@ -281,6 +281,10 @@ def test_a_sheet_refused_as_a_real_person_is_said_in_words(app, db, editor, setu
                  "\"The request failed because the input image 'content[2]' may contain real "
                  'person."}')  # fmt: skip
 
+    from app.models.library import LibraryItem
+
+    db.query(LibraryItem).filter_by(name="Mom").update({"notes": "a tired woman in a blue robe."})
+    db.commit()
     editor.post(f"/projects/{setup['project']}/clips/{clip['id']}/generate")
     _work(app, db, Real([]))
     db.expire_all()
@@ -288,6 +292,9 @@ def test_a_sheet_refused_as_a_real_person_is_said_in_words(app, db, editor, setu
                           key=lambda j: j.id)  # fmt: skip
     assert again.retry_of_id == first.id and again.input["lookalike"] == 2  # no sheets at once
     assert "[Image2]" not in again.input["input"]["prompt"]
+    # described once, then named: said at every mention, 392's c3 ran past Seedance's limit
+    assert again.input["input"]["prompt"].count("(a tired woman in a blue robe)") == 1
+    assert "Keep: Mom as in Mom, " in again.input["input"]["prompt"]
     assert len(again.input["files"].get("reference_images", [])) < len(
         first.input["files"]["reference_images"])  # fmt: skip
     # and from then on a take of this clip never carries them (a Redo, the director's Carry on)
