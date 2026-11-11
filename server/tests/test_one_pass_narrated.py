@@ -284,3 +284,10 @@ def test_a_narration_heard_saying_a_word_more_is_still_used(app, owner, db, monk
         {"word": "Quickly", "start": 0.0, "end": 0.1}, *heard(path, text)])  # fmt: skip
     pid = _delivered(app, owner, db)
     assert db.get(Project, pid).song_take_id
+
+
+def test_a_zack_d_video_is_read_in_the_styles_own_voice(app, owner, db):
+    """Reed, 11 Nov: "zack d's voice is not implemented" (video 383 was read by Sarah)."""
+    _delivered(app, owner, db, type="zack-d", look="zack-d")
+    read = db.query(Job).filter(Job.kind == "speech").order_by(Job.id).first().input["input"]
+    assert read["voice_id"] == "R8_BHEBN0NI" and read["emotion"] == "surprised"
