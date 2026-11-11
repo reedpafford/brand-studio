@@ -347,6 +347,7 @@ def _flow(prompt: str, sent: int, start: bool, speaks: bool) -> str:
     out.append(" ".join(["Style:", *part.get("Style", []), *one]) if part.get("Style") or one
                else "")  # fmt: skip
     out += part.get("Voice", [])
+    speaks = speaks or any("\nDialogue: " in x for x in out)  # a thought is heard too (398)
     out.append((SPOKEN if speaks else SILENT).format(room=(room[1] if room else PLACE).strip()))
     said = IMAGE.sub(lambda m: _picture(int(m[1]), sent), "\n".join(filter(None, out)))
     return re.sub(r"(?<=[.:] )the (?=\w+ image is )", "The ", said)
