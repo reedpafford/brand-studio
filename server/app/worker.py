@@ -514,11 +514,16 @@ def start_next(
     allow_paid: bool = True,
     only: set[str] | None = None,
     busy: set[str] | None = None,
+    share: tuple[int, int] | None = None,
 ) -> bool:
     """Hand the oldest queued job to its provider. Returns False if the queue is empty.
     With `allow_paid` off (generation switched off), paid providers' jobs are left queued.
-    `busy`: providers that said "busy" this tick, left alone until the next; added to."""
+    `busy`: providers that said "busy" this tick, left alone until the next; added to.
+    `share` (lane, lanes): only the videos whose id falls to this lane, so no two lanes ever
+    reach for the same job and one video's jobs stay in one lane, in order."""
     query = _mine(select(Job).where(Job.status == JobStatus.queued), only)
+    if share:
+        query = query.where(func.coalesce(Job.project_id, 0) % share[1] == share[0])
     if not allow_paid:
         paid = [name for name, p in providers.items() if p.paid]
         query = query.where(Job.provider.not_in(paid))
@@ -647,6 +652,7 @@ def run_once(
     storage: Storage | None = None,
     allow_paid: bool = True,
     only: set[str] | None = None,
+    share: tuple[int, int] | None = None,
 ) -> None:
     hidden.see(db)  # the worker works on every job, a freestyle's hidden video's too
     check_running(db, providers, storage, only)
@@ -657,10 +663,10 @@ def run_once(
     )
     busy: set[str] = set()
     for _ in range(queued):
-        if STOP.is_set() or not start_next(db, providers, storage, allow_paid, only, busy):
+        if STOP.is_set() or not start_next(db, providers, storage, allow_paid, only, busy, share):
             break  # stopping: the next start waits for the new worker
-    if only and "claude" not in only:
-        return  # the director's turns are Claude's: only that lane's worker sweeps
+    if (only and "claude" not in only) or (share and share[0]):
+        return  # the director's turns are Claude's: only that worker's first lane sweeps
     try:  # a director run whose work ended any other way (failed, cancelled) goes on
         director.sweep(db, storage)
         db.commit()
@@ -699,19 +705,22 @@ def main() -> None:  # pragma: no cover - the loop itself is trivial
                     purge_uploads(db, storage)  # Bulk create videos never used
             except Exception:  # housekeeping never stops the worker
                 log.exception("removing long-deleted scripts failed; trying again tomorrow")
-        lane(only)
+        lane(only, (0, claude) if claude > 1 else None)
 
-    def lane(jobs: set[str] | None) -> None:
+    def lane(jobs: set[str] | None, share: tuple[int, int] | None = None) -> None:
         try:
             with sessions() as db:
-                run_once(db, providers, storage, settings.generation_enabled, jobs)
+                run_once(db, providers, storage, settings.generation_enabled, jobs, share)
         except Exception:  # keep the worker alive through e.g. a database hiccup
             log.exception("worker tick failed; trying again next tick")
 
     # Local work (takes' listens, cuts) runs in more than one lane, each on its own share of
     # the CPUs: a long video's 47 listens took about 55 minutes one at a time (S1).
     lanes = max(1, settings.local_workers) if only is None or "local" in only else 1
-    serve([tick] + [lambda: lane({"local"})] * (lanes - 1), settings.worker_poll_seconds)
+    # Claude's own worker makes `claude_workers` calls at once, each video always in one lane
+    claude = max(1, settings.claude_workers) if only and "claude" in only else 1
+    more = [lambda k=k: lane(only, (k, claude)) for k in range(1, claude)]
+    serve([tick] + [lambda: lane({"local"})] * (lanes - 1) + more, settings.worker_poll_seconds)
 
 
 STOP = threading.Event()
