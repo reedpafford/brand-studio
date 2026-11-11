@@ -62,7 +62,10 @@ TALKER = ("{who} presents this video and says every spoken line of the script to
           "B-roll is cut in over their voice, never between their clips: a B-roll clip has "
           "`kind` \"broll\", comes right after the clip that says the line it shows, gives "
           "that line's number in each shot's `line` (the line is heard under it; nobody speaks "
-          "in it) and leaves them out of `people`.")  # fmt: skip
+          "in it) and leaves them out of `people`. They stay on screen for the hook, an "
+          "opinion, anything said straight to the viewer and the close; B-roll is only for "
+          "the phrases that gain from a picture, a few seconds each, under half the video in "
+          "all.")  # fmt: skip  # Reed, 11 Nov: video 370's B-roll hid two thirds of him
 
 
 def talker_block(who: str, most: int) -> str:
