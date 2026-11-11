@@ -53,8 +53,9 @@ FRAMING = "The action stays in the upper two-thirds of the frame, the bottom cor
 TALKER = ("{who} presents this video and says every spoken line of the script to camera, "
           "filling the frame, in clips of their own: a line with no speaker label is theirs "
           "too. With no look in <cast>, they are in `roles`, named \"{who}\", with what to "
-          "draw. Their lines in one place share one clip of up to {most} s, in script order, as "
-          "few clips as the lines allow, each ending where one of the script's sentences ends. "
+          "draw. Their lines in one place share clips of up to {most} s, in script order, each "
+          "ending where one of the script's sentences ends and holding about {words} words at "
+          "most: {most} s is all the model makes, and a line it cuts off is lost. "
           "Size each clip to its words: about 2.6 words a second (2.1 for a slow, heavy line) "
           "plus about 1 s. Never a filler word to pad one.\n"
           "B-roll is cut in over their voice, never between their clips: a B-roll clip has "
@@ -68,7 +69,10 @@ TALKER = ("{who} presents this video and says every spoken line of the script to
 
 def talker_block(who: str, most: int) -> str:
     """<talker> for the plan call of a presenter filmed on Omni (app/omni_talker.py)."""
-    return f"<talker>\n{TALKER.format(who=who, most=most)}\n</talker>"
+    from app.omni_talker import ROOM, SLOW
+
+    words = int((most - ROOM) * SLOW)  # what a slow, heavy delivery says in the longest clip
+    return f"<talker>\n{TALKER.format(who=who, most=most, words=words)}\n</talker>"
 
 
 def host_block(who: str, how: str) -> str:

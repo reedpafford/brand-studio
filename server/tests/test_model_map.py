@@ -639,3 +639,16 @@ def test_a_dropped_still_and_place_are_said_in_words_without_the_first_frame_lin
     said = _in_words(None, prompt, list(known), ("frame:", "place:41"), known)
     assert said == ("References: [Image1] is the pouch.\n"
                     "Shot 1 | 0-3 s. In The truck lot, she holds [Image1].")  # fmt: skip
+
+
+def test_a_delivery_note_written_in_its_own_brackets_reaches_omni_as_a_dialogue_line():
+    """Video 396 (11 Nov): the UGC guide shows a note as "(in English, low, leaning on home)"
+    and the plan copied it whole; written inside the line's own brackets it was repaired to
+    `The presenter): "…"`, which Omni got with no Dialogue line and no delivery."""
+    from app.one_pass_assemble import HOW
+
+    how = HOW.sub("", "(in English, low, leaning on home).")
+    assert how == "low, leaning on home" and HOW.sub("", "quiet, slow") == "quiet, slow"
+    line = f'Shot 1 | 0-8 s. Chest-up, locked. He nods. The presenter (in English, {how}): "Go."'
+    assert model_map._shot(line, False).endswith(
+        'Dialogue: The presenter says, "Go." Delivery: low, leaning on home.')  # fmt: skip
