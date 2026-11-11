@@ -418,6 +418,20 @@ def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
 
             fixes.append(NO_SHOTS)
     known = [*job_input["cast"], *(r.name for r in plan.roles)]
+    who = job_input.get("talker") or ""
+    if who and not any(same(who, k) or labels(who, k) for k in known):
+        # the presenter under the script's own words for them ("Dad"): the one person their
+        # clips show is them (video 370 and 390: four plans in a row failed on the name)
+        seen = {p for c in plan.clips if c.kind == one_pass_timed.HOST for s in c.shots
+                for p in s.people}  # fmt: skip
+        role = next((r for r in plan.roles if len(seen) == 1 and same(r.name, *seen)), None)
+        if role:
+            for s in (s for c in plan.clips for s in c.shots):
+                s.people = [who if same(p, role.name) else p for p in s.people]
+            for v in plan.voices:
+                v.who = who if same(v.who, role.name) else v.who
+            role.name = who
+            known.append(who)
     people = [said[n][0] for n in used if n in said and "(" not in said[n][0]]  # on camera
     for c in plan.clips:
         c.assets = [a for a in c.assets if a in job_input["assets"]]
