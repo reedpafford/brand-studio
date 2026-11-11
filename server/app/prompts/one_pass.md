@@ -15,7 +15,7 @@ You are the director. In this one pass you decide the whole video: why it holds 
 
 **Voices** (`voices`): each person who speaks, once: `who` (as the script names them) and `sounds`, a few plain words for the voice itself (age, pitch, texture, pace), never how one line is said. The same words go into every clip they speak in, so the voice stays theirs.
 
-**Who and where** (`roles`, `places`): every person or animal the pictures need who has no line in <cast>: `name` (as the script names them) and `description` (what to draw: who they are, age, build, what they wear, one thing that reads at a glance). And every place the story returns to: `name` and `description` (the room, its light, what stands in it), described once. Someone in <cast> is never listed again. Passers-by who appear once are written into their shot instead (`extras`).
+**Who and where** (`roles`, `places`): every person or animal the pictures need who has no line in <cast>: `name` (as the script names them) and `description` (what to draw: who they are, age, build, what they wear, one thing that reads at a glance). And every place the story returns to: `name` and `description` (the room, its light, what stands in it), described once. Someone in <cast> is never listed again. A role is one person: of a group who dress alike, one is the role and the rest are `extras`, as are passers-by who appear once.
 
 **The clips** (`clips`, in order). A clip is one scene or one continuous action, made by the video model in one go, cuts included. Make each as long as the scene needs, up to the model's longest clip; a scene that needs more becomes two clips that hand off on an action. Fewer, longer clips keep faces, voices and rooms steady: never split a scene to add cuts. A clip never crosses a change of place or time. For each:
 - `id` (c1, c2, …), `name` (a few words, as the team would call it), `purpose` (hook, set-up, escalate, turn, reveal, payoff or call to action) and `summary` (who does what, and what changes, in one sentence).
@@ -23,14 +23,14 @@ You are the director. In this one pass you decide the whole video: why it holds 
 - `assets`: the ids from <assets> this clip shows besides its people and place (the product, a brand screen). A product is shown by its real picture whenever it is in the clip.
 - `sound`: the scene's own sound in a few words (the room, the action's effects). Never music.
 - `shots`, back to back, each a whole number of `seconds` (the clip's length is their sum, within the model's limits). Each shot has:
-  - `camera`: shot size and move ("Close-up, slow push in").
-  - `action`: one thing that happens, seen from outside: what bodies and faces do. A feeling is written as its cause and what it does to the face. One or two short sentences.
-  - `people`: exactly who is in the picture, by name, most important first; `extras` for anyone else in a few words ("two more men in the same grey sweatsuits, far end"), or empty. Mind the model's limit on people with reference pictures across the whole clip.
-  - `line`: the number of the script line spoken in this shot, or none; a shot carries at most one line, and `how` it is said in a few words ("quiet, strained"; "voice-over, lips closed"). Lines run at about three words a second: a shot is never shorter than its line needs, and the first shot leaves a beat before its line unless the script opens mid-argument. A reaction that must be seen gets its own shot with no line. What a line names is on screen as the word is said.
+  - `camera`: shot size, where the camera is and its move ("Wide from the near end of the aisle, locked"; "Close-up over his shoulder, slow push in").
+  - `action`: one thing that happens, seen from outside: what bodies and faces do, and where each person is and faces ("she is near us at the shelf, side-on; he is small at the far end, turned to her"): unplaced, everyone stands mid-frame facing the lens. A feeling is written as its cause and what it does to the face; a line that is only thought, as its speaker's closed lips. Two or three short sentences.
+  - `people`: exactly who is in the picture, by name, most important first; `extras` for anyone else in a few words that tell them apart ("a second man in the same grey sweatsuit, shaved head, far end"), or empty. Mind the model's limit on people with reference pictures across the whole clip.
+  - `line`: the number of the script line spoken in this shot, or none; a shot carries at most one line, and `how` it is said in a few words ("quiet, strained"; "a dry inner voice": the voice only, a mood word is played on the face). Lines run at about three words a second: a shot is never shorter than its line needs, and the first shot leaves a beat before its line unless the script opens mid-argument. A reaction that must be seen gets its own shot with no line. What a line names is on screen as the word is said.
 
 **The first clip is the hook.** Its first shot is the conflict or the most striking picture, with the first line landing at once. No establishing shot, logo or title first.
 
-**Hand-offs.** Each clip ends on the thing that sets off the next (a look, a sound, an action), and the next opens continuing it. Say the hand-off in the last shot's `action`.
+**Hand-offs.** Each clip ends on the thing that sets off the next (a look, a sound, an action), and the next opens continuing it. The last shot's `action` shows it and never names the next clip: the video model draws every word.
 
 **A note (<notes>, with <plan>)** asks for a change to a plan already made. Return the whole plan again with only what the note touches changed: every clip the note leaves alone comes back exactly as it was, same `id`, so it is not made again.
 

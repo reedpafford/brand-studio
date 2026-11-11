@@ -22,7 +22,7 @@ A real, specific, lived-in place photographed for a TV drama: dense, ordinary se
 The Movie look, unless the brand block says otherwise: "A frame from a photoreal modern TV drama. Real-looking people with natural skin texture, in a real, specific place dressed with ordinary detail. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Light comes from what's in the scene (lamps, bulbs, string lights, a screen, the sun), and the scene's light follows the story: dark warm practicals or flat cool fluorescents for the struggle, golden hour or morning sun for the change. Filmic, low-contrast grade with lifted blacks, warm-neutral colour. Most shots are close singles at eye level on a long lens with very shallow depth of field and soft bokeh, often with the other person's shoulder soft in the foreground; wides keep the place readable. Characters look at each other, not at the lens. Natural, TV-scale expressions. No captions or on-screen text."
 
 ## clip_style
-Photoreal TV-drama footage: close shallow-focus singles at eye level, characters talking to each other with lip-synced lines, the camera locked or slowly pushing in (handheld only for action or walking), light from practicals and the sun, the place's own sound
+Photoreal TV-drama footage at eye level with shallow focus, faces turned three-quarter with eyes just off the lens, the acting small and real, the camera locked or slowly pushing in (handheld only for action or walking), light from practicals and the sun, the place's own sound
 
 ## fit_look
 a photoreal TV-drama look with natural, unretouched skin and real everyday clothes, worn the same in every shot
@@ -61,8 +61,8 @@ Writing a new script in this look: a story told in scenes, each in one place, wi
 - No captions, titles, time cards or end cards in any picture: those are added in the edit. A label or a phone screen that matters is in the picture with its words stated exactly.
 
 ## Clips
-- Every clip is made on Omni 1.2, which makes 3–15 s clips with their own sound and voices. A clip can hold a short run of timecoded shots ("Shot 1 | 0–3 s. …", "Shot 2 | 3–6 s. …"): about one exchange of a scene, 2–4 shots, cut on the lines and the reactions.
-- Omni cuts the picture on those marks but times its voices by its own delivery, often with a dramatic beat between sentences. So a speaking shot is sized from its line (its words at the pace below, plus a pause after each sentence), never 2 s by default; it holds one speaker, the listener's mouth closed, and the next speaker's close-up starts only once the line has room (or at a clip boundary).
+- Every clip is made on Omni 1.2, which makes 3–15 s clips with their own sound and voices. A clip holds a whole scene as timecoded shots ("Shot 1 | 0–3 s. …", "Shot 2 | 3–6 s. …"), cut on the lines and the reactions; a scene over 15 s is two. Each new clip draws the room, the light and the extras afresh, so a scene in small clips changes between them.
+- Omni cuts the picture on those marks but times its voices by its own delivery, often with a dramatic beat between sentences. So a speaking shot is sized from its line (its words at the pace below, plus a pause after each sentence; a shouted or hurried line runs faster, with no pauses), never 2 s by default and never padded past it; it holds one speaker, the listener's mouth closed, and the next speaker's close-up starts only once the line has room (or at a clip boundary).
 - The voices are Omni's own, made from the quoted lines: each spoken line in quotes, word for word, with who says it and how ("Mom (quiet, flat): …"). Each character's voice is set once, in the treatment's `voices` (or their saved voice), and every clip they speak in carries it word for word on its own line ("Mom's voice: …"), so it stays theirs from clip to clip; the how-it's-said note is only the delivery. Nobody's voice is laid in from elsewhere.
 - A line that carries over an insert (the mechanism, the product, a hand) is best kept in the same clip as its speaker, with the insert as its own timecoded shot, so the voice runs on over it.
 - The sound is the place: room tone, a crowd, an engine, gravel, a door. No score and no music bed under anything (music, if any, is added in post); diegetic music only when the scene has a radio or a dance floor in it.
@@ -70,7 +70,7 @@ Writing a new script in this look: a story told in scenes, each in one place, wi
 - Up to two people's sheets go into a clip as reference pictures, with the place; anyone else in it is described in words.
 
 ## Breakdown
-- Scenes are built in places: one place and one light a scene, hard cuts inside it. Group a scene's shots into clips of one exchange each (Omni's 3–15 s), rather than one clip a shot.
+- Scenes are built in places: one place and one light a scene, hard cuts inside it. An early shot in each scene is a wide showing the place and where everyone stands; the close shots after it keep those positions.
 - Shots of 2–4 s are the common case, cut on a line or a reaction; a listener's reaction now and then; a held face or a slow push for the line that turns the scene. Hold a silence where the script leaves one (a look, a low point, a first use): the place's own sound carries it.
 - A time jump, when the script has one, can be a match cut on a face, a short warm flash, or a cut to the next morning; a card naming the time is the editor's.
 - Before and after: when the story changes the hero's body, the "after" is the same person in an after look (the same face, hair, colouring and signature detail; only the build and the confidence change), never a different actor.
@@ -81,7 +81,7 @@ Measured over the three studied films (6–9 min each; a short video keeps the s
 - The longest hold, 6–10 s, is saved for a reveal or the big confrontation.
 - The hook: a line or a hit in the first 1.2 s, the first cut by about 3 s, the conflict visible at once and a reaction face by 1–3 s.
 - Dialogue scenes run about 2–3 words a second over the scene, faster inside a run of lines, with pauses of about 0.6–0.7 s; wordless beats (a low point, a first use, an arrival) run on held faces and the place's sound.
-- Up to 30 s: one to three scenes, about 8–14 shots, two to four clips, landing within about a tenth of the length the brief or script asks for. When it runs long, a wordless insert or end hold gives up its seconds before any line does.
+- Up to 30 s: one to three scenes, about 8–14 shots, a clip a scene, landing within about a tenth of the length the brief or script asks for. When it runs long, a wordless insert or end hold gives up its seconds before any line does.
 
 ## camera
 - Eye level by default; a long lens with very shallow focus on singles, a normal lens with deep focus on wides, macro on inserts.
