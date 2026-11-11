@@ -42,6 +42,10 @@ REAL = "[Image{}] is the real {}; show it exactly as it is."  # rules 13 and 16,
 PLACE = "[Image{}] is the place, {}."
 TOO_LONG = "its prompt is {n:,} characters, over the {most:,} {model} takes"
 OFF = re.compile(r"\s*\(.*?\)")  # a speaker's "(V.O.)": never part of their name
+# A plan's `how` as a style's guide may show it, "(in English, low, leaning on home)": its
+# brackets and language go, as the line is written with both (video 396: the doubled brackets
+# were repaired to `The presenter): "…"`, so Omni got no Dialogue line and no delivery)
+HOW = re.compile(r"^[(\[\s]*(?:in (?:American )?English\b[,;]?\s*)?|[)\].\s]+$", re.I)
 
 
 def spoken(text: str, talker: str = "") -> dict[int, tuple[str, str]]:
@@ -214,7 +218,7 @@ def written(db: Session, project: Project, bd: Breakdown, clip: Clip, told: dict
     for k, (s, x) in enumerate(zip(mine, extra, strict=True), 1):  # edge where it falls
         end = round(at + s.seconds, 1)
         frame = "" if lean > 1 else _frame(x.get("people") or [], x.get("extras") or "")
-        how = (x.get("how") or "").strip().rstrip(".")
+        how = HOW.sub("", x.get("how") or "")
         if s.line and check.VO.search(s.speaker or "") and not model_map.THOUGHT.search(how):
             how = ", ".join(x for x in ("voice-over, lips closed", how) if x)  # the "(V.O.)"
         name = OFF.sub("", s.speaker or "").strip()
