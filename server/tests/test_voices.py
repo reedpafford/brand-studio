@@ -60,7 +60,8 @@ def _saved(client, brand) -> list[dict]:
 def test_the_brands_voices_list_dr_pickles_clone_with_its_sample_and_expiry(db, owner):
     brand = first_brand(owner)
     body = _list(owner, brand)
-    (pickle,) = _saved(owner, brand)
+    pickle, zack = _saved(owner, brand)  # each style's own voice
+    assert (zack["look"], zack["sample_url"]) == ("zack-d", "/voices/samples/zack-d.mp3")
     assert (pickle["name"], pickle["kind"], pickle["look"], pickle["brand_id"]) == (
         "Dr. Pickle", "cloned", "dr-pickle", None)  # fmt: skip
     assert pickle["sample_url"] == "/voices/samples/dr-pickle.mp3"  # the web adds /api
@@ -69,7 +70,7 @@ def test_the_brands_voices_list_dr_pickles_clone_with_its_sample_and_expiry(db, 
     assert (row.provider_voice_id, row.speech_model) == ("R8_CJRWYITM", "minimax-speech-02-hd")
     assert voices.expires_at(row) == row.last_used_at + timedelta(days=7)
     assert body["clone_credits"] == 29.18 and body["clone_usd"] == 3.0  # $3 once
-    assert len(_saved(owner, brand)) == 1  # made once per workspace
+    assert len(_saved(owner, brand)) == 2  # each made once per workspace
 
 
 def test_every_app_voice_is_listed_with_a_free_sample_where_a_test_made_one(owner, editor):
@@ -113,7 +114,7 @@ def test_a_styles_own_voice_is_removed_by_the_owner_only(owner, editor):
     pickle = _saved(owner, brand)[0]["id"]
     assert editor.delete(f"/voices/{pickle}").status_code == 403
     assert owner.delete(f"/voices/{pickle}").status_code == 204
-    assert _saved(owner, brand) == []  # stays removed, never made again
+    assert [v["name"] for v in _saved(owner, brand)] == ["Zack D narrator"]  # stays removed
     assert owner.post(f"/voices/{pickle}/restore").status_code == 200
 
 
