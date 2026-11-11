@@ -366,6 +366,7 @@ def test_a_zack_d_look_is_one_camera_each_clip_opens_on_the_last_frame_before(ap
     _delivered(app, owner, db, type="zack-d", look="zack-d", text=LONG)
     (plan,) = _jobs(db, "one_pass")
     assert "<camera>\nThis video is one continuous camera" in plan.input["prompt"]
+    assert "ends with whoever its next clip shows still in frame" in plan.input["prompt"]
     takes, rows = _jobs(db, "clip_take"), db.query(ProjectClip).order_by(ProjectClip.id).all()
     assert [j.input["project_clip_id"] for j in takes] == [r.id for r in rows] and len(rows) == 4
     assert all(b.created_at >= a.finished_at for a, b in zip(takes, takes[1:], strict=False))
