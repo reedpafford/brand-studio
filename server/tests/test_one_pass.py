@@ -143,8 +143,9 @@ def test_a_plan_that_still_misses_a_line_shows_nothing_and_says_what_to_do(app, 
     assert not _jobs(db, "treatment") and not db.query(ProjectClip).count()
     assert owner.get(f"/projects/{pid}/plan").status_code == 204
     out = owner.get(f"/projects/{pid}/director").json()
-    assert out["status"] != "running" and out["ended"] == one_pass.PLAN_FAILED.format(
-        why=one_pass.MISSED)  # fmt: skip
+    assert out["status"] != "running" and out["ended"] == (
+        "It stopped: the plan couldn't be made (twice running its answer had this wrong: line 8 "
+        "is in no shot). Start it again to try once more, or change the script first.")  # fmt: skip
     assert fs.json()["id"]
 
 
@@ -338,7 +339,7 @@ def test_a_plan_that_cannot_be_saved_leaves_nothing_and_stops_after_one_more_try
     assert [(j.status, j.error) for j in plans] == [("failed", "Its answer couldn't be saved.")] * 2
     assert not _jobs(db, "treatment") and not db.query(ProjectClip).count()  # none of it kept
     out = owner.get(f"/projects/{_video(db).id}/director").json()
-    assert out["ended"].startswith("It stopped: the plan couldn't be made (Its answer couldn't")
+    assert out["ended"].startswith("It stopped: the plan couldn't be made (it was written but")
 
 
 def test_the_treatment_card_gives_each_beat_its_clips_real_span(app, owner, db):
@@ -475,3 +476,37 @@ def test_a_screen_the_clip_names_is_attached_whichever_shot_shows_it(app, owner,
     take = _jobs(db, "clip_take")[0]
     assert len(take.input["files"]["reference_images"]) == len(clip["references"])
     assert take.input["exact_file_ids"]  # sent as given, never lossy (rules 13 and 14)
+
+
+def test_a_cut_that_is_refused_stops_saying_why(app, owner, db, monkeypatch):
+    """Reed, 11 Nov (video 370): the cut was refused ("Approve every clip to make the video")
+    and the run stopped saying only "a clip changed since"."""
+    from fastapi import HTTPException
+
+    def refuse(**_):
+        raise HTTPException(409, "Clip 2 has no take to cut with.")
+
+    monkeypatch.setattr("app.routes.cut.make", refuse)
+    owner.post("/freestyles", json=BODY)
+    _run(app, db)
+    out = owner.get(f"/projects/{_video(db).id}/director").json()
+    assert out["ended"] == one_pass.CUT_FAILED.format("Clip 2 has no take to cut with")
+
+
+def test_a_take_the_service_refuses_stops_the_run_naming_its_clip(app, owner, db, monkeypatch):
+    from app.providers import Result
+    from app.providers.fake_local import FakeMedia
+    from tests.test_clip_takes import E006
+
+    real = FakeMedia.poll
+
+    def poll(self, ref):  # the office clip's take is refused on its content, every time
+        job = self._jobs[ref]
+        refused = job["kind"] == "video" and "Then it closed." in job.get("prompt", "")
+        return Result("failed", error=E006) if refused else real(self, ref)
+
+    monkeypatch.setattr(FakeMedia, "poll", poll)
+    owner.post("/freestyles", json=BODY)
+    _run(app, db)
+    ended = owner.get(f"/projects/{_video(db).id}/director").json()["ended"]
+    assert ended.startswith("It stopped: This same prompt for clip 2 was blocked by the service")
