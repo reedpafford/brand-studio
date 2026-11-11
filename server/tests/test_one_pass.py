@@ -374,9 +374,12 @@ def test_the_run_card_and_header_never_speak_of_stills_or_ask_for_make_it_once_d
 
 def test_a_line_with_quotes_of_its_own_reaches_the_take_word_for_word(app, owner, db):
     line = 'He said "five minutes" an hour ago.'
-    pid = _delivered(app, owner, db, text=f"INT. HALL - DAY\nMOM: {line}\nKID: And you waited?")
+    text = f"INT. HALL - DAY\nMOM: {line}\nKID (V.O.): And you waited?"
+    pid = _delivered(app, owner, db, text=text)
     (clip,) = owner.get(f"/projects/{pid}/clips").json()
-    assert f'Mom (in English, plainly): "{line}"' in clip["prompt"]
+    assert f'Only in frame: Mom. Mom (in English, plainly): "{line}"' in clip["prompt"]
+    # a line the script marks (V.O.) is heard, never mouthed, whatever the plan said of it
+    assert 'Kid (in English, voice-over, lips closed, plainly): "And you' in clip["prompt"]
     assert not [p for p in clip["problems"] if not p.startswith("Advice: ")]
     shots = owner.get(f"/projects/{pid}/breakdown").json()["breakdown"]["scenes"][0]["shots"]
     assert shots[0]["line"] == line
