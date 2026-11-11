@@ -16,13 +16,13 @@ formats_why: its people say the script's lines on camera in Omni's own voices, a
 A photoreal person photographed like a still from a modern TV drama, not a model shoot: natural, unretouched skin with pores, fine lines, slight shine and uneven tone; real hair with flyaways. The body and face follow the character's age and build exactly: an adult has an adult's height, build and face; a heavy character is genuinely heavy, a fit one genuinely fit. One fixed, everyday, specific outfit that says who they are (a hoodie, a satin dress, a leather vest, a work polo), identical in every view, with one detail that reads at a glance and stays through any change of build (hair colour and cut, earrings, a watch, a beard). Soft, motivated light; a neutral background.
 
 ## place_look
-One wide establishing photograph, taken from one corner, of a real, specific, lived-in place for a TV drama: dense, ordinary set dressing that says who lives or works there. Light comes only from things in the scene: lamps, bare bulbs, string lights, neon or a screen at night, with a deep blue sky through any window; flat fluorescent light in institutional rooms; low golden or morning sun by day. Filmic, low contrast, lifted blacks, warm-neutral colour, never punchy or saturated; no people in frame.
+One wide establishing photograph, taken from one corner, of a real, specific, lived-in place for a TV drama: dense, ordinary set dressing that says who lives or works there. Light falls in pools from things in the scene, the rest in shadow: lamps, string lights, neon or a screen at night, with a deep blue sky through any window; fluorescent tubes over dim walls in institutional rooms; low golden or morning sun by day. Filmic, low contrast, lifted blacks, warm-neutral colour; no people in frame.
 
 ## still_look
 The Movie look, unless the brand block says otherwise: "A frame from a photoreal modern TV drama. Real-looking people with natural skin texture, in a real, specific place dressed with ordinary detail. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Light comes from what's in the scene (lamps, bulbs, string lights, a screen, the sun), and the scene's light follows the story: dark warm practicals or flat cool fluorescents for the struggle, golden hour or morning sun for the change. Filmic, low-contrast grade with lifted blacks, warm-neutral colour. Most shots are close singles at eye level on a long lens with very shallow depth of field and soft bokeh, often with the other person's shoulder soft in the foreground; wides keep the place readable. Characters look at each other, not at the lens. Natural, TV-scale expressions. No captions or on-screen text."
 
 ## clip_style
-Photoreal TV-drama footage at eye level with shallow focus, people off-centre with depth in front of and behind them, faces turned three-quarter with eyes just off the lens, the acting small and real, the camera locked off (one slow push-in for the line that turns the scene; handheld only for a fall or a chase), light from practicals and the sun, the place's own sound
+Photoreal TV-drama footage, long lens, shallow focus, people off-centre behind a soft foreground, faces three-quarter with eyes just off the lens, the acting small and real, the camera locked off (one slow push-in for the line that turns the scene; handheld only for a fall or a chase), side-lit by the scene's lamps or sun, the background darker, the place's own sound
 
 ## fit_look
 a photoreal TV-drama look with natural, unretouched skin and real everyday clothes, worn the same in every shot
@@ -52,7 +52,7 @@ Writing a new script in this look: a story told in scenes, each in one place, wi
 
 ## Stills
 - Each scene sits in one place and one light. The place says who these people are before anyone speaks: dense, ordinary, specific dressing, with props that stay put from shot to shot.
-- The workhorse is a medium close-up or close-up single at eye level, often "dirty" (the other person's shoulder or the back of their head soft in the foreground), with the background's lights soft as bokeh. A wider two-shot every so often puts the people back in the place.
+- The workhorse is a medium close-up or close-up single, with the background's lights soft as bokeh. A wider two-shot every so often puts the people back in the place.
 - Eyes just off the lens, on the other person. Looking into the lens is rare and means something: a confrontation, or the close to the viewer.
 - Low angles for status, a high angle to make someone small at their low point, a point of view (through a window, past a phone) when the viewer is a witness.
 - Inserts on the thing being named: a hand, a ring, a belt notch, a phone, a bottle, the product in a hand. Photoreal, macro, shallow focus.
@@ -84,12 +84,12 @@ Measured over the three studied films (6–9 min each; a short video keeps the s
 - Up to 30 s: one to three scenes, about 8–14 shots, a clip a scene, landing within about a tenth of the length the brief or script asks for. When it runs long, a wordless insert or end hold gives up its seconds before any line does.
 
 ## camera
-- Eye level and locked off by default; a long lens with very shallow focus on singles, a normal lens with deep focus on wides, macro on inserts.
+- Locked off by default. Singles on a long lens with very shallow focus, a close-up hairline to chin, past something soft near the lens (a shoulder, a shelf end, a door frame). Wides from a corner along a wall, never square down an aisle, nobody mid-frame. Inserts macro, one object each.
 - One move a shot at most, with a reason and an end: a slow push-in on the line that turns the scene, ending on the eyes; a track beside someone who walks, never backing away in front of them; handheld only for a fall or a chase.
 - One way of covering a scene, kept through it: singles cut on each line, or over-the-shoulder mediums, or wides with close-ups for the turns.
 
 ## Light and colour
-- Light comes from things in the scene and follows the story: night practicals (string lights, bare bulbs, a lamp, a TV or dashboard glow) or flat cool fluorescents (a locker room, a restroom, a doctor's office) for the struggle; golden hour and dawn for the change; bright morning sun for the epilogue. Practicals are usually in frame.
+- Light comes from things in the scene and follows the story: night practicals (string lights, bare bulbs, a lamp, a TV or dashboard glow) or cool fluorescent tubes over dim walls (a locker room, a restroom, a doctor's office) for the struggle; golden hour and dawn for the change; bright morning sun for the epilogue. Practicals are usually in frame.
 - A filmic, low-contrast, warm-neutral grade with lifted blacks; never punchy, no teal-and-orange. Night is dark (brightness 13–30 of 100) with warm skin; day is brighter and less saturated. Only the 3D or macro insert is strongly saturated.
 
 ## Cast
