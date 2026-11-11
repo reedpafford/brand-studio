@@ -97,7 +97,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
             n === 0 && preview && !drawing ? (
               <img key={n} src={preview} alt="The photo" className="h-[190px] w-[140px] rounded-md object-cover" />
             ) : (
-              <span key={n} aria-hidden className={`h-[190px] w-[140px] rounded-md ${drawing ? "bg-[linear-gradient(110deg,var(--surface-2)_30%,var(--surface-3)_45%,var(--surface-2)_60%)] motion-safe:animate-pulse" : "bg-surface-2"}`} />
+              <span key={n} aria-hidden className={`h-[190px] w-[140px] rounded-md ${drawing ? "shimmer" : "bg-surface-2"}`} />
             ),
           )}
         </div>

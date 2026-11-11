@@ -25,7 +25,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import cast_gate, director, hidden, live, locked_line, music, screen_figures
+from app import cast_gate, director, hidden, live, locked_line, music, screen_figures, thinking
 from app.clip_takes import still_wanted
 from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
@@ -625,9 +625,12 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         director.read_notes(db, job)  # a brief sent as its turn was answered: read now
     ref = "sync" if provider.paid or job.provider in FREE_LANES else f"{STAND_IN}sync"
     sent = update(Job).where(Job.id == job.id).values(provider_ref=ref)  # a stand-in's: marked
+    # The one long quiet call of a new video is shown as it thinks and writes (app/thinking.py)
+    shown = job.input.get("step") in thinking.STEPS and getattr(provider, "shows_thinking", False)
+    more = {"live": thinking.Writer(job.id)} if shown else {}
     try:  # a Claude check that looks at a picture gets it as data, like other providers
-        result = provider.run(job.kind, _files_as_data(db, storage, job))
-        result = recheck(job.input, result, lambda again: provider.run(job.kind, again))
+        result = provider.run(job.kind, _files_as_data(db, storage, job), **more)
+        result = recheck(job.input, result, lambda again: provider.run(job.kind, again, **more))
     except NotStarted as exc:
         _busy(db, job, exc, busy)
         db.commit()
@@ -641,6 +644,9 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
         _fail(db, job, _plain(job, repr(exc)), repr(exc))  # refusal (4xx) or ours: not charged
         db.commit()
         return True
+    finally:
+        if more:
+            more["live"].close()
     db.execute(sent)
     _finish(db, job, provider, result, storage)
     return True

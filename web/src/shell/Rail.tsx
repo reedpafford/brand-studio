@@ -35,7 +35,7 @@ export function NavItem({ to, also, under, exact, className, children, ...rest }
  *  the owner's Studio pages live. Between 1024 and 1279 px the same rows are icons. */
 export function Rail({ switcher, current, wide, owner, waiting }: { switcher: ReactNode; current: number | null; wide: boolean; owner: boolean; waiting: number | null }) {
   const mine = (useMyRequests().data ?? []).filter((j) => j.status === "needs_owner_approval").length;
-  const item = (isActive: boolean) => `${railRow} font-medium ${wide ? "" : "justify-center"} text-text ${isActive ? "bg-surface-3" : "hover:bg-surface-3/60"}`;
+  const item = (isActive: boolean) => `${railRow} font-medium ${wide ? "" : "justify-center"} text-text ${isActive ? "bg-surface shadow-soft" : "hover:bg-surface-3"}`;
   const row = (to: string, label: string, Icon: LucideIcon, o: { extra?: ReactNode; also?: string; under?: RegExp } = {}) => (
     <NavItem key={to} to={to} also={o.also} under={o.under} className={item} aria-label={wide ? undefined : label} title={wide ? undefined : label}>
       <Icon size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
@@ -50,7 +50,7 @@ export function Rail({ switcher, current, wide, owner, waiting }: { switcher: Re
     </span>
   );
   return (
-    <nav aria-label="Main" className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col gap-0.5 border-r border-border bg-surface-2 px-2 py-2.5 ${wide ? "w-rail" : "w-[64px]"}`}>
+    <nav aria-label="Main" className={`z-30 flex h-full shrink-0 flex-col gap-0.5 px-2 py-2.5 ${wide ? "w-rail" : "w-[64px]"}`}>
       {/* Only the rows scroll: the brand and account menus are wider than the rail and must not be clipped by it. */}
       {switcher}
       {current && (

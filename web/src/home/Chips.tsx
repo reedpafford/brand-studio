@@ -7,13 +7,13 @@ type Icon = ComponentType<{ size?: number; "aria-hidden"?: boolean; className?: 
 
 /** A setting that opens a dialog (Style, Product, Cast), as a small pill: its name alone until something is picked, then
  *  name and value. `onClear`: a small × in the pill that drops what was picked (Product, Cast). */
-export function PickChip({ label, value, none, icon: I, onClick, onClear }: { label: string; value: string; /** what a screen reader hears while nothing is picked ("Nobody") */ none: string; icon?: Icon; onClick: () => void; onClear?: () => void }) {
+export function PickChip({ label, value, none, icon: I, thumb, onClick, onClear }: { label: string; value: string; /** a small picture of what is picked, in the icon's place (the style's sample) */ thumb?: string; /** what a screen reader hears while nothing is picked ("Nobody") */ none: string; icon?: Icon; onClick: () => void; onClear?: () => void }) {
   const main = useRef<HTMLButtonElement>(null);
   const clear = value && onClear;
   return (
     <span className="relative inline-flex max-w-full">
       <button ref={main} type="button" aria-haspopup="dialog" aria-label={`${label}: ${value || none}`} onClick={onClick} className={`${chipPill} max-w-full ${clear ? "pr-11 lg:pr-7" : ""}`}>
-        {I && <I size={12} aria-hidden className="shrink-0 text-muted" />}
+        {thumb ? <img src={thumb} alt="" className="-ml-1 size-5 shrink-0 rounded-full object-cover" /> : I && <I size={12} aria-hidden className="shrink-0 text-muted" />}
         <span className={value ? "font-normal text-muted" : ""}>{label}</span>
         {value && <span className="min-w-0 truncate">{value}</span>}
       </button>

@@ -45,7 +45,7 @@ function ClipRow({ r, open, onOpen, phone }: { r: Row; open: boolean; onOpen: ()
   return (
     <li>
       <button type="button" onClick={onOpen} aria-current={open || undefined} className={`flex w-full items-center gap-3 border-t border-border px-2.5 py-1.5 text-left ${open ? "bg-accent-soft" : "hover:bg-surface-2"} ${r.changed && !r.watched ? "outline-1 -outline-offset-1 outline-accent" : ""}`}>
-        {r.frame_file_id ? <img src={fileUrl(r.frame_file_id)} alt="" className="h-16 w-9 shrink-0 rounded-[3px] bg-black object-cover" /> : <span aria-hidden className="h-16 w-9 shrink-0 rounded-[3px] border border-dashed border-border-strong bg-surface-2" />}
+        {r.frame_file_id ? <img src={fileUrl(r.frame_file_id)} alt="" className="h-16 w-9 shrink-0 rounded-[3px] bg-black object-cover" /> : <span aria-hidden className={`h-16 w-9 shrink-0 rounded-[3px] ${r.state === "making" ? "shimmer" : "border border-dashed border-border-strong bg-surface-2"}`} />}
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex items-baseline gap-2">
             <span className="shrink-0 text-sm font-semibold whitespace-nowrap">Clip {r.number}</span>
@@ -97,8 +97,8 @@ function Grid({ rows, takes, onOpen, phone }: { rows: Row[]; takes: Map<string, 
         const video = takes.get(r.clip_id);
         return (
           <li key={r.clip_id} className="flex min-w-0 flex-col gap-2">
-            <button type="button" onClick={() => onOpen(r)} aria-label={`Open clip ${r.number}`} className={`relative aspect-[150/266] w-full overflow-hidden rounded-md bg-black ${r.changed && !r.watched ? "outline-2 outline-offset-2 outline-accent" : ""}`}>
-              {video ? <video src={fileUrl(video)} muted preload="metadata" className="size-full object-cover" /> : r.frame_file_id ? <img src={fileUrl(r.frame_file_id)} alt="" className="size-full object-cover" /> : <span className="block size-full bg-surface-2" />}
+            <button type="button" onClick={() => onOpen(r)} aria-label={`Open clip ${r.number}`} className={`relative aspect-[150/266] w-full overflow-hidden rounded-lg bg-black ${r.changed && !r.watched ? "outline-2 outline-offset-2 outline-accent" : ""}`}>
+              {video ? <video src={fileUrl(video)} muted preload="metadata" className="size-full object-cover" /> : r.frame_file_id ? <img src={fileUrl(r.frame_file_id)} alt="" className="size-full object-cover" /> : <span className={`block size-full ${r.state === "making" ? "shimmer" : "bg-surface-2"}`} />}
               {video && (
                 <span aria-hidden className="absolute inset-0 grid place-items-center">
                   <span className="grid size-11 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm">

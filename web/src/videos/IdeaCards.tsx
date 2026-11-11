@@ -62,7 +62,7 @@ export function IdeaCard({ brandId, i, phone, picked, picking, onPick }: { brand
     <div className="group relative min-w-0">
       <Link to={to(brandId, i)} draggable={!phone && i.can_manage} onDragStart={(e) => dragIdea(e, i.id, i.title)} {...press} className="flex min-w-0 flex-col gap-2 select-none lg:select-auto">
         <span className="relative block">
-          <Still i={i} className={`${phone ? "aspect-[175/230]" : "aspect-[212/290]"} w-full rounded-md ${picked ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
+          <Still i={i} className={`lift ${phone ? "aspect-[175/230]" : "aspect-[212/290]"} w-full rounded-lg ${picked ? "outline-2 outline-offset-2 outline-accent" : ""}`} />
           {i.status.kind === "working" && total > 0 && (
             <span aria-hidden className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-sm bg-surface-3">
               <span className="block h-full rounded-sm bg-accent" style={{ width: `${Math.round((made / total) * 100)}%` }} />
@@ -89,7 +89,7 @@ export function ArchivedCard({ brandId, i }: { brandId: number; i: Idea }) {
   return (
     <div className="flex min-w-0 flex-col gap-2 opacity-75">
       <Link to={to(brandId, i)}>
-        <Still i={i} className="aspect-[212/290] w-full rounded-md" />
+        <Still i={i} className="aspect-[212/290] w-full rounded-lg" />
       </Link>
       <span className="flex min-w-0 flex-col gap-1">
         <span className="truncate text-base font-semibold leading-[19px]">{i.title}</span>
@@ -221,7 +221,7 @@ export function SelectBar({ brandId, picked, here, moveOpen, setMoveOpen, onClea
   return (
     <div role="region" aria-label="Selected ideas" className="fixed inset-x-0 bottom-0 z-40 lg:inset-x-auto lg:bottom-6 lg:left-[calc(50%+var(--rail-w)/2)] lg:-translate-x-1/2">
       {/* On a phone the bar takes the tabs' place (S-gaps-06, 12). */}
-      <div className="flex min-h-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] items-center gap-2.5 bg-ink py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pl-4 pr-2 text-white shadow-overlay lg:min-h-0 lg:rounded-[10px] lg:pb-2">
+      <div className="flex min-h-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] items-center gap-2.5 bg-ink py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pl-4 pr-2 text-white shadow-overlay lg:min-h-0 lg:rounded-lg lg:pb-2">
         <span className="whitespace-nowrap text-sm font-medium">{n} selected</span>
         <span className="flex-1 lg:hidden" />
         {/* S-gaps-06 (8): the menu opens straight up from Move to…, its left edge on the button, kept on screen. */}

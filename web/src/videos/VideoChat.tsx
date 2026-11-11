@@ -193,7 +193,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   );
   const preview = <Preview onEditor={setEditing} p={p} head={shownHead ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
-    <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
+    <main className={`flex min-h-0 flex-col ${rail ? "h-full flex-row" : "h-dvh"}`}>
       {rail ? (
         <>
           {/* Reed, 9 Nov: the preview "dominates the screen". The chat takes the room and the preview has a set width (560–680),
@@ -287,7 +287,7 @@ function Loading({ phone }: { phone: boolean }) {
       </div>
     );
   return (
-    <div className="flex h-screen">
+    <div className="flex h-full">
       <section className="flex min-w-0 flex-1 flex-col border-r border-border bg-surface">
         {head}
         {thread}
@@ -300,7 +300,7 @@ function Loading({ phone }: { phone: boolean }) {
           ))}
         </div>
         <div className="flex gap-5 p-5">
-          <Skeleton className="h-[533px] w-[300px] rounded-[10px]" />
+          <Skeleton className="h-[533px] w-[300px] rounded-lg" />
           <div className="flex flex-col gap-3">
             <Skeleton className="h-[18px] w-40" />
             <Skeleton className="h-3 w-[200px]" />
@@ -607,7 +607,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
               // The newest run: its one live card (S3-03…S3-13), then what stopped it, if anything.
               <Fragment key={t.id}>
                 <Item t={t} owner={owner} words={null}>
-                  <RunCard progress={progress} phone={phone} />
+                  <RunCard progress={progress} phone={phone} projectId={p?.id} />
                   {heldSend(t)}
                 </Item>
                 {stopLines(progress).map((line) => (

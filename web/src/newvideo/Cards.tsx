@@ -47,7 +47,7 @@ function Sample({ name, clip, still, testTag, playing, onPlay, w, h }: { name: s
       {(clip || still) && testTag && tag}
       {clip && (
         <button type="button" aria-label={`${playing ? "Pause" : "Play"} the ${name} sample`} onClick={(e) => (e.stopPropagation(), onPlay())} className="absolute inset-0 grid place-items-center text-white">
-          <span className="grid size-11 place-items-center rounded-full bg-black/35 opacity-80 ring-1 ring-white/25 backdrop-blur-md transition-[opacity,transform,background-color] duration-(--dur-fast) ease-out group-hover:scale-105 group-hover:bg-black/50 group-hover:opacity-100 lg:size-9">{playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}</span>
+          <span className={`grid size-11 place-items-center rounded-full bg-black/35 ring-1 ring-white/25 backdrop-blur-md transition-[opacity,transform,background-color] duration-(--dur-fast) ease-out group-hover:scale-105 group-hover:bg-black/50 group-hover:opacity-100 lg:size-10 ${playing ? "opacity-100" : "opacity-80 lg:opacity-0 lg:group-focus-within:opacity-100"}`}>{playing ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}</span>
         </button>
       )}
       {playing && (
@@ -62,7 +62,11 @@ function Sample({ name, clip, still, testTag, playing, onPlay, w, h }: { name: s
 // A card or tile lifts under the pointer; the picked one has an indigo edge. An off one keeps its words readable and greys its
 // picture. Its corners and ground are its own.
 const card = (sel: boolean, off: boolean) =>
-  `group flex shrink-0 flex-col overflow-hidden border text-left transition-[border-color,box-shadow,transform] duration-(--dur-fast) ease-out ${sel ? "border-accent ring-1 ring-accent" : off ? "border-border" : "border-border hover:-translate-y-px hover:border-border-button hover:shadow-hover active:translate-y-0"} ${off ? "cursor-not-allowed [&_img]:opacity-60 [&_img]:grayscale [&_video]:opacity-60 [&_video]:grayscale" : ""}`;
+  `group flex shrink-0 flex-col overflow-hidden border text-left transition-[border-color,box-shadow,transform] duration-(--dur-fast) ease-out ${sel ? "border-accent ring-2 ring-accent" : off ? "border-border" : "border-border hover:-translate-y-0.5 hover:border-border-button hover:shadow-hover active:translate-y-0"} ${off ? "cursor-not-allowed [&_img]:opacity-60 [&_img]:grayscale [&_video]:opacity-60 [&_video]:grayscale" : ""}`;
+// A gallery poster: no edge line of its own (the picture is the edge); it lifts under the pointer, and the picked one
+// has the indigo ring set off from the picture.
+const poster = (sel: boolean, off: boolean) =>
+  `group flex shrink-0 flex-col overflow-hidden border text-left shadow-soft transition-[box-shadow,transform] duration-(--dur) ease-out ${sel ? "border-accent ring-2 ring-accent ring-offset-2 ring-offset-bg" : off ? "border-transparent" : "border-transparent hover:-translate-y-1 hover:shadow-hover active:translate-y-0"} ${off ? "cursor-not-allowed [&_img]:opacity-60 [&_img]:grayscale" : ""}`;
 const Check = () => <CircleCheckBig size={14} strokeWidth={2} aria-hidden className="animate-fade shrink-0 text-accent" />;
 
 /** The formats as a radio list (the Styles dialog): each with its line; Song says why it is "coming next" while its
@@ -105,8 +109,11 @@ export function StyleCards({ looks, value, onPick, locked, only }: { looks: Look
         const can = l.on && !locked && !why;
         // The picture plays its sample; the words under it pick the style (a radio holds no other button).
         return (
-          <div key={l.id} className={`${card(sel, !l.on || !!why)} w-full rounded-lg bg-surface ${locked && !sel ? "opacity-55" : ""}`}>
-            <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h="aspect-[4/5]" />
+          <div key={l.id} className={`${card(sel, !l.on || !!why)} w-full rounded-xl bg-surface ${locked && !sel ? "opacity-55" : ""}`}>
+            {/* A picture with a clip plays it; one with none picks the style, like the words under it (a dead press, 11 Nov). */}
+            <div onClick={() => !m.clip && can && onPick(l.id)} className={!m.clip && can ? "cursor-pointer" : ""}>
+              <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h="aspect-[4/5]" />
+            </div>
             <button type="button" role="radio" aria-checked={sel} aria-disabled={!can || undefined} title={why ?? undefined} onClick={() => can && onPick(l.id)} className={`flex min-h-control flex-1 flex-col gap-0.5 px-3 py-2.5 text-left ${can ? "" : "cursor-default"}`}>
               <span className="flex items-center gap-1">
                 <span className={`text-sm font-semibold ${l.on && !why ? "" : "text-muted"}`}>{l.name}</span>
@@ -125,36 +132,50 @@ export function StyleCards({ looks, value, onPick, locked, only }: { looks: Look
   );
 }
 
-/** The styles as a gallery (Home, under the box): 9:16 picture tiles, the ones switched on first. A tile shows its sample
- *  still and plays the sample clip under the pointer or on focus (muted, one at a time), with the style's name and line
- *  over a shade at the foot; a style with no sample is a text poster, its line on a tint. Pressing a tile picks the style
- *  (the indigo ring and a check); one off on this site is greyed and says so. */
+/** The styles as a gallery (Home, under the box): 9:16 posters, the ones switched on first, arriving one after another.
+ *  A poster shows its sample still and plays the sample clip under the pointer or on focus (muted, one at a time), with
+ *  the style's name large and its line over a shade at the foot; under the pointer it lifts, its B-roll look slides in
+ *  and its own picture glows out from under it. A style with no sample is a text poster, its line on a tint. Pressing
+ *  one picks the style (the indigo ring and a check); one off on this site is greyed and says so. */
 export function StyleGallery({ looks, value, onPick }: { looks: Look[]; value: string; onPick: (l: Look) => void }) {
   const [playing, setPlaying] = useState<string | null>(null);
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {[...looks.filter((l) => l.on), ...looks.filter((l) => !l.on)].map((l) => {
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
+      {[...looks.filter((l) => l.on), ...looks.filter((l) => !l.on)].map((l, i) => {
         const m = lookMedia(l);
         const sel = l.id === value;
         const play = (on: boolean) => setPlaying((p) => (on ? l.id : p === l.id ? null : p));
         return (
-          <li key={l.id} className="min-w-0">
-            <button type="button" aria-pressed={sel} aria-disabled={!l.on || undefined} onClick={() => l.on && onPick(l)} onMouseEnter={() => play(true)} onMouseLeave={() => play(false)} onFocus={() => play(true)} onBlur={() => play(false)} className={`${card(sel, !l.on)} relative aspect-[9/16] w-full rounded-xl ${m.still ? "bg-surface-3" : l.on ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-muted"}`}>
-              {m.still && <img src={m.still} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />}
-              {playing === l.id && m.clip && l.on && <video ref={(v) => void v?.play?.()?.catch(() => {})} src={m.clip} poster={m.still} muted loop playsInline aria-hidden className="absolute inset-0 size-full object-cover" />}
-              <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-(image:--media-shade) px-3 pb-3 pt-12 text-white">
-                <span className="text-sm font-semibold leading-snug">{l.name}</span>
-                {m.still && <span className="line-clamp-2 text-xs text-white/80">{sub(l)}</span>}
-                {!l.on && <span className="self-start rounded-sm bg-black/45 px-1.5 text-xs font-medium text-white/90">{OFF}</span>}
+          <li key={l.id} className="animate-rise group/poster relative min-w-0" style={{ animationDelay: `${i * 45}ms` }}>
+            {/* The poster's own colours, soft and low under it: only for the one under the pointer or picked. */}
+            {m.still && l.on && (
+              <span aria-hidden className={`pointer-events-none absolute inset-x-5 bottom-0 top-8 translate-y-3 transition-opacity duration-(--dur) ease-out ${sel ? "opacity-45" : "opacity-0 group-hover/poster:opacity-55"}`}>
+                <img src={m.still} alt="" className="size-full rounded-xl object-cover blur-xl saturate-150" />
+              </span>
+            )}
+            <button type="button" aria-pressed={sel} aria-disabled={!l.on || undefined} onClick={() => l.on && onPick(l)} onMouseEnter={() => play(true)} onMouseLeave={() => play(false)} onFocus={() => play(true)} onBlur={() => play(false)} className={`${poster(sel, !l.on)} relative aspect-[9/16] w-full rounded-xl ${m.still ? "bg-surface-3" : l.on ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-muted"}`}>
+              {m.still && <img src={m.still} alt="" loading="lazy" className="absolute inset-0 size-full object-cover transition-transform duration-(--dur-slow) ease-out group-hover:scale-[1.04]" />}
+              {playing === l.id && m.clip && l.on && <video ref={(v) => void v?.play?.()?.catch(() => {})} src={m.clip} poster={m.still} muted loop playsInline aria-hidden className="animate-fade absolute inset-0 size-full scale-[1.04] object-cover" />}
+              <span className="absolute inset-x-0 bottom-0 flex flex-col bg-(image:--media-shade) px-4 pb-4 pt-20 text-white">
+                <span className="type-headline text-balance">{l.name}</span>
+                {m.still && <span className="line-clamp-2 pt-0.5 text-sm text-white/85">{sub(l)}</span>}
+                {m.still && l.broll && l.on && (
+                  <span className="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-(--dur) ease-out group-hover:grid-rows-[1fr] group-hover:opacity-100 group-focus-visible:grid-rows-[1fr] group-focus-visible:opacity-100">
+                    <span className="overflow-hidden">
+                      <span className="block pt-2 text-xs text-white/70">{brollLine(l)}</span>
+                    </span>
+                  </span>
+                )}
+                {!l.on && <span className="mt-1 self-start rounded-sm bg-black/45 px-1.5 text-xs font-medium text-white/90">{OFF}</span>}
               </span>
               {!m.still && (
-                <span className="absolute inset-x-0 bottom-16 top-0 flex items-center px-4">
+                <span className="absolute inset-x-0 bottom-20 top-0 flex items-center px-4">
                   <span className="line-clamp-5 text-sm font-medium leading-snug sm:text-base sm:leading-snug">{sub(l)}</span>
                 </span>
               )}
               {sel && (
-                <span className="animate-fade absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-accent text-on-accent">
-                  <CheckIcon size={14} strokeWidth={2.5} aria-hidden />
+                <span className="animate-pop absolute right-3 top-3 grid size-7 place-items-center rounded-full bg-accent text-on-accent shadow-press">
+                  <CheckIcon size={16} strokeWidth={2.5} aria-hidden />
                 </span>
               )}
             </button>
@@ -162,6 +183,27 @@ export function StyleGallery({ looks, value, onPick }: { looks: Look[]; value: s
         );
       })}
     </ul>
+  );
+}
+
+/** Home's small stage over the headline: the picked style's sample playing (muted, looping; a still when motion is
+ *  reduced) between its two neighbours, fanned like a hand of posters. Decoration only: the gallery below does the picking. */
+export function StyleFan({ looks, look }: { looks: Look[]; look?: Look }) {
+  const shown = looks.filter((l) => l.on && lookMedia(l).still);
+  const at = shown.findIndex((l) => l.id === look?.id);
+  if (at < 0 || shown.length < 3) return null;
+  const side = (step: number) => lookMedia(shown[(at + step + shown.length) % shown.length]).still;
+  const mid = lookMedia(shown[at]);
+  const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const frame = "absolute bottom-0 aspect-[9/16] overflow-hidden rounded-lg border border-white/70 bg-surface-3 shadow-raised";
+  return (
+    <div aria-hidden className="relative mx-auto h-44 w-72">
+      <img key={`l${shown[at].id}`} src={side(-1)} alt="" className={`animate-fade ${frame} left-6 h-36 origin-bottom-right -rotate-[9deg] object-cover opacity-90`} />
+      <img key={`r${shown[at].id}`} src={side(1)} alt="" className={`animate-fade ${frame} right-6 h-36 origin-bottom-left rotate-[9deg] object-cover opacity-90`} />
+      <span key={shown[at].id} className={`animate-rise ${frame} left-1/2 h-44 -translate-x-1/2`}>
+        {mid.clip && !still ? <video src={mid.clip} poster={mid.still} muted loop playsInline autoPlay className="size-full object-cover" /> : <img src={mid.still} alt="" className="size-full object-cover" />}
+      </span>
+    </div>
   );
 }
 

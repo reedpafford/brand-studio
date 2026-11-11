@@ -29,8 +29,8 @@ const SORTS: [Sort, string, string?][] = [
 const BIG = 100; // a folder this big opens as a list (S1-05)
 const n = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 const seg = "inline-flex shrink-0 gap-0.5 rounded-md bg-surface-2 p-0.5";
-const segItem = (on: boolean) => `inline-flex h-control items-center gap-1.5 whitespace-nowrap rounded-[5px] px-3 text-sm font-medium lg:h-7 ${on ? "bg-surface text-text shadow-[0_1px_2px_rgb(28_27_25/0.06),0_2px_8px_rgb(28_27_25/0.04)]" : "text-muted hover:text-text"}`;
-const chip = "inline-flex h-control items-center gap-1.5 whitespace-nowrap rounded-sm border border-border-button bg-surface px-2.5 text-xs font-medium text-text lg:h-[26px]";
+const segItem = (on: boolean) => `inline-flex h-control items-center gap-1.5 whitespace-nowrap rounded-sm px-3 text-sm font-medium transition-colors duration-(--dur-fast) lg:h-7 ${on ? "bg-surface text-text shadow-soft" : "text-muted hover:text-text"}`;
+const chip = "inline-flex h-control items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-2 px-3 text-xs font-medium text-text lg:h-[26px]";
 
 /** Brand home: an open folder (v6 S1-01 to S1-08, P-02; S-gaps-01 and -02). Its ideas as cards, or a list for a big folder,
  *  with tabs, search, sort and Made by; several selected move or archive; the folder's ⋯ holds its actions and Archived.
@@ -187,9 +187,9 @@ export function FolderPage() {
   );
 
   return (
-    <main className="min-h-screen pb-24">
+    <main className="mx-auto min-h-screen max-w-content pb-24 lg:min-h-full">
       {/* S1-04's top: Brand › folder, its counts, ⋯ and New video (P-02: the folder's name over its counts). */}
-      <header className="flex min-h-14 items-center gap-2.5 border-b border-border bg-surface px-4 lg:px-5">
+      <header className="flex min-h-14 items-center gap-2.5 border-b border-border bg-surface px-4 lg:px-6">
         {rail ? (
           <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted">
             <span className="shrink-0">{brand?.name}</span>
@@ -316,7 +316,7 @@ export function FolderPage() {
         <div role="status" aria-label="Loading" className="grid grid-cols-2 gap-3 px-4 py-5 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] lg:gap-x-4 lg:gap-y-5 lg:px-6">
           {Array.from({ length: 10 }, (_, k) => (
             <div key={k} className="flex flex-col gap-2">
-              <Skeleton className="aspect-[212/290] w-full rounded-md" />
+              <Skeleton className="aspect-[212/290] w-full rounded-lg" />
               <Skeleton className="h-3 w-40 max-w-full" />
               <Skeleton className="h-3 w-28" />
             </div>

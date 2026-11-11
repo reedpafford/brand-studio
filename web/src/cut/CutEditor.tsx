@@ -289,7 +289,7 @@ function FirstCut({ cut, aspect, width }: { cut: Cut; aspect: string; width: num
   return (
     <div className="flex items-start gap-5">
       <div
-        className="flex flex-none flex-col items-center justify-center gap-2 rounded-[10px] bg-surface-2 text-muted"
+        className="flex flex-none flex-col items-center justify-center gap-2 rounded-lg bg-surface-2 text-muted"
         style={{ width, aspectRatio: aspect.replace(":", " / ") }}
       >
         <LoaderCircle size={24} strokeWidth={1.75} className="animate-spin" aria-hidden />
@@ -362,7 +362,7 @@ function PhoneCut({
           <Player fileId={cut.file_id} length={cut.timeline.length} at={at} onTime={onTime} width={200} aspect={aspect} speed={cut.timeline.speed} />
         ) : (
           <div
-            className="flex flex-col items-center justify-center gap-2 rounded-[10px] bg-surface-2 text-sm text-muted"
+            className="flex flex-col items-center justify-center gap-2 rounded-lg bg-surface-2 text-sm text-muted"
             style={{ width: 200, aspectRatio: aspect.replace(":", " / ") }}
           >
             <LoaderCircle size={24} strokeWidth={1.75} className="animate-spin" aria-hidden />

@@ -44,7 +44,7 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
     slug === "kit" ? undefined : slug === "footage" ? footage : slug === "presenters" ? (counts.presenters === undefined ? undefined : counts.presenters + voices) : counts[slug];
   if (!rail) {
     return (
-      <main className="min-h-screen pb-24">
+      <main className="min-h-screen pb-24 lg:min-h-full">
         <header className="flex min-h-14 items-center gap-2.5 border-b border-border bg-surface px-4">
           <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-sm text-xs font-semibold text-white" style={{ background: brand?.colours?.[0] || "var(--accent)" }}>
             {name.slice(0, 1).toUpperCase()}
@@ -73,8 +73,8 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
     );
   }
   return (
-    <main className="flex min-h-screen flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border bg-surface px-5">
+    <main className="mx-auto flex min-h-screen max-w-content flex-col lg:min-h-full">
+      <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border bg-surface px-6">
         <p className="flex items-center gap-1.5 whitespace-nowrap text-sm text-muted">
           <span>{name}</span>
           <ChevronRight size={12} strokeWidth={1.75} aria-hidden />
@@ -84,13 +84,13 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
         <span className="flex-1" />
         {action}
       </header>
-      <div className="flex shrink-0 items-center gap-0.5 border-b border-border bg-surface px-6">
+      <div className="flex shrink-0 items-center gap-0.5 border-b border-border bg-surface pl-3.5 pr-6">
         <nav aria-label="Library" className="flex gap-0.5">
           {TABS.map((t) => {
             const on = t.slug === tab;
             const n = count(t.slug);
             return (
-              <Link key={t.slug} to={tabPath(brandId, t.slug)} aria-current={on ? "page" : undefined} className={`-mb-px inline-flex h-10 items-center gap-1.5 border-b-2 px-2.5 text-sm font-medium ${on ? "border-text text-text" : "border-transparent text-muted hover:text-text"}`}>
+              <Link key={t.slug} to={tabPath(brandId, t.slug)} aria-current={on ? "page" : undefined} className={`-mb-px inline-flex h-10 items-center gap-1.5 border-b-2 px-2.5 text-sm font-medium transition-colors duration-(--dur-fast) ${on ? "border-text text-text" : "border-transparent text-muted hover:text-text"}`}>
                 {t.title}
                 {n !== undefined && <span className="inline-flex h-4 items-center rounded-lg bg-surface-2 px-1.5 text-[11px] tabular-nums text-muted">{n}</span>}
               </Link>

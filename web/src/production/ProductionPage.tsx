@@ -256,7 +256,7 @@ function Cards({ rows }: { rows: Row[] }) {
             <span className="flex gap-3">
               <Poster id={r.poster_file_id} size="h-22 w-14" />
               <span className="min-w-0 flex-1 space-y-1">
-                <span className="block break-words font-display text-md font-bold">{r.script.title} · {r.letter}</span>
+                <span className="block break-words type-card">{r.script.title} · {r.letter}</span>
                 <span className="block break-words text-sm text-muted">{r.brand.name} · {who(r)}</span>
                 {/* Like the computer's Now (QA-3 on #1241); a flagged one keeps its step here and its flag below. */}
                 {r.flag ? <span className="block text-sm text-muted">{STEPS[r.step]} · {ago(lastText(r.last_activity_at))}</span> : <span className="block text-muted"><Now r={r} /></span>}

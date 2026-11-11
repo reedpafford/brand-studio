@@ -16,13 +16,14 @@
   color-scheme: light;
 
   /* Surfaces: page -> panel -> raised -> hover */
-  --bg: #fbfbfc;
+  --canvas: #f0f0f3;           /* behind everything on a desktop: the rail sits on it, the page is a panel beside it */
+  --bg: #ffffff;               /* the page (the panel) */
   --surface: #ffffff;
   --surface-2: #f4f4f6;
   --surface-3: #ebebef;       /* hover / pressed on surface-2 */
-  --border: #e7e7ea;           /* dividers, card edges */
+  --border: #ececef;           /* dividers, card edges: as light as still reads */
   --border-strong: #8b8e97;    /* inputs, checkboxes: 3.3:1 on surface */
-  --border-button: #d9dadf;    /* a secondary button's outline (v5: no fill) */
+  --border-button: #dddee4;    /* a secondary button's outline (v5: no fill) */
   --accent-line: #c9ccf6;      /* an indigo-tinted hairline: an open chip, a picked soft card */
   --scrim: rgb(20 20 18 / 0.45);  /* behind sheets and dialogs */
   --media-shade: linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0) 70%); /* text on pictures */
@@ -52,7 +53,7 @@
   --warning: #8f5c12;  --warning-soft: #fbf1df;   /* 5.1:1: also "needs you" */
   --need-dot: #d48a12;  /* v6 S0-01: the Needs you and Waiting dots (a dot, never words) */
   --ink: #1b1c1f;       /* v6 S1-07: the selection bar, near-black (white words, 16:1) */
-  --danger: #c23b2f;   --danger-soft: #fde9e7;    /* 4.5:1 */
+  --danger: #c23b2f;   --danger-soft: #fdf1ef;    /* 4.8:1: a pale tint, a note not an alarm */
 
   /* The cut editor's music track (v6 S7) */
   --track-music: #6a3f9c;  --track-music-soft: #f4effa;
@@ -70,6 +71,7 @@
   --shadow-hover: 0 2px 4px rgb(17 18 23 / 0.06), 0 8px 20px rgb(17 18 23 / 0.07); /* a card that can be picked, under the pointer */
   --shadow-press: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 1px 2px rgb(17 18 23 / 0.16); /* the main press: a faint top light */
   --ring: 0 0 0 3px rgb(94 99 214 / 0.16);  /* a box being typed in: the indigo edge plus this halo */
+  --shadow-float: 0 1px 2px rgb(17 18 23 / 0.05), 0 12px 32px -8px rgb(52 56 150 / 0.16), 0 32px 64px -24px rgb(52 56 150 / 0.14); /* Home's words box: it floats in the indigo light */
   --shadow-raised: 0 8px 24px rgb(28 27 25 / 0.12); /* menus, toasts */
   --shadow-overlay: 0 24px 64px rgb(28 27 25 / 0.22);                                       /* sheets, dialogs */
 
@@ -95,10 +97,11 @@
   --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px;
 
   /* Shape */
-  --radius-sm: 4px;    /* badges, chips */
-  --radius-md: 6px;    /* buttons, inputs, small media */
-  --radius-lg: 8px;    /* cards, media cards */
-  --radius-xl: 12px;   /* sheets, dialogs */
+  --radius-sm: 6px;    /* badges, chips */
+  --radius-md: 8px;    /* buttons, inputs, small media */
+  --radius-lg: 12px;   /* cards, media cards */
+  --radius-xl: 16px;   /* sheets, dialogs, posters */
+  --radius-2xl: 20px;  /* the page's panel on a desktop */
   --radius-full: 999px;
 
   /* Sizes */
@@ -123,6 +126,7 @@
 }
 
 @media (min-width: 1024px) {
+  :root { --text-3xl: 2.75rem; --leading-3xl: 3rem; } /* 44/48: Home's headline has the room on a desktop */
   :root { --control-h: 36px; --topbar-h: 0px; } /* desktop (pointer): Linear-sized controls (phones keep 44px); no top bar, the rail has it all */
 }
 
@@ -147,6 +151,7 @@
    use only the steps listed above (lint: no p-7, p-9, p-11, gap-7 ... and no arbitrary [13px]). */
 @theme inline {
   --color-*: initial; /* only these colours exist: no bg-violet-500 and friends */
+  --color-canvas: var(--canvas);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -204,6 +209,7 @@
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
   --radius-full: var(--radius-full);
 
   --shadow-card: var(--shadow-card);
@@ -211,6 +217,7 @@
   --shadow-hover: var(--shadow-hover);
   --shadow-press: var(--shadow-press);
   --shadow-ring: var(--ring);
+  --shadow-float: var(--shadow-float);
   --shadow-raised: var(--shadow-raised);
   --shadow-overlay: var(--shadow-overlay);
 

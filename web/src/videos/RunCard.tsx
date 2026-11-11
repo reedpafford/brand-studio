@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, CircleCheckBig, CircleStop, Clock, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { api, errorText, polled } from "../api/client";
@@ -62,7 +62,7 @@ function Frame({ c, className, onPick }: { c: Cell; className: string; onPick?: 
     l === "todo" ? (
       <span className={`block border border-dashed border-border-strong bg-surface-2 ${className}`} />
     ) : l === "making" || c.frame_file_id == null ? (
-      <span className={`block bg-[linear-gradient(110deg,#ececf0_30%,#f6f6f8_45%,#ececf0_60%)] ${className} ${RING[l]}`} />
+      <span className={`block ${l === "making" ? "shimmer" : "bg-surface-3"} ${className} ${RING[l]}`} />
     ) : (
       <img src={fileUrl(c.frame_file_id)} alt="" className={`block object-cover ${className} ${RING[l]}`} />
     );
@@ -82,7 +82,7 @@ function Frame({ c, className, onPick }: { c: Cell; className: string; onPick?: 
  *  name under them; the scene being made is named in the accent. `big`: the Cut tab's strip (S3-09), a frame a press. */
 export function Filmstrip({ scenes, at, big, onPick }: { scenes: Scene[]; at?: number; big?: boolean; onPick?: (c: Cell) => void }) {
   return (
-    <ol aria-label="The video, scene by scene" className={`flex items-end overflow-x-auto ${big ? "gap-2" : "gap-1.5"}`}>
+    <ol aria-label="The video, scene by scene" className={`-m-1 flex items-end overflow-x-auto p-1 ${big ? "gap-2" : "gap-1.5"}`}>
       {scenes.map((s, i) => (
         <li key={s.id} className="flex shrink-0 flex-col gap-1">
           <span className="flex gap-0.5">
@@ -122,7 +122,7 @@ export function SceneRow({ scenes }: { scenes: Scene[] }) {
 }
 
 const ICON = {
-  now: <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-accent-text" />,
+  now: <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-accent-text motion-safe:animate-spin" />,
   wait: <Clock size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-warning" />,
   done: <CircleCheckBig size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-success" />,
   bad: <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-danger" />,
@@ -130,18 +130,68 @@ const ICON = {
 };
 const STEP = {
   done: ["bg-success-soft text-success", <Check key="d" size={12} strokeWidth={2} aria-hidden />],
-  now: ["bg-accent-soft text-accent", <LoaderCircle key="n" size={12} strokeWidth={2} aria-hidden />],
+  now: ["bg-accent-soft text-accent", <LoaderCircle key="n" size={12} strokeWidth={2} aria-hidden className="motion-safe:animate-spin" />],
   todo: ["border-[1.5px] border-border-strong", null],
   wait: ["bg-warning-soft text-warning", <Clock key="w" size={12} strokeWidth={2} aria-hidden />],
   bad: ["bg-danger-soft text-danger", <X key="b" size={12} strokeWidth={2} aria-hidden />],
 } as const;
+
+/** The seconds since a server time, counted each second while `on`. */
+function useElapsed(iso: string, on: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [on]);
+  return Math.max(0, Math.round((now - serverTime(iso).getTime()) / 1000));
+}
+/** What the director's call in hand is thinking and has written so far (the plan step), read every 2 s while the card
+ *  is quiet: Claude's own summary of its reasoning, and the plan's hook, story and clips as each is written. */
+function useThinking(projectId: number | undefined, on: boolean) {
+  return useQuery({
+    queryKey: ["run-thinking", projectId],
+    enabled: on && !!projectId,
+    refetchInterval: 2000,
+    queryFn: () => polled(api.GET("/projects/{project_id}/director/thinking", { params: { path: { project_id: projectId! } } }), null),
+  }).data;
+}
+
+/** The thinking as it comes: its last lines in a short window that stays at the newest words; "Show all" opens it. */
+function Thinking({ words }: { words: string }) {
+  const [all, setAll] = useState(false);
+  const box = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [words, all]);
+  return (
+    <div className="animate-fade rounded-md bg-surface-2 px-3 py-2">
+      <div className="flex items-center gap-2 pb-1">
+        <span className="text-shimmer text-xs font-semibold text-muted">Thinking</span>
+        <span className="flex-1" />
+        <button type="button" aria-expanded={all} onClick={() => setAll(!all)} className="rounded-sm text-xs text-muted hover:text-text">
+          {all ? "Show less" : "Show all"}
+        </button>
+      </div>
+      <p ref={box} aria-live="off" className={`overflow-y-auto whitespace-pre-wrap text-sm text-muted motion-safe:scroll-smooth ${all ? "max-h-80" : "fade-top max-h-20"}`}>
+        {words}
+      </p>
+    </div>
+  );
+}
+
+// What a step is doing while nothing can be shown for it yet, and how long that usually is.
+const QUIET: Record<string, string> = {
+  read: "Reading the script, the style’s guide and the brand kit.",
+  plan: "Reading the whole script and writing the plan, clip by clip. Usually a couple of minutes, longer for a long script.",
+};
 
 const left = (min: number) => (min >= 60 ? `about ${Math.floor(min / 60)} h ${min % 60} min left` : `about ${min} min left`);
 const LONG = 60; // a long video (S3-13: 118 clips) reads as a row a scene, not a frame a clip
 
 /** The run's one live card (S3-03 folded, S3-04 open, S3-08 stopped, S3-11 failed, S3-12 revising, S3-13 long; P-04 on a
  *  phone): its head, the strip of frames, and every step a press away. */
-export function RunCard({ progress: r, phone }: { progress: Progress; phone: boolean }) {
+export function RunCard({ progress: r, phone, projectId }: { progress: Progress; phone: boolean; projectId?: number }) {
   const [open, setOpen] = useState(false);
   const long = r.clips > LONG;
   const steps = (
@@ -168,7 +218,38 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
     </button>
   );
   const shown = r.scenes.slice(0, 8);
-  const body = long ? (
+  // Before there is a frame to show (the plan is being written): what it is doing, a bar that keeps moving and a clock,
+  // so a quiet couple of minutes never reads as stuck.
+  const quiet = (r.status === "working" || r.status === "revising") && !r.scenes.length;
+  const elapsed = useElapsed(r.started_at, quiet);
+  const at = r.steps.find((s) => s.state === "now");
+  const live = useThinking(projectId, quiet);
+  const body = quiet ? (
+    <div className="flex flex-col gap-2">
+      <div className="h-1 overflow-hidden rounded-sm bg-surface-3" aria-hidden>
+        <i className="animate-sweep block h-full w-1/3 rounded-sm bg-accent" />
+      </div>
+      <p className="text-sm text-muted">
+        {(at && QUIET[at.key]) || (at ? `${at.text}.` : "Working.")} It keeps going if you leave this page.
+      </p>
+      {live?.thinking && <Thinking words={live.thinking} />}
+      {!!live?.written.length && (
+        <ol aria-label="The plan so far" className="flex flex-col gap-1">
+          {live.written.map((line, i) => {
+            const [label, ...rest] = line.split(": ");
+            return (
+              <li key={i} className="animate-rise flex items-start gap-2 text-sm">
+                <Check size={14} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0 text-success" />
+                <span className="min-w-0">
+                  <span className="font-medium">{label}</span> <span className="text-muted">{rest.join(": ")}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  ) : !r.scenes.length ? null : long ? ( // nothing planned (it stopped at the plan): no empty strip holding a gap open
     <div>
       <div className="mb-2 h-1 overflow-hidden rounded-sm bg-surface-3" aria-hidden>
         <i className="block h-full rounded-sm bg-accent" style={{ width: `${r.clips ? Math.round((100 * r.made) / r.clips) : 0}%` }} />
@@ -201,8 +282,13 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
     <section aria-label={r.title} className="rounded-lg border border-border bg-surface shadow-soft">
       <div className="flex min-w-0 items-center gap-2 px-4 py-2.5">
         {ICON[r.tone]}
-        <span className="shrink-0 text-sm font-semibold">{r.title}</span>
+        <span className={`shrink-0 text-sm font-semibold ${r.tone === "now" ? "text-shimmer" : ""}`}>{r.title}</span>
         {!phone && r.sub && !banner && <span className="min-w-0 truncate text-sm text-muted">· {r.sub}</span>}
+        {quiet && (
+          <span role="timer" aria-label="Time on this step" className="shrink-0 text-sm tabular-nums text-muted">
+            · {mmss(elapsed)} so far
+          </span>
+        )}
         {toggle}
       </div>
       <div className="px-4 pb-3.5">
@@ -215,7 +301,7 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
           </p>
         )}
         {r.actual_usd != null && (
-          <p className="mt-2 text-xs tabular-nums text-muted">
+          <p className="mt-2 text-xs tabular-nums text-muted first:mt-0">
             {[r.cost || `$${r.actual_usd.toFixed(2)} spent on this run`, r.expected_usd != null && `about $${r.expected_usd.toFixed(2)} (estimate)`].filter(Boolean).join(" · ")}
           </p>
         )}
@@ -277,14 +363,14 @@ export function Failed({ progress: r, projectId, onCarryOn, onSettings, busy, bl
     x.kind === "again" ? again.mutate() : x.kind === "split" ? split.mutate(x.problem) : x.kind === "model" ? onSettings() : onCarryOn(); // the video's settings: the Plan tab, on a phone too
   const then = f.fixes.find((x) => x.kind === "split")?.then;
   return (
-    <section aria-label={f.title} className="overflow-hidden rounded-lg border border-[#f1c6c1] bg-surface">
-      <p className="flex items-center gap-2 bg-danger-soft px-3 py-2.5 text-[13px] font-semibold text-danger">
-        <TriangleAlert size={14} strokeWidth={1.75} aria-hidden />
+    <section aria-label={f.title} className="rounded-lg border border-border bg-surface shadow-soft">
+      <p className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold">
+        {ICON.bad}
         {f.title}
       </p>
-      <div className="flex flex-col gap-3 px-3 pb-3 pt-2.5">
-        <p className="text-[13px] leading-[19px]">{f.why}</p>
-        {f.offer && <p className="text-[13px] leading-[19px]">{f.offer}</p>}
+      <div className="flex flex-col gap-3 px-4 pb-3.5">
+        <p className="text-sm">{f.why}</p>
+        {f.offer && <p className="text-sm">{f.offer}</p>}
         <div className="flex flex-wrap gap-2">
           {f.fixes.map((x, i) => (
             <Button

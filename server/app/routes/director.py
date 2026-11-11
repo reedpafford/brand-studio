@@ -7,13 +7,15 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import asks, director, run_progress
+from app import asks, director, run_progress, thinking
 from app.advice import SaidJSON, SaidText, said
 from app.auth import current_user
 from app.db import get_db
 from app.models.accounts import User
+from app.models.jobs import Job, JobStatus
 from app.models.projects import Project
 from app.routes.clips import generation_on
 from app.routes.projects import _mine, get_project, video_writer
@@ -399,6 +401,30 @@ def progress(project_id: int, user: User = Depends(current_user), db: Session = 
         log.exception("video %s: its progress couldn't be read", project.id)
         db.rollback()
         return _degraded(db, user, project, broke)
+
+
+class ThinkingOut(BaseModel):
+    thinking: str  # Claude's own summary of its reasoning so far (its last few thousand letters)
+    written: list[str]  # the plan as it is written: "Hook: …", "Story: …", "Clip 1: …"
+
+
+@router.get("/thinking", response_model=ThinkingOut | None)
+def thinking_now(
+    project_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """What the director's call in hand is thinking and has written so far (app/thinking.py):
+    null when no such call is running or it has said nothing yet. Free to read."""
+    project = get_project(db, user, project_id)
+    job = db.scalar(
+        select(Job)
+        .where(
+            Job.project_id == project.id, Job.provider == "claude", Job.status == JobStatus.running
+        )  # fmt: skip
+        .order_by(Job.id.desc())
+        .limit(1)
+    )
+    shown = job is not None and job.input.get("step") in thinking.STEPS
+    return thinking.read(job.id) if shown else None
 
 
 DEGRADED = "Some of this run's details can't be shown right now."

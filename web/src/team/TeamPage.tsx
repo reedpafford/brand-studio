@@ -111,9 +111,9 @@ export function TeamPage() {
   const waiting = (invites.data ?? []).filter((i) => i.id !== fresh?.id); // the one just made is in the card above
 
   return (
-    <main className="space-y-6 p-4 sm:p-6">
+    <main className="mx-auto max-w-content space-y-6 p-4 sm:p-6">
       <PageTop title="Team">{invite && rail && invite}</PageTop>
-      <div className="max-w-[1036px] space-y-6 sm:px-2">
+      <div className="max-w-[1036px] space-y-6">
       {invite && !rail && <ActionBar phone>{invite}</ActionBar>}
       {(members.isError || remove.isError) && (
         <Banner title={remove.isError ? "Couldn't remove that person." : "Couldn't load the team."} action={members.isError ? <Button variant="secondary" onClick={() => void members.refetch()}>Try again</Button> : undefined}>

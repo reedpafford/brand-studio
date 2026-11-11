@@ -73,7 +73,7 @@ export function Button({ variant = "primary", dense, busy, price, charge, usuall
         {price === null && (
           <>
             {" "}
-            <span className="inline-block h-[1em] w-16 animate-pulse rounded-sm bg-surface-3 align-middle motion-reduce:animate-none" aria-hidden />
+            <span className="shimmer inline-block h-[1em] w-16 rounded-sm align-middle" aria-hidden />
             <span className="sr-only">· price loading</span>
           </>
         )}

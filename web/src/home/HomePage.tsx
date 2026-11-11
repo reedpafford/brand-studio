@@ -3,7 +3,7 @@ import { ArrowLeft, Package, Palette } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SHAPES, sentTo } from "../freestyle/useFreestyle";
 import { Attach, Attached } from "../newvideo/Attach";
-import { StyleGallery } from "../newvideo/Cards";
+import { StyleFan, StyleGallery, lookMedia } from "../newvideo/Cards";
 import { CastIcon, Chip, FolderIcon, ShapeIcon } from "../newvideo/Chips";
 import { Press, Under, box } from "../newvideo/Press";
 import { Reel } from "../newvideo/Reel";
@@ -11,6 +11,7 @@ import { SavedScripts } from "../newvideo/SavedScripts";
 import { useEstimate, useSend } from "../newvideo/useNewVideo";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
+import { Skeleton } from "../components";
 import { useRail } from "../useMedia";
 import { AssetDialog, type AssetTab } from "./AssetDialog";
 import { ModeMenu, PickChip } from "./Chips";
@@ -51,7 +52,7 @@ export function HomePage() {
 
   /** One picked item by its name, several by their number ("2 products"). */
   const said = (ids: number[], rows: { id: number; name: string }[], many: string) => (ids.length === 1 ? (rows.find((r) => r.id === ids[0])?.name ?? `1 ${many}`) : ids.length ? `${ids.length} ${many}` : "");
-  const style = <PickChip label="Style" icon={Palette} value={styleWords(draft)} none="not picked" onClick={() => setDialog("styles")} />;
+  const style = <PickChip label="Style" icon={Palette} thumb={look ? lookMedia(look).still : undefined} value={styleWords(draft)} none="not picked" onClick={() => setDialog("styles")} />;
   const chips = (
     <>
       <Attach files={files} onScript={() => setView("script")} onReel={() => setView("reel")} />
@@ -100,16 +101,31 @@ export function HomePage() {
   );
   const hero = (
     <div className={`flex flex-col gap-3 ${rail ? "items-center text-center" : ""}`}>
-      <h1 className="type-hero">
+      {rail && view === "paste" && <StyleFan looks={draft.looks} look={look} />}
+      <h1 className={`type-hero ${rail ? "pt-3" : ""}`}>
         <span className="block">Paste your script, pick a style.</span> <span className="block text-muted">We handle the rest.</span>
       </h1>
-      <p className="max-w-[520px] text-base text-muted">The director plans it, asks what it can’t decide, and makes it in a chat with you.</p>
+      <p className="max-w-[560px] text-balance text-md text-muted">The director plans it, asks what it can’t decide, and makes it in a chat with you.</p>
     </div>
+  );
+  // While the styles are on their way: the gallery's own shape, fading, so the page never sits with a blank gap.
+  const loading = view !== "script" && draft.looksLoading && (
+    <section aria-label="Loading the styles" aria-busy="true" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1 lg:text-center">
+        <h2 className="type-page">Styles</h2>
+        <p className="text-sm text-muted">Loading the styles…</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className={`aspect-[9/16] rounded-xl ${i > 1 ? "max-sm:hidden" : ""} ${i > 2 ? "max-lg:hidden" : ""}`} />
+        ))}
+      </div>
+    </section>
   );
   const gallery = view !== "script" && draft.looks.length > 0 && (
     <section aria-labelledby="home-styles" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1 lg:text-center">
-        <h2 id="home-styles" className="type-section">Styles</h2>
+        <h2 id="home-styles" className="type-page">Styles</h2>
         <p className="text-sm text-muted">Pick a look. Each one comes with its own way of shooting.</p>
       </div>
       <StyleGallery looks={draft.looks} value={look?.id ?? ""} onPick={(l) => (draft.pickStyle(l), document.getElementById(WORDS_ID)?.focus())} />
@@ -147,19 +163,22 @@ export function HomePage() {
           </>
         )}
         {error}
+        {loading}
         {gallery}
         {dialogs}
       </main>
     );
   return (
-    <main className="flex min-h-screen justify-center px-8 pb-16 pt-[clamp(4rem,12vh,8rem)]">
-      <div className="flex w-full max-w-[1112px] flex-col gap-10">
+    <main className="relative isolate flex min-h-full justify-center px-8 pb-16 pt-[clamp(2rem,6vh,4rem)]">
+      {/* A soft indigo light from the top, behind the headline: the page has a source, not a flat sheet. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[560px] bg-[radial-gradient(60%_100%_at_50%_0%,var(--accent-soft),transparent)]" />
+      <div className="flex w-full max-w-[1112px] flex-col gap-8">
         <div className="mx-auto flex w-full max-w-[720px] flex-col gap-8">
           {hero}
           <div>
             {other ?? (
               <>
-                <div className={box}>
+                <div className={`${box} shadow-float`}>
                   <div className="px-4 pb-3 pt-3.5">{words}</div>
                   {/* The pills wrap on the left; Mode and the press keep the right, in room held for the price, so nothing
                       moves when it arrives. */}
@@ -177,6 +196,7 @@ export function HomePage() {
             {error}
           </div>
         </div>
+        {loading}
         {gallery}
       </div>
       {dialogs}

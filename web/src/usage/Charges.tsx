@@ -85,7 +85,7 @@ export function Charges() {
   const owner = useMe().data?.role === "owner";
   const giveBack = (c: Charge) => (owner && !c.refunded && c.credits > 0 ? <GiveBack charge={c} /> : null);
   return (
-    <details className="group lg:max-w-[1100px]" onToggle={(e) => setOpen(e.currentTarget.open)}>
+    <details className="group" onToggle={(e) => setOpen(e.currentTarget.open)}>
       {/* Reed (3 Nov): a small link at the bottom, not a section of its own. */}
       <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm text-accent-text hover:underline lg:min-h-0 [&::-webkit-details-marker]:hidden">
         See every charge

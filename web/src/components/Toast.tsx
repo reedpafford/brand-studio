@@ -42,7 +42,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onMouseLeave={() => setHovered(false)}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            className="pointer-events-auto flex items-center gap-3 rounded-lg bg-surface-3 px-4 py-3 text-base shadow-raised"
+            className="animate-rise pointer-events-auto flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-base shadow-raised"
           >
             {item.kind === "error" ? <CircleAlert size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-danger" /> : <Check size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-success" />}
             <span className="flex-1">{item.message}</span>

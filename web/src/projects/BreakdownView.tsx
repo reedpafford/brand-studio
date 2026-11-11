@@ -233,7 +233,7 @@ export function BreakdownView(props: {
       {props.problem}
       {real.length > 0 && phone && (
         <>
-          <button className="flex min-h-control w-full items-center gap-2 rounded-lg border border-danger bg-danger-soft px-3 text-left text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
+          <button className="flex min-h-control w-full items-center gap-2 rounded-lg bg-danger-soft px-3 text-left text-danger" aria-label="Problems" onClick={() => setProblemsOpen(true)}>
             <TriangleAlert size={20} strokeWidth={1.75} aria-hidden />
             <span className="flex-1 font-medium">
               {real.length} problem{real.length === 1 ? "" : "s"}
@@ -250,7 +250,7 @@ export function BreakdownView(props: {
         </>
       )}
       {real.length > 0 && !phone && (
-        <section className="space-y-1 rounded-lg border border-danger bg-danger-soft p-4 text-sm" aria-label="Problems">
+        <section className="space-y-1 rounded-lg bg-danger-soft p-4 text-sm" aria-label="Problems">
           <h3 className="flex items-center gap-2 font-semibold text-danger">
             <TriangleAlert size={20} strokeWidth={1.75} aria-hidden />
             {real.length} problem{real.length === 1 ? "" : "s"} {preview ? "in this plan" : "to fix before the storyboard"}

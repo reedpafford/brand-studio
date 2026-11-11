@@ -76,7 +76,7 @@ function VoiceRow({ o, on, onPick }: { o: Saved; on: boolean; onPick: () => void
   const audio = useRef<HTMLAudioElement>(null);
   const src = o.sample_file_id != null ? fileUrl(o.sample_file_id) : o.sample_url ? `/api${o.sample_url}` : null;
   return (
-    <div className={`flex items-center gap-3 rounded-md border px-3 py-2 ${on ? "border-[#c9ccf6] bg-accent-soft" : "border-border"}`}>
+    <div className={`flex items-center gap-3 rounded-md border px-3 py-2 ${on ? "border-accent-line bg-accent-soft" : "border-border"}`}>
       {src && (
         <button type="button" aria-label={`${playing ? "Pause" : "Play"} ${o.name}'s sample`} onClick={() => (playing ? audio.current?.pause() : void audio.current?.play()?.catch(() => {}))} className="grid size-8 shrink-0 place-items-center rounded-md border border-border-button bg-surface max-lg:size-control">
           {playing ? <Pause size={14} strokeWidth={1.75} aria-hidden /> : <Play size={14} strokeWidth={1.75} aria-hidden />}
@@ -146,7 +146,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
     const described = ans?.how === "describe" ? `Described: “${ans.text}” · ${ans.uses}’s voice · saved to ${brand}’s voices. Nothing was charged.` : "";
     const who = described ? [described, a.answered_by && a.answered_at && `picked by ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ") : ans?.how === "clone" && ans.reused ? `Using ${ans.name ?? "that voice"}, already in ${brand}’s voices. Nothing was charged.` : a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `${money ? "by" : "picked by"} ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
     return (
-      <section id={`ask-${a.id}`} aria-label={a.question} className="overflow-hidden rounded-[10px] border border-border bg-surface">
+      <section id={`ask-${a.id}`} aria-label={a.question} className="overflow-hidden rounded-lg border border-border bg-surface">
         <p className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold ${cls}`}>
           <Icon size={14} strokeWidth={1.75} aria-hidden />
           {gone ? "No longer needed" : a.by_owner ? "Answered by the owner" : "Answered"}
@@ -309,7 +309,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
             {a.choices.map((c) => {
               const on = (pick ?? a.pick) === c.key;
               return (
-                <button key={c.key} type="button" aria-pressed={on} onClick={() => setPick(c.key)} className={`flex flex-1 flex-col gap-1 rounded-lg border p-3 text-left ${on ? "border-[#c9ccf6] bg-accent-soft" : "border-border-button"}`}>
+                <button key={c.key} type="button" aria-pressed={on} onClick={() => setPick(c.key)} className={`flex flex-1 flex-col gap-1 rounded-lg border p-3 text-left ${on ? "border-accent-line bg-accent-soft" : "border-border-button"}`}>
                   <span className="text-[11px] font-semibold text-accent-text">{a.pick === c.key ? `${c.key} · my pick` : c.key}</span>
                   <span className="text-sm font-semibold">{c.title}</span>
                   <span className="text-xs text-muted">{c.why}</span>
@@ -474,7 +474,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   }
 
   return (
-    <section id={`ask-${a.id}`} aria-label={a.question} className={`overflow-hidden rounded-[10px] border bg-surface ${held ? "border-[#ecd3a6]" : "border-[#c9ccf6] shadow-[0_1px_2px_rgb(65_70_184/0.06),0_6px_18px_rgb(65_70_184/0.07)]"}`}>
+    <section id={`ask-${a.id}`} aria-label={a.question} className={`overflow-hidden rounded-lg border bg-surface ${held ? "border-[#ecd3a6]" : "border-accent-line shadow-[0_1px_2px_rgb(65_70_184/0.06),0_6px_18px_rgb(65_70_184/0.07)]"}`}>
       {input}
       <p className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold ${cls}`}>
         <Icon size={14} strokeWidth={1.75} aria-hidden />
@@ -510,7 +510,7 @@ export function WaitingBar({ waiting }: { waiting: { id: number; topic: string; 
     setAt(at + 1);
   };
   return (
-    <div className="mx-5 mb-2 flex items-center gap-2 rounded-lg border border-[#c9ccf6] bg-accent-soft px-2.5 py-1.5 text-[13px] font-medium text-accent-text max-lg:mx-3">
+    <div className="mx-5 mb-2 flex items-center gap-2 rounded-lg border border-accent-line bg-accent-soft px-2.5 py-1.5 text-[13px] font-medium text-accent-text max-lg:mx-3">
       <CircleHelp size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
       <span className="min-w-0 truncate">{[`${waiting.length} question${waiting.length === 1 ? "" : "s"} waiting`, ...(rail ? waiting.map((w) => w.topic).filter(Boolean) : [])].join(" · ")}</span>
       <button type="button" onClick={next} className="ml-auto shrink-0 font-semibold max-lg:min-h-control">

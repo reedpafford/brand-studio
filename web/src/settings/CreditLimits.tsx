@@ -77,7 +77,7 @@ export function CreditLimits({ top }: { top: SettingsTop }) {
       {top(
         <SaveButton reason={reason} busy={put.isPending} onClick={press} />,
       )}
-      <section aria-label="Limits" className="max-w-[900px] sm:px-2">
+      <section aria-label="Limits" className="max-w-[900px]">
         {field("weekly-limit", "Each editor's own week", weekly, setEdit, weeklyError, "Small presses (another take, a redo) inside this go ahead; past it they wait for you.", "credits a week")}
         <SettingRow label="Freestyle and new videos from editors" help="Every editor's Make it and every change asked waits for your OK. This can't be turned off.">
           <p className="text-xs text-muted sm:pt-1.5">Always asks you</p>

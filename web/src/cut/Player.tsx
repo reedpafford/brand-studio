@@ -37,7 +37,7 @@ export function Player({
     else v.pause();
   };
   return (
-    <div className="relative flex-none overflow-hidden rounded-[10px] bg-black shadow-raised" style={{ width, aspectRatio: aspect.replace(":", " / ") }}>
+    <div className="relative flex-none overflow-hidden rounded-lg bg-black shadow-raised" style={{ width, aspectRatio: aspect.replace(":", " / ") }}>
       <video
         ref={video}
         src={fileUrl(fileId)}
