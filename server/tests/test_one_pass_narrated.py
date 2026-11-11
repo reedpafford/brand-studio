@@ -123,7 +123,12 @@ def test_b_roll_is_silent_and_never_made_twice(app, owner, db):
 def test_another_take_keeps_the_plan_and_remakes_only_a_clip_whose_piece_grew(app, owner, db):
     pid = _delivered(app, owner, db)
     was = one_pass.shooting_plan(db, db.get(Project, pid))
-    assert owner.post(f"/projects/{pid}/songs").status_code == 201
+    long = owner.post(f"/projects/{pid}/songs", json={"note": "a slow soft Southern accent"})
+    assert long.status_code == 422 and "read aloud" in long.text  # nothing made, nothing charged
+    noted = owner.post(f"/projects/{pid}/songs", json={"note": "slight Southern accent"})
+    assert noted.status_code == 201  # a person's take with a delivery tag, this take only
+    assert _jobs(db, "song_take")[-1].input["input"]["prompt"].startswith(
+        "[slight Southern accent] ")  # fmt: skip
     _run(app, db, ticks=4, start=False)
     new = db.query(SongTake).order_by(SongTake.id.desc()).first()
     slow = copy.deepcopy(new.timing)  # the same words, read slower: everything half as late again
