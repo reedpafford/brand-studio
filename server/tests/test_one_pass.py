@@ -565,6 +565,33 @@ def test_two_people_who_share_every_clip_are_never_taken_for_one(app, owner, db)
     assert _flagged(db, project) == set()
 
 
+def test_stop_cancels_the_looks_not_yet_drawn_and_carry_on_draws_them(app, owner, db):
+    """Video 391 (11 Nov): Stop while its 17 looks were queued, and 11 were still drawn and
+    billed after it. Stop now cancels the video's paid work that hasn't started; Carry on
+    makes it."""
+    from app.models.jobs import JobStatus
+
+    owner.post("/freestyles", json=BODY)
+    app.state.settings.fake_providers = True
+    app.state.stand_ins = providers = get_providers(app.state.settings, app.state.storage)
+    for _ in range(12):  # the plan, then its looks are queued: stop before the worker takes them
+        run_once(db, providers, app.state.storage)
+        db.expire_all()
+        if queued := db.query(Job).filter(Job.input["step"].as_string() == "sheet",
+                                          Job.status == JobStatus.queued).count():  # fmt: skip
+            break
+    pid = _video(db).id
+    assert queued and owner.post(f"/projects/{pid}/director/stop").json()["ended"] == "Stopped."
+    db.expire_all()
+    left = db.query(Job).filter(Job.project_id == pid, Job.status == JobStatus.queued,
+                                Job.credits > 0).count()  # fmt: skip
+    assert left == 0
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    _run(app, db)
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert out["status"] == "delivered", (out["ended"], _turns(db))
+
+
 def test_words_a_take_adds_to_the_script_are_silenced_free_before_the_cut(app, owner, db):
     """Video 390 (11 Nov): the presenter finished his line early and made up a sentence ("If
     I have to hear about another detention, then I'm going to change"). The listen found it,

@@ -500,8 +500,9 @@ def redrawable(db: Session, project: Project, items: list[dict]) -> list[Library
     for i in items:
         if i["readiness"] != "needs_look" or not i["library_item_id"]:
             continue
-        failed = db.scalars(select(Job.created_at).where(
-            Job.workspace_id == project.workspace_id, Job.status == JobStatus.failed,
+        failed = db.scalars(select(Job.created_at).where(  # or cancelled by a Stop
+            Job.workspace_id == project.workspace_id,
+            Job.status.in_((JobStatus.failed, JobStatus.cancelled)),
             Job.input["step"].as_string() == "sheet",
             Job.input["library_item_id"].as_integer() == i["library_item_id"])).all()  # fmt: skip
         if failed and sum(since is None or at >= since for at in failed) < SHEET_TRIES:

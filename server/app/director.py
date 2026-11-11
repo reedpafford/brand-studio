@@ -671,8 +671,9 @@ STOPPED = "Stopped."  # a person pressed Stop: the run's `ended`, with who and w
 def stop(db: Session, project: Project, by: int) -> None:
     """A person's Stop (`by`): no more turns. A turn not yet asked is cancelled (only if the
     worker hasn't taken it); one being asked finishes, and what its call cost is recorded and
-    charged as ever (a paid call is always logged), but nothing more is done. Its own work
-    held for an OK (its plan past the allowance, a watch past its limit) goes with it."""
+    charged as ever (a paid call is always logged), but nothing more is done: the video's paid
+    work not yet started (looks, takes) is cancelled too. Its own work held for an OK (its
+    plan past the allowance, a watch past its limit) goes with it."""
     if last := active(db, project):
         db.execute(update(Job).where(Job.id == last.id, Job.status.in_(
             (JobStatus.queued, JobStatus.needs_owner_approval))).values(
@@ -681,6 +682,10 @@ def stop(db: Session, project: Project, by: int) -> None:
             Job.project_id == project.id, Job.status == JobStatus.needs_owner_approval,
             Job.input[RUN]["id"].as_string() == last.input[RUN]["id"])
             .values(status=JobStatus.cancelled, finished_at=utcnow())
+            .execution_options(synchronize_session=False))  # fmt: skip
+        db.execute(update(Job).where(  # and its paid work not yet started (video 391: 11 looks
+            Job.project_id == project.id, Job.status == JobStatus.queued, Job.credits > 0)
+            .values(status=JobStatus.cancelled, finished_at=utcnow())  # drawn after Stop)
             .execution_options(synchronize_session=False))  # fmt: skip
         live.note(db, project.id, JobStatus.cancelled)
         db.refresh(last)
