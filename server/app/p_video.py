@@ -36,6 +36,7 @@ def fit(model_id: str, input: dict, files: dict) -> tuple[dict, dict]:
                 else input), files  # fmt: skip
     shaped = {k: input[k] for k in ("duration", "resolution", "aspect_ratio") if k in input}
     shaped |= {"prompt": clean(input["prompt"]), "fps": FPS, "prompt_upsampling": False}
-    own = {"image": files.get("reference_images", [])[:1],
+    own = {"image": (files.get("image") or files.get("reference_images", []))[:1],
+           "last_frame_image": files.get("last_frame_image", [])[:1],
            "audio": files.get("reference_audios", [])[:1]}  # fmt: skip
     return shaped, {k: v for k, v in own.items() if v}
