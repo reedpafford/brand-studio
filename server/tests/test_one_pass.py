@@ -118,7 +118,7 @@ def test_on_omni_a_third_person_is_in_words_and_two_sheets_are_sent(app, owner, 
     assert len(sent) == 3 and len(take.input["unsent"]) == 1  # two people and the place
     assert "Sam" in take.input["input"]["prompt"] and '"Nobody asked me."' in take.input[
         "input"]["prompt"]  # fmt: skip
-    assert "third reference picture" in take.input["input"]["prompt"]  # the place, in words
+    assert "The third image is the place" in take.input["input"]["prompt"]  # in words
 
 
 def test_a_skipped_line_is_asked_for_again_inside_the_same_job(app, owner, db, monkeypatch):
