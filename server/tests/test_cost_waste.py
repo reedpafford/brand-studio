@@ -58,7 +58,9 @@ def test_usage_keeps_a_claude_calls_token_counts():
 
 def test_a_take_its_provider_refused_counts_nothing_spent(app, db, owner, editor):
     """X1: Replicate's copyright refusal (E005) charges nothing; it was counted at its credits.
-    A failure that may have been billed (sent, no figure) still counts."""
+    Nor does any run that fails there (Reed, 11 Nov: a narration its voice refused as too long
+    read "$0.99 spent" beside "Nothing was charged"). A failure elsewhere that may have been
+    billed (sent, no figure) still counts."""
     pid = _made(app, owner, editor, db)
     base = {"workspace_id": 1, "created_by_id": 1, "project_id": pid, "kind": "video",
             "provider": "replicate", "input": {"step": "clip_take"}, "provider_ref": "p1",
@@ -68,8 +70,11 @@ def test_a_take_its_provider_refused_counts_nothing_spent(app, db, owner, editor
     db.commit()
     assert credits.never_billed(refused)
     assert credits.actual_usd(db, pid).usd == 0
-    lost = Job(**{**base, "provider_ref": "p2"}, error_detail="Prediction failed: CUDA error")
-    db.add(lost)
+    long = "Request text length (9901) exceeds the maximum text length of 5000 characters"
+    db.add(Job(**{**base, "provider_ref": "p2", "kind": "speech"}, error_detail=long))
+    db.commit()
+    assert credits.actual_usd(db, pid).usd == 0
+    db.add(Job(**{**base, "provider_ref": "p3", "provider": "heygen"}, error_detail="It broke"))
     db.commit()
     assert credits.actual_usd(db, pid).usd == (6 * credits.USD_PER_CREDIT).quantize(Decimal("0.01"))
     detail = owner.get(f"/jobs/{refused.id}").json()
