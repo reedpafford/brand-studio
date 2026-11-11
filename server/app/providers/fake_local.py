@@ -475,6 +475,142 @@ class FakeWriter:
 
         return prompts.stand_in_treatment(_tag(prompt, "script") or "")
 
+    def _one_pass(self, prompt):
+        """The stand-in shooting plan (app/one_pass.py): a clip for each scene heading's lines,
+        filled up to the model's longest, a shot for each spoken line, by its number; each
+        speaker not in <cast> a role, each heading a place. With <notes> and <plan>, the plan
+        again with only the clips a note names changed. Markers in the script walk the checks
+        (QA): fake:skip-line leaves the last line out of the first answer (the re-ask gives
+        it), fake:skip-line-twice out of both; fake:drop-line goes into the first clip's
+        prompt, so its take's listen misses a line (`hear_take`)."""
+        from app.one_pass_assemble import spoken
+
+        notes, before = _tag(prompt, "notes"), _tag(prompt, "plan")
+        if notes and before:
+            plan = json.loads(before)
+            for n in re.findall(r"\bclip (\d+)", notes, re.I):
+                for c in plan["clips"]:
+                    if c["id"] == f"c{n}":
+                        c["shots"][0]["action"] += " Made again as the note asks."
+            return plan
+        limits = re.search(r"(\d+)–(\d+) s per clip", prompt)
+        low, high = map(int, limits.groups()) if limits else (4, 15)
+        text = "\n".join(x.split("| ", 1)[-1] if "|" in x else ""
+                         for x in _tag(prompt, "script").splitlines())  # fmt: skip
+        if "<song " in prompt:
+            return self._timed_plan(prompt, text, high)
+        films = re.match(r"(.+?) presents this video", _tag(prompt, "talker"))
+        said = spoken(text, films[1] if films else "")
+        skip = "fake:skip-line" in text and ("<fix>" not in prompt or "-twice" in text)
+        cast = " ".join(_tag(prompt, "cast").splitlines()).lower()
+        who = list(dict.fromkeys(name.split(" (")[0] for name, _ in said.values()))
+        clips, places, head = [], [], ""
+        for n, line in enumerate(text.splitlines(), 1):
+            if line.strip().startswith(("SCENE", "INT.", "EXT.")):
+                head = line.strip()
+                places += [{"name": head, "description": "A plain grey test room."}]
+            if n not in said or (skip and n == max(said)):
+                continue
+            name, words = said[n]
+            shot = {
+                "seconds": math.ceil(len(words.split()) / 3) + 1,
+                "camera": "Medium shot",
+                "action": f"{name.split(' (')[0]} says line {n} to the room.",
+                "people": [name.split(" (")[0]],
+                "extras": "",
+                "line": n,
+                "how": "plainly",
+            }
+            last = clips[-1] if clips else None
+            if (
+                last is None
+                or last["place"] != head
+                or sum(x["seconds"] for x in last["shots"]) + shot["seconds"] > high
+            ):
+                clips.append({"id": f"c{len(clips) + 1}", "name": f"Clip {len(clips) + 1}",
+                              "purpose": "escalate", "summary": "A plain test scene.",
+                              "place": head, "setting": "Plain grey daylight.", "assets": [],
+                              "sound": "room tone", "shots": []})  # fmt: skip
+            clips[-1]["shots"].append(shot)
+        for c in clips:  # never shorter than the model makes
+            c["shots"][-1]["seconds"] += max(low - sum(x["seconds"] for x in c["shots"]), 0)
+        if films and clips:  # an Omni talker: one B-roll clip, of the first line, after its clip
+            show = {**clips[0], "kind": "broll", "name": "Cutaway", "shots": [
+                {**clips[0]["shots"][0], "seconds": low, "people": [], "how": "",
+                 "action": "What the first line names, shown plainly."}]}  # fmt: skip
+            real = re.search(r"- (footage:\d+) \| [\d.]+ s", self._system)
+            if real and "may BE one of these clips" in self._system:  # UGC: the brand's own
+                show.update(footage=real[1], footage_at=0)
+            clips.insert(1, show)
+            for k, c in enumerate(clips, 1):
+                c["id"] = f"c{k}"
+        if clips:
+            clips[0]["purpose"], clips[-1]["purpose"] = "hook", "payoff"
+            clips[0]["assets"] = re.findall(r"^(prop:\d+)", _tag(prompt, "products"), re.M)
+            if "fake:drop-line" in text:
+                clips[0]["shots"][0]["action"] += " fake:drop-line"
+        return {
+            "treatment": {"hook": "The first line, on the conflict, at once.",
+                          "logline": "The story as the script tells it.",
+                          "why_it_holds": "Each clip raises the stakes to the payoff.",
+                          "ending": "The payoff, then the script's ending."},
+            "voices": [{"who": w, "sounds": "a plain test voice, mid pitch, even pace"}
+                       for w in who],
+            "roles": [{"name": w, "description": "A plain test person in a grey sweatshirt."}
+                      for w in who if w.lower() not in cast],
+            "places": places, "clips": clips,
+        }  # fmt: skip
+
+    def _timed_plan(self, prompt, text, high):
+        """The stand-in plan of a video timed to <song> (a narration or a song): a B-roll shot
+        for each timed line, its `at` the line's start (a line under a second after the last
+        shares its shot), in clips filled up to the model's longest; the first cast member is
+        in every shot (never a host who stands in a corner: they are in no shot; a host who
+        acts is the one in every shot). With a <host> who talks to camera, the first and the
+        last clip are the talker's. fake:bad-at in the script starts the second shot too soon
+        in the first answer (the re-ask puts it right)."""
+        heard = prompt.split("Sung lines:", 1)[1].split("</song>", 1)[0]
+        starts = [float(a) for a in re.findall(r"^\d+\| (\d+\.\d+)–", heard, re.M)]
+        ats = [0.0]
+        for at in starts[1:]:
+            if at >= ats[-1] + 1:
+                ats.append(at)
+        if "fake:bad-at" in text and "<fix>" not in prompt and len(ats) > 1:
+            ats[1] = ats[0] + 0.2
+        cast = [x.split(" | ")[1] for x in _tag(prompt, "cast").splitlines() if " | " in x]
+        host = _tag(prompt, "host")
+        talks, acts = ", talking to camera" in host, "by acting in it" in host
+        who = host.split(" presents this video")[0]
+        roles = [{"name": who, "description": "A plain test person in a grey sweatshirt."}] * (
+            acts and who not in cast)  # fmt: skip
+        cast = [who] if acts else [] if host else cast
+        groups: list[list[float]] = []
+        for k, at in enumerate(ats):
+            apart = talks and k in (1, len(ats) - 1)  # the talker's own first and last clip
+            if not groups or apart or at - groups[-1][0] + 2 > high:
+                groups.append([])
+            groups[-1].append(at)
+        clips = [{"id": f"c{k}", "name": f"Clip {k}", "purpose": "escalate",
+                  "summary": "A plain test scene.", "place": "The test room",
+                  "setting": "Plain grey daylight.", "assets": [], "sound": "room tone",
+                  "kind": "host" if talks and k in (1, len(groups)) else "broll",
+                  "footage": "", "footage_at": 0,
+                  "shots": [{"seconds": 1, "at": at, "camera": "Medium shot",
+                             "action": f"The picture for the words heard at {at:.2f} s.",
+                             "people": cast[:1], "extras": "", "line": None, "how": ""}
+                            for at in group]}
+                 for k, group in enumerate(groups, 1)]  # fmt: skip
+        clips[0]["purpose"], clips[-1]["purpose"] = "hook", "payoff"
+        return {
+            "treatment": {"hook": "The first words, on the most striking picture.",
+                          "logline": "The story as the script tells it.",
+                          "why_it_holds": "Each picture shows its words as they are heard.",
+                          "ending": "The payoff, then the script's ending."},
+            "voices": [], "roles": roles,
+            "places": [{"name": "The test room", "description": "A plain grey test room."}],
+            "clips": clips,
+        }  # fmt: skip
+
     def _enhance(self, prompt):
         """Up to three directions on the script's first lines that have words (a camera move,
         a movement, a reaction), each quoting its line exactly, and one note: enough to walk

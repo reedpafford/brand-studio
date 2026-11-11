@@ -125,6 +125,10 @@ def check(db: Session, user: User, project: Project, values: dict) -> dict:
         kind = field.split("_")[0]
         if value is not None and value not in {m.id for m in _models(kind)}:
             raise HTTPException(422, NOT_A_MODEL.format("video" if kind == "video" else "picture"))
+        from app import one_pass
+
+        if kind == "video" and (no := one_pass.model_refusal(db, project, value)):
+            raise HTTPException(409, no)  # its plan's clips wouldn't fit that model
     elif field == "aspect_ratio" and value not in SHAPES:
         raise HTTPException(422, "Pick a shape: " + ", ".join(SHAPES) + ".")
     elif field == "voice":  # the narrator for this video (S5-02): an app voice or a saved one

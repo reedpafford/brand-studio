@@ -1,0 +1,167 @@
+{
+  "treatment": {
+    "hook": "Over Paige's shoulder as she lifts a carton of eggs: at the far end of the aisle a man in a gray sweatsuit, hands in his pockets, is already staring at her, and he looks away too fast. Her inner voice says it is weird, and she shrugs it off.",
+    "logline": "A woman shopping alone slowly notices identical men in gray who aren't buying anything, and when they close in on her in a dark parking lot and her voice fails, the alarm on her keys screams for her.",
+    "why_it_holds": "The viewer spots the danger a beat before Paige admits it, so every new man in gray tightens the knot, and the calm checkout and her sister's 'there you are' make the van's open door land harder. Then the question is simple: can she make a sound?",
+    "ending": "The siren and strobe turn the whole lot around, the men walk off like nothing happened, the cart kid chases the van shouting he got the plate, and Paige locks herself in holding her keys to her chest. The relief is quiet and real, and the product is the one thing that spoke when she couldn't."
+  },
+  "voices": [
+    {"who": "Paige", "sounds": "a woman in her late 20s, light and clear, a little breathy, quick"},
+    {"who": "Manager", "sounds": "a woman in her 40s, flat and friendly, mid pitch, unhurried"},
+    {"who": "Dana", "sounds": "a woman in her early 30s, warm and bright, a little husky"},
+    {"who": "Man in Gray", "sounds": "a man in his 30s, low and even, soft-spoken, slow"},
+    {"who": "Cart Kid", "sounds": "a teenage boy, high and cracking, fast and breathless"}
+  ],
+  "roles": [
+    {"name": "Paige", "description": "A woman in her late 20s, slim, in an oversized cream knit cardigan over a black tee and light jeans, white sneakers; a small personal alarm hangs from her key ring."},
+    {"name": "Man in Gray", "description": "A broad man in his 30s in a plain gray sweatsuit and tan work boots, buzz cut, hands in his pockets, nothing in them; the other men are dressed exactly the same."},
+    {"name": "Manager", "description": "A woman in her 40s, sturdy, in a red store polo and khakis, a name badge and a clipboard, reading glasses pushed up."},
+    {"name": "Dana", "description": "Paige's sister, early 30s, in a faded gray university sweatshirt with sleeves pushed up, hair in a loose clip, a dish towel over one shoulder."},
+    {"name": "Cart Kid", "description": "A lanky teenage boy in a red store vest over a hoodie, pushing a long line of shopping carts, phone in his back pocket."}
+  ],
+  "places": [
+    {"name": "The store", "description": "A big-box supermarket at closing time: long aisles of packed shelves, red price tags, glass-door freezers along the back wall, flat cool fluorescent light, almost empty."},
+    {"name": "Self-checkout", "description": "The store's self-checkout row by the exit: four scanning kiosks, bagging shelves, a red-shirt station, the same flat fluorescent light, dark glass doors beyond."},
+    {"name": "Dana's kitchen", "description": "A small lived-in home kitchen in the evening: warm pendant light over a cluttered counter, a fruit bowl, an oven with a dial, a dark window."},
+    {"name": "The parking lot", "description": "The back half of the store's parking lot at night: wet asphalt, parked cars, a tall light pole with one of its two lamps out so half the lot is dim and sodium-orange, the store's glow far behind."}
+  ],
+  "clips": [
+    {
+      "id": "c1",
+      "name": "Men in gray",
+      "purpose": "hook",
+      "summary": "Paige catches a man in gray staring, shrugs it off, then spots a second and a third dressed the same.",
+      "place": "The store",
+      "setting": "Evening, near closing, aisles nearly empty, flat fluorescent hum.",
+      "assets": [],
+      "sound": "Fluorescent hum, a freezer compressor, distant store chime, sneakers on tile.",
+      "shots": [
+        {"seconds": 2, "camera": "Medium over-the-shoulder, locked", "action": "Paige lifts a carton of eggs off the shelf; at the far end of the aisle the man in gray is staring at her, then looks away too fast.", "people": ["Paige", "Man in Gray"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Close-up, locked", "action": "Paige's brow pinches for a second, then she sets the eggs in her basket and moves on.", "people": ["Paige"], "extras": "", "line": 5, "how": "voice-over, lips closed, dry, brushing it off"},
+        {"seconds": 2, "camera": "Medium, handheld following past an aisle mouth", "action": "As she passes the next aisle, another man in the same sweatsuit and boots stands in it with nothing in his hands.", "people": ["Paige"], "extras": "a second man in the same gray sweatsuit and work boots, empty hands, mid-aisle", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Wide, locked", "action": "By the glass freezers a third identical man stands still, not looking at anything inside them.", "people": [], "extras": "a third man in the same gray sweatsuit and work boots, hands at his sides", "line": null, "how": ""},
+        {"seconds": 4, "camera": "Close-up walking, handheld backwards", "action": "Paige keeps walking, eyes flicking to the side, and gives a small shrug to herself. She turns the corner into the cereal aisle.", "people": ["Paige"], "extras": "", "line": 8, "how": "voice-over, lips closed, talking herself down"}
+      ]
+    },
+    {
+      "id": "c2",
+      "name": "Nobody's buying",
+      "purpose": "escalate",
+      "summary": "The men keep crossing the ends of her aisles until Paige stops, checks her own basket and realises none of them is shopping.",
+      "place": "The store",
+      "setting": "Continuing the walk, same flat light, the store emptier.",
+      "assets": [],
+      "sound": "Fluorescent hum, boots on tile far off, a basket handle creaking.",
+      "shots": [
+        {"seconds": 2, "camera": "Wide down the cereal aisle from behind Paige, locked", "action": "Paige rounds into the cereal aisle; a man in gray walks past its far end, not toward her, just past.", "people": ["Paige", "Man in Gray"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Wide down the next aisle from behind Paige, locked", "action": "She turns down the next one; another man in gray crosses its far end the same way.", "people": ["Paige"], "extras": "another man in the same gray sweatsuit and boots crossing the far end", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Insert, high angle into the basket", "action": "Paige stops; her eyes drop to the milk and eggs in her basket.", "people": ["Paige"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Wide point of view across the aisle ends", "action": "Three men in gray stand spread across the far ends of the aisles, hands empty, none holding anything.", "people": ["Man in Gray"], "extras": "two more men in the same gray sweatsuits, far aisle ends", "line": null, "how": ""},
+        {"seconds": 3, "camera": "Close-up, slow push in", "action": "Paige goes still, a tight swallow, her grip whitening on the basket handle; she turns toward the exit.", "people": ["Paige"], "extras": "", "line": 13, "how": "voice-over, lips closed, quiet, the realisation"}
+      ]
+    },
+    {
+      "id": "c3",
+      "name": "Find everything okay",
+      "purpose": "set-up",
+      "summary": "At self-checkout Paige almost asks the manager for help, but answers 'fine' and scans her eggs.",
+      "place": "Self-checkout",
+      "setting": "The kiosks empty but hers, the manager ten feet off.",
+      "assets": [],
+      "sound": "Kiosk beeps, fluorescent hum, the sliding doors opening and closing.",
+      "shots": [
+        {"seconds": 3, "camera": "Medium two-shot, locked", "action": "Paige sets her basket at a kiosk and looks over at the manager ten feet away, who reads a clipboard.", "people": ["Paige", "Manager"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Close-up, Paige's shoulder soft in foreground", "action": "The manager looks up from the clipboard.", "people": ["Manager", "Paige"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Close-up, locked", "action": "The manager gives a routine half-smile.", "people": ["Manager"], "extras": "", "line": 19, "how": "flat, routine, friendly"},
+        {"seconds": 2, "camera": "Close-up, locked", "action": "Paige glances back over her shoulder toward the empty aisles.", "people": ["Paige"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Close-up, locked", "action": "Paige turns back with a polite smile held still, eyes flat.", "people": ["Paige"], "extras": "", "line": 21, "how": "small, too quick"},
+        {"seconds": 3, "camera": "Medium two-shot, locked", "action": "Paige scans her eggs with a beep while the manager drops her eyes back to her clipboard; the beep hands off to the next scene.", "people": ["Paige", "Manager"], "extras": "", "line": null, "how": ""}
+      ]
+    },
+    {
+      "id": "c4",
+      "name": "There you are",
+      "purpose": "set-up",
+      "summary": "At home Dana sees Paige's dot safely in the lot, relaxes and puts the phone face down.",
+      "place": "Dana's kitchen",
+      "setting": "Evening, warm pendant light, the window black.",
+      "assets": [],
+      "sound": "Kitchen hum, a phone tap, the oven dial clicking and the oven igniting.",
+      "shots": [
+        {"seconds": 3, "camera": "Insert over Dana's shoulder, phone in her hand", "action": "Dana's phone shows a location map with Paige's dot sitting in the store's parking lot.", "people": ["Dana"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Close-up, locked", "action": "Dana's shoulders drop and she smiles at the screen.", "people": ["Dana"], "extras": "", "line": 26, "how": "light, relieved, singsong"},
+        {"seconds": 3, "camera": "Medium, locked", "action": "Dana lays the phone face down on the counter and turns the oven dial; the screen goes dark against the counter as the oven clicks on.", "people": ["Dana"], "extras": "", "line": null, "how": ""}
+      ]
+    },
+    {
+      "id": "c5",
+      "name": "The open door",
+      "purpose": "escalate",
+      "summary": "Walking to her car Paige is cut off by a white van with its side door already open, and two of the men walk straight at her.",
+      "place": "The parking lot",
+      "setting": "Night, the half-dead light flickering above her car, the lot nearly empty.",
+      "assets": ["prop:54"],
+      "sound": "Footsteps on wet asphalt, a buzzing flickering lamp, the van's engine and tyres, boots.",
+      "shots": [
+        {"seconds": 3, "camera": "Medium, handheld following", "action": "Paige walks toward her car, keys in one hand with the alarm swinging, the grocery bag in the other.", "people": ["Paige"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Wide, locked", "action": "Three steps from her door a white van rolls up and stops three spaces away, its side door already open on darkness.", "people": ["Paige"], "extras": "", "line": null, "how": ""},
+        {"seconds": 3, "camera": "Close-up, locked", "action": "Paige stops dead, eyes fixed on the open door, breath held.", "people": ["Paige"], "extras": "", "line": 33, "how": "voice-over, lips closed, tight, rising"},
+        {"seconds": 2, "camera": "Medium, Paige's shoulder soft in foreground", "action": "Two men in gray step out of the van and walk straight at her, not fast, just straight.", "people": ["Man in Gray", "Paige"], "extras": "a second man in the same gray sweatsuit beside him", "line": null, "how": ""},
+        {"seconds": 3, "camera": "Close-up, slow push in", "action": "The man in gray keeps walking, one open hand raised, a calm smile.", "people": ["Man in Gray"], "extras": "", "line": 35, "how": "easy, too friendly"},
+        {"seconds": 2, "camera": "Close-up, locked", "action": "Paige doesn't move, eyes on his hands.", "people": ["Paige"], "extras": "", "line": 36, "how": "voice-over, lips closed, flat with fear"}
+      ]
+    },
+    {
+      "id": "c6",
+      "name": "Pull it",
+      "purpose": "turn",
+      "summary": "Paige's scream won't come, her thumb finds the alarm, the eggs drop and she pulls the pin, and the siren and strobe blast the van.",
+      "place": "The parking lot",
+      "setting": "The same moment, the men a few steps off, the lamp flickering.",
+      "assets": ["prop:54"],
+      "sound": "Her shaky breath, boots closing in, eggs cracking on asphalt, then a piercing siren.",
+      "shots": [
+        {"seconds": 2, "camera": "Close-up, locked", "action": "Paige opens her mouth and nothing comes out; her jaw trembles.", "people": ["Paige"], "extras": "", "line": null, "how": ""},
+        {"seconds": 4, "camera": "Extreme close-up, slow push in", "action": "Her mouth stays open, silent, eyes darting, a tight shaking breath.", "people": ["Paige"], "extras": "", "line": 38, "how": "voice-over, lips still, frantic"},
+        {"seconds": 3, "camera": "Macro insert on her key hand", "action": "Her thumb slides along the keys and closes on the little alarm.", "people": ["Paige"], "extras": "", "line": 40, "how": "voice-over, lips closed, sudden focus"},
+        {"seconds": 1, "camera": "Insert, low on the asphalt", "action": "The grocery bag drops and the eggs hit the asphalt and crack.", "people": [], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Macro insert", "action": "Her fingers yank the pin out of the alarm.", "people": ["Paige"], "extras": "", "line": null, "how": ""},
+        {"seconds": 3, "camera": "Wide, locked", "action": "The siren screams across the lot and the strobe flashes white on the van and the two men, who flinch; the sound carries out across the lot.", "people": ["Paige", "Man in Gray"], "extras": "the second man in gray beside him", "line": null, "how": ""}
+      ]
+    },
+    {
+      "id": "c7",
+      "name": "The lot turns around",
+      "purpose": "payoff",
+      "summary": "Everyone in the lot turns toward the siren, and the two men stop, look at each other and walk back to the van.",
+      "place": "The parking lot",
+      "setting": "The strobe flashing white across the dim lot, a few shoppers rows away.",
+      "assets": [],
+      "sound": "The siren wailing, a trunk lid, cart wheels rattling, a stroller's wheels, boots.",
+      "shots": [
+        {"seconds": 2, "camera": "Medium, locked", "action": "A man loading his trunk two rows over turns around, white strobe flashing on his face.", "people": [], "extras": "a middle-aged man in a fleece at an open trunk", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Medium, locked", "action": "The cart kid pushing a long line of carts turns around.", "people": ["Cart Kid"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Medium, locked", "action": "A woman with a stroller stops so fast the stroller rolls a foot ahead of her.", "people": [], "extras": "a young mother in a puffer coat with a stroller", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Medium two-shot, locked", "action": "The two men stop mid-step.", "people": ["Man in Gray"], "extras": "the second man in gray beside him", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Medium two-shot, locked", "action": "They look at each other.", "people": ["Man in Gray"], "extras": "the second man in gray beside him", "line": null, "how": ""},
+        {"seconds": 3, "camera": "Wide, locked", "action": "They turn and walk back to the van like they forgot something and climb in; the van starts to move.", "people": ["Man in Gray"], "extras": "the second man in gray", "line": null, "how": ""}
+      ]
+    },
+    {
+      "id": "c8",
+      "name": "I got the plate",
+      "purpose": "payoff",
+      "summary": "The van flees with its door open, the cart kid chases it filming, and Paige locks herself in her car holding her keys.",
+      "place": "The parking lot",
+      "setting": "The van pulling away, the strobe still flashing, the half-dead light above.",
+      "assets": ["prop:54"],
+      "sound": "The van's engine and tyres, the siren, cart wheels left rolling, running sneakers, a car door shutting and the lock clunking, the siren muffled inside.",
+      "shots": [
+        {"seconds": 2, "camera": "Wide, locked", "action": "The white van pulls out of the lot with its side door still open.", "people": [], "extras": "", "line": null, "how": ""},
+        {"seconds": 3, "camera": "Medium, handheld following", "action": "The cart kid lets go of his carts and runs after the van with his phone held up.", "people": ["Cart Kid"], "extras": "", "line": null, "how": ""},
+        {"seconds": 2, "camera": "Medium close-up, handheld running", "action": "The cart kid, still running, waves his phone in the air.", "people": ["Cart Kid"], "extras": "", "line": 52, "how": "shouted, breathless, thrilled"},
+        {"seconds": 4, "camera": "Medium close-up through the driver's window, locked", "action": "Paige gets in her car, slaps the locks down and holds her keys against her chest, the strobe still flashing between her fingers, eyes shut.", "people": ["Paige"], "extras": "", "line": null, "how": ""}
+      ]
+    }
+  ]
+}

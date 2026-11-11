@@ -319,14 +319,17 @@ def _mute_voices(db: Session, row: ItemCheck) -> None:
 
 
 def queue(db: Session, job: Job, take_id: int, file_id: int, shots: list[dict], prompt: str,
-          watch: dict | None = None, speaks: bool = False) -> Job | None:  # fmt: skip
+          watch: dict | None = None, speaks: bool = False,
+          always: bool = False) -> Job | None:  # fmt: skip
     """After a take is saved (in the worker): a free listen, when checks are on and its clip
     has spoken lines, or when the director watches it (`watch`: app/take_watch, which then
     also measures it and makes its strips). Dialogue lines only: a narrated video's lines are
     the narrator's and a song video's are the song's, heard over the take, not said in it,
-    unless the clip is planned to speak (`speaks`: take_watch.speaks, a song's sung shot)."""
+    unless the clip is planned to speak (`speaks`: take_watch.speaks, a song's sung shot).
+    `always`: a one-pass video's take, whose listen is its only check, so it runs whether or
+    not the paid checks are on."""
     project = db.get(Project, job.project_id) if job.project_id else None
-    if not project or not item_checks.on():
+    if not project or not (always or item_checks.on()):
         return None
     silent = plans.fmt(db, project) != "dialogue" and not speaks  # a song's or narrator's
     silent = silent or bool(job.input.get("own_sound"))  # its own room and effects: no voice

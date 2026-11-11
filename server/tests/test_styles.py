@@ -10,7 +10,7 @@ TOKENS = list(guides.TOKENS)
 SITE = ("Stills", "Clips", "Breakdown", "Script")  # the site's own guidance, before the skills
 
 
-def test_reeds_order_and_only_house_starts_on():
+def test_reeds_order_and_the_styles_that_start_on():
     ids = [s["id"] for s in prompts.styles()]
     assert ids[:4] == ["house", "disney-pixar", "zack-d", "skeleton"]
     assert {"claymation", "anime-comic", "paper", "watercolor", "wool-crochet"} <= set(ids)
@@ -28,7 +28,11 @@ def test_reeds_order_and_only_house_starts_on():
         ("zack-d", "narrated"),
         ("presenter", "narrated"),
     ]
-    assert [s["id"] for s in prompts.styles() if s["on"]] == ["house", "movie"]  # Movie: 7 Nov
+    on = [s["id"] for s in prompts.styles() if s["on"] and s["kind"] == "look"]
+    assert on == ["house", "disney-pixar", "zack-d", "skeleton", "claymation", "dr-pickle",
+                  "ugc", "movie"]  # fmt: skip  # Reed, 10 Nov: "I need every style on"
+    off = [s["id"] for s in prompts.styles() if not s["on"] and s["kind"] == "look"]
+    assert off == ["anime-comic", "paper", "watercolor", "wool-crochet"]  # kept off the picker
     for s in prompts.styles():
         assert s["kind"] in ("look", "lane") and s["blurb"], s["id"]
         assert set(TOKENS) <= set(s["sections"]), s["id"]
@@ -274,12 +278,12 @@ def test_disney_pixar_holds_reeds_skill():
     assert "four to five heads tall" not in look["sheet_look"]  # adults keep adult proportions
 
 
-def test_ugc_loads_off_with_its_spec_and_keeps_its_studies_out_of_the_prompts():
-    """Reed's Drive folder "UGC (B-roll)", 3 Nov: a new style named "UGC", off until Reed
-    switches it on. Its per-video notes are evidence (notes.md), never loaded into a step.
-    Captions come in post production (Reed, 3 Nov), so the guide gives no caption look."""
+def test_ugc_loads_on_with_its_spec_and_keeps_its_studies_out_of_the_prompts():
+    """Reed's Drive folder "UGC (B-roll)", 3 Nov: a new style named "UGC", on from the start
+    since 10 Nov ("I need every style on"). Its per-video notes are evidence (notes.md), never
+    loaded into a step. Captions come in post production (Reed, 3 Nov): no caption look."""
     ugc = prompts.style("ugc")
-    assert ugc["name"] == "UGC" and not ugc["on"] and ugc["kind"] == "look"
+    assert ugc["name"] == "UGC" and ugc["on"] and ugc["kind"] == "look"
     spec = ("pacing", "must keep", "safe to vary", "combines with", "camera", "sample")
     for name in (*TOKENS, *spec):
         assert ugc["sections"].get(name), name

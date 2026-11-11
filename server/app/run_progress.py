@@ -37,7 +37,8 @@ DONE = ("done", "redone", "text", "flagged")  # a clip with a take in hand
 # needsYou): one count for the phone and the desktop
 NEEDS_YOU = ("flagged", "waiting", "failed", "too_long")
 ORDER = ("read", "plan", "cast", "voice", "stills", "prompts", "takes", "watching", "host", "cut")
-PHASES = {"treatment": "plan", "plan": "plan", "make_looks": "cast", "outfit": "cast",
+PHASES = {"treatment": "plan", "plan": "plan", "shoot_plan": "plan", "make_looks": "cast",
+          "outfit": "cast",
           "song": "voice",
           "narration": "voice", "storyboard": "stills", "stills": "stills",
           "review_stills": "stills", "redraw_still": "stills", "clip_prompts": "prompts",
@@ -360,6 +361,10 @@ def steps(db: Session, video: _Video, turns: list[Job], cells: list[dict], how: 
                      f"about {first['minutes_left']} min" if first else "",
             "watching": watching[1] if watching else "",
             "prompts": "; ".join(reasons)}  # fmt: skip
+    from app import one_pass
+
+    if one_pass.on(project):  # no stills, no prompts written apart, no watch of each take
+        words = {k: v for k, v in words.items() if k not in ("stills", "prompts", "watching")}
     out, kept = [], _kept(db, project)
     for key in (k for k in ORDER if k in words):
         n = ORDER.index(key)
@@ -742,7 +747,10 @@ def record(db: Session, project: Project, viewer: User | None) -> dict | None:
         and viewer
         and asks.may_start(db, viewer, project)
     ):  # its start card, theirs to press (S3-02)
-        first = "No stills or clips yet: press Make it"
+        from app import one_pass
+
+        first = ("No clips yet: press Make it" if one_pass.on(project)  # it draws no stills
+                 else "No stills or clips yet: press Make it")  # fmt: skip
         sub = f"{stays} until you press Make it" if stays else first
         head = ("waiting", "Ready to make", sub, "wait")
     elif holds is not None:

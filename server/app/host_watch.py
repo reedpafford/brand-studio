@@ -49,8 +49,8 @@ def check_still(db: Session, job: Job, row: HostPiece) -> bool:
     from app import host, item_checks, talker
 
     project = db.get(Project, job.project_id)
-    if job.input.get(CHECKED) or not item_checks.on():
-        return False
+    if job.input.get(CHECKED) or not item_checks.on() or project.engine:
+        return False  # a one-pass video checks no still: its cut is watched once (rule 38)
     item = host.host_look(db, project)
     who = [f"char:{item.id}"] if item else []
     shot = {
@@ -123,6 +123,8 @@ def queue(db: Session, job: Job, row: HostPiece) -> None:
 
     project = db.get(Project, job.project_id)
     if not take_watch.on() or not project or not row.number or not row.file_id:
+        return
+    if project.engine:  # a one-pass video: no watch of each take, the cut's one watch has it
         return
     check = ItemCheck(project_id=project.id, target=TARGET, target_id=row.id, status="checking")
     db.add(check)

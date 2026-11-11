@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Badge } from "../components";
 import { lookFitNote } from "../library/sheets";
@@ -27,6 +29,9 @@ export function Direction({ projectId }: { projectId: number }) {
   const clips = plan?.clips ?? [];
   const seconds = clips.reduce((n, c) => n + c.seconds, 0);
   const approves = looks.some((i) => i.approval !== "approved") && looks.every((i) => i.readiness === "ready"); // as the server's go
+  // A video planned in one pass has no stills: Make it starts its clips (the video page's own read of the video).
+  const video = useQuery({ queryKey: ["project", projectId], queryFn: async () => (await api.GET("/projects/{project_id}", { params: { path: { project_id: projectId } } })).data ?? null });
+  const starts = video.data?.engine === "one_pass" ? "the clips" : "the stills and clips";
   if (!t && !looks.length && !clips.length) return null;
   return (
     <div className="space-y-3 text-[13px]">
@@ -93,7 +98,7 @@ export function Direction({ projectId }: { projectId: number }) {
           </ol>
         </Part>
       )}
-      <p className="text-xs text-muted">{`Make it starts the stills and clips${approves ? " and approves this cast and places" : ""}. To change anything first, say it in the chat.`}</p>
+      <p className="text-xs text-muted">{`Make it starts ${starts}${approves ? " and approves this cast and places" : ""}. To change anything first, say it in the chat.`}</p>
     </div>
   );
 }

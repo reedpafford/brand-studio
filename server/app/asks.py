@@ -44,7 +44,8 @@ LOCKED = "{} is locked in this video: unlock it in Cast to change who plays them
 NOT_WAITING = "This isn't waiting for an OK any more."
 UPDATING = ("I'm updating the plan for your note. Make it comes back here with the new plan and "
             "its price.")  # fmt: skip
-REPLANS = ("director", "treatment", "plan")  # a director turn, its treatment, its plan
+# a director turn, its treatment, its plan, or the one-pass director's whole plan
+REPLANS = ("director", "treatment", "plan", "one_pass")
 NAMED = ("cast", "presenter", "place")  # a card about one role or place, by the script's name
 UNUSED = "This wasn't used: {why} Tell the director which role it's for."
 KEPT = "Kept as it is. Nothing was charged for it."
@@ -793,7 +794,8 @@ def planned(db: Session, project: Project) -> tuple[int, Decimal, int]:
     rows = db.scalars(select(Job).where(Job.project_id == project.id, Job.id > (anchor or 0),
                                         Job.input[BEFORE].as_boolean(),
                                         Job.status.in_(COUNTED))).all()  # fmt: skip
-    plans = sum(1 for j in rows if j.input.get("step") == "treatment" and not j.input.get("redo"))
+    plans = sum(1 for j in rows if j.input.get("step") in ("treatment", "one_pass")
+                and not j.input.get("redo"))  # fmt: skip
     oks = sum(1 for j in rows if j.input.get(PLAN_OK))
     return plans, sum((j.credits for j in rows), Decimal(0)), oks
 
@@ -808,6 +810,20 @@ def past_planning(db: Session, project: Project, credits: Decimal, plan: bool) -
     plans, used, oks = planned(db, project)
     cap = Decimal(str(settings.plan_credits_before_ok)) * (1 + oks)
     return used + credits > cap or plan and plans >= settings.plans_before_ok + oks
+
+
+def before_ok(db: Session, user: User, project: Project, kind: str, data: dict,
+              units: Decimal | int = 1, plan: bool = False) -> tuple[dict, str]:  # fmt: skip
+    """A job made before Make it, on the video's planning allowance: its input marked so, and
+    why it waits ("": it doesn't). Past the allowance it waits for the owner's OK on a
+    planning card, never an uncapped owner's own run. `plan`: it writes a plan."""
+    from app.credits import estimate, uncapped
+
+    data = {**data, BEFORE: True}
+    price = estimate(db, project.workspace_id, kind, Decimal(units), data)
+    if not uncapped(user) and past_planning(db, project, price, plan=plan):
+        return {**data, PLAN_OK: True}, PLANNING
+    return data, ""
 
 
 def run_price(db: Session, project: Project) -> Decimal:

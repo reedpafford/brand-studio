@@ -100,7 +100,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   const actions = useFreestyleActions(fsId);
   const video = useVideoActions((kind) => navigate(`/b/${brandId}/${kind === "release" ? "scripts" : "videos"}`));
   const runRead = !runQuery.isPending && !(fsId && fsQuery.isPending);
-  useRunEnd(id, liveRun?.status, run?.status);
+  useRunEnd(id, liveRun?.status, run?.status, head.data?.status.kind);
   // When this video starts or stops needing you, the rail's Needs you count is read again at once, not at its next 30 s
   // poll (MAIN's Claymation run: the count was behind while a question waited on this very video).
   useOnChange(runRead && !head.isPending ? `${head.data?.status.kind}:${run?.waiting?.length ?? 0}:${run?.make_it ?? ""}` : undefined, () => void queryClient.invalidateQueries({ queryKey: ["needs-you"] }));
@@ -181,8 +181,10 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
       onCost={cost}
     />
   );
+  // A take or a cut in hand is made, whatever the run's read last said: the header never says "no clips yet" beside them.
+  const made = clips.some((c) => c.picked_take_id != null) || !!cut;
   const header = shownHead ? (
-    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={shownHead} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={run?.started} onCost={cost} />
+    <VideoHead brand={{ id: brandId, name: brands?.find((b) => b.id === brandId)?.name ?? "" }} projectId={id} head={shownHead} status={status} cast={facts.cast.filter((a) => a.kind === "character").map((a) => a.name)} lookOnly={!!lookOnly || archived} phone={!rail} menu={menu} stop={rail && running && maker ? { busy: stop.isPending, onPress: () => setStopping(true) } : null} started={made || run?.started} lean={p?.engine === "one_pass"} onCost={cost} />
   ) : (
     <WaitingHead title={title} status={p ? null : status} phone={!rail} brandId={brandId} menu={p && menu} />
   );
@@ -314,13 +316,16 @@ function Loading({ phone }: { phone: boolean }) {
 /** M6 (Flow-QA, 6 Nov): when the run's card and the director's own read disagree on whether it goes on (a run that ended by
  *  itself, or one that just started), each read again: the header, the presses and the card follow at once, never a dead end
  *  until reload (rule 22). */
-function useRunEnd(id: number, card: string | undefined, director: string | undefined) {
+function useRunEnd(id: number, card: string | undefined, director: string | undefined, head?: string) {
   const queryClient = useQueryClient();
   const going = card === undefined ? undefined : ["working", "revising", "waiting"].includes(card);
+  // The header says delivered while the card still waits or works: the card and the run are behind, read again (a
+  // delivered run never shows "press Make it").
+  const behind = head === "delivered" && going === true;
   useEffect(() => {
-    if (going === undefined || director === undefined || going === (director === "running")) return;
+    if (going === undefined || director === undefined || (going === (director === "running") && !behind)) return;
     for (const queryKey of [["director", id], ["idea", id], ["run-progress", id]]) void queryClient.invalidateQueries({ queryKey });
-  }, [going, director, id, queryClient]);
+  }, [going, director, behind, id, queryClient]);
 }
 
 /** The conversation (oldest first, newest at the bottom), and the box under it. A freestyle's thread is its first words,

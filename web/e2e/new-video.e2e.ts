@@ -39,7 +39,7 @@ test("at 1440, the owner pastes a script, presses Make it, and the director deli
   await noSidewaysScroll(page);
 });
 
-test("an editor sends a script for approval from New video, the owner approves it in Needs you, and it's delivered", async ({ page, browser, baseURL }) => {
+test("an editor sends pasted words for approval from New video, the owner approves it in Needs you, and it's delivered", async ({ page, browser, baseURL }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, "reed@example.com");
@@ -57,15 +57,17 @@ test("an editor sends a script for approval from New video, the owner approves i
   const ed = await (await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } })).newPage();
   expect((await ed.request.post("/api/auth/accept-invite", { data: { token: inv.token, name, password: "correct horse battery staple" } })).ok()).toBe(true);
 
+  // A published script planned in one pass costs far less than its video's budget, so an editor's send of it is no
+  // longer held (S2-06: "Inside this video's budget, so it starts straight away"); their own pasted words always are.
+  const quote = await (await ed.request.post("/api/freestyles/estimate", { data: { shape: "9:16", script_id: s.id } })).json();
+  expect(quote.held).toBeFalsy();
+  expect(quote.credits).toBeLessThanOrEqual(quote.budget);
   await ed.goto(`/b/${fomo}/videos/new`);
-  await ed.getByRole("button", { name: "Add", exact: true }).click(); // the box's + menu
-  await ed.getByRole("menuitem", { name: "Use a saved script" }).click();
-  await ed.getByLabel("Search scripts").fill(title);
-  await ed.getByRole("radio", { name: new RegExp(title) }).click();
-  await expect(ed.getByText(/is past this video’s budget of \d+, so it goes to the owner first/)).toBeVisible(); // S2-05
+  await ed.getByLabel("Paste a script, or describe the video").fill(text.replace("buying.", `buying ${title}.`));
+  await expect(ed.getByRole("radio", { name: /^A script/ })).toBeChecked();
+  await expect(ed.getByText("The owner approves before any generation starts. You’ll see it in My requests.")).toBeVisible(); // S2-04
   await ed.getByRole("button", { name: /^Send to the owner · up to \d+ credits?$/ }).click();
   await expect(ed.getByText("Waiting for the owner’s OK")).toBeVisible({ timeout: 60_000 }); // its start card, after its plan (S3-07)
-  await expect(ed.getByText(`From script ${title} · version A`)).toBeVisible();
   await expect(ed.getByText(/\$/)).toHaveCount(0);
 
   await page.goto("/approvals"); // S9-01: the send's start card, "Dee's new video · up to $X"
@@ -80,7 +82,7 @@ test("an editor sends a script for approval from New video, the owner approves i
 
   // At 390 (S3-07, P-07): the editor's change waits for the owner on its card, with Withdraw the request.
   await ed.setViewportSize({ width: 390, height: 844 });
-  await ed.getByLabel("Tell the director what to change").fill("Punchier ending.");
+  await ed.getByLabel("Tell the director what to change").fill("Redo clip 1 with a punchier ending."); // names its clip: a one-pass plan changes only what a note touches
   await ed.getByLabel("Tell the director what to change").press("Enter");
   await expect(ed.getByText("Waiting for the owner’s OK")).toBeVisible({ timeout: 60_000 });
   const withdraw = ed.getByRole("button", { name: "Withdraw the request" });

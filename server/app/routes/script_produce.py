@@ -83,12 +83,14 @@ def produce(
 
 
 def make_video(db: Session, user: User, request: Request, script, draft, settings: dict,
-               another: bool = False) -> tuple[Project, ScriptVersion, bool]:  # fmt: skip
+               another: bool = False,
+               planned: bool = True) -> tuple[Project, ScriptVersion, bool]:  # fmt: skip
     """A version's video (Make this version, and a freestyle made from a script): the
     script's brand, reel, look and locked cast, its words as script v1, its plan (S6), and its
     saved breakdown preview landed free when it follows that plan (#934); whether it landed.
     One a version, but for a director-first video's "Make another" (`another`, n22). Not
-    committed; nothing queued."""
+    committed; nothing queued. `planned` False: neither the version's plan nor its saved shots
+    come along (a video the one-pass director will plan itself, app/one_pass.py)."""
     credits.lock(db, ScriptDraft, draft.id)  # two presses at once: the second finds the first
     if not another and db.scalar(select(Project.id).where(Project.script_draft_id == draft.id)):
         raise HTTPException(409, "This version already has a video.")
@@ -126,9 +128,10 @@ def make_video(db: Session, user: User, request: Request, script, draft, setting
         project_id=project.id, version=1, text=draft.text, source="library", created_by_id=user.id
     )
     db.add(version)
-    plans.copy_to_video(project, draft)  # S6: the owner's approved plan is its start
+    if planned:
+        plans.copy_to_video(project, draft)  # S6: the owner's approved plan is its start
     scorecard.record_forecast(db, project, draft)  # shown beside the price; changes no cap
-    if draft.breakdown and plans.preview_follows(draft):
+    if planned and draft.breakdown and plans.preview_follows(draft):
         plan = Breakdown.model_validate(draft.breakdown)
         named = {r for sc in plan.scenes for sh in sc.shots for r in sh.character_ids}
         live = named & script_preview.live_looks(db, script)  # a look the plan names joins the cast

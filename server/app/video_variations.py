@@ -6,7 +6,9 @@ stills, clips and takes (the same files: nothing is made again for them). Only t
 idea names lose their take, and its treatment carries the new hook or ending. Its run is a
 revision (the source's story stands), so its direction card, before anything is made, prices
 only those clips (`revision.revision`). The script's words never change, except for words the
-owner quoted in the note for that line (a new version of the script for that video only)."""
+owner quoted in the note for that line (a new version of the script for that video only). A
+one-pass video's variation is one too (its engine is copied): its note is the run's note, so
+its one plan call changes only the clips the note names (one_pass._kept)."""
 
 import copy
 import json

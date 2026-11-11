@@ -43,6 +43,9 @@ SCHEMAS = {
     "treatment": schemas.Treatment,  # the director's first move: why it holds a viewer
     "review_stills": schemas.StillsReview,  # the stills against the treatment, before takes
     "video_variations": schemas.VideoVariations,  # a finished video's other hooks or endings
+    "one_pass": schemas.ShootingPlan,  # the director's one pass: the whole video planned
+    "narrated_one_pass": schemas.ShootingPlan,  # its system text for a video timed to a
+    "song_one_pass": schemas.ShootingPlan,  # narration or a song (the job's step stays one_pass)
 }
 # A song video's step is the story step plus its own part (story prompts stay as they were).
 EXTENDS = {
@@ -52,6 +55,8 @@ EXTENDS = {
     "narrated_clip_prompts": "clip_prompts",
     "plan_scene": "plan",
     "language_sample": "script_draft",
+    "narrated_one_pass": "one_pass",
+    "song_one_pass": "one_pass",
 }
 NO_RULES = {
     "look_fit",

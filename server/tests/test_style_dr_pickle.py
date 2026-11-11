@@ -5,10 +5,10 @@ from app import guides, prompts
 from app.prompts import check
 
 
-def test_dr_pickle_loads_off_with_its_own_sample_and_all_five_looks():
+def test_dr_pickle_loads_on_with_its_own_sample_and_all_five_looks():
     look = prompts.style("dr-pickle")
     assert look["name"] == "Dr. Pickle" and look["kind"] == "look"
-    assert look["on"] is False and look["own_sample"] is True  # Reed switches it on; D3
+    assert look["on"] is True and look["own_sample"] is True  # on (Reed, 10 Nov: every style); D3
     assert all(look["sections"][t] for t in guides.TOKENS)
     assert "dr-pickle" in [s["id"] for s in prompts.styles()]
     assert guides.sample("dr-pickle").startswith("The cartoon doctor")

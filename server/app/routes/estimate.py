@@ -134,8 +134,10 @@ def run_price(db: Session, draft: ScriptDraft, video=None) -> Decimal:
     version with no song yet, its making and one remake (`director_song.price`); a presenter's
     host, its still and every second in one HeyGen take, made once and MAX_REDOS times again
     by its watch (`host.run_price`). The cut, mutes and splices are free."""
-    from app import director, narration, take_watch
+    from app import director, narration, one_pass, take_watch
 
+    if one_pass.priced(db, draft, video):  # the one-pass director: its own, smaller bound
+        return one_pass.run_price(db, draft, video)
     if change := revision(db, video):  # its clips made again, never the whole video's (F15)
         return (_work(db, video, change, edits=False) + director.own_limit()
                 + director.MAX_REDOS * clip_takes.takes_price(db, video, change[0]))  # fmt: skip
@@ -180,8 +182,10 @@ def expected(db: Session, draft: ScriptDraft, video=None, ended: bool = False) -
     again, each of its clips once more (real ones remake one: 261's clip 7 was made twice),
     its turns at what a turn really costs, and one watch. No allowance, no remakes bound: an
     estimate, never a limit."""
-    from app import director, director_song, host, narration, scorecard, watch_cut
+    from app import director, director_song, host, narration, one_pass, scorecard, watch_cut
 
+    if one_pass.priced(db, draft, video):  # the one-pass director: no turns, one take a clip
+        return one_pass.expected(db, draft, video)
     script = db.get(Script, draft.script_id)
     ws = script.workspace_id
     watch = estimate(db, ws, watch_cut.KIND, Decimal(WATCH_LOOKS), {})

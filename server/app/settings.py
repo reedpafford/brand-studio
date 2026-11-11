@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -118,6 +118,30 @@ class Settings(BaseSettings):
     # app/take_watch) while checks are on; `everything` adds a look at each still.
     # key_takes and all_takes (kept for the env files) both leave stills unchecked.
     item_check_scope: Literal["key_takes", "all_takes", "everything"] = "key_takes"
+    # The one-pass director (app/one_pass.py; Reed, 10 Nov) for NEW videos: one call plans
+    # the whole video and the clips are made straight from it. Set false to start new
+    # videos on the step-by-step director again; a video already started keeps its own.
+    one_pass: bool = True
+    # Which formats start on it (a format's id, app/guides/formats): each can be put back on
+    # the step-by-step director by leaving it out, e.g. BS_ONE_PASS_ENGINES='["dialogue"]'.
+    one_pass_engines: list[str] = ["dialogue", "narrated", "zack-d", "presenter", "song"]
+    # The model its one plan call is asked on (BS_ONE_PASS_MODEL): empty is the model every
+    # other step uses (app/claude.MODEL); claude-sonnet-5-5 or claude-opus-5-5 to choose. Its
+    # cost and its estimate follow the model (app/claude.PRICES). No other step changes.
+    one_pass_model: str = ""
+
+    @field_validator("one_pass_model")
+    @classmethod
+    def _a_model_with_a_price(cls, value: str) -> str:
+        from app.claude import PRICES
+
+        if value and value not in PRICES:
+            raise ValueError(
+                f"BS_ONE_PASS_MODEL is “{value}”, which isn't a model this site can price. Set "
+                f"it to {' or '.join(sorted(PRICES, reverse=True))}, or leave it empty to use "
+                "the usual model.")  # fmt: skip
+        return value
+
     # Background worker
     worker_poll_seconds: float = 2.0
     # Which providers' jobs this worker takes, e.g. ["local"] for a reel-prep worker; empty: all.

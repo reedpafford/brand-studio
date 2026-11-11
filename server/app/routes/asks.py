@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import ask_options, asks, audition, director, hidden, locked_line
+from app import ask_options, asks, audition, director, hidden, locked_line, one_pass, plans
 from app.auth import current_user
 from app.credits import USD_PER_CREDIT, budget, budget_used, price, uncapped
 from app.db import get_db
@@ -287,6 +287,11 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
             card.why = ("That's what this run will probably cost: the first takes and their "
                         "checks, my usual time and a watch of the cut. Nothing stops it at a "
                         "limit here; what it really spends shows as it goes.")  # fmt: skip
+        if one_pass.on(project):  # what its own price covers, and its track made before it
+            what, sound = one_pass.card_words(db, project, bool(money.expected))
+            track = "song" if plans.song(db, project) else "narration"
+            card.why = what + (f" Its {track} is already made and timed, for "
+                               f"{_said(_price(user, sound))} more." if sound else "")  # fmt: skip
         if held and held[0].input.get(asks.CARRIES):  # carrying on after the owner's Stop
             money.usual, money.carry = None, True
             card.question = f"Carry on for up to {_said(money.up_to)} more?"
@@ -323,6 +328,12 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
         card.why = (f"Planning before Make it has used its allowance: a plan and "
                     f"{settings.plans_before_ok - 1} changes, or {_said(cap)}. Nothing more is "
                     "planned until the owner says yes.")  # fmt: skip
+        if held and held[0].input.get("step") == "song_take":  # a one-pass video's track
+            track = "song" if plans.song(db, project) else "narration"
+            card.question = f"Make the {track} for up to {_said(money.up_to)}?"
+            card.why = (f"The video is timed to its {track}, so it is made before the plan. "
+                        f"Planning before Make it has used its allowance of {_said(cap)}; "
+                        "nothing more is made until the owner says yes.")  # fmt: skip
         card.can = ["approve", "keep"] if owner else []
     elif ask.kind == "own":
         limit = _price(user, director.own_limit())
@@ -385,7 +396,7 @@ def _usual(db: Session, project: Project) -> Decimal:
     from app.routes.estimate import version_cost
 
     draft = db.get(ScriptDraft, project.script_draft_id) if project.script_draft_id else None
-    if draft and revision(db, project):
+    if draft and (revision(db, project) or one_pass.on(project)):
         return _expected(db, project)
     return version_cost(db, draft, project) if draft else Decimal(0)
 

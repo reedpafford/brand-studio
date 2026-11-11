@@ -82,7 +82,7 @@ def recheck(job_input: dict, result, ask):
     once: credits never pass the shown price), and if that still needs fixing the job fails,
     so nothing is shown or charged (rule 22)."""
     from app import narration_music as nm
-    from app import plans
+    from app import one_pass, plans
     from app import song_directions as sd
     from app.providers import Result
 
@@ -101,6 +101,9 @@ def recheck(job_input: dict, result, ask):
     elif job_input.get("step") == plans.SCENE_STEP:
         check, again = (lambda out: plans.scene_checked(job_input, out)), plans.scene_again
         still = plans.STILL
+    elif job_input.get("step") == one_pass.STEP:  # every spoken line once, in order, by number
+        check, again = (lambda out: one_pass.checked(job_input, out)), one_pass.again
+        still = one_pass.STILL
     else:
         return result
     output, fixes = check(result.output)
@@ -150,6 +153,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.look_samples import save_still as save_sample_still
     from app.narration_music import save_bed
     from app.narration_music import save_prompt as save_music_prompt
+    from app.one_pass import save as save_shooting_plan
     from app.plans import save as save_plan
     from app.plans import save_scene
     from app.reel_read import follow_on, save_watch
@@ -178,6 +182,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "breakdown": save_breakdown,
         "plan": save_plan,
         "plan_scene": save_scene,
+        "one_pass": save_shooting_plan,
         "song_breakdown": save_breakdown,
         "narrated_breakdown": save_breakdown,
         "storyboard": save_frames,
@@ -225,7 +230,7 @@ def save_step_result(db: Session, job: Job) -> None:
     except Exception:  # never lose the paid answer: it stays in job.output
         log.exception("job %s: saving the %s result failed", job.id, job.input["step"])
         saved = False
-        if job.input.get("step") in ("clip_prompts", "change"):  # not charged, and says so
+        if job.input.get("step") in ("clip_prompts", "change", "one_pass"):  # not charged: said
             job.status, job.error = JobStatus.failed, "Its answer couldn't be saved."
             explain(db, job)
     if job.input.get("reel_step"):  # a step of reading an imported reel: queue the next

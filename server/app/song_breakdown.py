@@ -425,8 +425,10 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
     """The video's take changed: its newest song breakdown, retimed to the new take, as a new
     row (free, no model call). Stills carry over; a clip whose shots moved in the song is out
     of date (made for the old take's slice). Going back to an earlier take (Undo) makes the
-    clips made for it current again."""
-    from app import breakdown, cast_roles
+    clips made for it current again. A one-pass video keeps its plan, each shot's `at` moved
+    with it (never planned again for a new take), and its clips are written again from it,
+    free: one whose take still covers its piece keeps it, one whose piece grew is made again."""
+    from app import breakdown, cast_roles, one_pass, one_pass_timed
     from app.models.scripts import ScriptVersion
 
     row = db.scalar(
@@ -444,9 +446,12 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
         select(ScriptVersion.text).where(ScriptVersion.project_id == project.id,
                                          ScriptVersion.version == row.script_version)
     ) or ""  # fmt: skip
+    kept = breakdown.carried_keys(row)
+    if one_pass.PLAN in kept:
+        kept[one_pass.PLAN] = one_pass_timed.follow_take(kept[one_pass.PLAN], moved)
     again = BreakdownVersion(
         project_id=project.id, script_version=row.script_version, source="edit",
-        data={**plan.model_dump(), "song": moved}, created_by_id=user_id,
+        data={**plan.model_dump(), "song": moved, **kept}, created_by_id=user_id,
         problems=breakdown.problems(db, project, text, plan, moved),
     )  # fmt: skip
     again.kept = breakdown.carry_kept(row.kept, again.problems)
@@ -454,6 +459,15 @@ def follow_take(db: Session, project: Project, user_id: int) -> BreakdownVersion
     db.flush()
     cast_roles.carry_frames(db, project, row, again)
     _current_clips(db, project, again, _changed(db, old, new), row.id)
+    if one_pass.on(project):
+        behind = db.scalars(
+            select(ProjectClip).where(
+                ProjectClip.project_id == project.id, ProjectClip.breakdown_id != again.id
+            )
+        )
+        grew = {c.clip_id for c in behind if not _fits(again.data, c)}
+        one_pass.assemble(db, project, again, grew, by_id=user_id, remake=True)
+        one_pass.follow(db, project)
     return again
 
 

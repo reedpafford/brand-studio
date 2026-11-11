@@ -1341,8 +1341,13 @@ def queue_rewrite(
 ) -> Job:  # fmt: skip
     """The clip-prompts call (paid) for `clip_ids` (None: every clip). `extra` and `prepaid`:
     a step of Update everything after this (app/update_after.py), already paid for."""
+    from app import one_pass
     from app.routes.jobs import enqueue
 
+    if one_pass.on(project):  # its prompts are built from its plan, free: never a paid rewrite
+        one_pass.follow(db, project)
+        db.commit()
+        raise HTTPException(409, one_pass.BUILT)
     bd = newest(db, project)
     if bd is None:
         raise HTTPException(409, "Make a breakdown first.")
@@ -1362,9 +1367,12 @@ def follow(db: Session, project: Project, user) -> Job | None:
     2026-10-26), like frames. Paid, so only within the video's budget or the editor's week
     (the owner's work too, as for looks Assets makes); past it, or while a take is being
     made, nothing is queued and Clips keeps its Rewrite button. Never blocks the change."""
-    from app import footage_shot
+    from app import footage_shot, one_pass
     from app.credits import fits
 
+    if one_pass.on(project):  # written again from its plan, in code: no call, nothing charged
+        one_pass.follow(db, project)
+        return None
     footage_shot.settle(db, project, user.id if user else None, first=False)  # its real clips: free
     ids = to_rewrite(db, project)
     if not ids or "clip_take" in _waiting(db, project) or not user:

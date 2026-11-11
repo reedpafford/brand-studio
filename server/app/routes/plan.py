@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import AfterValidator, BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app import breakdown, credits, plans, prompts
+from app import breakdown, credits, one_pass, plans, prompts
 from app.advice import SaidText, names, said
 from app.auth import current_user, user_name
 from app.db import get_db
@@ -209,6 +209,7 @@ def _out(db: Session, user: User, project) -> PlanOut | None:
 
 def _working(db: Session, user: User, project_id: int):
     project = get_project(db, user, project_id)
+    one_pass.refuse(project)  # its plan is the director's one pass: changed in the chat
     version = plans.script(db, project)
     if not version:
         raise HTTPException(409, "Add a script first.")
@@ -361,6 +362,7 @@ def use_earlier(
 ):
     """Bring an earlier plan back (free); the plan in hand goes to Earlier plans."""
     project = get_project(db, user, project_id)
+    one_pass.refuse(project)
     plans.use_earlier(project, index)
     db.commit()
     return _out(db, user, project)

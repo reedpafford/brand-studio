@@ -250,15 +250,26 @@ def _words(text: str) -> set[str]:
     return set(re.findall(r"[a-z]+(?:-[a-z]+)*", text.lower()))
 
 
+def gender(text: str, about: str = "") -> str:
+    """ "woman" or "man" when a description says one (else whoever it's `about`), else ""."""
+    return _gender(_words(text)) or _gender(_words(about))
+
+
 def closest(text: str, about: str = "") -> str:
     """The app voice nearest a description ("late 40s, tired, warm"), free and the same every
-    time: its gender if one is said, else the gender of whoever it's for (`about`: the card's
+    time (`nearest`'s first)."""
+    return nearest(text, about)[0]
+
+
+def nearest(text: str, about: str = "", among=None) -> list[str]:
+    """The app voices (`among`: only these) from the nearest to a description to the furthest:
+    its gender if one is said, else the gender of whoever it's for (`about`: the card's
     question and why, the role's description: "He talks…"), never the other; its age ("older"
     from 45, or words like "older"; "a 35 year old" is 35); then each tone the words name. A
     tie goes to the earlier voice in narration's order, so words that name nothing get the
     narrator's default."""
     words, ages = _words(text), _ages(text)
-    gender = _gender(words) or _gender(_words(about))
+    sexed = gender(text, about)
     aged = re.sub(r"\b\d+[\s-]*(?:years?|yrs?)?[\s-]*old\b", "", text.lower())  # "35 year old"
     older = bool(words & set(OLDER) or OLD.search(aged)) or any(a >= 45 for a in ages)
     younger = bool(words & set(YOUNGER)) or any(a < 30 for a in ages)
@@ -266,11 +277,11 @@ def closest(text: str, about: str = "") -> str:
 
     def score(key: str) -> int:
         sex, age, tone = TRAITS[key]
-        return ((4 if sex == gender else -8 if gender else 0) + (3 if older and age else 0)
+        return ((4 if sex == sexed else -8 if sexed else 0) + (3 if older and age else 0)
                 - (3 if younger and age else 0) + 2 * len(tones & tone))  # fmt: skip
 
-    keys = [k for k in stock_keys() if k in TRAITS]
-    return max(keys, key=lambda k: (score(k), -keys.index(k)))
+    keys = [k for k in stock_keys() if k in TRAITS and (among is None or k in among)]
+    return sorted(keys, key=lambda k: (-score(k), keys.index(k)))
 
 
 def describe(db: Session, user: User, brand_id: int, text: str, name: str = "",
