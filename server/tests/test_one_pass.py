@@ -478,6 +478,37 @@ def test_a_screen_the_clip_names_is_attached_whichever_shot_shows_it(app, owner,
     assert take.input["exact_file_ids"]  # sent as given, never lossy (rules 13 and 14)
 
 
+def test_a_look_that_failed_while_the_picture_service_was_down_is_drawn_after_carry_on(
+    app, owner, db
+):
+    """Reed, 11 Nov (video 379): every sheet failed for an hour (the provider's fault), the run
+    stopped, and Carry on never drew them again: "needs a look and couldn't be drawn"."""
+    app.state.settings.fake_providers = True
+    app.state.stand_ins = providers = get_providers(app.state.settings, app.state.storage)
+    real = providers["replicate"].submit
+
+    def down(kind, input):
+        if input.get("step") == "sheet":
+            raise RuntimeError("the picture service is down")
+        return real(kind, input)
+
+    providers["replicate"].submit = down
+    fs = owner.post("/freestyles", json=BODY).json()
+    _run(app, db)
+    pid = _video(db).id
+    assert "failed" in owner.get(f"/projects/{pid}/director").json()["ended"]  # it stopped
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201  # still down
+    _run(app, db)
+    providers["replicate"].submit = real  # the service is back
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    _run(app, db)
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert owner.get(f"/freestyles/{fs['id']}").json()["status"] == "delivered", (
+        out["ended"],
+        [(t["tool"], t["result"]) for t in out["turns"]],
+    )
+
+
 def test_a_cut_that_is_refused_stops_saying_why(app, owner, db, monkeypatch):
     """Reed, 11 Nov (video 370): the cut was refused ("Approve every clip to make the video")
     and the run stopped saying only "a clip changed since"."""

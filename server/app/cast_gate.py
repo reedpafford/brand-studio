@@ -13,7 +13,7 @@ import json
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import utcnow
@@ -488,16 +488,23 @@ SHEET_TRIES = 2  # a look that didn't draw is drawn again once; then the card sh
 
 def redrawable(db: Session, project: Project, items: list[dict]) -> list[LibraryItem]:
     """The looks of `items` that didn't draw (no picture, nothing drawing, a sheet failed)
-    and may be drawn again: the director's make_looks does, once (QA on #1482)."""
+    and may be drawn again: the director's make_looks does, once (QA on #1482), and again
+    after a stop and Carry on (Reed, 11 Nov, video 379: looks that failed while the picture
+    service was down were never tried again, and the run stopped at every Carry on)."""
+    from app import director
+
+    rows = director.all_turns(db, project.id)
+    ended = max((n for n, t in enumerate(rows) if t.input.get("ended")), default=-1)
+    since = rows[ended + 1].created_at if -1 < ended < len(rows) - 1 else None  # Carry on's turn
     out = []
     for i in items:
         if i["readiness"] != "needs_look" or not i["library_item_id"]:
             continue
-        failed = db.scalar(select(func.count(Job.id)).where(
+        failed = db.scalars(select(Job.created_at).where(
             Job.workspace_id == project.workspace_id, Job.status == JobStatus.failed,
             Job.input["step"].as_string() == "sheet",
-            Job.input["library_item_id"].as_integer() == i["library_item_id"])) or 0  # fmt: skip
-        if 0 < failed < SHEET_TRIES:
+            Job.input["library_item_id"].as_integer() == i["library_item_id"])).all()  # fmt: skip
+        if failed and sum(since is None or at >= since for at in failed) < SHEET_TRIES:
             out.append(db.get(LibraryItem, i["library_item_id"]))
     return out
 
