@@ -9,6 +9,7 @@ a video is held for an OK (`held`, from `enqueue`): the start of a run (Make it)
 the video's budget, or the director past its own limit (rule 34). Its state is read from its
 held jobs, so the job routes' Approve, Decline and Withdraw keep it right too."""
 
+import logging
 import re
 from datetime import timedelta
 from decimal import Decimal
@@ -27,6 +28,7 @@ from app.models.jobs import Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
 
+log = logging.getLogger(__name__)
 QUESTIONS = ("cast", "presenter", "voice", "place", "product", "brand_item", "story", "question")
 MONEY = ("start", "budget", "own", "plan")  # Make it; past the budget; its own limit; planning
 UPLOADS = ("cast", "presenter", "voice", "place", "product", "brand_item")
@@ -661,6 +663,24 @@ def start_hold(db: Session, user: User, project: Project) -> str:
         return ""
     return (f"Waiting for the owner's OK: up to {price(up_to)} credits is past what's left of "
             f"this video's budget ({price(max(left, Decimal(0)))}).")  # fmt: skip
+
+
+AUTO = "auto_start"  # in a run's first turn and its start card: "Make without asking"
+
+
+def press_start(db: Session, user: User, project: Project) -> None:
+    """Make without asking (New video, the owner's own send): the run's start card is OK'd as
+    soon as it's ready, by the press Make it is (`answer`): the same price, the same checks
+    and the same OK on the cast and places it shows. Only that card: whatever waits for a
+    person after it still does. A press it refuses leaves the card waiting for them."""
+    card = start_card(db, project) if user.is_owner else None
+    if card is None:
+        return
+    try:
+        answer(db, user, db.get(Ask, card), {"how": "make_it"})
+    except HTTPException as no:
+        db.rollback()
+        log.info("video %s: its start card waits for Make it: %s", project.id, no.detail)
 
 
 def _start_job(db: Session, project: Project) -> Job | None:

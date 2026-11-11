@@ -87,6 +87,12 @@ export function SidePanel({ wide, ...props }: Props & { wide?: boolean }) {
   return <Frame {...props} className={`bottom-0 right-0 top-topbar ${wide ? "w-[480px]" : "w-[380px]"} max-w-full border-l border-border`} />;
 }
 
+/** A centred dialog for a picker (Styles, cast and products): never wider than 960 px, however wide the
+ *  screen; on a phone it fills the screen and scrolls inside. */
+export function Modal(props: Props) {
+  return <Frame {...props} className="inset-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[min(88dvh,760px)] sm:w-[calc(100%-3rem)] sm:max-w-[960px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl" />;
+}
+
 /** For confirmations only. A destructive action says what is lost and uses the danger button. */
 export function Dialog({
   title,

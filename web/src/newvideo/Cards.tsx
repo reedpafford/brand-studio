@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CircleCheckBig, Pause, Play, X } from "lucide-react";
+import { Check as CheckIcon, CircleCheckBig, Pause, Play, X } from "lucide-react";
 import { fileUrl } from "../api/upload";
 import type { components } from "../api/schema";
 import { Button } from "../components";
@@ -59,42 +59,30 @@ function Sample({ name, clip, still, testTag, playing, onPlay, w, h }: { name: s
   );
 }
 
-// A card lifts under the pointer; the picked one has an indigo edge. An off one keeps its words readable and greys its picture.
+// A card or tile lifts under the pointer; the picked one has an indigo edge. An off one keeps its words readable and greys its
+// picture. Its corners and ground are its own.
 const card = (sel: boolean, off: boolean) =>
-  `group flex shrink-0 flex-col overflow-hidden rounded-lg border bg-surface text-left transition-[border-color,box-shadow,transform] duration-(--dur-fast) ease-out ${sel ? "border-accent ring-1 ring-accent" : off ? "border-border" : "border-border hover:-translate-y-px hover:border-border-button hover:shadow-hover active:translate-y-0"} ${off ? "cursor-not-allowed [&_img]:opacity-60 [&_img]:grayscale [&_video]:opacity-60 [&_video]:grayscale" : ""}`;
+  `group flex shrink-0 flex-col overflow-hidden border text-left transition-[border-color,box-shadow,transform] duration-(--dur-fast) ease-out ${sel ? "border-accent ring-1 ring-accent" : off ? "border-border" : "border-border hover:-translate-y-px hover:border-border-button hover:shadow-hover active:translate-y-0"} ${off ? "cursor-not-allowed [&_img]:opacity-60 [&_img]:grayscale [&_video]:opacity-60 [&_video]:grayscale" : ""}`;
 const Check = () => <CircleCheckBig size={14} strokeWidth={2} aria-hidden className="animate-fade shrink-0 text-accent" />;
 
-/** A phone's card row scrolls the picked card into view (P-03). */
-function useShown(value: string, small?: boolean) {
-  const row = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (small) row.current?.querySelector<HTMLElement>("[aria-checked=true]")?.scrollIntoView?.({ inline: "nearest", block: "nearest" });
-  }, [value, small]);
-  return row;
-}
-
-/** Format cards (S2): picture, name, its line; Song "coming next" while its music provider is off, a format off in its
- *  guide "Off on this site". `small`: the phone's (P-03), name only. `locked`: a saved script's own, shown not picked. */
-export function FormatCards({ formats, value, onPick, small, locked }: { formats: Format[]; value: string; onPick: (id: string) => void; small?: boolean; locked?: boolean }) {
-  const shown = useShown(value + formats.length, small);
+/** The formats as a radio list (the Styles dialog): each with its line; Song says why it is "coming next" while its
+ *  music provider is off, a format off in its guide is "Off on this site". `locked`: a saved script's own, shown not picked. */
+export function FormatList({ formats, value, onPick, locked }: { formats: Format[]; value: string; onPick: (id: string) => void; locked?: boolean }) {
   return (
-    <div ref={shown} role="radiogroup" aria-label="Format" className={small ? "fade-x -mx-4 flex gap-3 overflow-x-auto px-4 pb-1" : "grid grid-cols-5 gap-3"}>
+    <div role="radiogroup" aria-label="Format" className="flex flex-col gap-1">
       {formats.map((f) => {
         const off = f.off ? (f.off === "off" ? OFF : SOON) : null;
         const sel = f.id === value;
+        const no = !!off || (locked && !sel);
         return (
-          <button key={f.id} type="button" role="radio" aria-checked={sel} aria-disabled={!!off || (locked && !sel) || undefined} title={f.off && f.off !== "off" ? `${f.name} is coming next: ${f.off}.` : undefined} onClick={() => !off && !locked && onPick(f.id)} className={`${card(sel, !!off)} ${small ? "w-32" : "w-full"} ${locked && !sel ? "cursor-default opacity-55" : ""}`}>
-            <div className={`relative ${small ? "h-16" : "h-24"} w-full overflow-hidden bg-surface-3`}>
-              {f.test_still && <img src={`/api/formats/${f.id}/test-sample.jpg`} alt="" className="size-full object-cover transition-transform duration-(--dur-slow) ease-out group-hover:scale-[1.03]" />}
-              {f.test_still && tag}
-            </div>
-            <span className="flex flex-1 flex-col gap-0.5 px-3 py-2.5">
-              <span className="flex items-center gap-2">
+          <button key={f.id} type="button" role="radio" aria-checked={sel} aria-disabled={no || undefined} onClick={() => !no && onPick(f.id)} className={`flex min-h-control items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors duration-(--dur-fast) ${sel ? "border-accent-line bg-accent-soft" : `border-transparent ${no ? "" : "hover:bg-surface-2"}`} ${no ? "cursor-not-allowed" : ""} ${locked && !sel ? "opacity-55" : ""}`}>
+            <span aria-hidden className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${sel ? "border-accent bg-accent text-on-accent" : "border-border-strong bg-surface"}`}>{sel && <CheckIcon size={12} />}</span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex flex-wrap items-center gap-x-2">
                 <span className={`text-sm font-semibold ${off ? "text-muted" : ""}`}>{f.name}</span>
-                <span className="flex-1" />
-                {off && !small ? <span className="rounded-sm bg-surface-2 px-1.5 text-xs font-medium text-muted">{off === OFF ? OFF : SOON}</span> : sel && <Check />}
+                {off && <span className="rounded-sm bg-surface-2 px-1.5 text-xs font-medium text-muted">{off}</span>}
               </span>
-              {!small && <span className="line-clamp-2 text-xs text-muted">{sub(f)}</span>}
+              <span className="text-xs text-muted">{off === SOON ? `${f.off!.charAt(0).toUpperCase()}${f.off!.slice(1)}.` : sub(f)}</span>
             </span>
           </button>
         );
@@ -103,18 +91,13 @@ export function FormatCards({ formats, value, onPick, small, locked }: { formats
   );
 }
 
-/** Its short tag: "Dialogue only". */
-export function onlyShort(l: Look, formats: { id: string; name: string }[]): string {
-  return `${(l.formats ?? []).map((id) => formats.find((f) => f.id === id)?.name ?? id).join(" or ")} only`;
-}
-
-/** Style cards (S2): a sample that plays (one at a time), the style's line and its B-roll look; a style off on this
- *  site is greyed with "Off on this site" (S2-03), and one not made in the picked format says why (`only`). */
-export function StyleCards({ looks, value, onPick, small, locked, only }: { looks: Look[]; value: string; onPick: (id: string) => void; small?: boolean; locked?: boolean; only?: (l: Look) => string | null }) {
+/** Style tiles (the Styles dialog): a sample that plays (one at a time), the style's line and its B-roll look; the picked
+ *  one has the indigo ring; a style off on this site is greyed with "Off on this site" (S2-03), and one not made in the
+ *  picked format says why (`only`). */
+export function StyleCards({ looks, value, onPick, locked, only }: { looks: Look[]; value: string; onPick: (id: string) => void; locked?: boolean; only?: (l: Look) => string | null }) {
   const [playing, setPlaying] = useState<string | null>(null);
-  const shown = useShown(value + looks.length, small);
   return (
-    <div ref={shown} role="radiogroup" aria-label="Style" className={small ? "fade-x -mx-4 flex items-stretch gap-2.5 overflow-x-auto px-4 pb-1" : "grid grid-cols-8 gap-2.5"}>
+    <div role="radiogroup" aria-label="Style" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
       {looks.map((l) => {
         const m = lookMedia(l);
         const sel = l.id === value;
@@ -122,23 +105,63 @@ export function StyleCards({ looks, value, onPick, small, locked, only }: { look
         const can = l.on && !locked && !why;
         // The picture plays its sample; the words under it pick the style (a radio holds no other button).
         return (
-          <div key={l.id} className={`${card(sel, !l.on || !!why)} ${small ? "w-28" : "w-full"} ${locked && !sel ? "opacity-55" : ""}`}>
-            <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h={small ? "h-36" : "aspect-[4/5]"} />
-            <button type="button" role="radio" aria-checked={sel} aria-disabled={!can || undefined} title={why ?? undefined} onClick={() => can && onPick(l.id)} className={`flex flex-1 flex-col gap-0.5 px-3 py-2.5 text-left ${can ? "" : "cursor-default"}`}>
+          <div key={l.id} className={`${card(sel, !l.on || !!why)} w-full rounded-lg bg-surface ${locked && !sel ? "opacity-55" : ""}`}>
+            <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h="aspect-[4/5]" />
+            <button type="button" role="radio" aria-checked={sel} aria-disabled={!can || undefined} title={why ?? undefined} onClick={() => can && onPick(l.id)} className={`flex min-h-control flex-1 flex-col gap-0.5 px-3 py-2.5 text-left ${can ? "" : "cursor-default"}`}>
               <span className="flex items-center gap-1">
                 <span className={`text-sm font-semibold ${l.on && !why ? "" : "text-muted"}`}>{l.name}</span>
                 <span className="flex-1" />
                 {sel && <Check />}
               </span>
-              {!small && <span className="line-clamp-2 text-xs text-muted">{sub(l)}</span>}
-              {l.broll && <span className="text-xs text-muted">{small ? l.broll : brollLine(l)}</span>}
-              {!l.on && !small && <span className="mt-auto self-start rounded-sm bg-surface-2 px-1.5 text-xs font-medium text-muted">{OFF}</span>}
-              {l.on && why && !small && <span className="mt-1 text-xs text-muted">{why}</span>}
+              <span className="line-clamp-2 text-xs text-muted">{sub(l)}</span>
+              {l.broll && <span className="text-xs text-muted">{brollLine(l)}</span>}
+              {!l.on && <span className="mt-auto self-start rounded-sm bg-surface-2 px-1.5 text-xs font-medium text-muted">{OFF}</span>}
+              {l.on && why && <span className="mt-1 text-xs text-muted">{why}</span>}
             </button>
           </div>
         );
       })}
     </div>
+  );
+}
+
+/** The styles as a gallery (Home, under the box): 9:16 picture tiles, the ones switched on first. A tile shows its sample
+ *  still and plays the sample clip under the pointer or on focus (muted, one at a time), with the style's name and line
+ *  over a shade at the foot; a style with no sample is a text poster, its line on a tint. Pressing a tile picks the style
+ *  (the indigo ring and a check); one off on this site is greyed and says so. */
+export function StyleGallery({ looks, value, onPick }: { looks: Look[]; value: string; onPick: (l: Look) => void }) {
+  const [playing, setPlaying] = useState<string | null>(null);
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {[...looks.filter((l) => l.on), ...looks.filter((l) => !l.on)].map((l) => {
+        const m = lookMedia(l);
+        const sel = l.id === value;
+        const play = (on: boolean) => setPlaying((p) => (on ? l.id : p === l.id ? null : p));
+        return (
+          <li key={l.id} className="min-w-0">
+            <button type="button" aria-pressed={sel} aria-disabled={!l.on || undefined} onClick={() => l.on && onPick(l)} onMouseEnter={() => play(true)} onMouseLeave={() => play(false)} onFocus={() => play(true)} onBlur={() => play(false)} className={`${card(sel, !l.on)} relative aspect-[9/16] w-full rounded-xl ${m.still ? "bg-surface-3" : l.on ? "bg-accent-soft text-accent-text" : "bg-surface-2 text-muted"}`}>
+              {m.still && <img src={m.still} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />}
+              {playing === l.id && m.clip && l.on && <video ref={(v) => void v?.play?.()?.catch(() => {})} src={m.clip} poster={m.still} muted loop playsInline aria-hidden className="absolute inset-0 size-full object-cover" />}
+              <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-(image:--media-shade) px-3 pb-3 pt-12 text-white">
+                <span className="text-sm font-semibold leading-snug">{l.name}</span>
+                {m.still && <span className="line-clamp-2 text-xs text-white/80">{sub(l)}</span>}
+                {!l.on && <span className="self-start rounded-sm bg-black/45 px-1.5 text-xs font-medium text-white/90">{OFF}</span>}
+              </span>
+              {!m.still && (
+                <span className="absolute inset-x-0 bottom-16 top-0 flex items-center px-4">
+                  <span className="line-clamp-5 text-sm font-medium leading-snug sm:text-base sm:leading-snug">{sub(l)}</span>
+                </span>
+              )}
+              {sel && (
+                <span className="animate-fade absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-accent text-on-accent">
+                  <CheckIcon size={14} strokeWidth={2.5} aria-hidden />
+                </span>
+              )}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -154,7 +177,7 @@ export function BrollPicker({ looks, style, value, onPick, onClose }: { looks: L
     return () => opener?.focus?.();
   }, []);
   return (
-    <section ref={box} role="dialog" aria-label="B-roll look for this video" onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onClose())} className="absolute right-0 top-7 z-30 w-[600px] rounded-lg border border-border bg-surface shadow-raised">
+    <section ref={box} role="dialog" aria-label="B-roll look for this video" onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onClose())} className="absolute right-0 top-7 z-30 w-full max-w-[600px] rounded-lg border border-border bg-surface shadow-raised">
       <div className="flex items-center border-b border-border px-3 py-2.5">
         <h3 className="text-sm font-semibold">B-roll look for this video</h3>
         <span className="flex-1" />

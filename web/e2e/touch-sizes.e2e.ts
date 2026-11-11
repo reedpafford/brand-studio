@@ -89,19 +89,33 @@ test("at 390, Breakdown's Version picker is a 44 × 44 px press even before any 
   expect(pick.width).toBeGreaterThanOrEqual(44);
 });
 
-// Board comparison S10 / P-03: New video at 390 was 392 px wide (the card rows' edge) and its tabs, chips and
+// Board comparison S10 / P-03: New video (now Home) at 390 was 392 px wide (the card rows' edge) and its tabs, chips and
 // "Settings → Looks" were under 44 px.
-test("at 390: New video fits the screen, and its tabs, chips and Settings → Looks are 44 px presses", async ({ page }) => {
+test("at 390: Home fits the screen, a style tile picks its style, and the chips, the script or idea switch and the Styles dialog's presses are 44 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await signIn(page, "reed@example.com");
   await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
   const brandId = await emptyBrand(page, "Phone New Co");
   await page.goto(`/b/${brandId}/videos/new`);
-  await expect(page.getByRole("radiogroup", { name: "Style" }).getByRole("radio").first()).toBeVisible();
-  const presses = [...["Paste", "Saved script", "Use a reel"].map((name) => page.getByRole("tab", { name })), page.getByRole("button", { name: /^Cast: / }), page.getByRole("button", { name: /^Shape: / }), page.getByRole("button", { name: /^Folder: / })];
-  const looks = page.getByRole("link", { name: "Settings → Looks" }); // only when a style is off on this site
+  const style = page.getByRole("button", { name: /^Style: .+ · / }); // the guides' formats and styles are in
+  await expect(style).toBeVisible();
+  const chips = [page.getByRole("button", { name: "Add", exact: true }), style, ...[/^Product: /, /^Cast: /, /^Shape: /, /^Folder: /, /^Mode: /].map((name) => page.getByRole("button", { name })), page.getByRole("radio", { name: /^A script/ }), page.getByRole("radio", { name: /^An idea/ })];
+  for (const press of chips) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const fits = async () => {
+    const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
+    expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
+  };
+  await fits();
+  const tile = page.getByRole("region", { name: "Styles" }).locator("button:not([aria-disabled])").last(); // the gallery under the box: a style that is on
+  await tile.click();
+  await expect(tile).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Paste a script, or describe the video")).toBeFocused(); // picked: on to the words
+  await fits();
+  await style.click();
+  const styles = page.getByRole("dialog", { name: "Styles" });
+  const presses = [styles.getByRole("radiogroup", { name: "Format" }).getByRole("radio").first(), styles.getByRole("radiogroup", { name: "Style" }).getByRole("radio").first(), styles.getByRole("button", { name: "Done" })];
+  const looks = styles.getByRole("link", { name: "Settings → Looks" }); // only when a style is off on this site
   if (await looks.count()) presses.push(looks);
   for (const press of presses) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));
-  expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
+  await fits();
 });

@@ -5,7 +5,8 @@ import { useViewOnly } from "./ViewOnly";
 
 /**
  * A menu opened from a button: a popover on desktop, a bottom sheet on a phone.
- * Escape and a tap outside close it; focus goes back to the button. `up` opens it above the button (the rail's account row).
+ * Escape and a tap outside close it; focus goes back to the button. Escape closes the menu alone: a dialog it sits in
+ * stays open. `up` opens it above the button (the rail's account row).
  */
 export function Menu({ title, trigger, align = "left", up = false, popover = false, children }: { title: string; trigger: (p: { open: boolean; onClick: () => void; "aria-haspopup": "menu"; "aria-expanded": boolean }) => ReactNode; align?: "left" | "right"; up?: boolean; /** a popover on a phone too, not a sheet */ popover?: boolean; children: (close: () => void) => ReactNode }) {
   const phone = useMedia("(max-width: 767px)") && !popover;
@@ -16,14 +17,15 @@ export function Menu({ title, trigger, align = "left", up = false, popover = fal
     const away = (e: MouseEvent) => !root.current?.contains(e.target as Node) && setOpen(false);
     const key = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      e.stopPropagation(); // caught on the way down, before the dialog's own Escape
       setOpen(false);
       root.current?.querySelector<HTMLElement>("[aria-haspopup]")?.focus();
     };
     document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", key);
+    document.addEventListener("keydown", key, true);
     return () => {
       document.removeEventListener("mousedown", away);
-      document.removeEventListener("keydown", key);
+      document.removeEventListener("keydown", key, true);
     };
   }, [open, phone]);
   const close = () => setOpen(false);

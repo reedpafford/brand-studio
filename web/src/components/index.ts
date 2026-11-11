@@ -5,9 +5,9 @@ export { creditsLabel, creditsText, pressLabel, roundUp, wholeCredits, type Char
 export { Field, Select, TextArea, textSize } from "./Field";
 export { Banner, EmptyState, Skeleton } from "./Feedback";
 export { StepPicker, Tabs, pillClass, pillStrip, type Step, type StepState, type Tab } from "./Nav";
-export { Dialog, Panel, Sheet, SidePanel } from "./Overlay";
+export { Dialog, Modal, Panel, Sheet, SidePanel } from "./Overlay";
 export { ToastProvider, useToast } from "./Toast";
 export { Menu, MenuItem } from "./Menu";
 export { ViewOnly, useViewOnly } from "./ViewOnly";
 export { PageTop } from "./PageTop";
-export { Segmented, segItem, segTrack, chipClass, chipPress } from "./Segmented";
+export { Segmented, segItem, segTrack, chipClass, chipPill, chipPress } from "./Segmented";

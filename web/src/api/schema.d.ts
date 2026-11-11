@@ -8290,6 +8290,12 @@ export interface components {
             broll_look?: string | null;
             /** Attachments */
             attachments?: number[] | null;
+            /** Mode */
+            mode?: ("ask" | "auto") | null;
+            /** Product Ids */
+            product_ids?: number[] | null;
+            /** Idea */
+            idea?: boolean | null;
         };
         /**
          * FreestyleItem

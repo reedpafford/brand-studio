@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChartColumn, ChevronRight, Clapperboard, Settings, UserPlus, UserRound, type LucideIcon } from "lucide-react";
+import { ChartColumn, ChevronRight, Clapperboard, Inbox, Settings, UserPlus, UserRound, type LucideIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useMe } from "../auth/useMe";
 import { Menu, MenuItem } from "../components";
 
-// Reed's Studio pages: rows in the rail after Needs you; on a phone, rows in the More tab (S-gaps-04 R3).
+// The owner's Studio pages: in the account menu at the foot of the rail; on a phone, rows in the More tab (S-gaps-04 R3).
 export const STUDIO: [string, string, LucideIcon][] = [
   ["/production", "In production", Clapperboard],
   ["/usage", "Usage", ChartColumn],
@@ -58,10 +58,10 @@ export function AccountMenu({ inRail, iconOnly, row }: { inRail?: boolean; iconO
             </div>
             <div className="text-sm text-muted">{me?.email}</div>
           </div>
+          {/* Needs you is a rail row only while something waits; here it is always reachable. */}
           {me?.role === "owner" &&
-            !inRail &&
             !row &&
-            STUDIO.map(([to, label, Icon]) => (
+            [["/approvals", "Needs you", Inbox] as const, ...STUDIO].map(([to, label, Icon]) => (
               <Link key={to} to={to} onClick={close} className="flex min-h-control items-center gap-3 rounded-md px-3 hover:bg-surface-2">
                 <Icon size={20} strokeWidth={1.75} aria-hidden />
                 {label}

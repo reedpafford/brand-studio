@@ -15,7 +15,7 @@ test("on a phone, the four tabs (v6 P-01) reach every brand section and there is
   await expect(page).toHaveURL(/\/b\/\d+\/videos$/);
   await expect(page.getByRole("link", { name: /Unsorted/ })).toBeVisible(); // P-01: the brand's folders
   await page.getByRole("main").getByRole("link", { name: "New video" }).click();
-  await expect(page.getByRole("heading", { name: "New video", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Paste your script, pick a style. We handle the rest." })).toBeVisible(); // New video is Home
   await page.goBack();
 
   await tabs.getByRole("link", { name: "Library" }).click();

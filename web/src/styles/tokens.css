@@ -86,6 +86,7 @@
   --text-lg: 1.0625rem;   --leading-lg: 1.5rem;      /* 17/24 section titles (600) */
   --text-xl: 1.25rem;     --leading-xl: 1.75rem;     /* 20/28 empty-state headlines (600) */
   --text-2xl: 1.375rem;   --leading-2xl: 1.875rem;   /* 22/30 page titles (600; 22/30 on phones too) */
+  --text-3xl: 2rem;       --leading-3xl: 2.375rem;   /* 32/38 Home's headline only (600; 26/32 on phones) */
   --text-script: 0.875rem; --leading-script: 1.6;   /* 14 Courier Prime */
   --tracking-display: -0.015em;
 
@@ -129,6 +130,7 @@
   :root {
     --text-base: 1rem; --leading-base: 1.5rem;     /* 16px: no iOS zoom on inputs */
     --text-2xl: 1.375rem; --leading-2xl: 1.875rem; /* 22/30 page titles */
+    --text-3xl: 1.625rem; --leading-3xl: 2rem;     /* 26/32 Home's headline */
   }
 }
 
@@ -194,6 +196,7 @@
   --text-lg: var(--text-lg);       --text-lg--line-height: var(--leading-lg);
   --text-xl: var(--text-xl);       --text-xl--line-height: var(--leading-xl);
   --text-2xl: var(--text-2xl);     --text-2xl--line-height: var(--leading-2xl);
+  --text-3xl: var(--text-3xl);     --text-3xl--line-height: var(--leading-3xl);
   --text-script: var(--text-script); --text-script--line-height: var(--leading-script);
   --tracking-display: var(--tracking-display);
 

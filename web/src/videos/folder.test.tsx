@@ -47,12 +47,12 @@ test("an open folder (S1-04): the crumb and its counts, tabs, and each idea's st
   open();
   expect(await screen.findByText("2 video ideas · 1 video needs you")).toBeInTheDocument();
   expect(within(screen.getByRole("main")).getByText("Week of 3 Nov")).toBeInTheDocument();
-  const card = screen.getByRole("link", { name: /Beer gut doctor rant/ });
+  const card = within(screen.getByRole("main")).getByRole("link", { name: /Beer gut doctor rant/ }); // the rail's Recent lists it too
   expect(card).toHaveAttribute("href", "/b/1/videos/9");
   expect(within(card).getByText("Working · 14 of 24")).toBeInTheDocument();
   expect(within(card).getByText("Dr. Pickle · 60 s · Reed · 10 min ago")).toBeInTheDocument();
   expect(within(card).getByText("up to $16.86")).toBeInTheDocument();
-  expect(within(screen.getByRole("link", { name: /Bloated after pizza/ })).getByText("$0.42 so far")).toBeInTheDocument();
+  expect(within(within(screen.getByRole("main")).getByRole("link", { name: /Bloated after pizza/ })).getByText("$0.42 so far")).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "All 2" })).toHaveAttribute("aria-selected", "true");
   expect(within(screen.getByRole("main")).getByRole("link", { name: "New video" })).toHaveAttribute("href", "/b/1/videos/new?folder=4"); // new ideas land in the open folder
   await userEvent.click(screen.getByRole("tab", { name: "Needs you 1" }));
@@ -174,15 +174,18 @@ test("on a phone (P-02): the folder's name over its counts, all four tabs, two c
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.window);
 });
 
-test("Reed's brand opens on its open folder (S1-01 to S1-08), New video and Scripts one tap away", async () => {
+test("All videos is the brand's open folder (S1-01 to S1-08), with Home, New video and the Brand page one tap away", async () => {
   setViewport(1440);
   fakeServer({ ...base(owner), "GET /scripts": [200, []], "GET /references": [200, []] });
-  open("/b/1");
-  expect(await screen.findByText("Beer gut doctor rant")).toBeInTheDocument(); // the folder's ideas
+  open("/b/1/videos");
+  expect(await within(await screen.findByRole("main")).findByText("Beer gut doctor rant")).toBeInTheDocument(); // the folder's ideas
   expect(screen.queryByRole("heading", { name: "Scripts" })).toBeNull();
   const rail = screen.getByRole("navigation", { name: "Main" });
-  expect(within(rail).getByRole("link", { name: /^New video/ })).toHaveAttribute("href", "/b/1/videos/new");
-  expect(within(rail).getByRole("link", { name: "Scripts" })).toHaveAttribute("href", "/b/1/scripts");
+  expect(within(rail).getByRole("link", { name: "All videos", current: "page" })).toHaveAttribute("href", "/b/1/videos");
+  expect(within(rail).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/1");
+  expect(within(rail).getByRole("link", { name: /^New video/ })).toHaveAttribute("href", "/b/1"); // Projects' New video is Home
+  expect(within(rail).getByRole("link", { name: "Brand" })).toHaveAttribute("href", "/b/1/brand"); // Scripts and Media are on the Brand page
+  expect(within(rail).queryByRole("link", { name: "Scripts" })).toBeNull();
 });
 
 test("a folder that's gone says so, with a way to Unsorted (QA on #1304)", async () => {

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { onBrand, signIn } from "./helpers";
+import { onBrand, openStudio, signIn } from "./helpers";
 
 /** A fomo script of its own, published, with version A started (Make this version), so a test never depends on what
  *  another spec left behind. Returns its title. */
@@ -18,7 +18,7 @@ async function startVersion(page: Page, name: string): Promise<string> {
 test("Reed opens Usage: the totals, a row for every brand, and one brand's page", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Usage" }).click();
+  await openStudio(page, "Usage");
   await expect(page.getByRole("heading", { name: "Usage", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByRole("group", { name: "Totals" })).toContainText("Spent this month"); // this month unless picked
   const byBrand = page.getByRole("table", { name: "By brand" });
@@ -49,11 +49,11 @@ test("Reed opens Usage: the totals, a row for every brand, and one brand's page"
   await expect(page).toHaveURL(/tab=scripts/);
 });
 
-test("Reed opens In production from the rail and sees the version being made, with no sideways scroll on a phone", async ({ page }) => {
+test("Reed opens In production from the account menu and sees the version being made, with no sideways scroll on a phone", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
   const title = await startVersion(page, "Being made");
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^In production/ }).click();
+  await openStudio(page, "In production");
   await expect(page.getByRole("heading", { name: "In production", level: 1 })).toBeVisible();
   const row = page.getByRole("link", { name: new RegExp(`^${title}, version A, .*, at [A-Z][a-z]+`) });
   await expect(row).toBeVisible();
@@ -68,7 +68,7 @@ test("Reed opens In production from the rail and sees the version being made, wi
 test("Reed changes the editors' weekly allowance in Settings, and Undo puts it back", async ({ page }) => {
   await signIn(page, "reed@example.com");
   await onBrand(page, "fomo");
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Settings" }).click();
+  await openStudio(page, "Settings");
   await page.getByRole("tab", { name: "Limits" }).click();
   const weekly = page.getByLabel("Each editor's own week");
   const before = await weekly.inputValue();

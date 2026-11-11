@@ -51,6 +51,20 @@ def job_input(db: Session, script: Script, reference: dict | None) -> dict:
     return data
 
 
+def from_idea(db: Session, project) -> dict:
+    """The same step for New video's "an idea, not a script" (`routes.freestyles._write`): the
+    video as it will be made (the idea is its goal; its brand, cast, style and format) and
+    its picked products. It has no script yet, so the drafts stay in the job, and the first
+    one starts the video."""
+    from app import picks
+
+    system, context = project_context(db, project, "script_draft")
+    if block := payoffs_block(recent_payoffs(db, project.brand_id, viewer=project.created_by_id)):
+        context += f"\n{block}"  # montage variety
+    return {"step": "script_draft", "system": system,
+            "prompt": context + picks.context(db, project)}  # fmt: skip
+
+
 def fill(db: Session, script: Script, draft: ScriptDraft, job: Job, by_id: int | None) -> None:
     """Put a write job's first draft into the version: its words, the lines it rewrote, and
     their "Was:" marks (unless new lines were asked for). Used by the write and by Fill the

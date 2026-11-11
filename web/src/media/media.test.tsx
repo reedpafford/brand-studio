@@ -102,7 +102,7 @@ test("Media has no Project or Made by filter (the board draws Video and Newest f
   fakeServer(base(owner, page([item()])));
   open();
   await screen.findByRole("list", { name: "Media" });
-  expect(screen.queryByRole("button", { name: /^Project/ })).toBeNull();
+  expect(within(screen.getByRole("main")).queryByRole("button", { name: /^Project/ })).toBeNull(); // the rail's Projects group is no filter
   expect(screen.queryByRole("button", { name: /Made by/ })).toBeNull();
 });
 

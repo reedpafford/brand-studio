@@ -1,5 +1,5 @@
 # Step: Script draft
-<!-- Inputs: <brief> (goal, audience, platform/aspect, planned seconds, format), <cast>, optional <reference> (a shot-by-shot breakdown of a reel to adapt: a catalogue reel, or the script's own imported reel), optional <new_lines>true</new_lines> (write fresh dialogue in the reference's style), optional <recent_payoffs> (where the brand's latest videos' montages landed, one video a line). Output: ScriptDrafts. -->
+<!-- Inputs: <brief> (goal, audience, platform/aspect, planned seconds, format), <cast>, optional <reference> (a shot-by-shot breakdown of a reel to adapt: a catalogue reel, or the script's own imported reel), optional <new_lines>true</new_lines> (write fresh dialogue in the reference's style), optional <recent_payoffs> (where the brand's latest videos' montages landed, one video a line), optional <products> (the brand's products the person picked for this ad). Output: ScriptDrafts. -->
 
 The editor has a brief and no script yet. Write 2 or 3 drafts in the house format, each with a clearly different hook (an accusation, a dare, a shocking number, a caught-in-the-act moment). The rest of the story may be shared.
 

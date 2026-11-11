@@ -59,7 +59,7 @@ test("Folder: All ▾ opens the list: All, each folder with its count, and Unsor
   await vi.waitFor(() => expect(urls().some((u) => u.includes("/scripts?") && u.includes("folder=4"))).toBe(true));
   await userEvent.click(within(await openList()).getByRole("button", { name: "Unsorted" })); // picking closes the panel
   expect(where()).toBe("/b/1/scripts?folder=none");
-  expect(document.body.textContent!.replace(where()!, "")).not.toMatch(/project/i); // the v6 word: folders, never the v5 "project" (owner's path sweep)
+  expect(screen.getByRole("main").textContent).not.toMatch(/project/i); // the v6 word: folders, never the v5 "project" (owner's path sweep); the rail's Projects group is the one place
 });
 
 test("with no folders yet it says everything works without one, and New folder makes one; a name in use says so", async () => {

@@ -2,15 +2,18 @@ import { expect, test } from "@playwright/test";
 import { emptyBrand, image, signIn } from "./helpers";
 
 for (const width of [1440, 390]) {
-  test(`at ${width}: Media opens from the rail (from Videos on a phone), says nothing is made yet, and filters (flows OR2)`, async ({ page }) => {
+  test(`at ${width}: Media opens from the Brand page (from the Library tab on a phone), says nothing is made yet, and filters (flows OR2)`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await signIn(page, "reed@example.com");
     await expect(page.getByRole("button", { name: /^Brand: / }).first()).toBeVisible();
     const brandId = await emptyBrand(page, "Media Co");
 
     await page.goto(`/b/${brandId}/videos`);
-    if (width === 1440) await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Media" }).click();
-    else {
+    const rail = page.getByRole("navigation", { name: "Main" });
+    if (width === 1440) {
+      await rail.getByRole("link", { name: "Brand", exact: true }).click(); // Media is on the Brand page, not a rail row
+      await page.getByRole("navigation", { name: "Also in this brand" }).getByRole("link", { name: "Media" }).click();
+    } else {
       await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Library" }).click(); // Media is in the Library tab (S-gaps-04 R3)
       await page.getByRole("link", { name: "Media" }).click();
     }
@@ -22,7 +25,8 @@ for (const width of [1440, 390]) {
     await expect(page).toHaveURL(/group=still/);
     await expect(page.getByRole("heading", { name: "Nothing matches these filters." })).toBeVisible();
 
-    for (const press of [width === 1440 ? page.getByRole("link", { name: "Media" }).first() : page.getByRole("main").getByRole("link", { name: "Videos" }), page.getByRole("button", { name: /Filters|Clear filters/ }).first()]) {
+    if (width === 1440) await expect(rail.getByRole("link", { name: "Brand", exact: true })).toHaveAttribute("aria-current", "page"); // Media sits under Brand
+    for (const press of [width === 1440 ? rail.getByRole("link", { name: "Brand", exact: true }) : page.getByRole("main").getByRole("link", { name: "Videos" }), page.getByRole("button", { name: /Filters|Clear filters/ }).first()]) {
       expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(width === 1440 ? 24 : 44); // desktop: the web target (WCAG 2.2); phones: touch
     }
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, window: document.documentElement.clientWidth }));

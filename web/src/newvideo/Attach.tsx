@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { Film, Image, LoaderCircle, Upload, X } from "lucide-react";
+import { FileText, Film, Image, LoaderCircle, Plus, Upload, X } from "lucide-react";
 import { fileUrl, uploadFile } from "../api/upload";
-import { Menu, MenuItem } from "../components";
+import { Button, Menu, MenuItem } from "../components";
 
 type File_ = { id: number | null; name: string; video: boolean; local: string; error?: string };
 
@@ -28,17 +28,19 @@ export function useAttachments() {
 }
 export type Attachments = ReturnType<typeof useAttachments>;
 
-/** The upload button's menu: attach pictures or clips for this video, or adapt a reel instead (Use a reel). */
-export function Attach({ files, onReel }: { files: Attachments; onReel: () => void }) {
+const ACCEPT = "image/png,image/jpeg,image/webp,video/mp4,video/webm";
+
+/** The box's + menu: pictures or clips for this video, or start from a saved script or a reel instead. */
+export function Attach({ files, onScript, onReel }: { files: Attachments; onScript: () => void; onReel: () => void }) {
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
-      <input ref={input} type="file" multiple accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" aria-label="Attach pictures or clips" tabIndex={-1} className="sr-only" onChange={(e) => (files.add(e.target.files), (e.target.value = ""))} />
+      <input ref={input} type="file" multiple accept={ACCEPT} aria-label="Attach pictures or clips" tabIndex={-1} className="sr-only" onChange={(e) => (files.add(e.target.files), (e.target.value = ""))} />
       <Menu
         title="Add to this video"
         trigger={(p) => (
-          <button type="button" {...p} aria-label="Upload" className="grid size-8 place-items-center rounded-md text-muted hover:bg-surface-2 aria-expanded:bg-surface-2">
-            <Upload size={14} aria-hidden />
+          <button type="button" {...p} aria-label="Add" title="Add pictures, a saved script or a reel" className="grid size-control shrink-0 place-items-center rounded-full border border-border-button text-muted transition-colors duration-(--dur-fast) ease-out hover:bg-surface-2 hover:text-text aria-expanded:bg-surface-2 lg:size-7">
+            <Plus size={14} aria-hidden />
           </button>
         )}
       >
@@ -46,16 +48,33 @@ export function Attach({ files, onReel }: { files: Attachments; onReel: () => vo
           <>
             <MenuItem onClick={() => (close(), input.current?.click())}>
               <Image size={14} aria-hidden />
-              <span className="flex-1 whitespace-nowrap">Attach pictures or clips</span>
+              <span className="flex-1 whitespace-nowrap">Upload pictures or clips</span>
               <span className="whitespace-nowrap text-xs text-muted">for this video</span>
+            </MenuItem>
+            <MenuItem onClick={() => (close(), onScript())}>
+              <FileText size={14} aria-hidden />
+              Use a saved script
             </MenuItem>
             <MenuItem onClick={() => (close(), onReel())}>
               <Film size={14} aria-hidden />
-              Adapt a reel instead…
+              Use a reel
             </MenuItem>
           </>
         )}
       </Menu>
+    </>
+  );
+}
+
+/** The same upload as a press of its own (the Uploads tab). */
+export function UploadPress({ files }: { files: Attachments }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input ref={input} type="file" multiple accept={ACCEPT} aria-label="Upload pictures or clips for this video" tabIndex={-1} className="sr-only" onChange={(e) => (files.add(e.target.files), (e.target.value = ""))} />
+      <Button variant="secondary" icon={Upload} onClick={() => input.current?.click()}>
+        Upload pictures or clips
+      </Button>
     </>
   );
 }
@@ -73,7 +92,7 @@ export function Attached({ files }: { files: Attachments }) {
               {!f.id && !f.error && <LoaderCircle size={12} aria-hidden className="absolute inset-0 m-auto animate-spin text-white" />}
             </span>
             <span className={`text-xs ${f.error ? "text-danger" : ""}`}>{f.error ? `${f.name}: ${f.error}` : f.name}</span>
-            <button type="button" aria-label={`Remove ${f.name}`} onClick={() => files.remove(f.local)} className="text-muted hover:text-text">
+            <button type="button" aria-label={`Remove ${f.name}`} onClick={() => files.remove(f.local)} className="-my-1 -mr-2 grid size-control place-items-center text-muted hover:text-text lg:m-0 lg:size-auto">
               <X size={12} aria-hidden />
             </button>
           </li>

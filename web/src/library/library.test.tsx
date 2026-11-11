@@ -250,7 +250,7 @@ test("Polish: a product's page offers another photo in plain sight (a flavour, a
 test("the old Props tab lands on Products", async () => {
   fakeServer(server(owner));
   renderApp("/b/2/library/props");
-  expect(await screen.findByRole("link", { name: /^Products/, current: "page" })).toBeInTheDocument();
+  expect(await within(await screen.findByRole("navigation", { name: "Library" })).findByRole("link", { name: /^Products/, current: "page" })).toBeInTheDocument();
 });
 
 test("S8-04 / L3: presenters are listed beside the voices; a new presenter is a face and a voice, saved free", async () => {

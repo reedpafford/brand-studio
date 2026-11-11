@@ -103,6 +103,9 @@ class Project(Filed, Entity, Base):
     # n32: the reel it was adapted from (Use a reel): its script's read shows on the video; in
     # Just its look the video keeps its own words and follows the reel's look
     reel_script_id: Mapped[int | None] = mapped_column(ForeignKey("scripts.id"))
+    # n49, New video's front door: the brand's products picked for it (library props: the ones
+    # this ad is about; app/picks.py tells the treatment)
+    product_ids: Mapped[list[int] | None] = mapped_column(JSON)
     # Choices fixed for the director (director-chat.md §1; app/locks.py): {"cast": true, …,
     # "screens": [ids]}. Unlocking hands the choice back. People's own presses aren't blocked.
     locks: Mapped[dict] = mapped_column(JSON, default=dict)

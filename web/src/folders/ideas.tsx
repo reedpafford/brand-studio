@@ -40,7 +40,7 @@ export function useIdeas(brandId: number, ask: IdeasAsk, enabled = true) {
     queryFn: async ({ pageParam }) => {
       const query = { folder: ask.folder, tab: ask.tab, sort: ask.sort, offset: pageParam, limit: PAGE, ...(ask.q ? { q: ask.q } : {}), ...(ask.madeBy ? { made_by: ask.madeBy } : {}), ...(ask.archived ? { archived: true } : {}) };
       const { data, response } = await api.GET("/brands/{brand_id}/ideas", { params: { path: { brand_id: brandId }, query } });
-      if (!data) throw new Error(response.status === 404 ? GONE : "load");
+      if (!data?.ideas) throw new Error(response.status === 404 ? GONE : "load"); // the rail asks on every page: an answer that isn't a list is an error, never a crash
       return data;
     },
     retry: (n, e) => e.message !== GONE && n < 3, // a gone folder won't come back by asking again

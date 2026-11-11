@@ -1,10 +1,10 @@
 import type { ComponentType, ReactNode } from "react";
-import { Folder, Users } from "lucide-react";
-import { Menu, MenuItem, chipClass, chipPress } from "../components";
+import { Folder, RectangleVertical, Users } from "lucide-react";
+import { Menu, MenuItem, chipClass, chipPill } from "../components";
 
 type Icon = ComponentType<{ size?: number; "aria-hidden"?: boolean; className?: string }>;
 
-/** A setting as a chip, "Format Presenter" (S2): its choices in a menu; `many` toggles several (the cast). */
+/** A setting as a small pill, "Shape 9:16" (Home's box): its choices in a menu; `many` toggles several. */
 export function Chip<T extends string | number>({ label, value, options, onPick, icon: I, many, empty = "None" }: { label: string; value: T | T[]; options: { id: T; name: string; off?: string }[]; onPick: (v: T) => void; icon?: Icon; many?: boolean; empty?: string }) {
   const picked = Array.isArray(value) ? value : [value];
   const name = options.filter((o) => picked.includes(o.id)).map((o) => o.name).join(", ") || empty;
@@ -12,8 +12,8 @@ export function Chip<T extends string | number>({ label, value, options, onPick,
     <Menu
       title={label}
       trigger={(p) => (
-        <button type="button" {...p} aria-label={`${label}: ${name}`} className={chipPress}>
-          {I && <I size={12} aria-hidden className="text-muted" />}
+        <button type="button" {...p} aria-label={`${label}: ${name}`} className={chipPill}>
+          {I && <I size={12} aria-hidden className="shrink-0 text-muted" />}
           <span className="font-normal text-muted">{label}</span>
           {name}
         </button>
@@ -41,3 +41,4 @@ export const FixedChip = ({ label, children }: { label: string; children: ReactN
 
 export const CastIcon = Users;
 export const FolderIcon = Folder;
+export const ShapeIcon = RectangleVertical;

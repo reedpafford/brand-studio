@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { approveCastWhenReady, onBrand, signIn } from "./helpers";
 
-// The director-first video (v6 New video, S2): New video → the director plans, casts, makes and cuts it, on the free
+// The director-first video (Home, once New video): Home → the director plans, casts, makes and cuts it, on the free
 // stand-ins. The owner's Make it runs at once and says the most in dollars; an editor's send from a script past its
 // video's budget waits for the owner's OK in Needs you.
 const noSidewaysScroll = async (page: Page) => {
@@ -15,10 +15,13 @@ test("at 1440, the owner pastes a script, presses Make it, and the director deli
   await signIn(page, "reed@example.com");
   approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await onBrand(page, "fomo");
-  await page.keyboard.press("n"); // N opens New video
-  await expect(page.getByRole("heading", { name: "What should the director make?" })).toBeVisible();
+  await page.keyboard.press("n"); // N opens Home, on its words box
+  await expect(page.getByRole("heading", { name: "Paste your script, pick a style. We handle the rest." })).toBeVisible();
+  await expect(page.getByLabel("Paste a script, or describe the video")).toBeFocused();
   const script = ["SCENE 1 — INT. KITCHEN — DAY", `NATE: The dip is in. I'm buying ${Date.now()}.`, "NATE: Download fomo through the link in my bio."].join("\n");
   await page.getByLabel("Paste a script, or describe the video").fill(script);
+  await expect(page.getByRole("radio", { name: /^A script/ })).toBeChecked(); // a scene heading and speaker lines: kept word for word
+  await expect(page.getByRole("button", { name: "Mode: Ask before making" })).toBeVisible(); // the default: the start card below waits for the OK
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();
   await expect(page).toHaveURL(/\/b\/\d+\/videos\/\d+$/);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click({ timeout: 60_000 }); // its start card, after the treatment (S3-02): dollars to the owner
@@ -55,7 +58,8 @@ test("an editor sends a script for approval from New video, the owner approves i
   expect((await ed.request.post("/api/auth/accept-invite", { data: { token: inv.token, name, password: "correct horse battery staple" } })).ok()).toBe(true);
 
   await ed.goto(`/b/${fomo}/videos/new`);
-  await ed.getByRole("tab", { name: "From a saved script" }).click();
+  await ed.getByRole("button", { name: "Add", exact: true }).click(); // the box's + menu
+  await ed.getByRole("menuitem", { name: "Use a saved script" }).click();
   await ed.getByLabel("Search scripts").fill(title);
   await ed.getByRole("radio", { name: new RegExp(title) }).click();
   await expect(ed.getByText(/is past this video’s budget of \d+, so it goes to the owner first/)).toBeVisible(); // S2-05
@@ -93,7 +97,8 @@ test("at 390, the owner's change after a delivery starts the next run by talking
   approveCastWhenReady(page); // the Cast tab's Approve cast & places (#1324)
   await onBrand(page, "fomo");
   await page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Videos" }).click(); // v6 P-01: New video sits under the folders
-  await page.getByRole("main").getByRole("link", { name: /^(New video|Make the first video)$/ }).click(); // a brand with nothing yet shows its set-up list (S1-02)
+  await page.getByRole("main").getByRole("link", { name: /^(New video|Make the first video)$/ }).click(); // a brand with nothing yet shows its set-up list (S1-02); both open Home
+  await expect(page.getByRole("heading", { name: "Paste your script, pick a style. We handle the rest." })).toBeVisible();
   const script = ["SCENE 1 — INT. KITCHEN — DAY", `NATE: The dip is in ${Date.now()}.`, "NATE: Download fomo through the link in my bio."].join("\n");
   await page.getByLabel("Paste a script, or describe the video").fill(script);
   await page.getByRole("button", { name: /^Make it · up to \$\d+\.\d\d$/ }).click();

@@ -12,7 +12,7 @@ import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
 import type { Look } from "./Cards";
 import { FixedChip } from "./Chips";
-import { Press, box, row } from "./NewVideoPage";
+import { Press, box, row } from "./Press";
 import { scriptSize } from "../scripts/ScriptFrame";
 import { useEstimate, type Price } from "./useNewVideo";
 
@@ -23,9 +23,9 @@ const MODES: { id: Mode; name: string }[] = [
   { id: "look", name: "Just its look" },
 ];
 
-/** New video › Use a reel (S2-07; S-gaps-01, 2): upload a reel; Copy it shot by shot or Just its structure read it (its own
+/** Home › Use a reel (S2-07; S-gaps-01, 2): upload a reel; Copy it shot by shot or Just its structure read it (its own
  *  "up to") and the director makes the video from the script it writes; Just its look makes your words in its look. */
-export function Reel({ brandId, owner, folder, seg, rail, format, formatName, look, broll }: { brandId: number; owner: boolean; folder: number | null; seg: ReactNode; rail: boolean; format: string; formatName?: string; look?: Look; broll: string | null }) {
+export function Reel({ brandId, owner, folder, head, style, rail, format, formatName, look, broll }: { brandId: number; owner: boolean; folder: number | null; /** its title and the way back (desktop; a phone's page draws it) */ head: ReactNode; /** the Style chip, which opens the styles and formats */ style: ReactNode; rail: boolean; format: string; formatName?: string; look?: Look; broll: string | null }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const scriptId = Number(params.get("reel")) || 0;
@@ -141,14 +141,20 @@ export function Reel({ brandId, owner, folder, seg, rail, format, formatName, lo
     <>
       {file}
       <div className={box}>
-        <div className="px-3 pt-2.5">{seg}</div>
+        <div className="px-3 pt-2.5">{head}</div>
         {picked}
         <div className={row}>
           <button type="button" aria-label="Upload another reel" onClick={() => input.current?.click()} className="grid size-8 place-items-center rounded-md text-muted hover:bg-surface-2">
             <Upload size={14} aria-hidden />
           </button>
-          <FixedChip label="Format">{formatName ?? format}</FixedChip>
-          {mode === "look" ? <FixedChip label="Look">from the reel</FixedChip> : <FixedChip label="Style">{look?.name}</FixedChip>}
+          {mode === "look" ? (
+            <>
+              <FixedChip label="Format">{formatName ?? format}</FixedChip>
+              <FixedChip label="Look">from the reel</FixedChip>
+            </>
+          ) : (
+            style
+          )}
           <span className="flex-1" />
           {press}
         </div>

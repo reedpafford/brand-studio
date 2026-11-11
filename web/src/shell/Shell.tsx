@@ -1,37 +1,31 @@
 import { useEffect, type ReactNode } from "react";
-import { Archive, ChevronDown, Clock, Ellipsis, Film, Inbox, Plus, FileText, Images, Palette, Check, Users, type LucideIcon } from "lucide-react";
-import { Link, Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
+import { Archive, ChevronDown, Clock, Ellipsis, Film, Inbox, Plus, Palette, Check, Users, type LucideIcon } from "lucide-react";
+import { Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
+import { WORDS_ID } from "../home/Words";
 import { useMyRequests } from "../approvals/HeldRequests";
 import { useArchiveBrand } from "../brand/ArchiveBrand";
 import { useNeedsYou } from "../approvals/NeedsYouPage";
 import { useMe } from "../auth/useMe";
 import { Banner, EmptyState, Menu, MenuItem, Skeleton } from "../components";
 import { useMedia, useOnline } from "../useMedia";
-import { AccountMenu, STUDIO } from "./AccountMenu";
-import { FolderTree } from "./FolderTree";
-import { QuickSearch } from "./QuickSearch";
+import { HOME, NavItem, Rail } from "./Rail";
 import { ActionBarProvider, useActionBarSlot } from "./ActionBar";
 import { lastBrand, rememberBrand, useBrands } from "./useBrands";
 
 type Brand = { id: number; name: string; colours?: string[] };
 
-// v6 S0-01: the rail's Library rows (Scripts first, S-gaps-04 R1); a brand switch keeps you in the same section.
-export const NEW_VIDEO = "videos/new";
-const SECTIONS: { to: string; also?: string; label: string; icon: LucideIcon }[] = [
-  { to: "videos", also: "projects", label: "Videos", icon: Film },
-  { to: "scripts", label: "Scripts", icon: FileText },
-  { to: "library", label: "Cast & places", icon: Users },
-  { to: "media", label: "Media", icon: Images },
-  { to: "brand", label: "Brand kit", icon: Palette },
-];
-const LIBRARY = ["scripts", "library", "media", "brand"];
+const SECTIONS = ["videos", "scripts", "media", "brand"];
 
-/** Where a brand switch lands: the same section in the other brand; a video or an item goes to that section's list. */
+/** Where a brand switch lands: the same section in the other brand (the library's same tab: Products, Cast); a video or
+ *  an item goes to that section's list, and Home (at either address) stays Home. */
 function sectionOf(pathname: string) {
+  if (HOME.test(pathname)) return "";
+  const tab = /^\/b\/\d+\/library\/([a-z]+)/.exec(pathname)?.[1];
+  if (tab) return `library/${tab}`;
   const m = /^\/b\/\d+\/([^/]+)/.exec(pathname)?.[1];
   if (m === "kit" || m === "screens") return "brand";
   if (m === "projects") return "videos";
-  return m && SECTIONS.some((s) => s.to === m) ? m : "";
+  return m && SECTIONS.includes(m) ? m : "";
 }
 
 const href = (to: string, brand: number) => `/b/${brand}/${to}`;
@@ -39,7 +33,7 @@ const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isConte
 // v5 A_Shell/A_Account: a brand is a small colour square.
 const dot = (brand?: Brand) => <span aria-hidden className="size-3.5 shrink-0 rounded-[3px]" style={{ background: brand?.colours?.[0] || "var(--accent)" }} />; // no colour: the accent, as the Brand page;
 
-/** Desktop: one rail (brand switcher on top; Make, Library and, for Reed, Studio; the account at the bottom), no top bar.
+/** Desktop: one rail (`Rail`: the brand switcher on top; Home, All videos, Assets, Projects; the account at the bottom), no top bar.
  *  Phone: the top bar (switcher, Needs you, account) and the bottom tabs. */
 export function Shell() {
   return (
@@ -53,8 +47,8 @@ function Frame() {
   const { data: brands, isPending, isError } = useBrands();
   const { brandId } = useParams();
   const fromUrl = Number(brandId) || null;
-  // Off brand pages (e.g. /team) you stay "in" the brand you were last in, or the first one: the rail keeps Make and
-  // Library on every page, Studio ones and an editor's My credits included (v5 A_Shell; audit lane 2).
+  // Off brand pages (e.g. /team) you stay "in" the brand you were last in, or the first one: the rail keeps the brand's
+  // rows on every page, Studio ones and an editor's My credits included (v5 A_Shell; audit lane 2).
   const current = fromUrl ?? (brands?.some((b) => b.id === lastBrand()) ? lastBrand() : (brands?.[0]?.id ?? null));
   const brand = brands?.find((b) => b.id === current);
   const rail = useMedia("(min-width: 1024px)");
@@ -79,8 +73,7 @@ function Frame() {
   // Inside one video on a phone, the video's own header line replaces the brand bar.
   const newVideo = useMatch("/b/:brandId/videos/:projectId");
   const newProject = useMatch("/b/:brandId/projects/new");
-  // New video has its own title bar on a phone too (B_PhoneNew).
-  const inVideo = !rail && ((newVideo !== null && (/^\d+$/.test(newVideo.params.projectId ?? "") || newVideo.params.projectId === "new")) || newProject !== null);
+  const inVideo = !rail && ((newVideo !== null && /^\d+$/.test(newVideo.params.projectId ?? "")) || newProject !== null);
   const folderPage = useMatch("/b/:brandId/videos");
   const needsYouPage = useMatch("/approvals");
   const onFolders = !rail && (folderPage !== null || needsYouPage !== null); // P-01, P-02 and P-14 draw their own header
@@ -91,13 +84,14 @@ function Frame() {
     if (fromUrl) rememberBrand(fromUrl);
   }, [fromUrl]);
 
-  // N opens New video from anywhere but a box being typed in or an open dialog (A_Shell's keys).
+  // N opens Home, on its words box, from anywhere but a box being typed in or an open dialog (A_Shell's keys).
   const navigate = useNavigate();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "n" || e.metaKey || e.ctrlKey || e.altKey || typing(e.target) || !current || document.querySelector("[aria-modal]")) return;
       e.preventDefault();
-      navigate(href(NEW_VIDEO, current));
+      navigate(`/b/${current}`);
+      document.getElementById(WORDS_ID)?.focus(); // already Home: straight to the words (a fresh Home focuses them itself)
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -141,7 +135,7 @@ function Frame() {
     <div className="min-h-screen bg-bg text-text">
       {!inVideo && !onFolders && !rail && <TopBar brands={brands ?? []} brand={brand} current={current} />}
       <div className="flex">
-        {rail && <Rail brands={brands ?? []} brand={brand} current={current} wide={wide} owner={owner} waiting={waiting} />}
+        {rail && <Rail switcher={<BrandSwitcher brands={brands ?? []} brand={brand} current={current} inRail iconOnly={!wide} />} current={current} wide={wide} owner={owner} waiting={waiting} />}
         {work}
       </div>
       {!rail && (
@@ -241,76 +235,6 @@ function BrandSwitcher({ brands, brand, current, inRail, iconOnly }: { brands: B
   );
 }
 
-/** A nav link that knows when it is current, including for the pages that belong under it (a video sits under Scripts). */
-function NavItem({ to, also, under, className, children, ...rest }: { to: string; also?: string; /** also current on these pages (the phone's Library tab) */ under?: RegExp; className: (active: boolean) => string; children: ReactNode; "aria-label"?: string; title?: string }) {
-  const { pathname } = useLocation();
-  const onNew = pathname.endsWith(`/${NEW_VIDEO}`); // under /videos, but its own place
-  const active = pathname === to || !!under?.test(pathname) || (!onNew && (pathname.startsWith(`${to}/`) || (!!also && pathname.startsWith(`${to.replace(/[^/]+$/, "")}${also}`))));
-  return (
-    <Link to={to} className={className(active)} aria-current={active ? "page" : undefined} {...rest}>
-      {children}
-    </Link>
-  );
-}
-
-function Rail({ brands, brand, current, wide, owner, waiting }: { brands: Brand[]; brand?: Brand; current: number | null; wide: boolean; owner: boolean; waiting: number | null }) {
-  const mine = (useMyRequests().data ?? []).filter((j) => j.status === "needs_owner_approval").length;
-  const item = (isActive: boolean) => `flex h-[30px] items-center gap-2 rounded-md px-2 text-sm font-medium ${wide ? "" : "justify-center"} ${isActive ? "bg-surface-3 text-text" : "text-muted hover:bg-surface-3/60 hover:text-text"}`;
-  const row = (to: string, label: string, Icon: LucideIcon, extra?: ReactNode, also?: string) => (
-    <NavItem key={to} to={to} also={also} className={item} aria-label={wide ? undefined : label} title={wide ? undefined : label}>
-      <Icon size={14} strokeWidth={1.75} aria-hidden />
-      {wide && <span>{label}</span>}
-      {wide && extra}
-    </NavItem>
-  );
-  const count = (n: number, tone: "need" | "n") => (
-    <span className={`ml-auto inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${tone === "need" ? "bg-warning-soft text-warning" : "bg-surface-3 text-muted"}`}>
-      {n}
-      <span className="sr-only"> waiting</span>
-    </span>
-  );
-  const section = (to: string) => SECTIONS.find((s) => s.to === to)!;
-  const group = (label: string, rows: ReactNode) => (
-    <div className="flex flex-col gap-0.5">
-      {wide && <p className="mt-2.5 flex h-7 items-center px-2 text-xs font-medium text-muted">{label}</p>}
-      {rows}
-    </div>
-  );
-  return (
-    <nav aria-label="Main" className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col gap-0.5 border-r border-border bg-surface-2 px-2 py-2.5 ${wide ? "w-rail" : "w-[64px]"}`}>
-      {/* Only the rows scroll: the brand and account menus are wider than the rail and must not be clipped by it. */}
-      <BrandSwitcher brands={brands} brand={brand} current={current} inRail iconOnly={!wide} />
-      {current && (
-        <div className={`flex gap-2 pb-1.5 pt-0.5 ${wide ? "" : "flex-col"}`}>
-          {/* v6 S0-01: outlined, with its key; the open folder's own New video is the page's indigo press. */}
-          <Link to={href(NEW_VIDEO, current)} aria-label="New video" title="New video (N)" className={`inline-flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-button bg-surface px-3 text-sm font-medium text-text hover:bg-surface-2 ${wide ? "" : "justify-center"}`}>
-            <Plus size={14} strokeWidth={1.75} aria-hidden />
-            {wide && <span aria-hidden className="flex-1">New video</span>}
-            {wide && <kbd aria-hidden className="rounded-sm border border-border-button px-1 font-sans text-[11px] leading-4 text-muted">N</kbd>}
-          </Link>
-          {wide && <QuickSearch brandId={current} />}
-        </div>
-      )}
-      <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2">
-        {current && (wide ? <FolderTree brandId={current} /> : <div className="mt-2.5">{row(href("videos", current), "Videos", Film, undefined, "projects")}</div>)}
-        {current && group("Library", LIBRARY.map((to) => { const s = section(to); return row(href(s.to, current), s.label, s.icon, undefined, s.also); }))}
-        {owner
-          ? group(
-              "Studio",
-              <>
-                {row("/approvals", "Needs you", Inbox, waiting !== null && count(waiting, "need"))}
-                {STUDIO.map(([to, label, Icon]) => row(to, label, Icon))}
-              </>,
-            )
-          : group("Mine", row("/requests", "My requests", Clock, count(mine, "n")))}
-      </div>
-      <div className="pt-2">
-        <AccountMenu inRail iconOnly={!wide} />
-      </div>
-    </nav>
-  );
-}
-
 /** The phone's four tabs (v6 P-01, S-gaps-04 R3): Videos, Library, Needs you (an editor's My requests) and More. */
 function Tabs({ current, owner, waiting }: { current: number | null; owner: boolean; waiting: number | null }) {
   const mine = (useMyRequests().data ?? []).filter((j) => j.status === "needs_owner_approval").length;
@@ -351,12 +275,3 @@ export function GoToBrand() {
   const target = brands?.find((b) => b.id === last) ?? brands?.[0];
   return target ? <Navigate to={`/b/${target.id}`} replace /> : <Navigate to="/team" replace />;
 }
-
-/** Where a brand opens, for the owner and editors alike: its open folder of videos (v6 S1-01 to S1-08, P-02). */
-export function BrandHome() {
-  const { brandId } = useParams();
-  const { data: brands } = useBrands();
-  if (!brands?.some((b) => b.id === Number(brandId))) return <p className="p-6">That brand doesn't exist.</p>;
-  return <Navigate to={`/b/${brandId}/videos`} replace />;
-}
-

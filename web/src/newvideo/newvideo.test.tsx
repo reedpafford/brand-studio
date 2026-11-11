@@ -35,36 +35,45 @@ function server(me: object, routes: Record<string, [number, unknown]> = {}) {
   });
 }
 afterEach(() => vi.unstubAllGlobals());
+const HERO = "Paste your script, pick a style. We handle the rest.";
+const loaded = () => screen.findByRole("button", { name: /^Style: .+ · / }); // the guides' formats and styles are in
 const words = async () => {
-  await screen.findByRole("radio", { name: /^Dr\. Pickle/ }); // the guides' cards are in
-  await screen.findByRole("radio", { name: /Dialogue/ });
+  await loaded();
   return screen.findByLabelText("Paste a script, or describe the video");
 };
-const loaded = () => screen.findByRole("radio", { name: /Dialogue/ });
+/** The Style chip opens the Styles dialog: the formats as a list, the styles as picture tiles. */
+const openStyles = async () => {
+  await userEvent.click(await loaded());
+  return screen.findByRole("dialog", { name: "Styles" });
+};
+const done = () => userEvent.click(screen.getByRole("button", { name: "Done" }));
 const posted = (calls: { key: string; body: unknown }[], key = "POST /freestyles") => calls.filter((c) => c.key === key).at(-1)?.body;
 
-test("S2-01/02: the owner's cards come from the guides; the press says the most in dollars, and Make it lands on the video in the open folder", async () => {
+test("S2-01/02: the owner's styles come from the guides; the press says the most in dollars, and Make it lands on the video in the open folder", async () => {
   setViewport(1440);
   const calls = server(owner, { "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }], "POST /freestyles": [201, fs()] });
   renderApp("/b/1/videos/new?folder=4");
-  expect(await screen.findByRole("heading", { name: "What should the director make?" })).toBeInTheDocument();
-  await loaded();
-  await screen.findByRole("radio", { name: /^Dr\. Pickle/ });
+  expect(await screen.findByRole("heading", { name: HERO })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Style: House · Dialogue" })).toBeInTheDocument(); // the first of each, shown on the chip: brands keep no default
   expect(screen.getByRole("button", { name: /^Make it/ })).toBeDisabled();
-  const formats = screen.getByRole("radiogroup", { name: "Format" });
+  const dialog = await openStyles();
+  const formats = within(dialog).getByRole("radiogroup", { name: "Format" });
   expect(within(formats).getByRole("radio", { name: /Dialogue.*People talk on camera/ })).toHaveAttribute("aria-checked", "true");
-  const styles = screen.getByRole("radiogroup", { name: "Style" });
-  expect(within(styles).getByRole("radio", { name: /^House/ })).toHaveAttribute("aria-checked", "true"); // the first style: brands keep no default
+  const styles = within(dialog).getByRole("radiogroup", { name: "Style" });
+  expect(within(styles).getByRole("radio", { name: /^House/ })).toHaveAttribute("aria-checked", "true");
   await userEvent.click(within(styles).getByRole("radio", { name: /^Dr\. Pickle/ }));
   expect(within(styles).getByText("B-roll: near-real inserts")).toBeInTheDocument();
   expect(within(styles).getByText("Our caricatured 3D")).toBeInTheDocument();
+  await done();
+  expect(screen.queryByRole("dialog", { name: "Styles" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Style: Dr. Pickle · Dialogue" })).toHaveFocus(); // focus returns to the chip, which says the pick
   expect(screen.getByRole("button", { name: "Cast: Nobody" })).toBeInTheDocument(); // nobody until picked: no default cast
   expect(screen.getByRole("button", { name: "Folder: Week of 3 Nov" })).toBeInTheDocument();
   await userEvent.type(await words(), SCRIPT);
   expect(await screen.findByRole("button", { name: "Make it · up to $16.86" }, { timeout: 3000 })).toBeInTheDocument();
   expect(screen.getByText("Most it can charge, including redos and the director’s time. Usually less.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Make it · up to $16.86" }));
-  await vi.waitFor(() => expect(posted(calls)).toEqual({ type: "dialogue", look: "dr-pickle", shape: "9:16", brand_id: 1, folder_id: 4, broll_look: null, text: SCRIPT, cast_ids: [], attachments: [] }));
+  await vi.waitFor(() => expect(posted(calls)).toEqual({ type: "dialogue", look: "dr-pickle", shape: "9:16", brand_id: 1, folder_id: 4, broll_look: null, text: SCRIPT, cast_ids: [], product_ids: [], attachments: [], idea: false, mode: "ask" }));
   expect(await screen.findByRole("list", { name: "Conversation with the director" })).toBeInTheDocument(); // the video's chat (S3)
 });
 
@@ -72,7 +81,7 @@ test("a style plays its test sample, one at a time; House shows its site still w
   setViewport(1440);
   server(owner);
   renderApp("/b/1/videos/new");
-  const styles = await screen.findByRole("radiogroup", { name: "Style" });
+  const styles = within(await openStyles()).getByRole("radiogroup", { name: "Style" });
   await within(styles).findByRole("radio", { name: /^Skeleton/ });
   expect(within(styles).getByLabelText("Skeleton sample")).toHaveAttribute("src", "/api/looks/skeleton/test-sample.mp4");
   expect(within(styles).getByLabelText("House sample")).toHaveAttribute("src", "/api/looks/house/test-sample.mp4"); // the site's own clip
@@ -88,10 +97,9 @@ test("S2-03: Song is coming next, Zack D and UGC are off on this site, with the 
   setViewport(1440);
   server(owner);
   renderApp("/b/1/videos/new");
-  const formats = await screen.findByRole("radiogroup", { name: "Format" });
-  await loaded();
+  const formats = within(await openStyles()).getByRole("radiogroup", { name: "Format" });
   await screen.findByRole("radio", { name: /^UGC/ });
-  expect(within(formats).getByRole("radio", { name: /Song.*coming next/ })).toHaveAttribute("aria-disabled", "true");
+  expect(within(formats).getByRole("radio", { name: /Song.*coming next.*Its music provider isn't switched on for this site yet\./ })).toHaveAttribute("aria-disabled", "true"); // an off one says why
   expect(within(formats).getByRole("radio", { name: /Zack D.*Off on this site/ })).toHaveAttribute("aria-disabled", "true");
   expect(screen.getByRole("radio", { name: /^UGC/ })).toHaveAttribute("aria-disabled", "true");
   const note = screen.getByText(/format is coming next/).closest("div")!;
@@ -103,22 +111,28 @@ test("S-gaps-01 (1): a format with a host offers Change B-roll look…; the pick
   setViewport(1440);
   const calls = server(owner, { "POST /freestyles/estimate": [200, { credits: 170, usd: 17.48, held: "", budget: null }], "POST /freestyles": [201, fs()] });
   renderApp("/b/1/videos/new");
+  await openStyles();
   await userEvent.click(await screen.findByRole("radio", { name: /^Dr\. Pickle/ }));
-  await loaded();
   expect(screen.queryByRole("button", { name: "Change B-roll look…" })).toBeNull(); // Dialogue has no host
   await userEvent.click(screen.getByRole("radio", { name: /Presenter/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Change B-roll look…" }));
+  await userEvent.keyboard("{Escape}"); // closes the B-roll picker alone: the Styles dialog under it stays
+  expect(screen.queryByRole("dialog", { name: "B-roll look for this video" })).toBeNull();
+  expect(screen.getByRole("dialog", { name: "Styles" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Change B-roll look…" }));
   const picker = screen.getByRole("dialog", { name: "B-roll look for this video" });
   expect(within(picker).getByRole("radio", { name: /Glossy 3D anatomy.*Dr. Pickle’s own · default/ })).toHaveAttribute("aria-checked", "true");
   expect(within(picker).queryByRole("radio", { name: /UGC/ })).toBeNull(); // off on this site
   await userEvent.click(within(picker).getByRole("radio", { name: /Inside the body.*from Skeleton/ }));
   await userEvent.click(within(picker).getByRole("button", { name: "Use this look" }));
+  await done();
+  expect(screen.getByRole("button", { name: "Style: Dr. Pickle · Presenter" })).toBeInTheDocument();
   await userEvent.type(await words(), SCRIPT);
   await userEvent.click(await screen.findByRole("button", { name: "Make it · up to $17.48" }, { timeout: 3000 }));
   await vi.waitFor(() => expect(posted(calls)).toMatchObject({ type: "presenter", look: "dr-pickle", broll_look: "skeleton" }));
 });
 
-test("S-gaps-01 (3): Upload attaches pictures for this video only, and Adapt a reel instead opens Use a reel", async () => {
+test("S-gaps-01 (3): the + menu attaches pictures for this video only, and offers a saved script or a reel instead", async () => {
   setViewport(1440);
   const calls = server(owner, { "POST /files": [201, { id: 61, filename: "capsule-pack.jpg", content_type: "image/jpeg", size: 9, created_at: at }], "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }], "POST /freestyles": [201, fs()] });
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:x" }));
@@ -127,11 +141,30 @@ test("S-gaps-01 (3): Upload attaches pictures for this video only, and Adapt a r
   await userEvent.upload(screen.getByLabelText("Attach pictures or clips"), new File(["x"], "capsule-pack.jpg", { type: "image/jpeg" }));
   expect(await screen.findByText("capsule-pack.jpg")).toBeInTheDocument();
   expect(screen.getByText("Used for this video only. They aren’t added to the brand.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Upload" }));
-  expect(screen.getByRole("menuitem", { name: /Attach pictures or clips.*for this video/ })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Upload" }));
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Upload pictures or clipsfor this video", "Use a saved script", "Use a reel"]);
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
   await userEvent.click(await screen.findByRole("button", { name: "Make it · up to $16.86" }, { timeout: 3000 }));
   await vi.waitFor(() => expect(posted(calls)).toMatchObject({ attachments: [61] }));
+});
+
+test("the + menu's Use a saved script and Use a reel open those flows in the box, each with a way back to the words", async () => {
+  setViewport(1440);
+  server(owner, { "GET /scripts": [200, [scriptRow(7, "Beer gut doctor rant")]] });
+  renderApp("/b/1");
+  await loaded();
+  expect(screen.queryByRole("tablist", { name: "Start from" })).toBeNull(); // the three tabs are the + menu now
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Use a saved script" }));
+  expect(await screen.findByRole("heading", { name: "Use a saved script" })).toBeInTheDocument();
+  expect(await screen.findByRole("radio", { name: /Beer gut doctor rant/ })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Back to the words box" }));
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Use a reel" }));
+  expect(await screen.findByRole("heading", { name: "Use a reel" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Upload a reel" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Back to the words box" }));
+  expect(await screen.findByLabelText("Paste a script, or describe the video")).toBeInTheDocument();
 });
 
 test("S2-04: an editor's pasted script goes to the owner, in credits, never dollars", async () => {
@@ -225,8 +258,9 @@ test("S2-07: Use a reel uploads it, Copy it shot by shot reads it at its price; 
     "POST /freestyles/reel": [201, fs({ reel_script_id: 30 })],
   });
   renderApp("/b/1/videos/new?from=reel");
-  await loaded();
+  await openStyles(); // the reel's own Style chip: the style and format it is made in
   await userEvent.click(await screen.findByRole("radio", { name: /^Dr\. Pickle/ }));
+  await done();
   await userEvent.upload(await screen.findByLabelText("Choose a reel"), new File(["x"], "doctor-rant-reference.mp4", { type: "video/mp4" }));
   expect(await screen.findByText("doctor-rant-reference.mp4")).toBeInTheDocument();
   expect(screen.getByRole("radio", { name: "Copy it shot by shot" })).toHaveAttribute("aria-checked", "true");
@@ -240,7 +274,6 @@ test("S-gaps-01 (2): Just its look makes your script in the reel's look", async 
   const calls = server(owner, { "GET /scripts/30/import": [200, ready], "POST /freestyles/estimate": [200, { credits: 168, usd: 17.3, held: "", budget: null }], "POST /freestyles/reel": [201, fs()] });
   renderApp("/b/1/videos/new?from=reel&reel=30");
   await loaded();
-  await screen.findByRole("radio", { name: /^Dr\. Pickle/ });
   await userEvent.click(await screen.findByRole("radio", { name: "Just its look" }));
   expect(screen.getByText(/The director studies the reel’s look: camera, light, colour and cut pace/)).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Your script"), SCRIPT);
@@ -268,22 +301,24 @@ test("S-gaps-01: a silent reel can't be read, but Just its look takes it with no
   await vi.waitFor(() => expect(posted(calls, "POST /freestyles/reel")).toMatchObject({ script_id: 30, mode: "look", text: SCRIPT }));
 });
 
-test("P-03: on a phone, the three ways in, cards that scroll, and Make it in the bar at the bottom", async () => {
+test("P-03: on a phone, the box, its settings as 44 px chips, and Make it in the bar at the bottom", async () => {
   setViewport(390);
   server(owner, { "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: null }] });
   renderApp("/b/1/videos/new?folder=4");
-  expect(await screen.findByText("Resilia · Week of 3 Nov")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", "/b/1/videos");
-  for (const tab of ["Paste", "Saved script", "Use a reel"]) expect(screen.getByRole("tab", { name: tab })).toHaveClass("h-control", "lg:h-7"); // 44 px on a phone (S10)
-  for (const chip of [/^Cast: /, /^Shape: /, /^Folder: /]) expect(screen.getByRole("button", { name: chip })).toHaveClass("h-control");
-  expect(screen.getByRole("radiogroup", { name: "Format" })).toHaveClass("-mx-4", "px-4"); // its edge is the page's 16 px gutter, not past it
+  expect(await screen.findByRole("heading", { name: HERO })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Brand: Resilia" })).toBeInTheDocument(); // the shell's own top bar: Home has no title bar of its own
+  await loaded();
+  expect(screen.getByRole("button", { name: "Folder: Week of 3 Nov" })).toBeInTheDocument();
+  for (const chip of [/^Style: /, /^Product: /, /^Cast: /, /^Shape: /, /^Folder: /, /^Mode: /]) expect(screen.getByRole("button", { name: chip })).toHaveClass("h-control"); // 44 px on a phone (S10)
+  expect(screen.getByRole("button", { name: "Add" })).toHaveClass("size-control");
+  for (const kind of [/^A script/, /^An idea/]) expect(screen.getByRole("radio", { name: kind })).toHaveClass("min-h-control");
   await userEvent.type(await words(), SCRIPT);
 
   expect(await screen.findByRole("button", { name: "Make it · up to $16.86" }, { timeout: 3000 })).toBeInTheDocument();
   expect(screen.getByText("The most it can charge, redos included")).toBeInTheDocument();
 });
 
-test("From a saved script: the cards show the script's own format and style, locked; the owner's drafts show too", async () => {
+test("From a saved script: the Styles dialog shows the script's own format and style, locked; the owner's drafts show too", async () => {
   setViewport(1440);
   const rows = [scriptRow(7, "Beer gut doctor rant", { format: "presenter", kind: "narrated" }), scriptRow(9, "Gut glow-up", { published: false, look: "claymation", versions: [version(0, { status: "draft" })] }), scriptRow(10, "Untitled reel", { published: false, versions: [version(0, { status: "draft", lines: 0 })] })];
   server(owner, { "GET /scripts": [200, rows], "POST /freestyles/estimate": [200, { credits: 164, usd: 16.86, held: "", budget: 194 }] });
@@ -291,7 +326,9 @@ test("From a saved script: the cards show the script's own format and style, loc
   const list = await screen.findByRole("radiogroup", { name: "Scripts" });
   expect(await within(list).findByText("owner only")).toBeInTheDocument();
   expect(within(list).queryByText("Untitled reel")).not.toBeInTheDocument(); // no words yet: nothing to make
+  expect(screen.queryByRole("button", { name: /^Style: / })).toBeNull(); // no script picked yet: nothing to show
   await userEvent.click(within(list).getByRole("radio", { name: /Beer gut doctor rant/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "Style: Dr. Pickle · Presenter" }));
   expect(await screen.findByRole("radio", { name: /Presenter/ })).toHaveAttribute("aria-checked", "true");
   expect(screen.getByRole("radio", { name: /Dialogue/ })).toHaveAttribute("aria-disabled", "true"); // the script's own
   expect(screen.getByText("From the script")).toBeInTheDocument();
@@ -308,12 +345,12 @@ test("uncapped (Reed, 6 Nov): the owner's press says about what it will cost, an
   expect(screen.queryByText(/up to|Most it can charge/)).toBeNull();
 });
 
-test("MAIN's run 276: a style with no sample says so, never a blank box, and the styles wrap at 1440 instead of running off the edge", async () => {
+test("MAIN's run 276: a style with no sample says so, never a blank box, and the styles wrap instead of running off the edge", async () => {
   setViewport(1440);
   const movie = look("movie", "Movie", { test_clip: false, test_still: false });
   server(owner, { "GET /looks": [200, [...LOOKS, movie]] });
   renderApp("/b/1/videos/new");
-  const styles = await screen.findByRole("radiogroup", { name: "Style" });
+  const styles = within(await openStyles()).getByRole("radiogroup", { name: "Style" });
   const card = (await within(styles).findByRole("radio", { name: /^Movie/ })).parentElement!;
   expect(within(card).getByText("No sample yet")).toBeInTheDocument();
   expect(styles).toHaveClass("grid"); // a grid that fills the width: the row ends where the box above it ends
@@ -331,8 +368,7 @@ test("QA on #1440: a style made only as Dialogue (Movie) isn't offered for Prese
   const movie = look("movie", "Movie", { formats: ["dialogue"], formats_why: "its people say the script's lines on camera", video_model: "gemini-omni-1.2" });
   server(owner, { "GET /looks": [200, [movie, ...LOOKS]] });
   renderApp("/b/1/videos/new");
-  await loaded();
-  const styles = screen.getByRole("radiogroup", { name: "Style" });
+  const styles = within(await openStyles()).getByRole("radiogroup", { name: "Style" });
   const card = await within(styles).findByRole("radio", { name: /^Movie/ });
   expect(card).toHaveAttribute("aria-checked", "true"); // Dialogue: Movie is offered (the first style)
   expect(card).not.toHaveAttribute("aria-disabled");
