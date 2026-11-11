@@ -189,9 +189,11 @@ def video_pairs(db: Session, project, bd) -> list[tuple]:
     """The video's unlocked roles that are one of its locked or cast roles by another name
     (Kel's empty chair: "Girl" was the locked girlfriend, "Brad" the locked Mogging BF):
     [(role, the role it is, certain)], never a pair kept apart here. Certain: the role's name
-    or a short form ("GF"), or a line of 3+ words it says in another version. Unsure: its shots
-    all show that role and no one else who speaks as themselves (the hero), or the role has
-    a look of its own here (QA-2: a look made for Brad must not hide the flag). Free."""
+    or a short form ("GF"), or a line of 3+ words it says in another version. Unsure (never in a
+    one-pass video): its shots all show that role and no one else who speaks as themselves
+    (the hero), or the role has a look of its own here (QA-2: a look made for Brad must not
+    hide the flag). Free."""
+    from app import one_pass
     from app.cast_roles import labels, pick, ref, same, short, video_slots
 
     if (draft := db.get(ScriptDraft, project.script_draft_id or 0)) is None:
@@ -212,7 +214,10 @@ def video_pairs(db: Session, project, bd) -> list[tuple]:
                 if not any(labels(n, s.role) for n in talk if not same(n, name))}  # fmt: skip
         seen = [{refs[r] for r in x.character_ids if r in refs} for x in mine]
         common = set.intersection(*seen) if seen else set()
-        into = hit or (common.pop() if len(common) == 1 else None)
+        # a one-pass plan casts each person once, by its own description: sharing their shots
+        # with someone is no sign they are that someone (Reed, 11 Nov: three videos waited)
+        guess = len(common) == 1 and not one_pass.on(project)
+        into = hit or (common.pop() if guess else None)
         if into and frozenset((own.id, into.id)) not in apart:
             out.append((own, into, hit is not None and not pick(db, project, own)))
     return out
