@@ -81,8 +81,8 @@ HEAD = re.compile(r"^(Audio|References|Language|Summary|Style|Setting|Keep):\s*(
 SHOT = re.compile(r"^Shot \d+ \| ([\d.]+)-([\d.]+) s\.\s*(.*)$")
 VOICE = re.compile(r"^.{1,60}'s voice: ")
 # a shot's line as the house prompt writes it: 'Mom (in English, warm): "…"'
-SAID = re.compile(r'^(?P<seen>.*?)\s*(?P<who>[^.()"“]+?)(?: \((?P<how>[^)]*)\))?: (?P<line>["“].*)$',
-                  re.S)  # fmt: skip
+SAID = re.compile(r'^(?P<seen>.*?)\s*(?P<who>[^.()"“]+?)(?: \((?P<how>[^)]*)\))?: '
+                  r'(?P<line>["“].*)$', re.S)  # fmt: skip
 THOUGHT = re.compile(r"voice-?over|lips closed|inner voice|thought|V\.O\.", re.I)
 ORDINAL = ("first", "second", "third", "fourth", "fifth", "sixth")
 PEOPLE = 2  # Omni: 2 people a clip, 3 pictures each (§6); each sends one sheet
