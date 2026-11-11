@@ -95,7 +95,10 @@ ONE_CAMERA = ("One continuous camera: the clips are made one at a time, each ope
 SEAM = ("<camera>\nThis video is one continuous camera: each clip after the first is made "
         "starting on the exact last frame of the clip before it, so write its first shot as a "
         "move that carries on from there (the same place, the camera where that clip left it) to "
-        "what comes next, never as a cut to a new angle or place.\n</camera>")  # fmt: skip
+        "what comes next, never as a cut to a new angle or place. That last frame is all the "
+        "next clip is given of how people look, so a clip ends with whoever its next clip shows "
+        "still in frame.\n</camera>")  # fmt: skip
+# (video 397: clip 1 ended on empty doors, and the girl came back in clip 2 in other clothes)
 LAST_FRAME = "The last frame of clip {}: this clip opens on it, so the camera never cuts."
 
 

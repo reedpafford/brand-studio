@@ -652,3 +652,18 @@ def test_a_delivery_note_written_in_its_own_brackets_reaches_omni_as_a_dialogue_
     line = f'Shot 1 | 0-8 s. Chest-up, locked. He nods. The presenter (in English, {how}): "Go."'
     assert model_map._shot(line, False).endswith(
         'Dialogue: The presenter says, "Go." Delivery: low, leaning on home.')  # fmt: skip
+
+
+def test_a_clip_whose_only_line_is_a_thought_is_not_told_that_no_one_speaks():
+    """Video 398 (11 Nov): a (V.O.) line is not on-camera speech, so the clip's audio line
+    said "no one speaks (no voices, narration or dialogue)" above a voice-over Dialogue line;
+    the thoughts came out doubled and cut off."""
+    prompt = ("Audio: no one speaks (no voices, narration or dialogue), only the store's hum. "
+              "No music.\nStyle: Photoreal.\nPaige's voice: young, light.\n"
+              "Shot 1 | 0-4 s. Close-up, locked. She looks down the aisle. Paige (in English, "
+              'voice-over, lips closed, quiet): "Weird. But whatever."')  # fmt: skip
+    said = model_map._flow(prompt, 0, False, False)
+    assert 'Dialogue: Paige thinks, heard as a voice-over with lips closed, "Weird.' in said
+    assert "Audio: only the quoted lines are spoken" in said and "no one speaks" not in said
+    silent = model_map._flow(prompt.rsplit(" Paige (in", 1)[0] + " No one speaks.", 0, False, False)
+    assert "Audio: no one speaks" in silent
