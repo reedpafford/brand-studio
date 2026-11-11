@@ -22,8 +22,9 @@ Six Palace Guard test videos were started on the live site, one per style. Four 
 | #1559 | The UI stack in one: Home as a studio, the director's live thinking, one clean frame, the polish pass (#1543, #1544, #1545, #1556) | |
 | #1560 | Words a take adds to the script are silenced, free, before the cut; a talker's piece ends on its line | 390 |
 | #1561 | Stop also cancels the video's paid work that hasn't started | 391 |
-| #1562, #1565 | A sheet the video model takes for a real person is left out and the character said in words, at once and on every later take of that clip | 392 |
-| #1548 | NOT merged, needs Reed's Approve (a guide file): Movie makes a whole scene one clip, with an early wide | 366, 389 |
+| #1562 | A sheet the video model takes for a real person is left out and the character said in words | 392 |
+| #1565 | NOT merged yet (its browser check can't start: see "Blocked" below): a clip once refused that way never carries its sheets again, so Carry on and Redo recover | 392 |
+| #1548 | Movie makes a whole scene one clip, with an early wide (Reed approved; merged 16:03Z, NOT live yet: see "Blocked" below) | 366, 389 |
 | #1563 | NOT merged (into `main`): the night's spend log, $53.10 | |
 
 ## What the tests showed
@@ -37,11 +38,16 @@ Full table: `results.md`. In short, after the fixes:
 ## Why the movie was weak, and what is still open
 `movie-theory.md`. Short version: the storyboard used to carry the staging; one-pass sends only words, and the words said what happens, never where anyone stands or where the camera is. #1550 puts that in the plan and 389 shows it working (over-the-shoulder shots, the men small at the far end, three different men). The other half, one clip a scene so the room stops changing, is #1548 and waits for Reed.
 
+## Blocked at the time of writing (16:40Z, 11 Nov)
+GitHub's hosted build machines cannot reach Ubuntu's package servers ("Temporary failure resolving 'archive.ubuntu.com'"), so the browser-test job fails while installing its browser. That job gates every deploy and every merge. It failed four times in 45 minutes. Nothing is wrong with the code; re-run the failed jobs until it passes:
+- the deploy of `next` (carries #1548): `gh run rerun <newest deploy-next run> --failed`
+- #1565's browser check, then merge it.
+Then: a new Movie video from `pgtest/excerpts/1-movie-RP5.txt` to see #1548 work (the store in 2 clips at most, the lot in 1), and Carry on video 392 (Zack D) to see #1565 work.
+
 ## Waiting for Reed
-1. Approve #1548 on GitHub (the Movie guide).
-2. Talker pieces are sized at 2.6 words a second plus a second (his UGC playbook rule). Tonight's Omni talkers spoke at 3.4 to 4.5, so pieces run 3 to 5 seconds long and the model fills the gap (390's made-up sentence). Suggest 3.3.
-3. Should "Make without asking" also approve the cast and places? Today a look redrawn after Make it asks again.
-4. Turn on several plans at once (`BS_CLAUDE_WORKERS: "3"` on the Claude worker in `deploy/next/compose.yml`)? It is tested but has never run for real.
+1. Talker pieces are sized at 2.6 words a second plus a second (his UGC playbook rule). Tonight's Omni talkers spoke at 3.4 to 4.5, so pieces run 3 to 5 seconds long and the model fills the gap (390's made-up sentence). Suggest 3.3.
+2. Should "Make without asking" also approve the cast and places? Today a look redrawn after Make it asks again.
+3. Turn on several plans at once (`BS_CLAUDE_WORKERS: "3"` on the Claude worker in `deploy/next/compose.yml`)? It is tested but has never run for real.
 
 ## Known gaps (not fixed)
 - Zack D is three or more separate clips, not one continuous camera chained from each last frame. The pieces exist (start frames in quick clips, #1542; the one-still mechanism in `one_frame.py`); the one-pass run does not use them yet.
