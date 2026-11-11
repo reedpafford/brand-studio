@@ -759,8 +759,8 @@ class PlanShot(BaseModel):
         description="With <song>: the second in the track this shot starts, copied from its "
         "times. Else 0."
     )
-    camera: str = Field(description="Shot size and move: 'Close-up, slow push in'.")
-    action: str = Field(description="One thing that happens, seen from outside.")
+    camera: str = Field(description="Shot size, where the camera is, its move.")
+    action: str = Field(description="One thing that happens, and where each person is.")
     people: list[str] = Field(description="Who is in the picture, by name, most important first.")
     extras: str = Field(description="Anyone else in the picture, in a few words, or empty.")
     line: int | None = Field(
