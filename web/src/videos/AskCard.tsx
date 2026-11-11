@@ -146,7 +146,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
     const described = ans?.how === "describe" ? `Described: “${ans.text}” · ${ans.uses}’s voice · saved to ${brand}’s voices. Nothing was charged.` : "";
     const who = described ? [described, a.answered_by && a.answered_at && `picked by ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ") : ans?.how === "clone" && ans.reused ? `Using ${ans.name ?? "that voice"}, already in ${brand}’s voices. Nothing was charged.` : a.answered_by && a.answered_at ? (a.by_owner ? `${a.answered_by} answered this for you at ${clock(a.answered_at)}. The video carried on.` : [ans?.how === "saved" && a.saved_in, `${money ? "by" : "picked by"} ${a.answered_by}, ${clock(a.answered_at)}`].filter(Boolean).join(" · ")) : ans && "reused" in (ans as object) ? `${a.saved_in}, used again` : "";
     return (
-      <section id={`ask-${a.id}`} aria-label={a.question} className="overflow-hidden rounded-[10px] border border-border bg-surface">
+      <section id={`ask-${a.id}`} aria-label={a.question} className="overflow-hidden rounded-lg border border-border bg-surface">
         <p className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold ${cls}`}>
           <Icon size={14} strokeWidth={1.75} aria-hidden />
           {gone ? "No longer needed" : a.by_owner ? "Answered by the owner" : "Answered"}
@@ -474,7 +474,7 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   }
 
   return (
-    <section id={`ask-${a.id}`} aria-label={a.question} className={`overflow-hidden rounded-[10px] border bg-surface ${held ? "border-[#ecd3a6]" : "border-accent-line shadow-[0_1px_2px_rgb(65_70_184/0.06),0_6px_18px_rgb(65_70_184/0.07)]"}`}>
+    <section id={`ask-${a.id}`} aria-label={a.question} className={`overflow-hidden rounded-lg border bg-surface ${held ? "border-[#ecd3a6]" : "border-accent-line shadow-[0_1px_2px_rgb(65_70_184/0.06),0_6px_18px_rgb(65_70_184/0.07)]"}`}>
       {input}
       <p className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold ${cls}`}>
         <Icon size={14} strokeWidth={1.75} aria-hidden />

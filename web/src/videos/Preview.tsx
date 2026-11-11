@@ -68,7 +68,7 @@ function CutPane(props: PaneProps) {
   const editing = !cut.isPending && (first ? !!cut.data || progress.clips.total > 0 : !viewOnly && mode === "edit");
   useEffect(() => onEditor?.(editing), [editing, onEditor]); // the chat narrows to the boards' 400px (S7)
   useEffect(() => () => onEditor?.(false), [onEditor]);
-  if (cut.isPending) return <Skeleton className="h-[533px] w-[300px] max-w-full rounded-[10px]" />;
+  if (cut.isPending) return <Skeleton className="h-[533px] w-[300px] max-w-full rounded-lg" />;
   if (!cut.data && progress.clips.total === 0) return <Empty title="The cut plays here when it’s ready">{SOON}</Empty>;
   // Every clip approved and no cut yet: the editor puts it together the first time this opens, for free.
   const editor = <CutEditor projectId={p.id} aspect={p.aspect_ratio} projectName={props.head?.title ?? p.name} auto={!viewOnly} />;
@@ -207,7 +207,7 @@ function CutWatch({ p, head, progress, run }: PaneProps) {
         </Banner>
       )}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-        <video ref={player} controls src={fileUrl(file)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-[10px] bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
+        <video ref={player} controls src={fileUrl(file)} aria-label="The cut" className="mx-auto w-full max-w-[240px] shrink-0 rounded-lg bg-black shadow-raised sm:mx-0 sm:w-[300px] sm:max-w-[300px]" style={{ aspectRatio: p.aspect_ratio.replace(":", " / ") }} />
         <div className="flex min-w-0 flex-1 flex-col gap-4 sm:max-w-80">
           {live && <CutSwitch cut={live} picked={older?.number ?? live.number} onPick={pick} />}
           <div className="flex flex-col gap-1 max-sm:hidden">
@@ -491,7 +491,7 @@ export function Preview({ p, head, run, tab, onTab, toChat, lookOnly, phone, fac
 export function PanelSkeleton() {
   return (
     <div className="flex min-w-0 flex-wrap gap-5" role="status" aria-label="Loading">
-      <Skeleton className="h-[533px] w-[300px] max-w-full shrink-0 rounded-[10px]" />
+      <Skeleton className="h-[533px] w-[300px] max-w-full shrink-0 rounded-lg" />
       <div className="flex min-w-0 flex-col gap-3">
         <Skeleton className="h-[18px] w-40 max-w-full" />
         <Skeleton className="h-3 w-[200px] max-w-full" />

@@ -53,7 +53,7 @@
   --warning: #8f5c12;  --warning-soft: #fbf1df;   /* 5.1:1: also "needs you" */
   --need-dot: #d48a12;  /* v6 S0-01: the Needs you and Waiting dots (a dot, never words) */
   --ink: #1b1c1f;       /* v6 S1-07: the selection bar, near-black (white words, 16:1) */
-  --danger: #c23b2f;   --danger-soft: #fde9e7;    /* 4.5:1 */
+  --danger: #c23b2f;   --danger-soft: #fdf1ef;    /* 4.8:1: a pale tint, a note not an alarm */
 
   /* The cut editor's music track (v6 S7) */
   --track-music: #6a3f9c;  --track-music-soft: #f4effa;

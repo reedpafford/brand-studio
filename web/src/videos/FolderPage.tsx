@@ -189,7 +189,7 @@ export function FolderPage() {
   return (
     <main className="mx-auto min-h-screen max-w-content pb-24 lg:min-h-full">
       {/* S1-04's top: Brand › folder, its counts, ⋯ and New video (P-02: the folder's name over its counts). */}
-      <header className="flex min-h-14 items-center gap-2.5 border-b border-border bg-surface px-4 lg:px-5">
+      <header className="flex min-h-14 items-center gap-2.5 border-b border-border bg-surface px-4 lg:px-6">
         {rail ? (
           <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted">
             <span className="shrink-0">{brand?.name}</span>

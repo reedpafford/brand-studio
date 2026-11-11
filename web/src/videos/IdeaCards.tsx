@@ -221,7 +221,7 @@ export function SelectBar({ brandId, picked, here, moveOpen, setMoveOpen, onClea
   return (
     <div role="region" aria-label="Selected ideas" className="fixed inset-x-0 bottom-0 z-40 lg:inset-x-auto lg:bottom-6 lg:left-[calc(50%+var(--rail-w)/2)] lg:-translate-x-1/2">
       {/* On a phone the bar takes the tabs' place (S-gaps-06, 12). */}
-      <div className="flex min-h-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] items-center gap-2.5 bg-ink py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pl-4 pr-2 text-white shadow-overlay lg:min-h-0 lg:rounded-[10px] lg:pb-2">
+      <div className="flex min-h-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] items-center gap-2.5 bg-ink py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pl-4 pr-2 text-white shadow-overlay lg:min-h-0 lg:rounded-lg lg:pb-2">
         <span className="whitespace-nowrap text-sm font-medium">{n} selected</span>
         <span className="flex-1 lg:hidden" />
         {/* S-gaps-06 (8): the menu opens straight up from Move to…, its left edge on the button, kept on screen. */}

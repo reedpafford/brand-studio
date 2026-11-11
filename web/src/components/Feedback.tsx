@@ -3,18 +3,18 @@ import { CircleAlert, Info, TriangleAlert } from "lucide-react";
 
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; "aria-hidden"?: boolean; className?: string }>;
 const tones = {
-  danger: { icon: CircleAlert, text: "text-danger" },
-  warning: { icon: TriangleAlert, text: "text-warning" },
-  info: { icon: Info, text: "text-muted" },
+  danger: { box: "bg-danger-soft", icon: CircleAlert, text: "text-danger" },
+  warning: { box: "bg-warning-soft", icon: TriangleAlert, text: "text-warning" },
+  info: { box: "bg-surface-2", icon: Info, text: "text-muted" },
 };
 
-/** What happened, what was charged (usually nothing), and what to do, with the button on the right. A quiet grey
- *  panel whatever the tone: its icon carries the colour, so a problem reads as a note, not an alarm. */
+/** What happened, what was charged (usually nothing), and what to do, with the button on the right. A soft tint with
+ *  no outline: the icon carries the colour, so a problem reads as a note, not an alarm. */
 export function Banner({ tone = "danger", title, children, action }: { tone?: keyof typeof tones; title: string; children?: ReactNode; action?: ReactNode }) {
   const t = tones[tone];
   const Icon: Icon = t.icon;
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-2 p-4">
+    <div role={tone === "danger" ? "alert" : "status"} className={`flex flex-wrap items-center gap-3 rounded-lg p-4 ${t.box}`}>
       <Icon size={20} strokeWidth={1.75} aria-hidden className={`shrink-0 ${t.text}`} />
       <div className="min-w-0 flex-1 basis-48">
         <p className="font-semibold">{title}</p>

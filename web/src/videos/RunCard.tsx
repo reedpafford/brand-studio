@@ -82,7 +82,7 @@ function Frame({ c, className, onPick }: { c: Cell; className: string; onPick?: 
  *  name under them; the scene being made is named in the accent. `big`: the Cut tab's strip (S3-09), a frame a press. */
 export function Filmstrip({ scenes, at, big, onPick }: { scenes: Scene[]; at?: number; big?: boolean; onPick?: (c: Cell) => void }) {
   return (
-    <ol aria-label="The video, scene by scene" className={`flex items-end overflow-x-auto ${big ? "gap-2" : "gap-1.5"}`}>
+    <ol aria-label="The video, scene by scene" className={`-m-1 flex items-end overflow-x-auto p-1 ${big ? "gap-2" : "gap-1.5"}`}>
       {scenes.map((s, i) => (
         <li key={s.id} className="flex shrink-0 flex-col gap-1">
           <span className="flex gap-0.5">

@@ -170,7 +170,7 @@ function VideosTab({ brandId, period }: { brandId: number; period: Period }) {
             return (
               <li key={v.project_id}>
                 <Link to={`/b/${brandId}/videos/${v.project_id}`} className="block space-y-2 rounded-lg border border-border bg-surface p-4 hover:bg-surface-2">
-                  <span className="flex items-center gap-2 font-display text-md font-bold">
+                  <span className="flex items-center gap-2 type-card">
                     <span className="min-w-0 flex-1 break-words">{videoTitle(v)}</span>
                     <ChevronRight size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-muted" />
                   </span>
@@ -289,7 +289,7 @@ function ScriptsTab({ brandId }: { brandId: number }) {
           <ul className="divide-y divide-border">
             {items.map((r) => (
               <li key={r.id} className="relative flex flex-col gap-2 p-4 hover:bg-surface-2 lg:grid lg:grid-cols-[minmax(0,1.4fr)_6rem_minmax(0,2fr)_4rem_6rem_6rem] lg:items-center lg:gap-3">
-                <h3 className="font-display text-md font-bold">
+                <h3 className="type-card">
                   <Link to={open(r)} className="after:absolute after:inset-0">{r.title}</Link>
                 </h3>
                 <p className="hidden lg:block lg:text-sm">{r.created_by_name || "—"}</p>

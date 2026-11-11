@@ -50,7 +50,7 @@ export function StudioName({ owner, top }: { owner: string; top: SettingsTop }) 
       {top(
         <SaveButton reason={reason} busy={put.isPending} onClick={save} />,
       )}
-      <section aria-label="Studio" className="max-w-[900px] sm:px-2">
+      <section aria-label="Studio" className="max-w-[900px]">
         <SettingRow htmlFor="studio-name" label="Studio name" help="Shown on invite links.">
           <input id="studio-name" value={value} onChange={(e) => setEdit(e.target.value)} className="min-h-control w-full max-w-[360px] rounded-md border border-border-strong bg-bg px-2.5 lg:min-h-control-dense" />
         </SettingRow>

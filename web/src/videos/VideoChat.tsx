@@ -300,7 +300,7 @@ function Loading({ phone }: { phone: boolean }) {
           ))}
         </div>
         <div className="flex gap-5 p-5">
-          <Skeleton className="h-[533px] w-[300px] rounded-[10px]" />
+          <Skeleton className="h-[533px] w-[300px] rounded-lg" />
           <div className="flex flex-col gap-3">
             <Skeleton className="h-[18px] w-40" />
             <Skeleton className="h-3 w-[200px]" />

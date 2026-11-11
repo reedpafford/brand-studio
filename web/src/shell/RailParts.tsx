@@ -5,7 +5,7 @@ import { StatusDot, said, useIdeas } from "../folders/ideas";
 import { WORDS_ID } from "../home/Words";
 
 /** One row of the rail: a page, a folder, a video. */
-export const railRow = "flex h-8 items-center gap-2 rounded-md px-2 text-sm";
+export const railRow = "flex h-8 items-center gap-2 rounded-md px-2 text-sm transition-colors duration-(--dur-fast) ease-out";
 
 const KEY = (id: string) => `bs.rail.${id}`;
 
