@@ -222,6 +222,39 @@ def _minimax(text: str, voice: str, note: str, emotion: str, reading: str,
         "bitrate": 256000, "audio_format": "mp3"}}  # fmt: skip
 
 
+# The most characters a voice reads in one request: ElevenLabs v3 refuses more (Reed's
+# 12-minute script, 11 Nov: "Request text length (9901) exceeds the maximum text length of 5000
+# characters"); MiniMax's speech models take 10,000.
+MOST, MOST_ELSE = {MODEL: 5000}, 10_000
+
+
+def in_parts(job: dict) -> dict:
+    """The voice call, with words longer than its voice reads in one request cut into `parts`
+    between sentences: each is read in the same voice (Replicate's `submit`) and they are
+    joined before the timing is read (`join`). A v3 delivery tag opens every part."""
+    said = job["input"]
+    key, most = "prompt" if "prompt" in said else "text", MOST.get(job["model"], MOST_ELSE)
+    if len(said[key]) <= most:
+        return job
+    tag = m[0] if (m := re.match(r"\[[^\]]*\] ", said[key])) else ""
+    text, most, out, start = said[key][len(tag) :], most - len(tag), [], 0
+    ends = [m.end() for m in re.finditer(r"(?<=[.!?…])\s+|\n+", text)]  # after each sentence
+    for a, b in zip(ends, [*ends[1:], len(text)], strict=True):
+        if b - start > most:  # the next sentence wouldn't fit: this part ends here
+            out, start = [*out, tag + text[start:a].strip()], a
+    return {**job, "parts": [*out, tag + text[start:].strip()]}
+
+
+def join(paths: list[Path], out: Path) -> Path:
+    """A narration read in parts as one file, in order."""
+    inputs = [x for p in paths for x in ("-i", str(p))]
+    graph = "".join(f"[{k}:a]" for k in range(len(paths))) + f"concat=n={len(paths)}:v=0:a=1"
+    command = ["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", graph, str(out)]
+    if subprocess.run(command, capture_output=True, timeout=song_timing.TIMEOUT).returncode:  # noqa: S603
+        raise ValueError("The narration's file can't be read.")
+    return out
+
+
 def characters(job_input: dict) -> int:
     said = job_input["input"]
     return len(said.get("prompt") or said.get("text") or "")
