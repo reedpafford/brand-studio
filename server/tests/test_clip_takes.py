@@ -260,12 +260,36 @@ def test_clips_pane_support(app, db, editor, setup, clip):  # noqa: F811
 class Refusing(FakeSeedance):
     """Seedance refusing every take for copyright (Kel's video, 2026-10-27)."""
 
+    error = "E005: the output video may be related to copyright restrictions"
+
     def __call__(self, request):
         if request.method == "GET" and "/predictions/p" in str(request.url):
             n = str(request.url).rsplit("p", 1)[1]
-            error = "E005: the output video may be related to copyright restrictions"
-            return httpx.Response(200, json={"id": f"p{n}", "status": "failed", "error": error})
+            return httpx.Response(200, json={"id": f"p{n}", "status": "failed",
+                                             "error": self.error})  # fmt: skip
         return super().__call__(request)
+
+
+def test_a_sheet_refused_as_a_real_person_is_said_in_words(app, db, editor, setup, clip):  # noqa: F811
+    """Video 392 (11 Nov, Zack D): Seedance refused three of five clips for the man's sheet
+    ("the input image 'content[2]' may contain real person"); each was sent again as it was,
+    refused again, and the run stopped."""
+
+    class Real(Refusing):
+        error = ("ModelError: The input or output was flagged as sensitive. (E005): "
+                 '{"code":"InputImageSensitiveContentDetected.PrivacyInformation","message":'
+                 "\"The request failed because the input image 'content[2]' may contain real "
+                 'person."}')  # fmt: skip
+
+    editor.post(f"/projects/{setup['project']}/clips/{clip['id']}/generate")
+    _work(app, db, Real([]))
+    db.expire_all()
+    first, again = sorted((j for j in db.query(Job).all() if j.kind.startswith("video")),
+                          key=lambda j: j.id)  # fmt: skip
+    assert again.retry_of_id == first.id and again.input["lookalike"] == 2  # no sheets at once
+    assert "[Image2]" not in again.input["input"]["prompt"]
+    assert len(again.input["files"].get("reference_images", [])) < len(
+        first.input["files"]["reference_images"])  # fmt: skip
 
 
 def test_a_look_alike_refusal_steps_down_then_says_what_to_do(app, db, editor, setup, clip):  # noqa: F811

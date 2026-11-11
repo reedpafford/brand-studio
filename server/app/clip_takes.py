@@ -636,12 +636,17 @@ def retry(db: Session, job: Job) -> None:
     _again(db, job, job.input, wait=why == "busy")
 
 
+REAL = "may contain real person"  # Seedance, of a reference picture (video 392: a sheet)
+
+
 def _lookalike(job: Job) -> bool:
-    return "copyright" in (job.error_detail or "").lower() and not job.input.get("discard")
+    detail = (job.error_detail or "").lower()
+    return ("copyright" in detail or REAL in detail) and not job.input.get("discard")
 
 
 def _again_without(db: Session, job: Job) -> None:
-    """A take refused as a look-alike (Seedance's copyright check, the Producer): made again
+    """A take refused as a look-alike (Seedance's copyright check, the Producer), or for a
+    reference picture that "may contain real person": made again
     without the opening still, then without the sheets, the characters said in words, its Redo
     note kept; after that it stops and says so plainly. A refused take isn't charged: only the
     one that's made counts, against the cap and the price like any take."""
@@ -655,6 +660,8 @@ def _again_without(db: Session, job: Job) -> None:
     if db.scalar(select(Job.id).where(Job.retry_of_id == job.id)):
         return
     try:
+        # a sheet taken for a real person: straight to the characters in words
+        step = len(LOOKALIKE) - 1 if REAL in (job.error_detail or "").lower() else step
         data = take_input(db, project, row, job.input.get("note", ""), drop=LOOKALIKE[: step + 1])
     except HTTPException as exc:
         log.info("clip %s: no look-alike retry: %s", row.id, exc.detail)
