@@ -169,7 +169,7 @@ export function HomePage() {
       </main>
     );
   return (
-    <main className="relative isolate flex min-h-screen justify-center px-8 pb-16 pt-[clamp(2rem,6vh,4rem)]">
+    <main className="relative isolate flex min-h-full justify-center px-8 pb-16 pt-[clamp(2rem,6vh,4rem)]">
       {/* A soft indigo light from the top, behind the headline: the page has a source, not a flat sheet. */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[560px] bg-[radial-gradient(60%_100%_at_50%_0%,var(--accent-soft),transparent)]" />
       <div className="flex w-full max-w-[1112px] flex-col gap-8">

@@ -46,7 +46,7 @@ function Excerpt({ text }: { text: string }) {
   return (
     <>
       {at > 0 && <p className="whitespace-pre-line break-words">{all.slice(0, at).join("\n")}</p>}
-      <div className="mt-1.5 rounded-md border border-border bg-surface px-2.5 py-2 font-script text-[13px] leading-[1.55]">
+      <div className="mt-0.5 font-script text-[13px] leading-[1.55]">
       {(open ? lines : lines.slice(0, 2)).map((l, i) => (
         <p key={i} className="break-words">{l}</p>
       ))}
@@ -134,7 +134,7 @@ export function Item({ t, words, why, owner, children, first, excerpt, earlier, 
         ) : (
           <>
             {(words != null || first) && (
-              <div className="min-w-0 rounded-[10px] bg-surface-2 px-3 py-2 leading-[21px]">
+              <div className="min-w-0 rounded-lg bg-surface-2 px-3.5 py-2.5 leading-[21px]">
                 {script ? <Excerpt text={words as string} /> : words != null && <p className="whitespace-pre-line break-words">{words}</p>}
                 {first}
               </div>

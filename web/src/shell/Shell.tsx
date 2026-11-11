@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Archive, ChevronDown, Clock, Ellipsis, Film, Inbox, Plus, Palette, Check, Users, type LucideIcon } from "lucide-react";
 import { Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { WORDS_ID } from "../home/Words";
@@ -104,9 +104,16 @@ function Frame() {
     return () => void root.removeProperty("--brand");
   }, [brand]);
 
+  // The panel is the same element from page to page: each page opens at its top.
+  const panel = useRef<HTMLDivElement>(null);
+  const { pathname: at } = useLocation();
+  useEffect(() => {
+    if (panel.current) panel.current.scrollTop = 0;
+  }, [at]);
+
   const waiting = owner ? (needsYou?.total ?? null) : null; // no count until it's read: never a 0 that isn't so
   const work = (
-    <div className="min-w-0 flex-1" style={rail || onVideo ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
+    <div ref={panel} className={`min-w-0 flex-1 ${rail ? "my-2 mr-2 overflow-y-auto rounded-2xl border border-border bg-bg shadow-soft" : ""}`} style={rail || onVideo ? undefined : { paddingBottom: `calc(var(--tabbar-h) + env(safe-area-inset-bottom)${count > 0 ? " + var(--actionbar-h)" : ""})` }}>
       {!online && !onVideo && (
         <div className="mx-auto max-w-content px-4 pt-4 sm:px-8">
           <Banner tone="warning" title="You're offline.">
@@ -132,9 +139,10 @@ function Frame() {
   );
 
   return (
-    <div className="min-h-screen bg-bg text-text">
+    // On a desktop the rail sits on the canvas and the page is one rounded panel beside it, which scrolls on its own.
+    <div className={`text-text ${rail ? "h-screen overflow-hidden bg-canvas" : "min-h-screen bg-bg"}`}>
       {!inVideo && !onFolders && !rail && <TopBar brands={brands ?? []} brand={brand} current={current} />}
-      <div className="flex">
+      <div className={rail ? "flex h-full" : "flex"}>
         {rail && <Rail switcher={<BrandSwitcher brands={brands ?? []} brand={brand} current={current} inRail iconOnly={!wide} />} current={current} wide={wide} owner={owner} waiting={waiting} />}
         {work}
       </div>

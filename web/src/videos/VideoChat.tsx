@@ -193,7 +193,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   );
   const preview = <Preview onEditor={setEditing} p={p} head={shownHead ?? undefined} run={liveRun ?? null} tab={tab} onTab={pick} toChat={rail ? undefined : () => setSide("chat")} lookOnly={lookOnly ?? (archived ? "It's archived. Restore it to keep working." : null)} phone={!rail} facts={facts} />;
   return (
-    <main className={`flex min-h-0 flex-col ${rail ? "h-screen flex-row" : "h-dvh"}`}>
+    <main className={`flex min-h-0 flex-col ${rail ? "h-full flex-row" : "h-dvh"}`}>
       {rail ? (
         <>
           {/* Reed, 9 Nov: the preview "dominates the screen". The chat takes the room and the preview has a set width (560–680),
@@ -287,7 +287,7 @@ function Loading({ phone }: { phone: boolean }) {
       </div>
     );
   return (
-    <div className="flex h-screen">
+    <div className="flex h-full">
       <section className="flex min-w-0 flex-1 flex-col border-r border-border bg-surface">
         {head}
         {thread}

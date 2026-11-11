@@ -11,7 +11,7 @@ import { useRail } from "../useMedia";
 import { errorText as errorClass } from "../ui";
 import { useHead } from "../videos/VideoHead";
 
-const setting = "inline-flex h-control lg:h-[30px] shrink-0 items-center gap-[5px] whitespace-nowrap rounded-sm border border-border-button bg-surface px-[9px] text-xs font-medium text-text";
+const setting = "inline-flex h-control lg:h-[30px] shrink-0 items-center gap-[5px] whitespace-nowrap rounded-full bg-surface-2 px-3 text-xs font-medium text-text";
 type Money = components["schemas"]["Money"];
 
 type Project = components["schemas"]["ProjectOut"];

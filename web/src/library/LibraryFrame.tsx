@@ -44,7 +44,7 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
     slug === "kit" ? undefined : slug === "footage" ? footage : slug === "presenters" ? (counts.presenters === undefined ? undefined : counts.presenters + voices) : counts[slug];
   if (!rail) {
     return (
-      <main className="min-h-screen pb-24">
+      <main className="min-h-screen pb-24 lg:min-h-full">
         <header className="flex min-h-14 items-center gap-2.5 border-b border-border bg-surface px-4">
           <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-sm text-xs font-semibold text-white" style={{ background: brand?.colours?.[0] || "var(--accent)" }}>
             {name.slice(0, 1).toUpperCase()}
@@ -73,7 +73,7 @@ export function LibraryFrame({ brandId, tab, action, onAdd, addLabel, children }
     );
   }
   return (
-    <main className="flex min-h-screen flex-col">
+    <main className="flex min-h-screen flex-col lg:min-h-full">
       <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border bg-surface px-5">
         <p className="flex items-center gap-1.5 whitespace-nowrap text-sm text-muted">
           <span>{name}</span>

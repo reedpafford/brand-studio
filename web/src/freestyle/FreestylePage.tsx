@@ -52,9 +52,9 @@ export function FreestylePage() {
   // An editor's send before the owner's OK: its video isn't theirs to read yet, so its chat opens here, by the freestyle.
   if (fs?.project_id) return video.isPending ? null : <VideoPage projectId={fs.project_id} brandId={fs.brand_id ?? 0} freestyleId={fs.id} />;
   return (
-    <div className="lg:grid lg:min-h-screen lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="lg:grid lg:min-h-full lg:grid-cols-[260px_minmax(0,1fr)]">
       <List owner={owner} current={id} className="hidden lg:flex" />
-      <main className="flex min-w-0 flex-col lg:h-screen">
+      <main className="flex min-w-0 flex-col lg:h-full">
         <Link to="/freestyle" className="flex min-h-control items-center self-start px-4 text-sm text-muted underline lg:hidden">
           New video
         </Link>
@@ -79,7 +79,7 @@ function List({ owner, current, className }: { owner: boolean; current: number |
   const rows = useFreestyles(owner && everyone);
   const seg = (on: boolean) => `min-h-control flex-1 rounded-md lg:min-h-control-dense px-2 text-sm ${on ? "bg-surface-3 font-medium" : "text-muted hover:bg-surface-2"}`;
   return (
-    <aside aria-label="Your freestyles" className={`${className} min-w-0 flex-col border-border lg:sticky lg:top-0 lg:h-screen lg:border-r`}>
+    <aside aria-label="Your freestyles" className={`${className} min-w-0 flex-col border-border lg:sticky lg:top-0 lg:h-full lg:border-r`}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h1 className="type-section">Freestyle</h1>
         <Link to="/freestyle" aria-label="New video" title="New video" className="grid size-control place-items-center rounded-md border border-border hover:bg-surface-2 lg:size-control-dense">

@@ -21,9 +21,9 @@ export function Segmented<T extends string>({ label, items, value, onChange, fil
 
 /** A setting shown as a chip, "Style House" (New video's box, the video's header): its name muted, its value in the text colour. */
 export const chipClass =
-  "inline-flex h-control lg:h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border-button bg-surface px-2.5 text-xs font-medium text-text transition-[background-color,border-color] duration-(--dur-fast) ease-out";
+  "inline-flex h-control lg:h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-2 px-3 text-xs font-medium text-text transition-colors duration-(--dur-fast) ease-out"; // a soft pill, no outline: fewer lines on the page (the clean pass, 11 Nov)
 /** …and one that opens a menu. */
-export const chipPress = `${chipClass} hover:border-border-strong/50 hover:bg-surface-2 aria-expanded:border-accent-line aria-expanded:bg-accent-soft aria-expanded:text-accent-text`;
+export const chipPress = `${chipClass} hover:bg-surface-3 aria-expanded:bg-accent-soft aria-expanded:text-accent-text`;
 /** …and one as a small filled pill, with no outline (Home's box: Style, Product, Cast, Shape, Folder, Mode). */
 export const chipPill =
   "inline-flex h-control lg:h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-2 px-3 text-xs font-medium text-text transition-colors duration-(--dur-fast) ease-out hover:bg-surface-3 aria-expanded:bg-accent-soft aria-expanded:text-accent-text";
