@@ -207,7 +207,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     takes = song_takes.for_video(db, project)
     ready = [t for t in takes if song_takes.state(db, t)[0] == "ready"]
     before = one_pass.on(project) and not run.get("ok", True)  # its plan is timed to it
-    left = run.get(REMADE, 0) < REMAKES  # a remake is left to fix a take that says more
+    # a remake is left to fix a take that says more (a one-pass run makes none: it uses its best)
+    left = run.get(REMADE, 0) < REMAKES and not one_pass.on(project)
     if (chosen := decision.get("take_id")) is not None:
         take = next((t for t in ready if t.id == chosen), None)
         if take is None:

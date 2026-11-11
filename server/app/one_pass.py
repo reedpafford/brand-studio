@@ -204,6 +204,17 @@ def numbered(job_input: dict) -> tuple[str, list[int]]:
     return job_input["script"], list(range(1, len(job_input["script"].splitlines()) + 1))
 
 
+def _assets(db: Session, project: Project) -> dict:
+    """Every picture the plan may use (storyboard.assets), less a brand's place with no
+    picture in this video's look: nobody draws one (make_looks draws the places made for this
+    video), so a plan that named it waited for a person (Reed, 11 Nov: videos 373 and 383)."""
+    from app.models.library import LibraryItem
+    from app.storyboard import assets
+
+    return {k: v for k, v in assets(db, project).items() if v[1] or not k.startswith("place:")
+            or db.get(LibraryItem, int(k[6:])).owner_project_id}  # fmt: skip
+
+
 def job_input(db: Session, project: Project, run: dict) -> dict:
     """The one call: everything the director reads, and what the free check needs. A video
     timed to a narration or a song reads its own part of the prompt (the job's step stays
@@ -212,7 +223,7 @@ def job_input(db: Session, project: Project, run: dict) -> dict:
     from app import director, director_song, footage, picks, script_preview
     from app.breakdown import TOKENS, timing, video_model, video_model_block
     from app.cast_roles import video_slots
-    from app.storyboard import assets, cast_looks
+    from app.storyboard import cast_looks
 
     version = plans.script(db, project)
     track = one_pass_timed.audio(db, project, version.text)
@@ -223,7 +234,7 @@ def job_input(db: Session, project: Project, run: dict) -> dict:
 
         draft = db.get(ScriptDraft, project.script_draft_id)
         context = script_preview.with_slots(db, draft.script_id, context, project)
-    m, known = video_model(project), assets(db, project)
+    m, known = video_model(project), _assets(db, project)
     lines = "\n".join(dict.fromkeys(line for line, _ in known.values()))
     again = not director.fresh(db, project, run)[0] and shooting_plan(db, project)
     films = omni_talker.name(db, project) if omni_talker.on(db, project) else ""
@@ -490,9 +501,9 @@ def _where(db: Session, project: Project, plan: ShootingPlan) -> dict[str, str]:
     drawn with the cast's (`make_looks`)."""
     from app.cast_roles import same
     from app.routes.cast import _own
-    from app.storyboard import _name, assets
+    from app.storyboard import _name
 
-    known = assets(db, project)
+    known = _assets(db, project)
     have = {_name(known, r): r for r in known if r.startswith("place:")}
     told = {p.name: p.description.strip() for p in plan.places}
     out: dict[str, str] = {}
@@ -745,9 +756,8 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
 
 def move(s: dict) -> dict:
     """The run's next step, always one (the twin of `director_auto.move`, with no turn left to
-    a model): the plan, then the looks, then Make it; after it the cast and places OK, the
-    first clip alone (the pilot: a fault in the set-up costs one take, not all of them), then
-    every other clip at once; a take that misses a scripted line once more, with the same
+    a model): the plan, then the looks, then Make it; after it the cast and places OK, then
+    every clip at once; a take that misses a scripted line once more, with the same
     prompt; then the cut, one watch of it, and the delivery."""
     if s["being_made"] or s["held"]:
         return _go("wait", "What was started is still being made.")
@@ -792,11 +802,8 @@ def move(s: dict) -> dict:
         return _go("host", "The presenter's take of the whole narration is the long job: it "
                    "starts first, and the B-roll is made beside it.", note=s["motion"])  # fmt: skip
     made = [c for c in bare if not (c["talker"] or c["footage"])]  # those need a take of their own
-    if made and not any(c["takes"] for c in s["clips"]):
-        return _go("make_take", "The first clip alone, to check the set-up before the rest.",
-                   made[0]["clip_id"])  # fmt: skip
     if made:
-        return _go("make_take", "The first clip is in: every other clip is made at once.")
+        return _go("make_take", "Every clip is made at once.")
     if again := next((c for c in s["clips"] if c["missing"] and not c["rerolled"]), None):
         return _go("make_take", f"Its take didn't say a scripted line ({again['missing'][0]}): "
                    "made once more, with the same prompt.", again["clip_id"])  # fmt: skip
@@ -824,7 +831,6 @@ def _audio(s: dict) -> dict | None:
             "allowed": {"narrations_left": s["narrations_left"]}}  # fmt: skip
     if audio["tool"] == "song" and audio["state"] == "none" and not audio.get("style"):
         if s["style"] is None:  # nothing says how it should sound: the person does, once
-            recent = "; ".join(f"“{x}”" for x in audio.get("recent_styles") or [])
             return _go(
                 "ask",
                 "The song needs its style before it can be made.",
@@ -832,7 +838,7 @@ def _audio(s: dict) -> dict | None:
                     "kind": "question",
                     "topic": STYLE_TOPIC,
                     "question": STYLE_ASK,
-                    "why": STYLE_WHY + (f" This brand's recent songs: {recent}." if recent else ""),
+                    "why": STYLE_WHY,
                 },
             )
         if not s["style"]:
@@ -849,7 +855,7 @@ def step(db: Session, project: Project, run: dict, seen: dict) -> dict:
 
 
 READY_FIRST = _go("wait", "The plan is in hand: its start card is next.")
-GOING = _go("wait", "Make it is pressed: the first clip is next.")
+GOING = _go("wait", "Make it is pressed: the clips are next.")
 
 
 def act(db: Session, job: Job, storage) -> None:

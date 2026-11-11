@@ -485,7 +485,7 @@ def sfx(db: Session, tl: dict) -> list[dict]:
 def ready(db: Session, project: Project, storage) -> None:
     """What a cut needs before it's made, each in plain words (rule 22). A UGC talker's clips
     are cut from its one take first (free: talker.fill)."""
-    from app import footage_shot
+    from app import footage_shot, one_pass
     from app.routes.project_clips import _newest_breakdown, _stale
 
     if footage_shot.settle(db, project, first=False):  # a footage shot it can't use now
@@ -503,9 +503,14 @@ def ready(db: Session, project: Project, storage) -> None:
     if left := sum(c.picked_take_id is None for c in clips):  # every clip needs its take
         raise HTTPException(409, f"Make every clip's take first ({left} left).")
     # V6 has no per-clip Approve (Reed on #1329): a person's Make the cut is their OK on the takes
-    # in it. The director's own cut still needs each clip approved, which only a clean check
-    # (take_approval, rule 21) or a person's Use this take does.
-    if DIRECTOR_TOOL.get() and (left := sum(not c.approved for c in clips)):
+    # in it. The step-by-step director's own cut still needs each clip approved, which only a
+    # clean check (take_approval, rule 21) or a person's Use this take does; the one-pass
+    # director cuts with the takes it has (Reed, 11 Nov: video 370 never got its cut).
+    if (
+        DIRECTOR_TOOL.get()
+        and not one_pass.on(project)
+        and (left := sum(not c.approved for c in clips))
+    ):
         raise HTTPException(409, f"Approve every clip to make the video ({left} left).")
     if other := sum(looks.take_other(db, project, c) for c in clips):  # VS1: never mixed looks
         raise HTTPException(409, looks.OTHER.format("1 clip was" if other == 1

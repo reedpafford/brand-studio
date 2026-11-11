@@ -272,3 +272,15 @@ def test_a_clip_the_model_cannot_make_in_one_go_is_cut_where_a_shot_starts():
     _, fixes = one_pass.checked(asked, _plan([0.0, 4.3]))  # one shot longer than a clip can be
     assert fixes == ["clip c1 shot 1 runs 4.3 s, and this video model makes 3 s a clip at most: "
                      "start another shot inside it, on a word's start from <song>"]  # fmt: skip
+
+
+def test_a_narration_heard_saying_a_word_more_is_still_used(app, owner, db, monkeypatch):
+    """Reed, 11 Nov (video 379): "In" was heard before the first line, the take was refused
+    twice ("make it again") and the run stopped: a one-pass run has nobody to remake it."""
+    from app.providers import fake_local
+
+    heard = fake_local.hear_voice
+    monkeypatch.setattr(fake_local, "hear_voice", lambda path, text: [
+        {"word": "Quickly", "start": 0.0, "end": 0.1}, *heard(path, text)])  # fmt: skip
+    pid = _delivered(app, owner, db)
+    assert db.get(Project, pid).song_take_id
