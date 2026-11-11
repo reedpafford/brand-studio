@@ -1,7 +1,9 @@
 """Google's Gemini API, direct: Gemini Omni 1.2 Flash video takes (Reed, 10 Nov: "we go omni
-through google directly"). A take is one interaction: started in the background, checked on,
-and its video read from the answer. Written from Google's docs alone, read 10 Nov 2026: NO REAL
-CALL HAS BEEN MADE WITH THIS CODE YET, so the first one is its real test.
+through google directly") and Nano Banana pictures (Reed, 11 Nov: "any nano banana... through
+googles api directly. It is cheaper and better"). A take is one interaction: started in the
+background, checked on, and its video read from the answer; a picture is made in the one call
+and read the same way. Written from Google's docs alone (takes: read 10 Nov 2026, first real
+takes 11 Nov; pictures: read 11 Nov, NO REAL PICTURE HAS BEEN MADE WITH THIS CODE YET).
 
 What it relies on, and the page that says so (all under https://aistudio.google.com):
 - /docs/omni: the model is `gemini-omni-1.2-flash`; POST {base}/interactions with `input`
@@ -27,6 +29,13 @@ What it relies on, and the page that says so (all under https://aistudio.google.
 - /docs/pricing: $1.50 per 1M input tokens; output $12.00 per 1M video tokens (5,792 a second
   at 720p, about $0.07; 1,931 at 360p; 8,688 at 1080p; 17,376 at 4K) and $9.00 per 1M text.
 - /docs/file-input-methods: inline data up to 100 MB a request.
+- /docs/image-generation: `gemini-nano-banana-2.1` and `gemini-3-pro-image` (Nano Banana Pro);
+  the same POST with `input` [text, then each reference as {"type": "image", "mime_type",
+  "data"}] (14 at most) and `response_format` {"type": "image", "aspect_ratio", "image_size":
+  "1K" | "2K" | "4K"}; the picture is in `steps` like a video, as base64 `data`. Its page shows
+  no background form, so a picture is made in the one call. /docs/pricing: per 1M tokens,
+  2.1 $1.50 in, $30 out as pictures (a 2K picture 1,680 tokens, $0.0504), $7.50 as text; Pro
+  $2.00, $120 (1K or 2K 1,120 tokens, $0.134) and $12.00.
 
 Not in the docs (the likeliest to be wrong on first contact): that `background` works for
 Omni (its page only shows the one-call form: BS_GOOGLE_BACKGROUND=false makes takes that way);
@@ -56,7 +65,10 @@ TASKS = {"video": "edit", "image": "image_to_video", "last_frame": "image_to_vid
          "reference_images": "reference_to_video"}  # fmt: skip
 BUSY = ("rate_limit_exceeded", "too_many_requests", "quota_exceeded", "service_unavailable")
 BUSY_SAID = "Google's service is temporarily unavailable"  # clip_takes.BUSY_SAID: tried again
-USD_IN, USD_VIDEO, USD_TEXT = Decimal("1.50"), Decimal("12.00"), Decimal("9.00")  # per 1M tokens
+# $ per 1M tokens for each model: read in, what it makes (video or pictures), text
+RATES = {"gemini-omni-1.2-flash": ("1.50", "12.00", "9.00"),
+         "gemini-nano-banana-2.1": ("1.50", "30.00", "7.50"),
+         "gemini-3-pro-image": ("2.00", "120.00", "12.00")}  # fmt: skip
 TOKENS_A_SECOND = {"360p": 1931, "720p": 5792, "1080p": 8688, "4k": 17376}
 FILE = re.compile(r"files/([\w-]+)")
 
@@ -100,8 +112,11 @@ class GoogleProvider:
         model = get_model(input.get("model", ""), listed=True)
         if not model or not model.via or model.via.provider != self.name:
             raise RuntimeError(f"{input.get('model')!r} isn't made through Google.")
-        sent = body(model.via.provider_model, input["input"], self.background)
-        slow = {} if self.background else {"timeout": WHOLE}
+        if model.kind == "image":
+            sent, slow = picture(model.via.provider_model, input["input"]), {"timeout": WHOLE}
+        else:
+            sent = body(model.via.provider_model, input["input"], self.background)
+            slow = {} if self.background else {"timeout": WHOLE}
         return self._call("POST", "/interactions", json=sent, **slow)["id"]
 
     def cancel(self, ref: str) -> None:
@@ -116,13 +131,13 @@ class GoogleProvider:
         usage = _usage(found)
         if status != "completed":  # failed, cancelled, incomplete: with what it cost, if said
             return Result("failed", error=self._clean(_why(found)), usage=usage)
-        video = _video(found) or {}
+        video = _made(found) or {}
         if video.get("data"):  # in the answer itself: read from it again when it's saved
             return Result("succeeded", output={}, usage=usage,
                           files=[f"{self.base_url}/interactions/{ref}"])  # fmt: skip
         file = FILE.search(video.get("uri") or "")
         if not file:
-            return Result("failed", error="Google finished without a video.", usage=usage)
+            return Result("failed", error="Google finished with nothing made.", usage=usage)
         try:
             state = self._call("GET", f"/files/{file[1]}").get("state")
         except (RuntimeError, NotStarted):  # no word on it: the download itself will say
@@ -146,10 +161,13 @@ class GoogleProvider:
             found = self._call("GET", path)
         except NotStarted as busy:  # the take is made: saving it is tried again, never failed
             raise NetworkError(str(busy)) from busy
-        data = base64.b64decode((_video(found) or {}).get("data") or "")
+        made = _made(found) or {}
+        data = base64.b64decode(made.get("data") or "")
         if len(data) > self.max_download:
             raise RuntimeError("Output file is larger than the download cap.")
-        return data, "video/mp4"
+        return data, made.get("mime_type") or (
+            "image/png" if made.get("type") == "image" else "video/mp4"
+        )
 
     def _download(self, url: str) -> tuple[bytes, str]:
         """A file's bytes, following up to 3 redirects: the key only to the API's own address,
@@ -205,6 +223,16 @@ def body(model: str, given: dict, background: bool = True) -> dict:
     return sent
 
 
+def picture(model: str, given: dict) -> dict:
+    """An image job's input (app/images.py) as Google takes it: the prompt, then each
+    reference inline, and the shape and size it's drawn at."""
+    content = [{"type": "text", "text": given["prompt"]}]
+    content += [_media("image", url) for url in given.get("image_input") or []]
+    return {"model": model, "input": content,
+            "response_format": {"type": "image", "aspect_ratio": given["aspect_ratio"],
+                                "image_size": given.get("resolution") or "1K"}}  # fmt: skip
+
+
 def _media(key: str, url: str) -> dict:
     """A picture or clip (the worker's data URL) as an inline content item."""
     head, found, data = (url or "").partition(";base64,")
@@ -232,38 +260,45 @@ def _why(found: dict) -> str:
     return f"{head}: {json.dumps(errors)[:1800]}" if errors else head
 
 
-def _video(found: dict) -> dict | None:
-    """The video it made: in the model's own step, never the clip an edit was given."""
+def _made(found: dict) -> dict | None:
+    """The video or picture it made: in the model's own step (the last one: a picture can come
+    with drafts), never the clip an edit was given."""
     steps = [s for s in found.get("steps") or [] if s.get("type") == "model_output"]
     items = [c for s in steps for c in s.get("content") or []]
-    return next((c for c in items if c.get("type") == "video"), None)
+    return next((c for c in reversed(items) if c.get("type") in ("video", "image")), None)
 
 
 def _usage(found: dict) -> list[UsageItem]:
     """What it cost: the tokens Google counted at its list prices; when it counted none, a made
-    take's asked seconds at the catalogue's price, as an estimate. Neither said: nothing here,
-    and the worker records the job's own price as an estimate."""
+    take's asked seconds (or a picture) at the catalogue's price, as an estimate. Neither said:
+    nothing here, and the worker records the job's own price as an estimate."""
     used = found.get("usage") or {}
     asked = found.get("response_format")
     asked = asked if isinstance(asked, dict) else {}
-    resolution = asked.get("resolution") or "720p"  # Google's default, and what takes ask for
+    model = get_model(_catalogue_id(found.get("model")), listed=True)
+    image = bool(model and model.kind == "image")
+    resolution = asked.get("image_size" if image else "resolution") or ("2K" if image else "720p")
     said = re.fullmatch(r"(\d+)s", str(asked.get("duration") or ""))
     seconds = Decimal(said[1]) if said else Decimal(0)
     out = int(used.get("total_output_tokens") or 0)
     by_kind = {m.get("modality"): int(m.get("tokens") or 0)
                for m in used.get("output_tokens_by_modality") or []}  # fmt: skip
-    video = by_kind.get("video", out)  # "billing is based on total output token consumption"
-    if video:
-        text = max(0, out - video) + int(used.get("total_thought_tokens") or 0)
-        cost = (int(used.get("total_input_tokens") or 0) * USD_IN + video * USD_VIDEO
-                + text * USD_TEXT) / 1_000_000  # fmt: skip
-        made = Decimal(video) / TOKENS_A_SECOND.get(resolution, TOKENS_A_SECOND["720p"])
-        return [UsageItem(seconds or made.quantize(Decimal("0.1")), "second",
-                          cost.quantize(Decimal("0.0001")))]  # fmt: skip
-    model = get_model(_catalogue_id(found.get("model")), listed=True)
-    if found.get("status") != "completed" or not seconds or not model:
+    made = by_kind.get("image" if image else "video", out)  # "billing is based on total output"
+    if made:
+        usd_in, usd_made, usd_text = (Decimal(r) for r in RATES.get(
+            found.get("model"), RATES["gemini-omni-1.2-flash"]))  # fmt: skip
+        text = max(0, out - made) + int(used.get("total_thought_tokens") or 0)
+        cost = ((int(used.get("total_input_tokens") or 0) * usd_in + made * usd_made
+                 + text * usd_text) / 1_000_000).quantize(Decimal("0.0001"))  # fmt: skip
+        if image:
+            return [UsageItem(Decimal(1), "image", cost)]
+        length = Decimal(made) / TOKENS_A_SECOND.get(resolution, TOKENS_A_SECOND["720p"])
+        return [UsageItem(seconds or length.quantize(Decimal("0.1")), "second", cost)]
+    if found.get("status") != "completed" or not model or not (image or seconds):
         return []
     price = model.via.usd.get(resolution) or max(model.via.usd.values())
+    if image:
+        return [UsageItem(Decimal(1), "image", price, estimated=True)]
     return [UsageItem(seconds, "second", seconds * price, estimated=True)]
 
 
