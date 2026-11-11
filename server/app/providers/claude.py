@@ -51,11 +51,12 @@ class ClaudeProvider:
     name = "claude"
     paid = True
     sync = True
+    shows_thinking = True  # `run` takes `live`: the call's stream as it comes (app/thinking.py)
 
     def __init__(self, key: str, client: anthropic.Anthropic | None = None):
         self._key, self._client = key, client
 
-    def run(self, kind: str, input: dict) -> Result:
+    def run(self, kind: str, input: dict, live=None) -> Result:
         """`input`: {"step", "system": [parts], "prompt", "effort"?, "max_tokens"?}, and for a
         check that looks at pictures, "files": {"reference_images": [file ids]}, sent as data
         URLs. With "parts" (e.g. clip prompts, one clip each), each part is asked on its
@@ -71,7 +72,7 @@ class ClaudeProvider:
         def one(part: str, first: bool = False):
             try:
                 if not part:
-                    return self._ask(input, input["prompt"])
+                    return self._ask(input, input["prompt"], live=live)
                 return self._ask(input, part, shared=input["prompt"],
                                  started=begun.set if first else None)  # fmt: skip
             except (ClaudeError, NotStarted, NetworkError) as exc:
@@ -108,7 +109,7 @@ class ClaudeProvider:
             output["failed_parts"] = failed
         return Result("succeeded", output=output, usage=usage)
 
-    def _ask(self, input: dict, prompt: str, shared: str = "", started=None):
+    def _ask(self, input: dict, prompt: str, shared: str = "", started=None, live=None):
         if not self._key:
             raise NoKey("Claude")
         client = self._client or make_client(self._key)
@@ -125,6 +126,7 @@ class ClaudeProvider:
                 started=started,
                 strict=input["step"] not in LOOSE,
                 model=model_for(input["step"]),
+                live=live,
                 **({"max_tokens": input["max_tokens"]} if "max_tokens" in input else {}),
             )
         except (

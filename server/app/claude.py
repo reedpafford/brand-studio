@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
 
-from anthropic import Anthropic, DefaultHttpxClient
+from anthropic import Anthropic, BadRequestError, DefaultHttpxClient
 from pydantic import BaseModel, ValidationError
 
 MODEL = "claude-opus-5-5"
@@ -103,6 +103,7 @@ def ask[T: BaseModel](
     started: Callable[[], None] | None = None,
     strict: bool = True,
     model: str = MODEL,
+    live: Callable[[str, str], None] | None = None,
 ) -> Answer[T]:
     """One structured call. `system` is the fixed parts (base prompt, then the brand's);
     the cache mark on the last part caches them all together. `images` (data URLs) go
@@ -115,7 +116,12 @@ def ask[T: BaseModel](
     `strict` False: no constrained decoding (for a schema too complex for Anthropic's grammar
     limit, the director's): the schema goes in the system prompt, the answer is JSON in text,
     checked here against `schema`, and asked once more with the problems if it doesn't fit.
-    `model`: the model asked (one of PRICES); the call is costed at that model's price."""
+    `model`: the model asked (one of PRICES); the call is costed at that model's price.
+    `live` is told the answer as it streams, for the page to show (app/thinking.py): ("thinking",
+    words) for Claude's own summary of its reasoning, which is asked for only then (the same
+    thinking at the same price, shown instead of hidden), and ("text", words) for the answer's
+    JSON. If Anthropic refuses the request that way (a 400, never billed), it is asked as it
+    always was."""
     max_tokens = min(max_tokens, MOST_TOKENS)
     blocks = [{"type": "text", "text": text} for text in system]
     if not strict:
@@ -131,26 +137,39 @@ def ask[T: BaseModel](
     if not strict:
         return _loose(client, schema, started, len(images), messages=messages, model=model,
                       max_tokens=max_tokens, system=blocks, effort=effort)  # fmt: skip
-    # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
-    with client.beta.messages.stream(
-        model=model,
-        max_tokens=max_tokens,
-        system=blocks,
-        messages=messages,
-        thinking={"type": "adaptive"},
-        output_config={"effort": effort},
-        output_format=schema,
-        betas=[FALLBACK_BETA],
-        fallbacks="default",
-    ) as stream:
-        try:
-            if started:
-                next(stream, None)  # the first event: the prompt is read and cached by now
-                started()
-            response = stream.get_final_message()
-        except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
-            cut = any("EOF" in e["msg"] for e in exc.errors())  # the JSON stops mid-way
-            raise ClaudeError(RAN_OUT if cut else UNREADABLE, _cost_so_far(stream, model)) from exc
+
+    def streamed(show: bool):
+        # Streamed: long answers (breakdowns) can take longer than the SDK allows unstreamed.
+        with client.beta.messages.stream(
+            model=model,
+            max_tokens=max_tokens,
+            system=blocks,
+            messages=messages,
+            thinking={"type": "adaptive", **({"display": "summarized"} if show else {})},
+            output_config={"effort": effort},
+            output_format=schema,
+            betas=[FALLBACK_BETA],
+            fallbacks="default",
+        ) as stream:
+            try:
+                if started:
+                    next(stream, None)  # the first event: the prompt is read and cached by now
+                    started()
+                for event in stream if show else ():
+                    _tell(live, event)
+                return stream.get_final_message()
+            except ValidationError as exc:  # the JSON was cut off (max_tokens) or malformed
+                cut = any("EOF" in e["msg"] for e in exc.errors())  # the JSON stops mid-way
+                cost = _cost_so_far(stream, model)
+                raise ClaudeError(RAN_OUT if cut else UNREADABLE, cost) from exc
+
+    try:
+        response = streamed(live is not None)
+    except BadRequestError:
+        if live is None:
+            raise
+        log.warning("claude: the request that shows its thinking was refused; asked without")
+        response = streamed(False)
     cost, tokens = _cost(response.usage, model), counts(response.usage, len(images))
     if response.stop_reason == "refusal":
         category = response.stop_details.category if response.stop_details else None
@@ -160,6 +179,20 @@ def ask[T: BaseModel](
     if response.parsed_output is None:
         raise ClaudeError(UNREADABLE, cost)
     return Answer(response.parsed_output, response.model, cost, tokens)
+
+
+def _tell(live, event) -> None:
+    """One streamed event's words to `live`; whatever it does with them never stops the call."""
+    if getattr(event, "type", "") != "content_block_delta":
+        return
+    delta = event.delta
+    kind = {"thinking_delta": "thinking", "text_delta": "text"}.get(getattr(delta, "type", ""))
+    words = getattr(delta, "thinking" if kind == "thinking" else "text", "") if kind else ""
+    if words:
+        try:
+            live(kind, words)
+        except Exception:  # noqa: BLE001 - showing progress is never worth a paid call
+            log.warning("claude: the live view failed", exc_info=True)
 
 
 SHAPE = (

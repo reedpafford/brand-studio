@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, CircleCheckBig, CircleStop, Clock, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { api, errorText, polled } from "../api/client";
@@ -146,6 +146,40 @@ function useElapsed(iso: string, on: boolean) {
   }, [on]);
   return Math.max(0, Math.round((now - serverTime(iso).getTime()) / 1000));
 }
+/** What the director's call in hand is thinking and has written so far (the plan step), read every 2 s while the card
+ *  is quiet: Claude's own summary of its reasoning, and the plan's hook, story and clips as each is written. */
+function useThinking(projectId: number | undefined, on: boolean) {
+  return useQuery({
+    queryKey: ["run-thinking", projectId],
+    enabled: on && !!projectId,
+    refetchInterval: 2000,
+    queryFn: () => polled(api.GET("/projects/{project_id}/director/thinking", { params: { path: { project_id: projectId! } } }), null),
+  }).data;
+}
+
+/** The thinking as it comes: its last lines in a short window that stays at the newest words; "Show all" opens it. */
+function Thinking({ words }: { words: string }) {
+  const [all, setAll] = useState(false);
+  const box = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [words, all]);
+  return (
+    <div className="animate-fade rounded-md bg-surface-2 px-3 py-2">
+      <div className="flex items-center gap-2 pb-1">
+        <span className="text-xs font-semibold text-muted">Thinking</span>
+        <span className="flex-1" />
+        <button type="button" aria-expanded={all} onClick={() => setAll(!all)} className="rounded-sm text-xs text-muted hover:text-text">
+          {all ? "Show less" : "Show all"}
+        </button>
+      </div>
+      <p ref={box} aria-live="off" className={`overflow-y-auto whitespace-pre-wrap text-sm text-muted ${all ? "max-h-80" : "fade-top max-h-20"}`}>
+        {words}
+      </p>
+    </div>
+  );
+}
+
 // What a step is doing while nothing can be shown for it yet, and how long that usually is.
 const QUIET: Record<string, string> = {
   read: "Reading the script, the style’s guide and the brand kit.",
@@ -157,7 +191,7 @@ const LONG = 60; // a long video (S3-13: 118 clips) reads as a row a scene, not 
 
 /** The run's one live card (S3-03 folded, S3-04 open, S3-08 stopped, S3-11 failed, S3-12 revising, S3-13 long; P-04 on a
  *  phone): its head, the strip of frames, and every step a press away. */
-export function RunCard({ progress: r, phone }: { progress: Progress; phone: boolean }) {
+export function RunCard({ progress: r, phone, projectId }: { progress: Progress; phone: boolean; projectId?: number }) {
   const [open, setOpen] = useState(false);
   const long = r.clips > LONG;
   const steps = (
@@ -189,6 +223,7 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
   const quiet = (r.status === "working" || r.status === "revising") && !r.scenes.length;
   const elapsed = useElapsed(r.started_at, quiet);
   const at = r.steps.find((s) => s.state === "now");
+  const live = useThinking(projectId, quiet);
   const body = quiet ? (
     <div className="flex flex-col gap-2">
       <div className="h-1 overflow-hidden rounded-sm bg-surface-3" aria-hidden>
@@ -197,6 +232,22 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
       <p className="text-sm text-muted">
         {(at && QUIET[at.key]) || (at ? `${at.text}.` : "Working.")} It keeps going if you leave this page.
       </p>
+      {live?.thinking && <Thinking words={live.thinking} />}
+      {!!live?.written.length && (
+        <ol aria-label="The plan so far" className="flex flex-col gap-1">
+          {live.written.map((line, i) => {
+            const [label, ...rest] = line.split(": ");
+            return (
+              <li key={i} className="animate-rise flex items-start gap-2 text-sm">
+                <Check size={14} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0 text-success" />
+                <span className="min-w-0">
+                  <span className="font-medium">{label}</span> <span className="text-muted">{rest.join(": ")}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   ) : long ? (
     <div>

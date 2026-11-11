@@ -4683,6 +4683,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/director/thinking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Thinking Now
+         * @description What the director's call in hand is thinking and has written so far (app/thinking.py):
+         *     null when no such call is running or it has said nothing yet. Free to read.
+         */
+        get: operations["thinking_now_projects__project_id__director_thinking_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/variations": {
         parameters: {
             query?: never;
@@ -12892,6 +12913,13 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /** ThinkingOut */
+        ThinkingOut: {
+            /** Thinking */
+            thinking: string;
+            /** Written */
+            written: string[];
         };
         /** ThreadItem */
         ThreadItem: {
@@ -23447,6 +23475,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProgressOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    thinking_now_projects__project_id__director_thinking_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThinkingOut"] | null;
                 };
             };
             /** @description Validation Error */

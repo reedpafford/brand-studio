@@ -607,7 +607,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
               // The newest run: its one live card (S3-03…S3-13), then what stopped it, if anything.
               <Fragment key={t.id}>
                 <Item t={t} owner={owner} words={null}>
-                  <RunCard progress={progress} phone={phone} />
+                  <RunCard progress={progress} phone={phone} projectId={p?.id} />
                   {heldSend(t)}
                 </Item>
                 {stopLines(progress).map((line) => (
