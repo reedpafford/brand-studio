@@ -55,7 +55,8 @@ FRAMING = "The action stays in the upper two-thirds of the frame, the bottom cor
 # own fields): the video is a Dialogue one with one speaker, and B-roll laid over their voice.
 TALKER = ("{who} presents this video and says every spoken line of the script to camera, "
           "filling the frame, in clips of their own: a line with no speaker label is theirs "
-          "too. Their lines in one place share one clip of up to {most} s, in script order, as "
+          "too. With no look in <cast>, they are in `roles` under that name, with what to "
+          "draw. Their lines in one place share one clip of up to {most} s, in script order, as "
           "few clips as the lines allow, each ending where one of the script's sentences ends. "
           "Size each clip to its words: about 2.6 words a second (2.1 for a slow, heavy line) "
           "plus about 1 s. Never a filler word to pad one.\n"
