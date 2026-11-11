@@ -126,3 +126,29 @@ def test_a_plan_made_again_keeps_the_clips_a_note_leaves_alone():
     kept = one_pass._kept(old, new, "Redo clip 2 wider.")
     assert kept["clips"][0] == old["clips"][0] and kept["clips"][1] == new["clips"][1]
     assert one_pass._kept(old, new, "Make it all warmer.") == new  # no clip named: as planned
+
+
+def test_a_presenter_the_plan_names_as_the_script_describes_them_is_still_the_presenter():
+    """Videos 370 and 390 (11 Nov): the script says "a dad in his fifties talks to his phone",
+    the plan cast "Dad", and four plans in a row were refused: "The presenter: in a shot, but
+    neither in <cast> nor in `roles`"."""
+    script = "[A dad in his fifties talks to his phone in his truck.]\nI voted for this."
+    asked = {**ASKED, "script": script, "cast": [], "talker": "The presenter"}
+    shot = {
+        "seconds": 5,
+        "camera": "Chest-up, locked",
+        "action": "He talks to the lens.",
+        "people": ["Dad"],
+        "extras": "",
+        "line": 2,
+        "how": "angry",
+        "at": 0,
+    }
+    clip = {**_plan()["clips"][0], "kind": "host", "shots": [shot]}
+    plan = {**_plan(), "clips": [clip], "voices": [{"who": "Dad", "sounds": "a gravelly baritone"}],
+            "roles": [{"name": "Dad", "description": "A weathered man in his fifties"}]}  # fmt: skip
+    out, fixes = one_pass.checked(asked, plan)
+    assert fixes == []
+    assert [r["name"] for r in out["roles"]] == ["The presenter"]
+    assert out["clips"][0]["shots"][0]["people"] == out["voices"][0]["who"].split("|") == [
+        "The presenter"]  # fmt: skip
