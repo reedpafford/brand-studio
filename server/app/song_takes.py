@@ -110,7 +110,8 @@ def _request(
                          narration.job(said, voice, note, **(delivery or {})))  # fmt: skip
         except ValueError as no:
             raise HTTPException(422, str(no)) from None
-        job_input = {**job_input, "step": "song_take", "on_script": draft.script_id}
+        job_input = narration.in_parts(
+            {**job_input, "step": "song_take", "on_script": draft.script_id})  # fmt: skip
         if project is not None:  # a changed host voice waits for the cast and places OK
             from app import cast_gate
 
@@ -210,11 +211,13 @@ def _time(db: Session, take: SongTake, user: User, spread: bool = False) -> None
     if take.kind == narration.KIND:  # its marked pauses kept; a UGC talker's a breath, in a room
         from app import talker
 
-        ugc = bool(video and talker.minimax(db, video))
+        ugc, made = bool(video and talker.minimax(db, video)), db.get(Job, take.job_id)
+        parts = made.output["file_ids"]  # more than one: read in parts, not joined yet
+        rest = [db.get(StoredFile, f).key for f in parts[1:]] if take.file_id == parts[0] else []
         read = {
-            "pause": narration.TALKER_KEEP if ugc
-            else narration.kept_pause(db.get(Job, take.job_id).input),
+            "pause": narration.TALKER_KEEP if ugc else narration.kept_pause(made.input),
             "room": talker.place(db, video) if video and talker.on(db, video) else "",
+            **({"more_keys": rest} if rest else {}),  # read in parts: joined, then heard
         }  # fmt: skip
     job = enqueue(db, user, kind,
                   {"song_key": song.key, "lyrics": lyrics, "step": "song_timing",

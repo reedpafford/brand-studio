@@ -307,3 +307,35 @@ def test_a_take_with_no_length_reported_is_charged_its_length_not_failed(sent, s
     assert result.state == "succeeded", result.error
     (usage,) = result.usage
     assert (usage.units, usage.unit, usage.estimated) == (Decimal(seconds), "second", True)
+
+
+def test_a_narration_in_parts_is_one_prediction_a_part_and_done_when_all_are():
+    """A narration longer than its voice reads at once (narration.in_parts): each part is its
+    own prediction in the same voice, and the job has every part's file, in order."""
+    posted, state = [], {"n2": "processing"}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            posted.append(json.loads(request.content)["input"])
+            return httpx.Response(201, json={"id": f"n{len(posted)}", "status": "starting"})
+        ref = str(request.url).rsplit("/", 1)[-1]
+        said = {"n1": "One.", "n2": "Two."}[ref]
+        return httpx.Response(200, json={
+            "id": ref, "status": state.get(ref, "succeeded"), "input": {"prompt": said},
+            "version": get_model("elevenlabs-v3").provider_version,
+            "output": f"https://replicate.delivery/{ref}.mp3"})  # fmt: skip
+
+    provider = ReplicateProvider(BASE, httpx.Client(transport=httpx.MockTransport(handler)),
+                                 token="test-token")  # fmt: skip
+    asked = {"model": "elevenlabs-v3", "parts": ["One.", "Two."],
+             "input": {"prompt": "One. Two.", "voice": "Sarah"}}  # fmt: skip
+    ref = provider.submit("speech", asked)
+    assert ref == "n1+n2" and posted == [{"prompt": "One.", "voice": "Sarah"},
+                                         {"prompt": "Two.", "voice": "Sarah"}]  # fmt: skip
+    assert provider.poll(ref).state == "running"  # one part still being read
+    state["n2"] = "failed"
+    assert provider.poll(ref).state == "failed"
+    state["n2"] = "succeeded"
+    done = provider.poll(ref)
+    assert done.files == ["https://replicate.delivery/n1.mp3", "https://replicate.delivery/n2.mp3"]
+    assert sum(u.units for u in done.usage) == Decimal("0.008")  # both parts' characters

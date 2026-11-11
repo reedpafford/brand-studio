@@ -16,6 +16,23 @@ def test_upload_then_download(editor):
     assert r.headers["x-content-type-options"] == "nosniff"
 
 
+def test_a_download_gives_its_database_connection_back_before_the_file_is_read(app, editor):
+    """A page's pictures and videos are most of its requests, and the slowest to send. Each
+    held one of the API's 15 database connections until its last byte left, so a few open
+    video pages could leave none for anything else (every other call then waits 30 s and
+    fails)."""
+    file_id = upload(editor)
+    pool, read, held = app.state.sessionmaker.kw["bind"].pool, app.state.storage.get, []
+
+    def get(key):
+        held.append(pool.checkedout())
+        return read(key)
+
+    app.state.storage.get = get
+    assert editor.get(f"/files/{file_id}").content == PNG
+    assert held == [0]
+
+
 def test_rejects_svg(owner):
     r = owner.post("/files", files={"upload": ("x.svg", b"<svg/>", "image/svg+xml")})
     assert r.status_code == 415

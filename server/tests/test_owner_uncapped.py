@@ -156,8 +156,8 @@ def test_spend_counts_list_prices_and_sent_jobs_and_says_so(app, db, owner, edit
                status=JobStatus.succeeded, provider_ref="p1")  # fmt: skip
     listed = Job(**base, kind="speech", provider="replicate", credits=Decimal(30),
                  status=JobStatus.succeeded, provider_ref="p2")  # fmt: skip
-    dropped = Job(**base, kind="video", provider="replicate", credits=Decimal(10),
-                  status=JobStatus.failed, provider_ref="p3")  # fmt: skip
+    dropped = Job(**base, kind="write-claude", provider="claude", credits=Decimal(10),
+                  status=JobStatus.failed, provider_ref="sync")  # fmt: skip
     db.add_all([told, listed, dropped])
     db.flush()
     use = {"workspace_id": 1, "provider": "replicate", "kind": "speech", "units": Decimal(1),

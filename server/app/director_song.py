@@ -252,7 +252,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         if reason in REFUSED or run.get("song_retries", 0) >= 1:  # the same would fail again
             return f"Refused: the {what} didn't come out ({reason}) Make it again with a note."
         last = run.get("song_note", "")  # the same request again: its style line too
-        voice = run.get("song_voice") or narration.VOICE  # a narration keeps its voice
+        # a narration keeps its voice, unless a person set the video's since (Carry on)
+        voice = narrator(db, project, run.get("song_voice")) or narration.VOICE
         song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice,
                         delivery=run.get("song_delivery"), before=before)  # fmt: skip
         run["song_retries"] = run.get("song_retries", 0) + 1  # charged only if it's made

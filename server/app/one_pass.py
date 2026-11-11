@@ -60,15 +60,14 @@ RUN = "director_run"  # director.RUN
 CARD = "start_card"  # `move`'s step for "ready for Make it": the run's start card comes
 STORED = ("make_take", "final_cut", "host")  # steps that read files: the worker's own turn
 STILL = "The plan still couldn't be used after one more try: "
-PLAN_FAILED = ("It stopped: the plan couldn't be made ({why}). Nothing was charged for it. "
-               "Start it again to try once more, or change the script first.")  # fmt: skip
+PLAN_FAILED = ("It stopped: the plan couldn't be made ({why}). Start it again to try once "
+               "more, or change the script first.")  # fmt: skip
 STYLE_TOPIC = "The song's style"  # the card a song with no style line asks, once
 STYLE_ASK = "What should the song sound like?"
 STYLE_WHY = ("Reply with the genre, the voice and the tempo, like “bright pop, warm female "
              "vocal, 110 bpm”. The song is made in it, and the video is timed to the "
              "song.")  # fmt: skip
-MISSED = "twice running its answer left out or repeated a script line"
-OFF_TRACK = "twice running its shots didn't fit the times of the narration or song"
+TWICE = "twice running its answer had this wrong: "  # then the check's own first words
 NOT_PLANNED = ("It stopped: planning this change is waiting on the owner's OK, and nothing "
                "can be made without a plan. Press Make it again to plan it.")  # fmt: skip
 NO_LOOK = ("It stopped: {} and couldn't be drawn. Upload or pick a look in Cast, then press "
@@ -739,8 +738,9 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
         "fresh": director.fresh(db, project, run)[0],
         "open_notes": [n for n in range(1, len(notes) + 1) if n not in closed] if not kept else [],
         "kept": kept, "plan_failed": failed,
-        "why_failed": next(((OFF_TRACK if j.input.get("audio") else MISSED)
-                            if (j.error_detail or "").startswith(STILL) else j.error
+        "why_failed": next((TWICE + j.error_detail.removeprefix(STILL).split("; ")[0]
+                            if (j.error_detail or "").startswith(STILL)
+                            else clip_prompts.cause(j.error or "", j.error_detail or "")
                             for j in reversed(mine) if j.status == JobStatus.failed), ""),
         "ok": bool(run.get("ok", True)), "hold": bool(run.get("hold")),
         "being_made": len(busy) - len(beside), "held": seen.get("held_for_owner") or [],
@@ -751,6 +751,7 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
         "cut_failed": (seen.get("cut_failed") or {}).get("why", ""),
         "watch": {k: (seen.get("watch") or {}).get(k) for k in ("state", "current")},
         "last": (last.output or {}).get("tool") if last else None,
+        "refused": last.input["result"].partition("Refused: ")[2] if last else "",
     }  # fmt: skip
 
 
@@ -765,8 +766,7 @@ def move(s: dict) -> dict:
         return sound
     if not s["planned"] or s["open_notes"] or s["fresh"]:
         if s["plan_failed"] >= 2:
-            return _go("stop", PLAN_FAILED.format(why=(s["why_failed"] or "").rstrip(". ")
-                                                  or "the answer couldn't be used"))  # fmt: skip
+            return _go("stop", PLAN_FAILED.format(why=s["why_failed"].rstrip(". ")))
         if s["kept"]:
             return _go("stop", NOT_PLANNED)
         # never "Note N" here: a note is answered once its plan lands (`save`), not when asked
@@ -811,8 +811,12 @@ def move(s: dict) -> dict:
         return _go("wait", "Every clip has its take: the presenter's own is still being made.")
     if s["cut"] != "made" or s["edits"]:
         if s["last"] == "final_cut":  # it made the cut just now, and it still isn't one
-            return _go("stop", CUT_FAILED.format((s["cut_failed"] or "a clip changed since")
-                                                 .rstrip(".")))  # fmt: skip
+            return _go(
+                "stop",
+                CUT_FAILED.format(
+                    (s["cut_failed"] or s["refused"] or "a clip changed since").rstrip(".")
+                ),
+            )
         return _go("final_cut", "Every clip has its take: the cut is made.")
     if not s["watch"]["current"]:
         return _go("watch_cut", "The cut is watched once, as a viewer meets it.")

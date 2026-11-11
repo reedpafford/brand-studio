@@ -53,19 +53,28 @@ class ReplicateProvider:
         return r.json()
 
     def submit(self, kind: str, input: dict) -> str:
-        """`input` is {"model": <catalogue id>, "input": {...Replicate input...}}."""
-        model = _model(input)
+        """`input` is {"model": <catalogue id>, "input": {...Replicate input...}}. With
+        "parts" (a narration longer than its voice reads at once, narration.in_parts): one
+        prediction a part, their ids joined with "+"."""
+        model, said = _model(input), input["input"]
+        path, body = "/predictions", {"version": model.provider_version}
         if not model.provider_version:  # an official model runs on its model's own endpoint
-            path = f"/models/{model.provider_model}/predictions"
-            return self._call("POST", path, json={"input": input["input"]})["id"]
-        body = {"version": model.provider_version, "input": input["input"]}
-        return self._call("POST", "/predictions", json=body)["id"]
+            path, body = f"/models/{model.provider_model}/predictions", {}
+        key = "prompt" if "prompt" in said else "text"
+        each = [{**said, key: part} for part in input.get("parts") or []] or [said]
+        return "+".join(self._call("POST", path, json={**body, "input": x})["id"] for x in each)
 
     def cancel(self, ref: str) -> None:
         """Stop a prediction that ran past our time limit (Replicate: POST .../cancel)."""
-        self._call("POST", f"/predictions/{ref}/cancel")
+        for one in ref.split("+"):
+            self._call("POST", f"/predictions/{one}/cancel")
 
     def poll(self, ref: str) -> Result:
+        if "+" in ref:  # read in parts: failed if one did, done when all are, files in order
+            found = [self.poll(one) for one in ref.split("+")]
+            return next((r for state in ("failed", "running") for r in found if r.state == state),
+                        Result("succeeded", output={}, files=[f for r in found for f in r.files],
+                               usage=[u for r in found for u in r.usage]))  # fmt: skip
         p = self._call("GET", f"/predictions/{ref}")
         status = p.get("status")
         if status in ("starting", "processing"):
