@@ -126,6 +126,11 @@ class LocalProvider:
         voice = folder / "narration.mp3"
         voice.write_bytes(self.storage.get(input["song_key"]))
         try:
+            if more := input.get("more_keys"):  # read in parts (narration.in_parts): joined
+                rest = [folder / f"part{k}.mp3" for k in range(len(more))]
+                for path, key in zip(rest, more, strict=True):
+                    path.write_bytes(self.storage.get(key))
+                voice = narration.join([voice, *rest], folder / "whole.mp3")
             timing, trimmed = narration.measure(
                 voice,
                 input["lyrics"],
@@ -141,11 +146,14 @@ class LocalProvider:
         except Exception:
             shutil.rmtree(folder, ignore_errors=True)
             raise
-        voice.unlink()
-        if trimmed is None:
+        keep = trimmed or (voice if more else None)  # joined parts are kept, trimmed or not
+        if keep is None:
             shutil.rmtree(folder, ignore_errors=True)
             return Result("succeeded", output={"timing": timing})
-        return Result("succeeded", output={"timing": timing}, files=[f"local://{trimmed}"])
+        for f in folder.iterdir():
+            if f != keep:
+                f.unlink()
+        return Result("succeeded", output={"timing": timing}, files=[f"local://{keep}"])
 
     def _hear_take(self, input: dict) -> Result:
         """A take's words; with `watch`, also what the director's look needs (app/take_watch):

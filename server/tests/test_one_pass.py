@@ -81,15 +81,10 @@ def test_a_dialogue_video_is_planned_in_one_call_and_delivered(app, owner, db):
     assert "3 clips" in note["made"] and "tell me which clip" in note["needs"]
 
 
-def test_the_pilot_clip_is_made_alone_then_the_others_together(app, owner, db):
+def test_every_clip_is_made_at_once(app, owner, db):
     _delivered(app, owner, db)
     takes = [(tool, clip, said) for tool, clip, said in _turns(db) if tool == "make_take"]
-    assert takes == [("make_take", "c1", "Making 1 take."), ("make_take", None, "Making 2 takes.")]
-    first, *rest = _jobs(db, "clip_take")
-    turn = next(j for j in _jobs(db, "director") if (j.output or {}).get("clip_id") is None
-                and (j.output or {}).get("tool") == "make_take")  # fmt: skip
-    assert first.finished_at <= turn.created_at  # the pilot landed before the rest started
-    assert all(j.created_at >= turn.created_at for j in rest)
+    assert takes == [("make_take", None, "Making 3 takes.")]  # no pilot clip first
 
 
 def test_the_tabs_read_what_the_plan_made(app, owner, db):
@@ -148,8 +143,9 @@ def test_a_plan_that_still_misses_a_line_shows_nothing_and_says_what_to_do(app, 
     assert not _jobs(db, "treatment") and not db.query(ProjectClip).count()
     assert owner.get(f"/projects/{pid}/plan").status_code == 204
     out = owner.get(f"/projects/{pid}/director").json()
-    assert out["status"] != "running" and out["ended"] == one_pass.PLAN_FAILED.format(
-        why=one_pass.MISSED)  # fmt: skip
+    assert out["status"] != "running" and out["ended"] == (
+        "It stopped: the plan couldn't be made (twice running its answer had this wrong: line 8 "
+        "is in no shot). Start it again to try once more, or change the script first.")  # fmt: skip
     assert fs.json()["id"]
 
 
@@ -166,6 +162,21 @@ def test_a_take_that_misses_a_line_is_made_once_more_with_the_same_prompt(app, o
     assert any("And we were ready." in x for x in note["open"])  # the second miss: said
     assert "made it once more" in note["made"]
     assert db.get(Project, pid).engine == one_pass.ENGINE
+
+
+def test_the_one_pass_directors_cut_needs_no_clip_approved(app, owner, db):
+    """Reed, 11 Nov (video 370): a real-footage clip's prompt had problems, so it was never
+    approved, the director's cut was refused for it, and the run stopped at every Carry on."""
+    from app import cut
+    from app.routes.jobs import DIRECTOR_TOOL
+
+    project = db.get(Project, _delivered(app, owner, db))
+    db.query(ProjectClip).update({"approved": False})
+    token = DIRECTOR_TOOL.set(True)
+    try:
+        cut.ready(db, project, app.state.storage)  # never "Approve every clip"
+    finally:
+        DIRECTOR_TOOL.reset(token)
 
 
 def test_a_note_after_delivery_remakes_only_the_clip_it_names(app, owner, db):
@@ -244,6 +255,20 @@ def test_stop_then_carry_on_makes_no_claude_turn(app, owner, db):
     assert len({j.input[director.RUN]["id"] for j in _jobs(db, "director")}) == 1  # the same run
 
 
+def test_a_brands_place_with_no_picture_is_never_offered_to_the_plan(app, owner, db):
+    """Reed, 11 Nov (videos 373, 383): the plan named a brand place nobody had drawn, no step
+    draws one, and its clips waited on a person's Make one."""
+    from app.models.brands import Brand
+    from app.models.library import Kind, LibraryItem
+
+    place = LibraryItem(workspace_id=1, kind=Kind.place, name="Kitchen", brands=[db.get(Brand, 1)])
+    db.add(place)
+    db.commit()
+    _delivered(app, owner, db)
+    (plan,) = _jobs(db, "one_pass")
+    assert f"place:{place.id}" not in plan.input["assets"]
+
+
 def test_the_picked_products_reach_the_plan_call(app, owner, db):
     item = product(db, 1, "Peanut butter bag")
     db.commit()
@@ -314,7 +339,7 @@ def test_a_plan_that_cannot_be_saved_leaves_nothing_and_stops_after_one_more_try
     assert [(j.status, j.error) for j in plans] == [("failed", "Its answer couldn't be saved.")] * 2
     assert not _jobs(db, "treatment") and not db.query(ProjectClip).count()  # none of it kept
     out = owner.get(f"/projects/{_video(db).id}/director").json()
-    assert out["ended"].startswith("It stopped: the plan couldn't be made (Its answer couldn't")
+    assert out["ended"].startswith("It stopped: the plan couldn't be made (it was written but")
 
 
 def test_the_treatment_card_gives_each_beat_its_clips_real_span(app, owner, db):
@@ -451,3 +476,90 @@ def test_a_screen_the_clip_names_is_attached_whichever_shot_shows_it(app, owner,
     take = _jobs(db, "clip_take")[0]
     assert len(take.input["files"]["reference_images"]) == len(clip["references"])
     assert take.input["exact_file_ids"]  # sent as given, never lossy (rules 13 and 14)
+
+
+def test_a_look_that_failed_while_the_picture_service_was_down_is_drawn_after_carry_on(
+    app, owner, db
+):
+    """Reed, 11 Nov (video 379): every sheet failed for an hour (the provider's fault), the run
+    stopped, and Carry on never drew them again: "needs a look and couldn't be drawn"."""
+    app.state.settings.fake_providers = True
+    app.state.stand_ins = providers = get_providers(app.state.settings, app.state.storage)
+    real = providers["replicate"].submit
+
+    def down(kind, input):
+        if input.get("step") == "sheet":
+            raise RuntimeError("the picture service is down")
+        return real(kind, input)
+
+    providers["replicate"].submit = down
+    fs = owner.post("/freestyles", json=BODY).json()
+    _run(app, db)
+    pid = _video(db).id
+    assert "failed" in owner.get(f"/projects/{pid}/director").json()["ended"]  # it stopped
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201  # still down
+    _run(app, db)
+    providers["replicate"].submit = real  # the service is back
+    assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+    _run(app, db)
+    out = owner.get(f"/projects/{pid}/director").json()
+    assert owner.get(f"/freestyles/{fs['id']}").json()["status"] == "delivered", (
+        out["ended"],
+        [(t["tool"], t["result"]) for t in out["turns"]],
+    )
+
+
+def test_a_cut_that_is_refused_stops_saying_why(app, owner, db, monkeypatch):
+    """Reed, 11 Nov (video 370): the cut was refused ("Approve every clip to make the video")
+    and the run stopped saying only "a clip changed since"."""
+    from fastapi import HTTPException
+
+    def refuse(**_):
+        raise HTTPException(409, "Clip 2 has no take to cut with.")
+
+    monkeypatch.setattr("app.routes.cut.make", refuse)
+    owner.post("/freestyles", json=BODY)
+    _run(app, db)
+    out = owner.get(f"/projects/{_video(db).id}/director").json()
+    assert out["ended"] == one_pass.CUT_FAILED.format("Clip 2 has no take to cut with")
+
+
+def test_a_take_the_service_refuses_stops_the_run_naming_its_clip(app, owner, db, monkeypatch):
+    from app.providers import Result
+    from app.providers.fake_local import FakeMedia
+    from tests.test_clip_takes import E006
+
+    real = FakeMedia.poll
+
+    def poll(self, ref):  # the office clip's take is refused on its content, every time
+        job = self._jobs[ref]
+        refused = job["kind"] == "video" and "Then it closed." in job.get("prompt", "")
+        return Result("failed", error=E006) if refused else real(self, ref)
+
+    monkeypatch.setattr(FakeMedia, "poll", poll)
+    owner.post("/freestyles", json=BODY)
+    _run(app, db)
+    ended = owner.get(f"/projects/{_video(db).id}/director").json()["ended"]
+    assert ended.startswith("It stopped: This same prompt for clip 2 was blocked by the service")
+
+
+def test_two_people_who_share_every_clip_are_never_taken_for_one(app, owner, db):
+    """Reed, 11 Nov (videos 377, 379, 383): "These may be the same person" on Paige and the
+    man following her, on a young woman and a detective, on a girl and the first man (nobody
+    speaks on camera in a song or a narrated video). The flagged one's look was never drawn
+    and its clips never made, until a person said so."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.cast_roles import ref, video_slots
+    from app.routes.project_assets import _flagged, _newest
+
+    project = db.get(Project, _delivered(app, owner, db))
+    mia, leo = video_slots(db, project)
+    row, both = _newest(db, project), [ref(db, project, mia), f"slot:{leo.id}"]
+    for shot in (x for sc in row.data["scenes"] for x in sc["shots"]):  # Leo: no look yet,
+        shot["speaker"] = None  # and only ever seen beside Mia
+        shot["character_ids"] = both if shot["character_ids"] else []
+    flag_modified(row, "data")
+    project.slot_looks = {str(mia.id): project.slot_looks[str(mia.id)]}
+    db.commit()
+    assert _flagged(db, project) == set()

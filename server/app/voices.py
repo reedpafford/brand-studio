@@ -118,7 +118,15 @@ STYLE_VOICES = (
      "provider_voice_id": "R8_CJRWYITM", "speech_model": SPEAKS,
      "description": "Deep male voice, blunt and fast, cloned from Dr. Pickle's reference videos",
      "cloned_at": "2026-11-03T20:50:18"},
+    # Reed, 11 Nov: "zack d's voice is not implemented": the narrator the lead cloned for RP7
+    # (brand 8's voice 2, job 4508) from the vocals of his Zack D reference videos
+    {"look": "zack-d", "name": "Zack D narrator", "kind": "cloned", "provider": "minimax",
+     "provider_voice_id": "R8_BHEBN0NI", "speech_model": SPEAKS,
+     "description": "Calm, brisk, deadpan male explainer, cloned from Zack D's reference videos",
+     "cloned_at": "2026-11-10T23:18:00"},
 )  # fmt: skip
+# How a style's voice reads when nobody asks for an emotion (RP7's livelier read, 11 Nov)
+STYLE_EMOTIONS = {"zack-d": "surprised"}
 
 NOT_STOCK = "There's no app voice called that."
 NO_VOICE = "There's no such voice."
@@ -545,6 +553,7 @@ def narration_job(db: Session, workspace_id: int, brand_id: int | None, script: 
         except ValueError as no:
             raise HTTPException(422, str(no)) from None
     ready(db, voice)
+    emotion = emotion or STYLE_EMOTIONS.get(voice.look)
     try:
         built = narration.job(script, narration.MINIMAX_VOICES[0], note, emotion, reading, speed)
     except ValueError as no:

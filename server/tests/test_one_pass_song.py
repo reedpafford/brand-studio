@@ -37,7 +37,14 @@ def _sent(app, owner, db, **change) -> int:
     return _video(db).id
 
 
-def test_a_song_with_no_style_asks_for_it_once_then_is_made_before_the_plan(app, owner, db):
+def test_a_song_with_no_style_asks_for_it_once_then_is_made_before_the_plan(
+    app, owner, db, monkeypatch
+):
+    from app import music
+
+    # a brand with long style lines (video 377: the card's why passed 500 characters, was
+    # refused, and the run stopped at every Carry on)
+    monkeypatch.setattr(music, "recent_styles", lambda *a, **k: ["dark country " * 30] * 3)
     pid = _sent(app, owner, db, mode="auto")  # "make without asking": this card still waits
     (card,) = db.query(Ask).filter_by(project_id=pid, state="open").all()
     assert (card.kind, card.topic, card.question) == ("question", one_pass.STYLE_TOPIC,

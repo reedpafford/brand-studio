@@ -166,7 +166,7 @@ def hear_song(path: Path, lyrics: str, prompted: bool = True) -> list[dict]:
 # call; "fake:misheard" makes the word after it heard one letter off ("fomo" as "foma")
 # unless the request carries the `say` tag ("[clearly]"): the voice is read quieter then,
 # which the stand-in Whisper tells by its peak. v3 tags are never read.
-WORD, GAP, MISHEARD = 0.3, 0.8, 0.3
+WORD, GAP, MISHEARD, LONG = 0.3, 0.8, 0.3, 80
 
 
 def narration(text: str) -> bytes:
@@ -175,8 +175,18 @@ def narration(text: str) -> bytes:
     told = f"[{SAY}]" in text
     loud = MISHEARD if "fake:misheard" in text and not told else 1
     text = MARK.sub("", re.sub(r"\[[^\]]*\]\s*", "", text))  # MiniMax's marks aren't read
+    said = sentences(text)
+    if len(said) > LONG:  # ffmpeg takes only so long an expression: made in halves, joined
+        from app.narration import join
+
+        with tempfile.TemporaryDirectory() as tmp:
+            halves = [Path(tmp) / "a.mp3", Path(tmp) / "b.mp3"]
+            for path, half in zip(halves, (said[: len(said) // 2], said[len(said) // 2 :]),
+                                  strict=True):  # fmt: skip
+                path.write_bytes(narration(f"[{SAY}] " * told + " ".join(half)))
+            return join(halves, Path(tmp) / "voice.mp3").read_bytes()
     parts, t = [], GAP
-    for sentence in sentences(text):
+    for sentence in said:
         end = t + WORD * len(sentence.split())
         parts.append(f"between(t,{t:.2f},{end:.2f})")
         t = end + GAP
@@ -379,7 +389,8 @@ class FakeMedia:
     def submit(self, kind: str, input: dict) -> str:
         ref = f"{STAND_IN}local-{next(self._ids)}"
         said = input.get("input", {})
-        self._jobs[ref] = {"kind": kind, "prompt": said.get("text", ""), **said}  # MiniMax: text
+        self._jobs[ref] = {"kind": kind, "prompt": said.get("text", ""), **said,  # MiniMax: text
+                           "model_id": input.get("model"), "parts": input.get("parts")}  # fmt: skip
         return ref
 
     def poll(self, ref: str) -> Result:
@@ -391,6 +402,16 @@ class FakeMedia:
             return Result("succeeded", output={"text": json.dumps(watch(self._jobs[ref]))})
         if self._jobs[ref]["kind"] == "speech" and "fake:fail" in self._jobs[ref]["prompt"]:
             return Result("failed", error="The voice service failed (stand-in)")
+        if self._jobs[ref]["kind"] == "speech":  # a voice's own limit, as the real ones refuse
+            from app.narration import MOST, MOST_ELSE
+
+            texts = self._jobs[ref]["parts"] or [self._jobs[ref]["prompt"]]
+            most = MOST.get(self._jobs[ref]["model_id"], MOST_ELSE)
+            if long := next((t for t in texts if len(t) > most), None):
+                return Result("failed", error=f"Request text length ({len(long)}) exceeds the "
+                              f"maximum text length of {most} characters")  # fmt: skip
+            return Result("succeeded", output={},
+                          files=[f"fake://{ref}#{k}" for k in range(len(texts))])  # fmt: skip
         if self._jobs[ref]["kind"] == "voice":  # a clone: its voice id and a preview
             fields = {
                 "voice_id": f"stand-in-voice-{ref.rsplit('-', 1)[-1]}",
@@ -401,7 +422,10 @@ class FakeMedia:
         return Result("succeeded", output={"url": f"fake://{ref}"}, files=[f"fake://{ref}"])
 
     def fetch(self, url: str) -> tuple[bytes, str]:
+        url, _, part = url.partition("#")  # a narration read in parts: this part's words
         job = self._jobs[url.removeprefix("fake://")]
+        if part and job["parts"]:
+            job = {**job, "prompt": job["parts"][int(part)]}
         aspect = job.get("aspect_ratio", "9:16")
         if job.get("isolate_stem"):  # Demucs's stand-in: the voice is the take's sound as given
             kind, _, data = job["audio"].removeprefix("data:").partition(";base64,")
@@ -568,14 +592,14 @@ class FakeWriter:
         in every shot (never a host who stands in a corner: they are in no shot; a host who
         acts is the one in every shot). With a <host> who talks to camera, the first and the
         last clip are the talker's. fake:bad-at in the script starts the second shot too soon
-        in the first answer (the re-ask puts it right)."""
+        (code leaves it out: one_pass_timed.snapped)."""
         heard = prompt.split("Sung lines:", 1)[1].split("</song>", 1)[0]
         starts = [float(a) for a in re.findall(r"^\d+\| (\d+\.\d+)–", heard, re.M)]
         ats = [0.0]
         for at in starts[1:]:
             if at >= ats[-1] + 1:
                 ats.append(at)
-        if "fake:bad-at" in text and "<fix>" not in prompt and len(ats) > 1:
+        if "fake:bad-at" in text and len(ats) > 1:
             ats[1] = ats[0] + 0.2
         cast = [x.split(" | ")[1] for x in _tag(prompt, "cast").splitlines() if " | " in x]
         host = _tag(prompt, "host")

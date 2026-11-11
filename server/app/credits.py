@@ -281,13 +281,18 @@ def uncapped(user: User | None) -> bool:
 
 
 def never_billed(job: Job) -> bool:
-    """A job its provider refused (a content or copyright check, e.g. Replicate's E005), or
-    whose request it refused as invalid before running it (a 400 or 422, video 245): nothing was
-    charged, so it counts $0 in what was really spent (cost analysis X1). Every other failure
-    that was sent still counts: it may have been billed."""
+    """A failed job nothing was charged for, so it counts $0 in what was really spent (cost
+    analysis X1): one its provider refused (a content or copyright check, e.g. Replicate's
+    E005), one whose request it refused as invalid before running it (a 400 or 422, video
+    245), and any run that failed at Replicate ("For all models, if a run fails, we don't
+    charge you": replicate.com/docs/topics/billing; Reed, 11 Nov: a narration its voice
+    refused as too long showed as "$0.99 spent" beside "Nothing was charged"). Any other
+    failure that was sent still counts: it may have been billed."""
     from app.clip_takes import why_failed
 
-    return job.status == JobStatus.failed and why_failed(job) in ("refused", "invalid")
+    return job.status == JobStatus.failed and (
+        job.provider.startswith("replicate") or why_failed(job) in ("refused", "invalid")
+    )
 
 
 @dataclass

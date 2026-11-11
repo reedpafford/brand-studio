@@ -16,9 +16,6 @@ from app.prompts.schemas import PlanClip, ShootingPlan
 
 BROLL, HOST = "broll", "host"  # a timed clip's kinds: silent picture, or the talker to the lens
 SHORTEST = 1.0  # seconds: a shot's least, so its clip's prompt can time it in whole seconds
-SHORT = ("clip {c} shot {n} runs from {at:.2f} s to {end:.2f} s of the track, under a second: "
-         "start each shot at least a second after the one before it and before the track "
-         "ends, on a sentence's or a word's own start from <song>")  # fmt: skip
 TOO_LONG = ("clip {c} shot {n} runs {s:.1f} s, and this video model makes {most} s a clip at "
             "most: start another shot inside it, on a word's start from <song>")  # fmt: skip
 
@@ -55,14 +52,18 @@ FRAMING = "The action stays in the upper two-thirds of the frame, the bottom cor
 # own fields): the video is a Dialogue one with one speaker, and B-roll laid over their voice.
 TALKER = ("{who} presents this video and says every spoken line of the script to camera, "
           "filling the frame, in clips of their own: a line with no speaker label is theirs "
-          "too. Their lines in one place share one clip of up to {most} s, in script order, as "
+          "too. With no look in <cast>, they are in `roles`, named \"{who}\", with what to "
+          "draw. Their lines in one place share one clip of up to {most} s, in script order, as "
           "few clips as the lines allow, each ending where one of the script's sentences ends. "
           "Size each clip to its words: about 2.6 words a second (2.1 for a slow, heavy line) "
           "plus about 1 s. Never a filler word to pad one.\n"
           "B-roll is cut in over their voice, never between their clips: a B-roll clip has "
           "`kind` \"broll\", comes right after the clip that says the line it shows, gives "
           "that line's number in each shot's `line` (the line is heard under it; nobody speaks "
-          "in it) and leaves them out of `people`.")  # fmt: skip
+          "in it) and leaves them out of `people`. They stay on screen for the hook, an "
+          "opinion, anything said straight to the viewer and the close; B-roll is only for "
+          "the phrases that gain from a picture, a few seconds each, under half the video in "
+          "all.")  # fmt: skip  # Reed, 11 Nov: video 370's B-roll hid two thirds of him
 
 
 def talker_block(who: str, most: int) -> str:
@@ -157,25 +158,30 @@ def spans(plan: ShootingPlan, audio: dict) -> list[tuple[float, float]]:
 def snapped(plan: ShootingPlan, audio: dict, most: int) -> list[str]:
     """The plan put on the track, in place: every clip one kind (B-roll unless it's the
     talker's), no shot with a line of its own, the first shot at 0 and each `at` on the nearest
-    measured start; then each clip the video model can't make in one go cut at a shot's edge
-    (`packed`). What only the director can fix ([] if nothing): a shot that starts no later
-    than the one before it, a B-roll shot under a second long (its clip's prompt times it in
-    whole seconds), or one longer than the model's longest clip."""
-    starts, first = audio["starts"], True
+    measured start. A shot that leaves the one before it no time (a B-roll shot under a
+    second: its clip's prompt times it in whole seconds) is left out, so that picture holds: a
+    long script has hundreds of shots, and one slip never costs the plan. Then each clip the
+    video model can't make in one go is cut at a shot's edge (`packed`). What only the
+    director can fix ([] if nothing): a B-roll shot longer than the model's longest clip."""
+    starts, kept = audio["starts"], []  # kept: each shot that stays, with its clip
     for c in plan.clips:
         c.kind = HOST if c.kind == HOST and audio.get("talks") else BROLL
-        for s in c.shots:
+        shots, c.shots = c.shots, []
+        for s in shots:
             s.line, s.how = None, ""
-            s.at = 0.0 if first else min(starts, key=lambda t: abs(t - s.at))
-            first = False
-    plan.voices = []
+            s.at = min(starts, key=lambda t: abs(t - s.at)) if kept else 0.0
+            least = SHORTEST if kept and kept[-1][1].kind == BROLL else 0.01
+            if not kept or s.at - kept[-1][0].at >= least:
+                kept, c.shots = [*kept, (s, c)], [*c.shots, s]
+    s, c = kept[-1]  # the last B-roll shot too: under a second of the track left, it's left out
+    if len(kept) > 1 and c.kind == BROLL and audio["seconds"] + audio["hold"] - s.at < SHORTEST:
+        c.shots.remove(s)
+    plan.clips, plan.voices = [c for c in plan.clips if c.shots], []
     timed, fixes, clips = iter(spans(plan, audio)), [], []
     for c in plan.clips:
         mine = [next(timed) for _ in c.shots]
         for n, (a, b) in enumerate(mine, 1):
-            if b <= a or (c.kind != HOST and b - a < SHORTEST):
-                fixes.append(SHORT.format(c=c.id, n=n, at=a, end=b))
-            elif c.kind != HOST and b - a > most:
+            if c.kind != HOST and b - a > most:
                 fixes.append(TOO_LONG.format(c=c.id, n=n, s=b - a, most=most))
         clips += packed(c, mine, most)
     if not fixes:

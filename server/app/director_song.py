@@ -207,7 +207,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
     takes = song_takes.for_video(db, project)
     ready = [t for t in takes if song_takes.state(db, t)[0] == "ready"]
     before = one_pass.on(project) and not run.get("ok", True)  # its plan is timed to it
-    left = run.get(REMADE, 0) < REMAKES  # a remake is left to fix a take that says more
+    # a remake is left to fix a take that says more (a one-pass run makes none: it uses its best)
+    left = run.get(REMADE, 0) < REMAKES and not one_pass.on(project)
     if (chosen := decision.get("take_id")) is not None:
         take = next((t for t in ready if t.id == chosen), None)
         if take is None:
@@ -251,7 +252,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         if reason in REFUSED or run.get("song_retries", 0) >= 1:  # the same would fail again
             return f"Refused: the {what} didn't come out ({reason}) Make it again with a note."
         last = run.get("song_note", "")  # the same request again: its style line too
-        voice = run.get("song_voice") or narration.VOICE  # a narration keeps its voice
+        # a narration keeps its voice, unless a person set the video's since (Carry on)
+        voice = narrator(db, project, run.get("song_voice")) or narration.VOICE
         song_takes.make(db, user, draft, project, kie=_real(db, found), note=last, voice=voice,
                         delivery=run.get("song_delivery"), before=before)  # fmt: skip
         run["song_retries"] = run.get("song_retries", 0) + 1  # charged only if it's made
