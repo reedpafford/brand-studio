@@ -87,6 +87,9 @@ def test_a_piece_is_trimmed_by_numbers_every_cut_quiet_on_the_frame_grid(tmp_pat
     *_, (_, end) = talker_sound.keep(m, False, False, muted=[[2.9, 4.3]])
     assert 2.4 <= end < 2.4 + talker_sound.SENTENCE + 1 / 30 + 0.02
     assert talker_sound.keep(m, False, False, muted=[[1.55, 2.45]])[-1][1] == b  # mid-piece: no
+    # video 399: the transcript ended the muted words 0.3 s before their sound did, and the
+    # piece ran on through them, the presenter mouthing in silence
+    assert talker_sound.keep(m, False, False, muted=[[2.9, 3.9]])[-1][1] == end
 
 
 def test_the_talkers_pieces_play_their_kept_stretches_back_to_back(app, db, owner, monkeypatch):

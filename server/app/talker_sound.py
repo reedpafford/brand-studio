@@ -38,6 +38,9 @@ log = logging.getLogger(__name__)
 HEAD = 0.05  # s kept before a piece's first sound
 SENTENCE, COMMA = 0.13, 0.05  # s kept after its last word: a sentence's end, a comma's
 LONG, BEAT = 0.26, 0.2  # a silence inside a piece longer than LONG is cut down to BEAT
+# A muted word's sound runs on past where the transcript ends it (video 399: muted to 7.48 s,
+# heard to 7.77): within this of the piece's last sound, the muted words are its end
+OVERHANG = 0.5
 QUIET = -42.0  # dB: every cut point is quieter than this...
 ROOM = 10.0  # ...or than this far over the piece's own noise floor (above its flicker)
 SOFT = 6.0  # dB over the floor: the soft edge of a word (an "s", a fade), kept with it
@@ -144,7 +147,7 @@ def keep(m: dict | None, first: bool, last: bool, muted=()) -> list[tuple[float,
         return [(0.0, float(m["length"]) if m else 0.0)]
     length, runs, (start, end) = float(m["length"]), m["sounds"], m["speech"]
     for s, e in muted:
-        if start < s < end <= e + LONG:
+        if start < s < end <= e + OVERHANG:
             end = max([b for _, b in runs if b <= s + HEAD], default=s)
     before = max([b for _, b in runs if b <= start], default=0.0)  # a sound before the speech
     after = min([a for a, _ in runs if a >= end], default=length)  # and one after it
