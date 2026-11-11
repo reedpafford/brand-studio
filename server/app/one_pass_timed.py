@@ -55,14 +55,18 @@ FRAMING = "The action stays in the upper two-thirds of the frame, the bottom cor
 # own fields): the video is a Dialogue one with one speaker, and B-roll laid over their voice.
 TALKER = ("{who} presents this video and says every spoken line of the script to camera, "
           "filling the frame, in clips of their own: a line with no speaker label is theirs "
-          "too. Their lines in one place share one clip of up to {most} s, in script order, as "
+          "too. With no look in <cast>, they are in `roles` under that name, with what to "
+          "draw. Their lines in one place share one clip of up to {most} s, in script order, as "
           "few clips as the lines allow, each ending where one of the script's sentences ends. "
           "Size each clip to its words: about 2.6 words a second (2.1 for a slow, heavy line) "
           "plus about 1 s. Never a filler word to pad one.\n"
           "B-roll is cut in over their voice, never between their clips: a B-roll clip has "
           "`kind` \"broll\", comes right after the clip that says the line it shows, gives "
           "that line's number in each shot's `line` (the line is heard under it; nobody speaks "
-          "in it) and leaves them out of `people`.")  # fmt: skip
+          "in it) and leaves them out of `people`. They stay on screen for the hook, an "
+          "opinion, anything said straight to the viewer and the close; B-roll is only for "
+          "the phrases that gain from a picture, a few seconds each, under half the video in "
+          "all.")  # fmt: skip  # Reed, 11 Nov: video 370's B-roll hid two thirds of him
 
 
 def talker_block(who: str, most: int) -> str:
