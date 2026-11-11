@@ -145,8 +145,12 @@ def test_a_presenter_the_plan_names_as_the_script_describes_them_is_still_the_pr
         "at": 0,
     }
     clip = {**_plan()["clips"][0], "kind": "host", "shots": [shot]}
-    plan = {**_plan(), "clips": [clip], "voices": [{"who": "Dad", "sounds": "a gravelly baritone"}],
-            "roles": [{"name": "Dad", "description": "A weathered man in his fifties"}]}  # fmt: skip
+    plan = {
+        **_plan(),
+        "clips": [clip],
+        "voices": [{"who": "Dad", "sounds": "a gravelly baritone"}],
+        "roles": [{"name": "Dad", "description": "A weathered man in his fifties"}],
+    }
     out, fixes = one_pass.checked(asked, plan)
     assert fixes == []
     assert [r["name"] for r in out["roles"]] == ["The presenter"]
