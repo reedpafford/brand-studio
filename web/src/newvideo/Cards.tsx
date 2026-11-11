@@ -110,7 +110,10 @@ export function StyleCards({ looks, value, onPick, locked, only }: { looks: Look
         // The picture plays its sample; the words under it pick the style (a radio holds no other button).
         return (
           <div key={l.id} className={`${card(sel, !l.on || !!why)} w-full rounded-xl bg-surface ${locked && !sel ? "opacity-55" : ""}`}>
-            <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h="aspect-[4/5]" />
+            {/* A picture with a clip plays it; one with none picks the style, like the words under it (a dead press, 11 Nov). */}
+            <div onClick={() => !m.clip && can && onPick(l.id)} className={!m.clip && can ? "cursor-pointer" : ""}>
+              <Sample name={l.name} clip={m.clip} still={m.still} testTag={m.tag} playing={playing === l.id} onPlay={() => setPlaying(playing === l.id ? null : l.id)} w="w-full" h="aspect-[4/5]" />
+            </div>
             <button type="button" role="radio" aria-checked={sel} aria-disabled={!can || undefined} title={why ?? undefined} onClick={() => can && onPick(l.id)} className={`flex min-h-control flex-1 flex-col gap-0.5 px-3 py-2.5 text-left ${can ? "" : "cursor-default"}`}>
               <span className="flex items-center gap-1">
                 <span className={`text-sm font-semibold ${l.on && !why ? "" : "text-muted"}`}>{l.name}</span>

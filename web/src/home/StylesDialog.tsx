@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button, Modal } from "../components";
+import { Button, Modal, Skeleton } from "../components";
 import { BrollPicker, FormatList, StyleCards, type Look } from "../newvideo/Cards";
 import type { Draft } from "./useDraft";
 
@@ -12,7 +12,7 @@ export const styleWords = (d: Pick<Draft, "look" | "format">) => [d.look?.name, 
  *  their sample and name their B-roll look). A format with a host offers Change B-roll look…. From a saved script both
  *  are the script's own, shown locked. A pick is kept at once; Done closes. */
 export function StylesDialog({ draft, onClose }: { draft: Draft; onClose: () => void }) {
-  const { formats, looks, format, look, only, unused, broll, fixed, owner, pick } = draft;
+  const { formats, looks, looksLoading, format, look, only, unused, broll, fixed, owner, pick } = draft;
   const [brolling, setBrolling] = useState(false);
   const foot = (
     <div className="flex items-center gap-3">
@@ -42,6 +42,13 @@ export function StylesDialog({ draft, onClose }: { draft: Draft; onClose: () => 
             {brolling && look && <BrollPicker looks={looks} style={look} value={broll} onPick={(b) => (pick({ broll_look: b }), setBrolling(false))} onClose={() => setBrolling(false)} />}
           </div>
           {unused && <p role="status" className="text-sm text-warning">{only(unused)} The style is {look?.name ?? "not picked"} for now.</p>}
+          {looksLoading && (
+            <div aria-busy="true" aria-label="Loading the styles" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="aspect-[4/7] rounded-xl" />
+              ))}
+            </div>
+          )}
           <StyleCards looks={looks} value={look?.id ?? ""} onPick={(l) => pick({ look: l, broll_look: null })} locked={!!fixed} only={only} />
         </section>
       </div>

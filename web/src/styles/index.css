@@ -33,6 +33,11 @@
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
 @utility animate-rise { animation: rise-in var(--dur) var(--ease-out) both; }
 @utility animate-fade { animation: fade-in var(--dur) var(--ease-out) both; }
+/* Something is being worked on: a bar that keeps crossing its track, and a place being filled that catches the light. */
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@utility animate-sweep { animation: sweep 1.6s var(--ease-out) infinite; }
+@utility animate-shimmer { background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 @utility animate-pop { animation: pop-in var(--dur-fast) var(--ease-out) both; transform-origin: top; }
 
 body {

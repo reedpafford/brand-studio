@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, CircleCheckBig, CircleStop, Clock, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { api, errorText, polled } from "../api/client";
@@ -62,7 +62,7 @@ function Frame({ c, className, onPick }: { c: Cell; className: string; onPick?: 
     l === "todo" ? (
       <span className={`block border border-dashed border-border-strong bg-surface-2 ${className}`} />
     ) : l === "making" || c.frame_file_id == null ? (
-      <span className={`block bg-[linear-gradient(110deg,#ececf0_30%,#f6f6f8_45%,#ececf0_60%)] ${className} ${RING[l]}`} />
+      <span className={`block bg-[linear-gradient(110deg,#ececf0_30%,#f6f6f8_45%,#ececf0_60%)] ${l === "making" ? "animate-shimmer" : ""} ${className} ${RING[l]}`} />
     ) : (
       <img src={fileUrl(c.frame_file_id)} alt="" className={`block object-cover ${className} ${RING[l]}`} />
     );
@@ -122,7 +122,7 @@ export function SceneRow({ scenes }: { scenes: Scene[] }) {
 }
 
 const ICON = {
-  now: <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-accent-text" />,
+  now: <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-accent-text motion-safe:animate-spin" />,
   wait: <Clock size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-warning" />,
   done: <CircleCheckBig size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-success" />,
   bad: <TriangleAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0 text-danger" />,
@@ -130,11 +130,27 @@ const ICON = {
 };
 const STEP = {
   done: ["bg-success-soft text-success", <Check key="d" size={12} strokeWidth={2} aria-hidden />],
-  now: ["bg-accent-soft text-accent", <LoaderCircle key="n" size={12} strokeWidth={2} aria-hidden />],
+  now: ["bg-accent-soft text-accent", <LoaderCircle key="n" size={12} strokeWidth={2} aria-hidden className="motion-safe:animate-spin" />],
   todo: ["border-[1.5px] border-border-strong", null],
   wait: ["bg-warning-soft text-warning", <Clock key="w" size={12} strokeWidth={2} aria-hidden />],
   bad: ["bg-danger-soft text-danger", <X key="b" size={12} strokeWidth={2} aria-hidden />],
 } as const;
+
+/** The seconds since a server time, counted each second while `on`. */
+function useElapsed(iso: string, on: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [on]);
+  return Math.max(0, Math.round((now - serverTime(iso).getTime()) / 1000));
+}
+// What a step is doing while nothing can be shown for it yet, and how long that usually is.
+const QUIET: Record<string, string> = {
+  read: "Reading the script, the style’s guide and the brand kit.",
+  plan: "Reading the whole script and writing the plan, clip by clip. Usually a couple of minutes, longer for a long script.",
+};
 
 const left = (min: number) => (min >= 60 ? `about ${Math.floor(min / 60)} h ${min % 60} min left` : `about ${min} min left`);
 const LONG = 60; // a long video (S3-13: 118 clips) reads as a row a scene, not a frame a clip
@@ -168,7 +184,21 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
     </button>
   );
   const shown = r.scenes.slice(0, 8);
-  const body = long ? (
+  // Before there is a frame to show (the plan is being written): what it is doing, a bar that keeps moving and a clock,
+  // so a quiet couple of minutes never reads as stuck.
+  const quiet = (r.status === "working" || r.status === "revising") && !r.scenes.length;
+  const elapsed = useElapsed(r.started_at, quiet);
+  const at = r.steps.find((s) => s.state === "now");
+  const body = quiet ? (
+    <div className="flex flex-col gap-2">
+      <div className="h-1 overflow-hidden rounded-sm bg-surface-3" aria-hidden>
+        <i className="animate-sweep block h-full w-1/3 rounded-sm bg-accent" />
+      </div>
+      <p className="text-sm text-muted">
+        {(at && QUIET[at.key]) || (at ? `${at.text}.` : "Working.")} It keeps going if you leave this page.
+      </p>
+    </div>
+  ) : long ? (
     <div>
       <div className="mb-2 h-1 overflow-hidden rounded-sm bg-surface-3" aria-hidden>
         <i className="block h-full rounded-sm bg-accent" style={{ width: `${r.clips ? Math.round((100 * r.made) / r.clips) : 0}%` }} />
@@ -203,6 +233,11 @@ export function RunCard({ progress: r, phone }: { progress: Progress; phone: boo
         {ICON[r.tone]}
         <span className="shrink-0 text-sm font-semibold">{r.title}</span>
         {!phone && r.sub && !banner && <span className="min-w-0 truncate text-sm text-muted">· {r.sub}</span>}
+        {quiet && (
+          <span role="timer" aria-label="Time on this step" className="shrink-0 text-sm tabular-nums text-muted">
+            · {mmss(elapsed)} so far
+          </span>
+        )}
         {toggle}
       </div>
       <div className="px-4 pb-3.5">

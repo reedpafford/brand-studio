@@ -343,7 +343,7 @@ function PlanTab({ p, head, progress, line, showLines }: PaneProps) {
     return (
       <>
         {choices}
-        <Empty title="The plan shows here first">{SOON}</Empty>
+        <Empty title="The plan shows here first" busy>{SOON}</Empty>
       </>
     );
   return (

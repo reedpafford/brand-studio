@@ -11,6 +11,7 @@ import { SavedScripts } from "../newvideo/SavedScripts";
 import { useEstimate, useSend } from "../newvideo/useNewVideo";
 import { ActionBar } from "../shell/ActionBar";
 import { useBrands } from "../shell/useBrands";
+import { Skeleton } from "../components";
 import { useRail } from "../useMedia";
 import { AssetDialog, type AssetTab } from "./AssetDialog";
 import { ModeMenu, PickChip } from "./Chips";
@@ -107,6 +108,20 @@ export function HomePage() {
       <p className="max-w-[560px] text-balance text-md text-muted">The director plans it, asks what it can’t decide, and makes it in a chat with you.</p>
     </div>
   );
+  // While the styles are on their way: the gallery's own shape, fading, so the page never sits with a blank gap.
+  const loading = view !== "script" && draft.looksLoading && (
+    <section aria-label="Loading the styles" aria-busy="true" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1 lg:text-center">
+        <h2 className="type-page">Styles</h2>
+        <p className="text-sm text-muted">Loading the styles…</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className={`aspect-[9/16] rounded-xl ${i > 1 ? "max-sm:hidden" : ""} ${i > 2 ? "max-lg:hidden" : ""}`} />
+        ))}
+      </div>
+    </section>
+  );
   const gallery = view !== "script" && draft.looks.length > 0 && (
     <section aria-labelledby="home-styles" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1 lg:text-center">
@@ -148,6 +163,7 @@ export function HomePage() {
           </>
         )}
         {error}
+        {loading}
         {gallery}
         {dialogs}
       </main>
@@ -180,6 +196,7 @@ export function HomePage() {
             {error}
           </div>
         </div>
+        {loading}
         {gallery}
       </div>
       {dialogs}

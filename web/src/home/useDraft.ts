@@ -32,7 +32,8 @@ type Picked = { type?: string; look?: string; broll_look?: string | null; shape?
 export function useDraft(brandId: number, opened: number | null, fixed: { type: string; look: string } | null) {
   const owner = useMe().data?.role === "owner";
   const formats = useFormats().data ?? [];
-  const looks = (useLooks().data ?? []) as Look[];
+  const lookQuery = useLooks();
+  const looks = (lookQuery.data ?? []) as Look[];
   const folders = useFolders(brandId).data ?? [];
   const [picked, setPicked] = useState<Picked>({});
   const pick = (p: Picked) => setPicked((was) => ({ ...was, ...p }));
@@ -69,6 +70,6 @@ export function useDraft(brandId: number, opened: number | null, fixed: { type: 
     const was = key === "cast" ? cast : products;
     pick({ [key]: was.includes(id) ? was.filter((x) => x !== id) : [...was, id] });
   };
-  return { owner, formats, looks, folders, format, look, only, unused, folder, cast, products, broll, text, setText, size, idea, setIdea, mode, setMode, files, pick, pickStyle, moved, toggle, send, fixed };
+  return { owner, formats, looks, looksLoading: lookQuery.isPending, folders, format, look, only, unused, folder, cast, products, broll, text, setText, size, idea, setIdea, mode, setMode, files, pick, pickStyle, moved, toggle, send, fixed };
 }
 export type Draft = ReturnType<typeof useDraft>;
