@@ -34,10 +34,47 @@ Our catalogue still has Omni **1.1** (`gemini-omni-1.1`, fixed 10 s, talker-only
   - Extend from the last 10 s of a clip, 3–10 s per turn, 30 s total. Speech can continue when extending a
     clip Omni made, not an uploaded one.
 - **Price on Replicate: $0.11 a second at 720p**, what we use (the model page, read by Reed 6 Nov): $1.10 for
-  10 s, $1.65 for 15 s. Google's own API rate is lower, about $0.07/s at 720p [Price]. 1.1 was $0.15/s on Replicate.
+  10 s, $1.65 for 15 s. Google's own API rate is lower, about $0.07/s at 720p [Price], and is what
+  we pay once a Google key is set (below). 1.1 was $0.15/s on Replicate.
 - **1.2 vs 1.1** [Rep][API]: up to 15 s and set to the second; holds faces, clothing, product labels and brand
   colours better; "dialogue sounds more natural with better lip sync"; cheaper. From 3 Dec 2026, Google routes
   every 1.1 request to 1.2.
+
+### Through Google directly (built 10 Nov 2026; no real call made yet)
+Reed, 10 Nov: "we go omni through google directly". With a Google key set (`BS_GOOGLE_API_KEY`),
+Omni takes go straight to Google's Gemini API; with none they go through Replicate as before.
+The prompt and what a take says are the same on both roads (`server/app/providers/google.py`).
+- **Model id:** `gemini-omni-1.2-flash`, on the Interactions API: `POST
+  https://generativelanguage.googleapis.com/v1beta/interactions`, started with `background: true`
+  and checked with `GET /v1beta/interactions/{id}` [API]
+  (https://aistudio.google.com/docs/background-execution).
+- **Price** (https://aistudio.google.com/docs/pricing, read 10 Nov 2026): billed by output
+  tokens at $12.00 per 1M. A second of video is 1,931 tokens at 360p (**$0.023**), 5,792 at 720p
+  (**about $0.07**: $0.70 for 10 s, $1.04 for 15 s), 8,688 at 1080p (**$0.104**) and 17,376 at 4K
+  (**$0.209**). Input (the prompt, pictures, a clip to edit) is $1.50 per 1M tokens on top, about
+  a cent a take. No separate price for an edit. Paid tier only; there's no free tier.
+- **Where it differs from Replicate's wrapper** [API]:
+  - Length is sent as `"8s"`, shape and resolution inside `response_format`; pictures and clips go
+    inline as base64 (100 MB a request at most,
+    https://aistudio.google.com/docs/file-input-methods) or by the Files API.
+  - One list of pictures, no `image` / `reference_images` fields: the model reads each picture's
+    role from the prompt, or from `video_config.task` (`reference_to_video`, `image_to_video`,
+    `edit`), which we set so a reference is never read as a literal first frame. Google's page
+    says to try without `task` first; if it refuses ours, that is the first thing to change.
+  - It also takes **reference videos** for a new clip (one of up to 3 s for an 11–15 s clip, up
+    to three for a 3–10 s clip; their sound is ignored) and can **extend**; Replicate's wrapper
+    exposes neither. We use neither yet.
+  - A clip Google made can be edited again by its id (`previous_interaction_id`, kept 55 days);
+    we send the take's file instead, as on Replicate. **Editing or extending an uploaded clip
+    isn't available in the EEA, Switzerland or the UK**, so there our "Change this…" edit would
+    need the id form.
+  - A refusal is a 400 (or a failed interaction) with a code: `safety`, `prohibited_content`,
+    `jailbreak`, `blocklist` (https://aistudio.google.com/docs/safety-settings). Whether a
+    blocked take is billed isn't stated. A 429 or 503 means busy: wait and try again
+    (https://aistudio.google.com/docs/api-errors).
+- **Checked against these notes:** nothing above this section is contradicted by Google's pages.
+  One nuance: the API reference lists a general `seed` field, and Omni's page doesn't say whether
+  Omni honours it (§1 says there is none; untested).
 
 ## 2. Prompt structure
 - Cover five things: **shot framing and motion, style, lighting, location, action** [Guide][Rep].

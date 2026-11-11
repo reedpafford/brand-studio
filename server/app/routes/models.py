@@ -12,7 +12,7 @@ from app.models.accounts import User
 
 router = APIRouter(prefix="/models", tags=["models"])
 
-_PUBLIC = set(CatalogueModel.model_fields) - {"price", "price_source", "provider_version"}
+_PUBLIC = set(CatalogueModel.model_fields) - {"price", "price_source", "provider_version", "via"}
 
 
 class ModelOut(BaseModel):

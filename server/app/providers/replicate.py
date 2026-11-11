@@ -73,7 +73,7 @@ class ReplicateProvider:
         if status != "succeeded":  # failed, canceled, aborted
             return Result("failed", error=str(p.get("error") or status))
         output = p.get("output")
-        model = get_model(_model_id_from_version(p))
+        model = get_model(_model_id_from_version(p), listed=True)  # at Replicate's own price
         if isinstance(output, dict):  # named fields (a voice clone: voice_id, preview, model)
             files = [v for v in output.values() if _is_url(v)]
             return Result("succeeded", output={"fields": output}, files=files,

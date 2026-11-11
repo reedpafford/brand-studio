@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, object_session
 from app import folders, hidden, live
 from app.advice import SaidText
 from app.auth import current_user, owner_only, user_name
+from app.catalogue import provider_for
 from app.credits import (
     FREESTYLE,
     PAST_APPROVED,
@@ -301,6 +302,7 @@ def enqueue(
     so it's never held again; brand, credits and Usage stay as for any job. `hold`: a
     later step this press already pays for (e.g. Change it's still or take), checked together.
     A held job on a video gets its card (`asks.held`)."""
+    provider = provider_for(input.get("model"), provider)  # Omni 1.2: Google's while its key is set
     credits = estimate(db, user.workspace_id, kind, Decimal(units), input)
     if no := real_budget_refusal(db, get_settings(), provider, credits + hold, user.is_owner):
         raise HTTPException(409, no)  # the Producer's cap, before anything is reserved

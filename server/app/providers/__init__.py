@@ -87,6 +87,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             "fake": FakeProvider(),
             "replicate": FakeMedia(),
             "heygen": FakeMedia(),  # a grey talker the length of its voice
+            "google": FakeMedia(),  # Omni 1.2's takes while its Google road is open: no key needed
             # The test site's one real service, once Reed switches it on (2026-10-29: real
             # Suno through KIE, test site only, with a test budget); all else stays free.
             "suno": _kie(settings, FakeSuno()) if kie_on(settings) else FakeSuno(),
@@ -109,7 +110,8 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
         }
     local = LocalProvider(storage)
     providers = {"fake": FakeProvider(), "replicate": _replicate(settings),
-                 "claude": _claude(settings), "local": local}  # fmt: skip
+                 "claude": _claude(settings), "local": local,
+                 "google": _google(settings)}  # fmt: skip
     if settings.heygen_api_key.get_secret_value():  # the UGC talker: once its key is set
         providers["heygen"] = _heygen(settings)  # (and "heygen" is in a worker's lane)
     if kie_on(settings):  # Suno through KIE: only once Reed switches it on
@@ -137,6 +139,17 @@ def _heygen(settings):
     return HeyGenProvider(settings.heygen_base_url, settings.heygen_api_key.get_secret_value(),
                           delivery_hosts=tuple(settings.heygen_delivery_hosts),
                           max_download_mb=settings.max_download_mb)  # fmt: skip
+
+
+def _google(settings):
+    """Omni 1.2 straight from Google (catalogue.provider_for sends it jobs only while its key
+    is set; one still queued after the key is taken away fails unsent, NoKey)."""
+    from app.providers.google import GoogleProvider
+
+    return GoogleProvider(settings.google_base_url, settings.google_api_key.get_secret_value(),
+                          delivery_hosts=tuple(settings.google_delivery_hosts),
+                          max_download_mb=settings.max_download_mb,
+                          background=settings.google_background)  # fmt: skip
 
 
 def samples_on(settings) -> bool:

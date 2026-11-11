@@ -454,13 +454,17 @@ SENSITIVE = ("The video model flagged this take as sensitive. Nothing was charge
 # "flagged as sensitive" and its copyright refusal, "ContentModerationError: flagged for: sexual",
 # HeyGen's content_policy_violation (docs/prompting/heygen-avatar-iv.md). The same request is
 # refused the same way, and a failed run isn't billed ("For all models, if a run fails, we don't
-# charge you": replicate.com/docs/topics/billing, Failed and canceled runs).
+# charge you": replicate.com/docs/topics/billing, Failed and canceled runs). Straight from
+# Google (app/providers/google.py) the same codes come bare, with its other "generation
+# blocked" ones and "Input blocked: …" (aistudio.google.com/docs/api-errors, /safety-settings).
+FILTERED = "safety|prohibited_content|jailbreak|blocklist|image_safety|image_prohibited_content"
+BLOCKED = FILTERED + "|content_blocked|recitation|image_recitation|image_other|spii|language"
 REFUSAL = re.compile(r"\bE00[56]\b|flagged (?:as|for)|ContentModeration|content[_ ]policy|"
-                     r"safety violation|prohibited content|\"code\"\s*:\s*\"(?:safety|"
-                     r"prohibited_content)\"", re.I)  # fmt: skip
+                     r"safety violation|prohibited content|Input blocked:|"
+                     rf"\"code\"\s*:\s*\"(?:{BLOCKED})\"", re.I)  # fmt: skip
 # Omni's safety filter: its inner "code": "safety" or "prohibited_content" (video 345). A bare
 # E006 ("The input was invalid": a bad picture, say) is only refused.
-SAFETY_FILTER = re.compile(r'"code"\s*:\s*"(?:safety|prohibited_content)"', re.I)
+SAFETY_FILTER = re.compile(rf'"code"\s*:\s*"(?:{FILTERED})"', re.I)
 REFUSED_SAID = "This prompt was {}. Change the prompt before trying again. Nothing was charged."
 
 
@@ -561,7 +565,7 @@ RETRY_WAIT = timedelta(seconds=30)  # a busy service gets a moment before the on
 # The provider refused the request itself as invalid, before running it (a 400 or 422: "input.
 # prompt: String length must be less than or equal to 4000"): never billed, and the same
 # request is refused the same way every time.
-INVALID = re.compile(r"Replicate (?:400|422)\b|Input validation failed", re.I)
+INVALID = re.compile(r"(?:Replicate|Google) (?:400|422)\b|Input validation failed", re.I)
 
 
 def invalid(detail: str) -> str:
@@ -569,9 +573,11 @@ def invalid(detail: str) -> str:
     String length must be less than or equal to 4000"), or "" when it wasn't that."""
     if not INVALID.search(detail or ""):
         return ""
-    found = re.search(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"', detail)
+    found = (re.search(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"', detail)
+             or re.search(r'"message"\s*:\s*"((?:[^"\\]|\\.)*)"', detail))  # Google's  # fmt: skip
     reason = found.group(1) if found else detail.split(":", 1)[-1]
-    return re.sub(r"\s+", " ", reason.replace("\\n", " ")).strip(" -")[:300]
+    reason = reason.replace("\\n", " ").replace("\\'", "'")  # as the worker's repr() wrote it
+    return re.sub(r"\s+", " ", reason).strip(" -")[:300]
 
 
 def why_failed(job: Job) -> str:
