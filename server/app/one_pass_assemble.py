@@ -169,12 +169,11 @@ def _in_order(line: str) -> str:
     return "References: " + " ".join(said)
 
 
-def _frame(action: str, people: list[str], extras: str) -> str:
-    """Who is in the picture, said once: the people the action doesn't already name, and the
-    extras."""
-    new = [p for p in people if not re.search(rf"(?<!\w){re.escape(p)}(?!\w)", action, re.I)]
-    told = "; ".join(x for x in (", ".join(new), extras.strip().rstrip(".")) if x)
-    return f" In frame: {told}." if told else ""
+def _frame(people: list[str], extras: str) -> str:
+    """Who is in the picture, every shot: only they are named in it, so a close-up of one
+    person isn't drawn as another the clip also has."""
+    told = "; ".join(x for x in (", ".join(people), extras.strip().rstrip(".")) if x)
+    return f" Only in frame: {told}." if told else ""
 
 
 def written(db: Session, project: Project, bd: Breakdown, clip: Clip, told: dict,
@@ -182,7 +181,7 @@ def written(db: Session, project: Project, bd: Breakdown, clip: Clip, told: dict
     """One clip's prompt and pictures. `told`: its clip in the director's plan (its summary,
     setting, sound and each shot's people, extras and how its line is said); a shot the plan
     no longer matches is written from the breakdown alone. `lean`: 1 leaves out the Setting
-    line, 2 the In frame notes too (a prompt past its model's limit)."""
+    line, 2 the Only in frame notes too (a prompt past its model's limit)."""
     from app import host, talker, voices
 
     shots = {s.id: s for scene in bd.scenes for s in scene.shots}
@@ -214,8 +213,10 @@ def written(db: Session, project: Project, bd: Breakdown, clip: Clip, told: dict
     at = 0.0  # a timed video's shots keep their tenths here: `repair_shape` then rounds each
     for k, (s, x) in enumerate(zip(mine, extra, strict=True), 1):  # edge where it falls
         end = round(at + s.seconds, 1)
-        frame = "" if lean > 1 else _frame(s.action, x.get("people") or [], x.get("extras") or "")
+        frame = "" if lean > 1 else _frame(x.get("people") or [], x.get("extras") or "")
         how = (x.get("how") or "").strip().rstrip(".")
+        if s.line and check.VO.search(s.speaker or "") and not model_map.THOUGHT.search(how):
+            how = ", ".join(x for x in ("voice-over, lips closed", how) if x)  # the "(V.O.)"
         name = OFF.sub("", s.speaker or "").strip()
         say = (f'{name} (in English{", " + how if how else ""}): "{s.line}"' if s.line
                else "No one speaks.")  # fmt: skip
