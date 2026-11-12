@@ -89,3 +89,8 @@ def test_a_take_its_provider_refused_counts_nothing_spent(app, db, owner, editor
     )
     stopped = Job(**{**base, "provider_ref": "g1", "provider": "google"}, error_detail=said)
     assert why_failed(stopped) == "invalid" and credits.never_billed(stopped)
+    # 12 Nov: out of quota, as Google really says it; and as the site writes it from now on
+    for head in ("Google failed", "Google's service is temporarily unavailable"):
+        out = said.replace("Google failed", head).replace("INVALID_ARGUMENT", "RESOURCE_EXHAUSTED")
+        full = Job(**{**base, "provider_ref": "g2", "provider": "google"}, error_detail=out)
+        assert credits.never_billed(full) and why_failed(full) != "invalid"

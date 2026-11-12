@@ -280,18 +280,25 @@ def uncapped(user: User | None) -> bool:
     return bool(user is not None and user.is_owner and get_settings().owner_uncapped)
 
 
+GOOGLE_FREE = "only be charged for tokens successfully generated"  # Google's words on a failed take
+
+
 def never_billed(job: Job) -> bool:
     """A failed job nothing was charged for, so it counts $0 in what was really spent (cost
     analysis X1): one its provider refused (a content or copyright check, e.g. Replicate's
     E005), one whose request it refused as invalid before running it (a 400 or 422, video
     245), and any run that failed at Replicate ("For all models, if a run fails, we don't
     charge you": replicate.com/docs/topics/billing; Reed, 11 Nov: a narration its voice
-    refused as too long showed as "$0.99 spent" beside "Nothing was charged"). Any other
+    refused as too long showed as "$0.99 spent" beside "Nothing was charged"), and a take
+    Google stopped with its own "You will only be charged for tokens successfully generated"
+    (12 Nov: 38 takes out of quota, RESOURCE_EXHAUSTED, each counted at its price). Any other
     failure that was sent still counts: it may have been billed."""
     from app.clip_takes import why_failed
 
     return job.status == JobStatus.failed and (
-        job.provider.startswith("replicate") or why_failed(job) in ("refused", "invalid")
+        job.provider.startswith("replicate")
+        or why_failed(job) in ("refused", "invalid")
+        or (job.provider == "google" and GOOGLE_FREE in (job.error_detail or ""))
     )
 
 

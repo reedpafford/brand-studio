@@ -258,6 +258,10 @@ def test_a_take_googles_rate_limit_stopped_midway_reads_as_busy():
     google, _ = _google(_answers({"id": "v1_abc", "status": "failed", "errors": [limit]}))
     Failed.error_detail = google.poll("v1_abc").error
     assert clip_takes.why_failed(Failed) == "busy"
+    full = {"code": "RESOURCE_EXHAUSTED", "message": "There was a problem processing your request."}
+    google, _ = _google(_answers({"id": "v1_abc", "status": "failed", "errors": [full]}))
+    Failed.error_detail = google.poll("v1_abc").error  # out of quota, as Google says it (12 Nov)
+    assert clip_takes.why_failed(Failed) == "busy"
 
 
 def test_the_key_never_reaches_an_error_text():

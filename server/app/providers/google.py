@@ -63,7 +63,10 @@ WHOLE = httpx.Timeout(900.0, connect=10.0)  # a take made in one call (`backgrou
 # `reference_images` "keep the subject consistent, not literal frames")
 TASKS = {"video": "edit", "image": "image_to_video", "last_frame": "image_to_video",
          "reference_images": "reference_to_video"}  # fmt: skip
-BUSY = ("rate_limit_exceeded", "too_many_requests", "quota_exceeded", "service_unavailable")
+# as the docs name them, and as a take that ran out of quota really says it (12 Nov: 38 of the
+# 60 sent at once came back "RESOURCE_EXHAUSTED")
+BUSY = ("rate_limit_exceeded", "too_many_requests", "quota_exceeded", "service_unavailable",
+        "resource_exhausted", "unavailable")  # fmt: skip
 BUSY_SAID = "Google's service is temporarily unavailable"  # clip_takes.BUSY_SAID: tried again
 # $ per 1M tokens for each model: read in, what it makes (video or pictures), text
 RATES = {"gemini-omni-1.2-flash": ("1.50", "12.00", "9.00"),
@@ -255,7 +258,7 @@ def _why(found: dict) -> str:
     """Why an interaction didn't finish, in its own codes and words; one its rate limit or
     load stopped reads as busy, so it's tried again like any busy take."""
     errors = [e for e in found.get("errors") or [] if isinstance(e, dict)]
-    busy = any(str(e.get("code", "")).rsplit("/", 1)[-1] in BUSY for e in errors)
+    busy = any(str(e.get("code", "")).rsplit("/", 1)[-1].lower() in BUSY for e in errors)
     head = BUSY_SAID if busy else f"Google {found.get('status')}"
     return f"{head}: {json.dumps(errors)[:1800]}" if errors else head
 
