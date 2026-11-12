@@ -71,7 +71,7 @@ def test_a_piece_is_trimmed_by_numbers_every_cut_quiet_on_the_frame_grid(tmp_pat
     words = [(0.7, 1.5), (1.6, 2.4), (3.0, 4.2)]  # a 0.1 s gap kept, a 0.6 s one cut to a beat
     path = _piece(tmp_path / "a.mov", words, 5.0)
     m, levels = talker_sound.measure(path, [{"text": "I told him."}]), _levels(path)
-    (a, x), (y, b) = talker_sound.keep(m, first=False, last=False)
+    (a, x), (y, b) = talker_sound.keep(m, last=False)
     assert -1 / 30 - 0.02 < a - (0.7 - talker_sound.HEAD) <= 0.02  # just before it
     assert -0.02 <= b - (4.2 + talker_sound.SENTENCE) < 1 / 30 + 0.02  # just after it
     assert (x - 2.4) + (3.0 - y) == pytest.approx(talker_sound.BEAT, abs=0.04)
@@ -79,17 +79,17 @@ def test_a_piece_is_trimmed_by_numbers_every_cut_quiet_on_the_frame_grid(tmp_pat
         assert _db(levels, t) < talker_sound.QUIET
         assert t * 30 == pytest.approx(round(t * 30), abs=0.02)
     comma = {**m, "comma": True}
-    assert talker_sound.keep(comma, False, False)[-1][1] < 4.2 + talker_sound.COMMA + 1 / 30
+    assert talker_sound.keep(comma, False)[-1][1] < 4.2 + talker_sound.COMMA + 1 / 30
     assert talker_sound.measure(path, [{"text": "When I told him,"}])["comma"]
-    first, *_, last = talker_sound.keep(m, first=True, last=True)  # rule 29: as made
-    assert (first[0], last[1]) == (0.0, 5.0)
+    first, *_, last = talker_sound.keep(m, last=True)  # the ending as made; the opening on its word
+    assert (first[0], last[1]) == (a, 5.0)
     # video 390: a sentence made up after the line, muted: the piece ends on the line itself
-    *_, (_, end) = talker_sound.keep(m, False, False, muted=[[2.9, 4.3]])
+    *_, (_, end) = talker_sound.keep(m, False, muted=[[2.9, 4.3]])
     assert 2.4 <= end < 2.4 + talker_sound.SENTENCE + 1 / 30 + 0.02
-    assert talker_sound.keep(m, False, False, muted=[[1.55, 2.45]])[-1][1] == b  # mid-piece: no
+    assert talker_sound.keep(m, False, muted=[[1.55, 2.45]])[-1][1] == b  # mid-piece: no
     # video 399: the transcript ended the muted words 0.3 s before their sound did, and the
     # piece ran on through them, the presenter mouthing in silence
-    assert talker_sound.keep(m, False, False, muted=[[2.9, 3.9]])[-1][1] == end
+    assert talker_sound.keep(m, False, muted=[[2.9, 3.9]])[-1][1] == end
 
 
 def test_the_talkers_pieces_play_their_kept_stretches_back_to_back(app, db, owner, monkeypatch):
@@ -101,10 +101,12 @@ def test_the_talkers_pieces_play_their_kept_stretches_back_to_back(app, db, owne
     rows = [r.clip_id for r in _clips(db, video) if SAYS in r.prompt]
     for n, clip in enumerate(rows):
         mine = [p for p in tl["pieces"] if p["clip_id"] == clip]
-        kept = talker_sound.keep(m, not n, n == len(rows) - 1)
+        kept = talker_sound.keep(m, n == len(rows) - 1)
         assert [(p["from"], round(p["from"] + p["end"] - p["start"], 3)) for p in mine] == [
             (round(a, 3), round(b, 3)) for a, b in kept]  # fmt: skip
-    assert tl["pieces"][0]["from"] == 0.0 and tl["pieces"][-1]["end"] == tl["length"]
+    # Reed, 12 Nov: "start on the FIRST WORD": the 0.9 s before the voice isn't played
+    assert tl["pieces"][0]["start"] == 0.0 and 0.8 < tl["pieces"][0]["from"] < 0.9
+    assert tl["pieces"][-1]["end"] == tl["length"]
     ends = [p["end"] for p in tl["pieces"]]
     assert [p["start"] for p in tl["pieces"][1:]] == ends[:-1]  # back to back
     assert tl["speed"] == talker_sound.SPEED

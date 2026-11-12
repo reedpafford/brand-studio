@@ -146,7 +146,7 @@ def base(db: Session, project: Project) -> dict:
     """The cut as the picked takes make it, before any edit. An Omni talker's pieces are
     trimmed by numbers (talker_sound.keep, from each piece's own sound): a join keeps a short
     breath, a long silence inside a piece is cut down to a beat, each stretch kept is a piece
-    of its own; the video's first piece starts and its last ends as made (rule 29: the ending
+    of its own; the video opens on its first word, and its last piece ends as made (the ending
     has room to land). Their B-roll is laid over them (`laid_over`), never a piece of its own,
     and the cut plays talker_sound.SPEED times faster (`speed`)."""
     voice, clips = song(db, project), rows(db, project)
@@ -169,7 +169,7 @@ def base(db: Session, project: Project) -> dict:
     for i, (r, d) in enumerate(zip(clips, lengths, strict=False)):
         take = db.get(ClipTake, r.picked_take_id or 0) if omni else None
         m = talker_sound.measured(db, take) if omni else None
-        kept = (talker_sound.keep(m, not i, i == len(clips) - 1, take_mute.spans(take))
+        kept = (talker_sound.keep(m, i == len(clips) - 1, take_mute.spans(take))
                 if m else [(0.0, d)])  # fmt: skip
         for k, (frm, end) in enumerate(kept):  # each stretch kept, a piece of its own
             d, whole = round(end - frm, places), not frm and end == lengths[i]

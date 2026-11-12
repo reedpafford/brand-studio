@@ -6,8 +6,9 @@ playbook, adopted by Reed on 9 Nov (§4-§7, §9).
   A join keeps HEAD before the first sound and SENTENCE (a comma's piece: COMMA) after the last;
   a silence inside a piece over LONG is cut down to BEAT; every cut point sits in quiet (under
   QUIET, or the piece's own floor in a loud room) on the cut's frame grid, so a last word rings
-  out and lips stay on the voice. The video's first piece starts and its last ends as made
-  (rule 29). `keep` says which stretches play; the cut lays them back to back (cut.base).
+  out and lips stay on the voice. The video opens on its first word like any join (Reed, 12
+  Nov: "start on the FIRST WORD. There is a tiny silence before"); its last piece ends as made.
+  `keep` says which stretches play; the cut lays them back to back (cut.base).
 - Steady sound (§6). Each talker take's voice is separated from its room (Demucs on Replicate,
   STEP: a paid call a piece, priced in the catalogue; the stand-ins pass the take's sound
   through), every take is brought to the same speech loudness by one fixed gain (`even`), one
@@ -136,9 +137,9 @@ def _grid(t: float, lo: float, hi: float, up: bool) -> float:
     return round(first if lo <= first <= hi else other if lo <= other <= hi else t, 3)
 
 
-def keep(m: dict | None, first: bool, last: bool, muted=()) -> list[tuple[float, float]]:
+def keep(m: dict | None, last: bool, muted=()) -> list[tuple[float, float]]:
     """The stretches of a piece the cut plays, in its own seconds, as `measure` found it: from
-    HEAD before its first sound (the video's first piece from 0) to SENTENCE or COMMA after its
+    HEAD before its first sound (the video's first piece too) to SENTENCE or COMMA after its
     last (the last piece to its end), never into another sound; each silence inside it over
     LONG cut down to BEAT. All of it when nothing in it was heard. Words `muted` at its end (a
     sentence the talker made up after their line, video 390) aren't played at all: the piece
@@ -151,7 +152,7 @@ def keep(m: dict | None, first: bool, last: bool, muted=()) -> list[tuple[float,
             end = max([b for _, b in runs if b <= s + HEAD], default=s)
     before = max([b for _, b in runs if b <= start], default=0.0)  # a sound before the speech
     after = min([a for a, _ in runs if a >= end], default=length)  # and one after it
-    a = 0.0 if first else _grid(max(start - HEAD, before), before, start, up=False)
+    a = _grid(max(start - HEAD, before), before, start, up=False)
     tail = COMMA if m.get("comma") else SENTENCE
     b = length if last else _grid(min(end + tail, after), end, after, up=True)
     out, at = [], a
