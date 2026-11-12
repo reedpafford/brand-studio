@@ -12059,7 +12059,7 @@ export interface components {
              * @default nano-banana-pro
              * @enum {string}
              */
-            model_id: "nano-banana-pro" | "nano-banana-2.1";
+            model_id: "nano-banana-pro" | "nano-banana-2.1" | "seedream-5.5";
             /**
              * Change
              * @default

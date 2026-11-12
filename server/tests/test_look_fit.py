@@ -226,3 +226,40 @@ def test_a_directors_look_its_check_redo_and_their_check_are_its_runs(app, db, e
         marks = [j.input.get("by_director", False) for j in (check, redo, again)]
         assert marks == [director] * 3, (director, marks)
         _run(app, db, FakeClaude({"fits": True, "seen": "a teacher", "problem": ""}))
+
+
+def test_a_seedream_sheet_is_wide_from_its_words_alone_and_redone_by_seedream(app, db, editor):
+    """Reed, 12 Nov: KIE's Seedance takes a real-looking face only on a sheet Seedream drew from
+    text, so nothing is attached (never the photo or the last sheet), and its redo stays
+    Seedream's."""
+    seedream = {"model_id": "seedream-5.5"}
+    photo = upload(editor)
+    item = _look(editor, db, source_photo_file_id=photo, image_file_ids=[photo])
+    url = f"/library/character/{item.id}/sheet"
+    sheet = db.get(Job, editor.post(url, json=seedream).json()["id"])
+    said = sheet.input["input"]
+    assert (sheet.provider, sheet.input["model"], sheet.input["files"]) == (
+        "kie",
+        "seedream-5.5",
+        {},
+    )
+    assert (said["aspect_ratio"], said["resolution"]) == ("16:9", "2K")
+    assert said["prompt"].startswith("A character reference sheet for a film: one fictional")
+    assert "On the right, a large three-quarter portrait" in said["prompt"]
+    assert said["prompt"].endswith(f"No text, no logos. The character: {TEACHER}")
+    _landed(db, item, sheet)
+    change = db.get(Job, editor.post(url, json={**seedream, "change": "Red cardigan"}).json()["id"])
+    assert change.input["files"] == {}  # from its words and the note, not the last sheet
+    assert change.input["input"]["prompt"].endswith(f"The character: {TEACHER}. Red cardigan")
+    bare = editor.post("/library/character", json={"name": "Sam", "source_photo_file_id": photo})
+    refused = editor.post(f"/library/character/{bare.json()['id']}/sheet", json=seedream)
+    assert (refused.status_code, refused.json()["detail"]) == (
+        422, "Seedream draws from words only. Describe it first (the notes).")  # fmt: skip
+
+    drawn = _look(editor, db, image_file_ids=[upload(editor)])  # no photo: its look is checked
+    first = editor.post(f"/library/character/{drawn.id}/sheet", json=seedream).json()["id"]
+    _landed(db, drawn, db.get(Job, first))
+    _run(app, db, FakeClaude(CHILD))
+    db.expire_all()
+    (redo,) = _waiting(db, drawn, "sheet")
+    assert (redo.provider, redo.input["model"], redo.input["files"]) == ("kie", "seedream-5.5", {})

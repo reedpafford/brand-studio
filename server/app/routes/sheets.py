@@ -1,7 +1,8 @@
 """House-style sheets for characters and places (Reed, 2026-10-23). Nano Banana draws one from
 the item's notes, or from its source photo, with the Director's `prompts.sheet_prompt`. An
 editor approves it; only an approved sheet is ever used in a video (`app/sheets.py`), and the
-source photo never is."""
+source photo never is. Seedream (`SEEDREAM`) draws a real-looking person's from the notes
+alone: the only sheet of a real-looking face KIE's Seedance takes (app/providers/kie.py)."""
 
 import logging
 import re
@@ -34,10 +35,12 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/library/{kind}/{item_id}/sheet", tags=["library"],
                    dependencies=[Depends(look_writer)])  # fmt: skip
 ASPECT = {Kind.character: "9:16", Kind.place: "16:9"}  # a tall turnaround / a wide view
+SEEDREAM = "seedream-5.5"  # from words only, never a photo or the last sheet; its sheet is wide
+WORDS_ONLY = "Seedream draws from words only. Describe it first (the notes)."
 
 
 class SheetIn(BaseModel):
-    model_id: Literal["nano-banana-pro", "nano-banana-2.1"] = SHEET_MODEL
+    model_id: Literal["nano-banana-pro", "nano-banana-2.1", "seedream-5.5"] = SHEET_MODEL
     change: Annotated[str, longest(500)] = ""  # Redo: "What should change?" (optional)
     look_id: str | None = None  # ST2: the owner's "{look} sheet" on a Cast & places item
 
@@ -77,6 +80,8 @@ def make_sheet(
     item = _item(db, user, kind, item_id)
     look = _look(user, item, body.look_id)
     house = look and item.sheet_approved  # another look starts from the House sheet (ST2)
+    if not item.notes.strip() and body.model_id == SEEDREAM:
+        raise HTTPException(422, WORDS_ONLY)
     if not item.notes.strip() and not item.source_photo_file_id and not house:
         raise HTTPException(422, "Describe it first (the notes), or add a photo.")
     status = sheet_status(item, look)
@@ -148,7 +153,8 @@ def queue_sheet(
     look = None if body.look_id in (None, looks.DEFAULT) else body.look_id  # the owner's
     # In another look, the approved House sheet is the person when there's no photo (ST2)
     house = item.sheet_file_id if look and item.sheet_approved else None
-    photo = item.source_photo_file_id or house
+    words = body.model_id == SEEDREAM  # no photo and no last sheet: a redo starts from its words
+    photo = None if words else item.source_photo_file_id or house
     from_photo = bool(photo)
     from_sheet = from_photo and (
         photo == house
@@ -162,7 +168,7 @@ def queue_sheet(
     style = look or (item.sheet_look if own_look(item) else looks.DEFAULT)
     last = ((item.look_sheets or {}).get(look) or {}).get("file_id") if look else item.sheet_file_id
     redo = bool(body.change.strip()) and last is not None
-    anew = redo and fresh(item, body.change, fit_redo)
+    anew = redo and (words or fresh(item, body.change, fit_redo))
     refs = [photo] if from_photo else []
     refs += [last] if redo and not anew else []
     noted = ". ".join(filter(None, [item.notes.rstrip(". "), body.change.strip()]))
@@ -170,11 +176,10 @@ def queue_sheet(
     prompt = prompts.sheet_prompt(
         str(kind), noted if anew else item.notes, from_photo=from_photo,
         change=body.change if redo and not anew else "", role=role_for(db, item), style_id=style,
-        from_sheet=from_sheet,
+        from_sheet=from_sheet, seedream=words,
     )  # fmt: skip
-    job = image_job_input(
-        get_model(body.model_id), prompt, ASPECT[kind], objects=refs, resolution=RESOLUTION
-    )
+    job = image_job_input(get_model(body.model_id), prompt, "16:9" if words else ASPECT[kind],
+                          objects=refs, resolution=RESOLUTION)  # fmt: skip
     project = db.get(Project, item.owner_project_id) if item.owner_project_id else None
     sheet = estimate(db, item.workspace_id, "image", Decimal(1), job)
     check = check_price(db, item.workspace_id) if is_checked(item) and not look else Decimal(0)
@@ -255,7 +260,8 @@ def save_sheet(db: Session, job: Job) -> None:
         after = Decimal(job.input.get("after_check", "0"))
         auto = bool(job.input.get("auto_made"))
         check_fit(db, user, item, redo=not job.input.get("changed"), after=after, auto=auto,
-                  director=bool(job.input.get("by_director")))  # fmt: skip
+                  director=bool(job.input.get("by_director")),
+                  model=job.input.get("model", SHEET_MODEL))  # fmt: skip
 
 
 def check_fit(
@@ -268,13 +274,15 @@ def check_fit(
     slot=None,
     pressed=False,
     director=False,
+    model: str = SHEET_MODEL,
 ) -> None:
     """Does the new sheet read as its description (age, gender, job)? One cheap Claude look
     (prompts/look_fit.md, effort low), paid like the sheet; the sheet shows as still being
     drawn until it answers. A sheet from an uploaded photo is never checked: the photo is the
     truth. It was held at the press (prepaid); `after` (the redo and its check) stays held
     until it's queued or the look fits. If it's refused anyway, the
-    check is skipped and the look shown, never held."""
+    check is skipped and the look shown, never held. `model`: what drew the sheet, so its redo
+    is drawn by the same (a Seedream sheet never comes back as another model's)."""
     slot = slot or slot_for(db, item)  # its role's words are read against the sheet too
     if not described(item):  # nothing to check it against: never "fits" (video 268)
         item.look_fit = {"seen": f"a guess from the name alone: nothing says what {item.name} "
@@ -294,6 +302,7 @@ def check_fit(
         "files": {"reference_images": [item.sheet_file_id]},
         "fit_images_to": 1024,
         "auto_made": auto,
+        "sheet_model": model,
         **({"by_director": True} if director else {}),  # a director's look: its run's check
     }
     if slot:
@@ -336,7 +345,8 @@ def save_fit(db: Session, job: Job) -> None:
         db.commit()  # the check's answer stays even if the redo is refused (that rolls back)
         try:
             maker, auto = db.get(User, job.created_by_id), bool(job.input.get("auto_made"))
-            queue_sheet(db, maker, item, SheetIn(change=note), True, auto=auto,
+            again = SheetIn(change=note, model_id=job.input.get("sheet_model", SHEET_MODEL))
+            queue_sheet(db, maker, item, again, True, auto=auto,
                         director=bool(job.input.get("by_director")))  # fmt: skip
             return
         except HTTPException:

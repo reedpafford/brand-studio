@@ -28,7 +28,10 @@ def _up_to(schema, field) -> int:
     return int(found.group(1) or found.group(2)) if found else None  # Omni's states none
 
 
-@pytest.mark.parametrize("model", catalogue().values(), ids=lambda m: m.id)
+ON_REPLICATE = [m for m in catalogue().values() if m.provider == "replicate"]  # KIE: no schema
+
+
+@pytest.mark.parametrize("model", ON_REPLICATE, ids=lambda m: m.id)
 def test_limits_match_replicate_schema(model):
     """Every limit in the catalogue is checked against the recorded Replicate schema."""
     schema = _schema(model)
@@ -92,6 +95,7 @@ def test_editor_sees_models_with_credits_but_no_dollars(editor):
         "p-video",
         "seedance-1-lite",
         "gemini-omni-1.2",
+        "seedance-2.5-kie",
     ]
     assert editor.get("/models/seedance-2.5").json()["credits_per_unit"]["480p"] == 1
     assert [m["id"] for m in editor.get("/models", params={"kind": "image"}).json()] == [

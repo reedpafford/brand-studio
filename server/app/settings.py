@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     kie_budget_usd: float = 0.0
     kie_usd_per_request: float = 0.06
     kie_usd_per_credit: float = 0.005
+    # KIE's pictures and takes (Seedream 5.5, Seedance 2.5: the catalogue's "kie" models), on
+    # wherever the worker holds KIE_API_KEY. Their references are put on KIE's file store
+    # first; what they make downloads only over https from these hosts (and their subdomains).
+    kie_upload_url: str = "https://kieai.redpandaai.co"
+    kie_media_delivery_hosts: list[str] = ["aiquickdraw.com"]
     # HeyGen (app/providers/heygen.py): the UGC talker. Key from HEYGEN_API_KEY only (never in
     # code or logs); videos download only over https from HeyGen's file hosts.
     heygen_base_url: str = "https://api.heygen.com"

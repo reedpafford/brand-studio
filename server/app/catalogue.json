@@ -1,5 +1,5 @@
 {
- "_note": "One source of truth for generation models. Limits come from Replicate's model schemas (snapshots in tests/fixtures/replicate, fetched 2026-10-23). Prices are owner-only; price_source says where each came from.",
+ "_note": "One source of truth for generation models. Limits come from Replicate's model schemas (snapshots in tests/fixtures/replicate, fetched 2026-10-23); a model with a `provider` goes there instead (KIE's two: limits from docs.kie.ai, read 12 Nov 2026). Prices are owner-only; price_source says where each came from.",
  "models": [
   {
    "id": "seedance-2.5",
@@ -124,6 +124,21 @@
    "price_source": "Producer decision 2026-10-23 (1.5 credits per image; resolution not yet priced separately)"
   },
   {
+   "id": "seedream-5.5",
+   "name": "Seedream 5.5",
+   "kind": "image",
+   "provider": "kie",
+   "provider_model": "seedream/5-5-text-to-image",
+   "provider_version": "",
+   "default": false,
+   "offered": false,
+   "resolutions": ["1K", "1.5K", "2K"],
+   "aspect_ratios": ["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "3:2", "21:9"],
+   "prompt_max": 5000,
+   "price": {"unit": "image", "usd": {"1K": 0.018, "1.5K": 0.018, "2K": 0.0315}},
+   "price_source": "kie.ai/seedream-5-5, read 12 Nov 2026: 3.6 KIE credits ($0.018) a 1K or 1.5K picture, 6.3 ($0.0315) a 2K one. Text to image only, through KIE (app/providers/kie.py): the sheets of real-looking people, which KIE's Seedance takes where it refuses any other picture of a face (Reed's tests, 12 Nov). Not in the pickers: it takes no reference pictures, so it draws sheets only. Usage records the credits KIE says it took"
+  },
+  {
    "id": "gemini-3.5-flash",
    "name": "Gemini 3.5 Flash",
    "kind": "watch",
@@ -240,6 +255,31 @@
    "audio": "always",
    "price": {"unit": "second", "usd": {"720p": 0.15, "1080p": 0.23, "4k": 0.45}},
    "price_source": "Back for one job (Reed, 12 Nov: \"On the CTA - use omni 1.1 for the same line if it fails\"): a line Omni 1.2 refuses to speak (Google blocks \"Click the link below\" as prohibited content) is tried on 1.1. In no picker. replicate.com/google/gemini-omni-1.1 billing table, read 2026-11-03: $0.05/s 360p, $0.15/s 720p, $0.23/s 1080p, $0.45/s 4k of output video. It has no duration input: every clip comes back 10 s (batch-b's was charged $1.50 at 720p), so its length here is fixed at 10"
+  },
+  {
+   "id": "seedance-2.5-kie",
+   "name": "Seedance 2.5 (KIE)",
+   "kind": "video",
+   "provider": "kie",
+   "lip_sync": true,
+   "prompt_max": 20480,
+   "prompt_target": 2500,
+   "provider_model": "bytedance/seedance-2-5",
+   "provider_version": "",
+   "default": false,
+   "duration": {"min": 4, "max": 30, "smart": true},
+   "resolutions": ["480p", "720p", "1080p"],
+   "aspect_ratios": ["9:16", "1:1", "16:9", "4:3", "3:4", "21:9", "adaptive"],
+   "max_reference_images": 30,
+   "max_reference_videos": 10,
+   "max_reference_audios": 10,
+   "max_reference_media_seconds": 30,
+   "recommended_reference_images": 8,
+   "first_frame": true,
+   "last_frame": true,
+   "audio": "switch",
+   "price": {"unit": "second", "usd": {"480p": 0.14, "720p": 0.315, "1080p": 0.79}},
+   "price_source": "kie.ai/seedance-2-5, read 12 Nov 2026: 28 KIE credits ($0.14) a generated second at 480p, 63 ($0.315) at 720p, 158 ($0.79) at 1080p. The same Seedance 2.5 through KIE (app/providers/kie.py), for real-looking people: it takes a character sheet Seedream made on KIE, where Replicate's refuses it (Reed's tests, 12 Nov). With a reference video KIE bills less a second (17, 38 and 95 credits: $0.085, $0.19, $0.475) but on the uploaded video's seconds plus the generated ones; the quote keeps the rate above on the generated seconds, which covers that bill while the uploaded video is under about two thirds of the clip's length, and can be under it past that. Usage records the credits KIE says it took"
   },
   {
    "id": "stable-audio-2.5",

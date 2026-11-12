@@ -218,6 +218,20 @@ To carry on through Replicate without touching the key: add an empty file
 instead of $0.07, and Nano Banana pictures go through Replicate too. Delete the file to go back.
 Let takes that are being made finish first.
 
+**Real-looking people through KIE (Reed, 12 Nov).** Seedance refuses an uploaded picture of a
+real-looking face, but takes a character sheet its own Seedream drew on the same KIE account. So
+two models go through KIE (kie.ai): "Seedream 5.5" draws the sheet from the character's notes
+($0.0315 a sheet), and "Seedance 2.5 (KIE)" makes the clip with that sheet attached ($0.14 a
+second at 480p; Replicate's Seedance 2.5 is $0.10 and stays as it is for the animated styles).
+They use the KIE key real songs already use, on the worker only, so on Reed's site nothing new
+has to be set: they work while `NEXT_KIE_SUNO` is `true` (that switch is what carries the
+`KIE_API_KEY` secret to the server) and stop, unsent and uncharged ("KIE has no key here"), when
+it isn't. Their spend counts against `NEXT_REAL_BUDGET_USD` like any paid job, not against the
+songs' `NEXT_KIE_BUDGET_USD`. What they make is downloaded only from KIE's file host
+`aiquickdraw.com` (the default of `BS_KIE_MEDIA_DELIVERY_HOSTS` in `server/app/settings.py`; the
+deploy doesn't write it, and the songs' `NEXT_KIE_DELIVERY_HOSTS` is separate). No style uses
+them by itself yet: pick them per sheet and per clip.
+
 ---
 
 ## Reference

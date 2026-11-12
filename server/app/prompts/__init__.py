@@ -405,6 +405,7 @@ def sheet_prompt(
     role: str = "",
     style_id: str = "house",
     from_sheet: bool = False,
+    seedream: bool = False,
 ) -> str:
     """The Nano Banana prompt for a library item's reference picture. kind "character": a front
     / side / back turnaround sheet, from a description or (from_photo) an uploaded photo of a
@@ -413,10 +414,12 @@ def sheet_prompt(
     item's notes; `role` is the script's part for a look made from a cast slot ("Omar, the
     boyfriend"), given without its name. Names stay out so none is drawn. `style_id` is the
     style the sheet is drawn in (a sheet is per style). `from_sheet`: image 1 is the character's
-    approved sheet in another style, not a photo (its look in a video's other style)."""
+    approved sheet in another style, not a photo (its look in a video's other style).
+    `seedream`: the character sheet as Seedream is asked for it, from words alone (a wide
+    picture: a large portrait, the body from the front and from behind)."""
     sections = guides.fill((HERE / "sheet.md").read_text(), style_id).split("\n## ")[1:]
     parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
-    out = [parts[kind]]
+    out = [parts["seedream" if seedream and kind == "character" else kind]]
     if kind == "character" and from_photo:
         out.append(parts["sheet" if from_sheet else "photo"])
     if description.strip():

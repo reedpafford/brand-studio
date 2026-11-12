@@ -920,6 +920,10 @@ def test_sheet_prompts_are_house_style_with_no_names_or_text():
     assert photo.endswith("change only this from the last sheet: make the beanie navy")
     place = prompts.sheet_prompt("place", "a small bedroom with a desk and one window")
     assert "no people" in place and "{" not in place + photo and "9:16" not in place + sheet
+    assert prompts.sheet_prompt("place", "a small bedroom", seedream=True).startswith(place[:40])
+    real = prompts.sheet_prompt("character", "17, red beanie", seedream=True)  # Seedream's form
+    assert "full body from the front; in the middle, the full body from behind" in real
+    assert "turnaround" not in real and real.endswith("The character: 17, red beanie")
 
 
 def test_a_made_look_is_checked_against_its_role_and_redone_once():

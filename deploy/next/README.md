@@ -76,6 +76,8 @@ effect on the next deploy). These are Reed's permanent production settings, not 
   director's redos and best take need them. `NEXT_ITEM_CHECK_SCOPE`: `key_takes`, `all_takes`
   (now) or `everything`.
 - `NEXT_KIE_SUNO=true` with `NEXT_KIE_BUDGET_USD` (100000) and `NEXT_KIE_DELIVERY_HOSTS`: real songs.
+  The same switch carries the KIE key that Seedream sheets and "Seedance 2.5 (KIE)" clips need
+  (real-looking people, `deploy/README.md` Part 9); nothing else to set for them.
 - Off unless Reed asks: `NEXT_NARRATION_MUSIC_PAID` (a narration's music bed, with
   `NEXT_NARRATION_MUSIC_BUDGET_USD`) and `NEXT_SITE_READ_REAL` ("Import from website" reads the
   real site). The look and language sample switches only mattered with the stand-ins on.

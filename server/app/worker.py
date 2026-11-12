@@ -456,9 +456,10 @@ def _stored(db: Session, storage: Storage | None, job: Job, file_id: int) -> Sto
 def _files_as_data(db: Session, storage: Storage | None, job: Job) -> dict:
     """The job's input with its file ids (job.input["files"]) turned into data URLs. With
     `fit_images_to`, reference images are scaled down to that long side; `exact_file_ids`
-    (brand screens, products) stay lossless."""
+    (brand screens, products) stay lossless. KIE's get every file as it is stored: its
+    Seedance trusts a Seedream sheet only as the file Seedream made (app/providers/kie.py)."""
     payload = dict(job.input)
-    max_side = job.input.get("fit_images_to")
+    max_side = None if job.provider == "kie" else job.input.get("fit_images_to")
     exact = set(job.input.get("exact_file_ids") or [])
     for key, ids in (job.input.get("files") or {}).items():
         urls = []
