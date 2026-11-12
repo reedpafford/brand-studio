@@ -633,7 +633,8 @@ def retry(db: Session, job: Job) -> None:
     (`after_fix`). A look-alike refusal steps down instead (`_again_without`: without the
     still, then without the sheets). "Flagged as sensitive" (E005, at random) is made again
     once as it is; any other refusal (E006, the safety filter) never is: its prompt changes
-    first (video 345). No other second automatic retry, never on a video that's gone, and
+    first (video 345), but for a talker's own piece on Omni 1.2, which is asked of Omni 1.1
+    (`_on_omni_1_1`). No other second automatic retry, never on a video that's gone, and
     never past the video's limit, budget or the editor's week. The failed take isn't counted,
     so the credits are held once and come back if the retry fails too."""
     from app.clip_prompts import fix_job, is_stale, newest
@@ -661,8 +662,32 @@ def retry(db: Session, job: Job) -> None:
         row.free_fix_used = True
         return
     if why == "refused" and term != "sensitive":  # never the same again (345: E006 3 times)
+        if older := _on_omni_1_1(db, project, row, job):  # but a talker's own line: on Omni 1.1
+            _again(db, job, older, wait=False)
         return
     _again(db, job, job.input, wait=why == "busy")
+
+
+def _on_omni_1_1(db: Session, project: Project, row: ProjectClip, job: Job) -> dict | None:
+    """A talker's piece Omni 1.2 refused for what it says, as Omni 1.1 is asked for it (Reed, 12
+    Nov, when Google blocked "Click the link below" as prohibited content: "On the CTA - use
+    omni 1.1 for the same line if it fails"): the same prompt and opening still. 1.1 takes no
+    length (its clips are 10 s; the cut trims a talker's piece to its words) and three pictures
+    at most. None for any other clip: its prompt changes first, as before."""
+    from app import model_map, omni_talker, p_video
+    from app.catalogue import get_model
+    from app.clip_prompts import newest
+
+    files = job.input.get("files") or {}
+    old = get_model(model_map.OMNI_1_1)
+    plan = omni_talker._plan(bd.data if (bd := newest(db, project)) else {})
+    if (job.input.get("model") != model_map.OMNI or not omni_talker.on(db, project)
+            or row.clip_id not in {c for c, mine in plan if omni_talker._talks(mine)}
+            or len(files.get("reference_images") or []) > old.max_reference_images):  # fmt: skip
+        return None
+    take, sent = p_video.fit(old.id, job.input["input"], files)
+    made = {**(job.input.get("made_with") or {}), "model": old.id}
+    return {**job.input, "model": old.id, "input": take, "files": sent, "made_with": made}
 
 
 REAL = "may contain real person"  # Seedance, of a reference picture (video 392: a sheet)
@@ -736,16 +761,23 @@ def once_more(db: Session, job: Job) -> None:
 
 
 def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
+    from app.catalogue import get_model
+    from app.credits import estimate
+
     project = db.get(Project, job.project_id)
     user = db.get(User, job.created_by_id)
-    if not user or fits(db, project, user, job.credits):
+    credits, provider = job.credits, job.provider
+    if (m := get_model(data.get("model") or "")) and m.fixed_seconds:  # Omni 1.1: its own price
+        credits = estimate(db, job.workspace_id, job.kind, Decimal(m.fixed_seconds), data)
+        provider = "replicate" if provider == "google" else provider  # 1.1 isn't Google's road
+    if not user or fits(db, project, user, credits):
         return  # it would go over: nothing more runs on its own
     data = {k: v for k, v in data.items() if k != "busy"}  # its own busy waits start afresh
     if wait:
         data = {**data, "wait_until": (utcnow() + RETRY_WAIT).isoformat()}
     db.add(Job(workspace_id=job.workspace_id, created_by_id=job.created_by_id, kind=job.kind,
-               provider=job.provider, input=data, project_id=job.project_id,
-               brand_id=job.brand_id, credits=job.credits, approved_by_id=job.approved_by_id,
+               provider=provider, input=data, project_id=job.project_id,
+               brand_id=job.brand_id, credits=credits, approved_by_id=job.approved_by_id,
                status="queued", retry_of_id=job.id, auto=True))  # fmt: skip
     db.flush()
 
