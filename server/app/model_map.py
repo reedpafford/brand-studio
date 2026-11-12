@@ -39,6 +39,7 @@ def unsent(look: str | None, model_id: str, shots: list[dict]) -> tuple[str, ...
 # --- The model each clip is made with, and why (v6 F: the Clips tab's "Model" and "Why") -------
 
 OMNI = "gemini-omni-1.2"
+OMNI_1_1 = "gemini-omni-1.1"
 NOT_VIDEO = "Refused: there's no video model called {}."
 WHOLE_TAKE = "Refused: HeyGen makes the talker's one take, not a clip. Use make_take for B-roll."
 SAYS_IT = (
@@ -90,9 +91,11 @@ PICTURES = 6  # Omni's reference pictures at most (the catalogue's max_reference
 
 
 def _model(model_id: str):
+    """A model a clip may be made on: never Omni 1.1 (back 12 Nov only for a line 1.2 refuses:
+    "1.2 replaces 1.1" stands), so a clip that names it reads as the video's model."""
     from app.catalogue import get_model
 
-    return get_model(model_id)
+    return None if model_id == OMNI_1_1 else get_model(model_id)
 
 
 def billed(model, seconds: int) -> int:
