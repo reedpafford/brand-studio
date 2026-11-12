@@ -680,11 +680,15 @@ def _land(db: Session, job: Job) -> None:
 START_FRAME = (
     "Place {who} from their sheet into {where}. Take only the person from the sheet, keeping "
     "their face, hair, build and outfit exactly the same, with everything they wear. "
-    "Composition: filmed by themselves on their phone, chest-up, centred, at eye level, the "
-    "whole head and both shoulders in frame, the place in focus behind them. Lighting: soft "
-    "daylight lights them from the front. Camera and color: one frame from a phone video, "
-    "natural muted color, real skin, this one person alone in the frame."
-)
+    "Composition: the camera is their own phone where they set it down to talk (on the "
+    "dashboard behind the wheel in a car, leaned low on a table, else held at arm's length), "
+    "close and a little off-centre, the whole head in frame, the place in focus behind them. "
+    "Lighting: daylight from one side, that side of the face a little brighter, soft shadow on "
+    "the other. Camera and color: one frame from a phone's front-camera video, natural muted "
+    "color, fine grain, real unretouched skin, this one person alone in the frame."
+)  # Reed, 12 Nov, on RP1/RP2's start pictures ("chest-up, centred, at eye level" before): "It
+# should look like the character is setting their phone up, or holding it, to talk to their friend
+# on facetime"
 
 
 def _opening_still(db: Session, project: Project, row: BreakdownVersion, who: str) -> None:

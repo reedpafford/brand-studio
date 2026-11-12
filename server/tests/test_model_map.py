@@ -63,7 +63,8 @@ def test_omni_1_2_replaces_1_1_and_makes_the_realistic_style(owner):
     for now. Omni is more for the realistic stuff": UGC on Omni, the animated styles on
     Seedance (2.5 for House, Disney Pixar and songs; 2.0 for the rest)."""
     omni = get_model(model_map.OMNI)
-    assert get_model("gemini-omni-1.1") is None
+    old = get_model("gemini-omni-1.1")  # back 12 Nov, only for a line 1.2 refuses: in no picker
+    assert not old.offered and old.id not in {m["id"] for m in owner.get("/models").json()}
     assert (omni.duration.min, omni.duration.max, omni.take_resolution, omni.audio) == (
         3, 15, "720p", "always")  # fmt: skip
     assert model_map.OMNI in {m["id"] for m in owner.get("/models").json()}
@@ -186,7 +187,8 @@ def test_a_clip_or_take_still_on_omni_1_1_reads_as_the_videos_model_not_a_crash(
     assert got.status_code == 200
     row = next(c for c in got.json() if c["clip_id"] == clip.clip_id)
     assert row["model"]["id"] == model_map.OMNI and row["model"]["by"] == "map"
-    assert next(t for t in row["takes"] if t["id"] == take.id)["model"] == "gemini-omni-1.1"
+    # the take reads by the model's name again: 1.1 is back in the catalogue (12 Nov), in no picker
+    assert next(t for t in row["takes"] if t["id"] == take.id)["model"] == "Gemini Omni 1.1"
 
 
 def test_a_ugc_talker_on_camera_is_omni_in_a_corner_heygen_and_the_broll_omni(

@@ -53,6 +53,7 @@ class CatalogueModel(BaseModel):
     default: bool = False
     offered: bool = True  # in the pickers; off for a model only a later step will use
     duration: Duration | None = None
+    fixed_seconds: int = 0  # no duration input: every clip comes back this long (Omni 1.1: 10)
     resolutions: list[str] = []
     aspect_ratios: list[str] = []
     max_reference_images: int = 0
