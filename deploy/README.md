@@ -211,6 +211,13 @@ the test site) as `BS_GOOGLE_API_KEY`, the same way `REPLICATE_API_TOKEN` is. If
 refuses to start a take in the background, add `BS_GOOGLE_BACKGROUND=false`: takes are then made
 one at a time in one long call.
 
+**Pausing Google (Reed, 12 Nov).** Google caps how much Omni one key makes a day (it reset at
+08:00 UTC and ran out after about 40-50 takes); past it every take fails "RESOURCE_EXHAUSTED".
+To carry on through Replicate without touching the key: add an empty file
+`deploy/next/google-paused` on `next` and let the deploy run. Omni takes then cost $0.11 a second
+instead of $0.07, and Nano Banana pictures go through Replicate too. Delete the file to go back.
+Let takes that are being made finish first.
+
 ---
 
 ## Reference

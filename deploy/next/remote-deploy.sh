@@ -67,6 +67,11 @@ main() {
   db_password=$(old POSTGRES_PASSWORD .env)
   [ -n "$db_password" ] || db_password=$(openssl rand -hex 24)
   fake=${FAKE:-false}  # always false here (checked at the top)
+  # Google paused (Reed, 12 Nov, when the key's daily Omni allowance ran out: "If we hit a limit can
+  # we just switch to replicate for now?"): while the file deploy/next/google-paused is in the
+  # repo, the key isn't written, so Omni takes and Nano Banana pictures go through Replicate at
+  # its prices. Delete the file and deploy to go back to Google.
+  if [ -f next/google-paused ]; then GOOGLE=""; echo "Google is paused: Omni and pictures go through Replicate."; fi
   samples=false  # real look samples among the stand-ins: switched on, with the Replicate key
   [ "${LOOK_SAMPLES:-false}" = true ] && [ -n "${REPLICATE:-}" ] && samples=true
   tests=false  # real language tests among the stand-ins: switched on, with the Claude key
