@@ -16,13 +16,13 @@ formats_why: its people say the script's lines on camera in Omni's own voices, a
 A photoreal person photographed like a still from a modern TV drama, not a model shoot: natural, unretouched skin with pores, fine lines, slight shine and uneven tone; real hair with flyaways. The body and face follow the character's age and build exactly: an adult has an adult's height, build and face; a heavy character is genuinely heavy, a fit one genuinely fit. One fixed, everyday, specific outfit that says who they are (a hoodie, a satin dress, a leather vest, a work polo), identical in every view, with one detail that reads at a glance and stays through any change of build (hair colour and cut, earrings, a watch, a beard). Soft, motivated light; a neutral background.
 
 ## place_look
-A real, specific, lived-in place photographed for a TV drama: dense, ordinary set dressing that says who lives or works there. Light comes only from things in the scene: lamps, bare bulbs, string lights, neon or a screen at night, with a deep blue sky through any window; flat fluorescent light in institutional rooms; low golden or morning sun by day. Filmic, low contrast, lifted blacks, warm-neutral colour, never punchy or saturated; no people in frame.
+One wide establishing photograph, taken from one corner, of a real, specific, lived-in place for a TV drama: dense, ordinary set dressing that says who lives or works there. Light falls in pools from things in the scene, the rest in shadow: lamps, string lights, neon or a screen at night, with a deep blue sky through any window; fluorescent tubes over dim walls in institutional rooms; low golden or morning sun by day. Filmic, low contrast, lifted blacks, warm-neutral colour; no people in frame.
 
 ## still_look
 The Movie look, unless the brand block says otherwise: "A frame from a photoreal modern TV drama. Real-looking people with natural skin texture, in a real, specific place dressed with ordinary detail. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Light comes from what's in the scene (lamps, bulbs, string lights, a screen, the sun), and the scene's light follows the story: dark warm practicals or flat cool fluorescents for the struggle, golden hour or morning sun for the change. Filmic, low-contrast grade with lifted blacks, warm-neutral colour. Most shots are close singles at eye level on a long lens with very shallow depth of field and soft bokeh, often with the other person's shoulder soft in the foreground; wides keep the place readable. Characters look at each other, not at the lens. Natural, TV-scale expressions. No captions or on-screen text."
 
 ## clip_style
-Photoreal TV-drama footage at eye level with shallow focus, faces turned three-quarter with eyes just off the lens, the acting small and real, the camera locked or slowly pushing in (handheld only for action or walking), light from practicals and the sun, the place's own sound
+Photoreal TV-drama footage, long lens, shallow focus, people off-centre behind a soft foreground, faces three-quarter with eyes just off the lens, the acting small and real, the camera locked off (one slow push-in for the line that turns the scene; handheld only for a fall or a chase), side-lit by the scene's lamps or sun, the background darker, the place's own sound
 
 ## fit_look
 a photoreal TV-drama look with natural, unretouched skin and real everyday clothes, worn the same in every shot
@@ -44,7 +44,7 @@ A tired man in his forties with a short dark beard, in a navy hoodie, in a diner
 ## The videos
 A short drama for vertical video: real-looking actors play a scene or a few in real, specific places, lit by the lamps, bulbs and sun in them. Most shots are close singles with shallow focus and a still camera; the sound is the place itself. It's the look of a modern TV drama, used here to tell the script's story.
 - The script is the story. Its words and its ending are its own: stage them well and add nothing to them (no line, question or call to action the script doesn't have).
-- Where the format's guide differs on pacing or sound (the house shorts' fast cutting and their music), this guide's pacing and sound are the ones to follow.
+- Where the format's guide differs on pacing, sound or delivery (the house shorts' fast cutting, shouting and music), this guide's are the ones to follow.
 - These are suggestions from three studied films, not rules: use what serves this script's scenes, and leave out what doesn't.
 
 ## Script
@@ -52,7 +52,7 @@ Writing a new script in this look: a story told in scenes, each in one place, wi
 
 ## Stills
 - Each scene sits in one place and one light. The place says who these people are before anyone speaks: dense, ordinary, specific dressing, with props that stay put from shot to shot.
-- The workhorse is a medium close-up or close-up single at eye level, often "dirty" (the other person's shoulder or the back of their head soft in the foreground), with the background's lights soft as bokeh. A wider two-shot every so often puts the people back in the place.
+- The workhorse is a medium close-up or close-up single, with the background's lights soft as bokeh. A wider two-shot every so often puts the people back in the place.
 - Eyes just off the lens, on the other person. Looking into the lens is rare and means something: a confrontation, or the close to the viewer.
 - Low angles for status, a high angle to make someone small at their low point, a point of view (through a window, past a phone) when the viewer is a witness.
 - Inserts on the thing being named: a hand, a ring, a belt notch, a phone, a bottle, the product in a hand. Photoreal, macro, shallow focus.
@@ -66,7 +66,7 @@ Writing a new script in this look: a story told in scenes, each in one place, wi
 - The voices are Omni's own, made from the quoted lines: each spoken line in quotes, word for word, with who says it and how ("Mom (quiet, flat): …"). Each character's voice is set once, in the treatment's `voices` (or their saved voice), and every clip they speak in carries it word for word on its own line ("Mom's voice: …"), so it stays theirs from clip to clip; the how-it's-said note is only the delivery. Nobody's voice is laid in from elsewhere.
 - A line that carries over an insert (the mechanism, the product, a hand) is best kept in the same clip as its speaker, with the insert as its own timecoded shot, so the voice runs on over it.
 - The sound is the place: room tone, a crowd, an engine, gravel, a door. No score and no music bed under anything (music, if any, is added in post); diegetic music only when the scene has a radio or a dance floor in it.
-- The camera: locked, or one slow push-in on the line that matters. Handheld only for action, a chase or walking and talking. No slow motion, no speed ramps, no drone shots.
+- The camera: locked, or one slow push-in on the line that matters. Handheld only for a fall or a chase. No slow motion, no speed ramps, no drone shots.
 - Up to two people's sheets go into a clip as reference pictures, with the place; anyone else in it is described in words.
 
 ## Breakdown
@@ -84,12 +84,12 @@ Measured over the three studied films (6–9 min each; a short video keeps the s
 - Up to 30 s: one to three scenes, about 8–14 shots, a clip a scene, landing within about a tenth of the length the brief or script asks for. When it runs long, a wordless insert or end hold gives up its seconds before any line does.
 
 ## camera
-- Eye level by default; a long lens with very shallow focus on singles, a normal lens with deep focus on wides, macro on inserts.
-- One move a shot at most: a slow push-in (about 2–4% of the frame a second) on the line that matters; locked off for low points; handheld following or walking backwards for walk-and-talks and action; a whip-pan only to join a reaction to an entrance.
-- A recurring frame (the same mirror, the same doorway) can track a change across the film.
+- Locked off by default. Singles on a long lens with very shallow focus, a close-up hairline to chin, past something soft near the lens (a shoulder, a shelf end, a door frame). Wides from a corner along a wall, never square down an aisle, nobody mid-frame. Inserts macro, one object each.
+- One move a shot at most, with a reason and an end: a slow push-in on the line that turns the scene, ending on the eyes; a track beside someone who walks, never backing away in front of them; handheld only for a fall or a chase.
+- One way of covering a scene, kept through it: singles cut on each line, or over-the-shoulder mediums, or wides with close-ups for the turns.
 
 ## Light and colour
-- Light comes from things in the scene and follows the story: night practicals (string lights, bare bulbs, a lamp, a TV or dashboard glow) or flat cool fluorescents (a locker room, a restroom, a doctor's office) for the struggle; golden hour and dawn for the change; bright morning sun for the epilogue. Practicals are usually in frame.
+- Light comes from things in the scene and follows the story: night practicals (string lights, bare bulbs, a lamp, a TV or dashboard glow) or cool fluorescent tubes over dim walls (a locker room, a restroom, a doctor's office) for the struggle; golden hour and dawn for the change; bright morning sun for the epilogue. Practicals are usually in frame.
 - A filmic, low-contrast, warm-neutral grade with lifted blacks; never punchy, no teal-and-orange. Night is dark (brightness 13–30 of 100) with warm skin; day is brighter and less saturated. Only the 3D or macro insert is strongly saturated.
 
 ## Cast
@@ -104,20 +104,17 @@ Measured over the three studied films (6–9 min each; a short video keeps the s
 - Delivery is quiet and close in intimate scenes, loud only when the scene is (a shout, a crowd).
 
 ## must keep
-1. Photoreal people and real, specific, densely dressed places.
-2. One place and one light per scene; hard cuts.
-3. Close shallow-focus singles (often with a soft foreground shoulder), with a wider two-shot now and then.
-4. Lines lip-synced on camera, eyes just off the lens; the lens broken only for a confrontation or the close.
-5. Camera locked or slowly pushing; handheld only for action and walking; no slow motion.
-6. Light from practicals and the sun, following the story: dark or cool for the struggle, golden or morning for the change.
-7. A filmic low-contrast, warm-neutral grade.
-8. Location sound, no score; cuts on lines and actions, not beats.
-9. Inserts on what's named; a mechanism as one short glossy 3D or macro insert.
-10. Naturalistic acting with held silences.
+1. Photoreal people in real, specific, densely dressed places; one place and one light per scene; hard cuts.
+2. Close shallow-focus singles, people off-centre, with a wide early in each scene.
+3. Spoken lines said on camera with eyes just off the lens; a thought is heard over closed lips; the lens broken only for a confrontation or the close.
+4. Camera locked off, one slow push-in for the line that turns the scene; handheld only for a fall or a chase; no slow motion.
+5. Light from practicals and the sun, in a filmic low-contrast, warm-neutral grade.
+6. Location sound, no score; cuts on lines and actions, not beats; inserts on what's named.
+7. Acting small and physical, with held silences: what the body does, never the feeling's name.
 
 ## safe to vary
 - The world and the cast: any place, any lead, any age.
-- How much is handheld, and walk-and-talk or shot/reverse coverage.
+- The coverage: singles, over-the-shoulder mediums, or wides with close-ups.
 - The time-jump device (a match cut, a warm flash, a cut to morning; a card in the edit).
 - The 3D insert's look (anatomy, a microscopic network, nature macros).
 - How it ends: whatever the script's last words are.
