@@ -29,7 +29,7 @@ from app.db import get_db, utcnow
 from app.job_brand import brand_for
 from app.models.accounts import User
 from app.models.freestyles import Freestyle
-from app.models.jobs import Job, JobStatus, Usage
+from app.models.jobs import STOP_THERE, Job, JobStatus, Usage
 from app.models.projects import Project, ProjectStatus
 from app.models.script_library import Script
 from app.schemas import ShortText, UtcTime
@@ -540,7 +540,9 @@ def decline_job(
 def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
     team may cancel any of them, except a video's: whoever made the video, whoever asked for
-    the job, or the owner (as every change to a video). A Quick clip: its maker or the owner."""
+    the job, or the owner (as every change to a video). A Quick clip: its maker or the owner,
+    and while it is being made too (Reed, 12 Nov): it is stopped where it's made (`STOP_THERE`,
+    the worker's part), nothing of it is kept, and what it may still cost is listed."""
     hidden.see(db)
     job = _seen_job(db, user, job_id)
     project = db.get(Project, job.project_id) if job.project_id else None
@@ -556,7 +558,22 @@ def cancel_job(job_id: int, user: User = Depends(current_user), db: Session = De
         .values(status=JobStatus.cancelled, finished_at=utcnow())
     )
     if done.rowcount != 1:
-        raise HTTPException(409, "This job has already started.")
+        stopped = (
+            "request" in job.input
+            and db.execute(  # a Quick clip, still running
+                update(Job)
+                .where(Job.id == job.id, Job.status == JobStatus.running)
+                .values(
+                    status=JobStatus.cancelled,
+                    input={**job.input, "discard": True, STOP_THERE: True},
+                )
+            ).rowcount
+        )
+        if not stopped:
+            raise HTTPException(409, "This job has already started.")
+        db.commit()
+        db.refresh(job)
+        return job
     live.note(db, job.project_id, JobStatus.cancelled)
     if FREESTYLE in job.input and held:  # taken back before the OK: its thread says Withdrawn
         db.refresh(job)

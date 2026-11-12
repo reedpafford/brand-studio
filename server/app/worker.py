@@ -32,7 +32,7 @@ from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
 from app.models.accounts import User
 from app.models.files import StoredFile
-from app.models.jobs import Job, JobStatus, Usage
+from app.models.jobs import STOP_THERE, Job, JobStatus, Usage
 from app.providers import (
     STAND_IN,
     UNSAVED,
@@ -83,6 +83,7 @@ BUSY = "{} stayed too busy to start this. Nothing was charged; try again later."
 # less often, and nothing more is asked of that provider this tick.
 CHECK_WAIT = timedelta(seconds=30)
 _check_after: dict[int, datetime] = {}  # job id: when to check it again (this process only)
+_told: set[int] = set()  # jobs cancelled at their provider on a person's Cancel (this process only)
 DAY = 24 * 60 * 60
 
 
@@ -376,6 +377,9 @@ def check_running(
             _stop(db, job) if job.input.get("discard") else _fail(db, job, UNKNOWN, job.provider)
             db.commit()
             continue
+        if job.input.get(STOP_THERE) and job.id not in _told:  # a Quick clip cancelled mid-make
+            _told.add(job.id)
+            _cancel(job, providers[job.provider])
         if job.provider in busy or _check_after.get(job.id, datetime.min) > utcnow():
             result = Result("running")  # asked less often while its provider is busy
         else:
@@ -394,6 +398,10 @@ def check_running(
                 _stop(db, job) if job.input.get("discard") else _fail(db, job, FAILED, repr(exc))
                 db.commit()
                 continue
+        if job.input.get(STOP_THERE) and result.state == "failed" and not result.usage:
+            result = Result(
+                "failed", error=result.error, usage=_maybe_billed(job, providers[job.provider])
+            )
         if result.state == "running":
             if _overdue(job, providers[job.provider]):  # it keeps saying "running", or checking
                 _check_after.pop(job.id, None)  # keeps failing
@@ -423,22 +431,31 @@ def _service(job: Job) -> str:
             "music": "The music service"}.get(job.kind, "The service")  # fmt: skip
 
 
+def _cancel(job: Job, provider: Provider) -> None:
+    try:
+        getattr(provider, "cancel", lambda ref: None)(job.provider_ref)
+    except Exception:  # noqa: BLE001 - cancelling is a courtesy; the job ends either way
+        log.warning("job %s: couldn't cancel it at the provider", job.id, exc_info=True)
+
+
+def _maybe_billed(job: Job, provider: Provider) -> list[UsageItem]:
+    """A paid job cancelled at its provider, at its price, as an estimate. Replicate: "If you
+    cancel a run for an official model, you may still be charged"
+    (replicate.com/docs/topics/billing): listed, never under-counted."""
+    maybe = provider.paid and job.credits and not (job.provider_ref or "").startswith(STAND_IN)
+    return [UsageItem(Decimal(1), "job", (job.credits * USD_PER_CREDIT).quantize(Decimal("0.0001")),
+                      estimated=True)] if maybe else []  # fmt: skip
+
+
 def _time_out(db: Session, job: Job, provider: Provider) -> None:
     """Still running past its time limit (the provider keeps saying "running", or checking
     keeps failing): cancelled at the provider if it can, then failed like any failure (its
     step's own handling), said plainly (Producer, 2026-10-28). A paid one may still be billed,
     so its price is listed as an estimate; one it can't cancel isn't made again on its own (B9)."""
-    try:
-        getattr(provider, "cancel", lambda ref: None)(job.provider_ref)
-    except Exception:  # noqa: BLE001 - cancelling is a courtesy; the job fails either way
-        log.warning("job %s: couldn't cancel it at the provider", job.id, exc_info=True)
+    _cancel(job, provider)
     stoppable = not _unstoppable(provider)
     said = f"No answer within {_limit(job, provider)}." + ("" if stoppable else " Not cancellable.")
-    # Replicate: "If you cancel a run for an official model, you may still be charged"
-    # (replicate.com/docs/topics/billing): listed as an estimate, never under-counted
-    maybe = provider.paid and job.credits and not (job.provider_ref or "").startswith(STAND_IN)
-    paid = [UsageItem(Decimal(1), "job", (job.credits * USD_PER_CREDIT).quantize(Decimal("0.0001")),
-                      estimated=True)] if maybe else []  # fmt: skip
+    paid = _maybe_billed(job, provider)
     _finish(db, job, provider, Result("failed", error=said, usage=paid), None, again=stoppable)
     message = LATE if not stoppable else SLOW if provider.paid else SLOW_FREE
     db.execute(update(Job).where(Job.id == job.id, Job.status == JobStatus.failed)

@@ -1249,7 +1249,9 @@ export interface paths {
          * Cancel Job
          * @description Only jobs that haven't started (queued or waiting for approval) can be cancelled. The
          *     team may cancel any of them, except a video's: whoever made the video, whoever asked for
-         *     the job, or the owner (as every change to a video). A Quick clip: its maker or the owner.
+         *     the job, or the owner (as every change to a video). A Quick clip: its maker or the owner,
+         *     and while it is being made too (Reed, 12 Nov): it is stopped where it's made (`STOP_THERE`,
+         *     the worker's part), nothing of it is kept, and what it may still cost is listed.
          */
         post: operations["cancel_job_jobs__job_id__cancel_post"];
         delete?: never;
