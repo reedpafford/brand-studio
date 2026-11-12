@@ -3,7 +3,7 @@ order: 11
 on: yes
 image_model: auto
 video_model: gemini-omni-1.2
-blurb: A real person talks straight into a phone in their own room, cut with fast literal B-roll of what they're saying.
+blurb: A real person talks straight into a phone in their own room, cut with B-roll that shows what they're saying, as one story.
 card: Phone-real talker
 broll: Phone-real cutaways
 
@@ -16,23 +16,23 @@ A real person photographed on a phone, not a model shoot: natural skin with visi
 A real, lived-in room photographed on a phone in daylight: specific clutter and everyday objects that say whose room it is (a workshop, a clinic, a home office, a kitchen), all in focus, no shallow cinematic blur. Soft natural window light, slightly warm, mid-contrast, no coloured studio light, no grading.
 
 ## still_look
-The UGC look, unless the brand block says otherwise: "A phone video frame, photorealistic and unpolished: real people with natural skin texture in a real, lived-in place, lit by soft window daylight or plain outdoor sun. Faces and builds come from the character sheets, and outfits too unless this video gives its own. When the main speaker is in the shot, they face the camera at eye level, chest-up and centred, looking straight into the lens, the room behind them in focus. Other shots look like everyday phone footage of a moment, a close-up of hands and objects, or, when the line explains what happens inside the body, a glossy translucent 3D medical render on a soft studio background. No cinematic lighting, no shallow-focus film look, no captions."
+The UGC look, unless the brand block says otherwise: "A phone video frame, photorealistic and unpolished: real people with natural skin texture in a real, lived-in place, lit by soft window daylight or plain outdoor sun. Faces and builds come from the character sheets, and outfits too unless this video gives its own. When the main speaker is in the shot, the picture is taken from where their own phone sits, close and a little off-centre so they fill most of the frame, looking straight into the lens, the room behind them in focus. Other shots look like everyday phone footage of a moment, a close-up of hands and objects, or, when the line explains what happens inside the body, a glossy translucent 3D medical render on a soft studio background. No cinematic lighting, no shallow-focus film look, no captions."
 
 ## clip_style
-Realistic vertical phone footage: the speaker locked off at eye level talking straight into the lens in natural window light; cutaways with gentle handheld drift or a slow push-in
+Unpolished vertical phone footage: the speaker's propped phone holds still as they talk straight into the lens in soft, uneven window light; cutaways look filmed by someone who was there, with gentle handheld drift or a slow push-in
 
 ## fit_look
 a realistic, everyday phone-camera look with natural skin texture
 
 ## The videos
-One ordinary-looking person talks straight into a phone camera in a real room, as if they filmed it themselves; the edit cuts away to a fast run of literal B-roll that shows what they're saying (or, when the video lays the talker over the B-roll, keeps them on screen in a bottom corner). The talker carries the trust; the B-roll carries the attention.
+One ordinary-looking person talks straight into a phone camera in a real room, as if they filmed it themselves; the edit cuts away to B-roll where a picture shows what they're saying, and the pictures add up to the same story (or, when the video lays the talker over the B-roll, keeps them on screen in a bottom corner). The talker carries the trust; the B-roll shows the story.
 - It runs in the Presenter format: the talker is the presenter, and their voice is the video's one voice.
 - Straight cutaways now (talker full frame, then B-roll full frame); the talker laid over the B-roll once the keyed host layer ships.
 
 ## Stills
-- Two kinds of shot. **Talker shots:** the main speaker, from their sheet, chest-up (waist-up to selfie-close), centred, eye level, eyes straight into the lens, in their own room, which is in focus behind them. **B-roll shots:** one literal picture of what the line says at that moment. The talker can be in a B-roll shot when the line is about them and their feeling, and isn't when it has nothing to do with them; it depends on the script, not a rule (Reed, 4 Nov: "if the speaker says something like 'my husband was ashamed of me' it would be impactful to show some emotion with the speaker ... like 'the three men walked up to the car', it is all about context").
+- Two kinds of shot. **Talker shots:** the main speaker, from their sheet, seen from where their phone sits (Reed, 12 Nov: "It should look like the character is setting their phone up, or holding it, to talk to their friend on facetime"): propped on the dash behind the wheel, leaned low on a table, or held at arm's length; waist-up to selfie-close, a little off-centre, eyes straight into the lens, in their own room or car, which is in focus behind them. **B-roll shots:** one literal picture of what the line says at that moment. The talker can be in a B-roll shot when the line is about them and their feeling, and isn't when it has nothing to do with them; it depends on the script, not a rule (Reed, 4 Nov: "if the speaker says something like 'my husband was ashamed of me' it would be impactful to show some emotion with the speaker ... like 'the three men walked up to the car', it is all about context").
 - The talker's room says who they are: a clinic for someone in scrubs, a workshop with shelves of jars, a home studio, a kitchen. Real clutter, window daylight, nothing staged.
-- B-roll is one of four kinds, mixed freely: everyday people filmed like a phone video and as real as the talker, with natural skin, real rooms and phone light, never a polished or rendered look (the problem and the "after": tired on a sofa, a hand on a belly, smiling in the sun); a glossy, translucent 3D render of what happens inside the body, on a soft grey or dark studio background, when the line explains a mechanism; objects and ingredients in natural settings (a wooden table, a garden, stone), often a hand holding the product up; proof-style footage (a lab bench, a microscope view, another person's selfie testimonial, generated like the talker).
+- B-roll is one of four kinds, each used where the line calls for it: everyday people filmed like a phone video and as real as the talker, with natural skin, real rooms and phone light, never a polished or rendered look (the problem and the "after": tired on a sofa, a hand on a belly, smiling in the sun); a glossy, translucent 3D render of what happens inside the body, on a soft grey or dark studio background, when the line explains a mechanism; objects and ingredients in natural settings (a wooden table, a garden, stone), often a hand holding the product up; proof-style footage (a lab bench, a microscope view, another person's selfie testimonial, generated like the talker).
 - **One talker, one spot, one still** (Reed, 9 Nov: "the same starting frame - as long as the hands are in like a neutral position"). When the talker talks to camera in one place across several Omni pieces, every piece opens on one still, the first piece's, with them at rest: looking into the lens, mouth closed, hands relaxed and low (or the phone held steady at arm's length). Each piece acts from that pose. Video 315 drew a still per piece and got another car, lot, lens and angle in each. Give a piece its own opening picture only when it truly needs another shot (an insert of the phone screen, a B-roll cutaway), and say why in that clip's `own_frame`.
 - Each B-roll picture keeps its own light and colour: phone footage natural, renders saturated and glossy. Don't grade them to match each other or the talker.
 - No captions, titles or overlay text in any picture (rule 32). A product label or a phone screen that matters is in the picture and its words are stated exactly.
@@ -56,7 +56,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - **Label lock** (Reed, 9 Nov, the UGC playbook §2): any clip where the product's label shows carries a short label-lock paragraph: the label's words exactly and in the order they're printed, without quote marks (quotes are speech), as the product's name, variant and notes give them (never invent a word), and that the print is static, never morphing, flickering, re-spelling or blurring. The hand holding it stays still, and the product never turns, tilts or lowers; it's its real size, with fingers off the label, as its opening still shows it.
 
 ## Breakdown
-- Every B-roll shot has a job (to show the thing said, the feeling, the proof or the product) and cuts in on the word it shows; what it shows, and who and what appears in it, follows the script's context, not fixed rules (Reed, 4 Nov). Cut to B-roll on the phrases that name something worth seeing, not on every noun; come back to the talker for the hook, opinions, turns and the close. The talker is in every talker shot, and in B-roll only when the line is about them (see Shots).
+- Every B-roll shot shows what is being said at that moment and belongs to the same story as the shots around it; there is no amount to reach, and a line with no picture of its own stays on the talker (Reed, 12 Nov: "B-roll isn't just clips for the sake of it, they add to the overall story"). "I" or "my daughter" shows that same person, in the same place and clothes each time. Each shot looks caught by someone who was there or a camera that would have been, never stock footage. It cuts in on the word it shows; come back to the talker for the hook, opinions, turns and the close. The talker is in every talker shot, and in B-roll only when the line is about them (see Shots).
 - The talker carries about half the video (the references: on screen 40–47% of the time, the longest hold 4.8–21 s): a talker shot often runs two or three sentences. Video 293 showed him 23% of the time, two short holds, and it felt like narrated B-roll with a face at each end. They're filmed saying every line anyway (their HeyGen take, or their Omni pieces under the B-roll), so a longer hold costs nothing.
 - One talker for the whole video, in one outfit and one room.
 
@@ -74,7 +74,7 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 - Phone-shot realism in the talker: vertical, a real room with real clutter, natural window light, the background in focus, everyday clothes or a role uniform (4 of 4).
 - The talker's camera doesn't move: shake 0.1–1.2 on talker shots in 3 ads and 1.9 in the selfie-close one, against up to 41 on handheld B-roll; no push-ins on the talker (4 of 4). All the movement lives in the B-roll.
 - A room that says who the talker is (3 of 3 that show the room; the fourth removes it).
-- Literal B-roll, one picture per phrase, a new picture every 0.6–3 s in list sections (4 of 4).
+- Literal B-roll in story order, a picture where the line names something to see; in list sections a new picture every 0.6–3 s (4 of 4).
 - B-roll mixes looks on purpose, with no shared grade: B-roll saturation 7–74 and warmth −16 to +34 across the four (4 of 4).
 - Voice from 0.0 s and almost no silence: voice on 88–96% of the time, 8–10% of the talk silent between words, the typical pause 0.30–0.34 s and none longer than 0.44–0.56 s (4 of 4). Runs of 8–10 words between pauses (median), and a third to a half of the sentence ends run straight on with no pause (4 of 4).
 - 3.4–3.75 words a second while talking, pauses over a quarter second left out (4 of 4), whatever the energy.
@@ -97,12 +97,12 @@ One ordinary-looking person talks straight into a phone camera in a real room, a
 
 ## camera
 - The talker's camera holds: locked off or nearly, no push-ins, no pans (4 of 4). All the camera movement is in the B-roll.
-- Talker: centred, eye level, eyes in the upper third; a wide phone lens, with a little stretch on the face at selfie distance.
+- Talker: from the phone's own spot, often a little below the face and off-centre, eyes in the upper third; a wide phone lens, with a little stretch on the face at selfie distance.
 - Talker over B-roll (when the video uses it): the talker cut out chest-up in a bottom corner, 40–55% of the frame's width, head top at about 55–62% of the height; their light doesn't match the background, and that's accepted.
 - B-roll: slow push-ins (1.5–19% of the frame a second, median about 4%), still frames with movement inside, or handheld phone drift.
 
 ## Light and colour
-- Talker: soft window daylight from the front or front-side, even on the face, no hard shadows; the room behind a little brighter. Measured talker frames: brightness 40–51 of 100, saturation 27–30, warmth +7 to +12, contrast 22–27; averages #745853, #73675e, #806c6d; faces #b38371 to #c79a87.
+- Talker: soft window daylight from the front or front-side, a little brighter on the window's side, soft natural shadow on the far cheek, never hard (Reed, 12 Nov: "realistic shading and iphone camera lighting"); the room behind a little brighter, a window blown white. Measured talker frames: brightness 40–51 of 100, saturation 27–30, warmth +7 to +12, contrast 22–27; averages #745853, #73675e, #806c6d; faces #b38371 to #c79a87.
 - B-roll keeps its source colour; renders are saturated (salmon and amber organs, cyan or green glows, saturation 40–66).
 - Light by beat (Reed, 9 Nov, the UGC playbook §7): B-roll of the problem (the symptom, the struggle, the before) usually sits in flat, grey light (an overcast window, a dull morning); the remedy, the product and the after in warm light (low sun, a lamp, warm window light). A judgement for each picture, not a stamp; the talker's own spot keeps its one still's light all the way through.
 
