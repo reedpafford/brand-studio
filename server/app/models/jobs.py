@@ -22,6 +22,7 @@ class JobStatus(StrEnum):
 
 # Not finished yet: a press waits for these (one at a time), and a stop stops them
 WAITING = (JobStatus.queued, JobStatus.running, JobStatus.needs_owner_approval)
+STOP_THERE = "stop_there"  # in a discarded job's input: the worker cancels it at its provider
 
 
 class Job(Filed, Entity, Base):

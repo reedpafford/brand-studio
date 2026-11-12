@@ -1,5 +1,6 @@
 from app.models.accounts import User
 from app.models.jobs import JobStatus
+from app.providers import Result
 from app.providers.fake import FakeProvider
 from app.routes.jobs import enqueue
 from app.worker import run_once
@@ -19,6 +20,34 @@ def test_started_job_cannot_be_cancelled(owner, db):
     run_once(db, {"fake": FakeProvider()})
     assert owner.get(f"/jobs/{job.id}").json()["status"] == JobStatus.running
     assert owner.post(f"/jobs/{job.id}/cancel").status_code == 409
+
+
+def test_a_quick_clip_being_made_is_stopped_where_its_made_and_its_cost_still_listed(owner, db):
+    """Reed, 12 Nov: a running Quick clip couldn't be cancelled (57 were sent by mistake and all
+    had to finish). Cancel now stops it at its provider, keeps nothing of it, and lists what
+    it may still cost as an estimate."""
+    from app.models.jobs import Usage
+    from app.worker import check_running
+
+    class Paid(FakeProvider):
+        paid, stopped = True, []
+
+        def cancel(self, ref):
+            self.stopped.append(ref)
+
+        def poll(self, ref):
+            return Result("failed", error="canceled") if ref in self.stopped else Result("running")
+
+    job = enqueue(db, db.query(User).one(), "video-480p", {"seconds": 2, "request": {}})
+    paid = Paid()
+    run_once(db, {"fake": paid})
+    assert owner.post(f"/jobs/{job.id}/cancel").json()["status"] == JobStatus.cancelled
+    db.expire_all()  # the worker reads the job as the Cancel left it
+    check_running(db, {"fake": paid})
+    db.refresh(job)
+    assert paid.stopped == [job.provider_ref] and job.finished_at is not None
+    assert job.status == JobStatus.cancelled and not job.output
+    assert [u.estimated for u in db.query(Usage).filter_by(job_id=job.id)] == [True]
 
 
 def test_a_running_job_says_when_it_started_so_making_counts_from_then(owner, db):
