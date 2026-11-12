@@ -346,6 +346,8 @@ def test_start_and_end_frames_go_to_the_model_as_its_first_and_last_frame(app, e
     first, last = upload(editor), upload(editor)
     body = _clip(fomo, model_id="seedance-2.0", character_ids=[fomo["character"]],
                  first_frame_file_id=first, last_frame_file_id=last)  # fmt: skip
+    priced = editor.post("/clips/estimate", json=body)  # a frame is no reference: this answered 500
+    assert priced.status_code == 200 and priced.json()["reference_images"] == 0
     r = editor.post("/clips", json=body)
     assert r.status_code == 201, r.text
     job = db.get(Job, r.json()["id"])
@@ -353,6 +355,21 @@ def test_start_and_end_frames_go_to_the_model_as_its_first_and_last_frame(app, e
     sent = _files_as_data(db, app.state.storage, job)["input"]
     assert isinstance(sent["image"], str) and isinstance(sent["last_frame_image"], str)
     assert "reference_images" not in sent and "[Image" not in sent["prompt"]
+
+
+def test_omni_1_1_is_the_owners_alone_and_always_ten_seconds(owner, editor, fomo, db):
+    """Reed, 12 Nov: "On the CTA - use omni 1.1 for the same line if it fails". It is in no picker,
+    takes no duration (every clip is 10 s) and no sound switch (Replicate refuses a key it
+    doesn't list)."""
+    ask = _clip(fomo, model_id="gemini-omni-1.1", duration=10)
+    assert editor.post("/clips/estimate", json=ask).status_code == 422
+    assert owner.post("/clips/estimate", json={**ask, "duration": 6}).status_code == 422
+    priced = owner.post("/clips/estimate", json=ask)
+    assert priced.status_code == 200, priced.text
+    r = owner.post("/clips", json=ask)
+    assert r.status_code == 201, r.text
+    sent = db.get(Job, r.json()["id"]).input["input"]
+    assert "duration" not in sent and "generate_audio" not in sent and sent["resolution"] == "720p"
 
 
 def test_an_end_frame_needs_a_start_frame_and_a_model_that_takes_frames(editor, fomo):

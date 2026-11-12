@@ -91,13 +91,15 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     """Check everything against the catalogue and the brand; plain-language errors (422)."""
     brand = get_brand(db, user, body.brand_id)
     model = get_model(body.model_id)
-    if not model or model.kind != "video" or not model.offered:
+    # a model in no picker (Omni 1.1, kept for a line 1.2 refuses) is the owner's to ask for by name
+    if not model or model.kind != "video" or not (model.offered or user.is_owner):
         raise HTTPException(422, "Pick a video model.")
     if body.resolution is not None and body.resolution not in model.resolutions:
         raise HTTPException(422, f"{model.name} offers {', '.join(model.resolutions)}.")
     if body.aspect_ratio not in model.aspect_ratios:
         raise HTTPException(422, f"{model.name} doesn't do {body.aspect_ratio}.")
-    lo, hi = model.duration.min, model.duration.max
+    fixed = model.fixed_seconds
+    lo, hi = (fixed, fixed) if fixed else (model.duration.min, model.duration.max)
     if not lo <= body.duration <= hi:
         raise HTTPException(422, f"{model.name} makes clips from {lo} to {hi} seconds.")
 
@@ -292,7 +294,12 @@ def estimate_clip(
         needs_owner_approval=bool(held),  # Reed, 30 Oct: "Hold requests"
         reason=held,
         auto_screen_ids=plan.auto_screen_ids,
-        **{k: len(v) for k, v in plan.files.items()},
+        # a clip with a start frame sends it as `image`, not as a reference: it counted none and
+        # the answer had no `reference_images` (a 500 on every estimate with a start frame)
+        **{
+            k: len(plan.files.get(k, []))
+            for k in ("reference_images", "reference_videos", "reference_audios")
+        },  # fmt: skip
     )
 
 

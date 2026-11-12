@@ -224,6 +224,24 @@
    "price_source": "Reed, 6 Nov: Omni 1.2 replaces 1.1 and makes the realistic style, UGC (\"Omni is more for the realistic stuff\"), at $0.11 a second at 720p on Replicate (Reed, from its page, 6 Nov). 1080p and 4k aren't used; they keep 1.1's Replicate rates (read 2026-11-03) as a ceiling. Takes at 720p (its 360p draft mode left out). Native audio on every clip, no audio input. Up to 6 reference images, 3 a person, 2 people (docs/prompting/omni-1.2.md). Called on Replicate's official-model endpoint, so no version"
   },
   {
+   "id": "gemini-omni-1.1",
+   "name": "Gemini Omni 1.1",
+   "kind": "video",
+   "lip_sync": false,
+   "provider_model": "google/gemini-omni-1.1",
+   "provider_version": "ca4def55e462e08063dc733c9eeaf3c25f76bfc816ebbb2458bfe76e07ff50c8",
+   "default": false,
+   "offered": false,
+   "fixed_seconds": 10,
+   "resolutions": ["720p", "1080p", "4k"],
+   "aspect_ratios": ["9:16", "16:9"],
+   "max_reference_images": 3,
+   "first_frame": true,
+   "audio": "always",
+   "price": {"unit": "second", "usd": {"720p": 0.15, "1080p": 0.23, "4k": 0.45}},
+   "price_source": "Back for one job (Reed, 12 Nov: \"On the CTA - use omni 1.1 for the same line if it fails\"): a line Omni 1.2 refuses to speak (Google blocks \"Click the link below\" as prohibited content) is tried on 1.1. In no picker. replicate.com/google/gemini-omni-1.1 billing table, read 2026-11-03: $0.05/s 360p, $0.15/s 720p, $0.23/s 1080p, $0.45/s 4k of output video. It has no duration input: every clip comes back 10 s (batch-b's was charged $1.50 at 720p), so its length here is fixed at 10"
+  },
+  {
    "id": "stable-audio-2.5",
    "name": "Stable Audio 2.5",
    "kind": "music",

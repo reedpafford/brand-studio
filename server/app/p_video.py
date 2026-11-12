@@ -31,9 +31,11 @@ def fit(model_id: str, input: dict, files: dict) -> tuple[dict, dict]:
     from app.catalogue import get_model
 
     if model_id != ID:
-        silent = (m := get_model(model_id)) is not None and m.audio is None
-        return ({k: v for k, v in input.items() if k != "generate_audio"} if silent
-                else input), files  # fmt: skip
+        m = get_model(model_id)
+        drop = {"generate_audio"} if m is not None and m.audio is None else set()
+        if m is not None and m.fixed_seconds:  # Omni 1.1 lists neither: 10 s clips, with sound
+            drop = {"generate_audio", "duration"}
+        return {k: v for k, v in input.items() if k not in drop}, files
     shaped = {k: input[k] for k in ("duration", "resolution", "aspect_ratio") if k in input}
     shaped |= {"prompt": clean(input["prompt"]), "fps": FPS, "prompt_upsampling": False}
     own = {"image": (files.get("image") or files.get("reference_images", []))[:1],
