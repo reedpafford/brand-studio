@@ -139,6 +139,24 @@ def _extras(take: SongTake) -> list[dict] | None:
     return song_timing.extras(take.lyrics, words)
 
 
+def revoice(db: Session, project: Project) -> dict | None:
+    """A one-pass video's narration in use is read in another voice than the one a person
+    has since set for the video (Reed, 13 Nov: "we can swap if needed"): the run reads it
+    again in theirs after Make it, and everything timed to it follows. {voice, `take_id`: a
+    timed read in that voice to use instead (free), `making`: one is on its way}; else None."""
+    from app import one_pass
+
+    used = db.get(SongTake, project.song_take_id or 0)
+    now = voices.picked(db, project) if one_pass.on(project) and used else None
+    if not now or used.kind != narration.KIND or used.voice == now:
+        return None
+    mine = [(t, song_takes.state(db, t)[0]) for t in song_takes.for_video(db, project)
+            if t.voice == now]  # fmt: skip
+    ready = [t.id for t, was in mine if was == "ready"]
+    return {"voice": now, "take_id": ready[-1] if ready else None,
+            "making": any(was in ("making", "timing") for _, was in mine)}  # fmt: skip
+
+
 def state(db: Session, project: Project) -> dict | None:
     """What the director reads: {state none | making | ready | failed, takes, used_take_id};
     a song's also has the `style` it's sung in and the brand's `recent_styles`, a
@@ -162,6 +180,8 @@ def state(db: Session, project: Project) -> dict | None:
         if note := voices.host_note(db, project):
             out["voice_note"] = note  # the host's own voice was removed: say what to do
         out["pace_wanted"] = target(db, project)  # the style's words a second
+        if swap := revoice(db, project):
+            out["revoice"] = swap
         from app import audition
 
         if heard := audition.status(db, project):  # the presenter's voice is chosen first
@@ -201,7 +221,8 @@ def run(db: Session, user: User, project: Project, decision: dict, run: dict) ->
         return NO_SONG if tool == "song" else NO_NARRATOR
     pace = decision.get("speed") if found == "narrated" and not delivery else None
     pace = pace if pace and pace != 1 else None  # an ElevenLabs remake's pace (below)
-    asked = note or delivery or pace
+    swap = revoice(db, project) if found == "narrated" else None
+    asked = note or delivery or pace or (swap and not swap["take_id"] and not swap["making"])
     draft = db.get(ScriptDraft, project.script_draft_id)
     what = "song" if found == "song" else "narration"
     takes = song_takes.for_video(db, project)
@@ -398,6 +419,16 @@ def audio_move(state: dict, go, style: str, voices) -> dict | None:
         return None
     if tool == "narration" and (said := _say_it_right(audio, state, go)):
         return said
+    swap = audio.get("revoice")
+    if swap and swap["take_id"]:
+        return go(tool, "The narration read in the video's new voice is used: every shot moves "
+                  "to its time in it.", take_id=swap["take_id"])  # fmt: skip
+    if swap:
+        return (
+            go("wait", "The narration is being read in the video's new voice.")
+            if swap["making"]
+            else go(tool, "The video's voice changed: the narration is read again.")
+        )
     if audio.get("used_take_id"):
         return None
     what = "song" if tool == "song" else "narration"

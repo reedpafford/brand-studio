@@ -65,6 +65,7 @@ export function useCutVersions(projectId: number) {
   return useQuery({
     queryKey: ["cut-versions", projectId],
     queryFn: () => polled(api.GET("/projects/{project_id}/cut/versions", { params: { path: { project_id: projectId } } }), []),
+    refetchInterval: (q) => (q.state.data?.some((v) => v.making) ? 3000 : false), // while a version's cut is being made
   });
 }
 

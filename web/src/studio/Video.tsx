@@ -204,11 +204,12 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
   const plan = planOf(breakdown, clips, progress);
   const planned = plan.flatMap((s) => s.clips);
   const here = many ? planned.filter((c) => !c.opening || c.opening === v) : planned; // this version's clips: its hook's and the body's
-  // The versions whose cut is behind their clips (`behind`) or isn't made yet (`uncut`). While the director works, or
+  // The versions whose cut is being made (`cutting`), is behind their clips (`behind`) or isn't made yet (`uncut`). While the director works, or
   // a round waits for his OK, the cuts are the director's to make.
   const his = many && made && !running && !start ? versions : [];
-  const behind = his.filter((x) => x.out_of_date).map((x) => x.opening);
-  const uncut = his.filter((x) => x.file_id == null).map((x) => x.opening);
+  const cutting = his.filter((x) => x.making).map((x) => x.opening); // being cut now: nothing to press
+  const behind = his.filter((x) => x.out_of_date && !x.making).map((x) => x.opening);
+  const uncut = his.filter((x) => x.file_id == null && !x.making).map((x) => x.opening);
   const round = 1 + items.filter((t) => t.note).length; // each delivery ends a round; a note after it starts the next
   const going = ["working", "waiting", "needs_you"].includes(h.status.kind); // else an estimate is for the next run
   const toGo = going && progress?.expected_usd != null && progress.actual_usd != null ? Math.max(0, progress.expected_usd - progress.actual_usd) : null;
@@ -356,7 +357,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
             }
           />
         }
-        film={<Stage projectId={id} plan={plan} cells={cellsOf(here, cut?.timeline.pieces ?? [])} cut={cut} first={first} versions={many ? { on: v, list: hooks.map((k) => ({ opening: k, name: versions.find((x) => x.opening === k)?.name ?? "" })), behind, uncut, show: (k) => setParams((was) => (k > 1 ? was.set("v", String(k)) : was.delete("v"), was), { replace: true }) } : undefined} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} />} onTell={toBox} />}
+        film={<Stage projectId={id} plan={plan} cells={cellsOf(here, cut?.timeline.pieces ?? [])} cut={cut} first={first} versions={many ? { on: v, list: hooks.map((k) => ({ opening: k, name: versions.find((x) => x.opening === k)?.name ?? "" })), behind, uncut, cutting, show: (k) => setParams((was) => (k > 1 ? was.set("v", String(k)) : was.delete("v"), was), { replace: true }) } : undefined} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} />} onTell={toBox} />}
       />
     </>
   );

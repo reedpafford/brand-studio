@@ -344,6 +344,8 @@ def test_carry_on_after_a_failed_narration_reads_in_the_videos_own_voice(app, ow
     assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
     _run(app, db, ticks=4)
     assert _jobs(db, "song_take")[-1].input["input"]["voice"] == "Austin"
+    shown = owner.get(f"/projects/{pid}/host").json()  # no presenter: the narrator's voice
+    assert (shown["on"], shown["voice"], shown["voice_pending"]) == (False, "Austin", False)
 
 
 def test_a_zack_d_video_is_read_in_the_styles_own_voice(app, owner, db):

@@ -8649,6 +8649,11 @@ export interface components {
             presenter_id?: number | null;
             /** Voice */
             voice?: string | null;
+            /**
+             * Voice Pending
+             * @default false
+             */
+            voice_pending: boolean;
         };
         /** HostPieceOut */
         HostPieceOut: {

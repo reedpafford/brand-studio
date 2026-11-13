@@ -103,7 +103,7 @@ export function Stage({ projectId, plan, cells, cut, first, versions, rows, head
         <span className="grow" />
         {first && view === "cut" && <Finish cut={first} edits={edits} />}
       </div>
-      {first && view === "cut" && <Notice cut={first} edits={edits} make={make} behind={versions?.behind} uncut={versions?.uncut} />}
+      {first && view === "cut" && <Notice cut={first} edits={edits} make={make} behind={versions?.behind} uncut={versions?.uncut} cutting={versions?.cutting} />}
       <div className="stage-mid" hidden={view !== "cut"}>
         <div className="player">
           <div className="frame" style={{ "--ar": aspect.replace(":", " / ") } as CSSProperties}>

@@ -61,6 +61,14 @@ test("a switch by the views picks the version: its own cut is read with ?opening
   expect(sent(calls)).toEqual([]);
 });
 
+test("a version whose cut is being made says so, with nothing to press", async () => {
+  const routes = threeHooks([90, 92, null]);
+  const rows = read<{ opening: number }[]>(routes, "/cut/versions").map((x) => (x.opening === 3 ? { ...x, making: true } : x));
+  await open({ ...routes, "GET /projects/366/cut/versions": [200, rows] });
+  expect(await film().findByText("Hook 3 is being cut.")).toBeInTheDocument();
+  expect(film().queryByRole("button", { name: /Make the cuts/ })).toBeNull();
+});
+
 test("the version in the address (?v=3) is the one on screen after a reload; one with no cut yet says so and plays its clips, with no Download", async () => {
   const calls = await open(threeHooks([90, 92, null]), "?v=3");
   expect(await film().findByText("Hook 3 has no cut yet.")).toBeInTheDocument();
