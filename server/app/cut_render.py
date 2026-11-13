@@ -22,6 +22,7 @@ from app import (
     host,
     host_layer,
     narration,
+    product_sound,
     screen_figures,
     take_mute,
     take_sound,
@@ -90,6 +91,7 @@ def _source(db: Session, project: Project, take_id: int) -> dict:
             "from_keys": {str(s["from_take"]): _key(db, db.get(ClipTake, s["from_take"]).file_id)
                           for s in splices},
             "mutes": take_mute.spans(take),
+            "product": product_sound.of_take(db, project, row, take) if ours else None,
             "sound": {"key": _key(db, sound["file_id"]), "level": take_sound.loudness(sound)}
             if sound else None}  # fmt: skip
 
@@ -162,7 +164,10 @@ def _prepare(src: dict, storage) -> tuple[bytes, bool]:
     video = take_mute.apply(video, src["mutes"])
     if src["sound"]:
         video = take_sound.apply(video, storage.get(src["sound"]["key"]), src["sound"]["level"])
-    return video, bool(cuts or src["splices"] or src["mutes"] or src["sound"])
+    if heard := src.get("product"):  # its own sound, where the plan says it is heard
+        video = product_sound.apply(video, storage.get(heard["key"]), heard["spans"],
+                                    heard["speech"])  # fmt: skip
+    return video, bool(cuts or src["splices"] or src["mutes"] or src["sound"] or heard)
 
 
 def render(r: dict, storage, progress=lambda percent: None) -> bytes:
