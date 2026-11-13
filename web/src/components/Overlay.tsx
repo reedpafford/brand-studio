@@ -11,7 +11,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input:not([disable
 const open: object[] = [];
 
 /** Traps Tab inside the panel, closes on Escape, and returns focus to whatever opened it. */
-function useOverlay(onClose: () => void) {
+export function useOverlay(onClose: () => void) {
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   useEffect(() => {
