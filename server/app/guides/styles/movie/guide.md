@@ -22,7 +22,7 @@ One wide establishing photograph, taken from one corner, of a real, specific, li
 The Movie look, unless the brand block says otherwise: "A frame from a photoreal modern TV drama. Real-looking people with natural skin texture, in a real, specific place dressed with ordinary detail. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Light comes from what's in the scene (lamps, bulbs, string lights, a screen, the sun), and the scene's light follows the story: dark warm practicals or flat cool fluorescents for the struggle, golden hour or morning sun for the change. Filmic, low-contrast grade with lifted blacks, warm-neutral colour. Most shots are close singles at eye level on a long lens with very shallow depth of field and soft bokeh, often with the other person's shoulder soft in the foreground; wides keep the place readable. Characters look at each other, not at the lens. Natural, TV-scale expressions. No captions or on-screen text."
 
 ## clip_style
-Photoreal TV-drama footage, long lens, shallow focus, people off-centre behind a soft foreground, faces three-quarter with eyes just off the lens, the acting small and real, the camera locked off (one slow push-in for the line that turns the scene; handheld only for a fall or a chase), side-lit by the scene's lamps or sun, the background darker, the place's own sound
+Photoreal TV-drama footage, long lens, shallow focus, the acting small and real, side-lit by the scene's lamps or sun, the background darker
 
 ## fit_look
 a photoreal TV-drama look with natural, unretouched skin and real everyday clothes, worn the same in every shot
