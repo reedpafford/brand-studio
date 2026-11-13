@@ -20,9 +20,10 @@ type SettingIn = components["schemas"]["SettingIn"];
 type PreviewOut = components["schemas"]["app__routes__video_settings__PreviewOut"];
 
 /** The video's settings, or an error where the server doesn't offer them yet (then the row stays hidden). */
-export function useVideoSettings(projectId: number) {
+export function useVideoSettings(projectId: number, enabled = true) {
   return useQuery({
     queryKey: ["video-settings", projectId],
+    enabled,
     queryFn: () => must(api.GET("/projects/{project_id}/settings", { params: { path: { project_id: projectId } } })).then((r) => r.data!),
     retry: false,
   });
