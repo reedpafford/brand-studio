@@ -172,8 +172,15 @@ def test_a_skipped_line_is_asked_for_again_inside_the_same_job(app, owner, db, m
 
     asked, real = [], FakeWriter._one_pass
     monkeypatch.setattr(FakeWriter, "_one_pass", lambda self, p: asked.append(p) or real(self, p))
+    sent, run = [], FakeWriter.run
+    monkeypatch.setattr(FakeWriter, "run", lambda self, kind, data, **more: sent.append(data)
+                        or run(self, kind, data, **more))  # fmt: skip
     pid = _delivered(app, owner, db, text=SCRIPT + "\n[fake:skip-line]")
+    first, second = (d for d in sent if d.get("step") == "one_pass")  # the same ask but its
+    assert {**second, "prompt": first["prompt"]} == first  # prompt: whatever went with the first
     assert len(asked) == 2 and "<fix>" in asked[1] and "line 8 is in no shot" in asked[1]
+    assert '<your_plan>\n{"treatment": ' in asked[1]  # the plan it is told to fix is with it
+    assert asked[1].endswith("these fixed, the rest as it was.\n</fix>")
     assert len(_jobs(db, "one_pass")) == 1  # one job, charged once
     clips = owner.get(f"/projects/{pid}/clips").json()
     assert sum(c["prompt"].count('"Tomorrow we open again."') for c in clips) == 1
