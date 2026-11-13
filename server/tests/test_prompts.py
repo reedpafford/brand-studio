@@ -935,6 +935,15 @@ def test_a_made_look_is_checked_against_its_role_and_redone_once():
         msg
         == "<character>Mid-40s woman, a teacher; cardigan.</character>\n<role>the teacher</role>"
     )
+    # UGC's own wording (13 Nov audit): its place is all in focus, as its guide says, where the
+    # shared one asks for a blurred background; its Seedream sheet is no "still from a TV drama"
+    blur, drama = "shallow depth of field on the far background", "a modern TV drama"
+    for style, own in (("ugc", True), ("movie", False), ("disney-pixar", False)):
+        assert (blur not in prompts.sheet_prompt("place", "A kitchen.", style_id=style)) is own
+    assert "all in focus" in prompts.sheet_prompt("place", "A kitchen.", style_id="ugc")
+    ugc, movie = (prompts.sheet_prompt("character", "A nurse.", style_id=s, seedream=True)
+                  for s in ("ugc", "movie"))  # fmt: skip
+    assert drama in movie and drama not in ugc and "a large three-quarter portrait" in ugc
     fit = schemas.LookFit(fits=False, seen="girl of about 10", problem="Draw an adult woman.")
     assert prompts.look_fit_redo("Mid-40s woman, a teacher", fit) == (
         "The character must read clearly as: Mid-40s woman, a teacher. Draw an adult woman."
