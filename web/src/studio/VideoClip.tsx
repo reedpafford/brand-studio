@@ -7,6 +7,7 @@ import { useAddSound } from "../cut/CutEditor";
 import type { Cut, Piece, useCutEdits } from "../cut/useCutEdits";
 import { upTo } from "../videos/money";
 import type { Head } from "../videos/VideoHead";
+import { useLock } from "./useLock";
 import { linesOf, once, shotOf, type Cell, type Planned } from "./videoData";
 
 type Clip = components["schemas"]["ProjectClipOut"];
@@ -91,13 +92,14 @@ export function Caption({ projectId, cell, planned, of, clip, head, cut, edits, 
   const picked = clip?.takes.find((t) => t.id === clip.picked_take_id);
   const flagged = picked?.watch && (picked.watch.action === "flagged" || picked.watch.action === "unsure") ? picked.watch : null;
   const busy = act.run.isPending || sound.isPending;
+  const lock = useLock(busy); // a take and sound effects are paid: one request a press, however fast it is pressed
   const making = cell.state === "making" || planned?.state === "making";
   const open = editing === cell.key && !!clip?.takes.length && !card;
   const piece = cut?.can_edit ? cut.timeline.pieces.find((p) => p.id === cell.key && p.take_id != null) : undefined;
   const lines = planned ? linesOf(planned) : [];
   const price = clip ? upTo(head, clip.take_credits) : "";
   const another = clip && (
-    <button type="button" className="btn ghost" disabled={busy || making} title={making ? "A take of this clip is being made." : undefined} onClick={once(() => act.take(flagged?.note ?? ""))}>
+    <button type="button" className="btn ghost" disabled={busy || making} title={making ? "A take of this clip is being made." : undefined} onClick={once(() => lock((done) => act.take(flagged?.note ?? "", done)))}>
       <RefreshCw {...ICON} />
       {flagged ? "Remake it" : "Another take"}{" "}
       <small>{price}</small>
@@ -168,7 +170,7 @@ export function Caption({ projectId, cell, planned, of, clip, head, cut, edits, 
           {piece && <Trim piece={piece} take={clip.seconds} busy={edits.busy} onTrim={(edge, t) => edits.edit.mutate({ kind: "trim", piece: piece.id, [edge]: t, snap: true })} />}
           <div className="ed-f">
             {picked && (clip.sound?.state === "none" || clip.sound?.state === "removed") && (
-              <button type="button" className="btn soft" disabled={busy} onClick={once(() => sound.mutate(clip.clip_id))}>
+              <button type="button" className="btn soft" disabled={busy} onClick={once(() => lock((done) => sound.mutate(clip.clip_id, { onSettled: done })))}>
                 <Volume2 {...ICON} />
                 Add sound effects{" "}
                 <small>{upTo(head, clip.sound.credits)}</small>

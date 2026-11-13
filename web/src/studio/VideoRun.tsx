@@ -2,6 +2,7 @@ import { CircleStop } from "lucide-react";
 import { Link } from "react-router-dom";
 import { stoppedReply, useTryAgain, type Progress } from "../videos/RunCard";
 import { Popover } from "./Popover";
+import { useLock } from "./useLock";
 import { PressButton } from "./VideoStart";
 import { once, type Press } from "./videoData";
 
@@ -68,6 +69,7 @@ export const Stopped = ({ stopped, presses, error }: { stopped: NonNullable<Prog
  *  changes the video's settings or its plan is on the current site (`current`). */
 export function Failed({ failed: f, projectId, carry, current }: { failed: NonNullable<Progress["failed"]>; projectId: number; carry: Press; current: string }) {
   const again = useTryAgain(projectId, f.clip);
+  const lock = useLock(again.isPending); // a take again is paid: one request a press, however fast it is pressed
   const priced = (price: string | null) => (!price ? undefined : price === "free" ? "free" : `up to ${price}`);
   return (
     <section className="ask" aria-label={f.title}>
@@ -83,7 +85,7 @@ export function Failed({ failed: f, projectId, carry, current }: { failed: NonNu
           x.kind === "carry_on" ? (
             <PressButton key={x.kind} kind={i ? "soft" : "go"} press={{ ...carry, label: x.label, price: priced(x.price) }} />
           ) : x.kind === "again" ? (
-            <PressButton key={x.kind} kind={i ? "soft" : "go"} press={{ label: x.label, price: priced(x.price), busy: again.isPending, onPress: () => again.mutate() }} />
+            <PressButton key={x.kind} kind={i ? "soft" : "go"} press={{ label: x.label, price: priced(x.price), busy: again.isPending, onPress: () => lock((done) => again.mutate(undefined, { onSettled: done })) }} />
           ) : (
             <Link key={x.kind} className="btn soft" to={`${current}?tab=plan`}>
               {x.label} on the current site

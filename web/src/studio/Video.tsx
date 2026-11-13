@@ -35,6 +35,7 @@ import { Cast } from "./VideoCast";
 import { Finish } from "./VideoCut";
 import { VideoMenu } from "./VideoMenu";
 import { Failed, Offers, StopButton, Stopped } from "./VideoRun";
+import { useLock } from "./useLock";
 import { BOX, Say } from "./VideoSay";
 import { Stage } from "./VideoStage";
 import { CastCard, PressButton, StartCard } from "./VideoStart";
@@ -163,6 +164,8 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
   const edits = useCutEdits(id);
   const makeCut = useMakeCut(id);
   const video = useVideoActions(() => navigate(`/s/b/${brandId}/videos`));
+  const startLock = useLock(answer.isPending); // the paid presses: one request each, however fast they are pressed (./useLock)
+  const runLock = useLock(again.isPending || carry.isPending || planAgain.isPending);
   const box = useNoteBox({ busy: saveNote.isPending, off: archived || !online, onSend: (text, files, done, refused) => saveNote.mutate({ text, files }, { onSuccess: done, onError: refused }) });
   const inFlight = saveNote.isPending ? saveNote.variables : undefined;
   const sending = inFlight && [...items].reverse().find((t) => t.kind === "message")?.text !== inFlight.text ? { text: inFlight.text, files: inFlight.files.length } : null;
@@ -194,7 +197,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
   const wrong = !!gate?.items.some((i) => i.approval !== "approved" && i.look_fit); // the look check objects: only "anyway" approves
   const main: Press | null =
     start && !updating && start.can.includes("make_it")
-      ? { label: round > 1 ? `Make round ${round}` : "Approve and film", price: start.money ? `${start.money.expected ? "about" : "up to"} ${price(start.money.up_to)}` : undefined, busy: answer.isPending, onPress: () => answer.mutate({ body: { how: "make_it" } }) }
+      ? { label: round > 1 ? `Make round ${round}` : "Approve and film", price: start.money ? `${start.money.expected ? "about" : "up to"} ${price(start.money.up_to)}` : undefined, busy: answer.isPending, onPress: () => startLock((done) => answer.mutate({ body: { how: "make_it" } }, { onSettled: done })) }
       : gate
         ? { label: wrong ? "Approve anyway" : "Approve cast and places", busy: approve.isPending, onPress: () => approve.mutate({ seen: Object.fromEntries(gate.items.map((i) => [i.ref, i.sig])), anyway: wrong }) }
         : null;
@@ -202,14 +205,14 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
 
   // A run that isn't going: his Stop, a run that needs him, or one that ended.
   const pressing = carry.isPending || planAgain.isPending;
-  const carryOn: Press = { label: "Carry on", busy: pressing, why: blocked, onPress: () => (planAgain.reset(), carry.mutate()) };
+  const carryOn: Press = { label: "Carry on", busy: pressing, why: blocked, onPress: () => runLock((done) => (planAgain.reset(), carry.mutate(undefined, { onSettled: done }))) };
   const s = progress?.stopped;
-  const stopped = s && <Stopped stopped={s} error={(carry.error ?? planAgain.error)?.message ?? null} presses={[...(s.carry_on || s.free ? [{ ...carryOn, label: carryOnLabel(s) }] : []), { label: "Start the plan again", busy: pressing, why: blocked, onPress: () => (carry.reset(), planAgain.mutate()) }]} />;
+  const stopped = s && <Stopped stopped={s} error={(carry.error ?? planAgain.error)?.message ?? null} presses={[...(s.carry_on || s.free ? [{ ...carryOn, label: carryOnLabel(s) }] : []), { label: "Start the plan again", busy: pressing, why: blocked, onPress: () => runLock((done) => (carry.reset(), planAgain.mutate(undefined, { onSettled: done }))) }]} />;
   const failed = progress?.failed && <Failed failed={progress.failed} projectId={id} carry={carryOn} current={`/b/${brandId}/videos/${id}`} />;
   const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
   const offers: Press[] = [
     ...(ended && !progress && run?.carry_on != null ? [{ ...carryOn, price: run.carry_on ? `up to ${run.carry_on}` : undefined }] : []),
-    ...(ended ? [{ label: startLabel, price: run?.run_expected_usd != null ? `about $${run.run_expected_usd.toFixed(2)}` : run?.run_price ? upTo(h, run.run_price) : undefined, busy: again.isPending, why: blocked, onPress: () => again.mutate() }] : []),
+    ...(ended ? [{ label: startLabel, price: run?.run_expected_usd != null ? `about $${run.run_expected_usd.toFixed(2)}` : run?.run_price ? upTo(h, run.run_price) : undefined, busy: again.isPending, why: blocked, onPress: () => runLock((done) => again.mutate(undefined, { onSettled: done })) }] : []),
   ];
   const named = new Set(items.flatMap((t) => (t.kind === "ask" ? [t.ask_id] : [])));
   const waiting = (run?.waiting ?? []).filter((w) => asks.every((a) => a.id !== w.id || isOpen(a)));

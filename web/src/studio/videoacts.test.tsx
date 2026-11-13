@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { editor } from "../test/people";
@@ -413,6 +413,69 @@ test("an archived video says so, its box is closed, nothing in it can be pressed
   await userEvent.keyboard("{Escape}");
   await press(chat(), "Restore");
   await waitFor(() => expect(sent(calls)).toEqual([["POST /projects/366/restore"]]));
+});
+
+// The paid presses, pressed twice in the same tick: before the page can draw the first as in flight, so only the
+// lock (./useLock; the message box's own in videos/runActions.ts) stands between two clicks and two charges.
+const twice = async (el: HTMLElement, again: HTMLElement = el) => {
+  fireEvent.click(el);
+  fireEvent.click(again);
+  await act(() => new Promise((r) => setTimeout(r, 40)));
+};
+const editing = async (n: RegExp) => (await clip(n), await userEvent.click(caption().getByRole("button", { name: "Edit clip" })));
+const RUN = { ...read<object>(stopped, "/director"), carry_on: "$2.41", run_expected_usd: 4.87 };
+const ENDED: Routes = { ...stopped, "GET /projects/366/director/progress": [200, null], "GET /projects/366/director": [200, RUN] };
+const FAILED_DRAW: Routes = { ...castQuestion, "GET /projects/366/asks": [200, read<object[]>(castQuestion, "/asks").map((a) => ({ ...a, state: "failed" }))] };
+const PAID: Routes = { "POST /asks/7/answer": OK, "POST /asks/9/answer": OK, "POST /asks/8/generate": OK, "POST /projects/366/clips/503/generate": OK, "POST /projects/366/clips/504/generate": OK, "POST /projects/366/clips/505/generate": OK, "POST /projects/366/clips/504/sound": OK, "POST /projects/366/director": [200, RUN], "POST /projects/366/director/carry-on": [200, RUN], "POST /projects/366/director/plan-again": [200, RUN], "POST /projects/366/variations": [200, { state: "writing", videos: [], blocked: "" }], "GET /projects/366/variations": [200, { state: "none", videos: [], blocked: "" }] };
+test.each<[string, Routes, () => Promise<HTMLElement>, unknown[]]>([
+  ["Approve and film", planWaiting, async () => (await card("The plan and the cast")).getByRole("button", { name: "Approve and film about $4.87" }), ["POST /asks/7/answer", { how: "make_it" }]],
+  ["Make round 2", round2, async () => (await card("Round 2")).getByRole("button", { name: "Make round 2 about $0.99" }), ["POST /asks/9/answer", { how: "make_it" }]],
+  ["Draw options", castQuestion, async () => (await card(WHO)).getByRole("button", { name: /^Draw 3 looks/ }), ["POST /asks/8/generate", {}]],
+  ["Try again, after a drawing that failed", FAILED_DRAW, async () => (await card(WHO)).getByRole("button", { name: /^Try again/ }), ["POST /asks/8/generate", {}]],
+  ["More like one", optionsQuestion, async () => (await card(WHO)).getByRole("button", { name: "More like 1 up to $0.10" }), ["POST /asks/8/generate", { like: 0 }]],
+  ["Change something", optionsQuestion, async () => {
+    const c = await card(WHO);
+    await userEvent.click(c.getByRole("button", { name: "Change something…" }));
+    await userEvent.type(c.getByRole("textbox", { name: "What should change" }), "older");
+    return c.getByRole("button", { name: "Make 3 more up to $0.10" });
+  }, ["POST /asks/8/generate", { change: "older" }]],
+  ["Another take", edited, async () => (await clip(/^Clip 3,/), caption().getByRole("button", { name: "Another take up to $0.50" })), ["POST /projects/366/clips/503/generate", { note: "" }]],
+  ["Remake it", edited, async () => (await clip(/^Clip 4,/), caption().getByRole("button", { name: "Remake it up to $0.50" })), ["POST /projects/366/clips/504/generate", { note: "Say the line once, as written." }]],
+  ["Try again, on a step that failed", broke, async () => (await card("Clip 5 couldn’t be made")).getByRole("button", { name: "Try again up to $0.70" }), ["POST /projects/366/clips/505/generate"]],
+  ["Carry on, after a Stop", stopped, () => chat().findByRole("button", { name: "Carry on · up to $2.41 more" }), ["POST /projects/366/director/carry-on"]],
+  ["Carry on, when it needs him", needsService, async () => (await card("KIE is out of credits")).getByRole("button", { name: "Carry on up to $2.41" }), ["POST /projects/366/director/carry-on"]],
+  ["Start the plan again", stopped, () => chat().findByRole("button", { name: "Start the plan again" }), ["POST /projects/366/director/plan-again"]],
+  ["Make it again", ENDED, () => chat().findByRole("button", { name: "Make it again about $4.87" }), ["POST /projects/366/director"]],
+  ["Add sound effects", edited, async () => (await editing(/^Clip 4,/), caption().getByRole("button", { name: "Add sound effects up to $0.05" })), ["POST /projects/366/clips/504/sound", { asked: "" }]],
+  ["Make variations", delivered, async () => {
+    await userEvent.click((await menu()).getByRole("menuitem", { name: "Make variations…" }));
+    const confirm = within(screen.getByRole("dialog", { name: "Make variations" })).getByRole("button", { name: "Make variations" });
+    await waitFor(() => expect(confirm).toBeEnabled());
+    return confirm;
+  }, ["POST /projects/366/variations", { count: 3, part: "hook", note: "" }]],
+])("%s, pressed twice in the same tick, is one request", async (_press, routes, find, expected) => {
+  const calls = await open({ ...routes, ...PAID });
+  await twice(await find());
+  expect(sent(calls)).toEqual([expected]);
+});
+
+test("Approve and film pressed on the card and in the header in the same tick is one request", async () => {
+  const calls = await open({ ...planWaiting, ...PAID });
+  await card("The plan and the cast");
+  const [inHeader, onCard] = page().getAllByRole("button", { name: "Approve and film about $4.87" });
+  await twice(onCard, inHeader);
+  expect(sent(calls)).toEqual([["POST /asks/7/answer", { how: "make_it" }]]);
+});
+
+test("a note sent twice before the box has been drawn empty is one note", async () => {
+  const calls = await open({ ...delivered, "POST /projects/366/director/messages": [200, read(delivered, "/director")] });
+  await userEvent.type(box(), "Warmer light in the store");
+  act(() => {
+    fireEvent.keyDown(box(), { key: "Enter" }); // both land before the page draws anything: the box's own lock
+    fireEvent.keyDown(box(), { key: "Enter" });
+  });
+  await act(() => new Promise((r) => setTimeout(r, 40)));
+  expect(sent(calls)).toEqual([["POST /projects/366/director/messages", { text: "Warmer light in the store" }]]);
 });
 
 test.each([

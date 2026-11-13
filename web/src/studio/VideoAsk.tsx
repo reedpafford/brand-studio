@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { LoaderCircle, MessageSquare, Pause, Play, Sparkles, Upload } from "lucide-react";
 import { fileUrl } from "../api/upload";
 import { isOpen, said as price, useAskActions, useAskUpload, type Ask } from "../videos/AskCard";
+import { useLock } from "./useLock";
 import { once } from "./videoData";
 
 const ICON = { size: 14, strokeWidth: 1.75, "aria-hidden": true } as const;
@@ -56,6 +57,7 @@ export function Question({ ask: a }: { ask: Ask }) {
   const [name, setName] = useState("");
   const picker = useRef<HTMLInputElement>(null);
   const up = useAskUpload(a, act);
+  const lock = useLock(act.isPending); // drawing options is paid: one request a press, however fast it is pressed (./useLock)
   if (!isOpen(a))
     return (
       <p className="folded">
@@ -65,7 +67,7 @@ export function Question({ ask: a }: { ask: Ask }) {
     );
   const can = (how: string) => a.can.includes(how);
   const busy = act.isPending || !!up.upload;
-  const go = (body: object, path?: "generate" | "cancel") => act.mutate({ path, body }, { onSuccess: () => (setTyping(""), setText(""), setName(""), setPick(null), up.clear()) });
+  const go = (body: object, path?: "generate" | "cancel") => lock((done) => act.mutate({ path, body }, { onSuccess: () => (setTyping(""), setText(""), setName(""), setPick(null), up.clear()), onSettled: done }));
   const voice = a.kind === "voice";
   const drawn = a.options.filter((o) => o.file_id != null);
   const options = a.options.length > 0 && a.state !== "failed";

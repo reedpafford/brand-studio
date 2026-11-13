@@ -12,7 +12,8 @@ export function recutRefused(why: string): string {
 
 /** One clip's presses (S6-02): another take, with the director's own fix note when a flagged take is remade; a take
  *  put in use, after which the cut that uses the clip is made again by itself, free (S-gaps-08 5, S7-05); its sound
- *  effects taken off. One press at a time (`run`), and the clip is read again however a press ends. `hasCut`: whether
+ *  effects taken off. One press at a time (`run`), and the clip is read again however a press ends; `take` can be
+ *  told when its request has settled (`then`). `hasCut`: whether
  *  the video has a cut to make again (by default, the stitched video the page has read). */
 export function useClipActions(projectId: number, clipId: number, hasCut?: () => boolean) {
   const queryClient = useQueryClient();
@@ -25,8 +26,8 @@ export function useClipActions(projectId: number, clipId: number, hasCut?: () =>
   };
   // Read again however a press ends: one that stops midway (a still picked, its take refused) shows where it got to.
   const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSettled: refresh, onError: (e: Error) => toast(e.message, undefined, "error") });
-  const go = (f: () => Promise<unknown>) => run.mutate(f);
-  const take = (note = "") => go(() => must(api.POST("/projects/{project_id}/clips/{clip_id}/generate", { params: { path }, body: { note } })));
+  const go = (f: () => Promise<unknown>, then?: () => void) => run.mutate(f, then && { onSettled: then });
+  const take = (note = "", then?: () => void) => go(() => must(api.POST("/projects/{project_id}/clips/{clip_id}/generate", { params: { path }, body: { note } })), then);
   // A person's pick is their OK; the cut that uses this clip is made again by itself, free.
   const pickTake = (t: { id: number }, keep = false) =>
     go(async () => {

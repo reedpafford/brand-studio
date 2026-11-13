@@ -8,6 +8,7 @@ import { UNMADE, useVariations } from "../videos/Variations";
 import { mp4, useMove, useRename } from "../videos/VideoHead";
 import { Dialog } from "./Dialog";
 import { Choice, Popover } from "./Popover";
+import { useLock } from "./useLock";
 
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
 
@@ -31,6 +32,7 @@ function Variations({ id, brandId, onClose }: { id: number; brandId: number; onC
   const [asked, setAsked] = useState(false);
   const refresh = useRefreshIdeas();
   const { read, make } = useVariations(id, () => setAsked(true));
+  const lock = useLock(make.isPending); // writing the ideas is paid: one request a press, however fast it is pressed
   const out = read.data;
   const done = asked && out?.state === "done";
   useEffect(() => {
@@ -77,7 +79,7 @@ function Variations({ id, brandId, onClose }: { id: number; brandId: number; onC
     );
   const blocked = out?.blocked || make.error?.message;
   return (
-    <Dialog title="Make variations" confirm="Make variations" busy={make.isPending || read.isPending || !!out?.blocked} onClose={onClose} onConfirm={() => make.mutate({ count, part, note })}>
+    <Dialog title="Make variations" confirm="Make variations" busy={make.isPending || read.isPending || !!out?.blocked} onClose={onClose} onConfirm={() => lock((done) => make.mutate({ count, part, note }, { onSettled: done }))}>
       <p className="dsub">New videos with another hook or ending. The cast, the look and every other clip stay; only the changed clips are made.</p>
       {seg("How many", count, setCount, [[2, "2"], [3, "3"]])}
       {seg("Change", part, setPart, [["hook", "The hook"], ["ending", "The ending"]])}
