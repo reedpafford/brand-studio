@@ -1,9 +1,9 @@
 import { useRef, useState, type ReactNode } from "react";
-import { Film, Package, Plus } from "lucide-react";
+import { Film, Package, Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { useFootage, type Footage } from "../library/FootageTab";
-import { useAddPicture, useCreateItem } from "../library/itemActions";
+import { useAddPicture, useCreateItem, useRemovePicture } from "../library/itemActions";
 import { useItems, type Item } from "../library/kinds";
 import { useBrands } from "../shell/useBrands";
 import { Dialog } from "./Dialog";
@@ -108,6 +108,7 @@ function byFolder(clips: Footage[]): [string, Footage[]][] {
 function About({ brandId, product, more }: { brandId: number; product: Item; more: ReactNode }) {
   const [shown, setShown] = useState<number | null>(null);
   const add = useAddPicture(brandId, product);
+  const remove = useRemovePicture(brandId, product);
   const photo = useRef<HTMLInputElement>(null);
   const pictures = product.pictures ?? [];
   const big = pictures.find((p) => p.file_id === shown) ?? pictures[0];
@@ -133,21 +134,31 @@ function About({ brandId, product, more }: { brandId: number; product: Item; mor
         </p>
       )}
       {!app && (
-        <button type="button" className="btn soft" disabled={add.isPending} onClick={() => photo.current?.click()}>
-          <Plus {...ICON} size={14} />
-          {add.isPending ? "Adding…" : "Add a photo"}
-        </button>
+        <div className="offers">
+          <button type="button" className="btn soft" disabled={add.isPending} onClick={() => photo.current?.click()}>
+            <Plus {...ICON} size={14} />
+            {add.isPending ? "Adding…" : "Add a photo"}
+          </button>
+          {big && (
+            <button type="button" className="btn ghost" disabled={remove.isPending} onClick={() => remove.mutate(big)}>
+              <Trash2 {...ICON} size={14} />
+              Remove this photo
+            </button>
+          )}
+        </div>
       )}
       <input ref={photo} type="file" hidden aria-label={`Add a photo of ${product.name}`} accept="image/*" onChange={(e) => (e.target.files?.[0] && add.mutate(e.target.files[0]), (e.target.value = ""))} />
-      {add.isError && (
+      {(add.error ?? remove.error) && (
         <p className="hint bad" role="alert">
-          {add.error.message}
+          {(add.error ?? remove.error)!.message}
         </p>
       )}
       <HowItWorks item={product} />
-      <p className="hint also">
-        {app ? "Adding and naming its screens, its" : "Changing or removing a photo, its"} name, line and claim are on <Link to={onSite}>the current site</Link>.
-      </p>
+      {app && (
+        <p className="hint also">
+          Adding and naming its screens is on <Link to={onSite}>the current site</Link>.
+        </p>
+      )}
       {more}
     </aside>
   );

@@ -88,7 +88,7 @@ test("Product: its photos, what the server holds about it, How it works as store
   await userEvent.click(about.getByRole("button", { name: "In the hand" }));
   expect(about.getByRole("img", { name: "Protector alarm: In the hand" })).toHaveAttribute("src", "/api/files/43");
   expect(about.getByRole("region", { name: "How it works" }).querySelector(".words")!.textContent).toBe(HOW); // every space and line as stored
-  expect(about.getByRole("link", { name: "the current site" })).toHaveAttribute("href", "/b/1/library/products/54");
+  expect(about.queryByRole("link", { name: "the current site" })).toBeNull(); // a physical product's photos are added and removed here
   expect(await within(page().getByRole("region", { name: "Product shots" })).findByRole("button", { name: "A hand hooks the ring and pulls it out., 0:05 long" })).toBeInTheDocument();
   expect(within(page().getByRole("region", { name: "Product shots › Close-ups" })).getAllByRole("button")).toHaveLength(1);
   expect(within(page().getByRole("region", { name: "Not in a folder" })).getByRole("button", { name: /^The alarm on a set of keys/ })).toBeInTheDocument();
@@ -124,6 +124,24 @@ test("Product: a photo is uploaded and added as the product's next picture", asy
   const calls = await open("product", full, { "POST /files": [201, { id: 80 }], "POST /brands/1/screens": [201, {}] });
   await userEvent.upload(await page().findByLabelText("Add a photo of Protector alarm"), file("side.jpg", "image/jpeg"));
   await waitFor(() => expect(sent(calls)).toEqual([["POST /files"], ["POST /brands/1/screens", { name: "Protector alarm (3)", file_id: 80, tags: ["product"], default_for: ["product"], product_id: 54, variant: "" }]]));
+});
+
+test("Product: Remove this photo removes the one shown, and Undo brings it back", async () => {
+  const calls = await open("product", full, { "DELETE /brands/1/screens/40": [204, null], "POST /brands/1/screens/40/restore": [200, {}] });
+  await userEvent.click(await page().findByRole("button", { name: "Remove this photo" }));
+  expect(await screen.findByText("Photo removed. The director won’t be given it again; clips already made keep it.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+  await waitFor(() => expect(sent(calls)).toEqual([["DELETE /brands/1/screens/40"], ["POST /brands/1/screens/40/restore"]]));
+});
+
+test("Product: when the product holds its own picture list, the director's list is kept in step with a photo removed or added", async () => {
+  const own = { ...full, "GET /library/prop": [200, [{ ...alarm, image_file_ids: [41] }]] } as Routes;
+  const calls = await open("product", own, { "PATCH /library/prop/54": [200, alarm], "DELETE /brands/1/screens/40": [204, null], "POST /files": [201, { id: 80 }], "POST /brands/1/screens": [201, {}] });
+  await userEvent.click(await page().findByRole("button", { name: "Remove this photo" }));
+  await waitFor(() => expect(sent(calls)).toEqual([["PATCH /library/prop/54", { image_file_ids: [] }], ["DELETE /brands/1/screens/40"]]));
+  calls.length = 0;
+  await userEvent.upload(page().getByLabelText("Add a photo of Protector alarm"), file("side.jpg", "image/jpeg"));
+  await waitFor(() => expect(sent(calls)).toEqual([["POST /files"], ["POST /brands/1/screens", expect.objectContaining({ file_id: 80, product_id: 54 })], ["PATCH /library/prop/54", { image_file_ids: [41, 80] }]]));
 });
 
 test("Product: Add clips sends the clip with its product; left without words the AI describes it, and the press says its price", async () => {

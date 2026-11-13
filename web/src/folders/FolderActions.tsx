@@ -8,11 +8,12 @@ import { flatten, useRefreshIdeas, useTree, type Branch } from "./ideas";
 
 type Asking = "new" | "rename" | "move" | "delete" | null;
 
-/** The folder requests, as every screen sends them: a new folder (`parentId` null: at the top), a new name, a delete
+/** The folder requests, as every screen sends them: a new folder (`parentId` null: at the top), a new name, a move into another folder (null: to the top), a delete
  *  (its ideas move to Unsorted) and the Undo of one. */
 export const folderWrites = {
   make: (brandId: number, name: string, parentId: number | null) => must(api.POST("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } }, body: { name: name.trim(), parent_id: parentId } })),
   rename: (id: number, name: string) => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { name: name.trim() } })),
+  move: (id: number, parentId: number | null) => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { parent_id: parentId } })),
   remove: (id: number) => must(api.DELETE("/folders/{folder_id}", { params: { path: { folder_id: id } } })),
   restore: (id: number) => must(api.POST("/folders/{folder_id}/restore", { params: { path: { folder_id: id } } })),
 };
@@ -47,7 +48,7 @@ export function useFolderActions(brandId: number, folder: Branch | undefined, { 
   };
   const make = useMutation({ mutationFn: () => folderWrites.make(brandId, name, folder?.id ?? null), onSuccess: done });
   const rename = useMutation({ mutationFn: () => folderWrites.rename(id, name), onSuccess: done });
-  const move = useMutation({ mutationFn: () => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { parent_id: to } })), onSuccess: done });
+  const move = useMutation({ mutationFn: () => folderWrites.move(id, to), onSuccess: done });
   const remove = useMutation({
     // What was deleted is kept with the answer: once the tree reloads, this folder is gone from it.
     mutationFn: async () => ({ ...(await folderWrites.remove(id)).data!, id, name: folder?.name ?? "", parent: folder?.parent_id ?? null }),
