@@ -529,9 +529,9 @@ class FakeWriter:
         cast = " ".join(_tag(prompt, "cast").splitlines()).lower()
         who = list(dict.fromkeys(name.split(" (")[0] for name, _ in said.values()))
         clips, places, head = [], [], ""
-        every, opening = "<hooks>all</hooks>" in prompt, 0  # each "HOOK n" a version, then BODY
+        opening = 0  # each "HOOK n" a version, then BODY
         for n, line in enumerate(text.splitlines(), 1):
-            if every and (hook := re.match(r"(?:HOOK|V)\s*(\d+)\b", line.strip())):
+            if hook := re.match(r"(?:HOOK|V)\s*(\d+)\b", line.strip()):
                 opening = int(hook[1])
             elif line.strip().startswith("BODY"):
                 opening = 0

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { onBrand, signIn } from "./helpers";
 
 // Hooks as versions in the new look, on the stand-ins (free; nothing is sent to a provider): a script with two
-// openings is sent with all of them, made as one video, and delivered with a version for each over the same body.
+// openings is sent as it is, made as one video, and delivered with a version for each over the same body.
 // The switch moves between them, each has its own file, and another take of a clip of the body puts both out of date
 // until the one free press makes the cuts again. Each press is one request, and the page sends nothing else.
 test("at 1440, a script with two hooks is made as one video with two versions: the switch, a file for each, and a body clip's new take puts both out of date", async ({ page }) => {
@@ -13,12 +13,11 @@ test("at 1440, a script with two hooks is made as one video with two versions: t
   await page.goto(`/s${new URL(page.url()).pathname}`);
   const script = ["HOOK 1", "SCENE 1 — EXT. LOT — DAY", `MIA: They almost got her ${Date.now()}.`, "HOOK 2", "SCENE 2 — INT. HALL — DAY", "DANA: My phone rang twice.", "BODY", "SCENE 3 — INT. KITCHEN — DAY", "NATE: Download fomo through the link in my bio."].join("\n");
   await page.getByRole("textbox", { name: "Your script" }).fill(script);
-  await page.getByRole("button", { name: "Hooks: All 2" }).click();
-  await expect(page.getByRole("menuitemradio", { name: /^All 2 hooks/ })).toBeChecked();
-  await page.keyboard.press("Escape");
+  await expect(page.getByText(/^2 hooks · /)).toBeVisible(); // the script was read as two hooks; nothing to choose
   const send = page.waitForRequest((r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/freestyles");
   await page.getByRole("button", { name: /^Make it (about|up to) \$\d+\.\d\d$/ }).click({ timeout: 30_000 });
-  expect((await send).postDataJSON()).toMatchObject({ text: script, hooks: "all" });
+  expect((await send).postDataJSON()).toMatchObject({ text: script });
+  expect((await send).postDataJSON()).not.toHaveProperty("hooks");
   await expect(page).toHaveURL(/\/s\/b\/\d+\/videos\/\d+$/, { timeout: 30_000 });
   const writes: string[] = [];
   page.on("request", (r) => r.method() !== "GET" && new URL(r.url()).pathname.startsWith("/api/") && writes.push(`${r.method()} ${new URL(r.url()).pathname.replace(/\d+/g, "N")}${new URL(r.url()).search} ${r.postData() ?? ""}`.trim()));
