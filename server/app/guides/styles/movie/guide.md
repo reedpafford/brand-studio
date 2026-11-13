@@ -22,7 +22,7 @@ One wide establishing photograph, taken from one corner, of a real, specific, li
 The Movie look, unless the brand block says otherwise: "A frame from a photoreal modern TV drama. Real-looking people with natural skin texture, in a real, specific place dressed with ordinary detail. Faces and builds come from the character sheets, and outfits too unless this video gives its own. Light comes from what's in the scene (lamps, bulbs, string lights, a screen, the sun), and the scene's light follows the story: dark warm practicals or flat cool fluorescents for the struggle, golden hour or morning sun for the change. Filmic, low-contrast grade with lifted blacks, warm-neutral colour. Most shots are close singles at eye level on a long lens with very shallow depth of field and soft bokeh, often with the other person's shoulder soft in the foreground; wides keep the place readable. Characters look at each other, not at the lens. Natural, TV-scale expressions. No captions or on-screen text."
 
 ## clip_style
-Photoreal TV-drama footage, long lens, shallow focus, the acting small and real, side-lit by the scene's lamps or sun, the background darker
+Photoreal TV-drama footage, long lens, shallow focus, the acting real, side-lit by the scene's lamps or sun, the background darker
 
 ## fit_look
 a photoreal TV-drama look with natural, unretouched skin and real everyday clothes, worn the same in every shot
@@ -95,7 +95,7 @@ The pace that held on Seedance (Movie Ad 1, 12 Nov): fewer, longer shots than th
 ## Cast
 - Photoreal, TV-scale people: real skin with pores and shine, tears that look wet, hair with flyaways, no retouching.
 - Cast by type so a role reads at a glance (the worn-down hero, the fit mentor, the loud mocker, the offhand doctor), each in one outfit that stays identical in every shot.
-- Acting is naturalistic: faces carry the turns (a frozen smile, tears, shock, a quiet smirk); side reactions can be broader, but still human.
+- People react the way real people do, as big as the moment is: a threat keeps its eyes on its target, fear shows in the whole body, a shock makes someone flinch or their legs give. Quiet scenes stay quiet (a frozen smile, a held look).
 - For a feeling the character hides, write the face, not the feeling: the video model acts out an emotion word over the face it's given. A held-composure beat is "a polite smile held still, eyes gone flat, a tight swallow, no tears", never "humiliated", which came out as tears twice. A public sting gets one onlooker reacting on the line (a snort into a napkin, a whisper behind a hand), not only a glance.
 
 ## Sound and delivery
@@ -110,7 +110,7 @@ The pace that held on Seedance (Movie Ad 1, 12 Nov): fewer, longer shots than th
 4. Camera locked off, one slow push-in for the line that turns the scene; handheld only for a fall or a chase; no slow motion.
 5. Light from practicals and the sun, in a filmic low-contrast, warm-neutral grade.
 6. Location sound, no score; cuts on lines and actions, not beats; inserts on what's named.
-7. Acting small and physical, with held silences: what the body does, never the feeling's name.
+7. Acting real and physical, as big as the moment, with held silences: what the body does, never the feeling's name.
 
 ## safe to vary
 - The world and the cast: any place, any lead, any age.
