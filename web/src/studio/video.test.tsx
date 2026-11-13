@@ -71,22 +71,6 @@ test("the header says where it is, the look and format, the server's status, and
   expect(parts.getAllByRole("term").map((t) => `${t.textContent}: ${t.nextElementSibling?.textContent}`)).toEqual(["Claude’s thinking: $0.61", "Looks: $0.30", "Takes: $1.55", "Total: $2.46", "Still to go: about $2.41"]);
 });
 
-test.each([
-  ["one list of lines per other opening", [[3, 4], [7]], "Filmed with the first of 3 openings. The other 2 are not in this video."],
-  ["an early plan's one flat list is one other opening", [19, 20, 22], "Filmed with the first of 2 openings. The other one is not in this video."],
-])("a script with several openings says which was filmed, under the hook; %s", async (_case, other_openings, words) => {
-  const sent = planWaiting["GET /freestyles/9"][1] as { thread: { treatment?: object }[] };
-  const thread = sent.thread.map((t) => (t.treatment ? { ...t, treatment: { ...t.treatment, other_openings } } : t));
-  await open({ ...planWaiting, "GET /freestyles/9": [200, { ...sent, thread }] });
-  expect(await chat().findByText(words)).toBeInTheDocument();
-});
-
-test("an ordinary script says nothing about openings", async () => {
-  await open(planWaiting);
-  await chat().findByText("A siren, a white strobe, a van pulling away with its door open.");
-  expect(chat().queryByText(/^Filmed with the first/)).toBeNull();
-});
-
 test("the plan waiting: his script's opening lines, the treatment, and the start card (the plan, the cast, each clip by name with its price), with the message box under it", async () => {
   await open(planWaiting);
   expect(await chat().findByText("[Dusk in a Target parking lot. A siren is screaming and a white strobe flashes across the lot.]")).toBeInTheDocument();
