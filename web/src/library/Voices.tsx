@@ -23,6 +23,21 @@ export function useVoiceList(brandId: number) {
   return useQuery({ queryKey: ["voices", brandId], queryFn: () => readVoices(brandId), enabled: brandId > 0 });
 }
 
+/** Clone a voice from a sample (paid; an editor's waits for the owner's OK): the sample is uploaded, then cloned under
+ *  its name. */
+export function useCloneVoice(brandId: number, owner: boolean, onDone: () => void) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: async ({ file, name, description }: { file: File; name: string; description: string }) => cloneVoice(brandId, { name: name.trim(), description: description.trim(), sample_file_id: (await uploadFile(file)).id }),
+    onSuccess: (_voice, { name }) => {
+      void queryClient.invalidateQueries({ queryKey: ["voices", brandId] });
+      toast(owner ? `Cloning ${name.trim()}…` : `${name.trim()} waits for the owner's OK. Nothing is charged until then.`);
+      onDone();
+    },
+  });
+}
+
 /** The brand's own voices, cloned or described for it on purpose (L4; described: Reed, 6 Nov): the tab's count and the set-up list's tick. A
  *  style's own voice (Dr. Pickle's clone) is listed for every brand but isn't this brand's. */
 export function useVoices(brandId: number) {
@@ -47,6 +62,10 @@ const apiPath = (url: string) => {
   return path.startsWith("/api/") ? path : `/api${path}`;
 };
 export const sampleOf = (v: Voice) => (v.sample_url ? apiPath(v.sample_url) : v.sample_file_id ? fileUrl(v.sample_file_id) : v.preview_file_id ? fileUrl(v.preview_file_id) : null);
+/** The recordings a clone can be made from. */
+export const SAMPLE_TYPES = "audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,.mp3,.wav,.m4a";
+/** What is going on with a voice, when anything is: being cloned, or why it can't be used (the server's words). */
+export const voiceNote = (v: Voice) => (v.state === "cloning" ? "Cloning…" : v.state === "expired" || v.state === "failed" ? v.error : v.state === "may_expire" ? v.error || "Unused for a while: MiniMax may delete it soon." : "");
 const BARS = [6, 10, 14, 8, 16, 12, 6, 10, 18, 12, 8, 14, 10, 6, 12, 16, 10, 8, 12, 6, 9, 13, 7, 11];
 
 /** One voice (S8-04, S4-04): Play, its name and line, and its sample's bars. Samples play free. */
@@ -54,7 +73,7 @@ export function VoiceRow({ voice: v, picked, onPick }: { voice: Voice; picked?: 
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const src = sampleOf(v);
-  const why = v.state === "cloning" ? "Cloning…" : v.state === "expired" || v.state === "failed" ? v.error : v.state === "may_expire" ? v.error || "Unused for a while: MiniMax may delete it soon." : "";
+  const why = voiceNote(v);
   return (
     <div className={`flex min-h-13 items-center gap-3 rounded-md border px-2.5 py-2 ${picked ? "border-accent bg-accent-soft" : "border-border bg-surface"}`}>
       {src ? (
@@ -121,16 +140,7 @@ function Clone({ brandId, price, owner, onDone }: { brandId: number; price: stri
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const clone = useMutation({
-    mutationFn: async () => cloneVoice(brandId, { name: name.trim(), description: description.trim(), sample_file_id: (await uploadFile(file!)).id }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["voices", brandId] });
-      toast(owner ? `Cloning ${name.trim()}…` : `${name.trim()} waits for the owner's OK. Nothing is charged until then.`);
-      onDone();
-    },
-  });
+  const clone = useCloneVoice(brandId, owner, onDone);
   const ready = !!file && !!name.trim();
   return (
     <div className="flex max-w-[280px] flex-col gap-2 rounded-lg border border-border bg-surface p-3">
@@ -138,13 +148,13 @@ function Clone({ brandId, price, owner, onDone }: { brandId: number; price: stri
       <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border-strong px-3 text-sm lg:min-h-9">
         <Upload size={14} strokeWidth={1.75} aria-hidden />
         <span className="truncate">{file ? file.name : "Pick a sample"}</span>
-        <input type="file" accept="audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,.mp3,.wav,.m4a" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <input type="file" accept={SAMPLE_TYPES} className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       <p className="text-xs text-muted">At least 10 s of one clear voice.</p>
       <input aria-label="Name" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="h-control lg:h-9 rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
       <input aria-label="How it sounds" placeholder="How it sounds: deep, fixed" value={description} onChange={(e) => setDescription(e.target.value)} className="h-control lg:h-9 rounded-md border border-border-strong bg-surface px-3 text-base lg:text-sm" />
       {clone.isError && <p role="alert" className={errorClass}>{clone.error.message}</p>}
-      <Button disabled={!ready} busy={clone.isPending} onClick={() => clone.mutate()}>
+      <Button disabled={!ready} busy={clone.isPending} onClick={() => clone.mutate({ file: file!, name, description })}>
         Clone{price && <>{" "}<span className="opacity-80">· {price}</span></>}
       </Button>
     </div>

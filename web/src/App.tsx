@@ -28,6 +28,7 @@ import { UsageBrandPage } from "./usage/UsageBrandPage";
 import { MinePage } from "./usage/MinePage";
 import { UsagePage } from "./usage/UsagePage";
 import { ReelReviewPage } from "./scripts/ReelReviewPage";
+import { Library } from "./studio/Library";
 import { NewVideo } from "./studio/NewVideo";
 import { StudioShell } from "./studio/StudioShell";
 import { Video } from "./studio/Video";
@@ -47,7 +48,7 @@ export function App() {
           <Route path="b/:brandId" element={<NewVideo />} />
           <Route path="b/:brandId/videos" element={<StudioPage page="videos" />} />
           <Route path="b/:brandId/videos/:projectId" element={<Video />} />
-          <Route path="b/:brandId/library" element={<StudioPage page="library" />} />
+          <Route path="b/:brandId/library" element={<Library />} />
           <Route path="b/:brandId/spend" element={<StudioPage page="spend" />} />
         </Route>
         <Route element={<Shell />}>
