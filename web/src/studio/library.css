@@ -20,14 +20,14 @@
 
   /* Product: the product on the left, the clips of it on the right. */
   .products { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
-  .pill[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-hi); }
+  .lib .pill[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-hi); }
   .pboard { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 40px; align-items: start; }
-  .hero { position: relative; display: grid; place-items: center; aspect-ratio: 3 / 4; border-radius: var(--r-l); background: var(--raised); overflow: hidden; font-size: 13px; color: var(--ink-3); }
-  .hero img, .ac img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-  .thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .thumbs button { width: 44px; height: 58px; border-radius: var(--r-xs); background: var(--raised); overflow: hidden; }
-  .thumbs img { width: 100%; height: 100%; object-fit: contain; }
-  .thumbs [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+  .lib .hero { position: relative; display: grid; place-items: center; aspect-ratio: 3 / 4; border-radius: var(--r-l); background: var(--raised); overflow: hidden; font-size: 13px; color: var(--ink-3); }
+  .lib .hero img, .ac img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .lib .thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .lib .thumbs button { width: 44px; height: 58px; border-radius: var(--r-xs); background: var(--raised); overflow: hidden; }
+  .lib .thumbs img { width: 100%; height: 100%; object-fit: contain; }
+  .lib .thumbs [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
   .phero h2, .pname h2 { font: 600 16px/24px var(--ui); }
   .phero h2 { margin: 16px 0 2px; }
   .phero > .btn { margin-top: 12px; font-size: 13px; }
@@ -88,9 +88,9 @@
   .fstrip .ac { border-radius: var(--r-s); }
   .fstrip .btn { grid-column: 1 / -1; justify-self: start; font-size: 13px; }
   .inside .hint { margin: 0 0 12px; }
-  .drop { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 24px; padding: 8px 8px 8px 16px; border: 1px dashed var(--line-2); border-radius: var(--r-m); font-size: 13px; color: var(--ink-3); }
-  .drop span { flex: 1; min-width: 180px; }
-  .drop .btn { font-size: 13px; }
+  .lib .drop { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 24px; padding: 8px 8px 8px 16px; border: 1px dashed var(--line-2); border-radius: var(--r-m); font-size: 13px; color: var(--ink-3); }
+  .lib .drop span { flex: 1; min-width: 180px; }
+  .lib .drop .btn { font-size: 13px; }
 
   /* What a dialog here adds to the studio's: labelled fields, a file to choose, and a clip opened larger. */
   .dlab { display: block; margin-top: 12px; font-size: 13px; line-height: 20px; color: var(--ink-2); }
@@ -127,8 +127,8 @@
     .lhead .seg button { flex: 1; padding: 0; text-align: center; }
     .pboard, .shelf { grid-template-columns: minmax(0, 1fr); gap: 24px; }
     .pcard { position: static; }
-    .hero { aspect-ratio: 4 / 3; }
-    .thumbs button { width: 44px; height: 44px; }
+    .lib .hero { aspect-ratio: 4 / 3; }
+    .lib .thumbs button { width: 44px; height: 44px; }
     .clips4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .tiles.big { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
     .voice .btn { height: 44px; }
@@ -139,8 +139,8 @@
     .rowline .r { text-align: left; }
     .rowline > :first-child { grid-row: span 3; align-self: start; }
     .lb { grid-template-columns: 110px minmax(0, 1fr); gap: 14px; }
-    .drop { padding: 0; border: 0; }
-    .drop > :is(svg, span) { display: none; } /* nothing is dragged on a phone: Add footage is the way */
+    .lib .drop { padding: 0; border: 0; }
+    .lib .drop > :is(svg, span) { display: none; } /* nothing is dragged on a phone: Add footage is the way */
     .how textarea, .dlg :is(textarea, select) { font-size: 16px; }
   }
 }

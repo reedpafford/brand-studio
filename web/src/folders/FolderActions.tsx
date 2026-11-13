@@ -8,6 +8,15 @@ import { flatten, useRefreshIdeas, useTree, type Branch } from "./ideas";
 
 type Asking = "new" | "rename" | "move" | "delete" | null;
 
+/** The folder requests, as every screen sends them: a new folder (`parentId` null: at the top), a new name, a delete
+ *  (its ideas move to Unsorted) and the Undo of one. */
+export const folderWrites = {
+  make: (brandId: number, name: string, parentId: number | null) => must(api.POST("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } }, body: { name: name.trim(), parent_id: parentId } })),
+  rename: (id: number, name: string) => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { name: name.trim() } })),
+  remove: (id: number) => must(api.DELETE("/folders/{folder_id}", { params: { path: { folder_id: id } } })),
+  restore: (id: number) => must(api.POST("/folders/{folder_id}/restore", { params: { path: { folder_id: id } } })),
+};
+
 /** The ideas and folders inside a folder, counted at any depth: "Its 3 ideas move to Unsorted". */
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
@@ -36,17 +45,17 @@ export function useFolderActions(brandId: number, folder: Branch | undefined, { 
     setAsking(null);
     return refresh();
   };
-  const make = useMutation({ mutationFn: () => must(api.POST("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } }, body: { name: name.trim(), parent_id: folder?.id ?? null } })), onSuccess: done });
-  const rename = useMutation({ mutationFn: () => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { name: name.trim() } })), onSuccess: done });
+  const make = useMutation({ mutationFn: () => folderWrites.make(brandId, name, folder?.id ?? null), onSuccess: done });
+  const rename = useMutation({ mutationFn: () => folderWrites.rename(id, name), onSuccess: done });
   const move = useMutation({ mutationFn: () => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { parent_id: to } })), onSuccess: done });
   const remove = useMutation({
     // What was deleted is kept with the answer: once the tree reloads, this folder is gone from it.
-    mutationFn: async () => ({ ...(await must(api.DELETE("/folders/{folder_id}", { params: { path: { folder_id: id } } }))).data!, id, name: folder?.name ?? "", parent: folder?.parent_id ?? null }),
+    mutationFn: async () => ({ ...(await folderWrites.remove(id)).data!, id, name: folder?.name ?? "", parent: folder?.parent_id ?? null }),
     onSuccess: ({ ideas: n, id: gone, name: was, parent }) => {
       onDeleted?.(parent); // off the folder that's gone: to the one it was in, or Unsorted
       void done();
       (say ?? toast)(`Deleted “${was}”. ${n ? `Its ${plural(n, "idea")} moved to Unsorted.` : "Nothing was in it."}`, async () => {
-        await must(api.POST("/folders/{folder_id}/restore", { params: { path: { folder_id: gone } } })).catch((e: Error) => toast(e.message, undefined, "error"));
+        await folderWrites.restore(gone).catch((e: Error) => toast(e.message, undefined, "error"));
         await refresh();
       });
     },
@@ -123,7 +132,7 @@ export function useFolderActions(brandId: number, folder: Branch | undefined, { 
       )}
     </>
   );
-  return { items, dialogs, newInside: () => open("new"), rename: (to: string) => must(api.PATCH("/folders/{folder_id}", { params: { path: { folder_id: id } }, body: { name: to.trim() } })).then(() => refresh()) };
+  return { items, dialogs, newInside: () => open("new"), rename: (to: string) => folderWrites.rename(id, to).then(() => refresh()) };
 }
 
 /** "Archived ideas · 2" under a folder's actions (S-gaps-02): hidden when there are none. */

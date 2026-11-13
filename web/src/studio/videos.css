@@ -1,0 +1,81 @@
+/* Videos in the new look (the redesign, stage 4): the rail's folders, and the brand's videos as poster cards.
+   Everything sits under .studio, beside studio.css and video.css. */
+.studio {
+  /* The rail: a "+" by Folders, a new folder typed in place, and where a dragged card can go and is over. */
+  .nav.carrying a { color: var(--ink); }
+  .rail h6 .btn { width: 24px; height: 24px; margin-right: -4px; color: var(--ink-3); }
+  .nf { display: flex; align-items: center; gap: 12px; height: var(--ctl); padding: 0 10px; border-radius: var(--r-s); box-shadow: 0 0 0 2px var(--accent) inset; color: var(--ink-3); }
+  .nf input { flex: 1; min-width: 0; outline: 0; color: var(--ink); }
+  .nf input::placeholder { color: var(--ink-3); }
+  .nav a.over { background: var(--accent-soft); color: var(--ink); box-shadow: 0 0 0 1px var(--accent-line) inset; }
+
+  /* The page. Its header and its cards share one measure, capped so a wide screen doesn't spread them thin. */
+  .head.vids-head, .page.vids { padding-inline: max(var(--gut), calc((100% - 1480px) / 2)); }
+  .vids-head h1 { min-width: 0; }
+  .vids-head .field { display: flex; align-items: center; gap: 8px; width: 200px; height: var(--ctl); padding: 0 10px; border-radius: var(--r-s); background: var(--raised); color: var(--ink-3); cursor: text; }
+  .vids-head .field:focus-within { box-shadow: 0 0 0 2px var(--accent) inset; }
+  .vids-head .field input { flex: 1; min-width: 0; outline: 0; color: var(--ink); }
+  .vids-head .field input::placeholder { color: var(--ink-3); }
+  .vids-head .field input::-webkit-search-cancel-button { display: none; }
+  .fpills { display: none; }
+  .vbar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .vbar .btn { font-size: 13px; }
+  .vbar .btn .n { font-weight: 400; color: var(--ink-3); }
+  .vbar .btn[aria-pressed="true"] { background: var(--raised-2); color: var(--ink); }
+  .vids > .quiet { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; max-width: 72ch; }
+  .vids > .quiet + .grp { margin-top: 20px; }
+  .vids .hold p { max-width: 36ch; text-wrap: balance; }
+  .vids .hold .btn { margin-top: 14px; }
+  .vids .none { padding: 24px 0 0; }
+  .dlg input + .dsub { margin-top: 10px; }
+
+  /* The groups and the cards. A poster is 9:16 and shows its whole still: a wide or square one sits inside it. */
+  .grp + .grp { margin-top: 36px; }
+  .grp h2 { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; font: 600 14px/20px var(--ui); }
+  .grp h2 span { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+  .vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 24px 12px; }
+  .vcard { position: relative; min-width: 0; }
+  .vid { display: block; border-radius: var(--r-m); }
+  .vgrid .pic { position: relative; display: grid; place-items: center; aspect-ratio: 9 / 16; border-radius: var(--r-m); background: var(--raised); color: var(--ink-3); overflow: hidden; }
+  .vgrid .pic img { width: 100%; height: 100%; object-fit: contain; transition: filter var(--fast); }
+  .vid:hover img { filter: brightness(1.1); }
+  .vid:active .pic { filter: brightness(0.9); }
+  .vcard .len { position: absolute; right: 6px; bottom: 6px; padding: 0 6px; border-radius: var(--r-xs); background: rgb(0 0 0 / 0.62); font: 500 11px/18px var(--ui); color: var(--ink); }
+  .vcard .prog { position: absolute; inset: auto 0 0; height: 3px; background: rgb(255 255 255 / 0.2); }
+  .vcard .prog i { display: block; height: 100%; background: var(--accent); }
+  .vid b { display: block; margin-top: 8px; font-size: 13px; line-height: 18px; font-weight: 500; }
+  .vid small, .vcard .st { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+  .vid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vcard .st { color: var(--ink-2); }
+  .vx { position: absolute; right: 6px; top: 6px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: var(--r-xs); background: rgb(0 0 0 / 0.62); color: #fff; opacity: 0; transition: opacity var(--fast), background var(--fast); }
+  .vcard:hover .vx, .vx:focus-visible, .vx[aria-expanded="true"] { opacity: 1; }
+  .vx:hover { background: rgb(0 0 0 / 0.85); }
+  .vcard.gone .vid { opacity: 0.6; }
+  .vcard.gone .btn { margin-top: 8px; }
+}
+
+/* A phone: the folders are a row of pills above the cards, the search and the grouping drop under the title, and a
+   card's menu is always there. */
+@media (max-width: 900px) {
+  .studio {
+    .head.vids-head { flex-wrap: wrap; gap: 8px; padding-block: 8px; }
+    .vids-head :is(.crumb, .slash) { display: none; }
+    .vids-head h1 { flex: 1; }
+    .vids-head .grow { display: none; }
+    .vids-head .btn.go { order: 1; }
+    .vids-head .btn.square { order: 1; }
+    .vids-head .field { order: 2; flex: 1; width: auto; }
+    .vids-head .field input { font-size: 16px; }
+    .vids-head .seg { order: 3; }
+    .fpills { display: flex; gap: 6px; overflow-x: auto; margin: 0 calc(var(--gut) * -1) 16px; padding: 0 var(--gut); scroll-padding-inline: var(--gut); scrollbar-width: none; }
+    .fpills .pill { flex: none; }
+    .fpills .nf { flex: none; width: 200px; border-radius: var(--r-full); }
+    .fpills .nf input { font-size: 16px; }
+    .vbar { margin-bottom: 20px; overflow-x: auto; }
+    .vgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px 10px; }
+    .vx { width: 44px; height: 44px; right: 0; top: 0; background: none; opacity: 1; }
+    .vx svg { width: 26px; height: 26px; padding: 5px; border-radius: var(--r-xs); background: rgb(0 0 0 / 0.62); }
+    .vids .wide { display: none; }
+    .vid small { white-space: normal; }
+  }
+}

@@ -53,10 +53,9 @@ test("the shell shows the studio, the brand, the four pages, what is being made 
   expect(screen.getByRole("heading", { name: "New video" })).toBeInTheDocument();
 });
 
-test("the brand menu switches brand and stays in the new look, on the same page; a page not built yet links to the current site's", async () => {
+test("the brand menu switches brand and stays in the new look, on the same page", async () => {
   server();
   renderApp("/s/b/1/videos");
-  expect(await screen.findByRole("link", { name: "open Videos on the current site" })).toHaveAttribute("href", "/b/1/videos");
   await userEvent.click(await screen.findByRole("button", { name: "Brand: Palace Guard" }));
   expect(screen.getByRole("menuitemradio", { name: "Palace Guard" })).toHaveAttribute("aria-checked", "true");
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Iron Paws" }));

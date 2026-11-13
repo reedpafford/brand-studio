@@ -35,7 +35,7 @@ import { Settings } from "./studio/Settings";
 import { Spend } from "./studio/Spend";
 import { StudioShell } from "./studio/StudioShell";
 import { Video } from "./studio/Video";
-import { StudioPage } from "./studio/pages";
+import { Videos } from "./studio/Videos";
 
 export function App() {
   return (
@@ -49,7 +49,7 @@ export function App() {
         <Route path="s" element={<StudioShell />}>
           <Route index element={<GoToBrand studio />} />
           <Route path="b/:brandId" element={<NewVideo />} />
-          <Route path="b/:brandId/videos" element={<StudioPage page="videos" />} />
+          <Route path="b/:brandId/videos" element={<Videos />} />
           <Route path="b/:brandId/videos/:projectId" element={<Video />} />
           <Route path="b/:brandId/library" element={<Library />} />
           <Route path="b/:brandId/spend" element={<Spend />} />

@@ -13,7 +13,7 @@ import { useLock } from "./useLock";
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
 
 /** Rename this video: one field. Free, with Undo in the toast. */
-function Rename({ id, fsId, title, onClose }: { id: number; fsId: number | null; title: string; onClose: () => void }) {
+export function Rename({ id, fsId, title, onClose }: { id: number; fsId: number | null; title: string; onClose: () => void }) {
   const [name, setName] = useState(title);
   const rename = useRename(id, fsId, title, onClose);
   return (
@@ -93,6 +93,37 @@ function Variations({ id, brandId, onClose }: { id: number; brandId: number; onC
   );
 }
 
+/** "Move to": Unsorted, then the brand's folders in tree order, the one it is in ticked. Free, with Undo in the toast.
+ *  `move` is held by what stays on the page once the menu has closed. */
+export function MoveTo({ brandId, folder, move, close }: { brandId: number; folder: number | null; move: ReturnType<typeof useMove>; close: () => void }) {
+  const tree = useTree(brandId).data;
+  return (
+    <>
+      <h6>Move to</h6>
+      {[{ id: null as number | null, name: "Unsorted", depth: 0 }, ...flatten(tree?.folders ?? [])].map((f) => (
+        <Choice key={f.id ?? "none"} checked={f.id === folder} disabled={move.isPending} onPick={() => (close(), f.id !== folder && !move.isPending && move.mutate(f.id))}>
+          <span style={{ paddingLeft: f.depth * 12 }}>{f.name}</span>
+        </Choice>
+      ))}
+    </>
+  );
+}
+
+/** Archive asks first: what it does, said before it is done, and the server's own words if it refuses. */
+export function ArchiveAsk({ asking }: { asking: ReturnType<typeof useVideoActions>["asking"] }) {
+  if (!asking) return null;
+  return (
+    <Dialog title={`Archive “${asking.target.name}”?`} confirm="Archive" busy={asking.busy} onClose={asking.no} onConfirm={asking.yes}>
+      <p className="dsub">{ARCHIVES}</p>
+      {asking.problem && (
+        <p className="dsub" role="alert">
+          Couldn’t do that. Nothing changed. {asking.problem}
+        </p>
+      )}
+    </Dialog>
+  );
+}
+
 /** A video's "…" menu: what it cost (opens "So far"), rename, move to a folder, make variations and download every
  *  clip once it is delivered, download the cut, and archive, which asks first and can be undone from its toast. Each
  *  is the current site's own request. `onCost`: only the owner's dollars open; `may`: what this video allows now. */
@@ -100,9 +131,7 @@ export function VideoMenu({ target, brandId, fsId, folder, film, may, onCost, vi
   const { id, name: title } = target;
   const [open, setOpen] = useState<"" | "rename" | "variations">("");
   const [moving, setMoving] = useState(false);
-  const tree = useTree(brandId).data;
   const move = useMove(id, title, folder, () => {});
-  const asking = video.asking;
   return (
     <>
       <Popover
@@ -116,14 +145,7 @@ export function VideoMenu({ target, brandId, fsId, folder, film, may, onCost, vi
       >
         {(close) =>
           moving ? (
-            <>
-              <h6>Move to</h6>
-              {[{ id: null as number | null, name: "Unsorted", depth: 0 }, ...flatten(tree?.folders ?? [])].map((f) => (
-                <Choice key={f.id ?? "none"} checked={f.id === folder} disabled={move.isPending} onPick={() => (close(), f.id !== folder && !move.isPending && move.mutate(f.id))}>
-                  <span style={{ paddingLeft: f.depth * 12 }}>{f.name}</span>
-                </Choice>
-              ))}
-            </>
+            <MoveTo brandId={brandId} folder={folder} move={move} close={close} />
           ) : (
             <>
               {onCost && (
@@ -167,16 +189,7 @@ export function VideoMenu({ target, brandId, fsId, folder, film, may, onCost, vi
       </Popover>
       {open === "rename" && <Rename id={id} fsId={fsId} title={title} onClose={() => setOpen("")} />}
       {open === "variations" && <Variations id={id} brandId={brandId} onClose={() => setOpen("")} />}
-      {asking && (
-        <Dialog title={`Archive “${asking.target.name}”?`} confirm="Archive" busy={asking.busy} onClose={asking.no} onConfirm={asking.yes}>
-          <p className="dsub">{ARCHIVES}</p>
-          {asking.problem && (
-            <p className="dsub" role="alert">
-              Couldn’t do that. Nothing changed. {asking.problem}
-            </p>
-          )}
-        </Dialog>
-      )}
+      <ArchiveAsk asking={video.asking} />
     </>
   );
 }

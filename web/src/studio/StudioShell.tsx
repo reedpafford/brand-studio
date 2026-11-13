@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { ChevronDown, Clapperboard, Film, Folder, Plus, Search, Settings, Undo2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, Clapperboard, Film, Plus, Search, Settings, Undo2 } from "lucide-react";
 import { Link, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { studioName } from "../auth/pages";
 import { useMe } from "../auth/useMe";
-import { UNSORTED, said, useIdeas, useTree, type Branch, type Idea, type Status } from "../folders/ideas";
+import { said, useIdeas, type Idea, type Status } from "../folders/ideas";
 import { useWorkspace } from "../settings/StudioName";
 import { lastBrand, rememberBrand, useBrands } from "../shell/useBrands";
 import { ToastProvider } from "../toast";
@@ -12,13 +12,14 @@ import { Jump, type Hit } from "./Jump";
 import { setNewLook } from "./look";
 import { PAGES } from "./pages";
 import { Choice, Popover } from "./Popover";
+import { RailFolders } from "./RailFolders";
 import "./studio.css";
 
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
 /** The brand's videos, newest first: the rail's "Being made" and Search or jump read the same list. */
 const EVERY = { folder: "all", tab: "all", q: "", sort: "newest", madeBy: null, archived: false } as const;
 /** A video still on its way: being made, or stopped on something only a person can answer. */
-const MAKING: Status["kind"][] = ["working", "waiting", "needs_you", "needs_fix"];
+export const MAKING: Status["kind"][] = ["working", "waiting", "needs_you", "needs_fix"];
 /** The dot beside a status: amber while it waits on a person, red on a fault, green once delivered, grey when it is over. */
 export const DOT: Partial<Record<Status["kind"], string>> = { waiting: "wait", needs_you: "wait", needs_fix: "bad", delivered: "ok", stopped: "idle", archived: "idle" };
 
@@ -41,7 +42,6 @@ export function StudioShell() {
   const video = (i: Idea) => `${base}/videos/${i.id}`;
 
   const workspace = useWorkspace().data;
-  const tree = useTree(id ?? 0).data;
   const list = useIdeas(id ?? 0, EVERY, !!id);
   const ideas = list.data?.pages[0]?.ideas ?? [];
   const making = ideas.filter((i) => MAKING.includes(i.status.kind));
@@ -71,20 +71,6 @@ export function StudioShell() {
     ...(brands ?? []).filter((b) => b.id !== id).map((b) => ({ group: "Switch brand", label: b.name, to: `/s/b/${b.id}`, lead: colour(b) })),
     ...ideas.filter((i) => !making.includes(i)).map((i) => ({ group: "Videos", label: i.title, to: video(i), lead: <Film {...ICON} />, note: said(i.status) })),
   ];
-  const folders = (branches: Branch[], depth = 0): ReactNode =>
-    branches.map((b) => {
-      const key = b.id == null ? UNSORTED : String(b.id);
-      return [
-        <Link key={key} to={`${base}/videos?folder=${key}`} aria-current={folder === key ? "page" : undefined} style={depth ? { paddingLeft: 10 + depth * 16 } : undefined}>
-          <Folder {...ICON} />
-          <span className="clip">{b.name}</span>
-          <span className="n" title={`${b.count} video${b.count === 1 ? "" : "s"}`}>
-            {b.count}
-          </span>
-        </Link>,
-        folders(b.folders ?? [], depth + 1),
-      ];
-    });
 
   return (
     <div className="studio app">
@@ -157,10 +143,7 @@ export function StudioShell() {
                 ))}
                 {list.isSuccess && making.length === 0 && <p className="none">Nothing right now.</p>}
               </div>
-              <h6 id="studio-folders">Folders</h6>
-              <div className="nav" role="group" aria-labelledby="studio-folders">
-                {tree && folders([...tree.folders, tree.unsorted])}
-              </div>
+              <RailFolders brandId={id} base={base} folder={folder} />
             </>
           )}
           <span className="grow" />
