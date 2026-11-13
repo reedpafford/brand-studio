@@ -35,7 +35,7 @@ export const openingsIn = (rows: { opening?: number }[]) => [...new Set(rows.fla
 /** A video with several versions, as the film side shows it: the one on screen (`on`), each with its opening's number
  *  and what the plan calls it, the ones whose cut needs making again (`behind`) or isn't made yet (`uncut`), and
  *  `show` to put another on screen. */
-export type Versions = { on: number; list: { opening: number; name: string }[]; behind: number[]; uncut: number[]; show: (opening: number) => void };
+export type Versions = { on: number; list: { opening: number; name: string }[]; behind: number[]; uncut: number[]; cutting: number[]; show: (opening: number) => void };
 /** A version's download, named as the server names its file: the first by the video's title, a further one
  *  "<video name> (version 2).mp4". */
 export const versionFile = (title: string, opening: number) => (opening > 1 ? `${title} (version ${opening}).mp4` : mp4(title));

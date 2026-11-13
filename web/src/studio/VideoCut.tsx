@@ -83,9 +83,9 @@ const hooks = (openings: number[]) => new Intl.ListFormat("en-GB", { type: "conj
 /** Over the film: the cut being made, a cut that failed with its ways on, or the changes waiting for the next cut
  *  ("N changes not in the cut yet") with Undo all and Make the cut, both free. The count is the cut's own.
  *  A video with several versions: `behind` are the ones whose cut needs making again (a clip of theirs changed) and
- *  `uncut` the ones with no cut yet (each is cut after the first; the server doesn't say when one is on its way). The
- *  one press then makes every one of them, "Make the cuts", with the same request. */
-export function Notice({ cut, edits, make, behind = [], uncut = [] }: { cut: Cut; edits: Edits; make: ReturnType<typeof useMakeCut>; behind?: number[]; uncut?: number[] }) {
+ *  `uncut` the ones with no cut yet (each is cut after the first). The one press then makes every one of them, "Make
+ *  the cuts", with the same request. `cutting`: the ones being cut right now, said with nothing to press. */
+export function Notice({ cut, edits, make, behind = [], uncut = [], cutting = [] }: { cut: Cut; edits: Edits; make: ReturnType<typeof useMakeCut>; behind?: number[]; uncut?: number[]; cutting?: number[] }) {
   const several = behind.length + uncut.length > 0;
   const busy = edits.busy || make.isPending;
   const error = edits.error?.message ?? make.error?.message;
@@ -105,6 +105,14 @@ export function Notice({ cut, edits, make, behind = [], uncut = [] }: { cut: Cut
           </button>
         ))}
     </>
+  ) : cutting.length > 0 && cut.changes === 0 ? (
+    <span role="status">
+      <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="spin" />{" "}
+      <b>
+        {hooks(cutting)} {cutting.length > 1 ? "are" : "is"} being cut.
+      </b>{" "}
+      It shows here as soon as it is ready.
+    </span>
   ) : (cut.changes > 0 || several) && cut.can_edit ? (
     <>
       <span>
@@ -124,7 +132,7 @@ export function Notice({ cut, edits, make, behind = [], uncut = [] }: { cut: Cut
             <b>
               {hooks(uncut)} {uncut.length > 1 ? "have" : "has"} no cut yet.
             </b>{" "}
-            A further version is cut right after the first. If it doesn’t arrive, make the cuts again.
+            Make the cuts to have it.
           </>
         )}
       </span>

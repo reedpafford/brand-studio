@@ -118,7 +118,7 @@ function video(o: { status: object; spent: number; moves?: object[]; thread?: ob
     "GET /projects/366/clips": [200, o.clips],
     "GET /projects/366/breakdown": [200, { id: 1, script_version: 1, source: "director", breakdown, problems: [], kept: [], stale: false, changed_shots: [], fixes: [], fixed: [], unknown_names: {}, older_plan: false, director_run: true }],
     "GET /projects/366/cut": [200, o.cut],
-    "GET /projects/366/cut/versions": [200, [{ opening: 1, name: "", file_id: o.cut.file_id, seconds: o.cut.file_id && o.cut.timeline.length, out_of_date: false }]],
+    "GET /projects/366/cut/versions": [200, [{ opening: 1, name: "", file_id: o.cut.file_id, seconds: o.cut.file_id && o.cut.timeline.length, out_of_date: false, making: false }]],
     "GET /projects/366/cast": [200, { state: "approved", approved_by: "Reed", approved_at: "2026-11-13T09:20:00", asked: false, can_approve: true, items: CAST_ITEMS, waiting: [], not_ready: [], paused_clips: [], update: { stills: [], clips: [], credits: 0 }, previews: { credits: 0, usd: 0, budget_credits: 0, budget_usd: 0 }, ...o.cast }],
     "GET /projects/366/assets": [200, ASSETS],
     "GET /usage/videos/366": [200, { project_id: 366, brand_id: 1, brand: "Palace Guard", title: "Three men at Target", spend_usd: o.spent, spend_estimated: false, providers: [], kinds: [{ name: "Claude’s thinking", usd: 0.61, estimated: false }, { name: "Looks", usd: 0.3, estimated: false }, { name: "Takes", usd: Math.max(0, o.spent - 0.91), estimated: false }], last_at: "2026-11-13T09:33:00", unreported: false, runs: [] }],
@@ -238,7 +238,7 @@ export const threeHooks = (files: (number | null)[] = [90, 92, 93], behind: numb
     "/cut": versionCut(1, files[0]),
     "/cut?opening=2": versionCut(2, files[1]),
     "/cut?opening=3": versionCut(3, files[2]),
-    "/cut/versions": [1, 2, 3].map((opening) => ({ opening, name: NAMES[opening - 1], file_id: files[opening - 1], seconds: files[opening - 1] && versionCut(opening, 1).timeline.length, out_of_date: behind.includes(opening) })),
+    "/cut/versions": [1, 2, 3].map((opening) => ({ opening, name: NAMES[opening - 1], file_id: files[opening - 1], seconds: files[opening - 1] && versionCut(opening, 1).timeline.length, out_of_date: behind.includes(opening), making: false })),
   });
 /** The same video before anything is filmed: the start card lists every clip, each marked with its opening. */
 export const threeHooksPlan = over(planWaiting, { "/clips": marked(CLIPS.map((_, n) => clip(n + 1, false))), "/asks": [{ ...START, money: { ...START.money!, making: marked(START.money!.making) } }] });
