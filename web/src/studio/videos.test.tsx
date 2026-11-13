@@ -60,6 +60,8 @@ const card = (name: RegExp) => main().findByRole("link", { name });
 const more = async (title: string) => userEvent.click(await main().findByRole("button", { name: `More for ${title}` }));
 const item = (name: string) => userEvent.click(screen.getByRole("menuitem", { name }));
 const undo = () => userEvent.click(screen.getByRole("button", { name: "Undo" }));
+/** The groups on the page, in order, once it has them (a press that changes the address is drawn a moment later). */
+const groups = (names: string[]) => waitFor(() => expect(main().getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual(names));
 
 beforeEach(() => {
   localStorage.clear();
@@ -92,12 +94,12 @@ test("Being made and Delivered narrow the cards, and Look regroups them by look 
   await card(/A dad on the border/);
   const show = within(main().getByRole("group", { name: "Show" }));
   await userEvent.click(show.getByRole("button", { name: "Being made" }));
-  expect(main().getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual(["Being made"]);
+  await groups(["Being made"]);
   await userEvent.click(show.getByRole("button", { name: "Delivered" }));
-  expect(main().getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual(["Today", "Yesterday", "Earlier"]);
+  await groups(["Today", "Yesterday", "Earlier"]);
   await userEvent.click(show.getByRole("button", { name: "All" }));
   await userEvent.click(within(main().getByRole("group", { name: "Group by" })).getByRole("button", { name: "Look" }));
-  expect(main().getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual(["Movie", "UGC", "Pixar"]);
+  await groups(["Movie", "UGC", "Pixar"]);
   expect(group("Movie").getByRole("heading")).toHaveTextContent("Movie3 videos");
   expect(localStorage.getItem("bs.videos.group")).toBe("look");
 });
@@ -155,7 +157,7 @@ test("a new folder is typed straight into the rail: Enter makes it at the top le
   await userEvent.type(rail().getByRole("textbox", { name: "New folder name" }), " Winter ads {Enter}");
   expect(await screen.findByText("“Winter ads” is ready. Drag a video onto it, or use “Move to” in a video’s menu.")).toBeInTheDocument();
   expect(sent(calls)).toEqual([["POST /brands/1/folders", { name: "Winter ads", parent_id: null }]]);
-  expect(rail().queryByRole("textbox")).toBeNull();
+  await waitFor(() => expect(rail().queryByRole("textbox")).toBeNull());
 });
 
 test("a new folder the server refuses shows the server's own words and keeps what was typed", async () => {
@@ -183,7 +185,7 @@ test("a folder's menu deletes it: its videos go to Unsorted, the page goes back 
   await userEvent.click(main().getByRole("button", { name: "More for this folder" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Delete folder/ }));
   expect(await screen.findByText("“Target ads” is gone. Its 2 videos moved to Unsorted.")).toBeInTheDocument();
-  expect(main().getByRole("heading", { level: 1, name: "Videos" })).toBeInTheDocument();
+  expect(await main().findByRole("heading", { level: 1, name: "Videos" })).toBeInTheDocument();
   await undo();
   await waitFor(() => expect(sent(calls)).toEqual([["DELETE /folders/4"], ["POST /folders/4/restore"]]));
 });
