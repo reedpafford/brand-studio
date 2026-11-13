@@ -231,26 +231,32 @@ export function VideoMenu({ title, cut, onMove, onRename, onVariations, onReleas
   );
 }
 
-/** Move to folder…: the brand's folders in tree order, or Unsorted. Free, and the tree shows it at once. */
-export function MoveDialog({ brandId, projectId, title, now, onClose }: { brandId: number; projectId: number; title: string; now: number | null; onClose: () => void }) {
-  const tree = useTree(brandId).data;
+/** A video moved to a folder (null: Unsorted). Free; the tree and the header's crumb show it at once, and Undo puts it
+ *  back where it was (`now`). `then`: once it has moved. */
+export function useMove(projectId: number, title: string, now: number | null, then: () => void) {
   const refresh = useRefreshIdeas();
   const client = useQueryClient();
   const again = () => Promise.all([refresh(), client.invalidateQueries({ queryKey: ["idea", projectId] }), client.invalidateQueries({ queryKey: ["project", projectId] })]); // the tree and the header's crumb
   const toast = useToast();
-  const [to, setTo] = useState<number | null>(now);
-  const move = useMutation({
-    mutationFn: () => must(api.POST("/folders/file", { body: { kind: "video", ids: [projectId], folder_id: to } })),
+  return useMutation({
+    mutationFn: (to: number | null) => must(api.POST("/folders/file", { body: { kind: "video", ids: [projectId], folder_id: to } })),
     onSuccess: async () => {
       await again();
-      onClose();
+      then();
       const back = () => must(api.POST("/folders/file", { body: { kind: "video", ids: [projectId], folder_id: now } })).then(again, (e: Error) => toast(e.message, undefined, "error"));
       toast(`Moved "${title}".`, () => void back());
     },
   });
+}
+
+/** Move to folder…: the brand's folders in tree order, or Unsorted. Free, and the tree shows it at once. */
+export function MoveDialog({ brandId, projectId, title, now, onClose }: { brandId: number; projectId: number; title: string; now: number | null; onClose: () => void }) {
+  const tree = useTree(brandId).data;
+  const [to, setTo] = useState<number | null>(now);
+  const move = useMove(projectId, title, now, onClose);
   const places = [{ id: null as number | null, name: "Unsorted", depth: 0 }, ...flatten(tree?.folders ?? [])];
   return (
-    <Dialog title={`Move ${title} to…`} cancelLabel="Not now" actionLabel="Move" busy={move.isPending} holdReason={to === now ? "Pick another folder" : (move.error?.message ?? null)} onCancel={onClose} onConfirm={() => move.mutate()}>
+    <Dialog title={`Move ${title} to…`} cancelLabel="Not now" actionLabel="Move" busy={move.isPending} holdReason={to === now ? "Pick another folder" : (move.error?.message ?? null)} onCancel={onClose} onConfirm={() => move.mutate(to)}>
       <div role="radiogroup" aria-label="Move to" className="-mx-2 max-h-80 overflow-y-auto">
         {places.map((f) => (
           <button key={f.id ?? "none"} type="button" role="radio" aria-checked={to === f.id} onClick={() => (setTo(f.id), move.reset())} style={{ paddingLeft: 8 + f.depth * 16 }} className={`flex min-h-control w-full items-center gap-2 rounded-md pr-2 text-left text-sm text-text lg:min-h-[30px] ${to === f.id ? "bg-surface-2 font-medium" : "hover:bg-surface-2"}`}>
@@ -327,29 +333,35 @@ export function VideoHead({ brand, projectId, head, status, cast, lookOnly, phon
   );
 }
 
-/** Rename… (Reed, 4 Nov: the old page's rename lives in the video's ⋯ menu): a made-from-chat video's title, else the video's
- *  name. Free, with Undo. */
-export function RenameDialog({ projectId, freestyleId, title, onClose }: { projectId: number; freestyleId: number | null; title: string; onClose: () => void }) {
+/** A video renamed: a made-from-chat video's title, else the video's name. Free, with Undo back to `title`. `then`: once
+ *  it is renamed. */
+export function useRename(projectId: number, freestyleId: number | null, title: string, then: () => void) {
   const client = useQueryClient();
   const toast = useToast();
   const refreshIdeas = useRefreshIdeas(); // the tree, the folder's cards and lists show the new name too
-  const [name, setName] = useState(title);
   const again = () => Promise.all([refreshIdeas(), ...[["idea", projectId], ["project", projectId], ["freestyle", freestyleId]].map((queryKey) => client.invalidateQueries({ queryKey }))]);
   const save = async (to: string): Promise<void> => {
     if (freestyleId) await must(api.PATCH("/freestyles/{freestyle_id}", { params: { path: { freestyle_id: freestyleId } }, body: { title: to } }));
     else await must(api.PATCH("/projects/{project_id}", { params: { path: { project_id: projectId } }, body: { name: to } }));
   };
-  const rename = useMutation({
-    mutationFn: () => save(name.trim()),
-    onSuccess: () => {
+  return useMutation({
+    mutationFn: (name: string) => save(name.trim()),
+    onSuccess: (_done, name) => {
       void again();
-      onClose();
+      then();
       toast(`Renamed to “${name.trim()}”.`, () => void save(title).then(again, (e: Error) => toast(e.message, undefined, "error")));
     },
     onError: (e: Error) => toast(e.message, undefined, "error"),
   });
+}
+
+/** Rename… (Reed, 4 Nov: the old page's rename lives in the video's ⋯ menu): a made-from-chat video's title, else the video's
+ *  name. Free, with Undo. */
+export function RenameDialog({ projectId, freestyleId, title, onClose }: { projectId: number; freestyleId: number | null; title: string; onClose: () => void }) {
+  const [name, setName] = useState(title);
+  const rename = useRename(projectId, freestyleId, title, onClose);
   return (
-    <Dialog title="Rename this video" actionLabel="Rename" busy={rename.isPending} onCancel={onClose} onConfirm={() => name.trim() && name.trim() !== title && rename.mutate()}>
+    <Dialog title="Rename this video" actionLabel="Rename" busy={rename.isPending} onCancel={onClose} onConfirm={() => name.trim() && name.trim() !== title && rename.mutate(name)}>
       <Field label="Name" value={name} maxLength={120} autoFocus onChange={(e) => setName(e.target.value)} />
     </Dialog>
   );

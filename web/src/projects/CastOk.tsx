@@ -18,12 +18,11 @@ export function useCast(projectId: number) {
   });
 }
 
-/** The director's "Cast & places waiting for your OK" in the chat (S-gaps-07 B): the whole set with its previews, and the
- *  one press. The Cast tab (screen 9) shows the same set with its own press; both call the same route. */
-export function CastOk({ projectId }: { projectId: number }) {
+/** "Approve cast & places": the items as this person saw them (each one's `sig`), refused if anything changed since;
+ *  `anyway` approves a look the look check says is wrong. */
+export function useApproveCast(projectId: number) {
   const queryClient = useQueryClient();
-  const cast = useCast(projectId);
-  const approve = useMutation({
+  return useMutation({
     mutationFn: async ({ seen, anyway }: { seen: Record<string, string>; anyway: boolean }) => {
       const { data, error } = await api.POST("/projects/{project_id}/cast/approve", { params: { path: { project_id: projectId } }, body: { seen, anyway } });
       if (!data) throw new Error(errorText(error));
@@ -36,6 +35,13 @@ export function CastOk({ projectId }: { projectId: number }) {
     },
     onError: () => queryClient.invalidateQueries({ queryKey: ["cast", projectId] }), // refused as changed: show what it is now
   });
+}
+
+/** The director's "Cast & places waiting for your OK" in the chat (S-gaps-07 B): the whole set with its previews, and the
+ *  one press. The Cast tab (screen 9) shows the same set with its own press; both call the same route. */
+export function CastOk({ projectId }: { projectId: number }) {
+  const cast = useCast(projectId);
+  const approve = useApproveCast(projectId);
   const shown = cast.data;
   // Whenever the set is ready and this person may approve it, not only once the director asked: a video with no run, or a
   // look changed after it asked, is never left without the press.

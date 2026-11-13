@@ -5,7 +5,8 @@ import { api, must, polled } from "../api/client";
 import { Dialog, TextArea } from "../components";
 import { useRefreshIdeas } from "../folders/ideas";
 
-const UNMADE: Record<string, string> = {
+/** Why the ideas came to nothing, by the state the server gives. */
+export const UNMADE: Record<string, string> = {
   unfit: "None of the ideas kept the rest of the video, so nothing was made. Try again, or say more in the note.",
   declined: "The owner said no, or it was withdrawn, so nothing was written or charged.",
   failed: "Writing the ideas failed, so nothing was made. Try again.",
@@ -25,6 +26,21 @@ function Pick<T extends string | number>({ label, value, onPick, options }: { la
   );
 }
 
+/** The variations of one video: what was asked last and how far it has got (read while it is written or held), and
+ *  the ask itself. `then`: once the ask is in. */
+export function useVariations(projectId: number, then: () => void) {
+  const read = useQuery({
+    queryKey: ["variations", projectId],
+    refetchInterval: (q) => (q.state.data?.state === "writing" ? 2_000 : q.state.data?.state === "held" ? 10_000 : false),
+    queryFn: () => polled(api.GET("/projects/{project_id}/variations", path(projectId)), null),
+  });
+  const make = useMutation({
+    mutationFn: (body: { count: 2 | 3; part: "hook" | "ending"; note: string }) => must(api.POST("/projects/{project_id}/variations", { ...path(projectId), body })),
+    onSuccess: () => (then(), void read.refetch()),
+  });
+  return { read, make };
+}
+
 /** Make variations (Runway #2): on a finished video, 2 or 3 new videos with another hook or ending, the cast, look and every
  *  other clip kept. The director writes the ideas in one go; each lands in this folder as "<title> · variation A", waiting
  *  on its own card (its price, only the clips it changes) before anything is made. */
@@ -34,15 +50,7 @@ export function VariationsDialog({ brandId, projectId, onClose }: { brandId: num
   const [note, setNote] = useState("");
   const [asked, setAsked] = useState(false);
   const refresh = useRefreshIdeas();
-  const read = useQuery({
-    queryKey: ["variations", projectId],
-    refetchInterval: (q) => (q.state.data?.state === "writing" ? 2_000 : q.state.data?.state === "held" ? 10_000 : false),
-    queryFn: () => polled(api.GET("/projects/{project_id}/variations", path(projectId)), null),
-  });
-  const make = useMutation({
-    mutationFn: () => must(api.POST("/projects/{project_id}/variations", { ...path(projectId), body: { count, part, note } })),
-    onSuccess: () => (setAsked(true), void read.refetch()),
-  });
+  const { read, make } = useVariations(projectId, () => setAsked(true));
   const out = read.data;
   const done = asked && out?.state !== "writing" && out?.state !== "held";
   const shown = useRef(false);
@@ -76,7 +84,7 @@ export function VariationsDialog({ brandId, projectId, onClose }: { brandId: num
       </Dialog>
     );
   return (
-    <Dialog title="Make variations" cancelLabel="Not now" actionLabel="Make variations" busy={make.isPending || read.isPending} holdReason={out?.blocked || (make.error?.message ?? null)} onCancel={onClose} onConfirm={() => make.mutate()}>
+    <Dialog title="Make variations" cancelLabel="Not now" actionLabel="Make variations" busy={make.isPending || read.isPending} holdReason={out?.blocked || (make.error?.message ?? null)} onCancel={onClose} onConfirm={() => make.mutate({ count, part, note })}>
       <div className="space-y-3">
         <p>New videos with another hook or ending. The cast, the look and every other clip stay; only the changed clips are made.</p>
         <Pick label="How many" value={count} onPick={setCount} options={[[2, "2 variations"], [3, "3 variations"]]} />

@@ -320,17 +320,21 @@ export const stopLines = (r: Progress) => (r.stops ?? []).map((x) => `${x.by} st
 /** A run a person stopped, as a line in the chat. */
 export const stoppedLine = (s: NonNullable<Progress["stopped"]>) => `${s.by} stopped the director at ${clock(s.at)}. Nothing more is being spent.`;
 
+/** The director's reply to a Stop, and its Carry on with the rest of the run's price when the server gives one. */
+export const stoppedReply = (s: NonNullable<Progress["stopped"]>) => `Stopped. ${s.made ? `The ${s.made} finished clip${s.made === 1 ? " is" : "s are"} kept.` : "Nothing was finished yet."} Tell me what to change, or carry on where I left off.`;
+export const carryOnLabel = (s: NonNullable<Progress["stopped"]>) => (s.free ? "Carry on" : `Carry on · up to ${s.carry_on} more`);
+
 export function stoppedParts({ progress: r, onCarryOn, onPlanAgain, busy, planBusy, blocked, error }: { progress: Progress; onCarryOn: () => void; onPlanAgain: () => void; busy: boolean; planBusy: boolean; blocked: string | null; error: string | null }) {
   const s = r.stopped!;
   return {
     line: stoppedLine(s),
     reply: (
       <div className="flex flex-col gap-2">
-        <p className="leading-[21px]">{`Stopped. ${s.made ? `The ${s.made} finished clip${s.made === 1 ? " is" : "s are"} kept.` : "Nothing was finished yet."} Tell me what to change, or carry on where I left off.`}</p>
+        <p className="leading-[21px]">{stoppedReply(s)}</p>
         <div className="flex flex-wrap gap-2">
           {(s.carry_on || s.free) && ( // "": an editor's Carry on waits for the owner's OK, on its own card
             <Button busy={busy} disabled={!!blocked || planBusy} reason={blocked} onClick={onCarryOn}>
-              {s.free ? "Carry on" : `Carry on · up to ${s.carry_on} more`}
+              {carryOnLabel(s)}
             </Button>
           )}
           <Button variant="secondary" busy={planBusy} disabled={!!blocked || busy} reason={blocked} onClick={onPlanAgain}>
@@ -343,19 +347,25 @@ export function stoppedParts({ progress: r, onCarryOn, onPlanAgain, busy, planBu
   };
 }
 
+/** "Try again" on the clip a run stopped at: its take is made again as it is. */
+export function useTryAgain(projectId: number, clip: number | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/projects/{project_id}/clips/{clip_id}/generate", { params: { path: { project_id: projectId, clip_id: clip ?? 0 } } });
+      if (!data) throw new Error(errorText(error));
+    },
+    onSuccess: () => Promise.all([refreshJobs(queryClient), queryClient.invalidateQueries({ queryKey: ["run-progress", projectId] })]),
+  });
+}
+
 /** A run that stopped on a problem (S3-11): what went wrong, in plain words, and its one-click fixes (never none): the
  *  failed clip again, carry on, split a clip too long for its model (free: the breakdown's own fix), or the video's
  *  settings, to pick a model that makes longer clips (`onSettings`: the Plan tab, the preview side on a phone). */
 export function Failed({ progress: r, projectId, onCarryOn, onSettings, busy, blocked }: { progress: Progress; projectId: number; onCarryOn: () => void; onSettings: () => void; busy: boolean; blocked: string | null }) {
   const f = r.failed!;
   const queryClient = useQueryClient();
-  const again = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/clips/{clip_id}/generate", { params: { path: { project_id: projectId, clip_id: f.clip ?? 0 } } });
-      if (!data) throw new Error(errorText(error));
-    },
-    onSuccess: () => Promise.all([refreshJobs(queryClient), queryClient.invalidateQueries({ queryKey: ["run-progress", projectId] })]),
-  });
+  const again = useTryAgain(projectId, f.clip);
   const split = useMutation({
     mutationFn: async (problem: string) => {
       const { data, error } = await api.POST("/projects/{project_id}/breakdown/fix", { params: { path: { project_id: projectId } }, body: { problems: [problem] } });

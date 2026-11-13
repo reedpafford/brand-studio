@@ -15,8 +15,11 @@ export function useMayManageVideo() {
 }
 
 const STOPS = "Anything still being made stops and isn't brought back.";
+/** What archiving a video does, said before it is done. */
+export const ARCHIVES = `It leaves the lists. Its clips and downloads are kept, and you can restore it. ${STOPS}`;
 
-/** Release a started version (back to Ready to make) or archive a video, each after a confirm and with Undo. Render `dialog` on the page. */
+/** Release a started version (back to Ready to make) or archive a video, each after a confirm and with Undo. Render `dialog` on the page, or
+ *  draw the confirm from `asking` (what is asked, and its yes and no). */
 export function useVideoActions(onGone?: (kind: "release" | "archive") => void) {
   const [ask, setAsk] = useState<{ kind: "release" | "archive"; target: VideoTarget } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,9 +72,9 @@ export function useVideoActions(onGone?: (kind: "release" | "archive") => void) 
     >
       {ask.kind === "release"
         ? `It goes back to Ready to make, so it can be started fresh. This video and its clips are archived, not deleted.${ask.target.creditsUsed > 0 ? ` The ${Math.round(ask.target.creditsUsed)} credits already used stay used.` : ""} ${STOPS}`
-        : `It leaves the lists. Its clips and downloads are kept, and you can restore it. ${STOPS}`}
+        : ARCHIVES}
       {problem && <p role="alert" className={`mt-2 ${errorClass}`}>Couldn't do that. Nothing changed. {problem}</p>}
     </Dialog>
   );
-  return { restore, release: (t: VideoTarget) => setAsk({ kind: "release", target: t }), archive: (t: VideoTarget) => setAsk({ kind: "archive", target: t }), dialog };
+  return { restore, release: (t: VideoTarget) => setAsk({ kind: "release", target: t }), archive: (t: VideoTarget) => setAsk({ kind: "archive", target: t }), dialog, asking: ask && { ...ask, busy, problem, yes: () => void confirm(), no: close } };
 }
