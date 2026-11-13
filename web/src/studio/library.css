@@ -38,6 +38,7 @@
   .how textarea:focus, .dlg :is(textarea, select):focus { box-shadow: 0 0 0 2px var(--accent) inset; }
   .how .btn { font-size: 13px; }
   .how .offers { margin-top: 10px; }
+  .how .snd { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
   .pacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 28px 40px; }
   .clips4 { display: grid; grid-template-columns: repeat(4, minmax(0, 148px)); gap: 10px; }
   .ac { position: relative; aspect-ratio: 9 / 16; border-radius: var(--r-m); background: var(--raised); overflow: hidden; }

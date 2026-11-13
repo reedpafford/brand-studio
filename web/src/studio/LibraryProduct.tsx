@@ -8,6 +8,7 @@ import { useItems, type Item } from "../library/kinds";
 import { useBrands } from "../shell/useBrands";
 import { Dialog } from "./Dialog";
 import { HowItWorks } from "./HowItWorks";
+import { ProductSound } from "./ProductSound";
 import { AddClip, ClipOpen, ClipTile, Failed, FileRow, Head, Hold, ICON, Loading, usePick } from "./libraryParts";
 
 /** Library › Product: the brand's product as the director is given it. Left: its real pictures, what it is, and "How
@@ -154,6 +155,7 @@ function About({ brandId, product, more }: { brandId: number; product: Item; mor
         </p>
       )}
       <HowItWorks item={product} />
+      {!app && <ProductSound item={product} />}
       {app && (
         <p className="hint also">
           Adding and naming its screens is on <Link to={onSite}>the current site</Link>.
