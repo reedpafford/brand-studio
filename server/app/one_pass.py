@@ -269,6 +269,8 @@ def job_input(db: Session, project: Project, run: dict) -> dict:
         context, f"<assets>\n{escape(lines)}\n</assets>", video_model_block(m),
         model_notes(m.id), f"<script>\n{escape(prompts.number_lines(rows))}\n</script>",
     ]) + picks.context(db, project)  # fmt: skip
+    if project.hooks == "all":  # every opening of the script is a version (Reed, 13 Nov)
+        text += "\n<hooks>all</hooks>"
     if track:
         from app import audition, host, talker
         from app.song_breakdown import take_for
@@ -437,6 +439,12 @@ def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
                      " of the script: give only a spoken line's number")  # fmt: skip
     if not (missing or twice or extra) and used != want:
         fixes.append("the lines are out of order: every line stays where the script has it")
+    order = [c.opening for c in plan.clips]  # each opening's clips, 1, 2, …, then the body's
+    if any(order) and (order != sorted(order, key=lambda n: n or 99) or 0 not in order):
+        fixes.append("each opening's clips come first, in order (opening 1, 2, …), then the "
+                     "body's clips (opening 0)")  # fmt: skip
+    if any(order) and plan.treatment.other_openings:
+        fixes.append("with <hooks>all</hooks> every opening is filmed: none is set aside")
     ids = [c.id for c in plan.clips]
     if not ids or len(set(ids)) != len(ids) or any(not re.fullmatch(r"c\d+", i) for i in ids):
         fixes.append("each clip needs its own id: c1, c2, c3, …")

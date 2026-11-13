@@ -89,13 +89,27 @@ def rows(db: Session, project: Project) -> list[ProjectClip]:
                            .order_by(ProjectClip.id)))  # fmt: skip
 
 
-def in_cut(clip: ProjectClip) -> bool:
-    """Its place is in the cut: every clip, but one the director left out with no take."""
-    return bool(clip.picked_take_id or not clip.left_out)
+def openings(data: dict | None) -> dict[str, int]:
+    """Each planned clip's opening (hooks as versions, Reed 13 Nov: "the hooks just swap onto
+    the same bodies"): 0 for a clip of the body, in every version; 1, 2, … for a clip of that
+    opening only. From a breakdown's data; {} for a video with no plan."""
+    plan = (data or {}).get("shooting_plan") or {}
+    return {c["id"]: int(c.get("opening") or 0) for c in plan.get("clips") or []}
 
 
-def cut_rows(db: Session, project: Project) -> list[ProjectClip]:
-    return [c for c in rows(db, project) if in_cut(c)]
+def in_cut(clip: ProjectClip, of: dict[str, int] | None = None, opening: int = 1) -> bool:
+    """Its place is in this version's cut: the body's clips and this opening's own (`of`:
+    `openings`), but one the director left out with no take."""
+    mine = (of or {}).get(clip.clip_id, 0) in (0, opening)
+    return mine and bool(clip.picked_take_id or not clip.left_out)
+
+
+def cut_rows(db: Session, project: Project, opening: int = 1) -> list[ProjectClip]:
+    from app.clip_prompts import newest
+
+    row = newest(db, project)
+    of = openings(row.data if row else None)
+    return [c for c in rows(db, project) if in_cut(c, of, opening)]
 
 
 def song(db: Session, project: Project) -> SongTake | None:

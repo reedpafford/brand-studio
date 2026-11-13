@@ -529,7 +529,12 @@ class FakeWriter:
         cast = " ".join(_tag(prompt, "cast").splitlines()).lower()
         who = list(dict.fromkeys(name.split(" (")[0] for name, _ in said.values()))
         clips, places, head = [], [], ""
+        every, opening = "<hooks>all</hooks>" in prompt, 0  # each "HOOK n" a version, then BODY
         for n, line in enumerate(text.splitlines(), 1):
+            if every and (hook := re.match(r"(?:HOOK|V)\s*(\d+)\b", line.strip())):
+                opening = int(hook[1])
+            elif line.strip().startswith("BODY"):
+                opening = 0
             if line.strip().startswith(("SCENE", "INT.", "EXT.")):
                 head = line.strip()
                 places += [{"name": head, "description": "A plain grey test room."}]
@@ -549,12 +554,13 @@ class FakeWriter:
             if (
                 last is None
                 or last["place"] != head
+                or last["opening"] != opening
                 or sum(x["seconds"] for x in last["shots"]) + shot["seconds"] > high
             ):
                 clips.append({"id": f"c{len(clips) + 1}", "name": f"Clip {len(clips) + 1}",
                               "purpose": "escalate", "summary": "A plain test scene.",
                               "place": head, "setting": "Plain grey daylight.", "assets": [],
-                              "sound": "room tone", "shots": []})  # fmt: skip
+                              "sound": "room tone", "shots": [], "opening": opening})  # fmt: skip
             clips[-1]["shots"].append(shot)
         for c in clips:  # never shorter than the model makes
             c["shots"][-1]["seconds"] += max(low - sum(x["seconds"] for x in c["shots"]), 0)
