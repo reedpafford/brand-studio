@@ -768,8 +768,10 @@ def create_freestyle(
                                                  Freestyle.created_at >= since)):  # fmt: skip
         same = (fs.type, fs.look, fs.shape, fs.brand_id) == (type, look, body.shape, brand_id)
         first = db.get(Job, fs.chat[0]["job"]) if fs.chat and fs.chat[0].get("job") else None
-        waiting = first is not None and first.status in (JobStatus.needs_owner_approval,
-                                                         JobStatus.queued)  # fmt: skip
+        waiting = first is not None and (
+            first.status in (JobStatus.needs_owner_approval, JobStatus.queued)
+            or first.provider == "server"  # a one-pass run's opening turn is born succeeded
+        )
         if same and waiting and fs.chat[0]["text"] == text:  # a repeat sent on purpose
             # (the first done or gone) is a new freestyle
             db.rollback()

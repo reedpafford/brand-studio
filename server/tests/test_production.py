@@ -169,3 +169,7 @@ def test_clip_counts_and_the_videos_delivered_today(owner, editor, db):
     assert owner.get("/production", params={"delivered": "today"}).json() == []
     assert owner.get("/production/summary").json()["delivered_today"] == 0
     assert editor.get("/production", params={"delivered": "today"}).status_code == 404
+    unfinished = _video(owner, editor, db)  # archived before it was done: off In production too
+    assert unfinished in [r["project_id"] for r in owner.get("/production").json()]
+    owner.post(f"/projects/{unfinished}/archive")
+    assert unfinished not in [r["project_id"] for r in owner.get("/production").json()]

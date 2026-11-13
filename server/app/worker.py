@@ -320,6 +320,10 @@ def _finish(
             result.state, result.error = "failed", f"Gave up downloading: {exc!r}"
         except Exception as exc:  # noqa: BLE001 - paid work is done: keep its usage
             result.state, result.error = "failed", f"Saving the output failed: {exc!r}"
+    if made and not files and job.input.get("step") == "clip_take" and job.project_id:
+        # paid, but there is no take to keep: a failure (retried once, counted), never a clip
+        # left bare for the director to buy again each turn
+        result.state, result.error = "failed", result.error or "It finished without a file."
     new = JobStatus.succeeded if result.state == "succeeded" else JobStatus.failed
     moved = _move(
         db,

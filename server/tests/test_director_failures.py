@@ -73,6 +73,29 @@ def test_a_failed_take_before_its_answer_is_never_tried_again_on_its_own(db, mon
     assert tried == []  # it may already have been charged
 
 
+def test_a_paid_take_that_comes_back_without_a_file_is_a_failure(db, monkeypatch):
+    """A service can say "succeeded" with nothing to download: no take was kept, the job stayed
+    succeeded (never counted as a failure) and the one-pass director bought the bare clip again
+    on every turn. It fails like any take that couldn't be saved: retried once, then counted."""
+    from app import steps
+    from app.providers import UNSAVED
+    from app.providers.fake import FakeProvider
+    from app.worker import run_once
+
+    tried = []
+    monkeypatch.setattr("app.clip_takes.retry", lambda db, job: tried.append(job.id))
+    monkeypatch.setattr(steps, "explain", lambda db, job: None)
+    job = Job(workspace_id=1, created_by_id=1, kind="video", provider="fake", project_id=1,
+              input={"step": "clip_take"}, status=JobStatus.queued, credits=Decimal(3))  # fmt: skip
+    db.add(job)
+    db.commit()
+    fake = FakeProvider()  # its "succeeded" carries a url and no file
+    for _ in range(2):
+        run_once(db, {"fake": fake})
+    db.refresh(job)
+    assert job.status == JobStatus.failed and job.output[UNSAVED] and tried == [job.id]
+
+
 def test_a_tool_that_breaks_is_a_refusal_and_the_run_goes_on(app, db, owner, editor,
                                                             monkeypatch):  # fmt: skip
 

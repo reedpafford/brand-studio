@@ -642,11 +642,17 @@ def retry(db: Session, job: Job) -> None:
     (`_on_omni_1_1`). No other second automatic retry, never on a video that's gone, and
     never past the video's limit, budget or the editor's week. The failed take isn't counted,
     so the credits are held once and come back if the retry fails too."""
+    from app import director
     from app.clip_prompts import fix_job, is_stale, newest
+    from app.routes.jobs import BY_DIRECTOR
 
     why = why_failed(job)
     if why in ("", "invalid") or job.input.get("discard") or not job.project_id:
         return  # an invalid request is refused the same way again: never retried as it is
+    if job.input.get(BY_DIRECTOR):
+        video = db.get(Project, job.project_id)
+        if director.ended(db, video) == director.STOPPED and not director.active(db, video):
+            return  # the director's take, and its run was stopped while it was out
     if _lookalike(job):
         return _again_without(db, job)
     if job.auto:  # one automatic retry, but for a look-alike's steps

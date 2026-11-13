@@ -244,6 +244,47 @@ def test_a_note_after_delivery_remakes_only_the_clip_it_names(app, owner, db):
     assert all(m["answered"] for m in out["thread"] if m["kind"] == "message")
 
 
+def test_a_double_tap_on_new_video_makes_one_video(app, owner, db):
+    """A one-pass run's opening turn is born succeeded, so the same send again inside ten
+    seconds found nothing waiting and made a second video ("Make without asking" ran both)."""
+    first, again = (owner.post("/freestyles", json={**BODY, "mode": "auto"}).json() for _ in "ab")
+    assert first["id"] == again["id"] and db.query(Project).count() == 1
+    assert len(_jobs(db, "one_pass")) == 1  # one plan asked for, not two
+    other = owner.post("/freestyles", json={**BODY, "text": SCRIPT + "\nMIA: One more."}).json()
+    assert other["id"] != first["id"]  # other words are another video
+
+
+def test_a_step_that_breaks_ends_the_run_saying_so(app, owner, db, monkeypatch):
+    """A turn whose step threw was left succeeded with no result: nothing wakes that, so the
+    video showed "working" for good. It ends in plain words, with Carry on to try again."""
+
+    def boom(*a, **k):
+        raise KeyError("clips")
+
+    monkeypatch.setattr("app.director_tools.run", boom)  # the first site action: its looks
+    owner.post("/freestyles", json=BODY)
+    _run(app, db, ticks=12)
+    out = owner.get(f"/projects/{_video(db).id}/director").json()
+    assert (out["status"], out["ended"]) == ("ended", director.BROKE)
+    assert not db.query(ClipTake).count() and out["carry_on"]
+
+
+def test_one_videos_fault_never_holds_up_the_sweep_for_the_others(app, owner, db, monkeypatch):
+    for more in ("", "\nMIA: And again."):
+        owner.post("/freestyles", json={**BODY, "text": SCRIPT + more})
+    _run(app, db, ticks=2, start=False)
+    woken = []
+
+    def wake(db, project):
+        woken.append(project.id)
+        if len(woken) == 1:
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(director, "wake", wake)
+    director.sweep(db)
+    assert len(set(woken)) == 2  # the second video's run still got its look
+
+
 def test_the_start_card_shows_what_one_run_can_charge_and_the_run_stays_inside_it(app, owner, db):
     fs = owner.post("/freestyles", json={**BODY, "mode": "ask"})
     _run(app, db, ticks=6, start=False)  # its plan and its looks, then its start card
