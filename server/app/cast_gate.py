@@ -52,10 +52,12 @@ def _and(names: list[str]) -> str:
 def parts(db: Session, project: Project, known: dict, ref: str) -> dict[str, str]:
     """An item as its stills and takes are made with, in three parts the card can name when
     one changes: its pictures (`look`), its line for the prompt (`words`: name, roles,
-    outfit), and a character's voice. How a presenter appears isn't part of the character."""
+    outfit), and a character's voice (the one they are read in: a sample kept from their own
+    take, app/voice_carry, is never a change to approve; its place stays so older OKs hold).
+    How a presenter appears isn't part of the character."""
     found = known.get(ref) or ("", [])
     item = _item(db, project, ref)
-    voice = [item.voice_id, item.voice_stock_key, item.voice_file_id] if item else []
+    voice = [item.voice_id, item.voice_stock_key, None] if item else []
 
     def h(value) -> str:
         return hashlib.sha256(json.dumps(value).encode()).hexdigest()[:12]
