@@ -1,0 +1,85 @@
+/* Settings and a brand's set-up in the new look (Settings.tsx, BrandSetup.tsx; the redesign, stage 6). Every rule sits
+   under .studio, beside studio.css. Type: 12 (labels in the card), 13 (secondary), 14 (rows), 16 (section titles).
+   Settings is capped at 760 px and the set-up page at 1052 px. */
+.studio {
+  .dlg .dsub + .dsub { margin-top: 8px; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  :is(.setpage, .nbpage) {
+    margin: 0 auto;
+    &.setpage { max-width: 760px; }
+    &.nbpage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 56px; align-items: start; max-width: 1052px; }
+    section + section { margin-top: 44px; }
+    h2 { display: flex; align-items: center; margin-bottom: 4px; font: 600 16px/24px var(--ui); }
+    .why { max-width: 62ch; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+    .quiet.why { margin-top: 44px; color: var(--ink-3); }
+    .btn { font-size: 13px; }
+    h2 .btn { margin-left: auto; font-weight: 500; }
+
+    /* A row: what it is on the left, its press on the right, a hairline under it. */
+    .rowl { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .rowl .tx2 { flex: 1; min-width: 0; }
+    .rowl b { display: block; font-weight: 500; }
+    .rowl small { display: block; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+    .rowl > .sq { width: 14px; height: 14px; }
+    .rowl .fix { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+    button.rowl:hover b { color: var(--accent-hi); }
+    .why + ul, .why + .rowl { margin-top: 8px; }
+    .lks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
+    .lks img { width: 40px; height: 40px; border-radius: var(--r-s); object-fit: cover; object-position: 50% 22%; flex: none; }
+    .lks [aria-checked="false"] img { filter: grayscale(1) brightness(0.6); }
+
+    /* Fields. */
+    .field { height: var(--ctl); width: 200px; padding: 0 10px; border-radius: var(--r-s); background: var(--raised); outline: 0; }
+    .field.wide { display: block; width: 100%; max-width: 360px; height: 40px; }
+    .field::placeholder, .nbform textarea::placeholder { color: var(--ink-3); }
+    .field:focus, .nbform textarea:focus { box-shadow: 0 0 0 2px var(--accent) inset; }
+    .nbform :is(.field, textarea, .swatches button):disabled { opacity: 0.6; }
+    .nbform .why + :is(.field, textarea, .prod) { margin-top: 14px; }
+    .nbform textarea { display: block; width: 100%; max-width: 560px; padding: 10px 12px; border-radius: var(--r-s); background: var(--raised); outline: 0; line-height: 22px; resize: vertical; field-sizing: content; min-height: 84px; max-height: 420px; }
+    .lab2 { display: block; margin: 18px 0 6px; font-size: 13px; color: var(--ink-2); }
+    .hint { max-width: 62ch; margin-top: 6px; font-size: 12px; line-height: 18px; color: var(--ink-3); }
+    .hint.bad { color: var(--bad); }
+
+    /* The colour, and the product's photos. */
+    .swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .swatches button { width: 24px; height: 24px; border-radius: 50%; }
+    .swatches [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
+    .prod + .prod { margin-top: 28px; }
+    .prod h3 { margin-bottom: 10px; font-weight: 600; }
+    .prod .field + .addrow { margin-top: 12px; }
+    .prod .btn { margin-top: 12px; }
+    .addrow { display: flex; flex-wrap: wrap; gap: 10px; }
+    .addt { position: relative; display: grid; place-items: center; align-content: center; gap: 6px; width: 132px; height: 96px; border-radius: var(--r-m); border: 1px dashed var(--line-2); color: var(--ink-3); font-size: 13px; cursor: pointer; overflow: hidden; transition: color var(--fast), border-color var(--fast); }
+    .addt:hover, .addt:focus-within { color: var(--ink); border-color: var(--ink-3); }
+    :is(img, button).addt { border: 1px solid var(--line); object-fit: cover; }
+    button.addt img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* The card beside the form: the brand as the rail will show it, and what the director has. */
+    .nbcard { position: sticky; top: 0; display: grid; gap: 10px; padding: 20px; border-radius: var(--r-l); background: var(--raised); }
+    .nbcard .lab { font-size: 12px; line-height: 16px; color: var(--ink-3); }
+    .nbcard .chip { display: flex; align-items: center; gap: 10px; height: 36px; margin-bottom: 10px; padding: 0 12px; border-radius: var(--r-s); background: var(--raised-2); }
+    .nbcard .chip b { font-weight: 500; }
+    .nbcard .hint { margin-top: 4px; }
+    .nbcard .btn { height: 40px; margin-top: 6px; }
+    .ready { display: grid; gap: 8px; }
+    .ready li { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+    .ready i { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1px dashed var(--line-2); color: transparent; flex: none; }
+    .ready .ok { color: var(--ink); }
+    .ready .ok i { border: 0; color: var(--ok); }
+  }
+}
+
+@media (max-width: 900px) {
+  .studio :is(.setpage, .nbpage) {
+    &.nbpage { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .nbcard { position: static; }
+    .lks { grid-template-columns: minmax(0, 1fr); }
+    .rowl { flex-wrap: wrap; }
+    .rowl .field { flex: 1 0 100%; }
+    .field, .nbform textarea { font-size: 16px; }
+    .swatches { gap: 0; margin-left: -10px; }
+    .swatches button { width: 44px; height: 44px; border: 10px solid var(--panel); }
+    .swatches [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); border-width: 8px; }
+  }
+}
