@@ -1,7 +1,6 @@
 import type { components } from "../api/schema";
 import { scenesOf, type Clip, type Row } from "../clips/data";
 import type { Progress } from "../videos/RunCard";
-import { mp4 } from "../videos/VideoHead";
 
 type Piece = components["schemas"]["PieceOut"];
 type Breakdown = components["schemas"]["BreakdownOut"]["breakdown"];
@@ -37,14 +36,14 @@ export const openingsIn = (rows: { opening?: number }[]) => [...new Set(rows.fla
  *  `show` to put another on screen. */
 export type Versions = { on: number; list: { opening: number; name: string }[]; behind: number[]; uncut: number[]; cutting: number[]; show: (opening: number) => void };
 /** A version's download, named as the server names its file: the first by the video's title, a further one
- *  "<video name> (version 2).mp4". */
-export const versionFile = (title: string, opening: number) => (opening > 1 ? `${title} (version ${opening}).mp4` : mp4(title));
-/** The Plan view of a video with several versions: each opening's clips under "Hook 1", "Hook 2", …, then the body's
+ *  "<video name> V2.mp4", as the server names them (RP5's V1, V2, V3). */
+export const versionFile = (title: string, opening: number) => `${title.replace(/[\s.!?…]+$/, "")} V${opening}.mp4`;
+/** The Plan view of a video with several versions: each opening's clips under "V1", "V2", …, then the body's
  *  scenes as they are. */
 export function byOpening(plan: PlanScene[]): PlanScene[] {
   const clips = plan.flatMap((s) => s.clips);
   const body = plan.map((s) => ({ ...s, clips: s.clips.filter((c) => !c.opening) })).filter((s) => s.clips.length);
-  return [...openingsIn(clips).map((k) => ({ id: -k, name: `Hook ${k}`, clips: clips.filter((c) => c.opening === k) })), ...body];
+  return [...openingsIn(clips).map((k) => ({ id: -k, name: `V${k}`, clips: clips.filter((c) => c.opening === k) })), ...body];
 }
 
 /** Who speaks in a clip and the line, shot by shot; none for a clip that is picture only. */

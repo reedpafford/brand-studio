@@ -94,8 +94,8 @@ export function Stage({ projectId, plan, cells, cut, first, versions, rows, head
         {versions && (
           <div className="seg" role="group" aria-label="Version">
             {versions.list.map((x) => (
-              <button key={x.opening} type="button" aria-pressed={x.opening === versions.on} title={x.name || undefined} onClick={() => x.opening !== versions.on && turn(x.opening)}>
-                Hook {x.opening}
+              <button key={x.opening} type="button" aria-pressed={x.opening === versions.on} title={x.name && x.name !== `V${x.opening}` ? x.name : undefined} onClick={() => x.opening !== versions.on && turn(x.opening)}>
+                V{x.opening}
               </button>
             ))}
           </div>

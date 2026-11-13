@@ -287,13 +287,13 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
         ) : (
           !running &&
           film != null && (
-            <a className="btn go" href={fileUrl(film)} download={versionFile(h.title, v)}>
+            <a className="btn go" href={fileUrl(film)} download={many ? versionFile(h.title, v) : mp4(h.title)}>
               <Download size={14} strokeWidth={1.75} aria-hidden />
               Download
             </a>
           )
         )}
-        <VideoMenu target={target} brandId={brandId} fsId={fs?.id ?? null} folder={h.folder?.id ?? p.folder_id ?? null} films={many ? versions.flatMap((x) => (x.file_id != null ? [{ label: `Download hook ${x.opening} (MP4)`, file: x.file_id, name: versionFile(h.title, x.opening) }] : [])) : film != null ? [{ label: "Download MP4", file: film, name: mp4(h.title) }] : []} video={video} onCost={h.spent.usd != null ? () => document.getElementById(SOFAR)?.click() : undefined} may={{ change: !archived, variations: !archived && !running && h.status.kind === "delivered", zip: clips.some((c) => c.picked_take_id != null), archive: !archived && (!running || made) }} />
+        <VideoMenu target={target} brandId={brandId} fsId={fs?.id ?? null} folder={h.folder?.id ?? p.folder_id ?? null} films={many ? versions.flatMap((x) => (x.file_id != null ? [{ label: `Download V${x.opening} (MP4)`, file: x.file_id, name: versionFile(h.title, x.opening) }] : [])) : film != null ? [{ label: "Download MP4", file: film, name: mp4(h.title) }] : []} video={video} onCost={h.spent.usd != null ? () => document.getElementById(SOFAR)?.click() : undefined} may={{ change: !archived, variations: !archived && !running && h.status.kind === "delivered", zip: clips.some((c) => c.picked_take_id != null), archive: !archived && (!running || made) }} />
       </header>
       <Split
         first={asks.some(isOpen) || (gate && !quiet) ? "chat" : "film"}
