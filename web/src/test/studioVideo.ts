@@ -239,7 +239,7 @@ export const threeHooks = (files: (number | null)[] = [90, 92, 93], behind: numb
     "/cut": versionCut(1, files[0]),
     "/cut?opening=2": versionCut(2, files[1]),
     "/cut?opening=3": versionCut(3, files[2]),
-    "/cut/versions": [1, 2, 3].map((opening) => ({ opening, name: NAMES[opening - 1], file_id: files[opening - 1], seconds: files[opening - 1] && versionCut(opening, 1).timeline.length, out_of_date: behind.includes(opening), making: false })),
+    "/cut/versions": [1, 2, 3].map((opening) => ({ opening, name: `V${opening}`, file_id: files[opening - 1], seconds: files[opening - 1] && versionCut(opening, 1).timeline.length, out_of_date: behind.includes(opening), making: false })),
   });
 /** The same video before anything is filmed: the start card lists every clip, each marked with its opening. */
 export const threeHooksPlan = over(planWaiting, { "/clips": marked(CLIPS.map((_, n) => clip(n + 1, false))), "/asks": [{ ...START, money: { ...START.money!, making: marked(START.money!.making) } }] });

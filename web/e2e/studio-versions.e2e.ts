@@ -29,11 +29,11 @@ test("at 1440, a script with two hooks is made as one video with two versions: t
   const making = start.getByRole("list", { name: "What it will make" }).getByRole("listitem");
   await expect(making).toHaveCount(3, { timeout: 90_000 }); // a clip for each hook, and one for the body
   await expect(start.getByText("The plan is on the right: 3 clips for one video with 2 versions, each hook over the same body, at one price for all.")).toBeVisible();
-  await expect(making.nth(0)).toContainText("Hook 1");
-  await expect(making.nth(1)).toContainText("Hook 2");
+  await expect(making.nth(0)).toContainText("V1");
+  await expect(making.nth(1)).toContainText("V2");
   await expect(making.nth(2)).toContainText("all 2 versions");
   await film.getByRole("button", { name: "Plan" }).click();
-  await expect(film.getByRole("heading", { level: 3 })).toContainText(["Hook 1", "Hook 2", "body, in all 2 versions"]);
+  await expect(film.getByRole("heading", { level: 3 })).toContainText(["V1", "V2", "body, in all 2 versions"]);
   await start.getByRole("button", { name: /^Approve and film/ }).click();
   await expect(header.getByText("Delivered", { exact: true })).toBeVisible({ timeout: 300_000 });
   await expect(chat.getByText(/It has 2 versions, one for each opening of the script over the same body/)).toBeVisible();
@@ -42,23 +42,23 @@ test("at 1440, a script with two hooks is made as one video with two versions: t
   const cut = film.getByLabel("The cut", { exact: true });
   const version = film.getByRole("group", { name: "Version" });
   await film.getByRole("button", { name: "Cut", exact: true }).click();
-  await expect(version.getByRole("button", { name: "Hook 1" })).toHaveAttribute("aria-pressed", "true");
+  await expect(version.getByRole("button", { name: "V1" })).toHaveAttribute("aria-pressed", "true");
   await expect(cut).toBeVisible();
   const first = (await cut.getAttribute("src"))!;
-  await version.getByRole("button", { name: "Hook 2" }).click();
+  await version.getByRole("button", { name: "V2" }).click();
   await expect(page).toHaveURL(/\?v=2$/);
   await expect(cut).not.toHaveAttribute("src", first, { timeout: 60_000 }); // its own cut, once it is made
   const second = (await cut.getAttribute("src"))!;
   for (const src of [first, second]) expect((await page.request.get(src)).headers()["content-type"]).toContain("video/");
-  await expect(header.getByRole("link", { name: "Download" })).toHaveAttribute("download", / \(version 2\)\.mp4$/);
+  await expect(header.getByRole("link", { name: "Download" })).toHaveAttribute("download", / V2\.mp4$/);
   await page.reload();
-  await expect(version.getByRole("button", { name: "Hook 2" })).toHaveAttribute("aria-pressed", "true");
+  await expect(version.getByRole("button", { name: "V2" })).toHaveAttribute("aria-pressed", "true");
   await expect(cut).toHaveAttribute("src", second);
 
   // Another take of the body's clip: both versions are out of date, and one free press makes both cuts again.
   await film.getByRole("button", { name: /^Clip 3, / }).click();
   await film.getByRole("group", { name: "The picked clip" }).getByRole("button", { name: /^Another take/ }).click();
-  await expect(film.getByText("Hook 1 and Hook 2 need a new cut.")).toBeVisible({ timeout: 120_000 });
+  await expect(film.getByText("V1 and V2 need a new cut.")).toBeVisible({ timeout: 120_000 });
   await film.getByRole("button", { name: "Make the cuts free" }).click();
   await expect(cut).not.toHaveAttribute("src", second, { timeout: 120_000 }); // the second version's new cut
   await expect(film.getByText(/need(s)? a new cut\./)).toBeHidden({ timeout: 60_000 });

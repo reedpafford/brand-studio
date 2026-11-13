@@ -120,7 +120,7 @@ export function Caption({ projectId, cell, planned, of, clip, head, cut, hook, f
     <div className={open ? "cap open" : "cap"} role="group" aria-label="The picked clip">
       <p className="row">
         <b>{card ? "Time card" : planned?.name || `Clip ${number}`}</b>
-        <span className="meta">{[card ? `before clip ${number}` : `${planned?.name ? `Clip ${number}` : ""} of ${of}`.trim(), hook > 0 && `Hook ${hook}`, seconds(cell.seconds), cell.start == null && cell.state !== "left" && STATE[cell.state]].filter(Boolean).join(" · ")}</span>
+        <span className="meta">{[card ? `before clip ${number}` : `${planned?.name ? `Clip ${number}` : ""} of ${of}`.trim(), hook > 0 && `V${hook}`, seconds(cell.seconds), cell.start == null && cell.state !== "left" && STATE[cell.state]].filter(Boolean).join(" · ")}</span>
         {cell.state === "left" && <span className="mk bad">Left out</span>}
         <span className="acts">
           {open ? (
@@ -171,7 +171,7 @@ export function Caption({ projectId, cell, planned, of, clip, head, cut, hook, f
               {another}
             </div>
           </div>
-          {locked && <p className="quiet small">Hook {hook}’s own clip can be made again or changed with a note, but not trimmed or switched to another take yet.</p>}
+          {locked && <p className="quiet small">V{hook}’s own clip can be made again or changed with a note, but not trimmed or switched to another take yet.</p>}
           {piece && <Trim piece={piece} take={clip.seconds} busy={edits.busy} onTrim={(edge, t) => edits.edit.mutate({ kind: "trim", piece: piece.id, [edge]: t, snap: true })} />}
           <div className="ed-f">
             {picked && (clip.sound?.state === "none" || clip.sound?.state === "removed") && (

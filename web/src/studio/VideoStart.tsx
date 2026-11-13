@@ -63,7 +63,7 @@ export function StartCard({ ask: a, round, press, error, cast, plan, finish, voi
   const again = round > 1;
   const row = (clip: string) => plan.find((c) => c.number === clip);
   const versions = openingsIn([...plan, ...making]).length;
-  const where = (opening: number) => (versions < 2 ? null : again ? (opening ? `Hook ${opening} only` : `in all ${versions} versions`) : opening ? `Hook ${opening}` : `all ${versions} versions`);
+  const where = (opening: number) => (versions < 2 ? null : again ? (opening ? `V${opening} only` : `in all ${versions} versions`) : opening ? `V${opening}` : `all ${versions} versions`);
   return (
     <section className="ask" aria-label={again ? `Round ${round}` : "The plan and the cast"}>
       <p className="ask-h">

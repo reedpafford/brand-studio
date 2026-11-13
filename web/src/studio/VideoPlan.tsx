@@ -8,7 +8,7 @@ import { byOpening, linesOf, openingsIn, shotOf, type PlanScene } from "./videoD
  *  made, its name in the plan (else what it shows), who speaks and the line (or "Picture only"), and its length; the
  *  picked row opens to the shot. A time card is a row of its own, before the clip it leads into or over it.
  *  `clip` is the one picked (on the timeline too); `thumbs`: something has been filmed, so rows carry a frame.
- *  A video with several versions lists each opening's clips first ("Hook 1", "Hook 2", …), then the body's scenes,
+ *  A video with several versions lists each opening's clips first ("V1", "V2", …), then the body's scenes,
  *  which say they are in every version. */
 export function Plan({ scenes, clip, onPick, thumbs }: { scenes: PlanScene[]; clip: string | null; onPick: (clip: string) => void; thumbs: boolean }) {
   if (!scenes.length)

@@ -77,8 +77,8 @@ export function Music({ cut, edits }: { cut: Cut; edits: Edits }) {
   );
 }
 
-/** "Hook 2", "Hook 2 and Hook 3". */
-const hooks = (openings: number[]) => new Intl.ListFormat("en-GB", { type: "conjunction" }).format(openings.map((k) => `Hook ${k}`));
+/** "V2", "V2 and V3". */
+const hooks = (openings: number[]) => new Intl.ListFormat("en-GB", { type: "conjunction" }).format(openings.map((k) => `V${k}`));
 
 /** Over the film: the cut being made, a cut that failed with its ways on, or the changes waiting for the next cut
  *  ("N changes not in the cut yet") with Undo all and Make the cut, both free. The count is the cut's own.
