@@ -45,7 +45,7 @@ export function App() {
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route element={<RequireAuth />}>
-        {/* The new look (the redesign), built beside the current screens: Settings › "Try the new look" opens it. */}
+        {/* The new look (the redesign): where "/" opens for the owner. The current screens are still beside it. */}
         <Route path="s" element={<StudioShell />}>
           <Route index element={<GoToBrand studio />} />
           <Route path="b/:brandId" element={<NewVideo />} />

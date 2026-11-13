@@ -277,11 +277,14 @@ function Tabs({ current, owner, waiting }: { current: number | null; owner: bool
   );
 }
 
-/** "/" goes to the brand you were last in, else the first one. `studio`: in the new look at /s/ (its own "/", and
- *  this one while the computer is set to it). */
-export function GoToBrand({ studio = newLook() }: { studio?: boolean }) {
+/** "/" goes to the brand you were last in, else the first one. `studio`: in the new look at /s/ (its own "/"). This
+ *  one opens the new look for the owner, unless this computer was sent back to the current site; an editor's pages
+ *  are the current site's. */
+export function GoToBrand({ studio }: { studio?: boolean }) {
   const { data: brands, isPending } = useBrands();
-  if (isPending) return <p className="p-6 text-muted">Loading…</p>;
+  const me = useMe();
+  if (isPending || (studio === undefined && me.isPending)) return <p className="p-6 text-muted">Loading…</p>;
+  studio ??= newLook() && me.data?.role === "owner";
   const last = lastBrand();
   const target = brands?.find((b) => b.id === last) ?? brands?.[0];
   return target ? <Navigate to={`${studio ? "/s" : ""}/b/${target.id}`} replace /> : <Navigate to="/team" replace />;
