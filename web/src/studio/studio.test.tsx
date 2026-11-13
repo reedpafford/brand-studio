@@ -49,19 +49,18 @@ test("the shell shows the studio, the brand, the four pages, what is being made 
   expect(folders.getByRole("link", { name: /Hooks/ })).toHaveAttribute("href", "/s/b/1/videos?folder=6");
   expect(folders.getByRole("link", { name: /Unsorted/ })).toHaveAttribute("href", "/s/b/1/videos?folder=none");
   expect(rail().getByText("Reed")).toBeInTheDocument();
-  expect(rail().getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  expect(rail().getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/s/settings");
   expect(screen.getByRole("heading", { name: "New video" })).toBeInTheDocument();
 });
 
-test("the brand menu switches brand and stays in the new look, on the same page; a page not built yet links to the current site's", async () => {
+test("the brand menu switches brand and stays in the new look, on the same page", async () => {
   server();
-  renderApp("/s/b/1/library");
-  expect(await screen.findByRole("link", { name: "open Library on the current site" })).toHaveAttribute("href", "/b/1/library");
+  renderApp("/s/b/1/videos");
   await userEvent.click(await screen.findByRole("button", { name: "Brand: Palace Guard" }));
   expect(screen.getByRole("menuitemradio", { name: "Palace Guard" })).toHaveAttribute("aria-checked", "true");
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Iron Paws" }));
   expect(await screen.findByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
-  expect(rail().getByRole("link", { name: "Library", current: "page" })).toHaveAttribute("href", "/s/b/2/library");
+  expect(rail().getByRole("link", { name: "Videos", current: "page" })).toHaveAttribute("href", "/s/b/2/videos");
   expect(await rail().findByText("Nothing right now.")).toBeInTheDocument();
 });
 

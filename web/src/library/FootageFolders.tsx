@@ -30,9 +30,9 @@ function places(rows: FootageFolder[], parent: number | null = null, depth = 1):
 }
 
 /** The folder and every folder inside it. */
-const inside = (rows: FootageFolder[], id: number) => new Set([id, ...places(rows, id).map((p) => p.id!)]);
-const clips = (n: number) => `${n} clip${n === 1 ? "" : "s"}`;
-const countIn = (footage: Footage[], ids: Set<number>) => footage.filter((c) => c.folder_id != null && ids.has(c.folder_id)).length;
+export const inside = (rows: FootageFolder[], id: number) => new Set([id, ...places(rows, id).map((p) => p.id!)]);
+export const clips = (n: number) => `${n} clip${n === 1 ? "" : "s"}`;
+export const countIn =(footage: Footage[], ids: Set<number>) => footage.filter((c) => c.folder_id != null && ids.has(c.folder_id)).length;
 const useRefresh = (brandId: number) => {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: ["footage", brandId] });
@@ -115,22 +115,17 @@ export function MoveClip({ brandId, clip, rows, onClose }: { brandId: number; cl
   );
 }
 
-type Asking = "new" | "rename" | "move" | "delete" | null;
-
-/** New folder (inside the open one), and the open folder's Rename, Move to… and Delete folder…, with Undo after a delete.
- *  A deleted folder's clips go up a level; the folders inside it go with it until Undo. */
-export function FolderActions({ brandId, rows, footage, at, open }: { brandId: number; rows: FootageFolder[]; footage: Footage[]; at: number | null; open: (id: number | null) => void }) {
-  const [asking, setAsking] = useState<Asking>(null);
-  const [name, setName] = useState("");
-  const [to, setTo] = useState<number | null>(null);
+/** The open folder (`at`; null: the top) and its presses, each free: a new folder inside it, its new name, its new
+ *  place, and deleting it (its clips go up a level; Undo in the toast). `onDone` runs when one has been done. */
+export function useFolderActions(brandId: number, rows: FootageFolder[], footage: Footage[], at: number | null, open: (id: number | null) => void, onDone: () => void) {
   const folder = rows.find((f) => f.id === at);
   const refresh = useRefresh(brandId);
   const toast = useToast();
   const id = { params: { path: { folder_id: at ?? 0 } } };
-  const done = () => (setAsking(null), refresh());
-  const make = useMutation({ mutationFn: () => must(api.POST("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } }, body: { name: name.trim(), parent_id: at, footage: true } })), onSuccess: done });
-  const rename = useMutation({ mutationFn: () => must(api.PATCH("/folders/{folder_id}", { ...id, body: { name: name.trim() } })), onSuccess: done });
-  const move = useMutation({ mutationFn: () => must(api.PATCH("/folders/{folder_id}", { ...id, body: { parent_id: to } })), onSuccess: done });
+  const done = () => (onDone(), refresh());
+  const make = useMutation({ mutationFn: (name: string) => must(api.POST("/brands/{brand_id}/folders", { params: { path: { brand_id: brandId } }, body: { name: name.trim(), parent_id: at, footage: true } })), onSuccess: done });
+  const rename = useMutation({ mutationFn: (name: string) => must(api.PATCH("/folders/{folder_id}", { ...id, body: { name: name.trim() } })), onSuccess: done });
+  const move = useMutation({ mutationFn: (to: number | null) => must(api.PATCH("/folders/{folder_id}", { ...id, body: { parent_id: to } })), onSuccess: done });
   const gone = folder ? inside(rows, folder.id) : new Set<number>();
   const count = countIn(footage, gone);
   const up = folder ? (trail(rows, folder.parent_id ?? null).at(-1)?.name ?? "All footage") : "";
@@ -144,6 +139,18 @@ export function FolderActions({ brandId, rows, footage, at, open }: { brandId: n
       toast(`Deleted “${was.name}”. ${count ? `Its ${clips(count)} moved up to ${up}.` : "Nothing was in it."}`, undo);
     },
   });
+  return { folder, make, rename, move, remove, gone, count, up };
+}
+
+type Asking = "new" | "rename" | "move" | "delete" | null;
+
+/** New folder (inside the open one), and the open folder's Rename, Move to… and Delete folder…, with Undo after a delete.
+ *  A deleted folder's clips go up a level; the folders inside it go with it until Undo. */
+export function FolderActions({ brandId, rows, footage, at, open }: { brandId: number; rows: FootageFolder[]; footage: Footage[]; at: number | null; open: (id: number | null) => void }) {
+  const [asking, setAsking] = useState<Asking>(null);
+  const [name, setName] = useState("");
+  const [to, setTo] = useState<number | null>(null);
+  const { folder, make, rename, move, remove, gone, count, up } = useFolderActions(brandId, rows, footage, at, open, () => setAsking(null));
   const ask = (what: Asking) => {
     setName(what === "rename" ? (folder?.name ?? "") : "");
     setTo(folder?.parent_id ?? null);
@@ -189,13 +196,13 @@ export function FolderActions({ brandId, rows, footage, at, open }: { brandId: n
           busy={make.isPending || rename.isPending}
           holdReason={!name.trim() ? "Give it a name" : ((asking === "new" ? make : rename).error?.message ?? null)}
           onCancel={() => setAsking(null)}
-          onConfirm={() => (asking === "new" ? make : rename).mutate()}
+          onConfirm={() => (asking === "new" ? make : rename).mutate(name)}
         >
           <Field label="Name" value={name} maxLength={120} autoFocus placeholder="Product shots" onChange={(e) => (setName(e.target.value), make.reset(), rename.reset())} />
         </Dialog>
       )}
       {asking === "move" && folder && (
-        <Dialog title={`Move ${folder.name} to…`} cancelLabel="Not now" actionLabel="Move" busy={move.isPending} holdReason={to === (folder.parent_id ?? null) ? "Pick another place" : (move.error?.message ?? null)} onCancel={() => setAsking(null)} onConfirm={() => move.mutate()}>
+        <Dialog title={`Move ${folder.name} to…`} cancelLabel="Not now" actionLabel="Move" busy={move.isPending} holdReason={to === (folder.parent_id ?? null) ? "Pick another place" : (move.error?.message ?? null)} onCancel={() => setAsking(null)} onConfirm={() => move.mutate(to)}>
           <Picker rows={rows} value={to} not={gone} onPick={(p) => (setTo(p), move.reset())} />
         </Dialog>
       )}

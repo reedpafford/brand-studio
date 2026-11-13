@@ -28,11 +28,14 @@ import { UsageBrandPage } from "./usage/UsageBrandPage";
 import { MinePage } from "./usage/MinePage";
 import { UsagePage } from "./usage/UsagePage";
 import { ReelReviewPage } from "./scripts/ReelReviewPage";
+import { BrandSetup } from "./studio/BrandSetup";
+import { Library } from "./studio/Library";
 import { NewVideo } from "./studio/NewVideo";
+import { Settings } from "./studio/Settings";
+import { Spend } from "./studio/Spend";
 import { StudioShell } from "./studio/StudioShell";
 import { Video } from "./studio/Video";
 import { Videos } from "./studio/Videos";
-import { StudioPage } from "./studio/pages";
 
 export function App() {
   return (
@@ -48,8 +51,11 @@ export function App() {
           <Route path="b/:brandId" element={<NewVideo />} />
           <Route path="b/:brandId/videos" element={<Videos />} />
           <Route path="b/:brandId/videos/:projectId" element={<Video />} />
-          <Route path="b/:brandId/library" element={<StudioPage page="library" />} />
-          <Route path="b/:brandId/spend" element={<StudioPage page="spend" />} />
+          <Route path="b/:brandId/library" element={<Library />} />
+          <Route path="b/:brandId/spend" element={<Spend />} />
+          <Route path="b/:brandId/setup" element={<BrandSetup />} />
+          <Route path="brands/new" element={<BrandSetup />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
         <Route element={<Shell />}>
           <Route index element={<GoToBrand />} />

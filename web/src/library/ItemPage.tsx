@@ -2,21 +2,19 @@ import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, ArrowLeft, Check, ChevronDown, Pencil, Upload } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, errorText, must } from "../api/client";
+import { api, must } from "../api/client";
 import { fileUrl } from "../api/upload";
 import { Banner, Button, Field, Menu, MenuItem, textSize } from "../components";
-import { refreshJobs } from "../jobs/refresh";
-import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { Picture } from "./Cards";
+import { useAddPicture, useApproveSheet, useArchive, useDrawSheet, useItem, usePickVoice } from "./itemActions";
 import { ItemMore } from "./ItemMore";
 import { LibraryFrame } from "./LibraryFrame";
-import { SHEET_MODEL, SHEET_NOTE, lookFitNote } from "./sheets";
+import { SHEET_NOTE, lookFitNote } from "./sheets";
 import { useJobs } from "../clip/History";
 import { KINDS, PRODUCT_TYPE, cover, day, isKindSlug, upTo, useItems, videos, type Item, type KindSlug } from "./kinds";
-import { addPicture } from "./products";
-import { sampleOf, useVoiceList, voiceFields, voiceOf, type Voice } from "./Voices";
+import { sampleOf, useVoiceList, voiceOf } from "./Voices";
 import { AddScreens } from "../brand/AddScreens";
 import { ScreenEditor, useScreens, type Screen } from "../brand/screens";
 
@@ -26,16 +24,7 @@ export function ItemPage() {
   const slug = isKindSlug(kindSlug) ? kindSlug : "characters";
   const kind = KINDS[slug].kind;
   const id = Number(brandId);
-  const item = useQuery({
-    queryKey: ["library", kind, "item", Number(itemId)],
-    queryFn: async () => {
-      const { data, response } = await api.GET("/library/{kind}/{item_id}", { params: { path: { kind, item_id: Number(itemId) } } });
-      if (response.status === 404) return null; // gone or archived
-      if (!data) throw new Error("load");
-      return data;
-    },
-    refetchInterval: (q) => (["drawing", "waiting_for_owner"].includes(q.state.data?.sheet_status ?? "") ? 3000 : false),
-  });
+  const item = useItem(kind, Number(itemId));
   const back = useSearchParams()[0].get("back"); // "Open Mia" from a video comes back to it
   const backTo = back?.startsWith(`/b/${id}/`) ? back : null;
   const action = backTo ? (
@@ -64,14 +53,14 @@ export function ItemPage() {
   );
 }
 
-const STATUS: Record<string, { words: string; dot: string; text: string }> = {
+export const STATUS: Record<string, { words: string; dot: string; text: string }> = {
   approved: { words: "In use", dot: "bg-success", text: "text-success" },
   needs_approval: { words: "Needs your OK", dot: "bg-[var(--need-dot,var(--warning))]", text: "text-warning" },
   drawing: { words: "Drawing the sheet", dot: "bg-accent", text: "text-accent-text" },
   waiting_for_owner: { words: "Waiting for the owner’s OK", dot: "bg-accent", text: "text-accent-text" },
   none: { words: "No sheet yet", dot: "border border-muted", text: "text-muted" },
 };
-const USED = { done: ["Done", "bg-success", "text-success"], making: ["Working", "bg-accent", "text-accent-text"], needs_you: ["Needs you", "bg-warning", "text-warning"] } as const;
+export const USED = { done: ["Done", "bg-success", "text-success"], making: ["Working", "bg-accent", "text-accent-text"], needs_you: ["Needs you", "bg-warning", "text-warning"] } as const;
 
 function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: number }) {
   const { kind, title } = KINDS[slug];
@@ -79,53 +68,20 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
   const rail = useRail();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const toast = useToast();
   const path = { kind, item_id: item.id };
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
   const [changing, setChanging] = useState<string | null>(null);
   const versions = useVersions(item);
   const [shown, setShown] = useState<number | null>(null); // an old version picked to look at
   const big = shown ?? cover(item);
-  const archive = useMutation({
-    mutationFn: () => must(api.DELETE("/library/{kind}/{item_id}", { params: { path } })),
-    onSuccess: async () => {
-      await refresh();
-      navigate(`/b/${brandId}/library/${slug}`);
-      toast(`${item.name} archived.`, async () => {
-        await api.POST("/library/{kind}/{item_id}/unarchive", { params: { path } });
-        void refresh();
-      });
-    },
-  });
-  const draw = useMutation({
-    mutationFn: async (change: string) => {
-      const { data, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path }, body: { model_id: SHEET_MODEL, change } });
-      if (!data) throw new Error(errorText(error));
-    },
-    onSuccess: () => {
-      setChanging(null);
-      refreshJobs(queryClient);
-      void refresh();
-    },
-  });
-  const approve = useMutation({
-    mutationFn: () => must(api.POST("/library/{kind}/{item_id}/sheet/approve", { params: { path } })),
-    onSuccess: () => {
-      void refresh();
-      toast(`${item.name}'s sheet approved.`, async () => {
-        await api.DELETE("/library/{kind}/{item_id}/sheet/approve", { params: { path } });
-        void refresh();
-      });
-    },
-  });
+  const archive = useArchive(kind, item, () => navigate(`/b/${brandId}/library/${slug}`));
+  const draw = useDrawSheet(kind, item.id, () => setChanging(null));
+  const approve = useApproveSheet(kind, item);
   const restore = useMutation({
     mutationFn: (version: number) => must(api.POST("/library/{kind}/{item_id}/versions/{version}/restore", { params: { path: { ...path, version } } })),
     onSuccess: () => (setShown(null), void refresh()),
   });
-  const photo = useMutation({
-    mutationFn: (file: File) => addPicture(brandId, item, file),
-    onSuccess: refresh,
-  });
+  const photo = useAddPicture(brandId, item);
   const status = STATUS[item.sheet_status] ?? STATUS.none;
   const usd = item.usd;
   const changeCost = upTo(item.change_credits || undefined, usd?.change);
@@ -287,13 +243,9 @@ function Facts({ item, brandId }: { item: Item; brandId: number }) {
  *  every voice; an uploaded sample of their real voice plays too. */
 function CharacterVoice({ item, brandId }: { item: Item; brandId: number }) {
   const voices = useVoiceList(brandId).data?.voices ?? [];
-  const queryClient = useQueryClient();
   const voice = voiceOf(item, voices);
   const sample = voice ? sampleOf(voice) : item.voice_file_id ? fileUrl(item.voice_file_id) : null;
-  const pick = useMutation({
-    mutationFn: (v: Voice | null) => must(api.PATCH("/library/{kind}/{item_id}", { params: { path: { kind: "character", item_id: item.id } }, body: v ? voiceFields(v) : { voice_id: null, voice_stock_key: null } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library", "character"] }),
-  });
+  const pick = usePickVoice(item.id);
   const words = voice ? [voice.name, voice.description.split(",")[0].toLowerCase()].filter(Boolean).join(" · ") : item.voice_file_id ? "Their own voice sample" : "";
   return (
     <span className="inline-flex flex-wrap items-center gap-x-1">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Clapperboard, Film, Search, Settings, Undo2 } from "lucide-react";
+import { ChevronDown, Clapperboard, Film, Plus, Search, Settings, Undo2 } from "lucide-react";
 import { Link, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { fileUrl } from "../api/upload";
 import { studioName } from "../auth/pages";
@@ -36,7 +36,7 @@ export function StudioShell() {
   const { pathname } = useLocation();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const page = /^\/s\/b\/\d+\/([a-z]+)/.exec(pathname)?.[1] ?? "";
+  const page = /^\/s\/b\/\d+\/([a-z]+)/.exec(pathname)?.[1] ?? (fromUrl ? "" : null); // null: a page of no brand (Settings)
   const folder = page === "videos" ? params.get("folder") : null;
   const at = (to: string) => (to ? `${base}/${to}` : base);
   const video = (i: Idea) => `${base}/videos/${i.id}`;
@@ -66,7 +66,7 @@ export function StudioShell() {
   const hits = (): Hit[] => [
     ...making.map((i) => ({ group: "Being made", label: i.title, to: video(i), lead: <Clapperboard {...ICON} />, note: said(i.status) })),
     ...PAGES.map((p) => ({ group: "Go to", label: p.title, to: at(p.page), lead: <p.icon {...ICON} /> })),
-    { group: "Go to", label: "Settings", to: "/settings", lead: <Settings {...ICON} /> },
+    { group: "Go to", label: "Settings", to: "/s/settings", lead: <Settings {...ICON} /> },
     { group: "Go to", label: "Back to the current site", to: leave.to, lead: <Undo2 {...ICON} />, onPick: leave.onClick },
     ...(brands ?? []).filter((b) => b.id !== id).map((b) => ({ group: "Switch brand", label: b.name, to: `/s/b/${b.id}`, lead: colour(b) })),
     ...ideas.filter((i) => !making.includes(i)).map((i) => ({ group: "Videos", label: i.title, to: video(i), lead: <Film {...ICON} />, note: said(i.status) })),
@@ -93,21 +93,29 @@ export function StudioShell() {
               </button>
             )}
           >
-            {(close) =>
-              (brands ?? []).map((b) => (
-                <Choice
-                  key={b.id}
-                  checked={b.id === id}
-                  lead={colour(b)}
-                  onPick={() => {
-                    close();
-                    navigate(page ? `/s/b/${b.id}/${page}` : `/s/b/${b.id}`);
-                  }}
-                >
-                  {b.name}
-                </Choice>
-              ))
-            }
+            {(close) => (
+              <>
+                {(brands ?? []).map((b) => (
+                  <Choice
+                    key={b.id}
+                    checked={b.id === id}
+                    lead={colour(b)}
+                    onPick={() => {
+                      close();
+                      navigate(page ? `/s/b/${b.id}/${page}` : `/s/b/${b.id}`);
+                    }}
+                  >
+                    {b.name}
+                  </Choice>
+                ))}
+                {me?.role === "owner" && (
+                  <Link className="pa" to="/s/brands/new" onClick={close}>
+                    <Plus {...ICON} />
+                    New brand
+                  </Link>
+                )}
+              </>
+            )}
           </Popover>
           {id && (
             <>
@@ -154,7 +162,7 @@ export function StudioShell() {
             <i aria-hidden>{me?.name.slice(0, 1).toUpperCase()}</i>
             <span className="clip">{me?.name}</span>
             <span className="grow" />
-            <Link className="btn ghost square" to="/settings" aria-label="Settings" title="Settings">
+            <Link className="btn ghost square" to="/s/settings" aria-label="Settings" title="Settings">
               <Settings {...ICON} />
             </Link>
           </div>

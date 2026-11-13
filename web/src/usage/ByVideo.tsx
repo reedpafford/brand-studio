@@ -1,16 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
-import { api } from "../api/client";
 import type { components } from "../api/schema";
 import { Banner, Button, Segmented, Skeleton } from "../components";
 import { useRail } from "../useMedia";
 import { Money, money, lastText } from "./parts";
-import type { Period } from "./useUsage";
+import { useVideoSpends, type Period, type VideoSort as Sort } from "./useUsage";
 import { VideoSpend } from "./VideoSpend";
 
 type Row = components["schemas"]["VideoSpend"];
-type Sort = "spend" | "recent" | "title";
 const SORTS: { id: Sort; name: string }[] = [
   { id: "spend", name: "Most spent" },
   { id: "recent", name: "Latest" },
@@ -26,18 +23,7 @@ export function ByVideo({ query, words }: { query: { period?: Period; month?: st
   const rail = useRail();
   const [sort, setSort] = useState<Sort>("spend");
   const [open, setOpen] = useState<number | null>(null);
-  const rows = useInfiniteQuery({
-    queryKey: ["usage", "videos", query, sort],
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => {
-      const { data } = await api.GET("/usage/videos", { params: { query: { ...query, sort, cursor: pageParam, limit: 25 } } });
-      if (!data) throw new Error("load");
-      return data;
-    },
-    getNextPageParam: (last) => last.next_cursor,
-    placeholderData: keepPreviousData,
-    retry: false,
-  });
+  const rows = useVideoSpends(query, sort);
   const items = rows.data?.pages.flatMap((p) => p.items) ?? [];
   const kinds = rows.data?.pages[0]?.kinds ?? [];
   const details = (v: Row, full?: boolean) => (
