@@ -44,9 +44,10 @@ for (const [width, height] of [[1440, 900], [390, 844]]) {
     const name = (await other.locator("b").textContent())!;
 
     await page.route("**/api/projects/*/director/carry-on", (r) => r.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ detail: REFUSED }) }), { times: 1 });
-    await other.click();
-    await expect(row.getByRole("alert")).toHaveText(REFUSED);
+    await other.click(); // free: only the setting
     await expect(row.locator("b")).toHaveText(name);
+    await row.getByRole("button", { name: `Read it in ${name}` }).click();
+    await expect(row.getByRole("alert")).toHaveText(REFUSED);
     await expect(row.getByText(`not read yet · the video still plays in ${was}`)).toBeVisible();
     await expect(row.getByRole("button", { name: `Read it in ${name}` })).toBeVisible();
     await shot("3-waiting");
@@ -55,6 +56,7 @@ for (const [width, height] of [[1440, 900], [390, 844]]) {
 
     await change.click();
     await other.click();
+    await row.getByRole("button", { name: `Read it in ${name}` }).click();
     const round = chat.getByRole("region", { name: "Round 2" });
     await expect(round.getByText(`The narration is read again in the ${name} voice.`)).toBeVisible({ timeout: 120_000 });
     // The chat side is on screen with the card in it: its press can be pressed where it is, under nothing.
@@ -64,8 +66,7 @@ for (const [width, height] of [[1440, 900], [390, 844]]) {
     const set = expect.stringMatching(/^POST \/api\/projects\/N\/settings \{"voice":"(stock:.+|voice:\d+)"\}$/);
     expect(writes).toEqual(['POST /api/asks/N/answer {"how":"make_it"}', set, "POST /api/projects/N/director/carry-on", 'POST /api/projects/N/settings {"voice":null,"undo":true}', set, "POST /api/projects/N/director/carry-on"]);
     await expect(row.locator("b")).toHaveText(name);
-    await expect(row.getByRole("button", { name: "Undo" })).toBeVisible();
-    await expect(row.getByRole("button", { name: /^(Read it in|Change the voice)/ })).toHaveCount(0); // the card is the press
+    await expect(row.getByRole("button", { name: /^(Read it in|Change the voice|Undo)/ })).toHaveCount(0); // the card is the press
     await row.scrollIntoViewIfNeeded();
     await shot("5-waiting-with-card");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);

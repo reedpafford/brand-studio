@@ -57,7 +57,7 @@ test("a narrated video names the voice it is read in, with its sample; Change th
   expect(row().getByText("Roger")).toBeInTheDocument();
   expect(row().getByRole("button", { name: "Play Roger’s sample" }).querySelector("audio")).toHaveAttribute("src", "/api/voices/samples/Roger.mp3");
   const m = await menu();
-  expect(m.getByText("You see the price first. Nothing is read until you approve it.")).toBeInTheDocument();
+  expect(m.getByText("Picking one is free. You see the price before it is read.")).toBeInTheDocument();
   expect(m.getAllByRole("menuitemradio").map((i) => i.textContent)).toEqual(["KimWarm, fifties", "Dr. PickleDeep, fixed", "RogerRelaxed man", "SarahWarm narrator", "HopeNatural woman", "GeorgeOlder man, dry"]);
   expect(m.getAllByRole("menuitemradio", { checked: true }).map((i) => i.textContent)).toEqual(["RogerRelaxed man"]);
   expect(m.getByRole("button", { name: "Play Kim’s sample" }).querySelector("audio")).toHaveAttribute("src", "/api/files/60");
@@ -67,26 +67,29 @@ test("a narrated video names the voice it is read in, with its sample; Change th
   expect(sent(calls)).toEqual([]);
 });
 
-test("picking a voice sets it on the video and then carries on: the start card comes up with its line over the press, and the row waits with Undo", async () => {
+test("picking a voice only sets it (free): the row waits with Read it in Kim and Undo; Read it in Kim carries on, and the start card comes up with its line, the card then the only press", async () => {
   const routes = { ...narrated(delivered), ...ANSWERS };
   const calls = await open(routes);
   const pick = (await menu()).getByRole("menuitemradio", { name: /^Kim/ });
-  Object.assign(routes, voiceRound); // what the server says once both are in: Kim is set, and the run's card waits
+  Object.assign(routes, narrated(delivered, "voice:7")); // what the server says once the setting is in
   await userEvent.click(pick);
+  await vi.waitFor(() => expect(presses()).toEqual(["Play Kim’s sample", "Read it in Kim", "Undo"]));
+  expect(sent(calls)).toEqual([[SET, KIM]]);
+  expect(row().getByText(NOT_READ)).toBeInTheDocument();
+  Object.assign(routes, voiceRound); // once Carry on is in: the run's card waits
+  await userEvent.click(row().getByRole("button", { name: "Read it in Kim" }));
   const card = within(await chat().findByRole("region", { name: "Round 2" }));
   expect(sent(calls)).toEqual([[SET, KIM], [CARRY]]);
   const line = card.getByText("The narration is read again in the Kim voice.");
   expect(line.compareDocumentPosition(card.getByRole("button", { name: "Make round 2 up to $1.84" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(document.querySelector(".stage-wrap")).toHaveAttribute("data-first", "chat"); // the chat side, as for any open card
-  expect(row().getByText("Kim")).toBeInTheDocument();
-  expect(row().getByText(NOT_READ)).toBeInTheDocument();
-  expect(presses()).toEqual(["Play Kim’s sample", "Undo"]); // the card is the press
+  expect(presses()).toEqual(["Play Kim’s sample"]); // the card is the press, and its way out is the page's Stop
 });
 
 test("an app voice is set by its key", async () => {
   const calls = await open({ ...narrated(delivered), ...ANSWERS });
   await userEvent.click((await menu()).getByRole("menuitemradio", { name: /^Sarah/ }));
-  await vi.waitFor(() => expect(sent(calls)).toEqual([[SET, { voice: "stock:Sarah" }], [CARRY]]));
+  await vi.waitFor(() => expect(sent(calls)).toEqual([[SET, { voice: "stock:Sarah" }]]));
 });
 
 test("a setting the server refuses says why in the server's words, and nothing else is sent", async () => {
@@ -104,6 +107,7 @@ test("Carry on refused after the voice is set: the server's words, and the row w
   const pick = (await menu()).getByRole("menuitemradio", { name: /^Kim/ });
   Object.assign(routes, narrated(delivered, "voice:7")); // the setting is in; no run started
   await userEvent.click(pick);
+  await userEvent.click(await row().findByRole("button", { name: "Read it in Kim" }));
   expect(await row().findByRole("alert")).toHaveTextContent("The director is already working on this video.");
   expect(row().getByText(NOT_READ)).toBeInTheDocument();
   expect(presses()).toEqual(["Play Kim’s sample", "Read it in Kim", "Undo"]);
@@ -123,7 +127,7 @@ test("a voice set but not read yet: Read it in Kim is Carry on alone; Undo, afte
 });
 
 test.each<[string, Routes, () => Promise<HTMLElement>, unknown[][]]>([
-  ["Picking a voice", narrated(delivered), async () => (await menu()).getByRole("menuitemradio", { name: /^Kim/ }), [[SET, KIM], [CARRY]]],
+  ["Picking a voice", narrated(delivered), async () => (await menu()).getByRole("menuitemradio", { name: /^Kim/ }), [[SET, KIM]]],
   ["Read it in Kim", narrated(delivered, "voice:7"), async () => row().getByRole("button", { name: "Read it in Kim" }), [[CARRY]]],
   ["Undo", narrated(delivered, "voice:7"), async () => row().getByRole("button", { name: "Undo" }), [[SET, { voice: "stock:Roger", undo: true }]]],
 ])("%s, pressed twice in the same tick, is one of each request", async (_press, routes, find, expected) => {

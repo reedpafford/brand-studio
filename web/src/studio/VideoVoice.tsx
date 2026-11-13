@@ -22,9 +22,10 @@ function known(list: Voice[], key: string) {
 
 /** The voice a narrated or presenter video is read in, and swapping it (Reed: "Let the director pick and we can swap if
  *  needed"). Null on a video with no narration (Movie, Dialogue, a song). A swap is two of the current site's own
- *  requests: the video's voice setting (free; cast/Presenter.tsx's pick), then Carry on (videos/runActions.ts), which on
- *  a delivered video opens a start card with the price of reading the narration again. Nothing is read before that
- *  card's press. One press sends each once, however fast it is pressed (./useLock). `set`: a voice that is set but not
+ *  requests, each its own press: picking sets the video's voice (free; cast/Presenter.tsx's pick), and "Read it in …"
+ *  is Carry on (videos/runActions.ts), which on a delivered video opens a start card with the price of reading the
+ *  narration again. Nothing is read before that card's press, and Undo is offered only until that card is open (a card
+ *  left open after an Undo would still show its price). One press sends each once, however fast it is pressed (./useLock). `set`: a voice that is set but not
  *  read yet. Undo puts the setting back, free. `card`: the open start card's id; one a press here opened is put on
  *  screen once it is drawn (a phone stacks the chat over the film then), clear of the message box pinned under it. */
 export function useNarrationVoice(id: number, fsId: number | null | undefined, brandId: number, card: number | undefined) {
@@ -77,7 +78,7 @@ export function useNarrationVoice(id: number, fsId: number | null | undefined, b
     list: [...usable.filter((v) => v.kind !== "stock"), ...usable.filter((v) => v.kind === "stock")], // the brand's own, then the app's
     busy: press.isPending,
     error: press.error?.message ?? null,
-    pick: (v: Voice) => send({ set: { voice: voiceRef(v) }, go: true }),
+    pick: (v: Voice) => send({ set: { voice: voiceRef(v) } }), // free, and Undo is one press away; "Read it in …" brings the priced card
     read: () => send({ go: true }),
     // The voice before the last pick; after a reload, the one the video is read in.
     undo: () => send({ set: { voice: was && was.of === setting ? was.back : used.ref, undo: true } }),
@@ -86,8 +87,9 @@ export function useNarrationVoice(id: number, fsId: number | null | undefined, b
 
 /** "Narration voice" in the Cast view: the voice's name and its sample to play. `change`: the video is delivered and
  *  nothing is going or waiting, so another can be picked from the brand's voices and the app's, each with its sample;
- *  the pick opens the start card with its price. A voice set but not read yet says so, with "Read it in …" (`change`
- *  again: with a start card open, the card is the press) and Undo (`undo`: it isn't running or archived). */
+ *  the pick only sets it. A voice set but not read yet says so, with "Read it in …", which opens the start card with
+ *  its price (`change` again: with a start card open, the card is the press), and Undo (`undo`: it isn't running or
+ *  archived and no card is open). */
 export function NarrationVoice({ voice: n, change, undo }: { voice: NonNullable<ReturnType<typeof useNarrationVoice>>; change: boolean; undo: boolean }) {
   const now = n.set ?? n.used;
   return (
@@ -128,7 +130,7 @@ export function NarrationVoice({ voice: n, change, undo }: { voice: NonNullable<
               >
                 {(close) => (
                   <>
-                    <p className="pe">You see the price first. Nothing is read until you approve it.</p>
+                    <p className="pe">Picking one is free. You see the price before it is read.</p>
                     {n.list.map((v, i) => {
                       const sample = sampleOf(v);
                       return (

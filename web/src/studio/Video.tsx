@@ -359,7 +359,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
             }
           />
         }
-        film={<Stage projectId={id} plan={plan} cells={cellsOf(here, cut?.timeline.pieces ?? [])} cut={cut} first={first} versions={many ? { on: v, list: hooks.map((k) => ({ opening: k, name: versions.find((x) => x.opening === k)?.name ?? "" })), behind, uncut, cutting, show: (k) => setParams((was) => (k > 1 ? was.set("v", String(k)) : was.delete("v"), was), { replace: true }) } : undefined} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} voice={voice && <NarrationVoice voice={voice} change={!archived && !running && !start && h.status.kind === "delivered"} undo={!archived && !running} />} />} onTell={toBox} />}
+        film={<Stage projectId={id} plan={plan} cells={cellsOf(here, cut?.timeline.pieces ?? [])} cut={cut} first={first} versions={many ? { on: v, list: hooks.map((k) => ({ opening: k, name: versions.find((x) => x.opening === k)?.name ?? "" })), behind, uncut, cutting, show: (k) => setParams((was) => (k > 1 ? was.set("v", String(k)) : was.delete("v"), was), { replace: true }) } : undefined} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} voice={voice && <NarrationVoice voice={voice} change={!archived && !running && !start && h.status.kind === "delivered"} undo={!archived && !running && !start} />} />} onTell={toBox} />}
       />
     </>
   );
