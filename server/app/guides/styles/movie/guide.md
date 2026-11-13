@@ -72,7 +72,7 @@ Writing a new script in this look: a story told in scenes, each in one place, wi
 ## Breakdown
 - Scenes are built in places: one place and one light a scene, hard cuts inside it. An early shot in each scene is a wide showing the place and where everyone stands; the close shots after it keep those positions.
 - Fewer, longer shots, each one clear action, cut on a line or a reaction: a speaking shot lasts its line, a wordless one 2–3 s; a listener's reaction now and then; a held face or a slow push for the line that turns the scene. Hold a silence where the script leaves one (a look, a low point, a first use): the place's own sound carries it.
-- A time jump, when the script has one, can be a match cut on a face, a short warm flash, or a cut to the next morning; a card naming the time is the editor's.
+- A time jump, when the script has one, is a match cut on a face or a plain cut to the new time, with a card naming it (the plan's `card`: on black before the scene when the story goes back or a long time passes, else over the scene's opening). Never a flash in a shot.
 - Before and after: when the story changes the hero's body, the "after" is the same person in an after look (the same face, hair, colouring and signature detail; only the build and the confidence change), never a different actor.
 
 ## pacing
