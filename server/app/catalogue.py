@@ -17,6 +17,7 @@ class Duration(BaseModel):
     min: int
     max: int
     smart: bool = False  # provider can pick the length itself
+    step: int = 1  # the lengths it makes go up by this (Omni 1.1 from Google: 4, 6, 8, 10)
 
 
 class Price(BaseModel):
@@ -42,6 +43,7 @@ class Via(BaseModel):
     provider_model: str
     usd: dict[str, Decimal]  # per resolution, a take's and an edit's alike
     price_source: str
+    duration: Duration | None = None  # the lengths it makes on this road, when they differ
 
 
 class CatalogueModel(BaseModel):
@@ -83,8 +85,10 @@ class CatalogueModel(BaseModel):
         price = self.price.model_copy(update={"usd": self.via.usd})
         source = self.via.price_source
         edit = self.edit and self.edit.model_copy(update={"price": price, "price_source": source})
-        return self.model_copy(update={"direct": True, "price": price, "edit": edit,
-                                       "price_source": source})  # fmt: skip
+        made = {"direct": True, "price": price, "edit": edit, "price_source": source}
+        if self.via.duration:  # Omni 1.1: 4 to 10 s straight from Google, always 10 on Replicate
+            made |= {"duration": self.via.duration, "fixed_seconds": 0}
+        return self.model_copy(update=made)
 
     @property
     def take_resolution(self) -> str:

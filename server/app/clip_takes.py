@@ -2,6 +2,7 @@
 into the finished video (ffmpeg, free)."""
 
 import logging
+import math
 import re
 from datetime import timedelta
 from decimal import Decimal
@@ -671,9 +672,11 @@ def retry(db: Session, job: Job) -> None:
 def _on_omni_1_1(db: Session, project: Project, row: ProjectClip, job: Job) -> dict | None:
     """A talker's piece Omni 1.2 refused for what it says, as Omni 1.1 is asked for it (Reed, 12
     Nov, when Google blocked "Click the link below" as prohibited content: "On the CTA - use
-    omni 1.1 for the same line if it fails"): the same prompt and opening still. 1.1 takes no
-    length (its clips are 10 s; the cut trims a talker's piece to its words) and three pictures
-    at most. None for any other clip: its prompt changes first, as before."""
+    omni 1.1 for the same line if it fails"): the same prompt and opening still, three pictures
+    at most. Straight from Google its clip is the piece's own length, up to the next of 4, 6, 8
+    or 10 s ("its in increments of 2 from 4 to 10"); on Replicate it takes no length and comes
+    back 10 s, and the cut trims a talker's piece to its words. None for a piece longer than
+    1.1 makes, or any other clip: its prompt changes first, as before."""
     from app import model_map, omni_talker, p_video
     from app.catalogue import get_model
     from app.clip_prompts import newest
@@ -681,11 +684,18 @@ def _on_omni_1_1(db: Session, project: Project, row: ProjectClip, job: Job) -> d
     files = job.input.get("files") or {}
     old = get_model(model_map.OMNI_1_1)
     plan = omni_talker._plan(bd.data if (bd := newest(db, project)) else {})
+    asked = job.input["input"]
+    most = old.fixed_seconds or old.duration.max
     if (job.input.get("model") != model_map.OMNI or not omni_talker.on(db, project)
             or row.clip_id not in {c for c, mine in plan if omni_talker._talks(mine)}
-            or len(files.get("reference_images") or []) > old.max_reference_images):  # fmt: skip
+            or len(files.get("reference_images") or []) > old.max_reference_images
+            or asked.get("resolution") not in old.price.usd
+            or int(asked.get("duration") or 0) > most):  # fmt: skip
         return None
-    take, sent = p_video.fit(old.id, job.input["input"], files)
+    if not old.fixed_seconds:  # 4, 6, 8 or 10 s: the piece's own length, up to the next of them
+        step, least = old.duration.step, old.duration.min
+        asked = {**asked, "duration": max(least, step * math.ceil(asked["duration"] / step))}
+    take, sent = p_video.fit(old.id, asked, files)
     made = {**(job.input.get("made_with") or {}), "model": old.id}
     return {**job.input, "model": old.id, "input": take, "files": sent, "made_with": made}
 
@@ -761,15 +771,17 @@ def once_more(db: Session, job: Job) -> None:
 
 
 def _again(db: Session, job: Job, data: dict, wait: bool) -> None:
-    from app.catalogue import get_model
+    from app.catalogue import get_model, provider_for
     from app.credits import estimate
 
     project = db.get(Project, job.project_id)
     user = db.get(User, job.created_by_id)
     credits, provider = job.credits, job.provider
-    if (m := get_model(data.get("model") or "")) and m.fixed_seconds:  # Omni 1.1: its own price
-        credits = estimate(db, job.workspace_id, job.kind, Decimal(m.fixed_seconds), data)
-        provider = "replicate" if provider == "google" else provider  # 1.1 isn't Google's road
+    if data.get("model") != job.input.get("model") and (m := get_model(data["model"])):
+        seconds = m.fixed_seconds or data["input"]["duration"]  # Omni 1.1: its own price and road
+        credits = estimate(db, job.workspace_id, job.kind, Decimal(seconds), data)
+        if provider in ("google", "replicate"):
+            provider = provider_for(m.id, "replicate")
     if not user or fits(db, project, user, credits):
         return  # it would go over: nothing more runs on its own
     data = {k: v for k, v in data.items() if k != "busy"}  # its own busy waits start afresh

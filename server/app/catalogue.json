@@ -254,7 +254,14 @@
    "first_frame": true,
    "audio": "always",
    "price": {"unit": "second", "usd": {"720p": 0.15, "1080p": 0.23, "4k": 0.45}},
-   "price_source": "Back for one job (Reed, 12 Nov: \"On the CTA - use omni 1.1 for the same line if it fails\"): a line Omni 1.2 refuses to speak (Google blocks \"Click the link below\" as prohibited content) is tried on 1.1. In no picker. replicate.com/google/gemini-omni-1.1 billing table, read 2026-11-03: $0.05/s 360p, $0.15/s 720p, $0.23/s 1080p, $0.45/s 4k of output video. It has no duration input: every clip comes back 10 s (batch-b's was charged $1.50 at 720p), so its length here is fixed at 10"
+   "price_source": "Back for one job (Reed, 12 Nov: \"On the CTA - use omni 1.1 for the same line if it fails\"): a line Omni 1.2 refuses to speak (Google blocks \"Click the link below\" as prohibited content) is tried on 1.1. In no picker. replicate.com/google/gemini-omni-1.1 billing table, read 2026-11-03: $0.05/s 360p, $0.15/s 720p, $0.23/s 1080p, $0.45/s 4k of output video. It has no duration input: every clip comes back 10 s (batch-b's was charged $1.50 at 720p), so its length here is fixed at 10",
+   "via": {
+    "provider": "google",
+    "provider_model": "gemini-omni-1.1-flash",
+    "usd": {"720p": 0.102},
+    "duration": {"min": 4, "max": 10, "step": 2},
+    "price_source": "Straight from Google while its key is set: clips of 4, 6, 8 or 10 s (Reed, 12 Nov: \"its in increments of 2 from 4 to 10\"), so a short line needn't be a 10 s clip. Google bills Omni 1.1 Flash by output tokens at $17.50 per 1M: 5,792 a second at 720p (\"approximately $0.10 per second\"; rounded up from $0.10136 so a quote is never under the bill) (aistudio.google.com/docs/pricing, read 12 Nov 2026; no other resolution is priced there). From 3 Dec 2026 Google routes requests for 1.1 to 1.2 Flash (aistudio.google.com/docs/omni): this road then no longer makes a refused line"
+   }
   },
   {
    "id": "seedance-2.5-kie",

@@ -11,6 +11,7 @@ from app.models.accounts import Role, User
 from app.models.jobs import Job
 from app.providers.replicate import ReplicateProvider
 from app.routes.jobs import enqueue
+from app.settings import get_settings
 from app.worker import run_once
 from tests.conftest import PNG, png, upload
 from tests.helpers import MP3, MP4, assert_hidden, assert_no_dollars, mp4, with_sheet
@@ -357,7 +358,7 @@ def test_start_and_end_frames_go_to_the_model_as_its_first_and_last_frame(app, e
     assert "reference_images" not in sent and "[Image" not in sent["prompt"]
 
 
-def test_omni_1_1_is_the_owners_alone_and_always_ten_seconds(owner, editor, fomo, db):
+def test_omni_1_1_is_the_owners_alone_and_always_ten_seconds(owner, editor, fomo, db, monkeypatch):
     """Reed, 12 Nov: "On the CTA - use omni 1.1 for the same line if it fails". It is in no picker,
     takes no duration (every clip is 10 s) and no sound switch (Replicate refuses a key it
     doesn't list)."""
@@ -370,6 +371,13 @@ def test_omni_1_1_is_the_owners_alone_and_always_ten_seconds(owner, editor, fomo
     assert r.status_code == 201, r.text
     sent = db.get(Job, r.json()["id"]).input["input"]
     assert "duration" not in sent and "generate_audio" not in sent and sent["resolution"] == "720p"
+    # straight from Google it takes a length: 4, 6, 8 or 10 s (Reed, 12 Nov)
+    monkeypatch.setattr(get_settings(), "google_direct", "yes")
+    assert owner.post("/clips/estimate", json={**ask, "duration": 5}).status_code == 422
+    short = owner.post("/clips", json={**ask, "duration": 4})
+    assert short.status_code == 201, short.text
+    job = db.get(Job, short.json()["id"])
+    assert (job.provider, job.input["input"]["duration"]) == ("google", 4)
 
 
 def test_an_end_frame_needs_a_start_frame_and_a_model_that_takes_frames(editor, fomo):

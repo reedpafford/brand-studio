@@ -35,6 +35,7 @@ from app.models.script_library import Script, ScriptDraft
 from app.prompts.schemas import Breakdown, ClipPrompt
 from app.providers.fake_local import mp4
 from app.routes import estimate
+from app.settings import get_settings
 from tests.conftest import first_brand
 from tests.test_freestyle_dialogue import _run
 
@@ -332,21 +333,26 @@ def test_each_talker_piece_is_sized_to_its_words():
                      "words a second, 2.1 for a slow line, plus 1 s."]  # fmt: skip
 
 
-def test_a_talkers_line_omni_1_2_refuses_is_asked_of_omni_1_1(app, db, owner):
+@pytest.mark.parametrize("google", [False, True])
+def test_a_talkers_line_omni_1_2_refuses_is_asked_of_omni_1_1(app, db, owner, monkeypatch, google):
     """Reed, 12 Nov, when Google blocked "Click the link below" as prohibited content on RP1 and
     RP2: "On the CTA - use omni 1.1 for the same line if it fails". The talker's piece goes to
-    Omni 1.1 with the same prompt and opening still, without a length (its clips are 10 s), at
-    1.1's own price; B-roll refused the same way still waits for its prompt to change."""
+    Omni 1.1 with the same prompt and opening still, at 1.1's own price: on Replicate without a
+    length (its clips are 10 s), straight from Google at the piece's own length, up to the next
+    of 4, 6, 8 or 10 s ("its in increments of 2 from 4 to 10"). B-roll refused the same way
+    still waits for its prompt to change."""
     from app import clip_takes
     from app.models.jobs import JobStatus
     from tests.test_clip_takes import E006
 
     video = _made(app, db, owner)
-    talk = next(r for r in _clips(db, video) if SAYS in r.prompt)
+    long, talk = [r for r in _clips(db, video) if SAYS in r.prompt][:2]  # 15 s, and 3 s
     broll = next(r for r in _clips(db, video) if SAYS not in r.prompt)
     blocked = E006.replace('"safety"', '"prohibited_content"')
+    if google:  # the key is set: Omni's road is Google's
+        monkeypatch.setattr(get_settings(), "google_direct", "yes")
     made = {}
-    for row in (talk, broll):
+    for row in (talk, broll, long):
         job = db.get(Job, db.get(ClipTake, row.picked_take_id).job_id)
         job.status, job.error_detail, job.auto = JobStatus.failed, blocked, False
         db.commit()
@@ -354,12 +360,19 @@ def test_a_talkers_line_omni_1_2_refuses_is_asked_of_omni_1_1(app, db, owner):
         db.commit()
         made[row.id] = job, db.query(Job).filter_by(retry_of_id=job.id).one_or_none()
     assert made[broll.id][1] is None
+    assert made[long.id][1] is None  # longer than 1.1 makes: its prompt changes first, as before
     refused, again = made[talk.id]
     old = get_model("gemini-omni-1.1")
     assert again.auto and again.input["model"] == old.id == again.input["made_with"]["model"]
     assert again.input["input"]["prompt"] == refused.input["input"]["prompt"]
     assert again.input["files"] == refused.input["files"]  # the same opening still
-    assert not {"duration", "generate_audio"} & set(again.input["input"])
-    assert again.credits == 10 * old.credits_per_unit(again.input["input"]["resolution"])
+    seconds, asked = again.input["input"].get("duration"), refused.input["input"]["duration"]
+    assert seconds == (max(4, asked + asked % 2) if google else None)
+    assert "generate_audio" not in again.input["input"] or google
+    rate = old.credits_per_unit(again.input["input"]["resolution"])
+    assert again.credits == (seconds or 10) * rate
+    usd = old.price.usd[again.input["input"]["resolution"]]  # a second: Google's, or Replicate's
+    assert usd == Decimal("0.102" if google else "0.15") and again.provider == (
+        "google" if google else "replicate")  # fmt: skip
     clip_takes.retry(db, again)  # and never a third: 1.1's own refusal stops there
     assert db.query(Job).filter_by(retry_of_id=again.id).count() == 0

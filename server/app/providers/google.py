@@ -70,6 +70,7 @@ BUSY = ("rate_limit_exceeded", "too_many_requests", "quota_exceeded", "service_u
 BUSY_SAID = "Google's service is temporarily unavailable"  # clip_takes.BUSY_SAID: tried again
 # $ per 1M tokens for each model: read in, what it makes (video or pictures), text
 RATES = {"gemini-omni-1.2-flash": ("1.50", "12.00", "9.00"),
+         "gemini-omni-1.1-flash": ("1.50", "17.50", "9.00"),
          "gemini-nano-banana-2.1": ("1.50", "30.00", "7.50"),
          "gemini-3-pro-image": ("2.00", "120.00", "12.00")}  # fmt: skip
 TOKENS_A_SECOND = {"360p": 1931, "720p": 5792, "1080p": 8688, "4k": 17376}

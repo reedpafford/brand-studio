@@ -100,8 +100,10 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
         raise HTTPException(422, f"{model.name} doesn't do {body.aspect_ratio}.")
     fixed = model.fixed_seconds
     lo, hi = (fixed, fixed) if fixed else (model.duration.min, model.duration.max)
-    if not lo <= body.duration <= hi:
-        raise HTTPException(422, f"{model.name} makes clips from {lo} to {hi} seconds.")
+    step = 1 if fixed else model.duration.step
+    if not lo <= body.duration <= hi or (body.duration - lo) % step:
+        said = f", in steps of {step}" if step > 1 else ""
+        raise HTTPException(422, f"{model.name} makes clips from {lo} to {hi} seconds{said}.")
 
     images: list[int] = []
     refs: dict[int, dict] = {}  # file id -> what it is, for the prompt's [ImageN] lines
