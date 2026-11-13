@@ -199,13 +199,15 @@ def queue_sheet(
             "after_check": str(after), "auto_made": auto, "sheet_look_id": look,
             "change": body.change.strip(), "fit_redo": fit_redo,
             **({"by_director": True} if director else {})}  # fmt: skip  # why (Cast)
+    keeps = bool(noted) and own_look(item) and not fit_redo and not look
+    if keeps:  # asked first, so the sheet is still the newest thing being made for the look
+        fold_note(db, user, item, body.change.strip(), noted, project)
     job = enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db, user, "image", data, project=project, provider="replicate",
         hold=check + after, prepaid=fit_redo,
     )  # fmt: skip
-    if noted and own_look(item) and not fit_redo and not look:  # the note is its words now,
-        fold_note(db, user, item, body.change.strip(), noted, project)
-        item.notes = noted  # so later redraws and its check know it (268: still just "Bruno")
+    if keeps:  # the note is its words now, so later redraws and its check know it (268: still
+        item.notes = noted  # just "Bruno"); the fold's answer then takes its place
         db.commit()
     return job
 
