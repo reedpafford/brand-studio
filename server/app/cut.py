@@ -221,7 +221,7 @@ def saved_version(db: Session, job: Job) -> None:
         return
     project = db.get(Project, job.project_id)
     stored = db.get(StoredFile, out["file_ids"][0])
-    stored.filename = f"{project.name[:190]} (version {i['opening']}).mp4"
+    stored.filename = f"{project.name[:190]} V{i['opening']}.mp4"  # as RP5's: V1, V2, V3
     stored.uploaded_by_id = job.created_by_id
     db.add(VersionCut(project_id=project.id, opening=i["opening"], file_id=stored.id,
                       take_ids=i["take_ids"], edit_ids=i["edit_ids"],
@@ -660,7 +660,8 @@ def saved(db: Session, job: Job) -> None:
         return
     project = db.get(Project, job.project_id)
     stored = db.get(StoredFile, out["file_ids"][0])
-    stored.filename, stored.uploaded_by_id = f"{project.name[:200]}.mp4", job.created_by_id
+    v1 = " V1" if len(versions(db, project)) > 1 else ""  # one of several: named as they are
+    stored.filename, stored.uploaded_by_id = f"{project.name[:190]}{v1}.mp4", job.created_by_id
     db.add(FinalVideo(project_id=project.id, file_id=stored.id, number=i["number"],
                       take_ids=i["take_ids"], cut_ins=i["cut_ins"], edit_ids=i["edit_ids"],
                       song_take_id=i["song_take_id"], timeline=i["timeline"],

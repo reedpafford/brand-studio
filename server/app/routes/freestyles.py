@@ -124,8 +124,6 @@ class FreestyleIn(BaseModel):
     # who plays whom, picked at the script (Reed, 13 Nov: a saved person is used only when
     # picked, never matched by name); "PRESENTER" is the video's host
     cast: list[CastPair] | None = None
-    # a script with several openings: "all" makes a version for each; else the first only
-    hooks: Literal["all", "first"] | None = None
     broll_look: str | None = None  # a hosted video's B-roll look; none: the style's own
     attachments: list[int] | None = None  # pictures or clips for this video only (rule 12)
     # "auto" (Make without asking), the owner's alone: Make it is pressed for them; none: ask
@@ -336,7 +334,6 @@ def _setup(db: Session, user: User, project: Project, body: FreestyleIn, pasted:
     if body.product_ids is not None:
         project.product_ids = cast_picks(db, project.workspace_id, body.product_ids,
                                          products_of=project.brand_id)  # fmt: skip
-    project.hooks = body.hooks
     project.broll_look = looks.pick_broll(db, user, project, body.broll_look)
     project.attachments = attachments(db, user, body.attachments)
     project.reel_script_id = getattr(body, "reel_script_id", None) or project.reel_script_id

@@ -36,8 +36,8 @@ def test_the_schema_is_registered_and_strict_friendly():
     for part in [schema, *schema["$defs"].values()]:  # every field required, none defaulted
         assert set(part["required"]) == set(part["properties"])
     # a tripwire, not a limit of the service: the director's own schema (about 20,000) is the
-    # one that grew past Anthropic's grammar; raised from 6,000 for a clip's `opening`
-    assert len(str(schema)) < 6500
+    # one that grew past Anthropic's grammar
+    assert len(str(schema)) < 6000
 
 
 def test_only_a_speakers_line_is_spoken_and_its_notes_are_never_words():
@@ -82,36 +82,17 @@ def test_with_every_hook_wanted_each_openings_clips_come_first_then_the_body():
     assert _fixes(body_first)[0].startswith("each opening's clips come first, in order")
 
 
-def test_a_scripts_other_openings_are_named_and_in_no_shot():
-    """Reed's scripts give several hooks before one body ("Hook 1", "Hook 2"; RP5's V1 to V3):
-    every hook's lines used to be filmed one after another. The first is filmed with the body;
-    the plan names the others' lines, which no shot says. Never a way to drop the body."""
+def test_no_spoken_line_is_set_aside_and_an_older_plan_still_reads():
+    """Reed, 13 Nov: "If i have 3 hooks, i want 3 hooks": every opening is filmed, so a line
+    in no shot is always a fault. A plan saved while other openings were set aside (its
+    treatment's `other_openings`) still reads."""
 
-    def first_only(p):  # line 3 is another opening: named, and in no shot
+    def unsaid(p):
         p["clips"][0]["shots"][0]["line"] = None
-        p["treatment"]["other_openings"] = [3]
 
-    def the_body(p):  # line 4 comes after everything filmed: it is no opening
-        p["clips"][0]["shots"][1]["line"] = None
-        p["treatment"]["other_openings"] = [4]
-
-    assert _fixes(first_only) == []
-
-    def apart(p):  # one list an opening: the versions are made from them, one each
-        first_only(p)
-        p["treatment"]["other_openings"] = [[3]]
-
-    assert _fixes(apart) == []
-    flat = ShootingPlan.model_validate({**_plan(), "treatment": {
-        **_plan()["treatment"], "other_openings": [3, 4]}})  # fmt: skip
-    assert flat.treatment.other_openings == [[3, 4]]  # a plan saved before: one other opening
-    assert _fixes(the_body) == ["line 4 is no alternative opening: it comes after the body"]
-    assert ShootingPlan.model_validate(
-        {
-            **_plan(),
-            "treatment": {k: v for k, v in _plan()["treatment"].items() if k != "other_openings"},
-        }
-    )  # an older plan
+    assert _fixes(unsaid) == ["line 3 is in no shot"]
+    older = {**_plan()["treatment"], "other_openings": [[3]]}
+    assert ShootingPlan.model_validate({**_plan(), "treatment": older})
 
 
 def test_a_clip_fits_its_model_and_a_line_fits_its_shot():

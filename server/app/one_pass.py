@@ -269,8 +269,6 @@ def job_input(db: Session, project: Project, run: dict) -> dict:
         context, f"<assets>\n{escape(lines)}\n</assets>", video_model_block(m),
         model_notes(m.id), f"<script>\n{escape(prompts.number_lines(rows))}\n</script>",
     ]) + picks.context(db, project)  # fmt: skip
-    if project.hooks == "all":  # every opening of the script is a version (Reed, 13 Nov)
-        text += "\n<hooks>all</hooks>"
     if track:
         from app import audition, host, talker
         from app.song_breakdown import take_for
@@ -424,12 +422,7 @@ def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
         s.line, s.how = (s.line if s.line in said else None), ""  # the line it shows, unsaid
     used = [s.line for c in plan.clips if c.id not in shows for s in c.shots
             if s.line and not track]  # fmt: skip
-    # the script's other openings (several "Hook N" before one body): told, and in no shot
-    aside = {n for group in plan.treatment.other_openings for n in group
-             if n in said and n not in used}  # fmt: skip
-    want, fixes = sorted(n for n in said if n not in aside), []
-    if late := sorted(n for n in aside if n > max(used, default=0)):
-        fixes.append(f"{check._lines(late)} no alternative opening: it comes after the body")
+    want, fixes = sorted(said), []
     if missing := [n for n in want if n not in used]:
         fixes.append(f"{check._lines(missing)} in no shot")
     if twice := sorted({n for n in used if used.count(n) > 1}):
@@ -443,8 +436,6 @@ def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
     if any(order) and (order != sorted(order, key=lambda n: n or 99) or 0 not in order):
         fixes.append("each opening's clips come first, in order (opening 1, 2, …), then the "
                      "body's clips (opening 0)")  # fmt: skip
-    if any(order) and plan.treatment.other_openings:
-        fixes.append("with <hooks>all</hooks> every opening is filmed: none is set aside")
     ids = [c.id for c in plan.clips]
     if not ids or len(set(ids)) != len(ids) or any(not re.fullmatch(r"c\d+", i) for i in ids):
         fixes.append("each clip needs its own id: c1, c2, c3, …")
