@@ -47,7 +47,7 @@ const breakdown: S["Breakdown"] = {
 const clip = (n: number, made: boolean, left: string | null = null): S["ProjectClipOut"] => ({
   id: 500 + n, clip_id: `c${n}`, seconds: CLIPS[n - 1][0], prompt: "", references: [], problems: [], kept: [], file_id: made ? 200 + n : null,
   takes: made ? [{ id: 100 + n, number: 1, file_id: 200 + n, created_at: "2026-11-13T09:20:00", verdict: "", mutes: [] }] : [],
-  picked_take_id: made ? 100 + n : null, approved: made, prompt_ok: true, take_credits: 5, stale: false, take_stale: false, inserts: [], change: null, free_fix_used: false, left_out: left, versions: [], spent: 0, stills: 0,
+  picked_take_id: made ? 100 + n : null, approved: made, prompt_ok: true, take_credits: 5, stale: false, take_stale: false, inserts: [], change: null, free_fix_used: false, left_out: left, name: "", card: "", card_before: false, versions: [], spent: 0, stills: 0,
 });
 const cell = (n: number, state: S["ClipCellOut"]["state"]): S["ClipCellOut"] => ({ clip_id: `c${n}`, number: String(n), scene: CLIPS[n - 1][1], label: CLIPS[n - 1][4].split(". ")[0].replace(/\.$/, ""), seconds: CLIPS[n - 1][0], model: "Seedance", state, frame_file_id: state === "done" ? 300 + n : null, take_id: state === "done" ? 100 + n : null, note: "", percent: null, minutes_left: state === "making" ? 1 : null, credits: null, changed: false, watched: true, found: false });
 const step = (key: string, state: S["RunStepOut"]["state"], text: string, sub = ""): S["RunStepOut"] => ({ key, state, text, sub });
