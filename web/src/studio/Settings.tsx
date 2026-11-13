@@ -100,7 +100,7 @@ export function Settings() {
               </div>
             </section>
             <p className="quiet why">
-              Still on the current site: <Link to="/settings?tab=limits">credit limits</Link>, <Link to="/team">the team</Link>, and making <Link to="/settings?tab=looks">a look’s sample</Link> or <Link to="/settings?tab=languages">a language’s test script</Link>.
+              Still on the current site: making <Link to="/settings?tab=looks">a look’s sample</Link> or <Link to="/settings?tab=languages">a language’s test script</Link>.
             </p>
           </div>
         )}
