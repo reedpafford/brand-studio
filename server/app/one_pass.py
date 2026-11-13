@@ -767,7 +767,7 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
     with its chat), and this run's own: its plan calls, its open notes, and what each clip's
     newest take's listen heard. A video timed to a track brings its song or narration as the
     director reads it (`audio`, with its `tool`)."""
-    from app import audition, breakdown, director, item_checks, voice_carry
+    from app import breakdown, director, item_checks, voice_carry
     from app.routes.jobs import DECLINE
 
     busy = [j for j in director._waiting(db, project)
@@ -778,7 +778,6 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
     card = db.scalar(select(Ask).where(Ask.project_id == project.id, Ask.topic == STYLE_TOPIC,
                                        Ask.state != "not_needed")
                      .order_by(Ask.id.desc()))  # fmt: skip
-    hears = tool and (seen[tool].get("audition") or {}).get("state") == "none"
 
     mine = db.scalars(select(Job).where(
         Job.project_id == project.id, Job.input["step"].as_string() == STEP,
@@ -813,7 +812,6 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
         "stills": (seen.get("stills") or {}).get("frames", 0) - (seen.get("stills") or {}).get(
             "drawn", 0),  # a talker's one opening still, not drawn yet
         "motion": one_pass_timed.motion(shooting_plan(db, project)),
-        "voices": audition.candidates(db, project) if hears else [],
         # the take in use isn't the one the shots are timed to (a new reading since)
         "behind": bool(row and project.song_take_id and (row.data.get("song") or {}).get(
             "take_id") not in (None, project.song_take_id)),
@@ -950,7 +948,7 @@ def _audio(s: dict) -> dict | None:
             )
         if not s["style"]:
             return _go("wait", "The song waits for its style.")
-    step = audio_move(seen, _go, s["style"] or "", s["voices"])
+    step = audio_move(seen, _go, s["style"] or "", ())
     if step is None and s["behind"]:  # free: each shot moves to its time in the new take
         return _go(audio["tool"], "The shots move onto the take now in use: nothing is planned "
                    "again.", take_id=audio["used_take_id"])  # fmt: skip

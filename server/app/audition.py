@@ -51,6 +51,23 @@ PICK_FIRST = ("Pick {who}'s voice first: the director puts voices for them on it
 
 
 def needed(db: Session, project: Project) -> bool:
+    """The presenter's voice is chosen at an audition. Never on a one-pass video: its director
+    takes the voice that fits them best (`fits`) and the person changes it in Cast (Reed, 13
+    Nov: "Let the director pick and we can swap if needed")."""
+    from app import one_pass
+
+    return not one_pass.on(project) and unchosen(db, project)
+
+
+def fits(db: Session, project: Project) -> str | None:
+    """A one-pass video's presenter nobody chose a voice for: the app voice nearest who they
+    are (`candidates`' first, the same every time). None for any other video."""
+    from app import one_pass
+
+    return candidates(db, project)[0] if one_pass.on(project) and unchosen(db, project) else None
+
+
+def unchosen(db: Session, project: Project) -> bool:
     """A presenter speaks in one of our voices and nobody has chosen it: no pick for this
     video, none saved on the presenter, no style voice (Dr. Pickle's clone), and no narration
     made yet (one made before the audition keeps its voice). A UGC talker filmed on Omni speaks
