@@ -83,6 +83,24 @@ export function useBrandScripts(brandId: number, f: ScriptFilters) {
   });
 }
 
+export type VideoSort = "spend" | "recent" | "title";
+
+/** Spend per video, 25 at a time: every video with a charge in the period, each with its whole life's dollars. */
+export function useVideoSpends(query: { period?: Period; month?: string }, sort: VideoSort) {
+  return useInfiniteQuery({
+    queryKey: ["usage", "videos", query, sort],
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.GET("/usage/videos", { params: { query: { ...query, sort, cursor: pageParam, limit: 25 } } });
+      if (!data) throw new Error("load");
+      return data;
+    },
+    getNextPageParam: (last) => last.next_cursor,
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+}
+
 /** Every charge, newest first, 50 at a time. Only asked for once the list is opened. */
 export function useCharges(enabled: boolean, brandId: number | null) {
   return useInfiniteQuery({
