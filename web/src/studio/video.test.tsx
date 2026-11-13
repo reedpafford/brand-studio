@@ -107,6 +107,14 @@ test("being made: the steps done, now and to come with the run's cost, a pinned 
   expect(caption()).toHaveTextContent("Clip 1of 9 · 8 s · not in the cut yetSTROLLER MOMTwo men just tried to abduct a girl in the Target parking lot!");
 });
 
+test("while the plan is written, the director's thinking and the plan so far show as they come, and the progress line says what it is doing", async () => {
+  const [, progress] = question["GET /projects/366/director/progress"] as [number, object];
+  await open({ ...question, "GET /projects/366/asks": [200, []], "GET /projects/366/director/progress": [200, { ...progress, status: "working", title: "Writing the plan", tone: "now", scenes: [], clips: 0 }], "GET /projects/366/director/thinking": [200, { thinking: "The script opens after the attack, not before it.", written: ["Hook: a siren, a van leaving"] }] });
+  expect(await chat().findByText("The script opens after the attack, not before it.")).toBeInTheDocument();
+  expect(chat().getByRole("list", { name: "The plan so far" })).toHaveTextContent("Hook: a siren, a van leaving");
+  expect(chat().getByText("Writing the plan").closest("[role=status]")).toBeInTheDocument();
+});
+
 test("delivered: the delivery note as the server words it, the cut on the player, and the timeline with a time card and the clip left out", async () => {
   await open(delivered);
   expect(await chat().findByText("A 55-second cut in eight clips, every line as written.")).toBeInTheDocument();
