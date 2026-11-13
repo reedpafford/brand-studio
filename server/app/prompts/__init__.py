@@ -907,6 +907,10 @@ def review_stills_input(plan: str, frames: list[tuple]) -> str:
     return f"<plan>{escape(plan.strip())}</plan>\n<frames>\n{seen}{sheets}\n</frames>"
 
 
-def look_fit_redo(description: str, fit: "schemas.LookFit") -> str:
-    """The change note for the one automatic redo of a sheet that doesn't fit its role."""
-    return f"The character must read clearly as: {description.strip()}. {fit.problem.strip()}"
+def look_fit_redo(description: str, fit: "schemas.LookFit", most: int = 500) -> str:
+    """The change note for the one automatic redo of a sheet that doesn't fit its role. A note
+    holds `most` characters: a long description gives way, never the problem to fix (it fell
+    off the end, so the redo repeated the description and fixed nothing)."""
+    problem, lead = fit.problem.strip(), "The character must read clearly as: "
+    room = max(most - len(lead) - len(problem) - 2, 0)
+    return f"{lead}{description.strip()[:room].rstrip()}. {problem}"
