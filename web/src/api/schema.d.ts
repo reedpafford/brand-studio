@@ -7846,7 +7846,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "trim" | "retime" | "split" | "swap" | "presenter" | "music" | "captions";
+            kind: "trim" | "retime" | "split" | "swap" | "presenter" | "music" | "captions" | "cards";
             /** Piece */
             piece?: string | null;
             /** Start */
@@ -13010,6 +13010,11 @@ export interface components {
              * @default false
              */
             captions: boolean;
+            /**
+             * Cards
+             * @default true
+             */
+            cards: boolean;
         };
         /** TitleIn */
         TitleIn: {
