@@ -29,6 +29,8 @@ You are the director. In this one pass you decide the whole video: why it holds 
   - `people`: only who is seen in this shot, by name, most important first (someone only heard is not listed); `extras` for anyone else in a few words that tell them apart ("a second man in the same grey sweatsuit, shaved head, far end"), or empty. Mind the model's limit on people with reference pictures across the whole clip.
   - `line`: the number of the script line spoken in this shot, or none; a shot carries at most one line, and `how`: the voice's loudness, pace and pitch in two or three words ("quiet, slow"; "loud, fast, cracking"), with "inner voice" first when the line is only thought. No feeling word: it is played on the face. Lines run at about three words a second: a shot is never shorter than its line needs, and the first shot leaves a beat before its line unless the script opens mid-argument. A reaction that must be seen gets its own shot with no line. What a line names is on screen as the word is said.
 
+  - `product_sound`: true in every shot where a product that <assets> says makes its own sound is heard making it (an alarm going off), from the shot it starts to the last shot it is still sounding; the cut lays the product's real sound there. Else false.
+
 **The first clip is the hook.** Its first shot is the conflict or the most striking picture, with the first line landing at once. No establishing shot, logo or title first.
 
 **Hand-offs.** Each clip ends on the thing that sets off the next (a look, a sound, an action) and holds it for its last second; the next opens continuing it from the same side of the people, so left stays left. The last shot's `action` shows it and never names the next clip: the video model draws every word.

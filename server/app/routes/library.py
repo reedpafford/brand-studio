@@ -374,7 +374,9 @@ def _apply(db: Session, user: User, item: LibraryItem, values: dict) -> None:
     for field in ("name", "brand_ids"):
         if values.get(field) is None:
             values.pop(field, None)
-    if item.kind != Kind.character and any(values.get(f) for f in CHARACTER_ONLY):
+    theirs = [f for f in CHARACTER_ONLY if item.kind != Kind.prop or f != "voice_file_id"]
+    if item.kind != Kind.character and any(values.get(f) for f in theirs):  # a product's
+        # `voice_file_id` is its own sound (an alarm's whistle): app/product_sound.py
         raise HTTPException(422, "Only characters have outfits, a voice, a presenter or a place.")
     _check_voice(db, user, item, values)
     if values.get("place_id"):

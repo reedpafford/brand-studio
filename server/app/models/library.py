@@ -37,6 +37,7 @@ class LibraryItem(Entity, Base):
     image_file_ids: Mapped[list[int]] = mapped_column(JSON, default=list)  # sheet / reference
     # Characters only: [{"name": "Gym kit", "file_ids": [..]}], and a voice sample.
     outfits: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    # a product's is its own sound, laid in the cut where it is heard (app/product_sound.py)
     voice_file_id: Mapped[int | None] = mapped_column(ForeignKey("files.id"))
     # S8-03, a character's voice: a saved voice, or an app voice by key ("Roger"); not both
     voice_id: Mapped[int | None] = mapped_column(ForeignKey("voices.id"))

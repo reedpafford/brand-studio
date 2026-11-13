@@ -153,6 +153,8 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
             parts = (*parts, NO_LOOK)
         if item.kind == Kind.character:  # this video's own outfit, over the sheet's
             parts = (*parts, wears(project, item.id))
+        if item.kind == Kind.prop and item.voice_file_id:  # the cut lays it (product_sound)
+            parts = (*parts, "makes its own sound")
         out[key] = (" | ".join(x for x in parts if x), files)
     for slot in video_slots(db, project):  # a role a breakdown may name before it's cast
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
