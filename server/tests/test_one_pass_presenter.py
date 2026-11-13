@@ -54,17 +54,17 @@ def test_a_corner_host_is_one_take_made_beside_the_b_roll_and_never_watched(app,
     assert steps[-3:] == ["takes", "host", "cut"] and "voice" in steps
 
 
-def test_a_presenter_with_no_voice_is_auditioned_by_voices_chosen_in_code(app, owner, db):
-    _delivered(app, owner, db, **BODY)
-    reads = [j.input["voice"] for j in _jobs(db, audition.STEP)]
-    sexes = [voices.TRAITS[k][0] for k in reads]
-    assert len(reads) == audition.MOST and sexes.count("woman") == sexes.count("man") == 2
-    assert all(j.provider == "server" for j in _jobs(db, "director"))  # no model named them
-    asked = _jobs(db, "director")[0]
-    assert asked.output["tool"] == "ask" and _turns(db)[1] == "wait"
-    assert _jobs(db, "director")[1].input["result"].startswith("Waiting on your answer")
+def test_a_presenter_with_no_voice_is_read_in_the_one_that_fits_them_with_no_stop(app, owner, db):
+    """Reed, 13 Nov: "Let the director pick and we can swap if needed"."""
+    pid = _delivered(app, owner, db, **BODY)
+    project = db.get(Project, pid)
+    assert not _jobs(db, audition.STEP) and "ask" not in _turns(db)  # no audition, no card
     (voice,) = _jobs(db, "song_take")
-    assert voice.input["input"]["voice"] == reads[0]  # the one the person picked reads it
+    fits = voice.input["input"]["voice"]
+    assert fits == audition.candidates(db, project)[0] and project.voice is None
+    note = _jobs(db, "director")[-1].output["note"]
+    assert f"read in the {voices.ABOUT[fits][0]} voice" in note["made"]  # it says which
+    assert owner.get(f"/projects/{pid}/host").json()["voice"] == fits  # and Cast shows it
 
 
 def test_a_talker_is_cut_from_one_heygen_take_between_the_b_roll(app, owner, db, heygen_talker):
@@ -84,7 +84,8 @@ def test_a_talker_is_cut_from_one_heygen_take_between_the_b_roll(app, owner, db,
         assert db.get(ClipTake, c.picked_take_id).made_with["talker"] == db.query(
             HostPiece).filter(HostPiece.number > 0).one().file_id  # fmt: skip
     assert "The picture for the words heard at 0.00 s." in piece.input["input"]["motion_prompt"]
-    assert [j.input["voice"] for j in _jobs(db, audition.STEP)][0].startswith("English_")
+    (voice,) = _jobs(db, "song_take")  # an everyday voice, as the UGC listening test chose
+    assert voice.input["input"]["voice_id"].startswith("English_") and not _jobs(db, audition.STEP)
     tl = cut.base(db, db.get(Project, pid))
     assert [p["lipsync"] for p in tl["pieces"]] == [c in mine for c in clips]
 

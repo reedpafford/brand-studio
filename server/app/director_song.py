@@ -368,12 +368,13 @@ def narrator(
 def _voice(db: Session, project: Project) -> str:
     """The narrator when none is picked: a person's for this video, else the video's own (its
     host's or its style's, e.g. Dr. Pickle's clone), else "" for a presenter nobody has chosen
-    a voice for yet (their audition picks it, app/audition.py), else narration's."""
+    a voice for yet (their audition picks it, app/audition.py; a one-pass video's director
+    takes the one that fits them), else narration's."""
     from app import audition
 
     if own := voices.picked(db, project) or voices.default_for(db, project):
         return own
-    return "" if audition.needed(db, project) else narration.VOICE
+    return "" if audition.needed(db, project) else audition.fits(db, project) or narration.VOICE
 
 
 def _real(db: Session, found: str) -> float:

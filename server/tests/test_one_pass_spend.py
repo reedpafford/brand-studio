@@ -55,7 +55,7 @@ def test_every_job_of_a_one_pass_video_is_its_brands_and_the_totals_add_up(app, 
     (idea,) = _jobs(db, "script_draft")  # written before its video existed: both now
     assert (idea.brand_id, idea.project_id) == (b, videos[b])
     steps = {j.input.get("step") for j in db.query(Job).filter(Job.project_id == videos[a])}
-    assert steps >= {"one_pass", "song_take", "song_timing", "voice_sample", "host_still",
+    assert steps >= {"one_pass", "song_take", "song_timing", "host_still",
                      "host_piece", "clip_take", "watch_cut", "sheet"}  # fmt: skip
     for job in db.query(Job).filter(Job.credits > 0).all():  # as each provider reports it
         _charge(db, job, job.credits * USD_PER_CREDIT)
