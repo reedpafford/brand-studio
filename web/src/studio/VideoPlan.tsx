@@ -41,8 +41,8 @@ export function Plan({ scenes, clip, onPick, thumbs }: { scenes: PlanScene[]; cl
               <button type="button" aria-expanded={open} onClick={() => onPick(c.clip_id)}>
                 <span className="n">{c.number}</span>
                 {thumbs && (
-                  <span className={`th ${c.frame_file_id != null ? "" : c.state === "making" ? "making" : "todo"}`}>
-                    {c.frame_file_id != null ? <img src={fileUrl(c.frame_file_id)} alt="" /> : c.state === "making" && <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="spin" />}
+                  <span className={`th ${c.frame_file_id != null || c.file != null ? "" : c.state === "making" ? "making" : "todo"}`}>
+                    {c.frame_file_id != null ? <img src={fileUrl(c.frame_file_id)} alt="" /> : c.file != null ? <video src={`${fileUrl(c.file)}#t=0.1`} muted preload="metadata" /> : c.state === "making" && <LoaderCircle size={14} strokeWidth={1.75} aria-hidden className="spin" />}
                   </span>
                 )}
                 <span className="what">

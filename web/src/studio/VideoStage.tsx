@@ -114,7 +114,7 @@ export function Stage({ projectId, plan, cells, cut, rows, head, aspect, edits, 
       </div>
       {view === "plan" && (
         <div className="planview">
-          <Plan scenes={plan} clip={current?.clip ?? null} onPick={(id) => pick(cells.find((c) => c.clip === id && c.card == null) ?? cells[0])} thumbs={cells.some((c) => c.poster != null)} />
+          <Plan scenes={plan} clip={current?.clip ?? null} onPick={(id) => pick(cells.find((c) => c.clip === id && c.card == null) ?? cells[0])} thumbs={cells.some((c) => c.poster != null || c.file != null)} />
         </div>
       )}
       {view === "cast" && <div className="castview">{cast}</div>}
@@ -143,7 +143,7 @@ export function Stage({ projectId, plan, cells, cut, rows, head, aspect, edits, 
                 title={c.card ?? undefined}
                 onClick={() => pick(c)}
               >
-                {c.card != null ? <span className="words">{c.card}</span> : c.poster != null ? <img src={fileUrl(c.poster)} alt="" /> : c.state === "making" ? <LoaderCircle {...ICON} className="spin" /> : c.state === "left" && <TriangleAlert {...ICON} />}
+                {c.card != null ? <span className="words">{c.card}</span> : c.poster != null ? <img src={fileUrl(c.poster)} alt="" /> : c.file != null ? <video src={`${fileUrl(c.file)}#t=0.1`} muted preload="metadata" /> : c.state === "making" ? <LoaderCircle {...ICON} className="spin" /> : c.state === "left" && <TriangleAlert {...ICON} />}
                 {c.card == null && <span className="n">{number(c)}</span>}
                 {whole && c === current && <i aria-hidden className="playhead" style={{ left: `${Math.max(0, Math.min(100, ((at - c.start!) / c.seconds) * 100))}%` }} />}
               </button>

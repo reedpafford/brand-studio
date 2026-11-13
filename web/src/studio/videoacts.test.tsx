@@ -349,6 +349,22 @@ test("turning the music off is one cut edit", async () => {
   expect(sent(calls)).toEqual([["POST /projects/366/cut/edits", { snap: false, kind: "music", removed: true }]]);
 });
 
+test("a finished video whose cast changed afterwards keeps Download in the header: the cast's OK is the chat card's only", async () => {
+  const cast = read<{ items: object[] }>(castChanged, "/cast");
+  await open({ ...delivered, "GET /projects/366/cast": [200, { ...cast, asked: false, items: cast.items.map((i) => ({ ...i, look_fit: null })) }] });
+  expect(page().getByRole("link", { name: "Download" })).toHaveAttribute("href", "/api/files/90");
+  expect(page().getAllByRole("button", { name: "Approve cast and places" })).toHaveLength(1);
+  expect(within(chat().getByRole("region", { name: "Cast and places waiting for your OK" })).getByRole("button", { name: "Approve cast and places" })).toBeEnabled();
+});
+
+test("a piece with no picture of its own shows the first frame of its take", async () => {
+  const cut = read<{ timeline: { pieces: object[] } }>(delivered, "/cut");
+  await open({ ...delivered, "GET /projects/366/cut": [200, { ...cut, timeline: { ...cut.timeline, pieces: cut.timeline.pieces.map((x) => ({ ...x, poster_file_id: null })) } }] });
+  const first = within(film().getByRole("group", { name: "Clips, in order, each as wide as it is long" })).getAllByRole("button")[0];
+  expect(first.querySelector("video")).toHaveAttribute("src", expect.stringMatching(/^\/api\/files\/\d+#t=0\.1$/));
+  expect(first.querySelector("img")).toBeNull();
+});
+
 const menu = async () => (await userEvent.click(page().getByRole("button", { name: "More" })), within(screen.getByRole("menu", { name: "More for Three men at Target" })));
 test("delivered: Download in the header, and the menu's items; What it cost opens So far; the downloads are plain links", async () => {
   await open(delivered);

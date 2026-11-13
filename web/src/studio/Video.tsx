@@ -201,6 +201,8 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
       : gate
         ? { label: wrong ? "Approve anyway" : "Approve cast and places", busy: approve.isPending, onPress: () => approve.mutate({ seen: Object.fromEntries(gate.items.map((i) => [i.ref, i.sig])), anyway: wrong }) }
         : null;
+  // A finished video whose cast changed afterwards: the OK stays on its card in the chat, and the header keeps Download.
+  const quiet = !!gate && !gate.asked && film != null && !running;
   const startCard = (a: Ask) => <StartCard ask={a} round={round} press={main} error={answer.isError ? answer.error.message : null} cast={cast} plan={planned} finish={cut && <Finish cut={cut} edits={edits} />} onChange={() => toBox()} />;
 
   // A run that isn't going: his Stop, a run that needs him, or one that ended.
@@ -256,7 +258,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
           <span className="spend">{spent}</span>
         )}
         {!archived && running && <StopButton busy={stop.isPending || sentActs.stop.isPending} onStop={() => (fs ? sentActs.stop.mutate() : stop.mutate())} />}
-        {archived ? null : main ? (
+        {archived ? null : main && !quiet ? (
           <PressButton press={main} />
         ) : (
           !running &&
@@ -270,7 +272,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
         <VideoMenu target={target} brandId={brandId} fsId={fs?.id ?? null} folder={h.folder?.id ?? p.folder_id ?? null} film={film} video={video} onCost={h.spent.usd != null ? () => document.getElementById(SOFAR)?.click() : undefined} may={{ change: !archived, variations: !archived && !running && h.status.kind === "delivered", zip: clips.some((c) => c.picked_take_id != null), archive: !archived && (!running || film != null) }} />
       </header>
       <Split
-        first={asks.some(isOpen) || gate ? "chat" : "film"}
+        first={asks.some(isOpen) || (gate && !quiet) ? "chat" : "film"}
         chat={
           <Thread
             items={items}
