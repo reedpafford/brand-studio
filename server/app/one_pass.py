@@ -870,7 +870,8 @@ def move(s: dict) -> dict:
         )
     bare = [c for c in s["clips"] if not c["picked"] and not c["left"]]  # left out: not asked
     stale = s["cut"] in ("none", "out of date") or s["edits"]
-    if not s["ok"] and not (bare or stale or s["missing_looks"]):
+    swap = (s.get("audio") or {}).get("revoice")  # the narration read again in a new voice
+    if not s["ok"] and not (bare or stale or s["missing_looks"] or swap):
         return _go("deliver", "The plan stays as it is, so nothing was made again and the cut is "
                    "as it was." if s["kept"] else "Nothing needed making again, so the cut is as "
                    "it was.")  # fmt: skip
@@ -934,6 +935,8 @@ def _audio(s: dict) -> dict | None:
     audio = s.get("audio")
     if audio is None:
         return None
+    if not s["ok"]:  # a new voice is read after Make it, on the card's price
+        audio = {**audio, "revoice": None}
     seen = {audio["tool"]: audio, "shots": "ready" if s["planned"] else "none",
             "allowed": {"narrations_left": s["narrations_left"]}}  # fmt: skip
     if audio["tool"] == "song" and audio["state"] == "none" and not audio.get("style"):
@@ -1200,7 +1203,17 @@ def _work(db: Session, draft, video) -> dict:
     video timed to a narration or a song (`timed`): the track itself (`_audio_price`), its
     B-roll the track's own length with each clip rounded up a second, and no second take
     (nobody speaks in B-roll, so no take can miss a line)."""
-    from app import director, host, music, narration, sheets, talker, talker_sound, watch_cut
+    from app import (
+        director,
+        director_song,
+        host,
+        music,
+        narration,
+        sheets,
+        talker,
+        talker_sound,
+        watch_cut,
+    )
     from app.clip_takes import takes_price
     from app.credits import CLIP_SECONDS_GUESS
     from app.models.script_library import Script
@@ -1252,9 +1265,10 @@ def _work(db: Session, draft, video) -> dict:
             plan = sum((j.credits for j in db.scalars(mine)), Decimal(0))
     watch = estimate(db, ws, watch_cut.KIND, Decimal(1), {})
     sound = _audio_price(db, draft, video) if timed else (Decimal(0), Decimal(0))
-    if video is not None and video.id and host.on(db, video) and host.rows(db, video):
+    made = video is not None and video.id and host.on(db, video) and host.rows(db, video)
+    if made and not director_song.revoice(db, video):
         talks = host.price(db, video)  # what of the presenter's still and take is left to make
-    else:  # the still, and every second of the narration in one take
+    else:  # the still, and every second of the narration in one take (a new voice's too)
         talks = host.run_price(db, draft, narration.longest(db, draft, video), video)
     talks += stills * still_credits(db, ws, image_model(video))
     return {"plan": plan, "takes": takes, "clip": Decimal(0) if timed else each, "watch": watch,
@@ -1283,12 +1297,14 @@ def _audio_price(db: Session, draft, video) -> tuple[Decimal, Decimal]:
     made once and once more (a brand name read again; `director_song.price` is one made and
     its remakes), else made once. Nothing once the video is timed to a take: it was made
     before Make it, on the planning allowance, so it is in what the video has spent and its
-    start card says so (`card_words`), never charged again."""
+    start card says so (`card_words`), never charged again; but read once more when a person
+    has set the video another voice since (`director_song.revoice`)."""
     from app import director_song
 
-    if video is not None and video.id and video.song_take_id:
-        return Decimal(0), Decimal(0)
     one = director_song.price(db, draft) / (1 + director_song.REMAKES)
+    if video is not None and video.id and video.song_take_id:
+        swap = director_song.revoice(db, video)  # read once more, in the video's new voice
+        return (one, one) if swap and not swap["take_id"] else (Decimal(0), Decimal(0))
     return 2 * one, one
 
 

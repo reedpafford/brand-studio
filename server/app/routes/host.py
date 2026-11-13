@@ -47,20 +47,28 @@ class HostOut(BaseModel):
     # The Cast tab's Presenter (S5-02): the cast look that says the narration, and the voice
     # the narration in use is read in; before one is made, the voice it will be read in, in the
     # narration's own order (director_song.narrator).
+    # A narrated video with no presenter has its narrator's `voice` here too. `voice_pending`:
+    # a person set the video another voice than its narration in use is read in; the next run
+    # reads it again after Make it (director_song.revoice).
     presenter_id: int | None = None
     voice: str | None = None
+    voice_pending: bool = False
 
 
 def _out(db: Session, project) -> HostOut:
-    if not host.on(db, project):
-        return HostOut(on=False, state="none", pieces=[], credits=0)
-    who = host.host_look(db, project)
-    take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
     from app import director_song
 
+    take = db.get(SongTake, project.song_take_id) if project.song_take_id else None
     made = take.voice if take and take.kind == narration.KIND else None
+    on = host.on(db, project)
+    reads = on or director_song.kind(db, project) == "narrated"
+    said = {"voice": (made or director_song.narrator(db, project)) if reads else None,
+            "voice_pending": director_song.revoice(db, project) is not None}  # fmt: skip
+    if not on:
+        return HostOut(on=False, state="none", pieces=[], credits=0, **said)
+    who = host.host_look(db, project)
     return HostOut(on=True, **host.state(db, project), presenter_id=who.id if who else None,
-                   voice=made or director_song.narrator(db, project))  # fmt: skip
+                   **said)  # fmt: skip
 
 
 @router.get("", response_model=HostOut)

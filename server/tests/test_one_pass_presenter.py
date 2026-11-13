@@ -127,3 +127,46 @@ def test_a_ugc_talker_on_omni_says_the_lines_and_the_b_roll_is_laid_over(app, ow
     assert tl["over"][0]["clip_id"] == shows.clip_id and tl["mode"] == "takes"
     assert len(_jobs(db, "voice_split")) == 1 and db.query(Job).filter_by(
         provider="heygen").count() == 0  # fmt: skip
+
+
+def test_a_new_voice_is_read_after_make_it_and_the_presenter_follows(app, owner, db):
+    """Reed, 13 Nov: "Let the director pick and we can swap if needed". The swap is his pick
+    and one priced card: nothing is read before Make it."""
+    from app.models.script_library import ScriptDraft
+    from app.models.songs import SongTake
+
+    pid = _delivered(app, owner, db, **BODY)
+    was = db.get(SongTake, db.get(Project, pid).song_take_id)
+    first, takes = was.voice, len(_jobs(db, "clip_take"))
+    other = "Austin" if first != "Austin" else "Roger"
+    assert owner.get(f"/projects/{pid}/host").json()["voice_pending"] is False
+
+    def swap(voice):
+        set_ = owner.post(f"/projects/{pid}/settings", json={"voice": f"stock:{voice}"})
+        assert set_.status_code == 200, set_.text
+        assert owner.post(f"/projects/{pid}/director/carry-on").status_code == 201
+        db.expire_all()
+        _run(app, db, ticks=3, start=False)
+        video = db.get(Project, pid)
+        return one_pass._work(db, db.get(ScriptDraft, video.script_draft_id), video)
+
+    price = swap(other)  # the card's price: one read, and the presenter's still and take
+    assert price["audio_most"] > 0 and price["host"] > 0 and not price["takes"]
+    assert len(_jobs(db, "song_take")) == 1  # nothing is read before Make it
+    assert owner.get(f"/projects/{pid}/host").json()["voice_pending"] is True
+    (card,) = [c for c in owner.get(f"/projects/{pid}/asks").json() if c["state"] == "open"]
+    assert card["kind"] == "start"
+    _run(app, db)
+    db.expire_all()
+    now = db.get(SongTake, db.get(Project, pid).song_take_id)
+    assert (now.voice, now.id != was.id) == (other, True)
+    assert _turns(db)[-1] == "deliver" and len(_jobs(db, "clip_take")) == takes  # B-roll kept
+    pieces = db.query(HostPiece).filter(HostPiece.number > 0).order_by(HostPiece.id)
+    assert [p.take_id for p in pieces] == [was.id, now.id]  # the presenter says the new read
+    shown = owner.get(f"/projects/{pid}/host").json()
+    assert (shown["voice"], shown["voice_pending"]) == (other, False)
+    price = swap(first)  # back to the first voice: its read is still there, so none is paid
+    assert not price["audio_most"]
+    _run(app, db)
+    db.expire_all()
+    assert db.get(Project, pid).song_take_id == was.id and len(_jobs(db, "song_take")) == 2
