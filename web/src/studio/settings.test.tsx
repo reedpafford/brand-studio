@@ -131,13 +131,20 @@ test("a language's switch sends on or off; English has no switch", async () => {
 });
 
 test("Use the current site turns the new look off on this computer and leaves; what Settings leaves out links to the current site", async () => {
-  localStorage.setItem("bs.ui", "new");
   server();
   renderApp("/s/settings");
   for (const [name, to] of [["credit limits", "/settings?tab=limits"], ["the team", "/team"], ["a look’s sample", "/settings?tab=looks"], ["a language’s test script", "/settings?tab=languages"]]) expect(await screen.findByRole("link", { name })).toHaveAttribute("href", to);
   await userEvent.click(screen.getByRole("button", { name: "Use the current site" }));
-  expect(localStorage.getItem("bs.ui")).toBeNull();
+  expect(localStorage.getItem("bs.ui")).toBe("old");
   expect(await screen.findByRole("button", { name: "Account menu" })).toBeInTheDocument(); // the current site's rail
+});
+
+test("Sign out sends the current site's sign-out, once, and opens Sign in", async () => {
+  const calls = server({ "POST /auth/logout": [204, null] });
+  renderApp("/s/settings");
+  await userEvent.dblClick(await screen.findByRole("button", { name: "Sign out" }));
+  expect(await screen.findByRole("heading", { name: "Sign in to Brand Studio" })).toBeInTheDocument();
+  expect(calls.filter((c) => !c.key.startsWith("GET ")).map((c) => c.key)).toEqual(["POST /auth/logout"]);
 });
 
 test("someone who isn't the owner is told Settings is the owner's", async () => {

@@ -3,6 +3,8 @@ import { expectSignedInAs, fill, PASSWORD } from "./helpers";
 
 // Runs in order against one fresh database: the first owner is created in the second test.
 test.describe.configure({ mode: "serial" });
+// The current site's sign-in pages and account menu ("/" opens the new look otherwise: studio-default.e2e.ts).
+test.beforeEach(({ page }) => page.addInitScript(() => localStorage.setItem("bs.ui", "old")));
 
 const setupForm = (code: string) => ({
   "Setup code (from the server's environment)": code,

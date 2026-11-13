@@ -18,8 +18,11 @@ async function ensureOwner(page: Page) {
   else if (made.status() !== 409) throw new Error(`Setup for the e2e owner failed: ${made.status()}`);
 }
 
-export async function signIn(page: Page, email: string, password = PASSWORD) {
+export async function signIn(page: Page, email: string, password = PASSWORD, look: "current" | "new" = "current") {
   await ensureOwner(page);
+  // "/" opens the new look for the owner; these tests are the current site's unless they ask for it (the new look's own
+  // tests open its pages by address).
+  if (look === "current") await page.addInitScript(() => localStorage.setItem("bs.ui", "old"));
   await page.goto("/login");
   await fill(page, { Email: email, Password: password });
   await page.getByRole("button", { name: "Sign in" }).click();
