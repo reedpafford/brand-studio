@@ -2,7 +2,7 @@
    Everything sits under .studio, beside studio.css and video.css. */
 .studio {
   /* The rail: a "+" by Folders, a new folder typed in place, and where a dragged card can go and is over. */
-  .nav.drop a { color: var(--ink); }
+  .nav.carrying a { color: var(--ink); }
   .rail h6 .btn { width: 24px; height: 24px; margin-right: -4px; color: var(--ink-3); }
   .nf { display: flex; align-items: center; gap: 12px; height: var(--ctl); padding: 0 10px; border-radius: var(--r-s); box-shadow: 0 0 0 2px var(--accent) inset; color: var(--ink-3); }
   .nf input { flex: 1; min-width: 0; outline: 0; color: var(--ink); }
@@ -12,11 +12,11 @@
   /* The page. Its header and its cards share one measure, capped so a wide screen doesn't spread them thin. */
   .head.vids-head, .page.vids { padding-inline: max(var(--gut), calc((100% - 1480px) / 2)); }
   .vids-head h1 { min-width: 0; }
-  .field { display: flex; align-items: center; gap: 8px; width: 200px; height: var(--ctl); padding: 0 10px; border-radius: var(--r-s); background: var(--raised); color: var(--ink-3); cursor: text; }
-  .field:focus-within { box-shadow: 0 0 0 2px var(--accent) inset; }
-  .field input { flex: 1; min-width: 0; outline: 0; color: var(--ink); }
-  .field input::placeholder { color: var(--ink-3); }
-  .field input::-webkit-search-cancel-button { display: none; }
+  .vids-head .field { display: flex; align-items: center; gap: 8px; width: 200px; height: var(--ctl); padding: 0 10px; border-radius: var(--r-s); background: var(--raised); color: var(--ink-3); cursor: text; }
+  .vids-head .field:focus-within { box-shadow: 0 0 0 2px var(--accent) inset; }
+  .vids-head .field input { flex: 1; min-width: 0; outline: 0; color: var(--ink); }
+  .vids-head .field input::placeholder { color: var(--ink-3); }
+  .vids-head .field input::-webkit-search-cancel-button { display: none; }
   .fpills { display: none; }
   .vbar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
   .vbar .btn { font-size: 13px; }

@@ -109,7 +109,7 @@ export function RailFolders({ brandId, base, folder }: { brandId: number; base: 
           <Plus {...ICON} />
         </button>
       </h6>
-      <div className={carrying ? "nav drop" : "nav"} role="group" aria-labelledby="studio-folders">
+      <div className={carrying ? "nav carrying" : "nav"} role="group" aria-labelledby="studio-folders">
         {adding && <NewFolder brandId={brandId} onDone={() => setAdding(false)} />}
         {tree && rows([...tree.folders, tree.unsorted])}
       </div>

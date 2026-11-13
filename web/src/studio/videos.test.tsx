@@ -232,7 +232,7 @@ test("a card dragged onto a folder in the rail is filed there, and Undo files it
   const data = { get types() { return Object.keys(carried); }, setData: (k: string, v: string) => void (carried[k] = v), getData: (k: string) => carried[k] ?? "", dropEffect: "", effectAllowed: "" };
   const folder = rail().getByRole("link", { name: /Target ads/ });
   fireEvent.dragStart(await card(/A dad on the border/), { dataTransfer: data });
-  expect(rail().getByRole("group", { name: "Folders" })).toHaveClass("drop"); // every folder lights up as a place to drop it
+  expect(rail().getByRole("group", { name: "Folders" })).toHaveClass("carrying"); // every folder lights up as a place to drop it
   fireEvent.dragOver(folder, { dataTransfer: data });
   expect(folder).toHaveClass("over");
   fireEvent.drop(folder, { dataTransfer: data });
