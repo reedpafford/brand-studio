@@ -51,16 +51,20 @@ def person(db: Session, project: Project, speaker: str | None) -> LibraryItem | 
 
 
 def first(db: Session, project: Project, data: dict) -> list[str]:
-    """For each speaker with no sample yet, the clip holding their longest line."""
+    """For each speaker with no sample yet who speaks in more than one clip, the clip holding
+    their longest line (someone heard in one clip has nowhere to carry a voice to)."""
     shots = {s["id"]: s for scene in data.get("scenes", []) for s in scene.get("shots", [])}
     best: dict[int, tuple[int, str]] = {}
+    heard: dict[int, set[str]] = {}
     for clip in data.get("clips", []):
         for shot in (shots[i] for i in clip["shot_ids"] if i in shots):
             who = person(db, project, shot.get("speaker")) if shot.get("line") else None
-            words = len((shot.get("line") or "").split())
-            if who and not who.voice_file_id and words > best.get(who.id, (0, ""))[0]:
+            if who is None or who.voice_file_id:
+                continue
+            heard.setdefault(who.id, set()).add(clip["id"])
+            if (words := len(shot["line"].split())) > best.get(who.id, (0, ""))[0]:
                 best[who.id] = (words, clip["id"])
-    return list(dict.fromkeys(clip for _, clip in best.values()))
+    return list(dict.fromkeys(c for who, (_, c) in best.items() if len(heard[who]) > 1))
 
 
 def _span(line: dict, heard: list[dict]) -> tuple[float, float] | None:
