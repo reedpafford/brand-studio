@@ -29,8 +29,12 @@ PHOTOREAL = ("ugc", "movie")  # styles whose people are photoreal, made on Omni 
 
 def unsent(look: str | None, model_id: str, shots: list[dict]) -> tuple[str, ...]:
     """The references a take leaves out and describes in words instead: in a photoreal style
-    on Seedance, every character sheet, and the opening still when someone is in it."""
-    if not model_id.startswith("seedance") or looks.base(look or looks.DEFAULT) not in PHOTOREAL:
+    on Replicate's Seedance, every character sheet, and the opening still when someone is in
+    it. KIE's Seedance takes the sheets Seedream made (app/providers/kie.py), so it gets them."""
+    kie = (model := _model(model_id)) is not None and model.provider == "kie"
+    if kie or not model_id.startswith("seedance"):
+        return ()
+    if looks.base(look or looks.DEFAULT) not in PHOTOREAL:
         return ()
     people = any(s.get("character_ids") for s in shots)
     return ("char:", "frame:") if people else ("char:",)

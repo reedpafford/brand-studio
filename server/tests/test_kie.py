@@ -1,5 +1,7 @@
-"""Suno through KIE (app/providers/kie.py), against a mock of KIE's API: no paid call."""
+"""Suno, Seedream and Seedance through KIE (app/providers/kie.py), against a mock of KIE's API
+as its docs describe it: no paid call."""
 
+import base64
 import json
 from decimal import Decimal
 
@@ -7,9 +9,12 @@ import httpx2 as httpx
 import pytest
 
 from app import music
-from app.providers import NotStarted, get_providers, kie_on
-from app.providers.kie import AGAIN, KieSuno
+from app.providers import NoKey, NotStarted, get_providers, kie_on
+from app.providers.kie import AGAIN, KieMedia, KieSuno
+from app.routes.jobs import enqueue
 from app.settings import Settings
+from tests.conftest import png, upload
+from tests.helpers import MP4
 
 BASE = "https://api.kie.ai/api/v1"
 SONG = "https://files.example-cdn.com/song1.mp3"
@@ -285,3 +290,270 @@ def test_songs_made_but_not_saved_are_fetched_again_free_never_paid_twice(app, d
     assert sum(r.url.path.endswith("/createTask") for r in calls) == 1  # one KIE request
     assert len(song_takes._real_jobs(db)) == 1  # the read again isn't a request
     assert all(t.file_id for t in db.query(SongTake).all())
+
+
+# --- Pictures and takes (Reed, 12 Nov: real-looking people on Seedream and Seedance) ---------
+
+UPLOADS = "https://kieai.redpandaai.test"
+MADE = "https://tempfile.aiquickdraw.com/p/t1_1.mp4"
+SHEET = png(1600, 900)  # wider than a 480p take's 854 px: scaled, were it sent any other way
+KIE_TAKE = "seedance-2.5-kie"
+TAKE = {
+    "prompt": "[Image1] is Mia. [Image1] waves at the camera.",
+    "duration": 5,
+    "resolution": "480p",
+    "aspect_ratio": "9:16",
+    "generate_audio": True,
+}
+
+
+def _data(raw: bytes, kind: str = "image/png") -> str:
+    return f"data:{kind};base64,{base64.b64encode(raw).decode()}"
+
+
+def _param(input: dict) -> str:
+    return json.dumps({"model": "bytedance/seedance-2-5", "input": json.dumps(input)})
+
+
+def _media(answer=None, key: str = "test-key") -> tuple[KieMedia, list[httpx.Request]]:
+    """KIE as its docs describe it: an upload answers with its file's address, a new task
+    with its id, a check with `answer` (a made take by default), a download with a video."""
+    seen = []
+
+    def api(request):
+        seen.append(request)
+        if request.url.path.endswith("/api/file-stream-upload"):
+            return _ok({"downloadUrl": f"https://tempfile.redpandaai.test/u{len(seen)}.png"})
+        if request.url.path.endswith("/jobs/createTask"):
+            return _ok({"taskId": "t1"})
+        if request.url.path.endswith("/jobs/recordInfo"):
+            return _ok(
+                answer
+                or {
+                    "state": "success",
+                    "model": "bytedance/seedance-2-5",
+                    "creditsConsumed": 140,
+                    "param": _param(TAKE),
+                    "resultJson": json.dumps({"resultUrls": [MADE]}),
+                }
+            )
+        return httpx.Response(200, content=MP4, headers={"content-type": "binary/octet-stream"})
+
+    client = httpx.Client(transport=httpx.MockTransport(api))
+    return KieMedia(BASE, key, ("aiquickdraw.com",), client=client, upload_url=UPLOADS), seen
+
+
+def test_a_seedream_sheet_is_asked_from_words_alone_as_kies_docs_say():
+    kie, seen = _media()
+    sheet = {"prompt": "A character reference sheet.", "aspect_ratio": "16:9", "resolution": "2K"}
+    assert kie.submit("image", {"model": "seedream-5.5", "input": sheet}) == "t1"
+    assert seen[0].url == f"{BASE}/jobs/createTask"
+    assert json.loads(seen[0].content) == {
+        "model": "seedream/5-5-text-to-image",
+        "input": {
+            "prompt": "A character reference sheet.",
+            "aspect_ratio": "16:9",
+            "size": "2K",
+            "output_format": "png",
+            "background": "opaque",
+            "nsfw_checker": True,
+        },
+    }
+    with pytest.raises(RuntimeError, match="words only"):  # never a picture drawn from one
+        kie.submit("image", {"model": "seedream-5.5", "input": {**sheet, "image_input": ["x"]}})
+    with pytest.raises(RuntimeError, match="isn't made through KIE"):
+        kie.submit("video", {"model": "seedance-2.5", "input": TAKE})
+    assert len(seen) == 1
+
+
+def test_a_take_uploads_each_file_untouched_and_names_its_pictures_kies_way():
+    kie, seen = _media()
+    job = {
+        "model": KIE_TAKE,
+        "input": {
+            **TAKE,
+            "reference_images": [_data(SHEET)],
+            "reference_audios": [_data(b"ID3song", "audio/mpeg")],
+        },
+    }
+    assert kie.submit("video", job) == "t1"
+    sheet, song, task = seen
+    assert sheet.url == f"{UPLOADS}/api/file-stream-upload" and SHEET in sheet.content
+    assert sheet.headers["authorization"] == "Bearer test-key"
+    assert b"ID3song" in song.content and b".mp3" in song.content
+    sent = json.loads(task.content)
+    assert sent["model"] == "bytedance/seedance-2-5"
+    assert sent["input"] == {
+        "prompt": "@Image1 is Mia. @Image1 waves at the camera.",
+        "duration": 5,
+        "resolution": "480p",
+        "aspect_ratio": "9:16",
+        "generate_audio": True,
+        "output_format": "mp4",
+        "web_search": False,
+        "draft": False,
+        "nsfw_checker": True,
+        "reference_image_urls": ["https://tempfile.redpandaai.test/u1.png"],
+        "reference_audio_urls": ["https://tempfile.redpandaai.test/u2.png"],
+        "omni_reference_task_type": "auto",
+    }
+    kie, seen = _media()  # words alone, then a start frame: no task type (KIE refuses it there)
+    kie.submit("video", {"model": KIE_TAKE, "input": TAKE})
+    kie.submit("video", {"model": KIE_TAKE, "input": {**TAKE, "image": _data(SHEET)}})
+    kie.submit("video", {"model": KIE_TAKE, "input": {**TAKE, "reference_videos": [_data(MP4)]}})
+    assert json.loads(seen[4].content)["input"]["omni_reference_task_type"] == "reference"
+    plain, framed = json.loads(seen[0].content)["input"], json.loads(seen[2].content)["input"]
+    assert "omni_reference_task_type" not in plain and "omni_reference_task_type" not in framed
+    assert framed["first_frame_url"] == "https://tempfile.redpandaai.test/u2.png"
+
+
+def test_an_upload_that_fails_or_no_key_starts_nothing_paid():
+    seen = []
+
+    def down(request):
+        seen.append(request)
+        return httpx.Response(200, json={"code": 500, "msg": "Internal server error"})
+
+    client = httpx.Client(transport=httpx.MockTransport(down))
+    kie = KieMedia(BASE, "test-key", (), client=client, upload_url=UPLOADS)
+    job = {"model": KIE_TAKE, "input": {**TAKE, "reference_images": [_data(SHEET)]}}
+    with pytest.raises(NotStarted):  # tried again later: no task was asked for
+        kie.submit("video", job)
+    assert [r.url.path for r in seen] == ["/api/file-stream-upload"]
+    kie, seen = _media(key="")
+    with pytest.raises(NoKey):
+        kie.submit("video", job)
+    assert seen == []
+
+
+def test_checking_reads_running_made_and_failed_and_the_cost_is_the_credits_kie_took():
+    assert _media({"state": "queuing"})[0].poll("t1").state == "running"
+    made = _media()[0].poll("t1")
+    assert (made.state, made.files) == ("succeeded", [MADE])
+    (cost,) = made.usage  # 5 s at 480p: 140 KIE credits at $0.005
+    assert (cost.units, cost.unit, cost.cost_usd, cost.estimated) == (
+        5,
+        "second",
+        Decimal("0.7"),
+        False,
+    )
+    drawn = _media(
+        {
+            "state": "success",
+            "model": "seedream/5-5-text-to-image",
+            "creditsConsumed": 6.3,
+            "response": {"resultUrls": [MADE]},
+        }
+    )[0].poll("t1")
+    assert [(u.units, u.unit, u.cost_usd) for u in drawn.usage] == [(1, "image", Decimal("0.0315"))]
+    unsaid = _media({"state": "success", "resultJson": json.dumps({"resultUrls": [MADE]})})
+    assert unsaid[0].poll("t1").usage == []  # the worker records the job's own price instead
+    refused = _media(
+        {
+            "state": "fail",
+            "failCode": "400",
+            "creditsConsumed": 0,
+            "failMsg": "input image may contain real person",
+        }
+    )[0].poll("t1")
+    assert refused.state == "failed"
+    assert [u.cost_usd for u in refused.usage] == [0]  # KIE said it took nothing: $0, listed
+    assert refused.error == "400: input image may contain real person"
+    assert _media({"state": "success", "resultJson": ""})[0].poll("t1").state == "failed"
+
+
+def test_what_kie_made_downloads_only_from_its_file_host_and_never_gets_the_key():
+    kie, seen = _media()
+    assert kie.fetch(MADE) == (MP4, "video/mp4")  # named by its ending, whatever the host says
+    assert "authorization" not in seen[0].headers
+    for url in (
+        "https://169.254.169.254/x.mp4",
+        MADE.replace("https", "http"),
+        "https://aiquickdraw.com.evil.test/x.mp4",
+        f"{UPLOADS}/x.mp4",
+    ):
+        with pytest.raises(RuntimeError, match="Refusing"):
+            kie.fetch(url)
+
+
+def test_the_kie_models_go_to_kie_at_its_price_and_replicates_seedance_stays(app, owner, db):
+    from app.catalogue import get_model, provider_for
+    from app.models.accounts import User
+
+    assert provider_for(KIE_TAKE, "replicate") == provider_for("seedream-5.5", "replicate") == "kie"
+    assert provider_for("seedance-2.5", "replicate") == "replicate"
+    assert provider_for(KIE_TAKE, "fake") == "fake"  # a test's own lane
+    assert get_model("seedance-2.5").usd_per_unit("480p") == Decimal("0.1028")  # as it was
+    assert get_model("seedream-5.5").usd_per_unit("2K") == Decimal("0.0315")
+    kinds = {m["id"]: m["kind"] for m in owner.get("/models").json()}
+    assert kinds[KIE_TAKE] == "video" and "seedream-5.5" not in kinds  # it draws sheets only
+    user = db.query(User).first()
+    job = enqueue(
+        db, user, "video", {"model": KIE_TAKE, "input": TAKE}, units=5, provider="replicate"
+    )
+    assert (job.provider, job.credits) == ("kie", Decimal("6.80"))  # 5 s at $0.14: 1.36 credits
+
+
+def test_a_kie_clip_gets_its_sheet_as_stored_and_is_charged_what_kie_took(app, owner, db):
+    from app.models.jobs import Job, Usage
+    from app.worker import run_once
+    from tests.helpers import with_sheet
+
+    brand = owner.get("/brands").json()[0]["id"]
+    made = owner.post(
+        "/library/character", json={"name": "Mia", "image_file_ids": [upload(owner, data=SHEET)]}
+    )
+    with_sheet(db, made.json()["id"])
+    clip = {
+        "brand_id": brand,
+        "model_id": KIE_TAKE,
+        "prompt": "@Mia waves at the camera",
+        "character_ids": [made.json()["id"]],
+    }
+    assert owner.post("/clips/estimate", json=clip).json()["credits"] == 6.8
+    job = db.get(Job, owner.post("/clips", json=clip).json()["id"])
+    assert (job.provider, job.input["fit_images_to"]) == ("kie", 854)
+    kie, seen = _media()
+    for _ in range(3):
+        run_once(db, {"kie": kie}, app.state.storage)
+    db.refresh(job)
+    assert job.status == "succeeded" and SHEET in seen[0].content  # byte for byte, never scaled
+    assert json.loads(seen[1].content)["input"]["prompt"] == (
+        "@Image1 is Mia.\n@Image1 waves at the camera"
+    )
+    assert owner.get(f"/files/{job.output['file_ids'][0]}").content == MP4
+    usage = db.query(Usage).one()
+    assert (usage.provider, usage.units, usage.cost_usd, usage.estimated) == (
+        "kie",
+        5,
+        Decimal("0.7000"),
+        False,
+    )
+
+
+def test_the_stand_ins_answer_for_both_kie_models_and_no_key_sends_nothing(
+    app, owner, db, monkeypatch
+):
+    from app.models.accounts import User
+    from app.worker import run_once
+
+    monkeypatch.delenv("KIE_API_KEY", raising=False)
+    providers = get_providers(Settings(fake_providers=True), app.state.storage)
+    assert type(providers["kie"]) is type(providers["replicate"])  # the same free stand-in
+    user = db.query(User).first()
+    sheet = {"prompt": "A character reference sheet.", "aspect_ratio": "16:9", "resolution": "2K"}
+    made = [
+        enqueue(
+            db, user, "video", {"model": KIE_TAKE, "input": TAKE}, units=5, provider="replicate"
+        ),
+        enqueue(db, user, "image", {"model": "seedream-5.5", "input": sheet}, provider="replicate"),
+    ]
+    for _ in range(3):
+        run_once(db, providers, app.state.storage)
+    for job in made:
+        db.refresh(job)
+    assert [(j.provider, j.status) for j in made] == [("kie", "succeeded")] * 2
+    real = get_providers(Settings(), app.state.storage)["kie"]
+    assert isinstance(real, KieMedia)
+    with pytest.raises(NoKey):  # a worker with no KIE key: unsent, so never charged
+        real.submit("video", {"model": KIE_TAKE, "input": TAKE})

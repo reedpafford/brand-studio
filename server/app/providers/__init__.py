@@ -88,6 +88,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             "replicate": FakeMedia(),
             "heygen": FakeMedia(),  # a grey talker the length of its voice
             "google": FakeMedia(),  # Omni 1.2's takes while its Google road is open: no key needed
+            "kie": FakeMedia(),  # KIE's Seedream pictures and Seedance takes, the same
             # The test site's one real service, once Reed switches it on (2026-10-29: real
             # Suno through KIE, test site only, with a test budget); all else stays free.
             "suno": _kie(settings, FakeSuno()) if kie_on(settings) else FakeSuno(),
@@ -111,7 +112,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
     local = LocalProvider(storage)
     providers = {"fake": FakeProvider(), "replicate": _replicate(settings),
                  "claude": _claude(settings), "local": local,
-                 "google": _google(settings)}  # fmt: skip
+                 "google": _google(settings), "kie": _kie_media(settings)}  # fmt: skip
     if settings.heygen_api_key.get_secret_value():  # the UGC talker: once its key is set
         providers["heygen"] = _heygen(settings)  # (and "heygen" is in a worker's lane)
     if kie_on(settings):  # Suno through KIE: only once Reed switches it on
@@ -180,6 +181,17 @@ def _kie(settings, stand_in=None):
                    tuple(settings.kie_delivery_hosts), settings.max_download_mb,
                    stand_in=stand_in, usd_per_credit=settings.kie_usd_per_credit,
                    usd_per_request=settings.kie_usd_per_request)  # fmt: skip
+
+
+def _kie_media(settings):
+    """KIE's Seedream pictures and Seedance takes (a catalogue model whose `provider` is "kie").
+    With no key where it runs, a job fails unsent (NoKey)."""
+    from app.providers.kie import KieMedia
+
+    return KieMedia(settings.kie_base_url, settings.kie_api_key.get_secret_value(),
+                    tuple(settings.kie_media_delivery_hosts), settings.max_download_mb,
+                    usd_per_credit=settings.kie_usd_per_credit,
+                    upload_url=settings.kie_upload_url)  # fmt: skip
 
 
 def kie_on(settings) -> bool:

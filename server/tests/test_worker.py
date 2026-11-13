@@ -300,7 +300,7 @@ def test_deploy_gives_claude_stills_and_reel_prep_a_worker_each():
     compose = (REPO_ROOT / "deploy/docker-compose.yml").read_text()
     lanes = [json.loads(m) for m in re.findall(r"BS_WORKER_PROVIDERS: '(\[.*?\])'", compose)]
     taken = [p for lane in lanes for p in lane]
-    assert sorted(taken) == ["claude", "fake", "google", "heygen", "local", "replicate"]
+    assert sorted(taken) == ["claude", "fake", "google", "heygen", "kie", "local", "replicate"]
     assert ["claude"] in lanes
     graces = re.findall(r"stop_grace_period: (\d+m)", compose)  # every lane has one, and
     assert len(graces) == len(lanes) and graces.count("30m") == 1  # Claude's long shots: 30m

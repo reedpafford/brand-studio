@@ -6,7 +6,7 @@ x-next-env: &next-env
   BS_ENV: next  # production checks, but the free stand-ins are allowed
   BS_COOKIE_NAME: bs_next_session  # same address as live on another port; cookies ignore ports
   PUBLIC_ADDRESS: ${PUBLIC_ADDRESS:?set PUBLIC_ADDRESS in deploy/.env}
-  KIE_API_KEY: ""  # only the worker that sings real songs gets it (below)
+  KIE_API_KEY: ""  # only the worker that reaches KIE gets it (below)
 
 services:
   migrate:
@@ -22,7 +22,8 @@ services:
       # Songs too (Suno: the stand-in, or real through KIE when Reed switches it on), and real
       # look samples on Replicate when Reed switches them on (the only worker with its key)
       # ("google": Omni 1.2 straight from Google while BS_GOOGLE_API_KEY is set)
-      BS_WORKER_PROVIDERS: '["fake", "replicate", "suno", "replicate-samples", "heygen", "google"]'
+      # ("kie": Seedream sheets and Seedance takes of real-looking people, on the songs' KIE key)
+      BS_WORKER_PROVIDERS: '["fake", "replicate", "suno", "replicate-samples", "heygen", "google", "kie"]'
       KIE_API_KEY: ${KIE_API_KEY:-}
   claude-worker:
     image: brand-studio-next-server

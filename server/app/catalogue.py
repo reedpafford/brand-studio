@@ -76,6 +76,7 @@ class CatalogueModel(BaseModel):
     edit: Edit | None = None
     via: Via | None = None
     direct: bool = False  # reached by its `via` now: priced by it, its jobs go to its provider
+    provider: str = "replicate"  # where its jobs go ("kie": KIE's Seedream and Seedance)
 
     def by_via(self) -> "CatalogueModel":
         """This model as its `via` reaches and prices it."""
@@ -136,7 +137,10 @@ def get_model(model_id: str, listed: bool = False) -> CatalogueModel | None:
 
 
 def provider_for(model_id: str | None, asked: str) -> str:
-    """The provider a job goes to: its model's `via` while that road is open (Omni 1.2:
-    "google"), else the one asked for. Only Replicate's jobs move (never a test's fake lane)."""
+    """The provider a job goes to: its model's own (KIE's Seedream and Seedance: "kie"), or its
+    `via` while that road is open (Omni 1.2: "google"), else the one asked for. Only
+    Replicate's jobs move (never a test's fake lane)."""
     model = get_model(model_id or "")
-    return model.via.provider if model and model.direct and asked == "replicate" else asked
+    if not model or asked != "replicate":
+        return asked
+    return model.via.provider if model.direct else model.provider
