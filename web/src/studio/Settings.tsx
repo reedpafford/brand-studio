@@ -14,6 +14,7 @@ import { useToast } from "../toast";
 import { Money } from "../usage/parts";
 import { useBrandRows, type BrandRow } from "../usage/useUsage";
 import { Dialog } from "./Dialog";
+import { useSignOut } from "../shell/AccountMenu";
 import { setNewLook } from "./look";
 import "./settings.css";
 
@@ -31,6 +32,7 @@ export function Settings() {
   const looks = useLooks();
   const languages = useLanguages();
   const fresh = (key: string) => queryClient.invalidateQueries({ queryKey: [key] });
+  const signOut = useSignOut();
   if (!me) return null;
   return (
     <>
@@ -66,12 +68,24 @@ export function Settings() {
               }}
               said={(s, on) => (on ? `${s.name} is on.` : `${s.name} is off. Scripts in it keep it; new scripts start in English.`)}
             />
-            <section aria-labelledby="set-look">
-              <h2 id="set-look">Try the new look</h2>
+            <section aria-labelledby="set-you">
+              <h2 id="set-you">You</h2>
               <div className="rowl">
                 <span className="tx2">
-                  <b>You are using the new look</b>
-                  <small>Only on this computer. The current site is still there, and you can come back any time.</small>
+                  <b>{me.name}</b>
+                  <small>{me.email}</small>
+                </span>
+                <button type="button" className="btn soft" disabled={signOut.isPending} onClick={() => signOut.mutate()}>
+                  Sign out
+                </button>
+              </div>
+            </section>
+            <section aria-labelledby="set-look">
+              <h2 id="set-look">The current site</h2>
+              <div className="rowl">
+                <span className="tx2">
+                  <b>The site as it was before the new look</b>
+                  <small>Still there. Going back is remembered on this computer only, and its Settings bring you here again.</small>
                 </span>
                 <button
                   type="button"

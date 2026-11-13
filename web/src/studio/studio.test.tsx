@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { owner } from "../test/people";
+import { editor, owner } from "../test/people";
 import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
 import { setViewport } from "../test/viewport";
@@ -156,28 +156,33 @@ test("Escape cancels the dialog", async () => {
   expect(said.confirm).not.toHaveBeenCalled();
 });
 
-test("Settings' Try the new look sets bs.ui and opens the studio; Back to the current site clears it and leaves", async () => {
+test("Back to the current site is remembered on this computer and leaves; the current Settings' Open the new look comes back", async () => {
   server();
-  renderApp("/settings");
-  await userEvent.click(await screen.findByRole("button", { name: "Open the new look" }));
-  expect(localStorage.getItem("bs.ui")).toBe("new");
-  expect(await screen.findByRole("heading", { name: "New video" })).toBeInTheDocument();
-  await userEvent.click(rail().getByRole("link", { name: "Back to the current site" }));
-  expect(localStorage.getItem("bs.ui")).toBeNull();
+  renderApp("/s/b/1");
+  await userEvent.click(await screen.findByRole("link", { name: "Back to the current site" }));
+  expect(localStorage.getItem("bs.ui")).toBe("old");
   expect(await screen.findByRole("button", { name: "Account menu" })).toBeInTheDocument(); // the current site's rail
   expect(document.querySelector(".studio")).toBeNull();
+  cleanup();
+  renderApp("/settings");
+  await userEvent.click(await screen.findByRole("button", { name: "Open the new look" }));
+  expect(localStorage.getItem("bs.ui")).toBeNull();
+  expect(await screen.findByRole("heading", { name: "New video" })).toBeInTheDocument();
 });
 
-test("with bs.ui set, / opens the new look", async () => {
-  localStorage.setItem("bs.ui", "new");
+test("/ opens the new look for the owner", async () => {
   server();
   renderApp("/");
   expect(await screen.findByRole("heading", { name: "New video" })).toBeInTheDocument();
   expect(rail().getByRole("link", { name: "Create", current: "page" })).toHaveAttribute("href", "/s/b/1");
 });
 
-test("without it, / stays on the current site and nothing of the new look is on the page", async () => {
-  server();
+test.each([
+  ["on a computer sent back to the current site", owner, "old"],
+  ["for an editor", editor, null],
+])("/ stays on the current site %s, and nothing of the new look is on the page", async (_who, me, ui) => {
+  if (ui) localStorage.setItem("bs.ui", ui);
+  server({ "GET /auth/me": [200, me] });
   renderApp("/");
   expect(await screen.findByRole("button", { name: "Account menu" })).toBeInTheDocument();
   expect(document.querySelector(".studio")).toBeNull();

@@ -20,7 +20,7 @@ function renderAt(path: string) {
   renderApp(path); // a data router, as the app runs (Brand asks before leaving with unsaved changes)
 }
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => (localStorage.clear(), localStorage.setItem("bs.ui", "old"))); // the current site's shell: "/" opens the new look otherwise
 afterEach(() => vi.unstubAllGlobals());
 
 const pickBrand = async (name: string) => {
