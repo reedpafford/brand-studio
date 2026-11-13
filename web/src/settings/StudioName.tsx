@@ -1,17 +1,23 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { studioName } from "../auth/pages";
-import { Skeleton } from "../components";
+import { Button, Skeleton } from "../components";
 import { SaveButton, SettingRow, type SettingsTop } from "./SettingRow";
+import { setNewLook } from "../studio/look";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
+
+/** The studio (its name): Settings reads it here, and the new look's rail shows it. */
+export const useWorkspace = () => useQuery({ queryKey: ["workspace"], queryFn: async () => (await api.GET("/workspace")).data ?? null });
 
 /** The name an invite link shows. A stored slug like "owner-reed" reads as "{owner}'s studio" until the owner picks a name. */
 export function StudioName({ owner, top }: { owner: string; top: SettingsTop }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const workspace = useQuery({ queryKey: ["workspace"], queryFn: async () => (await api.GET("/workspace")).data ?? null });
+  const navigate = useNavigate();
+  const workspace = useWorkspace();
   const [edit, setEdit] = useState<string | null>(null);
   const saved = workspace.data;
   const value = edit ?? (saved ? studioName(saved.name, owner) : "");
@@ -53,6 +59,17 @@ export function StudioName({ owner, top }: { owner: string; top: SettingsTop }) 
       <section aria-label="Studio" className="max-w-[900px]">
         <SettingRow htmlFor="studio-name" label="Studio name" help="Shown on invite links.">
           <input id="studio-name" value={value} onChange={(e) => setEdit(e.target.value)} className="min-h-control w-full max-w-[360px] rounded-md border border-border-strong bg-bg px-2.5 lg:min-h-control-dense" />
+        </SettingRow>
+        <SettingRow label="Try the new look" help="The redesigned studio, still being built. Only on this computer, and you can come back any time.">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setNewLook(true);
+              navigate("/s");
+            }}
+          >
+            Open the new look
+          </Button>
         </SettingRow>
         {put.isError && <p role="alert" className={`pt-3 ${errorClass}`}>{put.error.message}</p>}
       </section>

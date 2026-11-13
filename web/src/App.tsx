@@ -28,6 +28,8 @@ import { UsageBrandPage } from "./usage/UsageBrandPage";
 import { MinePage } from "./usage/MinePage";
 import { UsagePage } from "./usage/UsagePage";
 import { ReelReviewPage } from "./scripts/ReelReviewPage";
+import { StudioShell } from "./studio/StudioShell";
+import { StudioPage } from "./studio/pages";
 
 export function App() {
   return (
@@ -37,6 +39,14 @@ export function App() {
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route element={<RequireAuth />}>
+        {/* The new look (the redesign), built beside the current screens: Settings › "Try the new look" opens it. */}
+        <Route path="s" element={<StudioShell />}>
+          <Route index element={<GoToBrand studio />} />
+          <Route path="b/:brandId" element={<StudioPage page="" />} />
+          <Route path="b/:brandId/videos" element={<StudioPage page="videos" />} />
+          <Route path="b/:brandId/library" element={<StudioPage page="library" />} />
+          <Route path="b/:brandId/spend" element={<StudioPage page="spend" />} />
+        </Route>
         <Route element={<Shell />}>
           <Route index element={<GoToBrand />} />
           <Route path="b/:brandId" element={<HomePage />} />
