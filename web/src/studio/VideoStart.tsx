@@ -22,7 +22,7 @@ function CastStrip({ cast }: { cast: CastItem[] }) {
     <ul className="cast-s" aria-label="The cast and places">
       {cast.map((i) => (
         <li key={i.ref}>
-          {i.preview_file_id != null ? <img src={fileUrl(i.preview_file_id)} alt="" className={i.kind === "character" ? "face" : undefined} /> : <span aria-hidden className="im" />}
+          {i.preview_file_id != null ? <img src={fileUrl(i.preview_file_id)} alt="" /> : <span aria-hidden className="im" />}
           <b>{i.name}</b>
           <small>{NOT_READY[i.readiness] ?? cameFrom(i)}</small>
           {i.voice && <small>Voice: {i.voice.name}</small>}

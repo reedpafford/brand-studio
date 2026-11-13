@@ -44,7 +44,7 @@ test("Spend shows this month's total as the server gives it, where it went, each
   expect(await hero()).toHaveTextContent("Spent on all brands, this month");
   expect(screen.getByText("$53.37")).toBeInTheDocument();
   expect(screen.getByText("13 finished videos · $4.11 a finished video")).toBeInTheDocument();
-  expect(screen.getByText("2 videos still being made")).toBeInTheDocument();
+  expect(screen.getByText("2 videos not finished")).toBeInTheDocument();
   expect(screen.getByText("Of this, $8.71 was the director’s own thinking and watching.")).toBeInTheDocument();
   const services = within(screen.getByRole("list", { name: "Where it went, by service" })).getAllByRole("listitem");
   expect(services.map((li) => li.textContent)).toEqual(["Replicate$40.76", "Claude$12.61"]);
@@ -65,7 +65,7 @@ test("a brand's row shows that brand alone: its total, what is still being made 
   await userEvent.click(await screen.findByRole("button", { name: "Palace Guard, 7 videos, $28.97" }));
   expect(await hero()).toHaveTextContent("Spent on Palace Guard, this month");
   expect(screen.getByText("$28.97")).toBeInTheDocument();
-  expect(screen.getByText("1 video still being made")).toBeInTheDocument();
+  expect(screen.getByText("1 video not finished")).toBeInTheDocument();
   const making = within(await screen.findByRole("region", { name: "Still being made" }));
   expect(making.getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["Video", "Last worked on", "Cost so far"]);
   expect(making.getByRole("row", { name: "A dad on the border 13 Nov $2.98" })).toBeInTheDocument();

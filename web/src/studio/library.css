@@ -47,7 +47,7 @@
 
   /* Cast: everyone saved as tiles (a video's own tile: a face and a name), then the picked one's panel, sheet whole. */
   .shelf { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; align-items: start; }
-  .tiles.big { grid-template-columns: repeat(auto-fill, minmax(140px, 200px)); margin-bottom: 0; }
+  .tiles.big { grid-template-columns: repeat(auto-fill, minmax(200px, 280px)); margin-bottom: 0; }
   .tile .im small { display: grid; place-items: center; height: 100%; padding: 8px; text-align: center; }
   .pcard { position: sticky; top: 0; min-width: 0; }
   .psheet { display: grid; place-items: center; min-height: 180px; border-radius: var(--r-l); background: var(--raised); overflow: hidden; font-size: 13px; color: var(--ink-3); }
@@ -130,7 +130,7 @@
     .lib .hero { aspect-ratio: 4 / 3; }
     .lib .thumbs button { width: 44px; height: 44px; }
     .clips4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .tiles.big { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+    .tiles.big { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
     .voice .btn { height: 44px; }
     .voice .btn.square { width: 44px; }
     .facts { line-height: 44px; }

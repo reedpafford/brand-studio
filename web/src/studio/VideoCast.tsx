@@ -61,7 +61,7 @@ export function Cast({ cast, assets }: { cast: CastItem[]; assets: Asset[] }) {
   const others = tiles.filter((t) => t.kind !== "person");
   return (
     <>
-      {group("People", tiles.filter((t) => t.kind === "person"))}
+      {group("People", tiles.filter((t) => t.kind === "person"), true)}
       {group(!others.some((t) => t.kind === "product") ? "Places" : others.some((t) => t.kind === "place") ? "Places and product" : "Product", others, true)}
       <div className="tray" role="status">
         <div>
