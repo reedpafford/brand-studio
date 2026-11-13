@@ -10530,6 +10530,8 @@ export interface components {
             director: boolean;
             /** Changed */
             changed: boolean;
+            /** Card */
+            card?: string | null;
         };
         /** PlaceIn */
         PlaceIn: {
