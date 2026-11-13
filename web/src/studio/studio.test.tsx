@@ -55,13 +55,13 @@ test("the shell shows the studio, the brand, the four pages, what is being made 
 
 test("the brand menu switches brand and stays in the new look, on the same page; a page not built yet links to the current site's", async () => {
   server();
-  renderApp("/s/b/1/spend");
-  expect(await screen.findByRole("link", { name: "open Spend on the current site" })).toHaveAttribute("href", "/usage/brands/1");
+  renderApp("/s/b/1/videos");
+  expect(await screen.findByRole("link", { name: "open Videos on the current site" })).toHaveAttribute("href", "/b/1/videos");
   await userEvent.click(await screen.findByRole("button", { name: "Brand: Palace Guard" }));
   expect(screen.getByRole("menuitemradio", { name: "Palace Guard" })).toHaveAttribute("aria-checked", "true");
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Iron Paws" }));
   expect(await screen.findByRole("button", { name: "Brand: Iron Paws" })).toBeInTheDocument();
-  expect(rail().getByRole("link", { name: "Spend", current: "page" })).toHaveAttribute("href", "/s/b/2/spend");
+  expect(rail().getByRole("link", { name: "Videos", current: "page" })).toHaveAttribute("href", "/s/b/2/videos");
   expect(await rail().findByText("Nothing right now.")).toBeInTheDocument();
 });
 
