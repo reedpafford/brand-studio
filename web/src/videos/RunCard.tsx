@@ -15,7 +15,8 @@ type Cell = components["schemas"]["ClipCellOut"];
 type Scene = components["schemas"]["RunSceneOut"];
 
 const LIVE = ["working", "revising", "waiting"];
-const clock = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+/** A server time as the chat writes it: 09:41. */
+export const clock = (iso: string) => serverTime(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 /** A clip is being made though the run has ended (Try again on a failed clip). */
 const making = (r: Progress) => r.scenes.some((s) => s.clips.some((c) => c.state === "making"));
@@ -148,7 +149,7 @@ function useElapsed(iso: string, on: boolean) {
 }
 /** What the director's call in hand is thinking and has written so far (the plan step), read every 2 s while the card
  *  is quiet: Claude's own summary of its reasoning, and the plan's hook, story and clips as each is written. */
-function useThinking(projectId: number | undefined, on: boolean) {
+export function useThinking(projectId: number | undefined, on: boolean) {
   return useQuery({
     queryKey: ["run-thinking", projectId],
     enabled: on && !!projectId,
@@ -186,7 +187,11 @@ const QUIET: Record<string, string> = {
   plan: "Reading the whole script and writing the plan, clip by clip. Usually a couple of minutes, longer for a long script.",
 };
 
-const left = (min: number) => (min >= 60 ? `about ${Math.floor(min / 60)} h ${min % 60} min left` : `about ${min} min left`);
+/** What the run has cost and its estimate, as the server words it (the owner's uncapped site); "" anywhere else. */
+export const runCost = (r: Progress) => (r.actual_usd == null ? "" : [r.cost || `$${r.actual_usd.toFixed(2)} spent on this run`, r.expected_usd != null && `about $${r.expected_usd.toFixed(2)} (estimate)`].filter(Boolean).join(" · "));
+
+/** "about 4 min left", "about 1 h 5 min left". */
+export const timeLeft = (min: number) => (min >= 60 ? `about ${Math.floor(min / 60)} h ${min % 60} min left` : `about ${min} min left`);
 const LONG = 60; // a long video (S3-13: 118 clips) reads as a row a scene, not a frame a clip
 
 /** The run's one live card (S3-03 folded, S3-04 open, S3-08 stopped, S3-11 failed, S3-12 revising, S3-13 long; P-04 on a
@@ -268,7 +273,7 @@ export function RunCard({ progress: r, phone, projectId }: { progress: Progress;
         ))}
       </ol>
       {(r.scenes.length > shown.length || !!r.minutes_left) && (
-        <p className="pt-1.5 text-xs text-muted">{[r.scenes.length > shown.length && `+ ${r.scenes.length - shown.length} more scenes`, !!r.minutes_left && left(r.minutes_left)].filter(Boolean).join(" · ")}</p>
+        <p className="pt-1.5 text-xs text-muted">{[r.scenes.length > shown.length && `+ ${r.scenes.length - shown.length} more scenes`, !!r.minutes_left && timeLeft(r.minutes_left)].filter(Boolean).join(" · ")}</p>
       )}
     </div>
   ) : phone ? (
@@ -300,11 +305,7 @@ export function RunCard({ progress: r, phone, projectId }: { progress: Progress;
             {r.sub}
           </p>
         )}
-        {r.actual_usd != null && (
-          <p className="mt-2 text-xs tabular-nums text-muted first:mt-0">
-            {[r.cost || `$${r.actual_usd.toFixed(2)} spent on this run`, r.expected_usd != null && `about $${r.expected_usd.toFixed(2)} (estimate)`].filter(Boolean).join(" · ")}
-          </p>
-        )}
+        {r.actual_usd != null && <p className="mt-2 text-xs tabular-nums text-muted first:mt-0">{runCost(r)}</p>}
         {open && steps}
       </div>
     </section>
@@ -316,10 +317,13 @@ export function RunCard({ progress: r, phone, projectId }: { progress: Progress;
 /** The Stops a run carried on from (S3-08), as lines in the chat: "Reed stopped the director at 10:31 · carried on at 10:40". */
 export const stopLines = (r: Progress) => (r.stops ?? []).map((x) => `${x.by} stopped the director at ${clock(x.at)} · carried on at ${clock(x.carried_at)}.`);
 
+/** A run a person stopped, as a line in the chat. */
+export const stoppedLine = (s: NonNullable<Progress["stopped"]>) => `${s.by} stopped the director at ${clock(s.at)}. Nothing more is being spent.`;
+
 export function stoppedParts({ progress: r, onCarryOn, onPlanAgain, busy, planBusy, blocked, error }: { progress: Progress; onCarryOn: () => void; onPlanAgain: () => void; busy: boolean; planBusy: boolean; blocked: string | null; error: string | null }) {
   const s = r.stopped!;
   return {
-    line: `${s.by} stopped the director at ${clock(s.at)}. Nothing more is being spent.`,
+    line: stoppedLine(s),
     reply: (
       <div className="flex flex-col gap-2">
         <p className="leading-[21px]">{`Stopped. ${s.made ? `The ${s.made} finished clip${s.made === 1 ? " is" : "s are"} kept.` : "Nothing was finished yet."} Tell me what to change, or carry on where I left off.`}</p>

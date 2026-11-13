@@ -11,6 +11,7 @@ import { Banner, Button, Dialog, Segmented, Skeleton } from "../components";
 import { mmss } from "../freestyle/FromScript";
 import { Item, type Said } from "../freestyle/Thread";
 import { treatmentOf } from "./Treatment";
+import { leadingTreatment, openNote, threadOf } from "./thread";
 import { ReelBlock } from "../scripts/ReelImport";
 import { useFreestyle, useFreestyleActions, type Freestyle } from "../freestyle/useFreestyle";
 import { refreshJobs } from "../jobs/refresh";
@@ -339,30 +340,10 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   const scroller = useRef<HTMLDivElement>(null);
   const said = run?.thread ?? [];
   const turns = run?.turns ?? [];
-  const known = (t: Said) => said.find((x) => x.kind === "message" && x.who === t.who && x.text === t.text);
-  const byId = new Map(said.map((x) => [x.id, x]));
-  // A freestyle's thread is its first words, its held sends and the director's moves in its words; each move keeps the run
-  // card or the delivery note it is (v6 piece C and D), from the video's own thread.
-  const items: Said[] = (fs
-    ? [...fs.thread.map((t) => (t.kind === "message" ? { ...t, answered: known(t)?.answered } : { ...t, run: byId.get(t.id)?.run ?? null, note: byId.get(t.id)?.note ?? null })), ...said.filter((x) => x.kind === "message" && !fs.thread.some((t) => t.kind === "message" && t.who === x.who && t.text === x.text)).map((x) => ({ ...x, id: `note-${x.id}` })), ...said.filter((x) => x.kind === "ask")].sort((a, b) => serverTime(a.at).getTime() - serverTime(b.at).getTime())
-    : [...said]);
-  // The live card sits after its run's other moves (the treatment, a held step), as the newest thing it says (S3-03).
-  const live = items.findIndex((t) => t.run && t.run === progress?.run);
-  if (live >= 0) {
-    const [card] = items.splice(live, 1);
-    const next = items.findIndex((t, i) => i >= live && (t.kind === "message" || t.note || t.run));
-    const at = next < 0 ? items.length : next;
-    // Moved below later cards, it never keeps the run's start time above them (MAIN's Claymation run: 01:07 under 01:17).
-    const before = items[at - 1];
-    const late = before && serverTime(before.at).getTime() > serverTime(card.at).getTime();
-    items.splice(at, 0, late ? { ...card, at: before.at } : card);
-  }
+  const items = threadOf(fs, said, progress?.run); // oldest first, the live card as the newest thing its run says
   const seen = useSeen(id);
-  // A treatment a note replaced folds to its line, so the current one leads (H20).
-  const story = [...items].reverse().find((t) => treatmentOf(t))?.id;
-  // The newest note opens in full; once a later run starts (a revision), it folds to its line too (S3-12).
-  const lastIndex = items.map((t) => !!t.note).lastIndexOf(true);
-  const lastNote = lastIndex >= 0 && !items.slice(lastIndex + 1).some((t) => t.run) ? items[lastIndex].id : undefined;
+  const story = leadingTreatment(items);
+  const lastNote = openNote(items);
   const unwatched = (progress?.changed ?? []).filter((c) => !c.watched && c.take_id != null).map((c) => c.take_id!);
   const watch = () => (seen.mutate(unwatched), onWatch());
   const heldMove = [...items].reverse().find((t) => t.kind === "move" && t.status === "held")?.id;
