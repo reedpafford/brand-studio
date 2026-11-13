@@ -670,7 +670,7 @@ def test_each_speakers_voice_is_kept_from_one_clip_and_sent_with_their_others(
     """Movie Ad 1 (Reed, 13 Nov): the voices held once later clips were sent a few seconds of
     each person from an earlier one. The clip with each speaker's longest line is made first,
     their voice is cut from its take once it's listened to, and the rest are made with it."""
-    from app import guides, voice_carry
+    from app import clip_prompts, guides, voice_carry
     from app.models.files import StoredFile
     from app.models.library import LibraryItem
 
@@ -694,6 +694,9 @@ def test_each_speakers_voice_is_kept_from_one_clip_and_sent_with_their_others(
     assert last["input"]["prompt"].splitlines()[-1] == (
         "[Audio1] is a recording of Mia's voice: match its tone and accent for Mia only. It is "
         "a sample of the voice; the words said are this clip's quoted lines.")  # fmt: skip
+    data = clip_prompts.newest(db, _video(db)).data  # without clip 1 Leo is heard in one clip:
+    mia.voice_file_id = leo.voice_file_id = None  # nowhere to carry his voice, so it isn't first
+    assert voice_carry.first(db, _video(db), {**data, "clips": data["clips"][1:]}) == ["c3"]
 
 
 def test_a_voice_that_cannot_be_cut_never_stops_the_run(app, owner, db, monkeypatch, tmp_path):
