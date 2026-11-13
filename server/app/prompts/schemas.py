@@ -735,22 +735,26 @@ class Treatment(BaseModel):
 # --- The shooting plan (Reed, 10 Nov): the director's one pass; code makes the clips from it ---
 
 
+def _older(**missing):
+    """A plan saved before a field existed reads with that field at its empty value."""
+    return model_validator(mode="before")(
+        lambda v: {**missing, **v} if isinstance(v, dict) else v)  # fmt: skip
+
+
 class PlanTreatment(BaseModel):
     hook: str = Field(description="The first 2 seconds: what we see and hear.")
     logline: str = Field(description="The story in one plain sentence.")
     why_it_holds: str = Field(description="Why a viewer keeps watching, in one or two sentences.")
     ending: str = Field(description="The payoff, and the call to action, and why they land.")
+    other_openings: list[int] = Field(
+        description="Line numbers of the script's alternative openings not filmed here. Else []."
+    )
+    _older = _older(other_openings=[])
 
 
 class PlanLook(BaseModel):
     name: str = Field(description="As the script names them: 'Dana', 'The kitchen'.")
     description: str = Field(description="What to draw, described once.")
-
-
-def _older(**missing):
-    """A plan saved before a field existed reads with that field at its empty value."""
-    return model_validator(mode="before")(
-        lambda v: {**missing, **v} if isinstance(v, dict) else v)  # fmt: skip
 
 
 class PlanShot(BaseModel):

@@ -72,6 +72,29 @@ def test_every_spoken_line_is_in_one_shot_once_and_in_order():
     assert _fixes(an_action)[1].startswith("line 2 is not a spoken line of the script")
 
 
+def test_a_scripts_other_openings_are_named_and_in_no_shot():
+    """Reed's scripts give several hooks before one body ("Hook 1", "Hook 2"; RP5's V1 to V3):
+    every hook's lines used to be filmed one after another. The first is filmed with the body;
+    the plan names the others' lines, which no shot says. Never a way to drop the body."""
+
+    def first_only(p):  # line 3 is another opening: named, and in no shot
+        p["clips"][0]["shots"][0]["line"] = None
+        p["treatment"]["other_openings"] = [3]
+
+    def the_body(p):  # line 4 comes after everything filmed: it is no opening
+        p["clips"][0]["shots"][1]["line"] = None
+        p["treatment"]["other_openings"] = [4]
+
+    assert _fixes(first_only) == []
+    assert _fixes(the_body) == ["line 4 is no alternative opening: it comes after the body"]
+    assert ShootingPlan.model_validate(
+        {
+            **_plan(),
+            "treatment": {k: v for k, v in _plan()["treatment"].items() if k != "other_openings"},
+        }
+    )  # an older plan
+
+
 def test_a_clip_fits_its_model_and_a_line_fits_its_shot():
     def long(p):
         p["clips"][0]["shots"][0]["seconds"] = 14
