@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { api, errorText } from "../api/client";
-import { uploadFile } from "../api/upload";
+import { api } from "../api/client";
 import { Button } from "../components";
-import { refreshJobs } from "../jobs/refresh";
 import { errorText as errorClass } from "../ui";
-import { SHEET_MODEL } from "./sheets";
-import { KINDS, slugOf, upTo, useNewPrice, type Item, type Kind } from "./kinds";
-import { addPicture } from "./products";
+import { useCreateItem } from "./itemActions";
+import { KINDS, slugOf, upTo, useNewPrice, type Kind } from "./kinds";
 
 const field = "h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text placeholder:text-muted lg:text-sm";
 
@@ -31,47 +28,13 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
   const [more, setMore] = useState<File[]>([]); // an app's other screens
   const [type, setType] = useState<"app" | "physical">("physical");
   const [made, setMade] = useState<number | null>(null);
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const price = useNewPrice(kind);
   const cost = upTo(price.data?.credits, price.data?.usd);
   const preview = usePreview(photo);
   const product = kind === "prop";
-  // A retry after a later step failed (a held sheet, an upload) goes on from there: never a second item (QA).
-  const done = useRef<{ item: Item | null; pictures: number }>({ item: null, pictures: 0 });
-  const [locked, setLocked] = useState(false); // made already: its words can't change here any more (QA)
-  const create = useMutation({
-    mutationFn: async () => {
-      let data = done.current.item;
-      if (!data) {
-        const source = photo && !product ? (await uploadFile(photo)).id : null;
-        const made = await api.POST("/library/{kind}", {
-          params: { path: { kind } },
-          body: { name: name.trim(), notes: words.trim(), brand_ids: [brandId], image_file_ids: [], outfits: [], source_photo_file_id: source, presenter: false, product_type: product ? type : null },
-        });
-        if (!made.data) throw new Error(errorText(made.error));
-        data = done.current.item = made.data;
-        setLocked(true);
-      }
-      if (product) {
-        const files = [photo, ...more].filter((f): f is File => !!f);
-        for (let n = done.current.pictures; n < files.length; n++) {
-          await addPicture(brandId, { ...data, pictures: Array(n).fill(null) } as Item, files[n], "", type === "app" ? screenName(files[n].name) : undefined);
-          done.current.pictures = n + 1;
-        }
-        return data.id;
-      }
-      const sheet = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind, item_id: data.id } }, body: { model_id: SHEET_MODEL, change: "" } });
-      if (!sheet.data) throw new Error(errorText(sheet.error));
-      return data.id;
-    },
-    onSuccess: (id) => {
-      void queryClient.invalidateQueries({ queryKey: ["library", kind] });
-      if (product) return onClose();
-      refreshJobs(queryClient);
-      setMade(id);
-    },
-  });
+  // A retry after a later step failed goes on from there, and once it's made its words can't change here (QA).
+  const { create, locked } = useCreateItem(brandId, kind, (id) => (product ? onClose() : setMade(id)));
   // The new sheet as it's drawn: its page opens once it's in (or waits for the owner's OK).
   const item = useQuery({
     enabled: made !== null,
@@ -85,7 +48,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
   }, [made, item.data, brandId, kind, navigate]);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim() && (product || photo || words.trim())) create.mutate();
+    if (name.trim() && (product || photo || words.trim())) create.mutate({ name, words, photo, more, type });
   };
   const ready = !!name.trim() && (product || !!photo || !!words.trim());
   return (
@@ -152,12 +115,6 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
     </form>
   );
 }
-
-/** "order-tracking.png" reads "Order tracking". */
-const screenName = (file: string) => {
-  const words = file.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
-  return words.charAt(0).toUpperCase() + words.slice(1);
-};
 
 /** A picked photo as a picture to show before it's uploaded. */
 export function usePreview(file: File | null) {

@@ -23,7 +23,52 @@ export function useFootage(brandId: number) {
   });
 }
 
-const length = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+export const length = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+
+/** What the AI's description of one clip costs at most, said before the press. */
+export function useDescribePrice(brandId: number) {
+  return useQuery({ queryKey: ["footage", "price", brandId], queryFn: async () => (await api.GET("/brands/{brand_id}/footage/price", path(brandId))).data ?? null });
+}
+
+/** Add one clip to a folder ("": the top), with what it shows and its product or that it is a competitor's. With no
+ *  words the AI describes it, which is paid. */
+export function useAddClip(brandId: number, onDone: () => void) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: async ({ file, words, folder, product, competitor }: { file: File; words: string; folder: string; product: number | null; competitor: boolean }) => {
+      const form = new FormData();
+      form.append("upload", file);
+      form.append("description", words.trim());
+      form.append("folder", folder);
+      if (competitor) form.append("competitor", "true");
+      else if (product !== null) form.append("product_id", String(product));
+      return must(api.POST("/brands/{brand_id}/footage", { ...path(brandId), body: { upload: "", description: "", product: "", folder, ai_describe: true, competitor }, bodySerializer: () => form })).then((r) => r.data!);
+    },
+    onSuccess: async (c) => {
+      await queryClient.invalidateQueries({ queryKey: ["footage", brandId] });
+      void queryClient.invalidateQueries({ queryKey: ["media"] });
+      toast(c.describing ? "Clip added. Describing what it shows…" : "Clip added.");
+      onDone();
+    },
+  });
+}
+
+/** Delete a clip (free), with Undo in the toast. */
+export function useRemoveClip(brandId: number, clipId: number) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const url = { params: { path: { brand_id: brandId, footage_id: clipId } } };
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["footage", brandId] });
+  return useMutation({
+    mutationFn: () => must(api.DELETE("/brands/{brand_id}/footage/{footage_id}", url)),
+    onSuccess: () => {
+      toast("Clip deleted.", () => void must(api.POST("/brands/{brand_id}/footage/{footage_id}/restore", url)).then(refresh, (e: Error) => toast(e.message, undefined, "error")));
+      return refresh();
+    },
+    onError: (e: Error) => toast(e.message, undefined, "error"),
+  });
+}
 
 /** Footage (Reed, 9 Nov): real clips of the brand's products, added once, each with what it shows and which product. Every
  *  video's director reads the ones that fit; in UGC it may use one as a B-roll shot. In folders, nested as in Reed's Drive
@@ -114,26 +159,8 @@ function AddClip({ brandId, folder, onClose }: { brandId: number; folder: string
   const [words, setWords] = useState("");
   const [product, setProduct] = useState<number | null>(null);
   const [competitor, setCompetitor] = useState(false);
-  const price = useQuery({ queryKey: ["footage", "price", brandId], queryFn: async () => (await api.GET("/brands/{brand_id}/footage/price", path(brandId))).data ?? null });
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const add = useMutation({
-    mutationFn: async () => {
-      const form = new FormData();
-      form.append("upload", file!);
-      form.append("description", words.trim());
-      form.append("folder", folder);
-      if (competitor) form.append("competitor", "true");
-      else if (product !== null) form.append("product_id", String(product));
-      return must(api.POST("/brands/{brand_id}/footage", { ...path(brandId), body: { upload: "", description: "", product: "", folder, ai_describe: true, competitor }, bodySerializer: () => form })).then((r) => r.data!);
-    },
-    onSuccess: async (c) => {
-      await queryClient.invalidateQueries({ queryKey: ["footage", brandId] });
-      void queryClient.invalidateQueries({ queryKey: ["media"] });
-      toast(c.describing ? "Clip added. Describing what it shows…" : "Clip added.");
-      onClose();
-    },
-  });
+  const price = useDescribePrice(brandId);
+  const add = useAddClip(brandId, onClose);
   const ai = !words.trim();
   return (
     <section aria-label="Add a clip" className="flex max-w-[560px] flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:p-6">
@@ -151,7 +178,7 @@ function AddClip({ brandId, folder, onClose }: { brandId: number; folder: string
       {!competitor && <ProductPicker brandId={brandId} value={product} onChange={setProduct} />}
       {add.isError && <p role="alert" className="text-sm text-danger">{add.error.message}</p>}
       <div className="flex flex-wrap items-center gap-2">
-        <Button disabled={!file} reason={file ? null : "Choose a clip first"} busy={add.isPending} onClick={() => add.mutate()}>
+        <Button disabled={!file} reason={file ? null : "Choose a clip first"} busy={add.isPending} onClick={() => add.mutate({ file: file!, words, folder, product, competitor })}>
           Add clip
         </Button>
         <Button variant="ghost" onClick={onClose}>
@@ -170,21 +197,12 @@ function ClipCard({ brandId, clip, rows, where }: { brandId: number; clip: Foota
   const [competitor, setCompetitor] = useState(clip.competitor);
   const products = useItems("prop", brandId).data ?? [];
   const queryClient = useQueryClient();
-  const toast = useToast();
   const url = { params: { path: { brand_id: brandId, footage_id: clip.id } } };
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["footage", brandId] });
   const save = useMutation({
     mutationFn: () => must(api.PATCH("/brands/{brand_id}/footage/{footage_id}", { ...url, body: { description: words.trim(), product_id: competitor ? null : product, no_product: competitor || product === null, competitor } })),
-    onSuccess: () => (setEditing(false), refresh()),
+    onSuccess: () => (setEditing(false), queryClient.invalidateQueries({ queryKey: ["footage", brandId] })),
   });
-  const remove = useMutation({
-    mutationFn: () => must(api.DELETE("/brands/{brand_id}/footage/{footage_id}", url)),
-    onSuccess: () => {
-      toast("Clip deleted.", () => void must(api.POST("/brands/{brand_id}/footage/{footage_id}/restore", url)).then(refresh, (e: Error) => toast(e.message, undefined, "error")));
-      return refresh();
-    },
-    onError: (e: Error) => toast(e.message, undefined, "error"),
-  });
+  const remove = useRemoveClip(brandId, clip.id);
   const name = products.find((p) => p.id === clip.product_id)?.name;
   return (
     <li className="flex flex-col overflow-hidden rounded-lg border border-border bg-surface">

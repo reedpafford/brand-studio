@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { api, errorText, must } from "../api/client";
+import { api, must } from "../api/client";
 import { uploadFile } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Button } from "../components";
@@ -10,6 +10,7 @@ import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { errorText as errorClass } from "../ui";
 import { CharacterExtras } from "./CharacterExtras";
+import { itemWords, useSaveItem } from "./itemActions";
 import { LookSheets } from "./LookSheets";
 import { SheetVersions } from "./SheetVersions";
 import { day, slugOf, type Item, type Kind } from "./kinds";
@@ -59,31 +60,12 @@ const Row = ({ title, children }: { title: string; children: ReactNode }) => (
 function Edit({ item, kind, brandId, title }: { item: Item; kind: Kind; brandId: number; title: string }) {
   const { data: brands } = useBrands();
   const queryClient = useQueryClient();
-  const toast = useToast();
-  const start = {
-    name: item.name,
-    notes: item.notes ?? "",
-    brand_ids: item.brand_ids ?? [],
-    outfits: item.outfits ?? [],
-    voice_file_id: item.voice_file_id ?? null,
-    short_description: item.short_description ?? "",
-    main_claim: item.main_claim ?? "",
-  };
+  const start = itemWords(item);
   const [form, setForm] = useState(start);
   const changed = JSON.stringify(form) !== JSON.stringify(start);
   const path = { kind, item_id: item.id };
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", kind] });
-  const save = useMutation({
-    mutationFn: async () => {
-      const body = kind === "character" ? { name: form.name, notes: form.notes, brand_ids: form.brand_ids, outfits: form.outfits, voice_file_id: form.voice_file_id } : { name: form.name, notes: form.notes, brand_ids: form.brand_ids, ...(kind === "prop" ? { short_description: form.short_description, main_claim: form.main_claim } : {}) };
-      const { error, response } = await api.PATCH("/library/{kind}/{item_id}", { params: { path }, body });
-      if (!response.ok) throw new Error(errorText(error));
-    },
-    onSuccess: () => {
-      void refresh();
-      toast("Saved.");
-    },
-  });
+  const save = useSaveItem(kind, item.id);
   const photo = useMutation({
     mutationFn: async (file: File) => must(api.PATCH("/library/{kind}/{item_id}", { params: { path }, body: { source_photo_file_id: (await uploadFile(file)).id } })),
     onSuccess: refresh,
@@ -91,7 +73,7 @@ function Edit({ item, kind, brandId, title }: { item: Item; kind: Kind; brandId:
   const toggle = (id: number) => setForm({ ...form, brand_ids: form.brand_ids.includes(id) ? form.brand_ids.filter((b) => b !== id) : [...form.brand_ids, id] });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (changed && form.brand_ids.length) save.mutate();
+    if (changed && form.brand_ids.length) save.mutate(form);
   };
   const leaving = item.brand_ids?.includes(brandId) && !form.brand_ids.includes(brandId);
   return (
