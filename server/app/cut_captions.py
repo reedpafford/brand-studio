@@ -23,6 +23,9 @@ ON = ("movie",)  # the styles whose story cuts are captioned unless switched off
 WHITE, YELLOW, EDGE = (255, 255, 255, 255), (255, 212, 0, 255), (0, 0, 0, 255)
 SIZE, DOWN = 22 / 480, 620 / 854  # the letters' height against the width; how far down they sit
 LETTERS, WORDS = 26, 5  # the most a caption holds
+CARD, TITLE = 2.6, 2.9  # seconds a card on black shows; a title over a clip's opening
+FADE, STEPS = 0.5, 6  # a card's words fade in and out over this long, in this many pictures
+OVER = (0.07, 0.19, 0.56)  # how far down a title over a clip may sit (the darkest is used)
 END = re.compile(r"[.?!,;:]$")
 
 
@@ -157,33 +160,109 @@ def states(caps: list[dict], length: float) -> list[tuple[int, int, float]]:
     return [*out, (-1, 0, max(length - at, 0.04))]
 
 
-def burn(data: bytes, caps: list[dict]) -> bytes:
-    """The cut with its captions in the picture; its sound is copied as it is."""
-    if not caps:
+def title(words: str, width: int, height: int, solid: float = 1.0, down: float = 0.5,
+          black: bool = False) -> bytes:  # fmt: skip
+    """A time card's words (Movie Ad 1: "TEN MINUTES EARLIER"): small capitals set wide apart,
+    `solid` of the way faded in, `down` the frame; on black, or see-through for over a clip."""
+    font, gap = ImageFont.truetype(FONT, round(width * 17 / 480)), width * 6 / 480
+    letters = words.upper()
+    widths = [font.getlength(ch) for ch in letters]
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 255 if black else 0))
+    pen, x = ImageDraw.Draw(image), (width - sum(widths) - gap * (len(letters) - 1)) / 2
+    for ch, w in zip(letters, widths, strict=True):
+        pen.text((x, height * down), ch, font=font, anchor="lm", stroke_width=0 if black else 1,
+                 fill=(255, 255, 255, round(235 * solid)),
+                 stroke_fill=(0, 0, 0, round(110 * solid)))  # fmt: skip
+        x += w + gap
+    out = io.BytesIO()
+    image.save(out, "PNG")
+    return out.getvalue()
+
+
+def _fade(seconds: float) -> list[tuple[float, float]]:
+    """(how solid, for how long): nothing for a moment, in over FADE, held, out over FADE."""
+    step = FADE / STEPS
+    up = [(k / STEPS, step) for k in range(1, STEPS)]
+    return [(0.0, 0.2), *up, (1.0, seconds - 0.3 - 2 * len(up) * step), *reversed(up), (0.0, 0.1)]
+
+
+def _listed(folder: Path, name: str, shown: list[tuple[bytes | None, float]]) -> list[str]:
+    """Pictures and how long each shows, as ONE ffmpeg input (None: nothing shows)."""
+    lines = ["ffconcat version 1.0"]
+    for n, (png, seconds) in enumerate(shown):
+        file = "none.png" if png is None else f"{name}{n}.png"
+        if png is not None:
+            (folder / file).write_bytes(png)
+        lines += [f"file '{file}'", f"duration {max(seconds, 0.001):.3f}"]
+    (folder / f"{name}.txt").write_text("\n".join([*lines, f"file '{lines[-2][6:-1]}'"]))
+    return ["-f", "concat", "-safe", "0", "-i", f"{name}.txt"]
+
+
+def _size(folder: Path, name: str) -> tuple[int, int, float]:
+    asked = "stream=width,height:format=duration"
+    probe = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", asked,
+             "-of", "csv=p=0:s=x", name]  # fmt: skip
+    size, length = subprocess.run(probe, cwd=folder, capture_output=True, text=True,  # noqa: S603
+                                  timeout=60).stdout.split()  # fmt: skip
+    width, height = (int(v) for v in size.split("x")[:2])
+    return width, height, float(length)
+
+
+def _ffmpeg(folder: Path, args: list[str]) -> bytes:
+    done = subprocess.run(["ffmpeg", "-v", "error", "-y", *args, "-c:v", "libx264",  # noqa: S603, S607
+                           "-movflags", "+faststart", "out.mp4"], cwd=folder,
+                          capture_output=True, timeout=1800)  # fmt: skip
+    if done.returncode:
+        raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
+    return (folder / "out.mp4").read_bytes()
+
+
+def card_clip(words: str, like: bytes, seconds: float = CARD) -> bytes:
+    """A card on black as a clip of its own, the size of `like` (a take of the same cut): the
+    words fade in and out; its sound is silence."""
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "like.mp4").write_bytes(like)
+        width, height, _ = _size(folder, "like.mp4")
+        shown = [(title(words, width, height, solid, black=True), d) for solid, d in _fade(seconds)]
+        quiet = ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"]
+        made = ["-vf", "fps=30,format=yuv420p", "-c:a", "aac", "-t", f"{seconds:.2f}"]
+        return _ffmpeg(folder, [*_listed(folder, "card", shown), *quiet, *made])
+
+
+def _dark(folder: Path, at: float, height: int) -> float:
+    """How far down a title over a clip sits: the darkest of the bands clear of the captions."""
+    frame = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{at:.2f}", "-i", "cut.mp4",  # noqa: S603, S607
+                            "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"],
+                           cwd=folder, capture_output=True, timeout=120).stdout  # fmt: skip
+    grey, band = Image.open(io.BytesIO(frame)).convert("L"), round(height * 0.04)
+    light = {d: grey.crop((0, round(height * d) - band, grey.width, round(height * d) + band))
+             .resize((1, 1)).getpixel((0, 0)) for d in OVER}  # fmt: skip
+    return min(light, key=light.get)
+
+
+def burn(data: bytes, caps: list[dict], titles: tuple[dict, ...] = ()) -> bytes:
+    """The cut with its captions, and each title over a clip's opening (`titles`: [{start,
+    words}]), in the picture; its sound is copied as it is."""
+    if not caps and not titles:
         return data
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         (folder / "cut.mp4").write_bytes(data)
-        asked = "stream=width,height:format=duration"
-        probe = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", asked,
-                 "-of", "csv=p=0:s=x", "cut.mp4"]  # fmt: skip
-        size, length = subprocess.run(probe, cwd=folder, capture_output=True, text=True,  # noqa: S603
-                                      timeout=60).stdout.split()  # fmt: skip
-        width, height = (int(v) for v in size.split("x")[:2])
+        width, height, length = _size(folder, "cut.mp4")
         Image.new("RGBA", (width, height), (0, 0, 0, 0)).save(folder / "none.png")
-        listed = ["ffconcat version 1.0"]
-        for n, k, seconds in states(caps, float(length)):
-            name = "none.png" if n < 0 else f"{n}-{k}.png"
-            if n >= 0:
-                (folder / name).write_bytes(draw(caps[n]["words"], k, width, height))
-            listed += [f"file '{name}'", f"duration {seconds:.3f}"]
-        (folder / "list.txt").write_text("\n".join([*listed, "file 'none.png'"]))
-        laid = "[1:v]format=rgba[c];[0:v][c]overlay=eof_action=pass,format=yuv420p[v]"
-        done = subprocess.run(  # noqa: S603
-            ["ffmpeg", "-v", "error", "-y", "-i", "cut.mp4", "-f", "concat", "-safe", "0",  # noqa: S607
-             "-i", "list.txt", "-filter_complex", laid, "-map", "[v]", "-map", "0:a?",
-             "-c:v", "libx264", "-c:a", "copy", "-movflags", "+faststart", "out.mp4"],
-            cwd=folder, capture_output=True, timeout=1800)  # fmt: skip
-        if done.returncode:
-            raise RuntimeError(done.stderr.decode(errors="replace")[-2000:])
-        return (folder / "out.mp4").read_bytes()
+        said = [(None if n < 0 else draw(caps[n]["words"], k, width, height), seconds)
+                for n, k, seconds in states(caps, length)]  # fmt: skip
+        over, at = [], 0.0
+        for one in sorted(titles, key=lambda x: x["start"]):
+            down = _dark(folder, one["start"] + 1.0, height)
+            over += [(None, one["start"] - at),
+                     *((title(one["words"], width, height, solid, down) if solid else None, d)
+                       for solid, d in _fade(TITLE))]  # fmt: skip
+            at = one["start"] + TITLE
+        over.append((None, max(length - at, 0.04)))
+        graph = ("[1:v]format=rgba[c];[0:v][c]overlay=eof_action=pass[x];[2:v]format=rgba[t];"
+                 "[x][t]overlay=eof_action=pass,format=yuv420p[v]")  # fmt: skip
+        return _ffmpeg(folder, ["-i", "cut.mp4", *_listed(folder, "said", said),
+                                *_listed(folder, "over", over), "-filter_complex", graph,
+                                "-map", "[v]", "-map", "0:a?", "-c:a", "copy"])  # fmt: skip

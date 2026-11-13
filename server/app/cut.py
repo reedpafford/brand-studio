@@ -143,6 +143,30 @@ def _heard(db: Session, take: ClipTake | None) -> list[dict]:
     return _heard(db, take)[0] if take else []
 
 
+def _cards(db: Session, project: Project, tl: dict) -> None:
+    """The plan's time cards (a clip that opens after a jump in time): one "before" its clip
+    is a piece of its own, on black, ahead of the clip's first piece (trimmed like any piece,
+    so the cut's length and every word's time stay true); one "over" it is a title on the
+    clip's opening."""
+    from app import one_pass
+
+    plan = one_pass.shooting_plan(db, project) or {}
+    cards = {c["id"]: (c["card"].strip(), c.get("card_before"))
+             for c in plan.get("clips") or [] if (c.get("card") or "").strip()}  # fmt: skip
+    pieces, tl["titles"] = [], []
+    for p in tl["pieces"]:
+        words, before = cards.pop(p["clip_id"], ("", False))  # once, at the clip's first piece
+        if words and before:
+            pieces.append({**p, "id": f"{p['clip_id']}.card", "take_id": None, "source": "Card",
+                           "card": words, "start": 0.0, "end": cut_captions.CARD,
+                           "from": 0.0, "whole": True})  # fmt: skip
+        elif words:
+            tl["titles"].append({"piece": p["id"], "words": words})
+        pieces.append(p)
+    tl["pieces"] = pieces
+    _place(tl)
+
+
 def base(db: Session, project: Project) -> dict:
     """The cut as the picked takes make it, before any edit. An Omni talker's pieces are
     trimmed by numbers (talker_sound.keep, from each piece's own sound): a join keeps a short
@@ -198,6 +222,8 @@ def base(db: Session, project: Project) -> dict:
         **({"over": over} if over else {}),
         **({"speed": talker_sound.SPEED} if omni else {}),
     }
+    if mode == "takes" and not omni and not synced:
+        _cards(db, project, tl)
     if host.on(db, project) and not talker.on(db, project):  # a talker is in its clips
         look = host.host_look(db, project)
         sides = host.sides(db, project)

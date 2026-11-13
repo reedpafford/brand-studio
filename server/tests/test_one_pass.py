@@ -785,3 +785,38 @@ def test_a_movie_cut_is_captioned_with_the_scripts_words_until_switched_off(
     assert off.json()["timeline"]["captions"] is False and off.json()["changes"] == 1
     assert off.json()["edits"][-1]["said"] == "Captions off"
     assert not cut_captions.usual(SimpleNamespace(look="house"))
+
+
+def test_a_time_jump_is_a_card_in_the_cut_before_its_clip_or_over_its_opening(
+        app, owner, db, monkeypatch):  # fmt: skip
+    """Reed, 13 Nov (Movie Ad 1): "if there's a time jump, can we like show it? ... something
+    cinematic". The plan names the card; the cut draws it: on black as a piece of its own
+    before the clip (the cut grows by it), or over the clip's first seconds."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app import clip_prompts, cut, cut_render, guides
+    from app.one_pass_assemble import PLAN
+
+    monkeypatch.setitem(guides.style("movie"), "video_model", "seedance-2.5-kie")
+    video = db.get(Project, _delivered(app, owner, db, look="movie"))
+    was = db.query(FinalVideo).one().seconds
+    row = clip_prompts.newest(db, video)
+    row.data[PLAN]["clips"][1].update(card="Two days later", card_before=True)
+    row.data[PLAN]["clips"][2].update(card="That night", card_before=False)
+    flag_modified(row, "data")
+    db.commit()
+    tl, _ = cut.timeline(db, video)
+    assert [p["id"] for p in tl["pieces"]] == ["c1", "c2.card", "c2", "c3"]
+    card = tl["pieces"][1]
+    assert (card["take_id"], card["card"]) == (None, "Two days later")
+    assert round(card["end"] - card["start"], 2) == 2.6 == round(tl["length"] - was, 2)
+    assert tl["pieces"][2]["start"] == card["end"]
+    made = cut_render.recipe(db, video, tl)
+    assert made["titles"] == [{"start": tl["pieces"][3]["start"], "words": "That night"}]
+    assert all(c["start"] >= card["end"] for c in made["captions"][2:])  # the words moved with it
+    shown = owner.get(f"/projects/{video.id}/cut").json()["timeline"]["pieces"][1]
+    assert shown["card"] == "Two days later" and shown["file_id"] is None
+    assert owner.post(f"/projects/{video.id}/cut").status_code in (200, 201, 202)
+    _run(app, db, ticks=6, start=False)
+    cuts = db.query(FinalVideo).order_by(FinalVideo.number).all()
+    assert len(cuts) == 2 and abs(cuts[1].seconds - (was + 2.6)) < 0.2  # the card is in the file

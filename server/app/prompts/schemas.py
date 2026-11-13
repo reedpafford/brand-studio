@@ -791,7 +791,15 @@ class PlanClip(BaseModel):
         "its id ('footage:12'); this clip is that footage, not made. Else empty."
     )
     footage_at: float = Field(description="With `footage`: the second of it to start from. Else 0.")
-    _older = _older(kind="", footage="", footage_at=0)
+    card: str = Field(
+        description="Only when this clip opens after a jump in time: the card's words, as the "
+        "viewer reads them ('TWO DAYS LATER'). Else empty."
+    )
+    card_before: bool = Field(
+        description="With `card`: true puts it on black before the clip; false, over its "
+        "first seconds."
+    )
+    _older = _older(kind="", footage="", footage_at=0, card="", card_before=False)
 
 
 class ShootingPlan(BaseModel):

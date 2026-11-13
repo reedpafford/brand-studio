@@ -44,6 +44,7 @@ class PieceOut(BaseModel):
     edited: bool  # an edit touched it
     director: bool  # the director's edit touched it (its dot)
     changed: bool  # not as it is in the cut that plays (its outline)
+    card: str | None = None  # a time card on black, a piece with no take: its words
 
 
 class SpanOut(BaseModel):
@@ -299,7 +300,7 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
                                             "end", "edited", "director")},
                        file_id=_file(db, p["take_id"]), in_point=p["from"],
                        poster_file_id=cut.poster(db, p["take_id"]),
-                       changed=p["id"] in changed,
+                       changed=p["id"] in changed, card=p.get("card"),
                        said=" ".join(w["word"] for w in words
                                      if p["start"] <= (w["start"] + w["end"]) / 2 < p["end"]))
               for p in tl["pieces"]]  # fmt: skip

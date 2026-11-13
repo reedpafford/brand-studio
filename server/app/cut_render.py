@@ -115,9 +115,12 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
     music = tl["music"] if tl["music"] and not tl["music"]["removed"] else None
     out = {"mode": tl["mode"], "length": tl["length"],
            "pieces": [{"take_id": p["take_id"], "from": p["from"], "whole": p["whole"],
-                       "length": round(p["end"] - p["start"], 2)} for p in tl["pieces"]],
-           "sources": {str(t): _source(db, project, t)
-                       for t in dict.fromkeys(p["take_id"] for p in tl["pieces"])},
+                       "length": round(p["end"] - p["start"], 2), "card": p.get("card")}
+                      for p in tl["pieces"]],
+           "sources": {str(t): _source(db, project, t) for t in dict.fromkeys(
+               p["take_id"] for p in tl["pieces"] if not p.get("card"))},
+           "titles": [{"start": p["start"], "words": t["words"]} for t in tl.get("titles") or []
+                      for p in tl["pieces"] if p["id"] == t["piece"]],
            "voice": _key(db, voice.file_id) if voice else None,
            "last_word": tl.get("last_word") or 0.0, "aspect": _reshaped(db, project, tl),
            "music": {**{k: music[k] for k in ("quieter_db", "gaps", "loop")},
@@ -170,7 +173,10 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
         laid = laid or over
         progress(round(60 * n / len(r["sources"])))
     pieces = r["pieces"]
-    videos = [made[str(p["take_id"])] for p in pieces]
+    cards = any(p.get("card") for p in pieces)  # each on black, the size of the cut's takes
+    videos = [cut_captions.card_clip(p["card"], next(iter(made.values())), p["length"])
+              if p.get("card") else made[str(p["take_id"])] for p in pieces]  # fmt: skip
+    laid = laid or cards
     shape = r.get("aspect")  # the video's own shape: a take made in another is cropped to it
     if r["mode"] == "takes" and all(p["whole"] and not p["from"] for p in pieces):
         # As made: copied when every take is the same format, else joined with each take's
@@ -206,7 +212,7 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     if r["host"]:
         hosts = [storage.get(k) for k in r["host"]["keys"]]
         data = host_layer.lay_over(data, hosts, r["host"]["spans"])
-    data = cut_captions.burn(data, r.get("captions") or [])
+    data = cut_captions.burn(data, r.get("captions") or [], tuple(r.get("titles") or ()))
     # every kind of cut, as loud as social video plays (E2E 233: -25 LUFS); an Omni talker's
     # by one fixed gain, never loudnorm's dynamic mode, with its room and its speed
     data = talker_sound.finish(data) if r.get("steady") else loud(data)
