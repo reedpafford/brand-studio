@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Archive, Clapperboard, Ellipsis, Folder, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Archive, Clapperboard, Ellipsis, Folder, FolderPlus, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { folderWrites } from "../folders/FolderActions";
 import { GONE, UNSORTED, flatten, pathTo, useIdeas, useRefreshIdeas, useTree, type Branch, type Idea } from "../folders/ideas";
@@ -10,7 +10,7 @@ import { useBrands } from "../shell/useBrands";
 import { serverTime } from "../time";
 import { useToast } from "../toast";
 import { Dialog } from "./Dialog";
-import { Popover } from "./Popover";
+import { Choice, Popover } from "./Popover";
 import { NewFolder } from "./RailFolders";
 import { MAKING } from "./StudioShell";
 import { VideoCard } from "./VideoCard";
@@ -42,17 +42,20 @@ function byDate(list: Idea[]): [string, Idea[]][] {
 /** By look: every Movie video together, every Pixar video together, the look used most recently first. */
 const byLook = (list: Idea[]) => [...new Set(list.map((i) => i.style))].map((style): [string, Idea[]] => [style, list.filter((i) => i.style === style)]);
 
-/** Rename this folder: one field. The server's own words show if it refuses (a name already taken). */
-function RenameFolder({ folder, onClose }: { folder: Branch; onClose: () => void }) {
-  const [name, setName] = useState(folder.name);
+/** A folder's name, asked in one field: a new name for it, or the name of a new folder inside it. The server's own
+ *  words show if it refuses (a name already taken). */
+function FolderName({ folder, inside, onClose }: { folder: Branch; inside?: boolean; onClose: () => void }) {
+  const [name, setName] = useState(inside ? "" : folder.name);
   const refresh = useRefreshIdeas();
-  const rename = useMutation({ mutationFn: () => folderWrites.rename(folder.id!, name), onSuccess: () => refresh().then(onClose) });
+  const brandId = Number(useParams().brandId);
+  const send = useMutation({ mutationFn: () => (inside ? folderWrites.make(brandId, name, folder.id!) : folderWrites.rename(folder.id!, name)), onSuccess: () => refresh().then(onClose) });
+  const same = !name.trim() || (!inside && name.trim() === folder.name);
   return (
-    <Dialog title="Rename this folder" confirm="Rename" busy={rename.isPending} onClose={onClose} onConfirm={() => (name.trim() && name.trim() !== folder.name ? rename.mutate() : onClose())}>
-      <input data-autofocus aria-label="Name" value={name} maxLength={120} onChange={(e) => (setName(e.target.value), rename.reset())} />
-      {rename.error && (
+    <Dialog title={inside ? `New folder in ${folder.name}` : "Rename this folder"} confirm={inside ? "Make folder" : "Rename"} busy={send.isPending} onClose={onClose} onConfirm={() => (same ? onClose() : send.mutate())}>
+      <input data-autofocus aria-label="Name" placeholder={inside ? "Folder name" : undefined} value={name} maxLength={120} onChange={(e) => (setName(e.target.value), send.reset())} />
+      {send.error && (
         <p className="dsub" role="alert">
-          {rename.error.message}
+          {send.error.message}
         </p>
       )}
     </Dialog>
@@ -68,7 +71,7 @@ export function Videos() {
 /** The brand's videos as poster cards, or one folder's (?folder=, picked in the rail; on a phone, in the row of pills).
  *  Shown All, Being made or Delivered, with Archived behind one quiet press; searched by title; grouped by date or by
  *  look. The whole list is read, a page after a page through the current site's own hook, because the groups are made
- *  from all of it. A folder's "…" renames or deletes it. Nothing is sent until something is pressed or dropped. */
+ *  from all of it. A folder's "…" renames it, makes a folder inside it, moves it into another, or deletes it. Nothing is sent until something is pressed or dropped. */
 function Page({ brandId }: { brandId: number }) {
   const base = `/s/b/${brandId}`;
   const brand = useBrands().data?.find((b) => b.id === brandId);
@@ -110,7 +113,19 @@ function Page({ brandId }: { brandId: number }) {
   const toast = useToast();
   const refresh = useRefreshIdeas();
   const video = useVideoActions(undefined, refresh);
-  const [renaming, setRenaming] = useState(false);
+  const [naming, setNaming] = useState<"" | "rename" | "inside">("");
+  // A folder moved into another, or back to the top; never into itself or a folder inside it. Undo puts it back.
+  const moveFolder = useMutation({
+    mutationFn: async ({ b, to }: { b: Branch; to: number | null }) => ((await folderWrites.move(b.id!, to), { b, to, was: b.parent_id ?? null })),
+    onSuccess: async ({ b, to, was }) => {
+      await refresh();
+      toast(`“${b.name}” is ${to === null ? "at the top now" : `in “${flatten(tree?.folders ?? []).find((f) => f.id === to)?.name}” now`}.`, async () => {
+        await folderWrites.move(b.id!, was).catch((e: Error) => toast(e.message, undefined, "error"));
+        await refresh();
+      });
+    },
+    onError: (e: Error) => toast(e.message, undefined, "error"),
+  });
   const [adding, setAdding] = useState(false);
   const remove = useMutation({
     mutationFn: async (b: Branch) => ({ ...(await folderWrites.remove(b.id!)).data!, b }),
@@ -152,16 +167,25 @@ function Page({ brandId }: { brandId: number }) {
               <Popover
                 label={`More for ${open.name}`}
                 button={(b) => (
-                  <button type="button" className="btn ghost square" aria-label="More for this folder" title="Rename or delete" {...b}>
+                  <button type="button" className="btn ghost square" aria-label="More for this folder" title="Rename, add a folder inside, move or delete" {...b}>
                     <Ellipsis {...ICON} />
                   </button>
                 )}
               >
                 {(close) => (
                   <>
-                    <button type="button" role="menuitem" onClick={() => (close(), setRenaming(true))}>
+                    <button type="button" role="menuitem" onClick={() => (close(), setNaming("rename"))}>
                       <Pencil {...ICON} /> Rename…
                     </button>
+                    <button type="button" role="menuitem" onClick={() => (close(), setNaming("inside"))}>
+                      <FolderPlus {...ICON} /> New folder inside…
+                    </button>
+                    <h6>Move to</h6>
+                    {[{ id: null as number | null, name: "The top", depth: 0 }, ...flatten(tree?.folders ?? []).filter((f) => !flatten([open]).some((x) => x.id === f.id))].map((f) => (
+                      <Choice key={f.id ?? "top"} checked={f.id === (open.parent_id ?? null)} disabled={moveFolder.isPending} onPick={() => (close(), f.id !== (open.parent_id ?? null) && moveFolder.mutate({ b: open, to: f.id }))}>
+                        <span style={{ paddingLeft: f.depth * 12 }}>{f.name}</span>
+                      </Choice>
+                    ))}
                     <button type="button" role="menuitem" disabled={remove.isPending} onClick={() => (close(), remove.mutate(open))}>
                       <Trash2 {...ICON} />
                       <span className="ol">
@@ -320,7 +344,7 @@ function Page({ brandId }: { brandId: number }) {
           )}
         </div>
       </div>
-      {renaming && open && <RenameFolder folder={open} onClose={() => setRenaming(false)} />}
+      {naming && open && <FolderName folder={open} inside={naming === "inside"} onClose={() => setNaming("")} />}
       <ArchiveAsk asking={video.asking} />
     </>
   );
