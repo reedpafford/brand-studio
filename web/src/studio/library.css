@@ -1,0 +1,151 @@
+/* The Library in the new look (Library*.tsx; the redesign, stage 5). Every rule sits under .studio, beside studio.css
+   and video.css (whose empty box, rows of ways and dialog parts it uses). A picture is always shown whole: sheets,
+   photos and clips come in more than one shape, so nothing here crops one. Type: 12 (meta), 13 (secondary), 14. */
+.studio {
+  .lhead h1 + .seg { margin-left: 6px; }
+  .lib { max-width: 1480px; }
+  .lib h3 { font: 600 14px/20px var(--ui); margin-bottom: 8px; }
+  .lib h3 small { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--ink-3); }
+  .lib .hold p { max-width: 40ch; }
+  .lib .hold .offers { justify-content: center; }
+  .hint { margin-top: 8px; font-size: 12px; line-height: 18px; color: var(--ink-3); }
+  .hint.bad { color: var(--bad); }
+  .also { max-width: 60ch; margin-top: 20px; }
+  .also + .also { margin-top: 4px; }
+  .also a, .advice button { color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+  .also a:hover, .advice button:hover { color: var(--ink); }
+  .line { font-size: 13px; line-height: 20px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .line em { font-style: normal; color: var(--ink-3); }
+
+  /* Product: the product on the left, the clips of it on the right. */
+  .products { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .pill[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-hi); }
+  .pboard { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 40px; align-items: start; }
+  .hero { position: relative; display: grid; place-items: center; aspect-ratio: 3 / 4; border-radius: var(--r-l); background: var(--raised); overflow: hidden; font-size: 13px; color: var(--ink-3); }
+  .hero img, .ac img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .thumbs button { width: 44px; height: 58px; border-radius: var(--r-xs); background: var(--raised); overflow: hidden; }
+  .thumbs img { width: 100%; height: 100%; object-fit: contain; }
+  .thumbs [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+  .phero h2, .pname h2 { font: 600 16px/24px var(--ui); }
+  .phero h2 { margin: 16px 0 2px; }
+  .phero > .btn { margin-top: 12px; font-size: 13px; }
+  .phero > .btn.ghost { margin-left: -12px; }
+  .how { margin-top: 24px; }
+  .how .words { margin-bottom: 12px; font-size: 13px; line-height: 20px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .how textarea { display: block; width: 100%; min-height: 140px; padding: 10px 12px; border-radius: var(--r-s); background: var(--raised); outline: 0; resize: vertical; field-sizing: content; font-size: 13px; line-height: 20px; }
+  .how textarea:focus, .dlg :is(textarea, select):focus { box-shadow: 0 0 0 2px var(--accent) inset; }
+  .how .btn { font-size: 13px; }
+  .how .offers { margin-top: 10px; }
+  .pacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 28px 40px; }
+  .clips4 { display: grid; grid-template-columns: repeat(4, minmax(0, 148px)); gap: 10px; }
+  .ac { position: relative; aspect-ratio: 9 / 16; border-radius: var(--r-m); background: var(--raised); overflow: hidden; }
+  .ac img { transition: filter var(--fast); }
+  .ac:hover img { filter: brightness(1.1); }
+  .ac .len { position: absolute; right: 6px; bottom: 6px; padding: 0 6px; border-radius: var(--r-xs); background: rgb(0 0 0 / 0.62); font: 500 11px/18px var(--ui); color: var(--ink); }
+
+  /* Cast: everyone saved, each sheet whole at one height, then the picked one's panel. */
+  .shelf { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; align-items: start; }
+  .people { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px 12px; margin: -4px; padding: 4px; }
+  .face { display: grid; grid-template-columns: min-content; }
+  .face .im { display: block; height: 132px; min-width: 74px; border-radius: var(--r-m); background: var(--raised); overflow: hidden; }
+  .face img { display: block; width: auto; max-width: none; height: 100%; transition: filter var(--fast); }
+  .face:hover img { filter: brightness(1.1); }
+  .face small { display: grid; place-items: center; width: 99px; height: 100%; padding: 8px; font-size: 12px; line-height: 16px; color: var(--ink-3); text-align: center; }
+  .face b { display: block; margin-top: 8px; font-size: 13px; line-height: 18px; font-weight: 500; }
+  .face[aria-pressed="true"] .im { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
+  .person { position: sticky; top: 0; min-width: 0; }
+  .psheet { display: grid; place-items: center; min-height: 180px; border-radius: var(--r-l); background: var(--raised); overflow: hidden; font-size: 13px; color: var(--ink-3); }
+  .psheet img { display: block; width: auto; max-width: 100%; height: auto; max-height: min(52vh, 520px); }
+  .pname { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 12px; margin: 16px 0 2px; }
+  .pname .st { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+  .person .advice button { margin-left: 2px; }
+  .facts { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 12px; margin-top: 16px; font-size: 13px; line-height: 28px; }
+  .facts dt { color: var(--ink-3); }
+  .facts dd { min-width: 0; color: var(--ink-2); }
+  .facts a { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink); }
+  .facts a:hover .clip { text-decoration: underline; }
+  .facts small { flex: none; font-size: 12px; color: var(--ink-3); }
+  .voice { display: flex; align-items: center; gap: 8px; }
+  .voice .btn { height: 28px; padding: 0 8px; font-size: 13px; flex: none; }
+  .voice .btn.square { width: 28px; padding: 0; }
+  .voice .clip { flex: 1; }
+  .person .offers { margin-top: 16px; }
+
+  /* Footage and Voices: rows, capped so a name and its number stay close. */
+  .rows { max-width: 880px; margin: 0 auto; }
+  .rows h3 { margin-top: 28px; }
+  .rows > h3:first-child { margin-top: 0; }
+  .rows > .btn { margin-top: 4px; font-size: 13px; }
+  .rowline { display: grid; grid-template-columns: var(--ctl) 200px minmax(0, 1fr) 200px; align-items: center; gap: 14px; min-height: 56px; padding: 8px 12px 8px 8px; border-radius: var(--r-m); font-size: 13px; color: var(--ink-2); transition: background var(--fast); }
+  .rowline:hover, .frow:hover { background: var(--raised); }
+  .rowline b, .rl b { font-size: 14px; font-weight: 500; color: var(--ink); }
+  .rowline .r, .rl .r { font-size: 12px; color: var(--ink-3); }
+  .rowline .r { text-align: right; }
+  .rl .r { white-space: nowrap; }
+  .rowline em { display: block; font-style: normal; color: var(--wait); }
+  .rowline em.bad { color: var(--bad); }
+  .frow { display: flex; align-items: center; gap: 4px; padding-right: 8px; border-radius: var(--r-m); transition: background var(--fast); }
+  .rl { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; min-height: 48px; }
+  .rl svg { color: var(--ink-3); }
+  .rl .r { margin-left: auto; }
+  .fstrip { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 88px)); gap: 8px; padding: 4px 0 12px; }
+  .fstrip .ac { border-radius: var(--r-s); }
+  .fstrip .btn { grid-column: 1 / -1; justify-self: start; font-size: 13px; }
+  .inside .hint { margin: 0 0 12px; }
+  .drop { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 24px; padding: 8px 8px 8px 16px; border: 1px dashed var(--line-2); border-radius: var(--r-m); font-size: 13px; color: var(--ink-3); }
+  .drop span { flex: 1; min-width: 180px; }
+  .drop .btn { font-size: 13px; }
+
+  /* What a dialog here adds to the studio's: labelled fields, a file to choose, and a clip opened larger. */
+  .dlab { display: block; margin-top: 12px; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .dlg > .dlab:first-of-type { margin-top: 0; }
+  .dlab :is(input, textarea, select) { margin-top: 6px; font-size: 14px; color: var(--ink); }
+  .dlg :is(textarea, select) { display: block; width: 100%; padding: 8px 12px; border-radius: var(--r-s); background: var(--raised-2); outline: 0; resize: none; line-height: 22px; }
+  .dlg select { height: 38px; padding: 0 12px; }
+  .dlg textarea::placeholder { color: var(--ink-3); }
+  .dlg input:disabled { opacity: 0.5; }
+  .dlg .dsub + .dsub, .dlg .dsub.bad { margin-top: 10px; }
+  .way.filerow { width: calc(100% + 24px); margin: 12px -12px 0; }
+  .filerow span { min-width: 0; }
+  .dlg:has(.lb) { width: min(560px, calc(100vw - 32px)); }
+  .dlg:has(.lb) .dlg-f .ghost { display: none; } /* a clip opened larger has one way out: Close */
+  .lb { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .lb video { width: 100%; aspect-ratio: 9 / 16; border-radius: var(--r-m); background: #000; object-fit: contain; }
+  .lb .btn { margin-top: 14px; font-size: 13px; }
+}
+
+@media (max-width: 1180px) {
+  .studio {
+    .pboard { grid-template-columns: 240px minmax(0, 1fr); gap: 28px; }
+    .pacts { grid-template-columns: minmax(0, 1fr); }
+    .shelf { grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; }
+  }
+}
+
+/* A phone: one column, the tabs under the title, every press 44 px. */
+@media (max-width: 900px) {
+  .studio {
+    .head.lhead { flex-wrap: wrap; row-gap: 0; padding: 8px var(--gut) 0; }
+    .lhead h1 { flex: 1; }
+    .lhead .seg { order: 9; flex: 1 0 100%; margin: 8px 0; }
+    .lhead .seg button { flex: 1; padding: 0; text-align: center; }
+    .pboard, .shelf { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+    .person { position: static; }
+    .hero { aspect-ratio: 4 / 3; }
+    .thumbs button { width: 44px; height: 44px; }
+    .clips4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .face .im { height: 96px; }
+    .voice .btn { height: 44px; }
+    .voice .btn.square { width: 44px; }
+    .facts { line-height: 44px; }
+    .rowline { grid-template-columns: var(--ctl) minmax(0, 1fr); row-gap: 2px; }
+    .rowline > span { grid-column: 2; }
+    .rowline .r { text-align: left; }
+    .rowline > :first-child { grid-row: span 3; align-self: start; }
+    .lb { grid-template-columns: 110px minmax(0, 1fr); gap: 14px; }
+    .drop { padding: 0; border: 0; }
+    .drop > :is(svg, span) { display: none; } /* nothing is dragged on a phone: Add footage is the way */
+    .how textarea, .dlg :is(textarea, select) { font-size: 16px; }
+  }
+}
