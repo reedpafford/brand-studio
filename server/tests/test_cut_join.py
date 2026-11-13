@@ -11,15 +11,16 @@ from app import cut_render
 
 
 def _take(color: str, size: str = "480x854", rate: int | None = 44100, tone: int = 440,
-          late: float = 0) -> bytes:  # fmt: skip
+          late: float = 0, clock: int = 12288) -> bytes:  # fmt: skip
     """A 1-second MP4: a coloured picture, and a tone at `rate` Hz (None: no audio track),
-    its track starting `late` seconds in."""
+    its track starting `late` seconds in; its video timed in 1/`clock` s."""
     tone_in = f"sine=frequency={tone}:sample_rate={rate}"
     offset = ["-itsoffset", str(late)] if late else []
     sound = [] if rate is None else [*offset, "-f", "lavfi", "-i", tone_in]
     args = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"color=c={color}:s={size}:d=1:r=24",
             *sound, "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            *([] if rate is None else ["-c:a", "aac"]), "t.mp4"]  # fmt: skip
+            *([] if rate is None else ["-c:a", "aac"]), "-video_track_timescale", str(clock),
+            "t.mp4"]  # fmt: skip
     with tempfile.TemporaryDirectory() as tmp:  # a file, not a pipe: its late start is kept
         subprocess.run(args, cwd=tmp, capture_output=True, check=True)  # noqa: S603
         return (Path(tmp) / "t.mp4").read_bytes()
@@ -62,6 +63,8 @@ def test_takes_of_one_format_are_copied_and_differing_ones_never_are():
     assert cut_render.stitch([_take("red", rate=None), _take("blue")]) is None
     assert cut_render.stitch([_take("red"), _take("blue", size="720x1280")]) is None
     assert cut_render.stitch([_take("red"), _take("blue", rate=48000)]) is None
+    clocks = [_take("red"), _take("blue", clock=90000)]  # video 406: copied, it ran 7 times slow
+    assert cut_render.stitch(clocks) is None and 1.9 < _facts(_cut(*clocks))["video_s"] < 2.2
 
 
 def test_a_silent_first_take_never_takes_the_next_takes_sound_away():

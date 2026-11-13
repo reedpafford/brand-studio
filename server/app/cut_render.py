@@ -316,7 +316,9 @@ def seconds(data: bytes) -> float:
         return _length(Path(tmp), "f")
 
 
-VIDEO = "codec_name,width,height,r_frame_rate,pix_fmt"
+# time_base: a copy reads every clip on the first one's clock (video 406: KIE's takes came at
+# 1/12288 and 1/90000, so the second played seven times slow)
+VIDEO = "codec_name,width,height,r_frame_rate,pix_fmt,time_base"
 AUDIO = "codec_name,sample_rate,channels"
 
 
