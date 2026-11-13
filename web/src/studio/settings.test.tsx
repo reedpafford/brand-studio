@@ -133,7 +133,8 @@ test("a language's switch sends on or off; English has no switch", async () => {
 test("Use the current site turns the new look off on this computer and leaves; what Settings leaves out links to the current site", async () => {
   server();
   renderApp("/s/settings");
-  for (const [name, to] of [["credit limits", "/settings?tab=limits"], ["the team", "/team"], ["a look’s sample", "/settings?tab=looks"], ["a language’s test script", "/settings?tab=languages"]]) expect(await screen.findByRole("link", { name })).toHaveAttribute("href", to);
+  for (const [name, to] of [["a look’s sample", "/settings?tab=looks"], ["a language’s test script", "/settings?tab=languages"]]) expect(await screen.findByRole("link", { name })).toHaveAttribute("href", to);
+  expect(screen.queryByRole("link", { name: /team|limits/ })).toBeNull(); // hidden for now (Reed, 13 Nov); the pages are still at their addresses
   await userEvent.click(screen.getByRole("button", { name: "Use the current site" }));
   expect(localStorage.getItem("bs.ui")).toBe("old");
   expect(await screen.findByRole("button", { name: "Account menu" })).toBeInTheDocument(); // the current site's rail

@@ -121,10 +121,52 @@ export function usePickVoice(itemId: number) {
   });
 }
 
+/** A product's own picture list (`image_file_ids`), which the director uses instead of the brand's pictures whenever it
+ *  holds any: kept in step with the photos shown, so a photo added is given to the director and one removed is not. */
+const setOwnPictures = async (item: Item, ids: number[]) => {
+  const { error, response } = await api.PATCH("/library/{kind}/{item_id}", { params: { path: { kind: "prop", item_id: item.id } }, body: { image_file_ids: ids } });
+  if (!response.ok) throw new Error(errorText(error));
+};
+
 /** Add a real photo to a product (free): it is shown as it is whenever a shot shows the product. */
 export function useAddPicture(brandId: number, item: Item) {
   const refresh = useRefresh("prop");
-  return useMutation({ mutationFn: (file: File) => addPicture(brandId, item, file), onSuccess: refresh });
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const id = await addPicture(brandId, item, file);
+      if (item.image_file_ids?.length) await setOwnPictures(item, [...item.image_file_ids, id]);
+    },
+    onSettled: refresh,
+  });
+}
+
+/** Remove one of a product's photos (free): the director is no longer given it (new videos, and new takes of
+ *  existing ones), and Undo in the toast brings it back. Takes already made keep the picture they were made with. */
+export function useRemovePicture(brandId: number, item: Item) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ["screens", brandId] }), queryClient.invalidateQueries({ queryKey: ["library", "prop"] })]);
+  const at = (id: number) => ({ params: { path: { brand_id: brandId, screen_id: id } } });
+  const own = item.image_file_ids ?? [];
+  return useMutation({
+    mutationFn: async (p: { screen_id: number; file_id: number }) => {
+      if (own.includes(p.file_id)) await setOwnPictures(item, own.filter((f) => f !== p.file_id)); // first: were the next step refused, the photo is still the brand's
+      const { error, response } = await api.DELETE("/brands/{brand_id}/screens/{screen_id}", at(p.screen_id));
+      if (!response.ok) throw new Error(errorText(error));
+    },
+    onSettled: refresh,
+    onSuccess: (_gone, p) =>
+      toast("Photo removed. The director won’t be given it again; clips already made keep it.", async () => {
+        try {
+          const { error, response } = await api.POST("/brands/{brand_id}/screens/{screen_id}/restore", at(p.screen_id));
+          if (!response.ok) throw new Error(errorText(error));
+          if (own.includes(p.file_id)) await setOwnPictures(item, own);
+        } catch (e) {
+          toast((e as Error).message, undefined, "error");
+        }
+        await refresh();
+      }),
+  });
 }
 
 /** "order-tracking.png" reads "Order tracking". */

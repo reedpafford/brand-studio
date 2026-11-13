@@ -180,6 +180,26 @@ test("a folder's menu renames it", async () => {
   expect(sent(calls)).toEqual([["PATCH /folders/4", { name: "Target" }]]);
 });
 
+test("a folder's menu makes a folder inside it", async () => {
+  const calls = await open("?folder=4", { "POST /brands/1/folders": [201, { id: 9, name: "Hooks" }] });
+  await userEvent.click(main().getByRole("button", { name: "More for this folder" }));
+  await item("New folder inside…");
+  await userEvent.type(within(screen.getByRole("dialog", { name: "New folder in Target ads" })).getByRole("textbox", { name: "Name" }), "Hooks{Enter}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(sent(calls)).toEqual([["POST /brands/1/folders", { name: "Hooks", parent_id: 4 }]]);
+});
+
+test("a folder's menu moves it into another folder, never into itself, and Undo puts it back", async () => {
+  const calls = await open("?folder=4", { "PATCH /folders/4": [200, {}] });
+  await userEvent.click(main().getByRole("button", { name: "More for this folder" }));
+  expect(screen.getAllByRole("menuitemradio").map((c) => c.textContent)).toEqual(["The top", "Winter"]);
+  expect(screen.getByRole("menuitemradio", { name: "The top" })).toHaveAttribute("aria-checked", "true");
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "Winter" }));
+  expect(await screen.findByText("“Target ads” is in “Winter” now.")).toBeInTheDocument();
+  await undo();
+  await waitFor(() => expect(sent(calls)).toEqual([["PATCH /folders/4", { parent_id: 7 }], ["PATCH /folders/4", { parent_id: null }]]));
+});
+
 test("a folder's menu deletes it: its videos go to Unsorted, the page goes back to every video, and Undo restores it", async () => {
   const calls = await open("?folder=4", { "DELETE /folders/4": [200, { moved: 2, ideas: 2 }], "POST /folders/4/restore": [200, {}] });
   await userEvent.click(main().getByRole("button", { name: "More for this folder" }));
