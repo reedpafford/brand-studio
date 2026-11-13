@@ -631,7 +631,12 @@ def test_a_cut_that_is_refused_stops_saying_why(app, owner, db, monkeypatch):
     assert out["ended"] == one_pass.CUT_FAILED.format("Clip 2 has no take to cut with")
 
 
-def test_a_take_the_service_refuses_stops_the_run_naming_its_clip(app, owner, db, monkeypatch):
+def test_a_clip_the_service_keeps_refusing_is_left_out_of_the_cut_and_listed_at_delivery(
+        app, owner, db, monkeypatch):  # fmt: skip
+    """Reed, 13 Nov: "MINIMAL dead ends. Ideally 0." One clip the service will not make used
+    to end the run with nothing delivered. The others are the video: the cut is made without
+    it, delivery says so and why, and it is back in the cut the day it has a take."""
+    from app import cut
     from app.providers import Result
     from app.providers.fake_local import FakeMedia
     from tests.test_clip_takes import E006
@@ -646,8 +651,17 @@ def test_a_take_the_service_refuses_stops_the_run_naming_its_clip(app, owner, db
     monkeypatch.setattr(FakeMedia, "poll", poll)
     owner.post("/freestyles", json=BODY)
     _run(app, db)
-    ended = owner.get(f"/projects/{_video(db).id}/director").json()["ended"]
-    assert ended.startswith("It stopped: This same prompt for clip 2 was blocked by the service")
+    video = _video(db)
+    said = owner.get(f"/projects/{video.id}/director").json()
+    assert said["status"] == "delivered" and said["ended"] == "The cut is made and watched."
+    office = db.query(ProjectClip).filter_by(clip_id="c2").one()
+    assert office.left_out.startswith("This same prompt for clip 2 was blocked by the service")
+    assert [p["clip_id"] for p in cut.timeline(db, video)[0]["pieces"]] == ["c1", "c3"]
+    note = _jobs(db, "director")[-1].output["note"]
+    assert note["open"][0].startswith("Clip 2 couldn't be made, so the cut is without it: This")
+    cut_made = db.query(FinalVideo).one()
+    assert None not in cut_made.take_ids and len(cut_made.take_ids) == 2
+    assert not owner.get(f"/projects/{video.id}/cut").json()["out_of_date"]
 
 
 def test_two_people_who_share_every_clip_are_never_taken_for_one(app, owner, db):

@@ -101,7 +101,10 @@ def open_items(db: Session, project: Project, spans: list[dict], asked: str = ""
     from app.models.jobs import JobStatus
     from app.watch_cut import state
 
-    out = []
+    out = [f"Clip {r.clip_id.removeprefix('c')} couldn't be made, so the cut is without it: "
+           f"{r.left_out}" for r in db.scalars(select(ProjectClip).where(
+               ProjectClip.project_id == project.id, ProjectClip.left_out.is_not(None),
+               ProjectClip.picked_take_id.is_(None)).order_by(ProjectClip.id))]  # fmt: skip
     watch = state(db, project)
     if not (watch.get("state") == "done" and watch.get("current")):
         failed = watch.get("state") == "failed" and watch.get("current")

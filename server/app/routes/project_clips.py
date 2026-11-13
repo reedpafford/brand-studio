@@ -34,6 +34,7 @@ from app import (
 )
 from app.advice import Said, SaidText
 from app.auth import current_user
+from app.cut import in_cut
 from app.db import get_db
 from app.item_checks import CheckOut
 from app.models.accounts import User
@@ -193,6 +194,7 @@ class ProjectClipOut(BaseModel):
     inserts: list[InsertOut]
     change: dict | None  # the last Change it note, as on a frame (app/change.py)
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
+    left_out: str | None = None  # the director couldn't make it: why; the cut is without it
     take_warning: str | None = None  # said before the next take: its last two were refused
     retrying: Literal["refused", "busy"] | None = None  # P3: why its take is being tried again
     retried: Literal["refused", "busy"] | None = None  # P3: its newest take was the retry
@@ -992,10 +994,10 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
         if any(not c.picked_take_id or (video is None and not c.approved) or moved
                or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
                or looks.take_other(db, p, c) or video_settings.take_stale(db, p, c)
-               for c in rows):  # fmt: skip
+               for c in rows if in_cut(c)):  # fmt: skip
             old.add(p.id)
         elif video and (
-            video.take_ids != [c.picked_take_id for c in rows]
+            video.take_ids != [c.picked_take_id for c in rows if in_cut(c)]
             or (video.edit_ids or []) != edits.get(p.id, [])
             or (video.cut_ins or []) != _cut_ins(db, p, rows)
         ):
@@ -1015,7 +1017,7 @@ def _edits(db: Session, ids: list[int]) -> dict[int, list[int]]:
 
 
 def _video_out(db: Session, video: FinalVideo) -> VideoOut:
-    clips = _clips(db, video.project_id)
+    clips = [c for c in _clips(db, video.project_id) if in_cut(c)]
     current = [c.picked_take_id for c in clips]
     cuts = _cut_ins(db, db.get(Project, video.project_id), clips)
     old = video.take_ids != current or (video.cut_ins or []) != cuts
