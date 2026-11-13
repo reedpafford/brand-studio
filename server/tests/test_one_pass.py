@@ -764,3 +764,24 @@ def test_a_voice_that_cannot_be_cut_never_stops_the_run(app, owner, db, monkeypa
              for n, w in enumerate(["We", "were", "not", "ready."])]  # fmt: skip
     assert voice_carry._span(line, heard) == (2.0, 4.15)
     assert voice_carry._span(line, heard[:2]) is None
+
+
+def test_a_movie_cut_is_captioned_with_the_scripts_words_until_switched_off(
+        app, owner, db, monkeypatch):  # fmt: skip
+    """Reed, 13 Nov (Movie Ad 1): captions, small, the word being said in yellow. A Movie
+    video's cut has them from the first; one edit takes them off; other styles are as before."""
+    from types import SimpleNamespace
+
+    from app import cut, cut_captions, cut_render, guides
+
+    monkeypatch.setitem(guides.style("movie"), "video_model", "seedance-2.5-kie")
+    video = db.get(Project, _delivered(app, owner, db, look="movie", text=BAR))
+    tl, _ = cut.timeline(db, video)
+    said = [" ".join(c["words"]) for c in cut_render.recipe(db, video, tl)["captions"]]
+    assert said == ["You came.", "I said I would.", "Nobody asked me."]  # as the script has them
+    assert db.query(FinalVideo).one().timeline["captions"] is True
+    off = owner.post(f"/projects/{video.id}/cut/edits", json={"kind": "captions", "on": False})
+    assert off.status_code == 201, off.text
+    assert off.json()["timeline"]["captions"] is False and off.json()["changes"] == 1
+    assert off.json()["edits"][-1]["said"] == "Captions off"
+    assert not cut_captions.usual(SimpleNamespace(look="house"))
