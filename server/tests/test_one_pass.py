@@ -837,3 +837,8 @@ def test_a_time_jump_is_a_card_in_the_cut_before_its_clip_or_over_its_opening(
     _run(app, db, ticks=6, start=False)
     cuts = db.query(FinalVideo).order_by(FinalVideo.number).all()
     assert len(cuts) == 2 and abs(cuts[1].seconds - (was + 2.6)) < 0.2  # the card is in the file
+    off = owner.post(f"/projects/{video.id}/cut/edits", json={"kind": "cards", "on": False})
+    plain = off.json()["timeline"]  # switched off: no card piece, no title, the cut as short
+    assert off.json()["edits"][-1]["said"] == "Time cards off" and plain["cards"] is False
+    assert [p["id"] for p in plain["pieces"]] == ["c1", "c2", "c3"] and plain["length"] == was
+    assert cut_render.recipe(db, video, cut.timeline(db, video)[0])["titles"] == []

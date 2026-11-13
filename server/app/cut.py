@@ -48,7 +48,7 @@ HOLD = 3.0  # seconds a narrated cut may run past its last word
 ON_START = 0.2  # seconds: B-roll this near a piece's start starts with it
 SIZES = {"small": 0.30, "medium": host_layer.HEIGHT, "large": 0.46}
 QUIETER, LOUDEST = 18.0, 30.0  # dB the music sits under the voice: default ("A lot"), most
-KINDS = ("trim", "retime", "split", "swap", "presenter", "music", "captions")
+KINDS = ("trim", "retime", "split", "swap", "presenter", "music", "captions", "cards")
 AFTER_LAST_LINE = 1.0  # seconds of song after the last sung line before the end
 NO_PIECE = "There's no {} in the cut."
 NO_HOST = "This video has no presenter."
@@ -217,6 +217,7 @@ def base(db: Session, project: Project) -> dict:
         "voice": None,
         "music": None,
         "captions": mode == "takes" and cut_captions.usual(project),
+        "cards": True,  # the plan's time cards are in the cut until switched off
         "words": [],
         "seconds": float(voice.seconds or 0) if voice else None,
         **({"over": over} if over else {}),
@@ -374,8 +375,8 @@ def _one(tl: dict, e: CutEdit) -> None:
         tl["presenter"]["spans"] = _spanned(tl["presenter"]["spans"], d["start"], d["end"],
                                             {**what, **mark})  # fmt: skip
         return
-    if e.kind == "captions":
-        tl["captions"] = bool(d["on"])
+    if e.kind in ("captions", "cards"):
+        tl[e.kind] = bool(d["on"])
         return
     if tl["mode"] == "song" or (not tl["music"] and "file_id" not in d):
         raise Refused(NO_MUSIC)  # a song's sound is its song; a story's bed is laid first
@@ -418,6 +419,9 @@ def _spanned(spans: list[dict], a: float, b: float, what: dict) -> list[dict]:
 
 def timeline(db: Session, project: Project) -> tuple[dict, set[int]]:
     tl, lost = replay(base(db, project), active(db, project))
+    if not tl["cards"]:  # switched off: no card is a piece, no title is drawn
+        tl["pieces"], tl["titles"] = [p for p in tl["pieces"] if not p.get("card")], []
+        _place(tl)
     tl["words"] = _cut_words(db, tl)
     if tl["mode"] == "takes":  # a bed under a dialogue cut dips under its lines
         tl["lines"] = spoken(tl["words"])
