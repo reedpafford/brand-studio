@@ -42,11 +42,22 @@ function Script({ text }: { text: string }) {
   );
 }
 
+/** A script written with several openings ("Hook 1", "Hook 2"…) is filmed with its first; the plan sets the others'
+ *  lines aside (`other_openings`). How many openings there are is read from the script's own headings, when it has them. */
+function openings(t: Treatment, script: string) {
+  if (!t.other_openings?.length) return null;
+  const n = script.split("\n").filter((l) => /^\s*hook\b/i.test(l)).length;
+  return n > 1 ? `Filmed with the first of ${n} openings. The other ${n === 2 ? "one is" : `${n - 1} are`} not in this video.` : "Filmed with the first opening. The script’s other openings are not in this video.";
+}
+
 /** The director's treatment: the hook, the story in one line, and why it holds. */
-const Treat = ({ t }: { t: Treatment }) => (
+const Treat = ({ t, script }: { t: Treatment; script: string }) => (
   <dl className="treat">
     <dt>Hook</dt>
-    <dd>{t.hook}</dd>
+    <dd>
+      {t.hook}
+      {openings(t, script) && <small>{openings(t, script)}</small>}
+    </dd>
     <dt>Story</dt>
     <dd>{t.logline}</dd>
     <dt>Why it holds</dt>
@@ -159,6 +170,7 @@ export function Thread({ items, sending, progress, asks, clips, projectId, start
   const story = leadingTreatment(items);
   const note = openNote(items);
   const first = items.find((t) => t.kind === "message")?.id;
+  const script = items.find((t) => t.kind === "message")?.text ?? "";
   const waiting = asks.some((a) => a.kind === "start" && isOpen(a)) && !progress?.made; // a start card waiting: nothing runs yet
   const newest = `${items.length}:${items.at(-1)?.id}:${progress?.run}:${progress?.status}:${progress?.failed ? 1 : 0}:${asks.length}:${!!sending}`; // a card's own changes don't pull the chat down
   useEffect(() => {
@@ -173,7 +185,7 @@ export function Thread({ items, sending, progress, asks, clips, projectId, start
       return a.kind === "start" && isOpen(a) ? start(a) : <Question ask={a} />;
     }
     const treat = treatmentOf(t);
-    if (treat) return t.id === story ? <Treat t={treat} /> : <Folded line="Earlier treatment"><Treat t={treat} /></Folded>;
+    if (treat) return t.id === story ? <Treat t={treat} script={script} /> : <Folded line="Earlier treatment"><Treat t={treat} script={script} /></Folded>;
     if (progress && t.run === progress.run)
       return waiting ? null : (
         <>
