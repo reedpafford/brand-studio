@@ -37,6 +37,16 @@ def test_a_song_keeps_seedance_2_5_for_its_lip_sync_in_any_style():
         assert video_model(look=look, kind="song").id == SEEDANCE, look
 
 
+def test_a_one_pass_song_is_all_b_roll_so_it_is_made_on_its_styles_own_model():
+    """13 Nov audit: Claymation, Skeleton, Zack D and Dr Pickle songs were sent to the dearer
+    Seedance 2.5 for a lip-sync a one-pass song never has (nobody sings on camera)."""
+    for look in ("claymation", "skeleton-cute", "zack-d", "dr-pickle"):
+        assert video_model(Project(look=look, engine="one_pass"), kind="song").id == B_ROLL, look
+        assert video_model(Project(look=look), kind="song").id == SEEDANCE  # the earlier way
+    pixar = Project(look="disney-pixar", engine="one_pass")
+    assert video_model(pixar, kind="song").id == SEEDANCE  # Pixar's own model: as it was
+
+
 def test_a_models_chosen_for_the_video_always_wins():
     video = Project(look="disney-pixar", video_model="p-video")
     assert video_model(video, kind="song").id == "p-video"

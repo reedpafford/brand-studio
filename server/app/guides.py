@@ -21,6 +21,16 @@ BRIEFED = {"treatment", "plan", "plan_scene", "breakdown", "song_breakdown", "na
 # section would only add words (speed, Reed 8 Nov).
 AFTER_PLAN = BRIEFED - {"treatment", "plan", "plan_scene", "director", "one_pass",
                         "narrated_one_pass", "song_one_pass"}  # fmt: skip
+ONE_PASS = {"one_pass", "narrated_one_pass", "song_one_pass"}
+# A style's sections that are a manual for writing picture and clip prompts by hand: the
+# one-pass plan writes neither (code builds them from the style's look tokens), and they tell
+# it the opposite of its own step ("Describe every character in full" beside "never describe a
+# face"). Not sent to the plan; every other step reads them as before (13 Nov audit; Reed:
+# "fix everything", after a before-and-after plan).
+PROMPT_MANUAL = {"disney-pixar": {
+    "The style blocks", "Worked example — the quality bar", "Prompt rules",
+    "Motion (video prompts)", "When a result misses", "Known limitations & workarounds",
+}}  # fmt: skip
 KIND = {"": "dialogue", "story": "dialogue"}  # a script's kind names its format (song, narrated)
 TOKEN = re.compile(r"\{\{(\w+)\}\}")
 
@@ -233,6 +243,9 @@ def brief(format_id: str, style_id: str, step: str, broll: str = "") -> str:
             "song guide's \"Pixar\" on a Claymation song), follow this video's look, and never "
             "write a studio's name.", own), style_id))  # fmt: skip
     own = guidance(chosen["sections"], step=step)
+    if step in ONE_PASS:
+        manual = PROMPT_MANUAL.get(chosen["parent"] or style_id, ())
+        own = [(k, v) for k, v in own if k not in manual]
     if step == "plan" and chosen["sections"].get("lanes"):
         own.append(("lanes", chosen["sections"]["lanes"]))  # the plan picks this video's lane
     if own and not broll:

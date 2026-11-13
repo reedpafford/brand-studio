@@ -192,7 +192,7 @@ def why(db, project, clip) -> dict:
         said = switched[-1].get("why") or "The director chose it for this video."
     elif picked:
         said = "Chosen in this video's settings."
-    elif video_kind(db, project) == "song":
+    elif video_kind(db, project) == "song" and found.lip_sync and project.engine != "one_pass":
         said = f"A song video: {found.name} lip-syncs the sung shots."
     else:
         said = f"{style}'s default for its clips."

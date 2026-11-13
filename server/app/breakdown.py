@@ -22,8 +22,9 @@ from app.models.songs import SongTake
 from app.prompts import check
 from app.prompts.schemas import Breakdown, SongBreakdown
 
-# A song's sung shots need lip-sync (Seedance 2.5), whatever the style. Every other kind follows
-# its style's own model (dialogue, narrated).
+# A song's sung shots need lip-sync (Seedance 2.5), whatever the style: on the step-by-step
+# director only. A one-pass song is all B-roll (Reed, 10 Nov: nobody sings on camera), so it
+# follows its style's own model like every other kind (dialogue, narrated).
 LIP_SYNC_KINDS = ("song",)
 # A breakdown's answer room, its thinking included: the model's most. It repeats every line
 # with each shot's details, about 230 tokens a shot (294: 19 shots, 14.8k characters), so a
@@ -35,11 +36,11 @@ TOKENS = MOST_TOKENS
 def video_model(project: Project | None = None, look: str | None = None,
                 kind: str | None = None) -> CatalogueModel:  # fmt: skip
     """The video model for a video, the one answer for its takes, quotes and "up to" prices:
-    its own pick (VS1) always wins; else the catalogue default (Seedance 2.5) for a song
-    (lip-sync); else its look's `video_model:` (Reed, 3 Nov: Seedance 2.5 for Pixar and House,
-    Seedance 2.0 for the other animated styles; 6 Nov: Omni 1.2 for UGC, "Omni is more for the
-    realistic stuff"). With no video yet (a script's preview, a sample), pass its `look` and
-    script `kind`."""
+    its own pick (VS1) always wins; else the catalogue default (Seedance 2.5) for a song with
+    sung shots to lip-sync (never a one-pass video's); else its look's `video_model:` (Reed, 3
+    Nov: Seedance 2.5 for Pixar and House, Seedance 2.0 for the other animated styles; 6 Nov:
+    Omni 1.2 for UGC, "Omni is more for the realistic stuff"). With no video yet (a script's
+    preview, a sample), pass its `look` and script `kind`."""
     models = catalogue()
     if project is not None and project.video_model in models:
         return models[project.video_model]
@@ -48,7 +49,7 @@ def video_model(project: Project | None = None, look: str | None = None,
         from app.narration import video_kind
 
         kind = video_kind(db, project)
-    if kind in LIP_SYNC_KINDS:
+    if kind in LIP_SYNC_KINDS and getattr(project, "engine", None) != "one_pass":
         return default
     broll = looks.drawn(project) if project is not None and project.broll_look else None  # n31
     look = broll or look or (project.look if project is not None else None) or "house"

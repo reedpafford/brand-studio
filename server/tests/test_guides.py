@@ -154,3 +154,20 @@ def test_rival_products_may_be_characters_only_where_the_style_says_so():
     assert "the brand's own product is always the real one" in rules
     stills = guides.style("disney-pixar")["sections"]["Stills"]
     assert "The brand's product never has a face; germs, ingredients and rival products" in stills
+
+
+def test_a_styles_prompt_writing_manual_is_not_sent_to_the_one_pass_plan():
+    """13 Nov audit: Pixar's manual for writing picture prompts by hand ("Describe every
+    character in full") reached a plan that writes none and is told never to describe a face.
+    The plan is sent the look, camera, pacing and what to keep; every other step is sent the
+    whole guide, and every other style's plan is as it was."""
+    plan = guides.brief("dialogue", "disney-pixar", "one_pass")
+    old = guides.brief("dialogue", "disney-pixar", "clip_prompts")
+    for gone in guides.PROMPT_MANUAL["disney-pixar"]:
+        assert f"### {gone}\n" not in plan and f"### {gone}\n" in old, gone
+    for kept in ("camera", "pacing", "must keep", "safe to vary", "Stills", "Pixar transitions"):
+        assert f"### {kept}\n" in plan, kept
+    assert len(old) - len(plan) > 6500
+    for style in ("movie", "ugc", "claymation", "skeleton", "house"):
+        assert guides.brief("dialogue", style, "one_pass").count("### ") == guides.brief(
+            "dialogue", style, "treatment").count("### "), style  # fmt: skip
