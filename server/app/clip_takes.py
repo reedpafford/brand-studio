@@ -53,6 +53,10 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     unsent = model_map.left_out(looks.drawn(project), model.id, _shots(breakdown, shots), images,
                                 drawn)  # fmt: skip
     drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
+    if one_pass.on(project):  # a picture since deleted from the brand (a product photo, a real
+        # clip) is left out, its own sentence gone, never the old file and never a refusal
+        # with no way on (Reed, 13 Nov: deleting or updating an image must be read)
+        drop += tuple(r["id"] for r in clip.references if r["id"] not in known)
     if real_refused(db, clip):  # a sheet of this clip's taken for a real person: never sent again
         drop = tuple(dict.fromkeys(drop + LOOKALIKE))
     files: dict[str, list[int]] = {key: [] for key in (*KEYS.values(), "image")}
@@ -177,7 +181,9 @@ def _in_words(db: Session, prompt: str, images: list[str], drop: tuple[str, ...]
     def unsaid(m: re.Match) -> str:
         n = int(m.group(1))
         gone = 1 <= n <= len(images) and images[n - 1] not in kept
-        return "" if gone and images[n - 1].startswith(("frame:", "place:")) else m.group(0)
+        ref = images[n - 1] if gone else ""
+        return "" if gone and (ref.startswith(("frame:", "place:")) or ref not in known) else (
+            m.group(0))  # fmt: skip
 
     prompt = SAYS_WHAT.sub(unsaid, prompt)
 
