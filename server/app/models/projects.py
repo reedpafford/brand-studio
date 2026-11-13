@@ -30,6 +30,9 @@ class Project(Filed, Entity, Base):
     # n31: a hosted video's B-roll drawn in another style's look (New video's "Change B-roll
     # look…"); null: the style's own. The host, voice and cast keep `look` (app/looks.drawn).
     broll_look: Mapped[str | None] = mapped_column(String(40))
+    # a script with several openings: "all" makes a version of the video for each (the body
+    # filmed once); null or "first": the first opening only (app/video_variations.py)
+    hooks: Mapped[str | None] = mapped_column(String(10))
     # Video settings (VS1, n09): the models it's made with; null is Auto (the catalogue default)
     video_model: Mapped[str | None] = mapped_column(String(40))
     image_model: Mapped[str | None] = mapped_column(String(40))

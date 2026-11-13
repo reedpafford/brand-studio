@@ -894,3 +894,17 @@ def test_one_clip_that_cannot_be_started_never_holds_back_the_others(app, owner,
     first = next(j for j in _jobs(db, "director") if j.output["tool"] == "make_take")
     assert first.input["result"] == "Making 2 takes. clip 2: Its picture is gone."
     assert len(_jobs(db, "clip_take")) == 3
+
+
+def test_the_send_keeps_whether_every_opening_is_made_and_a_copy_never_inherits_it(owner, db):
+    """Hooks as versions (Reed, 13 Nov): the choice is the video's own; a version made from it
+    starts without it, or each version would make versions."""
+    from app import video_variations
+
+    assert owner.post("/freestyles", json={**BODY, "hooks": "all"}).status_code == 201
+    assert _video(db).hooks == "all" and "hooks" in video_variations.FRESH
+    assert (
+        owner.post("/freestyles", json={**BODY, "text": SCRIPT + "\nMIA: Later."}).status_code
+        == 201
+    )
+    assert _video(db).hooks is None  # left out: the first opening only, as before
