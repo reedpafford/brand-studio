@@ -25,15 +25,18 @@ def upgrade() -> None:
         sa.Column("take_ids", sa.JSON(), nullable=False),
         sa.Column("edit_ids", sa.JSON(), nullable=False),
         sa.Column("seconds", sa.Double(), nullable=True),
-        sa.ForeignKeyConstraint(["file_id"], ["files.id"],
-                                name=op.f("fk_version_cuts_file_id_files")),
-        sa.ForeignKeyConstraint(["project_id"], ["projects.id"],
-                                name=op.f("fk_version_cuts_project_id_projects")),
+        sa.ForeignKeyConstraint(
+            ["file_id"], ["files.id"], name=op.f("fk_version_cuts_file_id_files")
+        ),
+        sa.ForeignKeyConstraint(
+            ["project_id"], ["projects.id"], name=op.f("fk_version_cuts_project_id_projects")
+        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_version_cuts")),
     )
     with op.batch_alter_table("version_cuts", schema=None) as batch_op:
-        batch_op.create_index(batch_op.f("ix_version_cuts_project_id"), ["project_id"],
-                              unique=False)
+        batch_op.create_index(
+            batch_op.f("ix_version_cuts_project_id"), ["project_id"], unique=False
+        )
 
 
 def downgrade() -> None:
