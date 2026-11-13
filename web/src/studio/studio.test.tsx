@@ -49,7 +49,7 @@ test("the shell shows the studio, the brand, the four pages, what is being made 
   expect(folders.getByRole("link", { name: /Hooks/ })).toHaveAttribute("href", "/s/b/1/videos?folder=6");
   expect(folders.getByRole("link", { name: /Unsorted/ })).toHaveAttribute("href", "/s/b/1/videos?folder=none");
   expect(rail().getByText("Reed")).toBeInTheDocument();
-  expect(rail().getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  expect(rail().getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/s/settings");
   expect(screen.getByRole("heading", { name: "New video" })).toBeInTheDocument();
 });
 

@@ -318,7 +318,7 @@ export function NewVideo() {
                       );
                     })}
                     {more && (
-                      <Link className="look more" to="/settings?tab=looks" title="Turn looks on or off in Settings">
+                      <Link className="look more" to="/s/settings" title="Turn looks on or off in Settings">
                         <Plus {...ICON} />
                         <b>More looks</b>
                       </Link>
