@@ -483,6 +483,33 @@ def test_a_sensitive_take_is_made_again_on_its_own_then_reworded(app, db, editor
     assert shown["free_fix_used"] is False and editor.post(f"{url}/generate").status_code == 409
 
 
+def test_a_stopped_runs_failed_take_is_never_made_again(app, db, editor, setup, clip):  # noqa: F811
+    """Stop cancelled what was queued, but a take already at the service that then failed
+    queued its automatic retry: paid work after Stop. With no run going, the director's own
+    take stays failed, and Stop cancels paid work still queued even when the run had ended."""
+    from app import director, director_tools
+    from app.models.accounts import User
+    from app.models.projects import Project
+
+    project = db.get(Project, setup["project"])
+    user = db.query(User).filter_by(email="ed@example.com").one()
+    move = {"tool": "make_take", "clip_id": clip["clip_id"], "note": ""}
+    director_tools.run(db, user, project, move, None)  # the director's take, still out when
+    turn = {"step": director.STEP, director.RUN: {"id": "r1", "by": user.id},
+            "ended": director.STOPPED}  # fmt: skip  # its run is stopped
+    db.add(Job(workspace_id=project.workspace_id, created_by_id=user.id, kind="director_step",
+               provider="server", project_id=project.id, credits=0, status="succeeded",
+               input=turn))  # fmt: skip
+    db.commit()
+    for _ in range(2):
+        _work(app, db, Sensitive([]))
+    assert [j.auto for j in db.query(Job).filter(Job.kind == "video")] == [False]
+    url = f"/projects/{setup['project']}/clips/{clip['id']}"
+    assert editor.post(f"{url}/generate").status_code == 201  # a person's own, queued
+    director.stop(db, project, user.id)
+    assert db.query(Job).filter(Job.status == "queued", Job.credits > 0).count() == 0
+
+
 # Video 345 (job 3357): Omni 1.2 on Replicate refused clip 10's prompt, said as a passing fault
 E006 = ('Prediction failed: Async prediction failed: ModelError: The input was invalid. Please '
         'try again with different inputs. (E006) (uIJ6l3ruRD): HTTP 400: {"error":{"message":'

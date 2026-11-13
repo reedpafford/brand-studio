@@ -683,16 +683,17 @@ def stop(db: Session, project: Project, by: int) -> None:
             Job.input[RUN]["id"].as_string() == last.input[RUN]["id"])
             .values(status=JobStatus.cancelled, finished_at=utcnow())
             .execution_options(synchronize_session=False))  # fmt: skip
-        db.execute(update(Job).where(  # and its paid work not yet started (video 391: 11 looks
-            Job.project_id == project.id, Job.status == JobStatus.queued, Job.credits > 0)
-            .values(status=JobStatus.cancelled, finished_at=utcnow())  # drawn after Stop)
-            .execution_options(synchronize_session=False))  # fmt: skip
-        live.note(db, project.id, JobStatus.cancelled)
+    db.execute(update(Job).where(  # and its paid work not yet started (video 391: 11 looks
+        Job.project_id == project.id, Job.status == JobStatus.queued, Job.credits > 0)
+        .values(status=JobStatus.cancelled, finished_at=utcnow())  # drawn after Stop), also
+        .execution_options(synchronize_session=False))  # fmt: skip  # when the run ended itself
+    live.note(db, project.id, JobStatus.cancelled)
+    if last:
         db.refresh(last)
         _end(last, STOPPED)
         last.input = {**last.input, "stopped_by": by, "stopped_at": utcnow().isoformat()}
         asks.close_run(db, last.input[RUN]["id"], "The run was stopped.")
-        db.commit()
+    db.commit()
 
 
 def spent(db: Session, run_id: str, project_id: int | None) -> Decimal:
