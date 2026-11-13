@@ -894,3 +894,29 @@ def test_one_clip_that_cannot_be_started_never_holds_back_the_others(app, owner,
     first = next(j for j in _jobs(db, "director") if j.output["tool"] == "make_take")
     assert first.input["result"] == "Making 2 takes. clip 2: Its picture is gone."
     assert len(_jobs(db, "clip_take")) == 3
+
+
+def test_a_picture_deleted_from_the_brand_is_left_out_of_a_take_never_refused(app, owner, db):
+    """Reed, 13 Nov: "if i were to [delete or update images] it would be read by the director
+    and not give the old image". A clip that named a since-deleted picture was refused ("A
+    picture on this clip is no longer part of this video. Edit the prompt."), a dead end with
+    no prompt editing; the picture is left out and its sentence goes."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.clip_takes import take_input
+
+    video = db.get(Project, _delivered(app, owner, db))
+    clip = db.query(ProjectClip).filter_by(clip_id="c1").one()
+    n = len([r for r in clip.references if r["kind"] == "image"]) + 1
+    clip.references = [*clip.references, {"kind": "image", "id": "screen:999", "role": "Old bag"}]
+    flag_modified(clip, "references")
+    lines = clip.prompt.splitlines()
+    lines[1] += f" [Image{n}] is the old bag photo."
+    clip.prompt = "\n".join(lines)
+    db.commit()
+    made = take_input(db, video, clip, check=False)
+    assert len(made["files"]["reference_images"]) == n - 1  # the others, as they were
+    assert (
+        "old bag photo" not in made["input"]["prompt"]
+        and f"[Image{n}]" not in made["input"]["prompt"]
+    )
