@@ -79,7 +79,7 @@ test("Make it posts the script as pasted, with nobody saved, no product and the 
   expect(screen.getByText("An estimate. What it really spends shows on the video as it goes.")).toBeInTheDocument();
   await userEvent.click(await make());
   await opened();
-  expect(screen.getByRole("link", { name: "open this video on the current site" })).toHaveAttribute("href", "/b/1/videos/50");
+  expect(screen.getByRole("region", { name: "The director" })).toBeInTheDocument(); // the new look's page for it
   expect(posted(calls)).toStrictEqual([DEFAULT]);
   expect(posted(calls, "POST /freestyles/estimate").at(-1)).toStrictEqual(DEFAULT);
 });
