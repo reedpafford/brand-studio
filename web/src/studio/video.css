@@ -52,7 +52,6 @@
   .treat dt { margin-top: 16px; }
   .treat dt:first-child { margin-top: 0; }
   .treat dd { margin-top: 2px; }
-  .treat dd small { display: block; margin-top: 4px; font-size: 12px; line-height: 18px; color: var(--ink-3); }
   .fold summary { display: flex; align-items: center; gap: 6px; width: fit-content; font-size: 13px; color: var(--ink-3); cursor: pointer; list-style: none; }
   .fold summary::-webkit-details-marker { display: none; }
   .fold summary:hover { color: var(--ink); }

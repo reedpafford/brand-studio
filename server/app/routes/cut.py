@@ -357,7 +357,7 @@ def read(project_id: int, request: Request, opening: int = 1,
 
 class VersionOut(BaseModel):
     opening: int  # 1, 2, …: which of the script's openings is in front of the body
-    name: str  # what the plan calls its opening clip
+    name: str  # "V1", "V2", … as RP5's were delivered; "" for a video with one version
     file_id: int | None  # its cut, once made
     seconds: float | None
     out_of_date: bool  # its cut is behind a take or an edit; false with no cut yet (file_id null)
@@ -369,27 +369,22 @@ def versions(project_id: int, user: User = Depends(current_user),
              db: Session = Depends(get_db)):  # fmt: skip
     """The video's versions: one for each opening of its script, over the same body (hooks as
     versions, Reed 13 Nov). A video with one opening is its one version."""
-    from app import clip_prompts
     from app.routes.project_clips import out_of_date
 
     project = get_project(db, user, project_id)
-    row = clip_prompts.newest(db, project)
-    plan = ((row.data if row else None) or {}).get("shooting_plan") or {}
-    first = cut.newest(db, project)
+    first, mine = cut.newest(db, project), cut.versions(db, project)
     going = {1} if cut.making(db, project) else set()
     going |= set(db.scalars(select(Job.input["opening"].as_integer()).where(
         Job.project_id == project.id, Job.status.in_(WAITING),
         Job.input["step"].as_string() == cut.VERSION)))  # fmt: skip
     out = []
-    for k in cut.versions(db, project):
+    for k in mine:
         made = first if k == 1 else cut.version_cut(db, project, k)
-        name = next((c.get("name") or "" for c in plan.get("clips") or []
-                     if (c.get("opening") or 0) == k), "")  # fmt: skip
         stale = (bool(first) and project.id in out_of_date(db, [project])) if k == 1 else (
             bool(made) and cut.version_stale(db, project, k))  # fmt: skip
         file_id, seconds = (made.file_id, made.seconds) if made else (None, None)
-        out.append(VersionOut(opening=k, name=name, file_id=file_id, seconds=seconds,
-                              out_of_date=stale, making=k in going))  # fmt: skip
+        out.append(VersionOut(opening=k, name=f"V{k}" if len(mine) > 1 else "", file_id=file_id,
+                              seconds=seconds, out_of_date=stale, making=k in going))  # fmt: skip
     return out
 
 

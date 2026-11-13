@@ -85,37 +85,14 @@ test("Make it posts the script as pasted, with nobody saved, no product and the 
 });
 
 const TWO_HOOKS = `Hook 1: A gate left open nearly cost a family everything.\nHook 2 (proven winner): If your pool has a gate, check it tonight.\n\nBody:\n${SCRIPT}`;
-test("a script with two or more hooks offers Hooks, all of them unless he picks: the send and its price carry hooks: all", async () => {
+test("a script with several hooks is sent as it is, with nothing to choose: the script decides, every hook is a version", async () => {
   const calls = server();
   await pasted(TWO_HOOKS);
-  await userEvent.click(pill("Hooks: All 2"));
-  expect(within(screen.getByRole("menu", { name: "Hooks" })).getAllByRole("menuitemradio").map((c) => `${c.textContent} ${c.getAttribute("aria-checked")}`)).toEqual(["All 2 hooksOne video with 2 versions: each hook over the same body true", "First onlyThe other hooks are left out of this video false"]);
-  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("button", { name: /^Hooks/ })).toBeNull();
   await userEvent.click(await make());
   await opened();
-  expect(posted(calls)).toStrictEqual([{ ...DEFAULT, text: TWO_HOOKS, hooks: "all" }]);
-  expect(posted(calls, "POST /freestyles/estimate").at(-1)).toStrictEqual({ ...DEFAULT, text: TWO_HOOKS, hooks: "all" });
-});
-
-test("First only is sent as hooks: first; the price is said to be for every hook, and the press carries no figure of its own", async () => {
-  const calls = server();
-  await pasted(TWO_HOOKS);
-  await userEvent.click(pill("Hooks: All 2"));
-  await userEvent.click(choice(/^First only/));
-  expect(pill("Hooks: First only")).toBeInTheDocument();
-  expect(await screen.findByText("This is for every hook. With the first only it will be less; the plan gives the real price.", {}, { timeout: 3000 })).toBeInTheDocument();
-  expect(screen.getByText("About $4.87")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Make it" }));
-  await opened();
-  expect(posted(calls)).toStrictEqual([{ ...DEFAULT, text: TWO_HOOKS, hooks: "first" }]);
-  expect(posted(calls, "POST /freestyles/estimate").at(-1)).toStrictEqual({ ...DEFAULT, text: TWO_HOOKS, hooks: "first" });
-});
-
-test("an ordinary script has no Hooks choice", async () => {
-  server();
-  await pasted();
-  await make();
-  expect(screen.queryByRole("button", { name: /^Hooks/ })).toBeNull();
+  expect(posted(calls)).toStrictEqual([{ ...DEFAULT, text: TWO_HOOKS }]);
+  expect(posted(calls, "POST /freestyles/estimate").at(-1)).toStrictEqual({ ...DEFAULT, text: TWO_HOOKS });
 });
 
 test("a role given to a saved character, the product picked and the plan-first switch off are sent; the switch is remembered", async () => {

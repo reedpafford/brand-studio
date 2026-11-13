@@ -750,17 +750,6 @@ class PlanTreatment(BaseModel):
     logline: str = Field(description="The story in one plain sentence.")
     why_it_holds: str = Field(description="Why a viewer keeps watching, in one or two sentences.")
     ending: str = Field(description="The payoff, and the call to action, and why they land.")
-    other_openings: list[list[int]] = Field(
-        description="Each alternative opening not filmed here, as its line numbers. Else []."
-    )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _grouped(cls, v):  # a plan from before openings were kept apart: one flat list
-        if isinstance(v, dict) and (was := v.get("other_openings") or []):
-            flat = all(isinstance(n, int) for n in was)
-            return {**v, "other_openings": [list(was)] if flat else was}
-        return {"other_openings": [], **v} if isinstance(v, dict) else v
 
 
 class PlanLook(BaseModel):
@@ -818,8 +807,8 @@ class PlanClip(BaseModel):
         "first seconds."
     )
     opening: int = Field(
-        description="With <hooks>all: which of the script's openings this clip is (1, 2, …); "
-        "0 for a clip of the body, or with no <hooks>."
+        description="Which of the script's alternative openings this clip is (1, 2, …); 0 for "
+        "a clip of the body, or of a script with one opening."
     )
     _older = _older(kind="", footage="", footage_at=0, card="", card_before=False, opening=0)
 

@@ -922,20 +922,6 @@ def test_a_picture_deleted_from_the_brand_is_left_out_of_a_take_never_refused(ap
     )
 
 
-def test_the_send_keeps_whether_every_opening_is_made_and_a_copy_never_inherits_it(owner, db):
-    """Hooks as versions (Reed, 13 Nov): the choice is the video's own; a version made from it
-    starts without it, or each version would make versions."""
-    from app import video_variations
-
-    assert owner.post("/freestyles", json={**BODY, "hooks": "all"}).status_code == 201
-    assert _video(db).hooks == "all" and "hooks" in video_variations.FRESH
-    assert (
-        owner.post("/freestyles", json={**BODY, "text": SCRIPT + "\nMIA: Later."}).status_code
-        == 201
-    )
-    assert _video(db).hooks is None  # left out: the first opening only, as before
-
-
 HOOKS = ("HOOK 1\nEXT. LOT - DAY\nMIA: They almost got her.\nHOOK 2\nINT. HALL - DAY\n"
          "LEO: Did you get the eggs on the way home from practice like I asked you to?\nBODY\n"
          "INT. KITCHEN - DAY\nMIA: The market opened at nine.\n"
@@ -943,18 +929,15 @@ HOOKS = ("HOOK 1\nEXT. LOT - DAY\nMIA: They almost got her.\nHOOK 2\nINT. HALL -
 
 
 def test_every_hook_is_filmed_once_over_one_body_and_the_cut_is_the_first_version(app, owner, db):
-    """Reed, 13 Nov: "the hooks just swap onto the same bodies". With hooks "all" the one plan
-    films every opening (each its own clips, marked 1, 2, …) and the body once (0); every clip
-    gets its take; the cut that plays is the first opening and the body."""
+    """Reed, 13 Nov: "the hooks just swap onto the same bodies"; "If i have 3 hooks, i want 3
+    hooks. If its one, its one". The one plan films every opening the script has (each its
+    own clips, marked 1, 2, …) and the body once (0); every clip gets its take; the cut that
+    plays is the first opening and the body. Nothing is chosen on the send."""
     from app import cut
 
-    assert (
-        owner.post("/freestyles", json={**BODY, "text": HOOKS, "hooks": "all"}).status_code == 201
-    )
+    assert owner.post("/freestyles", json={**BODY, "text": HOOKS}).status_code == 201
     _run(app, db)
     video = _video(db)
-    (plan,) = _jobs(db, "one_pass")
-    assert plan.input["prompt"].endswith("<hooks>all</hooks>")
     listed = owner.get(f"/projects/{video.id}/clips").json()
     assert [(c["clip_id"], c["opening"]) for c in listed] == [("c1", 1), ("c2", 2), ("c3", 0)]
     assert all(c["picked_take_id"] for c in listed)  # every opening is filmed, the body once
@@ -969,7 +952,7 @@ def test_every_hook_is_filmed_once_over_one_body_and_the_cut_is_the_first_versio
     # each version is a cut of the one video: its own opening over the same body
     seen = owner.get(f"/projects/{video.id}/cut/versions").json()
     assert [(v["opening"], v["name"], v["out_of_date"]) for v in seen] == [
-        (1, "Clip 1", False), (2, "Clip 2", False)]  # fmt: skip
+        (1, "V1", False), (2, "V2", False)]  # fmt: skip  # named as RP5's were delivered
     assert seen[0]["file_id"] == made.file_id and seen[1]["file_id"] not in (None, made.file_id)
     two = owner.get(f"/projects/{video.id}/cut?opening=2").json()
     assert [p["clip_id"] for p in two["timeline"]["pieces"]] == ["c2", "c3"]
