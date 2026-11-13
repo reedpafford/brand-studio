@@ -10980,6 +10980,8 @@ export interface components {
              * @default false
              */
             free_fix_used: boolean;
+            /** Left Out */
+            left_out?: string | null;
             /** Take Warning */
             take_warning?: string | null;
             /** Retrying */

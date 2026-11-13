@@ -780,6 +780,7 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
             heard and heard.status == "done") else []  # fmt: skip
         clips.append({"clip_id": c["clip_id"], "takes": len(c["takes"]), "missing": missing,
                       "picked": bool(c["picked_take_id"]), "talker": bool(c.get("talker")),
+                      "left": bool(rows[c["clip_id"]].left_out),
                       "footage": bool(c.get("footage")),
                       "extra": c["clip_id"] not in run.get("muted", []) and bool(
                           director.to_mute(db, rows[c["clip_id"]])),
@@ -848,7 +849,7 @@ def move(s: dict) -> dict:
             if s["open_notes"]
             else "The whole video is planned in one pass.",
         )
-    bare = [c for c in s["clips"] if not c["picked"]]
+    bare = [c for c in s["clips"] if not c["picked"] and not c["left"]]  # left out: not asked
     stale = s["cut"] in ("none", "out of date") or s["edits"]
     if not s["ok"] and not (bare or stale or s["missing_looks"]):
         return _go("deliver", "The plan stays as it is, so nothing was made again and the cut is "
@@ -1004,10 +1005,28 @@ def act(db: Session, job: Job, storage) -> None:
             before.input.get("result") or "").startswith("Refused"):  # fmt: skip
         job = db.get(Job, job.id)
         no = result.removeprefix("Refused: ")
+        if tool == "make_take" and leave_out(db, project, no):  # the others are the video
+            return director._record(db, job, run, f"Left out of the cut: {no}")
         job.input = {**job.input, RUN: run}
         director._end(job, f"It stopped: {no}", result=f"Refused again: {no}")
         return db.commit()
     director._record(db, job, run, result)
+
+
+def leave_out(db: Session, project: Project, why: str) -> list[str]:
+    """A clip whose take can't be made is left out of the cut, with why, when other clips have
+    their takes (Reed, 13 Nov: "MINIMAL dead ends"): the run goes on to the cut and delivery
+    lists it; it is back in the day it has a take. `why` names its clips ("clip 2: …"). The
+    clips left out; none when it names none, or there would be nothing to cut."""
+    rows = db.scalars(select(ProjectClip).where(ProjectClip.project_id == project.id)).all()
+    named = {f"c{n}" for n in re.findall(r"\bclip (\d+)\b", why, re.IGNORECASE)}
+    out = [r for r in rows if r.clip_id in named and not r.picked_take_id]
+    if not out or not any(r.picked_take_id for r in rows):
+        return []
+    for row in out:
+        row.left_out = why[:500]
+    db.flush()
+    return [r.clip_id for r in out]
 
 
 def last_frame(video: bytes) -> bytes:

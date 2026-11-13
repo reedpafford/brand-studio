@@ -30,6 +30,9 @@ class ProjectClip(Entity, Base):
     # Fix this clip's prompt's free Claude rewrite was used for this prompt (once per prompt
     # version): cleared when the prompt changes any other way (`same_fix` keeps it).
     free_fix_used: Mapped[bool] = mapped_column(default=False)
+    # the one-pass director couldn't make it: why. The cut is made without it, and delivery
+    # says so, until it has a take (app/one_pass.py, Reed 13 Nov: "MINIMAL dead ends")
+    left_out: Mapped[str | None] = mapped_column(Text)
     # P3: wording fixed in code ({before, after, fixed: [what], undone}); Undo puts `before` back
     auto_fix: Mapped[dict | None] = mapped_column(JSON)
     # Song ads: {start, end, sung_shots} of the video's song this clip covers, from its

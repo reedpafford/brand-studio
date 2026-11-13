@@ -89,6 +89,15 @@ def rows(db: Session, project: Project) -> list[ProjectClip]:
                            .order_by(ProjectClip.id)))  # fmt: skip
 
 
+def in_cut(clip: ProjectClip) -> bool:
+    """Its place is in the cut: every clip, but one the director left out with no take."""
+    return bool(clip.picked_take_id or not clip.left_out)
+
+
+def cut_rows(db: Session, project: Project) -> list[ProjectClip]:
+    return [c for c in rows(db, project) if in_cut(c)]
+
+
 def song(db: Session, project: Project) -> SongTake | None:
     return db.get(SongTake, project.song_take_id) if project.song_take_id else None
 
@@ -174,7 +183,7 @@ def base(db: Session, project: Project) -> dict:
     of its own; the video opens on its first word, and its last piece ends as made (the ending
     has room to land). Their B-roll is laid over them (`laid_over`), never a piece of its own,
     and the cut plays talker_sound.SPEED times faster (`speed`)."""
-    voice, clips = song(db, project), rows(db, project)
+    voice, clips = song(db, project), cut_rows(db, project)
     mode = "takes" if voice is None else "narrated" if voice.kind == narration.KIND else "song"
     omni = omni_talker.on(db, project)
     over, broll = omni_talker.cutaways(db, project, clips) if omni else ([], set())
@@ -529,7 +538,7 @@ def ready(db: Session, project: Project, storage) -> None:
     if footage_shot.settle(db, project, first=False):  # a footage shot it can't use now
         db.commit()
         raise HTTPException(409, footage_shot.DROPPED)
-    clips = rows(db, project)
+    clips = cut_rows(db, project)
     if not clips:
         raise HTTPException(409, "Write the clip prompts and make the clips first.")
     if talker.on(db, project):

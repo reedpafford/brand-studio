@@ -361,7 +361,7 @@ def make(project_id: int, request: Request, user: User = Depends(current_user),
     if job := cut.making(db, project):
         raise HTTPException(409, cut.MAKING.format(job.input["number"]))
     cut.ready(db, project, storage)
-    clips, playing = cut.rows(db, project), cut.newest(db, project)
+    clips, playing = cut.cut_rows(db, project), cut.newest(db, project)
     tl, _ = cut.timeline(db, project)
     try:  # a new pick under an old trim, say: never a cut that loses a spoken word
         cut_edits.keeps_every_word(db, tl)

@@ -1561,11 +1561,13 @@ def _turn(db: Session, user: User, project: Project, run: dict, *,
         return last
     if last is not None and (gave_up := _failed_too_often(db, project, run)):
         made = video_state(db, project)["cut"] == "made"  # what it has: a cut, or nothing
-        last = db.get(Job, last.id)
-        _end(last, f"{gave_up}; delivered without it." if made else f"It stopped: {gave_up}.",
-             result=DELIVERED if made else "")  # fmt: skip
-        db.commit()
-        return last
+        if made or not (one_pass.on(project) and one_pass.leave_out(db, project, gave_up)):
+            last = db.get(Job, last.id)
+            _end(last, f"{gave_up}; delivered without it." if made
+                 else f"It stopped: {gave_up}.", result=DELIVERED if made else "")  # fmt: skip
+            db.commit()
+            return last
+        db.commit()  # one-pass: that clip is left out of the cut, and the run goes on
     most, cap = own_usd(db, run, project.id), most_turns(planned_clips(db, project))
     if run["turn"] >= cap or spent(db, run["id"], project.id) >= most:
         why = (f"It stopped after {cap} turns." if run["turn"] >= cap
@@ -2837,8 +2839,9 @@ def _failed_too_often(db: Session, project: Project, run: dict) -> str:
 
     counts: dict[str, int] = {}
     for job in _failures(db, project, run):
-        if why_failed(job) == "refused":
-            continue
+        row = db.get(ProjectClip, job.input.get("project_clip_id") or 0)
+        if why_failed(job) == "refused" or (row is not None and row.left_out):
+            continue  # a clip already left out of the cut isn't counted again
         what = _item(db, job)
         counts[what] = counts.get(what, 0) + 1
         if counts[what] > MAX_REDOS:

@@ -941,6 +941,7 @@ def save_take(db: Session, job: Job) -> None:
     if not clip or not file_ids:
         return
     count = db.scalar(select(func.count(ClipTake.id)).where(ClipTake.clip_id == clip.id))
+    clip.left_out = None  # it has a take: its place in the cut is back
     take = ClipTake(clip_id=clip.id, number=count + 1, job_id=job.id, file_id=file_ids[0],
                     prompt=job.input.get("clip_prompt"),
                     look=looks.drawn(db.get(Project, clip.project_id)),
