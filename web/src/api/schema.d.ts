@@ -9717,6 +9717,14 @@ export interface components {
             /** On */
             on: boolean;
         };
+        /** MadeClip */
+        MadeClip: {
+            /** Clip */
+            clip: string;
+            /** Seconds */
+            seconds: number;
+            price: components["schemas"]["AskPrice"];
+        };
         /** MadeOption */
         MadeOption: {
             /** Index */
@@ -10037,6 +10045,11 @@ export interface components {
              * @default []
              */
             clips: components["schemas"]["HeldClip"][];
+            /**
+             * Making
+             * @default []
+             */
+            making: components["schemas"]["MadeClip"][];
             /**
              * Sent At
              * Format: date-time

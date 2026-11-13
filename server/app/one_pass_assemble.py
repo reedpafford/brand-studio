@@ -295,6 +295,8 @@ def assemble(db: Session, project: Project, row: BreakdownVersion, only=None,
                 take.prompt = take.prompt if take.prompt is not None else mine.prompt
             clip_prompts.before_change(db, mine)
         mine.breakdown_id, mine.seconds, mine.job_id = row.id, c.seconds, job_id or mine.job_id
+        if remake or mine.prompt != c.prompt:  # new words: what couldn't be made is tried again
+            mine.left_out = None
         mine.prompt, mine.references = c.prompt, [r.model_dump() for r in c.references]
         mine.problems, mine.kept = problems, []
         mine.approved, mine.prompt_ok, mine.change, mine.auto_fix = False, False, None, None

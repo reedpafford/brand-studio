@@ -530,7 +530,7 @@ export function HeldSend({ projectId, change, upTo, sentAt, owner, onWithdraw }:
     id: 0, project_id: projectId, kind: "start", topic: "", subject: "", state: "held", by_owner: false, clone_to: "", created_at: sentAt, can: owner ? [] : ["withdraw"], answered_by: "", saved_in: "", closed: "", choices: [], saved: [], options: [], audition: [], voice_name: "", voice_saved: false, audition_failed: false, other_voices: [],
     question: `${change ? "Make this change" : "Make it"}${upTo ? ` for up to ${said(price)}` : ""}?`,
     why: change ? "The owner has been asked. The cut stays as it is; no generation starts until they say yes." : "The owner has been asked. No generation starts until they say yes.",
-    money: { up_to: price, clips: [], sent_at: sentAt, held: "", since: "", updating: false, carry: false, what: "", over: "the budget", expected: false },
+    money: { up_to: price, clips: [], making: [], sent_at: sentAt, held: "", since: "", updating: false, carry: false, what: "", over: "the budget", expected: false },
   };
   return <AskCard ask={ask} owner={owner} onWithdraw={onWithdraw} />;
 }

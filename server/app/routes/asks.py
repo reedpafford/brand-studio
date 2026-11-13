@@ -82,6 +82,12 @@ class HeldClip(BaseModel):
     still_file_id: int | None
 
 
+class MadeClip(BaseModel):
+    clip: str  # "2"
+    seconds: int
+    price: AskPrice  # one take of it
+
+
 class MoneyCard(BaseModel):
     """A money card's figures: what the OK lets it charge ("up to"), what's spent and the
     budget (past the budget), the run's usual cost (start), the held items and when sent."""
@@ -93,6 +99,8 @@ class MoneyCard(BaseModel):
     usual: AskPrice | None = None  # the start card's "Usually it's nearer …"
     expected: bool = False  # up_to is what it will probably cost, not a most (owner_uncapped)
     clips: list[HeldClip] = []
+    # a one-pass start card: the clips this run makes (after a note, only those it changed)
+    making: list[MadeClip] = []
     sent_at: UtcTime
     held: str  # the hold's own words
     since: str = ""  # an answered start card: how the run's figure has moved since the OK
@@ -288,6 +296,12 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
                         "checks, my usual time and a watch of the cut. Nothing stops it at a "
                         "limit here; what it really spends shows as it goes.")  # fmt: skip
         if one_pass.on(project):  # what its own price covers, and its track made before it
+            from app import cut
+            from app.clip_takes import take_credits
+
+            money.making = [MadeClip(clip=c.clip_id.removeprefix("c"), seconds=c.seconds,
+                                     price=_price(user, take_credits(db, project, c)))
+                            for c in cut.cut_rows(db, project) if not c.picked_take_id]  # fmt: skip
             what, sound = one_pass.card_words(db, project, bool(money.expected))
             track = "song" if plans.song(db, project) else "narration"
             card.why = what + (f" Its {track} is already made and timed, for "
