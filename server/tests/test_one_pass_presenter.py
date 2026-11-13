@@ -154,6 +154,8 @@ def test_a_new_voice_is_read_after_make_it_and_the_presenter_follows(app, owner,
     assert price["audio_most"] > 0 and price["host"] > 0 and not price["takes"]
     assert len(_jobs(db, "song_take")) == 1  # nothing is read before Make it
     assert owner.get(f"/projects/{pid}/host").json()["voice_pending"] is True
+    steps = owner.get(f"/projects/{pid}/director/progress").json()["steps"]
+    assert f"read in the {other} voice" in next(s["text"] for s in steps if s["key"] == "cast")
     (card,) = [c for c in owner.get(f"/projects/{pid}/asks").json() if c["state"] == "open"]
     assert card["kind"] == "start"
     _run(app, db)
