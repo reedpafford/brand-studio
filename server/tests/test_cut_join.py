@@ -57,7 +57,7 @@ def _cut(*takes: bytes) -> bytes:
     return cut_render.render(recipe, type("S", (), {"get": lambda self, k: storage[k]})())
 
 
-def test_takes_of_one_format_are_copied_and_differing_ones_never_are():
+def test_takes_of_one_format_are_copied_and_differing_ones_never_are(monkeypatch):
     same = [_take("red"), _take("blue")]
     assert cut_render.stitch(same) is not None  # the fast path, as made
     assert cut_render.stitch([_take("red", rate=None), _take("blue")]) is None
@@ -65,6 +65,8 @@ def test_takes_of_one_format_are_copied_and_differing_ones_never_are():
     assert cut_render.stitch([_take("red"), _take("blue", rate=48000)]) is None
     clocks = [_take("red"), _take("blue", clock=90000)]  # video 406: copied, it ran 7 times slow
     assert cut_render.stitch(clocks) is None and 1.9 < _facts(_cut(*clocks))["video_s"] < 2.2
+    monkeypatch.setattr(cut_render, "VIDEO", "codec_name,width,height,r_frame_rate,pix_fmt")
+    assert cut_render.stitch(clocks) is None  # whatever let it through: it isn't 2 s long
 
 
 def test_a_silent_first_take_never_takes_the_next_takes_sound_away():
