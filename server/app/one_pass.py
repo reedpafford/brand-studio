@@ -228,13 +228,13 @@ def numbered(job_input: dict) -> tuple[str, list[int]]:
 
 
 def _assets(db: Session, project: Project) -> dict:
-    """Every picture the plan may use (storyboard.assets), less a brand's place with no
-    picture in this video's look: nobody draws one (make_looks draws the places made for this
-    video), so a plan that named it waited for a person (Reed, 11 Nov: videos 373 and 383)."""
+    """Every picture the plan may use (storyboard.assets), less the brand's saved places: a
+    video's places are drawn for it (Reed, 13 Nov: "Places follow the same rule" as people,
+    used only when picked, and nothing picks one), so the plan is offered only its own."""
     from app.models.library import LibraryItem
     from app.storyboard import assets
 
-    return {k: v for k, v in assets(db, project).items() if v[1] or not k.startswith("place:")
+    return {k: v for k, v in assets(db, project).items() if not k.startswith("place:")
             or db.get(LibraryItem, int(k[6:])).owner_project_id}  # fmt: skip
 
 
@@ -519,7 +519,9 @@ def _who(db: Session, project: Project, plan: ShootingPlan, speakers: list[str])
                                *speakers]):  # fmt: skip
         slot = (next((s for s in slots if same(name, s.role)), None)
                 or next((s for s in slots if labels(name, s.role)), None))  # fmt: skip
-        if slot is None and (look := next((r for n, r in looks.items() if same(name, n)), None)):
+        named = None if project.slot_cast else next(  # picked by role: never by their name
+            (r for n, r in looks.items() if same(name, n)), None)  # fmt: skip
+        if slot is None and (look := named):
             out[name] = look
             continue
         role = next((n for n in told if same(name, n) or labels(name, n)), None)
