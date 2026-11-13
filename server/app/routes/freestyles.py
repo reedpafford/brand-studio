@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
@@ -102,6 +102,11 @@ ONE_CLIP_LONG = ("One clip carries up to {:,} characters with its style, and the
                  "{:,}. Pick a format such as Dialogue for a longer script.")  # fmt: skip
 
 
+class CastPair(BaseModel):
+    role: str = Field(min_length=1, max_length=120)  # the speaker's label, as the script has it
+    item_id: int  # the saved person who plays them
+
+
 class FreestyleIn(BaseModel):
     """A pasted script (`text`, with its look), or "Make a video" from a script's version
     (`script_id`, `slot`): its kind, look and brand are the script's."""
@@ -116,6 +121,9 @@ class FreestyleIn(BaseModel):
     make_another: bool | None = None  # a version that has a video: make a new one from it too
     folder_id: int | None = None  # New video lands in the open folder; none: Unsorted
     cast_ids: list[int] | None = None  # a pasted send's cast; none: the brand's saved cast
+    # who plays whom, picked at the script (Reed, 13 Nov: a saved person is used only when
+    # picked, never matched by name); "PRESENTER" is the video's host
+    cast: list[CastPair] | None = None
     broll_look: str | None = None  # a hosted video's B-roll look; none: the style's own
     attachments: list[int] | None = None  # pictures or clips for this video only (rule 12)
     # "auto" (Make without asking), the owner's alone: Make it is pressed for them; none: ask
@@ -285,6 +293,26 @@ def _from_script(db: Session, user: User, request: Request, fs: Freestyle, scrip
     return project, draft
 
 
+def _paired(db: Session, project: Project, draft: ScriptDraft, pairs: list[CastPair]) -> None:
+    """The saved people picked for the script's roles, and no one else: each role (the
+    script's own, made now from its speakers; one it doesn't have is added) is cast with its
+    pick, as a pick at Assets is (`slot_cast`)."""
+    from app import breakdown
+    from app.cast_roles import labels, same, video_slots
+    from app.routes.library import cast_picks
+
+    breakdown.add_speakers(db, db.get(Script, draft.script_id))
+    slots = video_slots(db, project)
+    project.cast_ids = cast_picks(db, project.workspace_id, [p.item_id for p in pairs])
+    cast = {}
+    for pair in (p for p in pairs if p.item_id in project.cast_ids):
+        slot = (next((s for s in slots if same(pair.role, s.role)), None)
+                or next((s for s in slots if labels(pair.role, s.role)), None)
+                or breakdown._add_role(db, project, draft, pair.role))  # fmt: skip
+        cast[str(slot.id)] = pair.item_id
+    project.slot_cast = cast
+
+
 def _setup(db: Session, user: User, project: Project, body: FreestyleIn, pasted: bool) -> None:
     """New video's picks on its video: the open folder (none: Unsorted), the cast (a pasted
     send's starts as the brand's saved cast; a script's keeps its own unless picked), a hosted
@@ -297,7 +325,9 @@ def _setup(db: Session, user: User, project: Project, body: FreestyleIn, pasted:
     from app.routes.library import cast_picks
 
     brand = db.get(Brand, body.brand_id) if pasted and body.brand_id else None
-    if body.cast_ids is not None and (brand or not pasted):
+    if body.cast is not None:
+        _paired(db, project, draft, body.cast)
+    elif body.cast_ids is not None and (brand or not pasted):
         project.cast_ids = cast_picks(db, project.workspace_id, body.cast_ids)
     elif brand:
         project.cast_ids = []  # brands keep no default cast (S-gaps-05 L1)

@@ -7280,6 +7280,13 @@ export interface components {
             update: components["schemas"]["CastUpdateOut"];
             previews: components["schemas"]["PreviewsOut"];
         };
+        /** CastPair */
+        CastPair: {
+            /** Role */
+            role: string;
+            /** Item Id */
+            item_id: number;
+        };
         /** CastUpdateOut */
         CastUpdateOut: {
             /** Stills */
@@ -8321,6 +8328,8 @@ export interface components {
             folder_id?: number | null;
             /** Cast Ids */
             cast_ids?: number[] | null;
+            /** Cast */
+            cast?: components["schemas"]["CastPair"][] | null;
             /** Broll Look */
             broll_look?: string | null;
             /** Attachments */

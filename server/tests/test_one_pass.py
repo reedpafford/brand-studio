@@ -9,7 +9,7 @@ from decimal import Decimal
 
 import pytest
 
-from app import asks, director, one_pass
+from app import asks, clip_prompts, director, one_pass
 from app.models.clips import ClipTake, FinalVideo, ProjectClip
 from app.models.jobs import Job
 from app.models.projects import Project
@@ -18,7 +18,7 @@ from app.providers import get_providers
 from app.settings import get_settings
 from app.worker import run_once
 from tests.conftest import upload
-from tests.helpers import make_it, ok_when_asked, product
+from tests.helpers import make_it, ok_when_asked, product, with_sheet
 
 SCRIPT = ("INT. KITCHEN - DAY\nMIA: The market opened at nine.\nLEO: And we were ready.\n"
           "INT. OFFICE - NIGHT\nMIA: Then it closed.\nLEO: We were not ready for that.\n"
@@ -342,18 +342,35 @@ def test_stop_then_carry_on_makes_no_claude_turn(app, owner, db):
     assert len({j.input[director.RUN]["id"] for j in _jobs(db, "director")}) == 1  # the same run
 
 
-def test_a_brands_place_with_no_picture_is_never_offered_to_the_plan(app, owner, db):
-    """Reed, 11 Nov (videos 373, 383): the plan named a brand place nobody had drawn, no step
-    draws one, and its clips waited on a person's Make one."""
+def test_a_saved_person_plays_only_the_role_they_are_picked_for_and_no_saved_place_is_offered(
+        app, owner, db):  # fmt: skip
+    """Reed, 13 Nov: a saved person is used only when picked at the script, never matched by
+    name, and "Places follow the same rule" (nothing picks a place, so a video's are drawn for
+    it; on 11 Nov a brand place nobody had drawn stalled videos 373 and 383)."""
     from app.models.brands import Brand
     from app.models.library import Kind, LibraryItem
 
-    place = LibraryItem(workspace_id=1, kind=Kind.place, name="Kitchen", brands=[db.get(Brand, 1)])
-    db.add(place)
+    brand = db.get(Brand, 1)
+    place, maya, leo = (LibraryItem(workspace_id=1, kind=kind, name=name, brands=[brand],
+                                    image_file_ids=[upload(owner)])
+                        for kind, name in ((Kind.place, "Kitchen"), (Kind.character, "Maya"),
+                                           (Kind.character, "Leo")))  # fmt: skip
+    db.add_all([place, maya, leo])
     db.commit()
-    _delivered(app, owner, db)
+    for item in (place, maya, leo):
+        with_sheet(db, item.id)
+    sent = owner.post("/freestyles", json={**BODY, "cast": [{"role": "MIA", "item_id": maya.id}]})
+    assert sent.status_code == 201, sent.text
+    _run(app, db)
+    video = _video(db)
     (plan,) = _jobs(db, "one_pass")
-    assert f"place:{place.id}" not in plan.input["assets"]
+    assert f"place:{place.id}" not in plan.input["assets"]  # though it has a picture
+    assert maya.id in video.cast_ids and leo.id not in video.cast_ids
+    assert maya.id in video.slot_cast.values() and leo.id not in video.slot_cast.values()
+    shots = [s for scene in clip_prompts.newest(db, video).data["scenes"] for s in scene["shots"]]
+    said = {s["speaker"]: s["character_ids"] for s in shots if s["speaker"]}
+    assert said["Mia"] == [f"char:{maya.id}"]  # Maya plays Mia: picked, whatever her name
+    assert f"char:{leo.id}" not in str(said["Leo"])  # a saved Leo nobody picked is not used
 
 
 def test_the_picked_products_reach_the_plan_call(app, owner, db):
