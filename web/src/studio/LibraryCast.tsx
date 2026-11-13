@@ -20,8 +20,8 @@ import { useLock } from "./useLock";
 const DOT: Record<string, string> = { approved: "ok", needs_approval: "wait", none: "idle" };
 const BUSY = ["drawing", "waiting_for_owner"];
 
-/** Library › Cast: the brand's saved people, each with their whole sheet and their name. The picked one's panel has
- *  who they are, their voice, the videos they are in, and their presses. */
+/** Library › Cast: the brand's saved people as tiles, a face and a name each (the tile a video's Cast view uses). The
+ *  picked one's panel has their sheet whole, who they are, their voice, the videos they are in, and their presses. */
 export function CastTab({ brandId }: { brandId: number }) {
   const people = useItems("character", brandId);
   const places = useItems("place", brandId).data?.length ?? 0;
@@ -52,15 +52,15 @@ export function CastTab({ brandId }: { brandId: number }) {
             </Hold>
           ) : (
             <div className="shelf">
-              <div className="people" role="group" aria-label="Saved people">
+              <div className="tiles big" role="group" aria-label="Saved people">
                 {list.map((p) => (
-                  <button key={p.id} type="button" className="face" aria-pressed={p === person} onClick={() => (pick(p.id), panel.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }))}>
+                  <button key={p.id} type="button" className="tile person" aria-pressed={p === person} onClick={() => (pick(p.id), panel.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }))}>
                     <span className="im">{cover(p) != null ? <img src={fileUrl(cover(p)!)} alt="" loading="lazy" /> : <small aria-hidden>{STATUS[p.sheet_status]?.words}</small>}</span>
                     <b>{p.name}</b>
                   </button>
                 ))}
               </div>
-              <div ref={panel} className="person" role="region" aria-label={person.name}>
+              <div ref={panel} className="pcard" role="region" aria-label={person.name}>
                 <Person key={person.id} brandId={brandId} brand={brand} listed={person} />
               </div>
             </div>

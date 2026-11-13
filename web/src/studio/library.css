@@ -1,6 +1,7 @@
 /* The Library in the new look (Library*.tsx; the redesign, stage 5). Every rule sits under .studio, beside studio.css
-   and video.css (whose empty box, rows of ways and dialog parts it uses). A picture is always shown whole: sheets,
-   photos and clips come in more than one shape, so nothing here crops one. Type: 12 (meta), 13 (secondary), 14. */
+   and video.css (whose tiles, empty box, rows of ways and dialog parts it uses). A product's photo, a sheet in its
+   panel and a clip are shown whole, never cropped: they come in more than one shape. A person's tile shows the face,
+   as a video's Cast view does. Type: 12 (meta), 13 (secondary), 14. */
 .studio {
   .lhead h1 + .seg { margin-left: 6px; }
   .lib { max-width: 1480px; }
@@ -44,22 +45,16 @@
   .ac:hover img { filter: brightness(1.1); }
   .ac .len { position: absolute; right: 6px; bottom: 6px; padding: 0 6px; border-radius: var(--r-xs); background: rgb(0 0 0 / 0.62); font: 500 11px/18px var(--ui); color: var(--ink); }
 
-  /* Cast: everyone saved, each sheet whole at one height, then the picked one's panel. */
+  /* Cast: everyone saved as tiles (a video's own tile: a face and a name), then the picked one's panel, sheet whole. */
   .shelf { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; align-items: start; }
-  .people { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px 12px; margin: -4px; padding: 4px; }
-  .face { display: grid; grid-template-columns: min-content; }
-  .face .im { display: block; height: 132px; min-width: 74px; border-radius: var(--r-m); background: var(--raised); overflow: hidden; }
-  .face img { display: block; width: auto; max-width: none; height: 100%; transition: filter var(--fast); }
-  .face:hover img { filter: brightness(1.1); }
-  .face small { display: grid; place-items: center; width: 99px; height: 100%; padding: 8px; font-size: 12px; line-height: 16px; color: var(--ink-3); text-align: center; }
-  .face b { display: block; margin-top: 8px; font-size: 13px; line-height: 18px; font-weight: 500; }
-  .face[aria-pressed="true"] .im { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
-  .person { position: sticky; top: 0; min-width: 0; }
+  .tiles.big { grid-template-columns: repeat(auto-fill, minmax(140px, 200px)); margin-bottom: 0; }
+  .tile .im small { display: grid; place-items: center; height: 100%; padding: 8px; text-align: center; }
+  .pcard { position: sticky; top: 0; min-width: 0; }
   .psheet { display: grid; place-items: center; min-height: 180px; border-radius: var(--r-l); background: var(--raised); overflow: hidden; font-size: 13px; color: var(--ink-3); }
   .psheet img { display: block; width: auto; max-width: 100%; height: auto; max-height: min(52vh, 520px); }
   .pname { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 12px; margin: 16px 0 2px; }
   .pname .st { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
-  .person .advice button { margin-left: 2px; }
+  .pcard .advice button { margin-left: 2px; }
   .facts { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 12px; margin-top: 16px; font-size: 13px; line-height: 28px; }
   .facts dt { color: var(--ink-3); }
   .facts dd { min-width: 0; color: var(--ink-2); }
@@ -70,7 +65,7 @@
   .voice .btn { height: 28px; padding: 0 8px; font-size: 13px; flex: none; }
   .voice .btn.square { width: 28px; padding: 0; }
   .voice .clip { flex: 1; }
-  .person .offers { margin-top: 16px; }
+  .pcard .offers { margin-top: 16px; }
 
   /* Footage and Voices: rows, capped so a name and its number stay close. */
   .rows { max-width: 880px; margin: 0 auto; }
@@ -131,11 +126,11 @@
     .lhead .seg { order: 9; flex: 1 0 100%; margin: 8px 0; }
     .lhead .seg button { flex: 1; padding: 0; text-align: center; }
     .pboard, .shelf { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-    .person { position: static; }
+    .pcard { position: static; }
     .hero { aspect-ratio: 4 / 3; }
     .thumbs button { width: 44px; height: 44px; }
     .clips4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .face .im { height: 96px; }
+    .tiles.big { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
     .voice .btn { height: 44px; }
     .voice .btn.square { width: 44px; }
     .facts { line-height: 44px; }
