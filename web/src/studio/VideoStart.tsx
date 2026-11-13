@@ -3,7 +3,7 @@ import { fileUrl } from "../api/upload";
 import { lookFitNote } from "../library/sheets";
 import { said as price, type Ask } from "../videos/AskCard";
 import { duration, plural } from "./script";
-import { cameFrom, NOT_READY, once, type CastItem, type Planned, type Press } from "./videoData";
+import { cameFrom, NOT_READY, once, openingsIn, type CastItem, type Planned, type Press } from "./videoData";
 
 /** A press with its price riding on it, lighter than the verb. One press, one request: it is off while its request is
  *  in flight, and `why` (the server's own words for why it can't start) shows beside it. */
@@ -53,12 +53,16 @@ function Advice({ items, accepts }: { items: CastItem[]; accepts: string }) {
  *  in it and where each look comes from, what the look check says about any of them (the press accepts the looks as
  *  they stand), captions and time cards, and each clip the run makes with its price. After a delivery a note comes
  *  back as a round: only the clips it changes, each with its price. One press answers it, `press`; while the server
- *  is updating the plan for a note there is none and the card says so. `finish`: the two switches. */
+ *  is updating the plan for a note there is none and the card says so. `finish`: the two switches.
+ *  A video with several versions (one for each opening of the script, over the same body) says so, and each clip says
+ *  which it is in: its own hook's, or, for a clip of the body, all of them. */
 export function StartCard({ ask: a, round, press, error, cast, plan, finish, onChange }: { ask: Ask; round: number; press: Press | null; error: string | null; cast: CastItem[]; plan: Planned[]; finish: ReactNode; onChange: () => void }) {
   const m = a.money;
   const making = m?.making ?? [];
   const again = round > 1;
   const row = (clip: string) => plan.find((c) => c.number === clip);
+  const versions = openingsIn([...plan, ...making]).length;
+  const where = (opening: number) => (versions < 2 ? null : again ? (opening ? `Hook ${opening} only` : `in all ${versions} versions`) : opening ? `Hook ${opening}` : `all ${versions} versions`);
   return (
     <section className="ask" aria-label={again ? `Round ${round}` : "The plan and the cast"}>
       <p className="ask-h">
@@ -69,7 +73,8 @@ export function StartCard({ ask: a, round, press, error, cast, plan, finish, onC
       <p className="why">{again ? "Everything else stays exactly as it is. The cut you have keeps playing until the new one is made." : a.why}</p>
       {!again && plan.length > 0 && (
         <p className="why">
-          The plan is on the right: {plural(plan.length, "clip")}, about {duration(Math.round(plan.reduce((sum, c) => sum + c.seconds, 0)))}.
+          The plan is on the right: {plural(plan.length, "clip")}
+          {versions > 1 ? ` for one video with ${versions} versions, each hook over the same body, at one price for all.` : `, about ${duration(Math.round(plan.reduce((sum, c) => sum + c.seconds, 0)))}.`}
         </p>
       )}
       {!again && cast.length > 0 && <CastStrip cast={cast} />}
@@ -84,7 +89,7 @@ export function StartCard({ ask: a, round, press, error, cast, plan, finish, onC
                 {again && (r?.frame_file_id != null ? <img src={fileUrl(r.frame_file_id)} alt="" /> : <span aria-hidden className="im" />)}
                 <span>
                   <b>{r?.name || `Clip ${c.clip}`}</b>
-                  <small>{[r?.name && `Clip ${c.clip}`, `${c.seconds} s`].filter(Boolean).join(" · ")}</small>
+                  <small>{[r?.name && `Clip ${c.clip}`, `${c.seconds} s`, where(c.opening)].filter(Boolean).join(" · ")}</small>
                 </span>
                 <em>{price(c.price)}</em>
               </li>

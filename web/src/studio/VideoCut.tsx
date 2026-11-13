@@ -77,9 +77,16 @@ export function Music({ cut, edits }: { cut: Cut; edits: Edits }) {
   );
 }
 
+/** "Hook 2", "Hook 2 and Hook 3". */
+const hooks = (openings: number[]) => new Intl.ListFormat("en-GB", { type: "conjunction" }).format(openings.map((k) => `Hook ${k}`));
+
 /** Over the film: the cut being made, a cut that failed with its ways on, or the changes waiting for the next cut
- *  ("N changes not in the cut yet") with Undo all and Make the cut, both free. The count is the cut's own. */
-export function Notice({ cut, edits, make }: { cut: Cut; edits: Edits; make: ReturnType<typeof useMakeCut> }) {
+ *  ("N changes not in the cut yet") with Undo all and Make the cut, both free. The count is the cut's own.
+ *  A video with several versions: `behind` are the ones whose cut needs making again (a clip of theirs changed) and
+ *  `uncut` the ones with no cut yet (each is cut after the first; the server doesn't say when one is on its way). The
+ *  one press then makes every one of them, "Make the cuts", with the same request. */
+export function Notice({ cut, edits, make, behind = [], uncut = [] }: { cut: Cut; edits: Edits; make: ReturnType<typeof useMakeCut>; behind?: number[]; uncut?: number[] }) {
+  const several = behind.length + uncut.length > 0;
   const busy = edits.busy || make.isPending;
   const error = edits.error?.message ?? make.error?.message;
   const body = cut.making ? (
@@ -98,18 +105,36 @@ export function Notice({ cut, edits, make }: { cut: Cut; edits: Edits; make: Ret
           </button>
         ))}
     </>
-  ) : cut.changes > 0 && cut.can_edit ? (
+  ) : (cut.changes > 0 || several) && cut.can_edit ? (
     <>
       <span>
-        <b>{plural(cut.changes, "change")} not in the cut yet.</b> The cut keeps playing as it is until you make it again.
+        {cut.changes > 0 ? (
+          <>
+            <b>{plural(cut.changes, "change")} not in the cut yet.</b> The cut keeps playing as it is until you make it again.
+          </>
+        ) : behind.length > 0 ? (
+          <>
+            <b>
+              {hooks(behind)} {behind.length > 1 ? "need" : "needs"} a new cut.
+            </b>{" "}
+            A clip changed since. What you have keeps playing until it is made.
+          </>
+        ) : (
+          <>
+            <b>
+              {hooks(uncut)} {uncut.length > 1 ? "have" : "has"} no cut yet.
+            </b>{" "}
+            A further version is cut right after the first. If it doesn’t arrive, make the cuts again.
+          </>
+        )}
       </span>
-      {cut.can_undo && (
+      {cut.can_undo && cut.changes > 0 && (
         <button type="button" className="btn ghost" disabled={busy} onClick={once(() => edits.step.mutate("undo-all"))}>
           Undo all
         </button>
       )}
       <button type="button" className="btn soft" disabled={busy} onClick={once(() => make.mutate())}>
-        Make the cut <small>free</small>
+        {several ? "Make the cuts" : "Make the cut"} <small>free</small>
       </button>
     </>
   ) : null;

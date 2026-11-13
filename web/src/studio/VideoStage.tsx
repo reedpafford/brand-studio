@@ -9,7 +9,7 @@ import type { Head } from "../videos/VideoHead";
 import { Caption, STATE } from "./VideoClip";
 import { Finish, Music, Notice } from "./VideoCut";
 import { Plan } from "./VideoPlan";
-import { shotOf, type Cell, type PlanScene } from "./videoData";
+import { shotOf, type Cell, type PlanScene, type Versions } from "./videoData";
 
 const VIEWS = ["cut", "plan", "cast"] as const;
 type View = (typeof VIEWS)[number];
@@ -22,8 +22,10 @@ const seconds = (s: number) => `${Math.round(s * 10) / 10} s`;
  *  The playhead follows the film and the pick follows the playhead. Before any cut, a clip's own take plays as it
  *  arrives; a take picked in the clip's editor plays in the film's place. Plan and Cast are lists in its place; the
  *  timeline stays under all three. Over the film: the changes waiting for the next cut; captions, time cards and the
- *  music are the cut's own free edits (./VideoCut). `onTell`: start a note to the director about a clip. */
-export function Stage({ projectId, plan, cells, cut, rows, head, aspect, edits, make, cast, onTell }: { projectId: number; plan: PlanScene[]; cells: Cell[]; cut: Cut | null; rows: components["schemas"]["ProjectClipOut"][]; head: Head; aspect: string; edits: ReturnType<typeof useCutEdits>; make: ReturnType<typeof useMakeCut>; cast: ReactNode; onTell: (about: string) => void }) {
+ *  music are the cut's own free edits (./VideoCut). `onTell`: start a note to the director about a clip.
+ *  A video with several `versions` (one for each opening of its script, over the same body) has a switch by the views:
+ *  `cut` and `cells` are then the version on screen, and `first` the cut itself, which every edit acts on. */
+export function Stage({ projectId, plan, cells, cut, first, versions, rows, head, aspect, edits, make, cast, onTell }: { projectId: number; plan: PlanScene[]; cells: Cell[]; cut: Cut | null; first: Cut | null; versions?: Versions; rows: components["schemas"]["ProjectClipOut"][]; head: Head; aspect: string; edits: ReturnType<typeof useCutEdits>; make: ReturnType<typeof useMakeCut>; cast: ReactNode; onTell: (about: string) => void }) {
   const clips = plan.flatMap((s) => s.clips);
   const film = cut?.file_id ?? null;
   const length = cut?.timeline.length ?? 0;
@@ -54,6 +56,20 @@ export function Stage({ projectId, plan, cells, cut, rows, head, aspect, edits, 
     setAt(c.start);
     if (whole$.current) whole$.current.currentTime = c.start / speed;
   };
+  /** Another version on screen: its film from the start, with `clip` picked (a row of the plan) or its first. */
+  const turn = (opening: number, clip: string | null = null) => {
+    screen.current?.pause();
+    setSel(clip);
+    setPeek(null);
+    setAt(0);
+    versions?.show(opening);
+  };
+  /** A row of the plan: its clip is picked, in its own version when it is another opening's. */
+  const open = (id: string) => {
+    const other = versions && clips.find((c) => c.clip_id === id)?.opening;
+    if (other && other !== versions.on) return turn(other, id);
+    pick(cells.find((c) => c.clip === id && c.card == null) ?? cells[0]);
+  };
   const show = (v: View) => {
     setView(v);
     if (v !== "cut") screen.current?.pause();
@@ -75,10 +91,19 @@ export function Stage({ projectId, plan, cells, cut, rows, head, aspect, edits, 
             </button>
           ))}
         </div>
+        {versions && (
+          <div className="seg" role="group" aria-label="Version">
+            {versions.list.map((x) => (
+              <button key={x.opening} type="button" aria-pressed={x.opening === versions.on} title={x.name || undefined} onClick={() => x.opening !== versions.on && turn(x.opening)}>
+                Hook {x.opening}
+              </button>
+            ))}
+          </div>
+        )}
         <span className="grow" />
-        {cut && view === "cut" && <Finish cut={cut} edits={edits} />}
+        {first && view === "cut" && <Finish cut={first} edits={edits} />}
       </div>
-      {cut && view === "cut" && <Notice cut={cut} edits={edits} make={make} />}
+      {first && view === "cut" && <Notice cut={first} edits={edits} make={make} behind={versions?.behind} uncut={versions?.uncut} />}
       <div className="stage-mid" hidden={view !== "cut"}>
         <div className="player">
           <div className="frame" style={{ "--ar": aspect.replace(":", " / ") } as CSSProperties}>
@@ -110,11 +135,11 @@ export function Stage({ projectId, plan, cells, cut, rows, head, aspect, edits, 
               ))}
           </div>
         </div>
-        {current && <Caption key={current.key} projectId={projectId} cell={current} planned={planned} of={clips.length} clip={rows.find((r) => r.clip_id === current.clip)} head={head} cut={cut} edits={edits} peek={peek} onPeek={(f) => (whole$.current?.pause(), setPeek(f))} onTell={onTell} />}
+        {current && <Caption key={current.key} projectId={projectId} cell={current} planned={planned} of={clips.length} clip={rows.find((r) => r.clip_id === current.clip)} head={head} cut={first} hook={versions && planned ? planned.opening : 0} fixed={!!versions && versions.on > 1} edits={edits} peek={peek} onPeek={(f) => (whole$.current?.pause(), setPeek(f))} onTell={onTell} />}
       </div>
       {view === "plan" && (
         <div className="planview">
-          <Plan scenes={plan} clip={current?.clip ?? null} onPick={(id) => pick(cells.find((c) => c.clip === id && c.card == null) ?? cells[0])} thumbs={cells.some((c) => c.poster != null || c.file != null)} />
+          <Plan scenes={plan} clip={current?.clip ?? null} onPick={open} thumbs={cells.some((c) => c.poster != null || c.file != null)} />
         </div>
       )}
       {view === "cast" && <div className="castview">{cast}</div>}
@@ -124,9 +149,9 @@ export function Stage({ projectId, plan, cells, cut, rows, head, aspect, edits, 
             <button type="button" className="btn soft square" aria-label={playing ? "Pause" : "Play"} disabled={view !== "cut" || (!whole && shown == null)} onClick={play}>
               {playing ? <Pause {...ICON} /> : <Play {...ICON} />}
             </button>
-            <span className="time">{film != null ? `${clock(at)} / ${clock(length)}` : "No cut yet. Clips show here as they are made."}</span>
+            <span className="time">{film != null ? `${clock(at)} / ${clock(length)}` : versions && first?.file_id != null ? "No cut yet." : "No cut yet. Clips show here as they are made."}</span>
             <span className="grow" />
-            {cut && <Music cut={cut} edits={edits} />}
+            {first && <Music cut={first} edits={edits} />}
             <button type="button" className="btn ghost square" aria-label={muted ? "Sound on" : "Sound off"} onClick={() => setMuted(!muted)}>
               {muted ? <VolumeX {...ICON} /> : <Volume2 {...ICON} />}
             </button>

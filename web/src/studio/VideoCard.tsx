@@ -35,7 +35,7 @@ function RenameFromCard({ i, onClose }: { i: Idea; onClose: () => void }) {
 
 /** One video as a poster card: its still whole (never cut off or stretched), its length, its title, where it stands
  *  when it isn't simply delivered (with the bar of clips made while it is being made), then its look, its cost and when
- *  it last changed, each as the list gives it. It opens the video. Its menu (on hover or focus; always there on a
+ *  it last changed, each as the list gives it (and how many versions it has, when its script had several openings). It opens the video. Its menu (on hover or focus; always there on a
  *  phone) renames, moves and archives, each the current site's own request; the card itself drags onto a folder in the
  *  rail. An archived one is dimmed and has Restore instead. */
 export function VideoCard({ i, brandId, video }: { i: Idea; brandId: number; video: ReturnType<typeof useVideoActions> }) {
@@ -68,7 +68,7 @@ export function VideoCard({ i, brandId, video }: { i: Idea; brandId: number; vid
             <span className="clip">{said(i.status)}</span>
           </span>
         )}
-        <small>{[i.style, costText(i.cost), archived ? "" : age(i.updated_at)].filter(Boolean).join(" · ")}</small>
+        <small>{[i.style, i.versions > 1 && `${i.versions} versions`, costText(i.cost), archived ? "" : age(i.updated_at)].filter(Boolean).join(" · ")}</small>
       </Link>
       {!i.can_manage ? null : archived ? (
         <button type="button" className="btn soft" disabled={restoring} onClick={once(() => (setRestoring(true), void video.restore(target).finally(() => setRestoring(false))))}>
