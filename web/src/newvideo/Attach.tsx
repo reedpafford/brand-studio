@@ -8,7 +8,7 @@ type File_ = { id: number | null; name: string; video: boolean; local: string; e
 /** Pictures or clips for this video only (S-gaps-01, 3): kept with the video, never added to the brand (rule 12). */
 export function useAttachments() {
   const [files, setFiles] = useState<File_[]>([]);
-  const add = (list: FileList | null) => {
+  const add = (list: FileList | File[] | null) => {
     for (const f of Array.from(list ?? [])) {
       const local = URL.createObjectURL(f);
       const row: File_ = { id: null, name: f.name, video: f.type.startsWith("video/"), local };
@@ -28,7 +28,7 @@ export function useAttachments() {
 }
 export type Attachments = ReturnType<typeof useAttachments>;
 
-const ACCEPT = "image/png,image/jpeg,image/webp,video/mp4,video/webm";
+export const ACCEPT = "image/png,image/jpeg,image/webp,video/mp4,video/webm";
 
 /** The box's + menu: pictures or clips for this video, or start from a saved script or a reel instead. */
 export function Attach({ files, onScript, onReel }: { files: Attachments; onScript: () => void; onReel: () => void }) {

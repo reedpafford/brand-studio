@@ -87,7 +87,7 @@
   .btn.ghost { color: var(--ink-2); }
   .btn.ghost:hover { background: var(--raised); color: var(--ink); }
   .btn.square { width: var(--ctl); padding: 0; }
-  .pill { display: inline-flex; align-items: center; gap: 7px; height: var(--ctl); padding: 0 12px; border-radius: var(--r-full); background: var(--raised-2); font-size: 13px; font-weight: 500; white-space: nowrap; transition: background var(--fast); }
+  .pill { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 100%; height: var(--ctl); padding: 0 12px; border-radius: var(--r-full); background: var(--raised-2); font-size: 13px; font-weight: 500; white-space: nowrap; transition: background var(--fast); }
   .pill:hover { background: var(--hover); }
   .pill.on { background: var(--accent-soft); color: var(--accent-hi); }
   .seg { display: inline-flex; height: var(--ctl); padding: 2px; border-radius: var(--r-s); background: var(--raised); gap: 2px; }
@@ -97,7 +97,7 @@
   .pill[aria-expanded="true"], .btn.ghost[aria-expanded="true"], .brand[aria-expanded="true"] { background: var(--hover); color: var(--ink); }
 
   /* The popover: one menu, opened from its button (Popover.tsx). It is drawn on the page body, so it carries .studio itself. */
-  &.popv { position: fixed; z-index: 60; min-width: 232px; max-width: min(340px, calc(100vw - 16px)); max-height: min(440px, 70vh); overflow-y: auto; padding: 6px; border-radius: var(--r-m); background: var(--raised-2); box-shadow: var(--float); animation: studio-pop 140ms var(--out) both; transform-origin: top left; }
+  &.popv { position: fixed; z-index: 60; min-width: 232px; max-width: min(340px, calc(100vw - 16px)); max-height: min(440px, 70vh, var(--room, 100vh)); overflow-y: auto; padding: 6px; border-radius: var(--r-m); background: var(--raised-2); box-shadow: var(--float); animation: studio-pop 140ms var(--out) both; transform-origin: top left; }
   &.popv.above { transform-origin: bottom left; }
   &.popv button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 6px 10px; border-radius: var(--r-xs); color: var(--ink-2); font-size: 13px; line-height: 18px; }
   &.popv button:hover, &.popv button:focus-visible { background: var(--hover); color: var(--ink); outline: 0; }
@@ -107,6 +107,109 @@
   &.popv .tick { color: var(--accent-hi); opacity: 0; }
   &.popv [aria-checked="true"] .tick { opacity: 1; }
   &.popv .sq { width: 10px; height: 10px; border-radius: 3px; }
+  &.popv button:disabled { opacity: 0.45; pointer-events: none; }
+  &.popv > button > svg:first-child, &.popv .pa svg { color: var(--ink-3); }
+  &.popv h6 { font: 400 12px/16px var(--ui); color: var(--ink-3); padding: 8px 10px 4px; }
+  &.popv h6:first-child { padding-top: 4px; }
+  &.popv .pe { padding: 6px 10px 8px; font-size: 13px; line-height: 18px; color: var(--ink-3); max-width: 30ch; }
+  &.popv .pa { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 6px 10px; margin-top: 4px; border-top: 1px solid var(--line); border-radius: 0 0 var(--r-xs) var(--r-xs); color: var(--ink-2); font-size: 13px; line-height: 18px; }
+  &.popv .pa:hover, &.popv .pa:focus-visible { background: var(--hover); color: var(--ink); outline: 0; }
+  &.popv .pth { width: 24px; height: 24px; border-radius: 5px; object-fit: cover; flex: none; }
+  &.popv .rv { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+  &.popv .rv.set { color: var(--accent-hi); }
+  &.popv .chev { color: var(--ink-3); transition: transform var(--fast); }
+  &.popv [aria-expanded="true"] .chev { transform: rotate(90deg); }
+  &.popv .sub { margin: 0 0 4px 10px; padding-left: 6px; border-left: 1px solid var(--line-2); }
+  &.popv .shp { margin: 0 3px; }
+
+  /* New video (NewVideo.tsx): the script on the left in a box that fills the height, the look and the price on the right. */
+  .create { display: flex; padding: clamp(20px, 5vh, 48px) var(--gut) 40px; min-height: 100%; }
+  .desk { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 760px) 388px; justify-content: center; gap: 32px; }
+  .desk h2 { font: 600 14px/20px var(--ui); margin-bottom: 10px; }
+  .write, .side { display: flex; flex-direction: column; min-width: 0; }
+  .bad { color: var(--bad); }
+  .spin { animation: studio-spin 0.9s linear infinite; }
+  .pill em { font-style: normal; font-weight: 400; color: var(--ink-3); }
+  .pill > img, .faces img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; object-position: 50% 22%; flex: none; }
+  .pill > img, .pill .faces { margin-left: -6px; }
+  .faces { display: inline-flex; flex: none; }
+  .faces img { box-shadow: 0 0 0 2px var(--raised-2); }
+  .faces img + img { margin-left: -6px; }
+  .shp { display: inline-block; border: 1.5px solid currentColor; border-radius: 2px; flex: none; opacity: 0.8; }
+  .shp.s916 { width: 8px; height: 13px; }
+  .shp.s11 { width: 11px; height: 11px; }
+  .shp.s169 { width: 15px; height: 9px; }
+
+  /* The script box. The typed text is see-through over the same text, tinted (ScriptBox.tsx): the two share every
+     measure that sets where a line breaks, so they line up at any width. The page scrolls, never the textarea. */
+  .composer { flex: 1; display: flex; flex-direction: column; border-radius: var(--r-l); background: var(--raised); transition: box-shadow var(--fast); }
+  .composer:has(textarea:focus) { box-shadow: 0 0 0 2px var(--accent); }
+  .paper { flex: 1 1 0; min-height: 264px; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--r-l) var(--r-l) 0 0; }
+  .sheet { position: relative; min-height: 100%; max-width: 68ch; }
+  .ink, .sheet textarea { font: 400 15px/24px var(--ui); letter-spacing: 0; padding: 18px 20px 20px; white-space: pre-wrap; overflow-wrap: break-word; tab-size: 4; }
+  .ink { pointer-events: none; }
+  .ink .nm { color: var(--ink-2); }
+  .ink .ctx { color: var(--ink-3); }
+  .sheet textarea { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: hidden; resize: none; background: none; border: 0; outline: 0; color: transparent; caret-color: var(--ink); }
+  .sheet textarea::placeholder { color: var(--ink-3); }
+  .sheet textarea::selection { background: rgb(143 146 255 / 0.32); color: transparent; }
+  .reads { padding: 10px 20px 12px; border-top: 1px solid var(--line); font-size: 12px; line-height: 16px; color: var(--ink-3); }
+  .reads[role="alert"] { color: var(--bad); }
+  .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 10px 10px; }
+  .files { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 10px 8px; }
+  .chipf { display: inline-flex; align-items: center; gap: 8px; min-width: 0; height: 40px; padding: 0 4px 0 6px; border-radius: var(--r-s); background: var(--raised-2); animation: studio-pop 160ms var(--out) both; }
+  .chipf img, .chipf video { width: 28px; height: 28px; border-radius: 5px; object-fit: cover; flex: none; }
+  .chipf > svg { margin: 0 7px; color: var(--ink-2); }
+  .chipf > span { min-width: 0; }
+  .chipf b, .chipf small { display: block; font-size: 12px; line-height: 16px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chipf b { font-weight: 500; }
+  .chipf small { color: var(--ink-3); }
+  .chipf small.bad { color: var(--bad); }
+  .chipf .x { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 5px; color: var(--ink-3); flex: none; }
+  .chipf .x:hover { background: var(--hover); color: var(--ink); }
+
+  /* The look: a large preview that plays, the looks that are on beside it, and Format by the heading. */
+  .h2row { display: flex; align-items: center; margin: -3px 0 7px; }
+  .h2row h2 { margin: 0; }
+  .h2row .pill { margin-left: auto; height: 26px; padding-right: 6px; font-size: 12px; background: none; color: var(--ink-2); }
+  .h2row .pill:hover, .h2row .pill[aria-expanded="true"] { background: var(--raised); color: var(--ink); }
+  .lookpick { display: grid; grid-template-columns: 196px minmax(0, 1fr); gap: 8px; }
+  .monitor { position: relative; aspect-ratio: 9 / 16; border-radius: var(--r-m); overflow: hidden; background: var(--raised); }
+  .monitor video, .monitor img { width: 100%; height: 100%; object-fit: cover; }
+  .monitor span { position: absolute; inset: auto 0 0; padding: 48px 12px 10px; background: linear-gradient(to top, rgb(0 0 0 / 0.82), transparent); }
+  .monitor b { display: block; font: 600 16px/22px var(--ui); }
+  .monitor small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 12px; line-height: 16px; color: rgb(255 255 255 / 0.78); }
+  .monitor.peek::after { content: "Preview"; position: absolute; left: 10px; top: 10px; padding: 0 7px; border-radius: var(--r-xs); background: rgb(0 0 0 / 0.6); font: 500 11px/20px var(--ui); }
+  .lookgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .look { position: relative; border-radius: var(--r-s); overflow: hidden; background: var(--raised); isolation: isolate; }
+  .look img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; transition: filter var(--fast); }
+  .look:hover img { filter: brightness(1.12); }
+  .look:active { filter: brightness(0.9); }
+  .look::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(0 0 0 / 0.78), transparent 60%); }
+  .look b { position: absolute; inset: auto 8px 5px; z-index: 1; font: 500 12px/16px var(--ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .look[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
+  .look.more { display: grid; place-items: center; align-content: center; gap: 4px; color: var(--ink-3); border: 1px dashed var(--line-2); background: none; }
+  .look.more::after { display: none; }
+  .look.more b { position: static; color: var(--ink-2); }
+  .look.more:hover { color: var(--ink); border-color: var(--ink-3); }
+
+  /* The price, the plan-first switch and Make it. */
+  .estline { display: flex; flex-direction: column; gap: 2px; margin-top: 16px; padding: 12px 14px; border-radius: var(--r-m); background: var(--raised); }
+  .estline b { font-weight: 600; }
+  .estline span { font-size: 12px; line-height: 18px; color: var(--ink-3); }
+  .estline [role="alert"] { color: var(--bad); }
+  .swrow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 0 14px; margin-top: 4px; font-weight: 500; border-radius: var(--r-m); transition: background var(--fast); }
+  .swrow:hover { background: var(--raised); }
+  .swrow span { flex: 1; }
+  .swrow small { display: block; font-size: 12px; line-height: 16px; font-weight: 400; color: var(--ink-3); }
+  .sw { width: 30px; height: 18px; border-radius: 9px; background: var(--hover); position: relative; transition: background var(--fast); flex: none; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); transition: transform var(--base) var(--out); }
+  [aria-checked="true"] > .sw { background: var(--accent); }
+  [aria-checked="true"] > .sw::after { transform: translateX(12px); background: var(--on-accent); }
+  .make { height: 44px; margin-top: 12px; font-size: 14px; }
+  .btn.go.make:disabled { opacity: 1; background: color-mix(in srgb, var(--accent) 40%, var(--panel)); } /* solid: on a phone it floats over the looks */
+  .make small { margin-left: 2px; font: inherit; font-weight: 400; color: rgb(10 10 22 / 0.72); }
+  .make + .bad { margin-top: 8px; font-size: 13px; line-height: 18px; }
 
   /* The dialog (Dialog.tsx): a box that asks for something, or the search list. Also drawn on the page body. */
   &.scrim { position: fixed; inset: 0; z-index: 50; display: grid; place-items: start center; padding-top: 16vh; background: rgb(4 4 6 / 0.6); backdrop-filter: blur(6px); animation: studio-fade var(--base) both; }
@@ -142,6 +245,22 @@ body:has(.studio.app) { background: #08080a; }
 @keyframes studio-fade { from { opacity: 0; } }
 @keyframes studio-pop { from { opacity: 0; transform: scale(0.97) translateY(-3px); } }
 @keyframes studio-sheet { from { opacity: 0; transform: translateY(16px); } }
+@keyframes studio-spin { to { transform: rotate(360deg); } }
+
+/* New video on a short or a narrow window: a smaller preview, so the price and Make it stay in view. */
+@media (max-height: 840px) and (min-width: 901px) {
+  .studio {
+    .create { padding-top: 20px; }
+    .paper { min-height: 200px; }
+    .lookpick { grid-template-columns: 160px minmax(0, 1fr); }
+  }
+}
+@media (max-width: 1180px) {
+  .studio {
+    .desk { grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; }
+    .lookpick { grid-template-columns: 160px minmax(0, 1fr); }
+  }
+}
 
 /* A phone (and a tablet, up to 900 px): the rail becomes a row of tabs at the bottom, a menu comes up as a sheet. */
 @media (max-width: 900px) {
@@ -156,10 +275,18 @@ body:has(.studio.app) { background: #08080a; }
     .tabs a[aria-current="page"] { color: var(--ink); }
     .tabs a[aria-current="page"] svg { color: var(--accent); }
     &.popv { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; max-width: none; max-height: 70vh; border-radius: var(--r-l); padding: 8px; animation: studio-sheet 200ms var(--out) both; }
-    &.popv button { min-height: 44px; }
+    &.popv button, &.popv .pa { min-height: 44px; }
+    &.popv .pe { max-width: none; }
+    .create { display: block; }
+    .desk { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+    .paper { flex: none; height: 264px; min-height: 0; }
+    .ink, .sheet textarea { font-size: 16px; }
+    .lookpick { grid-template-columns: 132px minmax(0, 1fr); }
+    .make { position: sticky; bottom: calc(72px + env(safe-area-inset-bottom)); z-index: 5; box-shadow: 0 0 0 8px var(--panel); }
     &.scrim { padding-top: 8vh; }
     .cmd a { height: 44px; }
     .cmd input, .dlg input { font-size: 16px; }
     &.app > [aria-live] { bottom: calc(84px + env(safe-area-inset-bottom)); }
+    &.app:has(.make) > [aria-live] { bottom: calc(132px + env(safe-area-inset-bottom)); } /* above New video's Make it, never on it */
   }
 }
