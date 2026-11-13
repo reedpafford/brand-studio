@@ -55,8 +55,9 @@ function Advice({ items, accepts }: { items: CastItem[]; accepts: string }) {
  *  back as a round: only the clips it changes, each with its price. One press answers it, `press`; while the server
  *  is updating the plan for a note there is none and the card says so. `finish`: the two switches.
  *  A video with several versions (one for each opening of the script, over the same body) says so, and each clip says
- *  which it is in: its own hook's, or, for a clip of the body, all of them. */
-export function StartCard({ ask: a, round, press, error, cast, plan, finish, onChange }: { ask: Ask; round: number; press: Press | null; error: string | null; cast: CastItem[]; plan: Planned[]; finish: ReactNode; onChange: () => void }) {
+ *  which it is in: its own hook's, or, for a clip of the body, all of them. `voice`: the run reads the narration again,
+ *  in this voice (./VideoVoice). */
+export function StartCard({ ask: a, round, press, error, cast, plan, finish, voice, onChange }: { ask: Ask; round: number; press: Press | null; error: string | null; cast: CastItem[]; plan: Planned[]; finish: ReactNode; voice?: string | null; onChange: () => void }) {
   const m = a.money;
   const making = m?.making ?? [];
   const again = round > 1;
@@ -97,6 +98,7 @@ export function StartCard({ ask: a, round, press, error, cast, plan, finish, onC
           })}
         </ul>
       )}
+      {voice && <p className="why">The narration is read again in the {voice} voice.</p>}
       <div className="ask-f">
         {press ? <PressButton press={press} /> : m?.updating && <p className="quiet small">The plan is being updated for your note. The press comes back with the new price.</p>}
         <button type="button" className="btn ghost" onClick={onChange}>

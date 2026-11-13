@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Pause, Play, Users } from "lucide-react";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
@@ -25,8 +25,9 @@ function Voice({ of, voice }: { of: string; voice: NonNullable<CastItem["voice"]
 
 /** The Cast view, to read: the people, then the places and the product, as tiles. The picked one's tray says who they
  *  are, where they come from, how many clips they are in, their voice, and the look check's advice or a look still on
- *  its way when the server gives them. `assets` adds what the checkpoint doesn't hold: who they are, and the product. */
-export function Cast({ cast, assets }: { cast: CastItem[]; assets: Asset[] }) {
+ *  its way when the server gives them. `assets` adds what the checkpoint doesn't hold: who they are, and the product.
+ *  `voice`: a narrated video's voice, over them (./VideoVoice). */
+export function Cast({ cast, assets, voice }: { cast: CastItem[]; assets: Asset[]; voice?: ReactNode }) {
   const [picked, setPicked] = useState<string | null>(null);
   const about = (i: CastItem) => assets.find((a) => a.ref === i.ref || (a.slot_id != null && i.ref === `slot:${a.slot_id}`) || (a.kind === i.kind && a.library_item_id != null && a.library_item_id === i.library_item_id));
   const tiles: Tile[] = [
@@ -35,11 +36,14 @@ export function Cast({ cast, assets }: { cast: CastItem[]; assets: Asset[] }) {
   ];
   if (!tiles.length)
     return (
-      <div className="hold bare">
-        <Users size={18} strokeWidth={1.75} aria-hidden />
-        <b>The cast shows here</b>
-        <p>Everyone in the video, its places and the product, once the plan is written.</p>
-      </div>
+      <>
+        {voice}
+        <div className="hold bare">
+          <Users size={18} strokeWidth={1.75} aria-hidden />
+          <b>The cast shows here</b>
+          <p>Everyone in the video, its places and the product, once the plan is written.</p>
+        </div>
+      </>
     );
   const pick = tiles.find((t) => t.key === picked) ?? tiles[0];
   const i = pick.item;
@@ -61,6 +65,7 @@ export function Cast({ cast, assets }: { cast: CastItem[]; assets: Asset[] }) {
   const others = tiles.filter((t) => t.kind !== "person");
   return (
     <>
+      {voice}
       {group("People", tiles.filter((t) => t.kind === "person"), true)}
       {group(!others.some((t) => t.kind === "product") ? "Places" : others.some((t) => t.kind === "place") ? "Places and product" : "Product", others, true)}
       <div className="tray" role="status">

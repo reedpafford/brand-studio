@@ -186,6 +186,19 @@
   .tray span { display: block; font-size: 13px; line-height: 20px; color: var(--ink-2); }
   .tray .advice { color: var(--wait); }
   .tray .btn { font-size: 13px; }
+  /* A narrated video's voice, over the tiles: its name and sample, and another picked from a menu (VideoVoice.tsx). */
+  .castview .nvoice { margin-bottom: 24px; flex: none; }
+  .castview .nvoice > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+  .castview .nvoice > div > p { flex: 1 1 240px; min-width: 0; } /* when the presses don't fit beside it, they go under it together */
+  .castview .nvoice > div > span { display: flex; gap: 8px; }
+  .castview .nvoice b { display: block; font-weight: 500; }
+  .castview .nvoice small { display: block; font-size: 13px; line-height: 20px; color: var(--wait); }
+  .castview .nvoice .btn { font-size: 13px; }
+  &.popv .vpick { display: flex; align-items: center; gap: 2px; }
+  &.popv .vpick > :first-child { width: 30px; height: 30px; min-height: 0; padding: 0; background: none; flex: none; }
+  &.popv .vpick > .btn:hover { background: var(--hover); }
+  &.popv .vpick > [role] { flex: 1; width: auto; min-width: 0; }
+  &.popv .vpick small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 
   /* The timeline: each piece as wide as it is long; a time card is a short dark piece with its words. */
   .strip { padding: 12px var(--gut) 16px; border-top: 1px solid var(--line); flex: none; }
@@ -396,6 +409,8 @@
     .castview { padding-bottom: 8px; }
     .tiles.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .tray { position: static; }
+    .castview .nvoice .btn { height: 44px; }
+    .castview .nvoice .btn.square, &.popv .vpick > :first-child { width: 44px; height: 44px; }
     .track { flex-wrap: wrap; row-gap: 6px; }
     .tc, .track.dense .tc, .track.dense .tc.left { flex: 0 0 max(36px, calc(var(--s) * 9px)); }
     .tc.card, .track.dense .tc.card { flex-basis: 64px; padding: 0 6px; }
