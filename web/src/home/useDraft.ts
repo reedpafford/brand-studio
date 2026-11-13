@@ -13,7 +13,7 @@ import { readsAsScript } from "./Words";
 
 const MODE = "bs.newvideo.mode";
 /** Ask before making, or (the owner only) make without asking; the owner's choice is remembered on this computer. */
-function useMode(owner: boolean): [Mode, (m: Mode) => void] {
+export function useMode(owner: boolean): [Mode, (m: Mode) => void] {
   const [mode, setMode] = useState<Mode>(() => (localStorage.getItem(MODE) === "auto" ? "auto" : "ask"));
   return [owner ? mode : "ask", (m) => (localStorage.setItem(MODE, m), setMode(m))];
 }
