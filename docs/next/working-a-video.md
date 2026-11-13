@@ -4,7 +4,7 @@ Reed, 13 Nov 2026, after Movie Ad 1 (RP5): "what we just made, and the flow of h
 
 This is that workflow, for any style or format. It is how an agent works a video with Reed from a script to a finished cut. It is not a style guide: what a style looks like stays in its guide. Where this file and a style guide differ on how the pictures look, the guide wins; on how the work is done, this file wins.
 
-RP5's own record (every round, every fault, every price) is `.context/MOVIE-HANDOFF.md` in the skopje workspace; its tools are in `.context/rp5/`.
+RP5 itself is kept as the worked example in `tools/movie_ad/` (the breakdown of every clip as it was sent, the filming, the checking and the finish). Its day-by-day record is `.context/MOVIE-HANDOFF.md` in the skopje workspace.
 
 ## The order of work
 
@@ -57,6 +57,21 @@ Steps 3 and 4 can be skipped only when the same style, model and kind of scene h
 - "Hook first" means the opening of the whole video, never every clip.
 - The price is built from seconds: seconds times the model's rate, extras named one by one. No padding. His expectation: about $3 to $5 of filming for 30 seconds. If the first figure is high, find out why before defending it.
 - Say the total and the figure at which you will stop. Nothing is spent before he says yes, and nothing past the stop without asking again.
+
+### The breakdown, step by step (the director's part)
+
+This is the thinking that turned RP5's script into clips. It is the same for any style; only the last step changes with the model.
+
+1. **Read the script as a viewer.** Mark the beats: where something changes for someone. Mark what the script itself calls for (a time jump, a product moment, a hook that plays before the body).
+2. **For each beat, write one plain sentence**: who is where, what they do, what changes. If the sentence needs a feeling word to make sense, the beat is not directed yet: find what the person does. ("The men are menacing" became "both men watch her and close in; cut back to them twice.")
+3. **Cast and places from the script only.** Each person once, in a few plain words a picture can be drawn from; each place the story returns to, once, seen from one corner. Someone who appears once is an extra, said in words.
+4. **Group beats into clips**: one scene in one place and time per clip, as long as the scene needs, up to the model's longest. Never split a scene to get more cuts.
+5. **Inside a clip, shots back to back**, a few seconds each. For each: the size, where the camera is and what is near the lens, whether it moves, who is in frame, one action, and the line with how it is said. A listener does something too. Time every shot against its line (about three to four spoken words a second).
+6. **One look line and one sound line for the clip.** The look is the style's own words, short. The sound names what is heard and each voice in a few words; music is added in the edit.
+7. **Lay it out the way that model's maker shows.** For RP5's model that was: the scene in a paragraph, a line for each picture saying what to take from it, the timed shots, the look, the sound. Another model gets its own layout from its own guide; the six steps above do not change.
+8. **Price it from the seconds, then cut.** If the total is high, the plan has too many seconds, not too little budget.
+
+The whole of RP5 written this way, with every round of notes, is `tools/movie_ad/plan.py`.
 
 ## 6. References
 
