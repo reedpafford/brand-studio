@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app import cast_gate, director, hidden, live, locked_line, music, screen_figures, thinking
 from app.clip_takes import still_wanted
-from app.credits import FREE_LANES, USD_PER_CREDIT, usd_to_credits
+from app.credits import FREE_LANES, KIE_DRY, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
 from app.filetypes import ALLOWED_TYPES, matches
 from app.models.accounts import User
@@ -56,6 +56,8 @@ UNSURE = "Lost contact while this was starting, so it was stopped. Nothing was c
 CHECK = "Lost contact while starting paid work: check the provider before retrying."  # owner
 RESTARTED = "The server restarted while this was being written. Nothing was charged; try again."
 FAILED = "The service couldn't finish this. Nothing was charged; try again."  # never counted
+NO_KIE_CREDITS = ("KIE is out of credits, so this wasn't started and nothing was charged. Top up "
+                  "KIE, then try again.")  # fmt: skip
 EXTENSIONS = {"video/mp4": ".mp4", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
               "audio/mpeg": ".mp3", "audio/wav": ".wav"}  # fmt: skip
 # Provider output links expire (Replicate: 1 hour); stop retrying downloads after that.
@@ -134,6 +136,8 @@ def _plain(job: Job, detail: str) -> str:
 
     if refusal(detail):  # its content refused (video 345: E006): never "try again"
         return REFUSED_SAID.format(refused_how(detail))
+    if KIE_DRY in detail:  # trying again won't help until the account is topped up
+        return NO_KIE_CREDITS
     if reason := invalid(detail):  # refused as sent: trying the same again won't help
         return f"The service refused this request as invalid, so nothing was charged: {reason}."
     return song_directions.failure(detail) or FAILED

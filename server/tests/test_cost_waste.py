@@ -94,3 +94,11 @@ def test_a_take_its_provider_refused_counts_nothing_spent(app, db, owner, editor
         out = said.replace("Google failed", head).replace("INVALID_ARGUMENT", "RESOURCE_EXHAUSTED")
         full = Job(**{**base, "provider_ref": "g2", "provider": "google"}, error_detail=out)
         assert credits.never_billed(full) and why_failed(full) != "invalid"
+    # 13 Nov: KIE's account ran dry mid-film; nine clips it never started each counted at its price
+    from app import worker
+
+    dry = "RuntimeError('KIE 402: Credits insufficient : Your current balance isn’t enough')"
+    unsent = Job(**{**base, "provider_ref": None, "provider": "kie"}, error_detail=dry)
+    assert credits.never_billed(unsent) and worker._plain(unsent, dry) == worker.NO_KIE_CREDITS
+    broke = Job(**{**base, "provider_ref": "k1", "provider": "kie"}, error_detail="fail: it broke")
+    assert not credits.never_billed(broke)  # a task that began may have been billed
