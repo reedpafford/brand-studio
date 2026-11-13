@@ -17,6 +17,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app import (
+    cut_captions,
     cut_in,
     host,
     host_layer,
@@ -122,7 +123,7 @@ def recipe(db: Session, project: Project, tl: dict) -> dict:
            "music": {**{k: music[k] for k in ("quieter_db", "gaps", "loop")},
                      "key": _key(db, music["file_id"]),
                      "lines": tl.get("lines") or []} if music else None,
-           "host": None,
+           "host": None, "captions": cut_captions.for_cut(db, tl) if tl.get("captions") else [],
            "over": [{"key": _key(db, db.get(ClipTake, o["take_id"]).file_id), "start": o["start"],
                      "length": o["length"]} for o in laid_over(tl)]}  # fmt: skip
     if tl.get("speed"):  # an Omni talker's: each take's voice evened, one room, faster
@@ -205,6 +206,7 @@ def render(r: dict, storage, progress=lambda percent: None) -> bytes:
     if r["host"]:
         hosts = [storage.get(k) for k in r["host"]["keys"]]
         data = host_layer.lay_over(data, hosts, r["host"]["spans"])
+    data = cut_captions.burn(data, r.get("captions") or [])
     # every kind of cut, as loud as social video plays (E2E 233: -25 LUFS); an Omni talker's
     # by one fixed gain, never loudnorm's dynamic mode, with its room and its speed
     data = talker_sound.finish(data) if r.get("steady") else loud(data)

@@ -7839,7 +7839,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "trim" | "retime" | "split" | "swap" | "presenter" | "music";
+            kind: "trim" | "retime" | "split" | "swap" | "presenter" | "music" | "captions";
             /** Piece */
             piece?: string | null;
             /** Start */
@@ -7873,6 +7873,8 @@ export interface components {
             removed?: boolean | null;
             /** File Id */
             file_id?: number | null;
+            /** On */
+            on?: boolean | null;
         };
         /** EditOut */
         EditOut: {
@@ -12992,6 +12994,11 @@ export interface components {
              * @default 1
              */
             speed: number;
+            /**
+             * Captions
+             * @default false
+             */
+            captions: boolean;
         };
         /** TitleIn */
         TitleIn: {

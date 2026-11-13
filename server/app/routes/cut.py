@@ -101,6 +101,7 @@ class TimelineOut(BaseModel):
     words: list[WordOut]
     sfx: list[SoundFxOut]
     speed: float = 1.0  # the made cut plays this much faster than its takes' own seconds
+    captions: bool = False  # the spoken words burned in (the cut's "captions" edit switches it)
 
 
 class EditOut(BaseModel):
@@ -174,7 +175,7 @@ class CutOut(BaseModel):
 
 
 class EditIn(BaseModel):
-    kind: Literal["trim", "retime", "split", "swap", "presenter", "music"]
+    kind: Literal["trim", "retime", "split", "swap", "presenter", "music", "captions"]
     piece: str | None = Field(None, max_length=40)
     start: float | None = None  # cut seconds
     end: float | None = None
@@ -190,6 +191,7 @@ class EditIn(BaseModel):
     loop: bool | None = None
     removed: bool | None = None
     file_id: int | None = None  # music to swap to
+    on: bool | None = None  # captions burned in, or not
 
 
 class CutFixIn(BaseModel):
@@ -305,7 +307,7 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
     timeline = TimelineOut(
         mode=tl["mode"], length=tl["length"], pieces=pieces, words=words,
         presenter=tl["presenter"], voice=tl["voice"], sfx=cut.sfx(db, tl),
-        speed=tl.get("speed", 1.0),
+        speed=tl.get("speed", 1.0), captions=bool(tl.get("captions")),
         music=MusicOut(**{"name": "Music", "file_id": None, "director": False, **music})
         if music else None)  # fmt: skip
     in_cut = set(playing.edit_ids or []) if playing else set()

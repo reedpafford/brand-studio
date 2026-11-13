@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import (
+    cut_captions,
     host,
     host_layer,
     looks,
@@ -47,7 +48,7 @@ HOLD = 3.0  # seconds a narrated cut may run past its last word
 ON_START = 0.2  # seconds: B-roll this near a piece's start starts with it
 SIZES = {"small": 0.30, "medium": host_layer.HEIGHT, "large": 0.46}
 QUIETER, LOUDEST = 18.0, 30.0  # dB the music sits under the voice: default ("A lot"), most
-KINDS = ("trim", "retime", "split", "swap", "presenter", "music")
+KINDS = ("trim", "retime", "split", "swap", "presenter", "music", "captions")
 AFTER_LAST_LINE = 1.0  # seconds of song after the last sung line before the end
 NO_PIECE = "There's no {} in the cut."
 NO_HOST = "This video has no presenter."
@@ -191,6 +192,7 @@ def base(db: Session, project: Project) -> dict:
         "presenter": None,
         "voice": None,
         "music": None,
+        "captions": mode == "takes" and cut_captions.usual(project),
         "words": [],
         "seconds": float(voice.seconds or 0) if voice else None,
         **({"over": over} if over else {}),
@@ -345,6 +347,9 @@ def _one(tl: dict, e: CutEdit) -> None:
         what = {k: d[k] for k in ("side", "size", "hidden") if k in d}
         tl["presenter"]["spans"] = _spanned(tl["presenter"]["spans"], d["start"], d["end"],
                                             {**what, **mark})  # fmt: skip
+        return
+    if e.kind == "captions":
+        tl["captions"] = bool(d["on"])
         return
     if tl["mode"] == "song" or (not tl["music"] and "file_id" not in d):
         raise Refused(NO_MUSIC)  # a song's sound is its song; a story's bed is laid first

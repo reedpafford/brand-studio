@@ -179,6 +179,8 @@ def _shape(db: Session, user: User, project: Project, tl: dict, kind: str,
         return _presenter(tl, d)
     if kind == "music":
         return _music(db, project, d, tl)
+    if kind == "captions":
+        return {"on": bool(d["on"])}, "Captions on" if d["on"] else "Captions off", 0.0
     if kind == "split":
         at = near(float(d["at"]))
         piece = d.get("piece") or next((p["id"] for p in tl["pieces"]
