@@ -28,7 +28,12 @@ export const WAYS: { id: Way; title: string; made: string; line: string; now: st
 /** The style's start when the video doesn't say: UGC talks to camera, every other presenter sits in the corner. */
 export const styleWay = (look: string): Way => (look === "ugc" ? "talks" : "corner");
 /** A voice as the video's setting names it (#1327): an app voice by its key, a brand's by its id. */
-const voiceRef = (v: Voice) => (v.id != null ? `voice:${v.id}` : `stock:${v.stock_key}`);
+export const voiceRef = (v: Pick<Voice, "id" | "stock_key">) => (v.id != null ? `voice:${v.id}` : `stock:${v.stock_key}`);
+/** The list's row for a voice named by its real key only: an app voice's key or a saved voice's "voice:<id>" (a saved
+ *  voice has no app key to match by). */
+export const voiceByKey = <V extends Pick<Voice, "id" | "stock_key">>(list: V[], said: string | null | undefined) => (said ? list.find((v) => voiceRef(v) === said || (v.stock_key != null && v.stock_key === said)) : undefined);
+/** The video's presenter, and the voice its narration is read in (GET …/host). */
+export const useHost = (projectId: number) => useQuery({ queryKey: ["host", projectId], queryFn: async () => (await api.GET("/projects/{project_id}/host", { params: { path: { project_id: projectId } } })).data ?? null });
 const PROVIDER: Record<string, string> = { elevenlabs: "ElevenLabs", minimax: "MiniMax", omni: "Omni" };
 
 function useVoices(brandId: number) {
@@ -78,7 +83,7 @@ function VoiceRow({ v, on, onPick }: { v: Voice; on: boolean; onPick?: () => voi
 export function Presenter({ p, head, rows, brand, phone, approval }: { p: Project; head: Head | undefined; rows: Asset[]; brand: string; phone: boolean; approval?: (libraryItemId: number) => string | undefined }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const host = useQuery({ queryKey: ["host", p.id], queryFn: async () => (await api.GET("/projects/{project_id}/host", { params: { path: { project_id: p.id } } })).data ?? null });
+  const host = useHost(p.id);
   const settings = useVideoSettings(p.id);
   const lookOnly = useViewOnly();
   const [choosing, setChoosing] = useState(false);
@@ -141,9 +146,9 @@ export function Presenter({ p, head, rows, brand, phone, approval }: { p: Projec
   const list = voices.data?.voices ?? [];
   const chosen = s?.voice ? list.find((v) => voiceRef(v) === s.voice) : undefined;
   // The voice it's read in (or will be, before the narration: the presenter's own saved voice, else the style's), by its
-  // real key only: an app voice's key or a saved voice's "voice:<id>" (a saved voice has no app key to match by).
+  // real key only (voiceByKey).
   const said = h.voice;
-  const byKey = said ? list.find((v) => voiceRef(v) === said || (v.stock_key != null && v.stock_key === said)) : undefined;
+  const byKey = voiceByKey(list, said);
   const voice = chosen ?? byKey ?? (said ? { id: null, name: said, stock_key: said, provider: "", description: "", sample_url: null, preview_file_id: null, sample_file_id: null } : null);
   const canVoice = !!s && "voice" in s && !lookOnly && list.length > 0;
   const way = WAYS.find((w) => w.id === now)!;

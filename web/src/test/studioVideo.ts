@@ -1,14 +1,15 @@
 import type { components } from "../api/schema";
 import { cutOut } from "./cut";
 import { owner } from "./people";
+import { VOICES } from "./studioLibrary";
 
 /** One video (366, "Three men at Target", nine clips in two scenes) as the server answers it, in each state the new
  *  look's video page (studio/Video.tsx) can show: the plan waiting for the press, the plan being updated for a note,
  *  being made, stopped, needing him (a provider account empty, a step that failed twice), delivered (a time card on the
  *  timeline, a clip left out of the cut, a flagged take, edits waiting for the next cut), a round after a note, the
- *  cast waiting for its own OK, each kind of question, archived, one made by the earlier director, and one whose script
- *  had three openings (three versions over one body). Each is a whole fake server: pass it to `fakeServer`. The shapes
- *  are the schema's own. */
+ *  cast waiting for its own OK, each kind of question, archived, one made by the earlier director, one whose script
+ *  had three openings (three versions over one body), and any of them as a narrated video with its voice. Each is a
+ *  whole fake server: pass it to `fakeServer`. The shapes are the schema's own. */
 type S = components["schemas"];
 export type Routes = Record<string, [number, unknown]>;
 
@@ -244,6 +245,15 @@ export const threeHooks = (files: (number | null)[] = [90, 92, 93], behind: numb
 export const threeHooksPlan = over(planWaiting, { "/clips": marked(CLIPS.map((_, n) => clip(n + 1, false))), "/asks": [{ ...START, money: { ...START.money!, making: marked(START.money!.making) } }] });
 /** And after a note that changes one opening's clip and one of the body: the round's card says which versions each is in. */
 export const threeHooksRound = over(threeHooks(), { "/asks": [STARTED, { ...ROUND, money: { ...ROUND.money!, making: [{ ...ROUND.money!.making[0], clip: "2", seconds: 4, opening: 2 }, ROUND.money!.making[1]] } }], "/idea": headOf(delivered, status("needs_you", "Needs you", "Start it")), "/director": read<S["DirectorOut"]>(round2, "/director") }, "waiting");
+
+// ── A narrated video: the voice its narration is read in (GET …/host), its own voice setting, the brand's voices. ──
+const HOST: S["HostOut"] = { on: false, state: "none", pieces: [], credits: 0, presenter_id: null, voice: "Roger", voice_pending: false };
+const SETTINGS: S["SettingsOut"] = { look: "movie", video_model: null, image_model: null, aspect_ratio: "9:16", product_variants: {}, language: "en", video_models: [], image_models: [], shapes: ["9:16"], flavours: {}, changes: [], presenter: null, presenter_now: null, voice: null };
+/** `base` as a narrated video read in the app's Roger. `set`: the voice set on it since ("voice:7" is the brand's own
+ *  Kim), which its narration isn't read in yet. `host`: what else its host says. */
+export const narrated = (base: Routes, set: string | null = null, host: Partial<S["HostOut"]> = {}): Routes => ({ ...over(base, { "/host": { ...HOST, voice_pending: !!set, ...host }, "/settings": { ...SETTINGS, voice: set } }), "GET /brands/1/voices": [200, VOICES] });
+/** Kim is set and Carry on was pressed: the run's start card prices the narration read again; nothing is read yet. */
+export const voiceRound = narrated(over(round2, { "/asks": [STARTED, { ...ROUND, question: "Make it for up to $1.84?", money: { ...ROUND.money!, expected: false, up_to: { credits: 18.4, usd: 1.84 }, making: [] } }], "/director": runOf(delivered, { status: "running", make_it: 9, thread: [...AFTER, said("ask", "09:42", { id: "a9", ask_id: 9 })] as S["ThreadItem"][] }) }), "voice:7");
 
 /** Archived after delivery; and the same video as the earlier, step-by-step director would have made it. */
 export const archived = over(delivered, { "": { ...read<object>(delivered, ""), archived_at: "2026-11-13T10:00:00" }, "/idea": headOf(delivered, status("archived", "Archived")) });

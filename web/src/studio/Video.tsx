@@ -39,6 +39,7 @@ import { useLock } from "./useLock";
 import { BOX, Say } from "./VideoSay";
 import { Stage } from "./VideoStage";
 import { CastCard, PressButton, StartCard } from "./VideoStart";
+import { NarrationVoice, useNarrationVoice } from "./VideoVoice";
 import { Thread } from "./VideoThread";
 import { duration } from "./script";
 import { cellsOf, once, openingsIn, planOf, versionFile, type Press } from "./videoData";
@@ -175,6 +176,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
   const edits = useCutEdits(id);
   const makeCut = useMakeCut(id);
   const video = useVideoActions(() => navigate(`/s/b/${brandId}/videos`));
+  const voice = useNarrationVoice(id, fs?.id, p.brand_id, start?.id); // a narrated video's voice, and swapping it (./VideoVoice)
   const startLock = useLock(answer.isPending); // the paid presses: one request each, however fast they are pressed (./useLock)
   const runLock = useLock(again.isPending || carry.isPending || planAgain.isPending);
   const box = useNoteBox({ busy: saveNote.isPending, off: archived || !online, onSend: (text, files, done, refused) => saveNote.mutate({ text, files }, { onSuccess: done, onError: refused }) });
@@ -225,7 +227,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
         : null;
   // A finished video whose cast changed afterwards: the OK stays on its card in the chat, and the header keeps Download.
   const quiet = !!gate && !gate.asked && made && !running;
-  const startCard = (a: Ask) => <StartCard ask={a} round={round} press={main} error={answer.isError ? answer.error.message : null} cast={cast} plan={planned} finish={first && <Finish cut={first} edits={edits} />} onChange={() => toBox()} />;
+  const startCard = (a: Ask) => <StartCard ask={a} round={round} press={main} error={answer.isError ? answer.error.message : null} cast={cast} plan={planned} finish={first && <Finish cut={first} edits={edits} />} voice={voice?.set?.name} onChange={() => toBox()} />;
 
   // A run that isn't going: his Stop, a run that needs him, or one that ended.
   const pressing = carry.isPending || planAgain.isPending;
@@ -357,7 +359,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
             }
           />
         }
-        film={<Stage projectId={id} plan={plan} cells={cellsOf(here, cut?.timeline.pieces ?? [])} cut={cut} first={first} versions={many ? { on: v, list: hooks.map((k) => ({ opening: k, name: versions.find((x) => x.opening === k)?.name ?? "" })), behind, uncut, cutting, show: (k) => setParams((was) => (k > 1 ? was.set("v", String(k)) : was.delete("v"), was), { replace: true }) } : undefined} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} />} onTell={toBox} />}
+        film={<Stage projectId={id} plan={plan} cells={cellsOf(here, cut?.timeline.pieces ?? [])} cut={cut} first={first} versions={many ? { on: v, list: hooks.map((k) => ({ opening: k, name: versions.find((x) => x.opening === k)?.name ?? "" })), behind, uncut, cutting, show: (k) => setParams((was) => (k > 1 ? was.set("v", String(k)) : was.delete("v"), was), { replace: true }) } : undefined} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} voice={voice && <NarrationVoice voice={voice} change={!archived && !running && !start && h.status.kind === "delivered"} undo={!archived && !running && !start} />} />} onTell={toBox} />}
       />
     </>
   );
