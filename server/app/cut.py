@@ -33,13 +33,14 @@ from app import (
     video_settings,
 )
 from app.db import utcnow
-from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip
+from app.models.clips import ClipTake, CutEdit, FinalVideo, ProjectClip, VersionCut
 from app.models.files import StoredFile
 from app.models.jobs import WAITING, Job, JobStatus
 from app.models.projects import Project
 from app.models.songs import SongTake
 
 STEP = "cut_make"
+VERSION = "cut_version"  # a further version's cut: the same job, kept as a VersionCut
 MIN = 0.5  # seconds: the shortest piece
 GONE = 0.05  # seconds: an ending trimmed this short drops its last piece
 LEAD, TAIL = 0.15, 0.3  # re-timed to the words: a breath before the first word and after
@@ -190,14 +191,51 @@ def _cards(db: Session, project: Project, tl: dict) -> None:
     _place(tl)
 
 
-def base(db: Session, project: Project) -> dict:
+def versions(db: Session, project: Project) -> list[int]:
+    """The video's versions, by opening: [1] for one with a single opening."""
+    from app.clip_prompts import newest as plan
+
+    row = plan(db, project)
+    return sorted({n for n in openings(row.data if row else None).values() if n}) or [1]
+
+
+def version_cut(db: Session, project: Project, opening: int) -> VersionCut | None:
+    """The cut of a further version that plays: its newest."""
+    return db.scalar(select(VersionCut).where(VersionCut.project_id == project.id,
+                                              VersionCut.opening == opening)
+                     .order_by(VersionCut.id.desc()).limit(1))  # fmt: skip
+
+
+def version_stale(db: Session, project: Project, opening: int) -> bool:
+    """A further version has no cut, or a take or an edit changed since it was made."""
+    made = version_cut(db, project, opening)
+    takes = [c.picked_take_id for c in cut_rows(db, project, opening)]
+    return made is None or made.take_ids != takes or (made.edit_ids or []) != [
+        e.id for e in active(db, project)]  # fmt: skip
+
+
+def saved_version(db: Session, job: Job) -> None:
+    """A further version's cut is made: it plays from now on."""
+    out, i = job.output or {}, job.input
+    if out.get("problem") or not out.get("file_ids"):
+        return
+    project = db.get(Project, job.project_id)
+    stored = db.get(StoredFile, out["file_ids"][0])
+    stored.filename = f"{project.name[:190]} (version {i['opening']}).mp4"
+    stored.uploaded_by_id = job.created_by_id
+    db.add(VersionCut(project_id=project.id, opening=i["opening"], file_id=stored.id,
+                      take_ids=i["take_ids"], edit_ids=i["edit_ids"],
+                      seconds=out.get("seconds") or i["timeline"]["length"]))  # fmt: skip
+
+
+def base(db: Session, project: Project, opening: int = 1) -> dict:
     """The cut as the picked takes make it, before any edit. An Omni talker's pieces are
     trimmed by numbers (talker_sound.keep, from each piece's own sound): a join keeps a short
     breath, a long silence inside a piece is cut down to a beat, each stretch kept is a piece
     of its own; the video opens on its first word, and its last piece ends as made (the ending
     has room to land). Their B-roll is laid over them (`laid_over`), never a piece of its own,
     and the cut plays talker_sound.SPEED times faster (`speed`)."""
-    voice, clips = song(db, project), cut_rows(db, project)
+    voice, clips = song(db, project), cut_rows(db, project, opening)
     mode = "takes" if voice is None else "narrated" if voice.kind == narration.KIND else "song"
     omni = omni_talker.on(db, project)
     over, broll = omni_talker.cutaways(db, project, clips) if omni else ([], set())
@@ -440,8 +478,10 @@ def _spanned(spans: list[dict], a: float, b: float, what: dict) -> list[dict]:
     return out
 
 
-def timeline(db: Session, project: Project) -> tuple[dict, set[int]]:
-    tl, lost = replay(base(db, project), active(db, project))
+def timeline(db: Session, project: Project, opening: int = 1) -> tuple[dict, set[int]]:
+    """The cut of a version (`opening`: its own clips and the body's), with the video's edits:
+    one on a body piece is in every version, one on an opening's piece only in its own."""
+    tl, lost = replay(base(db, project, opening), active(db, project))
     if not tl["cards"]:  # switched off: no card is a piece, no title is drawn
         tl["pieces"], tl["titles"] = [p for p in tl["pieces"] if not p.get("card")], []
         _place(tl)

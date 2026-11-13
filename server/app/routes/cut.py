@@ -286,11 +286,14 @@ def _file(db: Session, take_id: int | None) -> int | None:
     return take.file_id if take else None
 
 
-def state(db: Session, project: Project, storage, user: User) -> CutOut:
+def state(db: Session, project: Project, storage, user: User, opening: int = 1) -> CutOut:
+    """The cut as its editor shows it. `opening`: a further version of a video with several
+    openings: its own pieces, file and whether it is out of date; the cut's number, edits and
+    what is being made are the video's."""
     from app.routes.project_clips import out_of_date
 
     playing = cut.newest(db, project)
-    tl, lost = cut.timeline(db, project)
+    tl, lost = cut.timeline(db, project, opening)
     made = (playing.timeline or cut.base(db, project)) if playing else {}  # a cut before n42: base
     was = {p["id"]: p for p in made.get("pieces") or []}
     keys = ("start", "end", "from", "take_id")
@@ -323,11 +326,13 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
     sound = take_sound.price(db, project.workspace_id)
     versions = db.scalars(select(FinalVideo).where(FinalVideo.project_id == project.id)
                           .order_by(FinalVideo.id))  # fmt: skip
+    mine = cut.version_cut(db, project, opening) if opening > 1 else playing
     return CutOut(
         number=playing.number if playing else None,
-        file_id=playing.file_id if playing else None,
-        seconds=playing.seconds if playing else None,
-        out_of_date=bool(playing) and project.id in out_of_date(db, [project]),
+        file_id=mine.file_id if mine else None,
+        seconds=mine.seconds if mine else None,
+        out_of_date=(bool(mine) and cut.version_stale(db, project, opening)) if opening > 1
+        else bool(playing) and project.id in out_of_date(db, [project]),
         versions=[CutVersionOut(number=v.number, file_id=v.file_id, seconds=v.seconds,
                                 made_at=v.created_at.isoformat())
                   for v in {v.number: v for v in versions}.values()],  # made again: the newest
@@ -342,22 +347,80 @@ def state(db: Session, project: Project, storage, user: User) -> CutOut:
 
 
 @router.get("", response_model=CutOut)
-def read(project_id: int, request: Request, user: User = Depends(current_user),
-         db: Session = Depends(get_db)):  # fmt: skip
-    """The cut that plays, the one being made, and the timeline with its edits."""
-    return state(db, get_project(db, user, project_id), request.app.state.storage, user)
+def read(project_id: int, request: Request, opening: int = 1,
+         user: User = Depends(current_user), db: Session = Depends(get_db)):  # fmt: skip
+    """The cut that plays, the one being made, and the timeline with its edits. `opening`: a
+    further version's (a video whose script has several openings; `/versions` lists them)."""
+    project = get_project(db, user, project_id)
+    return state(db, project, request.app.state.storage, user, opening)
+
+
+class VersionOut(BaseModel):
+    opening: int  # 1, 2, …: which of the script's openings is in front of the body
+    name: str  # what the plan calls its opening clip
+    file_id: int | None  # its cut, once made
+    seconds: float | None
+    out_of_date: bool
+
+
+@router.get("/versions", response_model=list[VersionOut])
+def versions(project_id: int, user: User = Depends(current_user),
+             db: Session = Depends(get_db)):  # fmt: skip
+    """The video's versions: one for each opening of its script, over the same body (hooks as
+    versions, Reed 13 Nov). A video with one opening is its one version."""
+    from app import clip_prompts
+    from app.routes.project_clips import out_of_date
+
+    project = get_project(db, user, project_id)
+    row = clip_prompts.newest(db, project)
+    plan = ((row.data if row else None) or {}).get("shooting_plan") or {}
+    first = cut.newest(db, project)
+    out = []
+    for k in cut.versions(db, project):
+        made = first if k == 1 else cut.version_cut(db, project, k)
+        name = next((c.get("name") or "" for c in plan.get("clips") or []
+                     if (c.get("opening") or 0) == k), "")  # fmt: skip
+        stale = (bool(first) and project.id in out_of_date(db, [project])) if k == 1 else (
+            bool(made) and cut.version_stale(db, project, k))  # fmt: skip
+        file_id, seconds = (made.file_id, made.seconds) if made else (None, None)
+        out.append(VersionOut(opening=k, name=name, file_id=file_id, seconds=seconds,
+                              out_of_date=stale))  # fmt: skip
+    return out
+
+
+def _make_version(db: Session, user: User, project: Project, opening: int) -> None:
+    """A further version's cut, queued (free) unless one is being made or a clip of it has no
+    take yet."""
+    waiting = db.scalar(select(Job.id).where(
+        Job.project_id == project.id, Job.status.in_(WAITING),
+        Job.input["step"].as_string() == cut.VERSION,
+        Job.input["opening"].as_integer() == opening).limit(1))  # fmt: skip
+    clips = cut.cut_rows(db, project, opening)
+    if waiting or not clips or any(c.picked_take_id is None for c in clips):
+        return
+    tl, _ = cut.timeline(db, project, opening)
+    data = {"step": cut.VERSION, "project_id": project.id, "opening": opening, "number": 0,
+            "edit_ids": [e.id for e in cut.active(db, project)],
+            "take_ids": [c.picked_take_id for c in clips], "timeline": tl,
+            "recipe": cut_render.recipe(db, project, tl), "doing": cut.doing(tl), "changes": 0,
+            "progress_key": f"progress/cut-{uuid.uuid4().hex}"}  # fmt: skip
+    enqueue(db, user, cut.STEP, data, units=0, project=project, provider="local", prepaid=True)
 
 
 @router.post("", response_model=CutOut, status_code=202)
-def make(project_id: int, request: Request, user: User = Depends(current_user),
-         db: Session = Depends(get_db)):  # fmt: skip
+def make(project_id: int, request: Request, opening: int | None = None,
+         user: User = Depends(current_user), db: Session = Depends(get_db)):  # fmt: skip
     """Make the cut (free): the next Cut, on the worker; the one before plays until it's
-    ready. A director tool calls this same route."""
+    ready. A director tool calls this same route. A video with several openings: every version
+    whose cut is out of date is made too, or with `opening` only that one."""
     from app.credits import lock
     from app.routes.project_clips import _cut_ins
 
     project, storage = _mine(db, user, project_id), request.app.state.storage
     lock(db, Project, project.id)  # two presses at once: the second sees the first's job
+    if opening and opening > 1:
+        _make_version(db, user, project, opening)
+        return state(db, project, storage, user, opening)
     if job := cut.making(db, project):
         raise HTTPException(409, cut.MAKING.format(job.input["number"]))
     cut.ready(db, project, storage)
@@ -384,6 +447,9 @@ def make(project_id: int, request: Request, user: User = Depends(current_user),
     if failed and failed.fixes != ["again"] and all(before.input.get(k) == data[k] for k in same):
         raise HTTPException(409, f"{failed.why} {SAME_AGAIN}")  # it would fail the same way
     enqueue(db, user, cut.STEP, data, units=0, project=project, provider="local", prepaid=True)
+    for k in cut.versions(db, project)[1:] if opening is None else []:
+        if cut.version_stale(db, project, k):
+            _make_version(db, user, project, k)
     return state(db, project, storage, user)
 
 

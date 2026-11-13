@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app import asks, director, guides, looks, needs_you
 from app.credits import COUNTED, actual_usd, uncapped
 from app.models.accounts import User
-from app.models.clips import ProjectClip
+from app.models.clips import ProjectClip, VersionCut
 from app.models.credits import USD_PER_CREDIT
 from app.models.freestyles import Freestyle
 from app.models.jobs import Job, JobStatus
@@ -81,6 +81,7 @@ class Idea(BaseModel):
     cost: Cost | None  # None: nothing used and no price yet
     can_manage: bool  # move and archive: whoever made it, or the owner
     from_script: bool  # made from a script version; false: an earlier-style video (its own page)
+    versions: int = 1  # a script with several openings: one version for each, over one body
 
 
 @dataclass
@@ -308,6 +309,9 @@ def cards(db: Session, user: User, projects: list[Project], known: Facts,
     ids = [p.id for p in projects]
     frames, _ = progress(db, ids)
     named = titles(db, ids)
+    more = dict(db.execute(  # each video's further versions that have a cut (hooks as versions)
+        select(VersionCut.project_id, func.count(VersionCut.opening.distinct()))
+        .where(VersionCut.project_id.in_(ids)).group_by(VersionCut.project_id)).all())  # fmt: skip
     out = []
     for p in projects:
         status = shown[p.id]
@@ -320,7 +324,7 @@ def cards(db: Session, user: User, projects: list[Project], known: Facts,
             created_at=p.created_at, updated_at=known.last[p.id],
             cost=_cost(db, user, p, status, known),
             can_manage=user.is_owner or p.created_by_id == user.id,
-            from_script=p.script_draft_id is not None))  # fmt: skip
+            from_script=p.script_draft_id is not None, versions=1 + more.get(p.id, 0)))  # fmt: skip
     return out
 
 
