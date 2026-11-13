@@ -742,3 +742,14 @@ def test_a_photoreal_style_says_people_in_words(app, db, editor, setup, clip, mo
     assert len(sent["reference_images"]) == 1  # the screen only, not Mom's sheet
     assert "Mom" in sent["prompt"] and "[Image2]" not in sent["prompt"]
     assert "first frame" not in sent["prompt"] and "opening shot is" not in sent["prompt"]
+
+
+def test_answering_a_door_or_a_phone_is_an_action_and_only_an_answer_is_reworded():
+    """13 Nov audit: in a shot nobody speaks in, "answers" became "reacts" wherever it stood,
+    so "She answers the door" was sent as "She reacts the door"."""
+    from app.clip_prompts import reword
+
+    door = "Shot 1 | 0-3 s. Dana answers the door, then answers her phone. No one speaks."
+    assert reword(door) == (door, [])
+    fixed, said = reword("Shot 1 | 0-3 s. Dana answers with a shrug. No one speaks.")
+    assert "Dana reacts with a shrug" in fixed and said == ['changed "answers" to "reacts"']

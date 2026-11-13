@@ -40,6 +40,7 @@ AUDIO_LINE = re.compile(
 )
 SAYS = re.compile(  # action that reads like a line; the model voices it (fomo montage, 2026-10-23)
     r"\b(says?|tells?|repl(y|ies)|(?<!the )(?<!an )(?<!her )(?<!his )(?<!their )(?<!its )answers?"
+    r"(?! (?:the |a |her |his |their |its )?(?:door|doorbell|bell|knock|phone|call)\b)"  # a thing
     r"|shouts?|whispers?|yells?|refuses?"
     r"|(does not|doesn't|won't|will not) (sell|say|speak|answer|reply|agree|give in))\b",
     re.I,
