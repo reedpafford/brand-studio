@@ -4,7 +4,16 @@ import { useMe } from "./useMe";
 
 export function RequireAuth() {
   const { data: me, isPending, isError, isFetching, refetch } = useMe();
-  if (isPending) return <p className="p-6 text-muted">Loading…</p>;
+  if (isPending)
+    return location.pathname.startsWith("/s/") ? ( // the new look is dark from its first paint
+      <div className="studio app">
+        <p className="quiet" style={{ padding: 24 }}>
+          Loading…
+        </p>
+      </div>
+    ) : (
+      <p className="p-6 text-muted">Loading…</p>
+    );
   if (isError)
     return (
       <div className="mx-auto max-w-content p-4 sm:p-8">

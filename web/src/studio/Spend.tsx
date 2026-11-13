@@ -203,7 +203,7 @@ function Frame({ figures: q, title, note, filters, empty, children }: { figures:
                   {f.in_progress > 0 && (
                     <span className="lab live">
                       <i aria-hidden className="dot" />
-                      {count(f.in_progress, "video")} still being made
+                      {count(f.in_progress, "video")} not finished
                     </span>
                   )}
                 </div>
