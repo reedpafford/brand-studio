@@ -92,6 +92,8 @@ LONG = ("The prompt is too long for {model} ({n:,} of {most:,} characters). Shor
 # of the previous"; video 383 came out as "3 separate clips, not one chained camera")
 ONE_CAMERA = ("One continuous camera: the clips are made one at a time, each opening on the last "
               "frame of the one before.")  # fmt: skip
+VOICES_FIRST = ("Each speaker's longest line is filmed first: a few seconds of their voice "
+                "from it goes with their other clips, so they sound the same in all.")  # fmt: skip
 SEAM = ("<camera>\nThis video is one continuous camera: each clip after the first is made "
         "starting on the exact last frame of the clip before it, so write its first shot as a "
         "move that carries on from there (the same place, the camera where that clip left it) to "
@@ -744,7 +746,7 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
     with its chat), and this run's own: its plan calls, its open notes, and what each clip's
     newest take's listen heard. A video timed to a track brings its song or narration as the
     director reads it (`audio`, with its `tool`)."""
-    from app import audition, director, item_checks
+    from app import audition, breakdown, director, item_checks, voice_carry
     from app.routes.jobs import DECLINE
 
     busy = [j for j in director._waiting(db, project)
@@ -806,6 +808,9 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
                             for j in reversed(mine) if j.status == JobStatus.failed), ""),
         "ok": bool(run.get("ok", True)), "hold": bool(run.get("hold")),
         "chained": chained(project),
+        # the clips whose takes give each speaker a voice sample: made once a run, before the rest
+        "voices_first": voice_carry.first(db, project, row.data) if row and not run.get(
+            "voiced") and voice_carry.hears(breakdown.video_model(project)) else [],
         "being_made": len(busy) - len(beside), "held": seen.get("held_for_owner") or [],
         "missing_looks": seen.get("missing_looks") or [],
         "cast": {k: (seen.get("cast_ok") or {}).get(k) for k in ("state", "asked", "not_ready")},
@@ -872,6 +877,9 @@ def move(s: dict) -> dict:
         last = s["clips"][k - 1] if k else None  # its frame, unless it's a talker's or real
         after = last["clip_id"] if last and not (last["talker"] or last["footage"]) else None
         return _go("make_take", ONE_CAMERA, only=made[0]["clip_id"], after=after)
+    voiced = [c["clip_id"] for c in made if c["clip_id"] in s["voices_first"]]
+    if voiced and len(voiced) < len(made):
+        return _go("make_take", VOICES_FIRST, first=voiced)
     if made:
         return _go("make_take", "Every clip is made at once.")
     if again := next((c for c in s["clips"] if c["missing"] and not c["rerolled"]), None):
@@ -973,7 +981,11 @@ def act(db: Session, job: Job, storage) -> None:
             clip_prompts.repair(db, project)
             footage_shot.settle(db, project, user.id)  # a real footage clip stays as it is
             db.commit()
-        result = director_tools.run(db, user, project, move_, storage, run)
+        ids = move_.get("first") or [move_["clip_id"]]  # each speaker's sample clip, or the one
+        result = " ".join(director_tools.run(db, user, project, {**move_, "clip_id": c}, storage,
+                                             run) for c in ids)  # fmt: skip
+        if move_.get("first"):
+            run["voiced"] = True
     if tool == "mute":  # tried once a clip; a stretch it may not silence stays, never a stop
         run["muted"] = [*run.get("muted", []), move_["clip_id"]]
         result = result.replace("Refused: ", "Kept as it is: ", 1)

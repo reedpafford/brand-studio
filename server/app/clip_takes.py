@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import cast_gate, looks, model_map, p_video, screen_figures, video_settings
+from app import cast_gate, looks, model_map, p_video, screen_figures, video_settings, voice_carry
 from app.advice import names, stops
 from app.clip_prompts import MODERATED, assets, prompt_version
 from app.credits import estimate, fits
@@ -104,6 +104,8 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
         "generate_audio": speaks or own,
     }, {k: v for k, v in files.items() if v})  # fmt: skip
     take, sent = model_map.fit(model, take, sent)  # Omni: its own inputs
+    if voice_carry.hears(model):  # each speaker's voice from an earlier clip, when it's kept
+        voice_carry.send(db, project, _shots(breakdown, shots), take, sent)
     if check:  # never a take its model refuses for its length (a 422, video 245)
         fits_prompt(db, project, clip, model, take.get("prompt") or "", note)
         not_again(db, clip, model.id, take, sent)
