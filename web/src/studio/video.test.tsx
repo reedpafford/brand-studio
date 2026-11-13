@@ -71,11 +71,11 @@ test("the header says where it is, the look and format, the server's status, and
 });
 
 test.each([
-  ["with headings, it counts them", "Hook 1\nMOM: They took her.\n\nHook 2\nDAD: I saw the van.\n\nBody\nMOM: She is okay.", "Filmed with the first of 2 openings. The other one is not in this video."],
-  ["without, it says only what it knows", "MOM: They took her.\nMOM: She is okay.", "Filmed with the first opening. The script’s other openings are not in this video."],
-])("a script with several openings says which was filmed, under the hook; %s", async (_case, script, words) => {
-  const sent = planWaiting["GET /freestyles/9"][1] as { thread: { kind: string; text: string; treatment?: object }[] };
-  const thread = sent.thread.map((t) => (t.kind === "message" ? { ...t, text: script } : t.treatment ? { ...t, treatment: { ...t.treatment, other_openings: [3] } } : t));
+  ["one list of lines per other opening", [[3, 4], [7]], "Filmed with the first of 3 openings. The other 2 are not in this video."],
+  ["an early plan's one flat list is one other opening", [19, 20, 22], "Filmed with the first of 2 openings. The other one is not in this video."],
+])("a script with several openings says which was filmed, under the hook; %s", async (_case, other_openings, words) => {
+  const sent = planWaiting["GET /freestyles/9"][1] as { thread: { treatment?: object }[] };
+  const thread = sent.thread.map((t) => (t.treatment ? { ...t, treatment: { ...t.treatment, other_openings } } : t));
   await open({ ...planWaiting, "GET /freestyles/9": [200, { ...sent, thread }] });
   expect(await chat().findByText(words)).toBeInTheDocument();
 });

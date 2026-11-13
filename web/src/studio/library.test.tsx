@@ -144,6 +144,23 @@ test("Product: when the product holds its own picture list, the director's list 
   await waitFor(() => expect(sent(calls)).toEqual([["POST /files"], ["POST /brands/1/screens", expect.objectContaining({ file_id: 80, product_id: 54 })], ["PATCH /library/prop/54", { image_file_ids: [41, 80] }]]));
 });
 
+test("Product: its sound is uploaded and kept on the product", async () => {
+  const calls = await open("product", full, { "POST /files": [201, { id: 81 }], "PATCH /library/prop/54": [200, alarm] });
+  expect(await within(await page().findByRole("region", { name: "Its sound" })).findByText(/^None yet\./)).toBeInTheDocument();
+  await userEvent.upload(page().getByLabelText("A sound file for Protector alarm"), file("whistle.wav", "audio/wav"));
+  await waitFor(() => expect(sent(calls)).toEqual([["POST /files"], ["PATCH /library/prop/54", { voice_file_id: 81 }]]));
+});
+
+test("Product: a product with a sound plays it by name, and Remove clears it", async () => {
+  const withSound = { ...full, "GET /library/prop": [200, [{ ...alarm, voice_file_id: 81, voice_file_name: "whistle.wav" }]] } as Routes;
+  const calls = await open("product", withSound, { "PATCH /library/prop/54": [200, alarm] });
+  const sound = within(await page().findByRole("region", { name: "Its sound" }));
+  expect(sound.getByText("whistle.wav")).toBeInTheDocument();
+  expect(sound.getByRole("button", { name: "Play Protector alarm’s sound" })).toBeInTheDocument();
+  await userEvent.click(sound.getByRole("button", { name: "Remove" }));
+  await waitFor(() => expect(sent(calls)).toEqual([["PATCH /library/prop/54", { voice_file_id: null }]]));
+});
+
 test("Product: Add clips sends the clip with its product; left without words the AI describes it, and the press says its price", async () => {
   const calls = await open("product", full, { "POST /brands/1/footage": [201, { ...CLIPS[0], id: 14, describing: true }] });
   const forms = uploads();
