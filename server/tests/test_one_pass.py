@@ -842,3 +842,25 @@ def test_a_time_jump_is_a_card_in_the_cut_before_its_clip_or_over_its_opening(
     assert off.json()["edits"][-1]["said"] == "Time cards off" and plain["cards"] is False
     assert [p["id"] for p in plain["pieces"]] == ["c1", "c2", "c3"] and plain["length"] == was
     assert cut_render.recipe(db, video, cut.timeline(db, video)[0])["titles"] == []
+
+
+def test_one_clip_that_cannot_be_started_never_holds_back_the_others(app, owner, db, monkeypatch):
+    """Reed, 13 Nov: "MINIMAL dead ends". A clip whose take can't be started (a picture gone,
+    say) used to refuse the whole "every clip at once" step, the clips after it untried."""
+    from fastapi import HTTPException
+
+    from app import clip_takes
+
+    real, once = clip_takes.take_input, []
+
+    def flaky(db_, project, clip, *a, **k):
+        if clip.clip_id == "c2" and not once:
+            once.append(1)
+            raise HTTPException(409, "Its picture is gone.")
+        return real(db_, project, clip, *a, **k)
+
+    monkeypatch.setattr(clip_takes, "take_input", flaky)
+    _delivered(app, owner, db)  # and the run goes on: clip 2 is made the turn after
+    first = next(j for j in _jobs(db, "director") if j.output["tool"] == "make_take")
+    assert first.input["result"] == "Making 2 takes. clip 2: Its picture is gone."
+    assert len(_jobs(db, "clip_take")) == 3
