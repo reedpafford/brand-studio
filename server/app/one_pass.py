@@ -490,10 +490,16 @@ def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
     return plan.model_dump(), fixes
 
 
-def again(job_input: dict, fixes: list[str]) -> dict:
-    """The one re-ask inside the same job (charged once): the same ask, with what to fix."""
+def again(job_input: dict, fixes: list[str], plan: dict | None = None) -> dict:
+    """The one re-ask inside the same job (charged once): the same ask, the plan it answered
+    with, and what to fix in it. Without its own plan in front of it the second call fixed
+    "clip c3 shot 2" blind: close to a paid re-roll (13 Nov audit, video 390)."""
     said = "\n".join(f"- {f}" for f in fixes)
-    fix = f"<fix>\nYour last plan can't be used:\n{said}\nWrite the whole plan again.\n</fix>"
+    was = (f"<your_plan>\n{json.dumps(plan, ensure_ascii=False)}\n</your_plan>\n"
+           if plan else "")  # fmt: skip
+    how = "Write the whole plan again: these fixed, the rest as it was." if plan else (
+        "Write the whole plan again.")  # fmt: skip
+    fix = f"{was}<fix>\nYour last plan can't be used:\n{said}\n{how}\n</fix>"
     return {**job_input, "prompt": f"{job_input['prompt']}\n{fix}"}
 
 

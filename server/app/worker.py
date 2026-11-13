@@ -666,8 +666,12 @@ def _run_sync(db: Session, job: Job, provider: Provider, storage: Storage | None
     shown = job.input.get("step") in thinking.STEPS and getattr(provider, "shows_thinking", False)
     more = {"live": thinking.Writer(job.id)} if shown else {}
     try:  # a Claude check that looks at a picture gets it as data, like other providers
-        result = provider.run(job.kind, _files_as_data(db, storage, job), **more)
-        result = recheck(job.input, result, lambda again: provider.run(job.kind, again, **more))
+        first = _files_as_data(db, storage, job)
+        result = provider.run(job.kind, first, **more)
+        # a re-ask is the first ask with what the check changed: its pictures go with it again
+        result = recheck(job.input, result, lambda again: provider.run(
+            job.kind, {**first, **{k: v for k, v in again.items() if job.input.get(k) != v}},
+            **more))  # fmt: skip
     except NotStarted as exc:
         _busy(db, job, exc, busy)
         db.commit()

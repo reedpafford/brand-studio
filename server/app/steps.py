@@ -102,7 +102,8 @@ def recheck(job_input: dict, result, ask):
         check, again = (lambda out: plans.scene_checked(job_input, out)), plans.scene_again
         still = plans.STILL
     elif job_input.get("step") == one_pass.STEP:  # every spoken line once, in order, by number
-        check, again = (lambda out: one_pass.checked(job_input, out)), one_pass.again
+        check = lambda out: one_pass.checked(job_input, out)  # noqa: E731
+        again = lambda asked, fixes: one_pass.again(asked, fixes, result.output)  # noqa: E731
         still = one_pass.STILL
     else:
         return result
