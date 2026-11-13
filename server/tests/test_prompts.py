@@ -939,6 +939,8 @@ def test_a_made_look_is_checked_against_its_role_and_redone_once():
     assert prompts.look_fit_redo("Mid-40s woman, a teacher", fit) == (
         "The character must read clearly as: Mid-40s woman, a teacher. Draw an adult woman."
     )
+    long = prompts.look_fit_redo("Mid-40s woman, a teacher, " + "in a cardigan, " * 60, fit)
+    assert len(long) <= 500 and long.endswith(". Draw an adult woman.")  # the fix is never cut
 
 
 def test_the_projects_product_is_a_required_asset_like_a_screen():

@@ -349,7 +349,7 @@ def save_fit(db: Session, job: Job) -> None:
         return
     advice = {"seen": fit.seen, "problem": fit.problem}
     if job.input.get("redo") and item.sheet_file_id:
-        note = prompts.look_fit_redo(item.notes, fit)[:500]
+        note = prompts.look_fit_redo(item.notes, fit)
         db.commit()  # the check's answer stays even if the redo is refused (that rolls back)
         try:
             maker, auto = db.get(User, job.created_by_id), bool(job.input.get("auto_made"))
