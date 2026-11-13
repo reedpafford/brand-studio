@@ -19,7 +19,8 @@ const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
 const EVERY = { folder: "all", tab: "all", q: "", sort: "newest", madeBy: null, archived: false } as const;
 /** A video still on its way: being made, or stopped on something only a person can answer. */
 const MAKING: Status["kind"][] = ["working", "waiting", "needs_you", "needs_fix"];
-const DOT: Partial<Record<Status["kind"], string>> = { waiting: "wait", needs_you: "wait", needs_fix: "bad" };
+/** The dot beside a status: amber while it waits on a person, red on a fault, green once delivered, grey when it is over. */
+export const DOT: Partial<Record<Status["kind"], string>> = { waiting: "wait", needs_you: "wait", needs_fix: "bad", delivered: "ok", stopped: "idle", archived: "idle" };
 
 /** The new look's frame (the redesign, stage 0): a rail on the canvas (the studio, the brand, the four pages, what is
  *  being made, the folders, search, you) and the page as one panel beside it. On a phone the rail is a row of tabs at
@@ -37,7 +38,7 @@ export function StudioShell() {
   const page = /^\/s\/b\/\d+\/([a-z]+)/.exec(pathname)?.[1] ?? "";
   const folder = page === "videos" ? params.get("folder") : null;
   const at = (to: string) => (to ? `${base}/${to}` : base);
-  const video = (i: Idea) => `/b/${id}/videos/${i.id}`; // a video opens on the current site until its page is built here
+  const video = (i: Idea) => `${base}/videos/${i.id}`;
 
   const workspace = useWorkspace().data;
   const tree = useTree(id ?? 0).data;

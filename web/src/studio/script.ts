@@ -33,8 +33,10 @@ export const roles = (text: string) => [...new Set(parse(text).flatMap((p) => (p
 /** A role as the Cast menu shows it: "Stroller Mom". */
 export const roleName = (role: string) => role.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-const length = (s: number) => (s < 90 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ""}`);
+/** "1 clip", "3 clips". */
+export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+/** A length in words: "45 s", "6 min 38 s". */
+export const duration = (s: number) => (s < 90 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ""}`);
 
 /** The line under the script box: its voices, spoken lines and a rough length (said words at 2.5 a second, four
  *  seconds for each line of [what is going on], the first hook only), or how to write one while the box is empty. */
@@ -50,5 +52,5 @@ export function readOut(text: string): string {
   const voices = new Set(named.map((p) => p.by)).size + (loose ? 1 : 0);
   const lines = said.length + (hooks.length ? 1 : 0);
   const spoken = lines ? `${plural(voices, "voice")} · ${plural(lines, "spoken line")}` : "Nothing is spoken";
-  return `${hooks.length > 1 ? `${hooks.length} hooks · ` : ""}${spoken} · about ${length(Math.max(5, Math.round(seconds / 5) * 5))}. Your words are never changed.`;
+  return `${hooks.length > 1 ? `${hooks.length} hooks · ` : ""}${spoken} · about ${duration(Math.max(5, Math.round(seconds / 5) * 5))}. Your words are never changed.`;
 }

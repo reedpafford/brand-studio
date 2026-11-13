@@ -41,7 +41,7 @@ test("the shell shows the studio, the brand, the four pages, what is being made 
   expect(rail().getByRole("link", { name: "Create", current: "page" })).toHaveAttribute("href", "/s/b/1");
   for (const [name, to] of [["Videos", "videos"], ["Library", "library"], ["Spend", "spend"]]) expect(rail().getByRole("link", { name })).toHaveAttribute("href", `/s/b/1/${to}`);
   const making = within(rail().getByRole("group", { name: "Being made" }));
-  expect(await making.findByRole("link", { name: /Three men at Target/ })).toHaveAttribute("href", "/b/1/videos/366");
+  expect(await making.findByRole("link", { name: /Three men at Target/ })).toHaveAttribute("href", "/s/b/1/videos/366");
   expect(making.getByRole("link", { name: /A dad on the border/ })).toHaveTextContent("Working · 4 of 9");
   expect(making.queryByRole("link", { name: /Dana gets the call/ })).toBeNull(); // delivered: no longer being made
   const folders = within(rail().getByRole("group", { name: "Folders" }));
@@ -81,7 +81,7 @@ test("Search or jump (⌘K) lists the places and the brand's videos, narrows as 
   await userEvent.keyboard("{Meta>}k{/Meta}");
   const box = within(screen.getByRole("dialog", { name: "Search or jump" }));
   expect(box.getByRole("textbox", { name: "Search or jump" })).toHaveFocus();
-  expect(box.getByRole("link", { name: /Three men at Target/, current: true })).toHaveAttribute("href", "/b/1/videos/366");
+  expect(box.getByRole("link", { name: /Three men at Target/, current: true })).toHaveAttribute("href", "/s/b/1/videos/366");
   expect(box.getByRole("link", { name: /Dana gets the call/ })).toHaveTextContent("Delivered");
   expect(box.getByRole("link", { name: "Iron Paws" })).toHaveAttribute("href", "/s/b/2");
   await userEvent.keyboard("spen");

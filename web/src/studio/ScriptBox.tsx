@@ -6,7 +6,7 @@ import { parse, type Line } from "./script";
 const aside = (words: string) => words.split(/(\[[^\]]*\])/).map((w, i) => (i % 2 ? <span key={i} className="ctx">{w}</span> : w));
 
 /** One line in its tints: a note dim all through; a spoken line bright, with its speaker's name a step dimmer. */
-function tinted(p: Line): ReactNode {
+export function tinted(p: Line): ReactNode {
   if (p.kind === "note") return <span className="ctx">{p.line}</span>;
   if (!p.label) return aside(p.line);
   const cut = p.line.indexOf(p.label) + p.label.length + 1; // the name and its colon

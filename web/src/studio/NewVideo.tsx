@@ -67,7 +67,7 @@ function Monitor({ look, preview }: { look?: Look; preview: boolean }) {
 /** New video in the new look (the redesign, stage 1): the script on the left, in a box that reads the paste; the look,
  *  the price and Make it on the right. It posts the same send as the current screen, with the cast as roles
  *  (`cast: [{role, item_id}]`, nobody saved unless given a role), the script always word for word (`idea: false`), and
- *  no product unless one is picked. The video then opens on the current site, until its page is built here. */
+ *  no product unless one is picked. The video then opens on its page here (Video.tsx). */
 export function NewVideo() {
   const brandId = Number(useParams().brandId);
   const owner = useMe().data?.role === "owner";
@@ -105,7 +105,8 @@ export function NewVideo() {
   const priced = !!send.text && !size.over && !!look && !!format;
   const ready = priced && !files.busy;
   const price = useEstimate(priced ? send : null, true);
-  const sent = useSend((fs) => navigate(sentTo(fs, owner, brandId)));
+  // Its video opens here in the new look; a send with no video to open yet (held for the owner) opens where it always did.
+  const sent = useSend((fs) => navigate(sentTo(fs, owner, brandId).replace(/^(?=\/b\/\d+\/videos\/)/, "/s")));
   const starting = sent.isPending || sent.isSuccess; // off from the press until the video opens
   const pressed = useRef(false); // one press only: a second tap can land before the screen has heard of the first
   const go = () => {

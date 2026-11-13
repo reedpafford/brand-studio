@@ -2,13 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 
-export type ButtonProps = { ref: Ref<HTMLButtonElement>; onClick: () => void; "aria-haspopup": "menu"; "aria-expanded": boolean };
+export type ButtonProps = { ref: Ref<HTMLButtonElement>; onClick: () => void; "aria-haspopup": "menu" | "dialog"; "aria-expanded": boolean };
 
 /** The studio's one menu. It opens from its button, under it (above when there is no room below); Escape closes it and
  *  puts focus back on the button, a click outside closes it, the arrow keys move through it. On a phone it comes up
  *  from the bottom as a sheet (studio.css). `children` gets `close`, for a choice that closes the menu. `end`: its right
- *  edge under the button's, for a button at the right of the page. */
-export function Popover({ label, end, button, children }: { label: string; end?: boolean; button: (p: ButtonProps) => ReactNode; children: (close: () => void) => ReactNode }) {
+ *  edge under the button's, for a button at the right of the page. `facts`: it holds something to read, not choices. */
+export function Popover({ label, end, facts, button, children }: { label: string; end?: boolean; facts?: boolean; button: (p: ButtonProps) => ReactNode; children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -61,10 +61,10 @@ export function Popover({ label, end, button, children }: { label: string; end?:
 
   return (
     <>
-      {button({ ref: setAnchor, onClick: () => setOpen(!open), "aria-haspopup": "menu", "aria-expanded": open })}
+      {button({ ref: setAnchor, onClick: () => setOpen(!open), "aria-haspopup": facts ? "dialog" : "menu", "aria-expanded": open })}
       {open &&
         createPortal(
-          <div ref={menu} role="menu" aria-label={label} className="studio popv">
+          <div ref={menu} role={facts ? "dialog" : "menu"} aria-label={label} className="studio popv">
             {children(close)}
           </div>,
           document.body,
