@@ -60,7 +60,7 @@ export function StudioName({ owner, top }: { owner: string; top: SettingsTop }) 
         <SettingRow htmlFor="studio-name" label="Studio name" help="Shown on invite links.">
           <input id="studio-name" value={value} onChange={(e) => setEdit(e.target.value)} className="min-h-control w-full max-w-[360px] rounded-md border border-border-strong bg-bg px-2.5 lg:min-h-control-dense" />
         </SettingRow>
-        <SettingRow label="Try the new look" help="The redesigned studio, still being built. Only on this computer, and you can come back any time.">
+        <SettingRow label="The new look" help="The redesigned studio. This computer is on the current site; this takes it back.">
           <Button
             variant="secondary"
             onClick={() => {
