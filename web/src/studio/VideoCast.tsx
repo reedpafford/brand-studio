@@ -4,13 +4,10 @@ import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { lookFitNote } from "../library/sheets";
 import { plural } from "./script";
-import { cameFrom, type CastItem } from "./videoData";
+import { cameFrom, NOT_READY, type CastItem } from "./videoData";
 
 type Asset = components["schemas"]["AssetOut"];
 type Tile = { key: string; kind: "person" | "place" | "product"; name: string; picture: number | null; who: string; item?: CastItem };
-
-/** A look that isn't ready, in the current site's words; one that is says nothing. */
-const NOT_READY: Partial<Record<CastItem["readiness"], string>> = { needs_look: "Needs a look", drawing: "Drawing", waiting_for_owner: "Waiting for the owner" };
 
 /** A speaker's voice: its name, and its sample to hear when the server has one. */
 function Voice({ of, voice }: { of: string; voice: NonNullable<CastItem["voice"]> }) {

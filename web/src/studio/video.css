@@ -1,5 +1,5 @@
-/* One video in the new look (Video.tsx; the redesign, stage 2): the chat on the left, the film on the right, a divider
-   between them. Every rule sits under .studio, beside studio.css. Type: 10 and 11 (the timeline), 12 (meta),
+/* One video in the new look (Video.tsx; the redesign, stages 2 and 3): the chat on the left, the film on the right, a
+   divider between them. Every rule sits under .studio, beside studio.css. Type: 10 and 11 (the timeline), 12 (meta),
    13 (secondary), 15/24 (the chat). */
 .studio {
   .dot.ok { background: var(--ok); }
@@ -82,7 +82,7 @@
   .folded b { font-weight: 500; }
   .folded small { font-size: 12px; color: var(--ink-3); }
 
-  /* A card the director asks with, to read: answering is on the current site. */
+  /* A card the director asks with. */
   .ask { padding: 18px 20px 20px; border-radius: var(--r-l); background: var(--raised); }
   .ask-h { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; line-height: 18px; color: var(--ink-3); }
   .ask h3 { font: 600 17px/24px var(--ui); letter-spacing: -0.01em; }
@@ -95,7 +95,6 @@
   .picks b { display: block; margin: 2px 0; font-size: 14px; line-height: 20px; }
   .picks span { display: block; font-size: 13px; line-height: 20px; color: var(--ink-2); }
   .names { display: flex; flex-wrap: wrap; gap: 6px; }
-  .names li { padding: 0 12px; border-radius: var(--r-full); background: var(--raised-2); font-size: 13px; line-height: 28px; font-weight: 500; }
   .cast-s { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 14px 10px; margin-top: 14px; }
   .cast-s img, .cast-s .im { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: var(--r-s); background: var(--raised-2); object-fit: cover; object-position: 50% 20%; }
   .cast-s b { display: block; margin-top: 6px; font-size: 13px; line-height: 18px; font-weight: 500; }
@@ -106,20 +105,17 @@
   .chg small { flex: 1; font-size: 12px; color: var(--ink-3); }
   .chg em { font-style: normal; color: var(--ink-2); }
 
-  /* Under the chat: the progress line while it runs, then the way to the current site (no message box yet). */
+  /* Under the chat: the progress line while it runs, then the message box. */
   .pinned { padding: 12px var(--gut) 14px; }
   .st-row { display: flex; align-items: baseline; gap: 12px; font-size: 13px; }
   .st-row b { font-weight: 600; }
   .st-row span { margin-left: auto; color: var(--ink-2); }
   .meter { height: 3px; margin-top: 8px; border-radius: 2px; background: var(--raised-2); overflow: hidden; }
   .meter i { display: block; height: 100%; background: var(--accent); transition: width 600ms var(--out); }
-  .tocurrent { width: min(660px, 100% - 2 * var(--gut)); margin: 4px auto 24px; }
 
   /* The film: three views, and the timeline under all of them. */
   .stage { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: clip; }
   .stage-top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 12px var(--gut); flex: none; }
-  .finish { font-size: 12px; line-height: 18px; color: var(--ink-3); white-space: nowrap; }
-  .finish b { font-weight: 500; color: var(--ink-2); }
   .stage-mid { flex: 1; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 16px; min-height: 0; padding: 0 var(--gut) 20px; }
   .player { display: grid; justify-items: center; align-items: start; min-height: 0; container-type: size; }
   .frame { position: relative; height: min(100cqh, calc(100cqw / (var(--ar)))); aspect-ratio: var(--ar); border-radius: var(--r-l); background: #000; box-shadow: 0 0 0 1px var(--line); overflow: hidden; }
@@ -215,6 +211,143 @@
   .track.dense .tc:is(.card, .left) { flex-basis: 18px; }
   .track.dense .tc.card { padding: 4px 0; }
   .track.dense .words { display: block; height: 100%; writing-mode: vertical-rl; font-size: 9px; white-space: nowrap; }
+
+  /* Stage 3: the presses. A price rides on its button, lighter than the verb. */
+  .btn small { font: inherit; font-weight: 400; color: var(--ink-3); }
+  .btn.go small { color: rgb(10 10 22 / 0.72); }
+  .thread [role="alert"], .stage [role="alert"], .dlg [role="alert"] { margin-top: 8px; font-size: 13px; line-height: 20px; color: var(--bad); }
+  .banner { display: flex; align-items: center; gap: 10px; padding: 10px var(--gut); border-bottom: 1px solid var(--line); background: var(--raised); font-size: 13px; line-height: 20px; color: var(--ink-2); flex: none; }
+  .banner svg { color: var(--wait); flex: none; }
+  .banner span { flex: 1; min-width: 0; }
+  .banner b, .notice b { font-weight: 600; color: var(--ink); }
+  .banner .btn { height: 28px; font-size: 13px; }
+  .quote small { display: block; margin-top: 4px; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+
+  /* A card that asks: what it offers, then its presses in one row. */
+  .msg > div > .ask:not(:first-child) { margin-top: 14px; }
+  .ask-f { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+  .ask-f .btn { margin-top: 0; }
+  .ask-f small, .ask-f p { font-size: 12px; line-height: 18px; color: var(--ink-3); }
+  .ask-f p svg { display: inline; margin-right: 4px; vertical-align: -2px; }
+  .advice { margin-top: 14px; padding: 10px 12px; border-radius: var(--r-s); background: rgb(242 184 75 / 0.08); font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .advice li + li { margin-top: 4px; }
+  .advice b { font-weight: 500; color: var(--wait); }
+  .advice p { margin-top: 6px; color: var(--ink-3); }
+  .finish { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .finish button { display: inline-flex; align-items: center; gap: 8px; height: 28px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+  .finish button:hover:not(:disabled) { color: var(--ink); }
+  .ask .finish { margin-top: 14px; }
+  .chg li { align-items: center; }
+  .chg img, .chg .im { width: 30px; height: 44px; border-radius: 5px; background: var(--raised-2); object-fit: cover; flex: none; }
+  .chg span:not(.im) { flex: 1; min-width: 0; }
+  .chg b { display: block; font-size: 14px; line-height: 20px; font-weight: 500; }
+  .chg small { display: block; }
+  .chg.all { max-height: 232px; margin-right: -8px; padding-right: 8px; overflow-y: auto; }
+  .names .pill { height: 28px; }
+  .names .pill[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-hi); }
+  .prev { display: flex; align-items: center; gap: 12px; margin-top: 12px; animation: studio-enter var(--base) var(--out) both; }
+  .prev img { width: 54px; height: 72px; border-radius: var(--r-s); object-fit: cover; object-position: 50% 20%; flex: none; }
+  .prev span { flex: 1; min-width: 0; }
+  .prev b, .vrow b { display: block; font-weight: 500; }
+  .prev small { display: block; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+  .prev .btn { margin-top: 0; }
+  .opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: -4px; padding: 4px; }
+  .opt { text-align: left; }
+  .opt .im { display: block; aspect-ratio: 3 / 4; border-radius: var(--r-m); background: var(--raised-2); overflow: hidden; }
+  .opt img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
+  .opt b { display: block; margin-top: 6px; font-size: 13px; line-height: 18px; font-weight: 500; }
+  .opt small, .tk small { display: block; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+  .opt[aria-pressed="true"] .im { box-shadow: 0 0 0 2px var(--raised), 0 0 0 4px var(--accent); }
+  .ways { margin: 2px -12px 0; }
+  .way { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 12px; border-radius: var(--r-s); text-align: left; transition: background var(--fast); }
+  .way:hover:not(:disabled) { background: var(--hover); }
+  .way svg { color: var(--ink-2); flex: none; }
+  .way b { display: block; font-size: 14px; line-height: 20px; font-weight: 500; }
+  .way small { display: block; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+  .vrow { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+  .vrow + .vrow { border-top: 1px solid var(--line); }
+  .vrow > span { flex: 1; min-width: 0; }
+  .vrow small { display: block; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+  .vrow .btn { margin-top: 0; }
+  .reply { margin-top: 12px; }
+  .reply :is(textarea, input) { display: block; width: 100%; padding: 8px 12px; border-radius: var(--r-s); background: var(--raised-2); outline: 0; resize: none; font-size: 14px; line-height: 22px; }
+  .reply input { margin-top: 8px; }
+  .reply :is(textarea, input):focus { box-shadow: 0 0 0 2px var(--accent) inset; }
+  .reply .ask-f { margin-top: 10px; }
+  .offers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .offers .btn { font-size: 13px; }
+  .msgs > .offers { margin-top: -16px; }
+
+  /* The message box, and the questions still open above it. */
+  .saywrap { padding: 0 var(--gut) var(--gut); flex: none; }
+  .saywrap > * { width: 100%; max-width: 660px; margin-inline: auto; }
+  .waiting { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .waiting .clip { flex: 1; }
+  .waiting button { font-weight: 500; color: var(--ink); }
+  .say { display: block; border-radius: var(--r-l); background: var(--raised); transition: box-shadow var(--fast); }
+  .say:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+  .say textarea { display: block; width: 100%; min-height: 48px; max-height: 160px; padding: 14px 16px 0; background: none; outline: 0; resize: none; field-sizing: content; font-size: 15px; line-height: 24px; }
+  .say textarea::placeholder { color: var(--ink-3); }
+  .say textarea:disabled { opacity: 0.6; }
+  .say .files { padding: 8px 10px 0; }
+  .say .chipf a { max-width: 180px; font-size: 12px; font-weight: 500; }
+  .say .row { display: flex; align-items: center; gap: 6px; padding: 6px 8px 8px; }
+  .say .row span { flex: 1; min-width: 0; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+  .say .row span.bad { color: var(--bad); }
+  .say .btn.square { width: 28px; height: 28px; flex: none; }
+
+  /* A small yes or no, and a setting, in a popover under its button. */
+  &.popv .conf { width: 284px; padding: 10px 10px 8px; }
+  &.popv .conf b { display: block; font-weight: 600; }
+  &.popv .conf p { margin-top: 4px; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  &.popv .conf > div { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  &.popv .conf .btn { width: auto; min-height: 0; height: var(--ctl); padding: 0 12px; color: var(--ink); justify-content: center; }
+  &.popv .conf .btn.go { color: var(--on-accent); }
+  &.popv .conf .btn.soft { background: var(--hover); }
+  &.popv .conf label { display: block; margin-top: 10px; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  &.popv .conf label span { display: flex; justify-content: space-between; gap: 12px; }
+  &.popv .conf label small { font-size: 12px; color: var(--ink-3); }
+  &.popv .conf input { display: block; width: 100%; margin-top: 6px; }
+  &.popv a[role="menuitem"] { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 6px 10px; border-radius: var(--r-xs); color: var(--ink-2); font-size: 13px; line-height: 18px; }
+  &.popv a[role="menuitem"]:hover, &.popv a[role="menuitem"]:focus-visible { background: var(--hover); color: var(--ink); }
+  &.popv .sep { margin-top: 6px; position: relative; }
+  &.popv .sep::before { content: ""; position: absolute; inset: -3px 4px auto; height: 1px; background: var(--line); }
+  .dsub { font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .drow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 13px; color: var(--ink-2); }
+  .drow .seg { background: var(--raised-2); }
+  .drow + input { margin-top: 12px; }
+  .dlinks { margin-top: 8px; }
+  .dlinks a { display: inline-flex; align-items: center; min-height: 28px; font-weight: 500; color: var(--accent-hi); }
+  .dlinks a:hover { text-decoration: underline; }
+
+  /* Over the film: the changes waiting for the next cut. Under it: the picked clip's editor. */
+  .notice { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 var(--gut) 12px; padding: 8px 8px 8px 12px; border-radius: var(--r-m); background: var(--raised); font-size: 13px; line-height: 20px; color: var(--ink-2); flex: none; }
+  .notice span { flex: 1; min-width: 200px; }
+  .notice span svg { display: inline; margin-right: 4px; vertical-align: -2px; color: var(--accent); }
+  .notice .btn { height: 28px; font-size: 13px; flex: none; }
+  .notice [role="alert"] { flex: 1 0 100%; margin-top: 0; }
+  .cap .btn { padding: 0 10px; font-size: 13px; flex: none; }
+  .cap .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+  .cap p b { font-weight: 600; color: var(--ink); }
+  .ed { display: grid; gap: 14px; margin-top: 10px; }
+  .ed h4 { display: flex; gap: 10px; margin-bottom: 6px; font: 400 12px/18px var(--ui); color: var(--ink-3); }
+  .ed h4 span { color: var(--ink-2); }
+  .takes, .tkw { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .tk { display: flex; align-items: center; gap: 10px; padding: 4px 12px 4px 4px; border-radius: var(--r-s); background: var(--raised); text-align: left; transition: background var(--fast); }
+  .tk:hover { background: var(--raised-2); }
+  .tk video { width: 30px; height: 44px; border-radius: 5px; background: #000; object-fit: cover; pointer-events: none; }
+  .tk b { display: block; font-size: 13px; line-height: 18px; font-weight: 500; }
+  .tk[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+  .trim { position: relative; height: 28px; margin: 0 6px; border-radius: var(--r-xs); background: var(--raised); touch-action: none; }
+  .trim .keep { position: absolute; top: 0; bottom: 0; border-radius: var(--r-xs); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+  .hd { position: absolute; top: -3px; bottom: -3px; width: 12px; margin-left: -6px; border-radius: 4px; background: var(--accent); cursor: ew-resize; touch-action: none; }
+  .hd::after { content: ""; position: absolute; inset: 9px 5px; border-radius: 1px; background: var(--on-accent); }
+  .hd:hover, .hd:focus-visible { background: var(--accent-hi); }
+  .hd[aria-disabled="true"] { opacity: 0.5; }
+  .ed-f { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .cardrow { display: flex; align-items: baseline; gap: 12px; padding: 6px 8px 6px calc(var(--ind) - 8px); }
+  .cardrow .words { font: 500 11px/16px var(--ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .cardrow small { font-size: 12px; line-height: 16px; color: var(--ink-3); }
 }
 
 @media (max-width: 1180px) {
@@ -227,8 +360,11 @@
   .studio {
     .vhead { flex-wrap: wrap; row-gap: 0; padding: 6px var(--gut); }
     .vhead :is(.crumb, .slash, .grow) { display: none; }
-    .vhead h1 { flex: 0 1 auto; }
-    .vhead .spend { order: 9; flex: 1 0 100%; margin: 0 0 6px; padding: 0; text-align: left; white-space: normal; }
+    .vhead h1 { flex: 1 0 calc(100% - 56px); }
+    .vhead .btn.square { order: 1; }
+    .vhead .tag { order: 2; }
+    .vhead .spend { order: 3; flex: 1 1 0; min-width: 120px; margin: 0; padding: 6px 0; text-align: left; white-space: normal; }
+    .vhead :is(.btn:not(.square), a.btn) { order: 4; margin-bottom: 6px; }
     .stage-wrap { display: flex; flex-direction: column-reverse; }
     .stage-wrap[data-first="chat"] { flex-direction: column; }
     .split { display: none; }
@@ -236,6 +372,15 @@
     .stage-wrap[data-first="chat"] .thread { border-top: 0; border-bottom: 1px solid var(--line); }
     .msgs { overflow: visible; }
     .fold summary, .quote button { min-height: 40px; }
+    .saywrap { position: sticky; bottom: calc(60px + env(safe-area-inset-bottom)); z-index: 3; padding: 8px var(--gut) 12px; background: var(--panel); }
+    .say textarea { font-size: 16px; }
+    .say .btn.square { width: 40px; height: 40px; }
+    .finish button, .names .pill, .notice .btn, .banner .btn { height: 40px; }
+    .opts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cap .row { gap: 4px 8px; }
+    .trim { height: 40px; }
+    .hd { width: 20px; margin-left: -10px; }
+    &.popv .conf { width: auto; }
     .stage { overflow: visible; }
     .stage-top .seg { flex: 1; }
     .stage-top .seg button { flex: 1; text-align: center; }

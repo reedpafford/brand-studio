@@ -1,29 +1,52 @@
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Archive, Download, WifiOff } from "lucide-react";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import type { components } from "../api/schema";
+import { fileUrl } from "../api/upload";
+import { useMe } from "../auth/useMe";
 import { useAssets } from "../cast/useAssets";
 import { useBreakdownOf } from "../clips/useBreakdownOf";
+import { useCutEdits } from "../cut/useCutEdits";
 import { said } from "../folders/ideas";
-import { useFreestyle } from "../freestyle/useFreestyle";
-import { useCast } from "../projects/CastOk";
-import { useCut, useProjectClips } from "../projects/useProgress";
+import { useFreestyle, useFreestyleActions, type Freestyle } from "../freestyle/useFreestyle";
+import { useApproveCast, useCast } from "../projects/CastOk";
+import { useVideoActions } from "../projects/ReleaseVideo";
+import { useCut, useMakeCut, useProjectClips } from "../projects/useProgress";
 import { Money, money } from "../usage/parts";
 import { useVideoSpend } from "../usage/VideoSpend";
-import { isOpen, useAsks } from "../videos/AskCard";
+import { useOnChange } from "../useOnChange";
+import { useOnline } from "../useMedia";
+import { isOpen, said as price, useAskActions, useAsks, type Ask } from "../videos/AskCard";
 import { useDirectorRun } from "../videos/director";
 import { useLive } from "../videos/live";
-import { spentAsHeader } from "../videos/money";
-import { useRunProgress } from "../videos/RunCard";
+import { spentAsHeader, upTo } from "../videos/money";
+import { onePass } from "../videos/Preview";
+import { boxPlaceholder, runGoing, useNoteBox, useRunPresses, useStop } from "../videos/runActions";
+import { carryOnLabel, useRunProgress } from "../videos/RunCard";
 import { threadOf } from "../videos/thread";
-import { useVideoProject } from "../videos/VideoChat";
-import { useHead } from "../videos/VideoHead";
+import { stateOf, useRunEnd, useVideoProject } from "../videos/VideoChat";
+import { mp4, useHead, type Head } from "../videos/VideoHead";
 import { Popover } from "./Popover";
 import { Split } from "./Split";
 import { DOT } from "./StudioShell";
+import { Question } from "./VideoAsk";
 import { Cast } from "./VideoCast";
+import { Finish } from "./VideoCut";
+import { VideoMenu } from "./VideoMenu";
+import { Failed, Offers, StopButton, Stopped } from "./VideoRun";
+import { useLock } from "./useLock";
+import { BOX, Say } from "./VideoSay";
 import { Stage } from "./VideoStage";
+import { CastCard, PressButton, StartCard } from "./VideoStart";
 import { Thread } from "./VideoThread";
 import { duration } from "./script";
-import { cellsOf, planOf } from "./videoData";
+import { cellsOf, once, planOf, type Press } from "./videoData";
 import "./video.css";
+
+type Project = components["schemas"]["ProjectOut"];
+type Run = components["schemas"]["DirectorOut"];
+const SOFAR = "so-far"; // the header's money: the menu's "What it cost" opens it
 
 /** "So far": what the video has cost by part, from the server's own split (the one the current site's "What it cost"
  *  reads, read when this opens), the total, and what is still to go while a run with an estimate is going. */
@@ -65,9 +88,10 @@ function SoFar({ id, toGo }: { id: number; toGo: number | null }) {
   );
 }
 
-/** /s/b/:brandId/videos/:projectId: one video in the new look (the redesign, stage 2), to read and watch. The chat with
- *  the director on the left, the film on the right, a divider between them. It reads what the current site's page
- *  reads, through the same hooks and no more often, and sends nothing: every action is on the current site, a link away. */
+/** /s/b/:brandId/videos/:projectId: one video in the new look (the redesign, stage 3). The chat with the director on
+ *  the left, the film on the right, a divider between them, and every press the owner needs to run it: approve and
+ *  film, answer a question, send a note, stop and carry on, another take, the clip's editor, the cut. Each press sends
+ *  what the current site's page sends for it, through the same hook, once. */
 export function Video() {
   const { brandId, projectId } = useParams();
   const id = Number(projectId);
@@ -80,37 +104,123 @@ const Missing = ({ brandId }: { brandId: number }) => (
   </p>
 );
 
+/** The video is read first. One made by the earlier, step-by-step director (its `engine` isn't the one-pass one), and
+ *  anyone but the owner, opens the current site's page for it instead: this page has only the one-pass director's
+ *  presses, and only the owner's. A new video the director hasn't started on has no engine yet and stays here. */
 function VideoPage({ id, brandId }: { id: number; brandId: number }) {
+  const me = useMe();
   const project = useVideoProject(id);
   const p = project.data ?? null;
   useLive(p ? id : 0); // each change on this video, the moment it lands
   const sent = useFreestyle(p?.freestyle_id ?? null, false); // the send it was made from: its first words and moves
   const director = useDirectorRun(id);
   const head = useHead(id);
-  const progress = useRunProgress(id).data ?? null;
-  const asks = useAsks(id).data ?? [];
-  const clips = useProjectClips(id).data ?? [];
-  const breakdown = useBreakdownOf(id).data?.breakdown;
-  const cut = useCut(id).data ?? null;
-  const cast = useCast(id).data?.items ?? [];
-  const assets = useAssets(id).data ?? [];
-  const h = head.data;
-  if (project.isPending || head.isPending || director.isPending || (p?.freestyle_id != null && sent.isPending))
+  if (me.isPending || project.isPending || head.isPending || director.isPending || (p?.freestyle_id != null && sent.isPending))
     return (
       <p className="none" role="status">
         Loading…
       </p>
     );
-  if (!p || !h) return <Missing brandId={brandId} />;
+  if (!p || !head.data) return <Missing brandId={brandId} />;
+  const earlier = !onePass(p) && (p.engine != null || (director.data != null && director.data.status !== "none"));
+  if (earlier || me.data?.role !== "owner") return <Navigate to={`/b/${brandId}/videos/${id}`} replace />;
+  return <Desk id={id} brandId={brandId} p={p} h={head.data} fs={sent.data ?? null} run={director.data ?? null} />;
+}
+
+function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: Project; h: Head; fs: Freestyle | null; run: Run | null }) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const online = useOnline();
+  const progress = useRunProgress(id).data ?? null;
+  const asksRead = useAsks(id);
+  const asks = asksRead.data ?? [];
+  const clips = useProjectClips(id).data ?? [];
+  const breakdown = useBreakdownOf(id).data?.breakdown;
+  const cut = useCut(id).data ?? null;
+  const gateRead = useCast(id).data;
+  const cast = gateRead?.items ?? [];
+  const assets = useAssets(id).data ?? [];
+  const [restoring, setRestoring] = useState(false);
+
+  // Where the run stands, read as the current site's page reads it.
+  const running = runGoing(run);
+  const state = fs ? stateOf(fs, running) : running ? "working" : (run?.status ?? "none");
+  const archived = !!p.archived_at;
+  const items = threadOf(fs, run?.thread ?? [], progress?.run);
+  const start = asks.find((a) => a.kind === "start" && isOpen(a));
+  const moneyOpen = asks.some((a) => ["start", "budget", "own", "plan"].includes(a.kind) && isOpen(a));
+  const ended = ["stopped", "failed", "declined", "withdrawn", "ended", "none"].includes(state) && !moneyOpen && !progress?.stopped && !progress?.failed;
+  const noted = !running && (run?.unread ?? 0) > 0 && run?.status !== "none";
+  const blocked = run?.start_blocked || null;
+  const film = cut?.file_id ?? null;
+  const target = { id, name: h.title, creditsUsed: p.credits_used, released: p.released };
+
+  // The presses, each the current site's own hook. One press, one request: each is off while its request is in flight.
+  const stop = useStop(id, fs?.id);
+  const sentActs = useFreestyleActions(fs?.id ?? null);
+  const { again, carry, planAgain, saveNote } = useRunPresses(id, fs?.id);
+  const answer = useAskActions(start ?? ({ id: 0, project_id: id } as Ask));
+  const approve = useApproveCast(id);
+  const edits = useCutEdits(id);
+  const makeCut = useMakeCut(id);
+  const video = useVideoActions(() => navigate(`/s/b/${brandId}/videos`));
+  const startLock = useLock(answer.isPending); // the paid presses: one request each, however fast they are pressed (./useLock)
+  const runLock = useLock(again.isPending || carry.isPending || planAgain.isPending);
+  const box = useNoteBox({ busy: saveNote.isPending, off: archived || !online, onSend: (text, files, done, refused) => saveNote.mutate({ text, files }, { onSuccess: done, onError: refused }) });
+  const inFlight = saveNote.isPending ? saveNote.variables : undefined;
+  const sending = inFlight && [...items].reverse().find((t) => t.kind === "message")?.text !== inFlight.text ? { text: inFlight.text, files: inFlight.files.length } : null;
+  const toBox = (words = "") => {
+    if (words && !box.text.trim()) box.setText(words);
+    document.getElementById(BOX)?.focus();
+  };
+
+  // What the current site's page reads again by itself, and when (reads only).
+  useRunEnd(id, progress?.status, run?.status, h.status.kind);
+  const updating = !!start?.money?.updating; // a note is being read into the plan: once it is in, the plan is read again
+  useOnChange(asksRead.isPending ? undefined : updating, () => {
+    if (!updating) for (const queryKey of [["breakdown", id], ["project-clips", id], ["cast", id], ["idea", id]]) void queryClient.invalidateQueries({ queryKey });
+  });
+  const unread = items.flatMap((t) => (t.kind === "ask" && t.ask_id != null && !asks.some((a) => a.id === t.ask_id) ? [t.ask_id] : [])).join(",");
+  useEffect(() => {
+    if (unread && !asksRead.isFetching) void asksRead.refetch(); // a card the chat names is read at once, not on the next poll
+  }, [unread]); // eslint-disable-line react-hooks/exhaustive-deps
+  useOnChange(asksRead.isPending ? undefined : asks.map((a) => `${a.id}:${a.state}`).join(","), () => void queryClient.invalidateQueries({ queryKey: ["director", id] }));
 
   const plan = planOf(breakdown, clips, progress);
   const planned = plan.flatMap((s) => s.clips);
+  const round = 1 + items.filter((t) => t.note).length; // each delivery ends a round; a note after it starts the next
   const going = ["working", "waiting", "needs_you"].includes(h.status.kind); // else an estimate is for the next run
   const toGo = going && progress?.expected_usd != null && progress.actual_usd != null ? Math.max(0, progress.expected_usd - progress.actual_usd) : null;
+
+  // The one main press: the start card's (never while the plan is being updated for a note), else the cast's own OK.
+  const gate = !start && gateRead?.state === "ready" && gateRead.can_approve ? gateRead : null;
+  const wrong = !!gate?.items.some((i) => i.approval !== "approved" && i.look_fit); // the look check objects: only "anyway" approves
+  const main: Press | null =
+    start && !updating && start.can.includes("make_it")
+      ? { label: round > 1 ? `Make round ${round}` : "Approve and film", price: start.money ? `${start.money.expected ? "about" : "up to"} ${price(start.money.up_to)}` : undefined, busy: answer.isPending, onPress: () => startLock((done) => answer.mutate({ body: { how: "make_it" } }, { onSettled: done })) }
+      : gate
+        ? { label: wrong ? "Approve anyway" : "Approve cast and places", busy: approve.isPending, onPress: () => approve.mutate({ seen: Object.fromEntries(gate.items.map((i) => [i.ref, i.sig])), anyway: wrong }) }
+        : null;
+  const startCard = (a: Ask) => <StartCard ask={a} round={round} press={main} error={answer.isError ? answer.error.message : null} cast={cast} plan={planned} finish={cut && <Finish cut={cut} edits={edits} />} onChange={() => toBox()} />;
+
+  // A run that isn't going: his Stop, a run that needs him, or one that ended.
+  const pressing = carry.isPending || planAgain.isPending;
+  const carryOn: Press = { label: "Carry on", busy: pressing, why: blocked, onPress: () => runLock((done) => (planAgain.reset(), carry.mutate(undefined, { onSettled: done }))) };
+  const s = progress?.stopped;
+  const stopped = s && <Stopped stopped={s} error={(carry.error ?? planAgain.error)?.message ?? null} presses={[...(s.carry_on || s.free ? [{ ...carryOn, label: carryOnLabel(s) }] : []), { label: "Start the plan again", busy: pressing, why: blocked, onPress: () => runLock((done) => (carry.reset(), planAgain.mutate(undefined, { onSettled: done }))) }]} />;
+  const failed = progress?.failed && <Failed failed={progress.failed} projectId={id} carry={carryOn} current={`/b/${brandId}/videos/${id}`} />;
+  const startLabel = state === "none" ? "Make it" : (state === "stopped" || state === "ended") && noted ? "Start again with this note" : "Make it again";
+  const offers: Press[] = [
+    ...(ended && !progress && run?.carry_on != null ? [{ ...carryOn, price: run.carry_on ? `up to ${run.carry_on}` : undefined }] : []),
+    ...(ended ? [{ label: startLabel, price: run?.run_expected_usd != null ? `about $${run.run_expected_usd.toFixed(2)}` : run?.run_price ? upTo(h, run.run_price) : undefined, busy: again.isPending, why: blocked, onPress: () => runLock((done) => again.mutate(undefined, { onSettled: done })) }] : []),
+  ];
+  const named = new Set(items.flatMap((t) => (t.kind === "ask" ? [t.ask_id] : [])));
+  const waiting = (run?.waiting ?? []).filter((w) => asks.every((a) => a.id !== w.id || isOpen(a)));
+
   const spent = (
     <>
       <b>{spentAsHeader(h, p.credits_used)}</b>
-      {going && h.expected?.usd != null ? ` so far · this run about ${money(h.expected.usd)}` : h.status.kind !== "delivered" ? " so far" : cut?.file_id != null ? ` · ${duration(Math.floor(cut.timeline.length))}` : ""}
+      {going && h.expected?.usd != null ? ` so far · this run about ${money(h.expected.usd)}` : h.status.kind !== "delivered" ? " so far" : film != null ? ` · ${duration(Math.floor(cut!.timeline.length))}` : ""}
     </>
   );
   return (
@@ -135,7 +245,7 @@ function VideoPage({ id, brandId }: { id: number; brandId: number }) {
             end
             facts
             button={(b) => (
-              <button type="button" className="spend" title="What it has cost so far" {...b}>
+              <button type="button" id={SOFAR} className="spend" title="What it has cost so far" {...b}>
                 {spent}
               </button>
             )}
@@ -145,11 +255,85 @@ function VideoPage({ id, brandId }: { id: number; brandId: number }) {
         ) : (
           <span className="spend">{spent}</span>
         )}
+        {!archived && running && <StopButton busy={stop.isPending || sentActs.stop.isPending} onStop={() => (fs ? sentActs.stop.mutate() : stop.mutate())} />}
+        {archived ? null : main ? (
+          <PressButton press={main} />
+        ) : (
+          !running &&
+          film != null && (
+            <a className="btn go" href={fileUrl(film)} download={mp4(h.title)}>
+              <Download size={14} strokeWidth={1.75} aria-hidden />
+              Download
+            </a>
+          )
+        )}
+        <VideoMenu target={target} brandId={brandId} fsId={fs?.id ?? null} folder={h.folder?.id ?? p.folder_id ?? null} film={film} video={video} onCost={h.spent.usd != null ? () => document.getElementById(SOFAR)?.click() : undefined} may={{ change: !archived, variations: !archived && !running && h.status.kind === "delivered", zip: clips.some((c) => c.picked_take_id != null), archive: !archived && (!running || film != null) }} />
       </header>
       <Split
-        first={asks.some(isOpen) ? "chat" : "film"}
-        chat={<Thread items={threadOf(sent.data ?? null, director.data?.thread ?? [], progress?.run)} progress={progress} asks={asks} clips={clips} cast={cast} planned={{ clips: planned.length, seconds: Math.round(planned.reduce((sum, c) => sum + c.seconds, 0)) }} projectId={id} current={`/b/${brandId}/videos/${id}`} />}
-        film={<Stage plan={plan} cells={cellsOf(planned, cut?.timeline.pieces ?? [])} film={cut?.file_id ?? null} length={cut?.timeline.length ?? 0} speed={cut?.timeline.speed || 1} aspect={p.aspect_ratio} finish={cut && { captions: cut.timeline.captions, cards: cut.timeline.cards }} cast={<Cast cast={cast} assets={assets} />} />}
+        first={asks.some(isOpen) || gate ? "chat" : "film"}
+        chat={
+          <Thread
+            items={items}
+            sending={sending}
+            progress={progress}
+            asks={asks}
+            clips={clips}
+            projectId={id}
+            start={startCard}
+            stopped={stopped}
+            failed={failed}
+            banner={
+              archived ? (
+                <p className="banner">
+                  <Archive size={16} strokeWidth={1.75} aria-hidden />
+                  <span>
+                    <b>Archived.</b> It’s out of the lists. Its clips and downloads are kept.
+                  </span>
+                  <button type="button" className="btn soft" disabled={restoring} onClick={once(() => (setRestoring(true), void video.restore(target).finally(() => setRestoring(false))))}>
+                    Restore
+                  </button>
+                </p>
+              ) : (
+                !online && (
+                  <p className="banner" role="status">
+                    <WifiOff size={16} strokeWidth={1.75} aria-hidden />
+                    <span>
+                      <b>You’re offline.</b> The director keeps working. This page catches up when you’re back.
+                    </span>
+                  </p>
+                )
+              )
+            }
+            after={
+              !archived && (
+                <>
+                  {asks.filter((a) => isOpen(a) && !named.has(a.id)).map((a) => (
+                    <div key={a.id} className="msg">
+                      {a.kind === "start" ? startCard(a) : <Question ask={a} />}
+                    </div>
+                  ))}
+                  {gate && main && (
+                    <div className="msg">
+                      <CastCard cast={gate.items} asked={gate.asked} press={main} error={approve.isError ? approve.error.message : null} />
+                    </div>
+                  )}
+                  <Offers presses={offers} error={(again.error ?? stop.error ?? sentActs.stop.error ?? (s ? null : carry.error))?.message ?? null} />
+                </>
+              )
+            }
+            foot={
+              <Say
+                box={box}
+                waiting={waiting}
+                closed={archived ? "It’s archived. Restore it to keep working." : null}
+                placeholder={online ? boxPlaceholder(true, run?.status === "delivered" || state === "delivered", running && !run?.turns.some((t) => t.tool)) : "You’re offline. You can type; send it when you’re back."}
+                note={running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted && (state === "stopped" || state === "ended") ? "Saved. Press Start again with this note to make it." : null}
+                error={saveNote.isError ? saveNote.error.message : null}
+              />
+            }
+          />
+        }
+        film={<Stage projectId={id} plan={plan} cells={cellsOf(planned, cut?.timeline.pieces ?? [])} cut={cut} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} />} onTell={toBox} />}
       />
     </>
   );

@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useOnChange } from "../useOnChange";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, ChevronLeft, CircleStop, FileText, Paperclip, Upload, WifiOff, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, errorText, polled } from "../api/client";
+import { api, polled } from "../api/client";
 import type { components } from "../api/schema";
-import { fileUrl, uploadFile } from "../api/upload";
+import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Banner, Button, Dialog, Segmented, Skeleton } from "../components";
 import { mmss } from "../freestyle/FromScript";
@@ -14,7 +14,6 @@ import { treatmentOf } from "./Treatment";
 import { leadingTreatment, openNote, threadOf } from "./thread";
 import { ReelBlock } from "../scripts/ReelImport";
 import { useFreestyle, useFreestyleActions, type Freestyle } from "../freestyle/useFreestyle";
-import { refreshJobs } from "../jobs/refresh";
 import { useMayManageVideo, useVideoActions } from "../projects/ReleaseVideo";
 import { useProjectClips, useProjectVideo } from "../projects/useProgress";
 import { CastOk } from "../projects/CastOk";
@@ -29,6 +28,7 @@ import { Preview, firstTab, tabFrom, usePanelFacts, type TabId } from "./Preview
 import { AskCard, HeldSend, WaitingBar, isOpen, useAskRefresh, useAsks } from "./AskCard";
 import { InsteadCard } from "./InsteadCard";
 import { DeliveryNote, Failed, PastNote, RunCard, stopLines, stoppedParts, useRunProgress, useSeen, type Progress } from "./RunCard";
+import { boxPlaceholder, runGoing, useNoteBox, useRunPresses, useStop } from "./runActions";
 import { VariationsDialog } from "./Variations";
 import { MoveDialog, RenameDialog, VideoHead, VideoMenu, headStatus, mp4, useHead, type Head } from "./VideoHead";
 import { upTo } from "./money";
@@ -54,7 +54,7 @@ export function VideoRoute() {
 }
 
 /** A freestyle's run, in the words the page uses: an editor's send waiting for the owner, a change waiting, or its status. */
-function stateOf(fs: Freestyle, running: boolean) {
+export function stateOf(fs: Freestyle, running: boolean) {
   if (running) return "working" as const;
   if (fs.status === "waiting") return fs.file_id ? ("change" as const) : ("waiting" as const);
   return fs.status;
@@ -105,20 +105,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
   // When this video starts or stops needing you, the rail's Needs you count is read again at once, not at its next 30 s
   // poll (MAIN's Claymation run: the count was behind while a question waited on this very video).
   useOnChange(runRead && !head.isPending ? `${head.data?.status.kind}:${run?.waiting?.length ?? 0}:${run?.make_it ?? ""}` : undefined, () => void queryClient.invalidateQueries({ queryKey: ["needs-you"] }));
-  const stop = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/director/stop", { params: { path: { project_id: id } } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["director", id], data);
-      if (fsId) void queryClient.invalidateQueries({ queryKey: ["freestyle", fsId] });
-      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
-      setStopping(false);
-      return refreshJobs(queryClient);
-    },
-  });
+  const stop = useStop(id, fsId, () => setStopping(false));
 
   if (project.isPending || (fsId && fsQuery.isPending) || runQuery.isPending || (p && head.isPending)) return <Loading phone={!rail} />;
   if (!p && !fs)
@@ -132,7 +119,7 @@ export function VideoPage({ projectId: id, brandId, freestyleId }: { projectId: 
     );
 
   const turns = run?.turns ?? [];
-  const running = run?.status === "running" && run.make_it == null && !turns.every((t) => t.status === "needs_owner_approval"); // a start card waiting: nothing runs (S3-02)
+  const running = runGoing(run); // a start card waiting: nothing runs (S3-02)
   const state = fs ? stateOf(fs, running) : running ? "working" : (run?.status ?? "none");
   const archived = !!p?.archived_at;
   const maker = p ? mayManage(p) : fs?.created_by_name === me?.name;
@@ -317,7 +304,7 @@ function Loading({ phone }: { phone: boolean }) {
 /** M6 (Flow-QA, 6 Nov): when the run's card and the director's own read disagree on whether it goes on (a run that ended by
  *  itself, or one that just started), each read again: the header, the presses and the card follow at once, never a dead end
  *  until reload (rule 22). */
-function useRunEnd(id: number, card: string | undefined, director: string | undefined, head?: string) {
+export function useRunEnd(id: number, card: string | undefined, director: string | undefined, head?: string) {
   const queryClient = useQueryClient();
   const going = card === undefined ? undefined : ["working", "revising", "waiting"].includes(card);
   // The header says delivered while the card still waits or works: the card and the run are behind, read again (a
@@ -390,49 +377,8 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
 
   // Saved notes and the presses that make them (today's; the start card and the progress card replace them, screens 4–5).
   const noted = !running && (run?.unread ?? 0) > 0 && run?.status !== "none";
-  const again = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/director", { params: { path: { project_id: id } } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["director", id], data);
-      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
-      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
-      return refreshJobs(queryClient);
-    },
-  });
-  // Carry on after a Stop, or a run that stopped itself (S3-08, video 240): the same run goes on under the owner's OK,
-  // up to the rest of its own price (with none left, the server starts a new run with its own start card).
-  const carry = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/director/carry-on", { params: { path: { project_id: id } } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["director", id], data);
-      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
-      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
-      void queryClient.invalidateQueries({ queryKey: ["run-progress", id] });
-      return refreshJobs(queryClient);
-    },
-  });
-  // "Start the plan again" (S3-08): a new run with its own start card that plans the whole video again after Make it.
-  const planAgain = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/projects/{project_id}/director/plan-again", { params: { path: { project_id: id } } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["director", id], data);
-      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
-      void queryClient.invalidateQueries({ queryKey: ["idea", id] });
-      return refreshJobs(queryClient);
-    },
-  });
+  // Make it again, Carry on after a Stop or a run that stopped itself (S3-08, video 240), Start the plan again, and a note.
+  const { again, carry, planAgain, saveNote } = useRunPresses(id, fs?.id);
   // A start card waiting for Make it is the press, as are a stopped or failed run's own (Carry on, its fixes): the general
   // one stands aside (S3-02, S3-08, S3-11).
   const startOpen = cards.some((a) => a.kind === "start" && isOpen(a));
@@ -465,19 +411,6 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
   // The box: a note while it works is read on its next move; after a stop or a delivery the owner's is saved for Make it
   // again (a note never starts a run by itself, the Producer); an editor's change on a freestyle goes to the owner first.
   const [queued, setQueued] = useState<{ text: string; files: number[] }[]>([]);
-  const saveNote = useMutation({
-    mutationFn: async ({ text, files }: { text: string; files: number[] }) => {
-      const { data, error } = await api.POST("/projects/{project_id}/director/messages", { params: { path: { project_id: id } }, body: { text, ...(files.length ? { files } : {}) } });
-      if (!data) throw new Error(errorText(error));
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["director", id], data);
-      if (fs) void queryClient.invalidateQueries({ queryKey: ["freestyle", fs.id] });
-      void queryClient.invalidateQueries({ queryKey: ["asks", id] }); // a locked line's answer comes at once (S3-14)
-      return refreshJobs(queryClient);
-    },
-  });
   // The note shows in the thread the moment it's sent, "Sending…", until the server has it (a read landing meanwhile keeps
   // it); a refused one leaves, its words back in the box.
   const inFlight = saveNote.isPending ? saveNote.variables : undefined;
@@ -518,7 +451,7 @@ function Chat({ p, fs, run, clips, owner, maker, state, running, online, archive
 
   const waiting = state === "waiting";
   const fromScript = !!script && !!fs && serverTime(script.created_at) < serverTime(fs.created_at);
-  const placeholder = !online ? "You can type; it sends when you’re back" : run?.status === "delivered" || state === "delivered" ? "Say what to change: “warmer light in scene 2”, “swap the B-roll at 0:14”…" : running && !turns.some((t) => t.tool) ? "Add anything the director should know" : "Tell the director what to change";
+  const placeholder = boxPlaceholder(online, run?.status === "delivered" || state === "delivered", running && !turns.some((t) => t.tool));
   const note = queued.length ? (queued.length === 1 ? "Sends when you’re back." : `${queued.length} notes send when you’re back.`) : running && items.at(-1)?.kind === "message" ? "The director will read this on its next move." : noted ? (state === "stopped" || state === "ended" ? "Saved. Press Start again with this note to make it." : null) : viaFreestyle && !owner && !running ? "Each change goes to the owner first. No generation starts until they say yes." : null;
   const closed = archived ? "It's archived. Restore it to keep working." : lookOnly ? lookOnly : waiting && !!me && !owner ? (fromScript ? "Opens once the owner approves" : "You can change it once the owner approves it, or withdraw it now.") : null;
   const first = fromScript && script && fs ? <ScriptCard fs={fs} script={script} pid={id} brandId={p?.brand_id ?? fs.brand_id ?? 0} /> : null;
@@ -675,40 +608,9 @@ function ScriptCard({ fs, script, pid, brandId }: { fs: Freestyle; script: NonNu
 /** The message box (S3): "Tell the director what to change", the upload and the send. Enter sends, Shift+Enter is a new
  *  line. Pictures or clips sent with a note are for this video only (rule 12). `closed`: why it can't be used now. */
 function Composer({ placeholder, closed, note, error, busy, upload, disabled, onSend }: { placeholder: string; closed?: string | null; note?: string | null; error?: string | null; busy?: boolean; upload?: boolean; disabled?: boolean; onSend: (text: string, files: number[], done: () => void, refused: () => void) => void }) {
-  const [text, setText] = useState("");
-  const [files, setFiles] = useState<{ id: number; name: string }[]>([]);
-  const [adding, setAdding] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
-  const sending = useRef(false); // one press, one note: a second click before the first returns does nothing
-  useEffect(() => {
-    if (!busy) sending.current = false;
-  }, [busy]);
   const off = disabled || !!closed;
-  const ready = !!text.trim() && !busy && !adding && !off;
-  const go = () => {
-    if (!ready || sending.current) return;
-    sending.current = true;
-    // The box empties at once; a refused note's words and files come back to it.
-    const [was, wasFiles] = [text, files];
-    setText("");
-    setFiles([]);
-    onSend(was.trim(), wasFiles.map((f) => f.id), () => (sending.current = false), () => ((sending.current = false), setText(was), setFiles(wasFiles)));
-  };
-  const add = async (list: FileList | null) => {
-    setProblem(null);
-    setAdding(true);
-    try {
-      for (const f of Array.from(list ?? []).slice(0, 6 - files.length)) {
-        const stored = await uploadFile(f);
-        setFiles((now) => [...now, { id: stored.id, name: f.name }]);
-      }
-    } catch (e) {
-      setProblem((e as Error).message);
-    } finally {
-      setAdding(false);
-    }
-  };
+  const { text, setText, files, remove, adding, problem, ready, go, add } = useNoteBox({ busy, off, onSend });
   return (
     <form
       aria-label="Your message"
@@ -742,7 +644,7 @@ function Composer({ placeholder, closed, note, error, busy, upload, disabled, on
             <li key={f.id} className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-xs">
               <Paperclip size={12} strokeWidth={1.75} aria-hidden className="text-muted" />
               <a href={fileUrl(f.id)} target="_blank" rel="noreferrer" className="max-w-40 truncate">{f.name}</a>
-              <button type="button" aria-label={`Take off ${f.name}`} onClick={() => setFiles((now) => now.filter((x) => x.id !== f.id))} className="-mr-1 grid size-control place-items-center text-muted hover:text-text lg:size-5">
+              <button type="button" aria-label={`Take off ${f.name}`} onClick={() => remove(f.id)} className="-mr-1 grid size-control place-items-center text-muted hover:text-text lg:size-5">
                 <X size={12} strokeWidth={1.75} aria-hidden />
               </button>
             </li>

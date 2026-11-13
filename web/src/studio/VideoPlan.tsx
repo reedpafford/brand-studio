@@ -1,10 +1,12 @@
+import { Fragment } from "react";
 import { FileText, LoaderCircle } from "lucide-react";
 import { fileUrl } from "../api/upload";
 import { duration, plural } from "./script";
 import { linesOf, shotOf, type PlanScene } from "./videoData";
 
 /** The Plan view: the clips grouped by scene as the server gives them. Each row is its number, its first frame once
- *  made, what it shows, who speaks and the line (or "Picture only"), and its length; the picked row opens to the shot.
+ *  made, its name in the plan (else what it shows), who speaks and the line (or "Picture only"), and its length; the
+ *  picked row opens to the shot. A time card is a row of its own, before the clip it leads into or over it.
  *  `clip` is the one picked (on the timeline too); `thumbs`: something has been filmed, so rows carry a frame. */
 export function Plan({ scenes, clip, onPick, thumbs }: { scenes: PlanScene[]; clip: string | null; onPick: (clip: string) => void; thumbs: boolean }) {
   if (!scenes.length)
@@ -28,7 +30,14 @@ export function Plan({ scenes, clip, onPick, thumbs }: { scenes: PlanScene[]; cl
           const open = c.clip_id === clip;
           const lines = linesOf(c);
           return (
-            <li key={c.clip_id} className={open ? "open" : undefined}>
+            <Fragment key={c.clip_id}>
+            {c.card && (
+              <li className="cardrow">
+                <span className="words">{c.card}</span>
+                <small>Time card, {c.cardBefore ? `on black before clip ${c.number}` : `over clip ${c.number}`}</small>
+              </li>
+            )}
+            <li className={open ? "open" : undefined}>
               <button type="button" aria-expanded={open} onClick={() => onPick(c.clip_id)}>
                 <span className="n">{c.number}</span>
                 {thumbs && (
@@ -38,7 +47,7 @@ export function Plan({ scenes, clip, onPick, thumbs }: { scenes: PlanScene[]; cl
                 )}
                 <span className="what">
                   <b>
-                    {c.label || `Clip ${c.number}`}
+                    {c.name || c.label || `Clip ${c.number}`}
                     {c.left && <span className="mk bad">Left out</span>}
                   </b>
                   {lines.map((l, i) => (
@@ -58,6 +67,7 @@ export function Plan({ scenes, clip, onPick, thumbs }: { scenes: PlanScene[]; cl
                 </div>
               )}
             </li>
+            </Fragment>
           );
         })}
       </ol>

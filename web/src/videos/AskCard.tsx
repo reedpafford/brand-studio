@@ -58,6 +58,31 @@ export function useAskActions(ask: Ask) {
   });
 }
 
+/** A card's upload (S4-01): the card says it's uploading, the file is stored, then it is the answer (an audio file on a
+ *  voice card is cloned). One that fails says so and the card opens again. `onDone`: once it is answered. */
+export function useAskUpload(a: Ask, act: ReturnType<typeof useAskActions>, onDone?: () => void) {
+  const [upload, setUpload] = useState<{ name: string; file?: string } | null>(null);
+  const [failed, setFailed] = useState("");
+  const send = async (list: FileList | null) => {
+    const f = list?.[0];
+    if (!f) return;
+    setFailed("");
+    setUpload({ name: f.name, file: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined });
+    try {
+      await act.mutateAsync({ path: "uploading", body: { on: true } });
+      const stored = await uploadFile(f);
+      await act.mutateAsync({ body: a.kind === "voice" && f.type.startsWith("audio/") ? { how: "clone", file_id: stored.id } : { how: "upload", file_id: stored.id } });
+      onDone?.();
+    } catch (e) {
+      setFailed(e instanceof Error && e.message ? e.message : "The upload didn’t go through. Try again.");
+      await act.mutateAsync({ path: "uploading", body: { on: false } }).catch(() => {});
+    } finally {
+      setUpload(null);
+    }
+  };
+  return { upload, failed, clear: () => setFailed(""), send };
+}
+
 /** A tile: a saved item or a made option, its picture, name and note; the picked one is outlined. */
 function Tile({ file, name, note, on, onPick, drawing }: { file?: number | null; name: string; note?: string; on?: boolean; onPick?: () => void; drawing?: boolean }) {
   const pic = file != null ? <img src={fileUrl(file)} alt="" className="size-full object-cover" /> : <span className={`block size-full ${drawing ? "bg-[linear-gradient(110deg,#ececf0_30%,#f6f6f8_45%,#ececf0_60%)]" : "bg-surface-2"}`} />;
@@ -124,7 +149,6 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const [voiceName, setVoiceName] = useState(""); // Describe it: the brand's name for the voice
   const [changing, setChanging] = useState<"" | "options" | "answer">("");
   const [every, setEvery] = useState(false); // a voice card lists its first few; the rest a press away
-  const [upload, setUpload] = useState<{ name: string; file?: string } | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const can = (how: string) => a.can.includes(how);
   const money = ["start", "budget", "own", "plan"].includes(a.kind);
@@ -132,8 +156,8 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const brand = a.saved_in.replace(/^Saved in /, "") || "the brand";
   // Where a clone goes, said before the paid press (Reed, 5 Nov; #1346's `clone_to`).
   const cloneTo = (a.clone_to || `Saved to ${brand}’s voices`).replace(/^Saved/, "saved");
-  const [failedUpload, setFailedUpload] = useState("");
-  const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setVoiceName(""), setChanging(""), setFailedUpload(""), onDone?.()) });
+  const { upload, failed: failedUpload, clear, send: doUpload } = useAskUpload(a, act, onDone);
+  const go = (body: object, path?: "answer" | "generate" | "cancel" | "uploading") => act.mutate({ path, body }, { onSuccess: () => (setReplying(false), setText(""), setVoiceName(""), setChanging(""), clear(), onDone?.()) });
   const error = act.isError || failedUpload ? <p role="alert" className="text-sm text-danger">{failedUpload || act.error?.message}</p> : null;
   const audition = <VoiceAudition ask={a} who={a.subject || "the presenter"} owner={owner} busy={act.isPending} onPick={(option) => go({ how: "voice", option })} onAgain={() => go({ how: "again" })} />;
 
@@ -192,23 +216,6 @@ export function AskCard({ ask: a, owner, onChangePlan, onWithdraw, onDone }: { a
   const name = (id: string | number | null) => (typeof id === "number" ? `option ${id + 1}` : saved.find((o) => o.id === id)?.name ?? "");
   const generating = a.state === "generating";
 
-  const doUpload = async (list: FileList | null) => {
-    const f = list?.[0];
-    if (!f) return;
-    setFailedUpload("");
-    setUpload({ name: f.name, file: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined });
-    try {
-      await act.mutateAsync({ path: "uploading", body: { on: true } });
-      const stored = await uploadFile(f);
-      await act.mutateAsync({ body: a.kind === "voice" && f.type.startsWith("audio/") ? { how: "clone", file_id: stored.id } : { how: "upload", file_id: stored.id } });
-      onDone?.();
-    } catch (e) {
-      setFailedUpload(e instanceof Error && e.message ? e.message : "The upload didn’t go through. Try again.");
-      await act.mutateAsync({ path: "uploading", body: { on: false } }).catch(() => {});
-    } finally {
-      setUpload(null);
-    }
-  };
   const input = <input ref={picker} type="file" hidden accept={a.kind === "voice" ? "audio/*" : "image/*,video/*"} onChange={(e) => (void doUpload(e.target.files), (e.target.value = ""))} />;
 
   let body: ReactNode;

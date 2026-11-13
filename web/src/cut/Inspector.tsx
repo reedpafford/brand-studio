@@ -120,7 +120,8 @@ export function PieceInspector({
 }
 
 const NOT_YOURS = "Whoever made this video, or the owner, edits its cut.";
-const LEVEL = (db: number) => (db >= 14 ? "A lot" : db >= 6 ? "Some" : "A little");
+/** How much quieter the music is under the voice, in a word. */
+export const LEVEL = (db: number) => (db >= 14 ? "A lot" : db >= 6 ? "Some" : "A little");
 
 /** The music (S7-02): how much quieter under the voice, whether it rises when no one speaks, swap or remove it. */
 export function MusicInspector({

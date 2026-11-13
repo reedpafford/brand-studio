@@ -186,7 +186,7 @@ function newest(presses: { submittedAt: number; error: Error | null }[]): Error 
 }
 
 /** Sound effects on the selected piece's clip: #1291's own press (one MMAudio run, priced "up to"). */
-function useAddSound(projectId: number) {
+export function useAddSound(projectId: number) {
   const queryClient = useQueryClient();
   const clips = useProjectClips(projectId);
   return useMutation({

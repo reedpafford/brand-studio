@@ -1,17 +1,17 @@
 import { useState, type ReactNode } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeftRight, Download, Eye, Image as ImageIcon, LoaderCircle, Pencil, RefreshCw, Volume2 } from "lucide-react";
-import { api, errorText, must } from "../api/client";
+import { api, must } from "../api/client";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { Button, TextArea, buttonClass, useToast, useViewOnly } from "../components";
-import { refreshJobs } from "../jobs/refresh";
 import { mp4, type Head } from "../videos/VideoHead";
 import { spent, upTo } from "../videos/money";
 import { blocking } from "../projects/problems";
 import { RowStatus } from "./RowStatus";
 import { SwapBroll } from "../cut/SwapBroll";
 import { useCut } from "../projects/useProgress";
+import { useClipActions } from "./useClipActions";
 import { markWatched, type Clip, type Frame, type Row, type Scene, type Take } from "./data";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -496,11 +496,9 @@ function WhatChanged({ p, clip, frame, stillUse, onStill, onDone }: { p: Project
 /** One clip open (S6-02, S6-03, S6-06, P-11, S-gaps-08): its stills and takes, what the watch found, the model and why, the
  *  words over it, what it cost, the director's prompt (read and edit), and its presses, each with its "up to" price. */
 export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: { p: Project; head: Head | undefined; row: Row; clip: Clip; frames: Frame[]; scene: Scene; phone: boolean; onCast: () => void }) {
-  const queryClient = useQueryClient();
   const toast = useToast();
   const viewOnly = useViewOnly();
   const [box, setBox] = useState<null | { kind: "change" | "still" | "sound" | "prompt"; text: string }>(null);
-  const [recut, setRecut] = useState(false);
   const [swapping, setSwapping] = useState(false);
   const cut = useCut(p.id).data;
   const piece = row.broll && cut?.can_edit ? cut.timeline.pieces.find((x) => x.clip_id === row.clip_id) : undefined; // in the cut
@@ -514,30 +512,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
     queryFn: async () => (await must(api.GET("/projects/{project_id}/storyboard/frames/{frame_id}/change", { params: { path: { project_id: p.id, frame_id: frame!.id } } }))).data!.credits,
   });
   const stillMakes = clip.takes.length ? "a new still and a new take" : "a new still"; // what Change the still… makes (S-gaps-08)
-  const refresh = async () => {
-    await refreshJobs(queryClient);
-    await Promise.all([["project-clips", p.id], ["storyboard", p.id], ["run-progress", p.id], ["project-video", p.id], ["idea", p.id], ["project", p.id]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
-  };
-  // Read again however a press ends: one that stops midway (a still picked, its take refused) shows where it got to.
-  const run = useMutation({ mutationFn: (f: () => Promise<unknown>) => f(), onSettled: refresh, onError: (e: Error) => toast(e.message, undefined, "error") });
-  const go = (f: () => Promise<unknown>) => run.mutate(f);
-  const take = (note = "") => go(() => must(api.POST("/projects/{project_id}/clips/{clip_id}/generate", { params: { path }, body: { note } })));
-  // A person's pick is their OK; the cut that uses this clip is made again by itself, free (S-gaps-08 5, S7-05).
-  const pickTake = (t: Take, keep = false) =>
-    go(async () => {
-      const route = keep ? "/projects/{project_id}/clips/{clip_id}/takes/{take_id}/keep" : "/projects/{project_id}/clips/{clip_id}/takes/{take_id}/use";
-      await must(api.POST(route, { params: { path: { ...path, take_id: t.id } } }));
-      const cut = queryClient.getQueryData(["project-video", p.id]);
-      if (!cut) return;
-      setRecut(true);
-      try {
-        const made = await api.POST("/projects/{project_id}/cut", { params: { path: { project_id: p.id } } }); // the next cut (#1299)
-        if (made.data) queryClient.setQueryData(["project-cut", p.id], made.data);
-        else toast(recutRefused(errorText(made.error)), undefined, "error"); // the pick stays; say why and what next (rule 22)
-      } finally {
-        setRecut(false);
-      }
-    });
+  const { run, go, refresh, take, pickTake, unsound, recut } = useClipActions(p.id, clip.id);
   const send = (kind: "change" | "still" | "sound" | "prompt", text: string) =>
     go(async () => {
       if (kind === "change") await must(api.POST("/projects/{project_id}/clips/{clip_id}/change", { params: { path }, body: { note: text } }));
@@ -611,7 +586,7 @@ export function ClipOpen({ p, head, row, clip, frames, scene, phone, onCast }: {
       </Button>
     ),
     picked && clip.sound?.state === "ready" && (
-      <Button key="unsound" variant={phone ? "secondary" : "ghost"} icon={Volume2} className={phone ? "w-full justify-start" : ""} onClick={() => go(() => must(api.DELETE("/projects/{project_id}/clips/{clip_id}/sound", { params: { path } })))}>
+      <Button key="unsound" variant={phone ? "secondary" : "ghost"} icon={Volume2} className={phone ? "w-full justify-start" : ""} onClick={unsound}>
         Remove the sound effects
       </Button>
     ),
@@ -813,8 +788,4 @@ function Prompt({ text, onEdit }: { text: string; onEdit?: () => void }) {
   );
 }
 
-/** Why a pick's cut didn't start, said with what happens to the pick: a cut already being made takes it next. */
-export function recutRefused(why: string): string {
-  const making = /^Cut (\d+) is being made/.exec(why);
-  return making ? `Cut ${making[1]} is being made; your pick goes in the next cut. Make it from the Cut tab once Cut ${making[1]} is ready.` : `Your pick is kept, but the cut wasn’t made: ${why}`;
-}
+export { recutRefused } from "./useClipActions";

@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronRight, Clock, LoaderCircle, TriangleAlert } from "lucide-react";
-import { Link } from "react-router-dom";
 import type { components } from "../api/schema";
-import { fileUrl } from "../api/upload";
 import { mmss } from "../freestyle/FromScript";
 import type { Said } from "../freestyle/Thread";
-import { isOpen, said as price, type Ask } from "../videos/AskCard";
+import { isOpen, type Ask } from "../videos/AskCard";
 import { plain } from "../videos/director";
-import { clock, runCost, stoppedLine, timeLeft, useThinking, type Progress } from "../videos/RunCard";
+import { clock, runCost, stopLines, stoppedLine, timeLeft, useThinking, type Progress } from "../videos/RunCard";
 import { leadingTreatment, openNote } from "../videos/thread";
 import { treatmentOf, type Treatment } from "../videos/Treatment";
 import { tinted } from "./ScriptBox";
-import { duration, parse, plural } from "./script";
-import { cameFrom, type CastItem } from "./videoData";
+import { parse, plural } from "./script";
+import { Question } from "./VideoAsk";
 
 type Note = components["schemas"]["DeliveryNoteOut"];
 type Clip = components["schemas"]["ProjectClipOut"];
@@ -68,7 +66,8 @@ const Folded = ({ line, children }: { line: string; children: ReactNode }) => (
 );
 
 /** The run that is going, or the last one: the director's thinking while the plan is written (read as the current
- *  page reads it, only then), its steps each done, now or to come, what the run has cost, and what stopped it. */
+ *  page reads it, only then), its steps each done, now or to come, what the run has cost, and who stopped it and when
+ *  (an earlier Stop it carried on from is a line too). */
 function Run({ r, projectId }: { r: Progress; projectId: number }) {
   const quiet = (r.status === "working" || r.status === "revising") && !r.scenes.length;
   const live = useThinking(projectId, quiet);
@@ -104,12 +103,11 @@ function Run({ r, projectId }: { r: Progress; projectId: number }) {
         ))}
       </ul>
       {cost && <p className="quiet small">{cost}</p>}
-      {r.stopped && <p>{stoppedLine(r.stopped)}</p>}
-      {r.failed && (
-        <p>
-          <b>{r.failed.title}.</b> {r.failed.why}
+      {[...stopLines(r), ...(r.stopped ? [stoppedLine(r.stopped)] : [])].map((line) => (
+        <p key={line} className="quiet small">
+          {line}
         </p>
-      )}
+      ))}
     </>
   );
 }
@@ -150,107 +148,19 @@ function Delivery({ n }: { n: Note }) {
   );
 }
 
-/** A card the director asks with, to read only: the question and why, then what it offers (a story's choices, the
- *  brand's saved items, the options drawn) or, on a start card, the plan, the cast and each clip's price. Answering is
- *  on the current site. One already answered, or no longer needed, is a line. */
-function Card({ a, to, cast, planned }: { a: Ask; to: string; cast: CastItem[]; planned: { clips: number; seconds: number } }) {
-  if (!isOpen(a))
-    return (
-      <p className="folded">
-        <b>{a.question}</b>
-        <small>{a.state === "not_needed" ? `No longer needed. ${a.closed}` : a.answered_by ? `Answered by ${a.answered_by}` : "Answered"}</small>
-      </p>
-    );
-  const start = a.kind === "start";
-  const making = a.money?.making ?? []; // what a start card's run will make, clip by clip
-  const drawn = a.options.filter((o) => o.file_id != null);
-  return (
-    <section className="ask" aria-label={a.question}>
-      <p className="ask-h">
-        <i aria-hidden className="dot wait" />
-        {start ? "Ready to start" : "The director needs you"}
-      </p>
-      <h3>{a.question}</h3>
-      {a.why && <p className="why">{a.why}</p>}
-      {a.choices.length > 0 && (
-        <ul className="picks">
-          {a.choices.map((c) => (
-            <li key={c.key}>
-              <small>{a.pick === c.key ? `${c.key} · the director’s pick` : c.key}</small>
-              <b>{c.title}</b>
-              <span>{c.why}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {a.saved.length > 0 && (
-        <>
-          <h4>{a.saved_in || "Saved"}</h4>
-          <ul className="names">
-            {a.saved.map((o) => (
-              <li key={o.id} className="pill">
-                {o.name}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {drawn.length > 0 && (
-        <ul className="cast-s">
-          {drawn.map((o) => (
-            <li key={o.index}>
-              <img src={fileUrl(o.file_id!)} alt="" />
-              <b>Option {o.index + 1}</b>
-            </li>
-          ))}
-        </ul>
-      )}
-      {start && planned.clips > 0 && (
-        <p className="why">
-          The plan is on the right: {plural(planned.clips, "clip")}, about {duration(planned.seconds)}.
-        </p>
-      )}
-      {start && cast.length > 0 && (
-        <ul className="cast-s" aria-label="The cast and places">
-          {cast.map((i) => (
-            <li key={i.ref}>
-              {i.preview_file_id != null ? <img src={fileUrl(i.preview_file_id)} alt="" /> : <span aria-hidden className="im" />}
-              <b>{i.name}</b>
-              <small>{cameFrom(i)}</small>
-              {i.voice && <small>Voice: {i.voice.name}</small>}
-            </li>
-          ))}
-        </ul>
-      )}
-      {making.length > 0 && (
-        <ul className="chg" aria-label="What it will make">
-          {making.map((c) => (
-            <li key={c.clip}>
-              <span>Clip {c.clip}</span>
-              <small>{c.seconds} s</small>
-              <em>{price(c.price)}</em>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Link className="btn go" to={to}>
-        Answer this on the current site
-      </Link>
-    </section>
-  );
-}
-
-/** The chat with the director, to read (the redesign, stage 2): his first message as the script's opening lines, the
- *  treatment, the run's steps, the delivery notes, his notes and the replies, and each card the director asks with,
- *  oldest first. While it runs, one progress line is pinned under it. Nothing is sent from here: changing anything is
- *  on the current site (`current`). */
-export function Thread({ items, progress, asks, clips, cast, planned, projectId, current }: { items: Said[]; progress: Progress | null; asks: Ask[]; clips: Clip[]; cast: CastItem[]; planned: { clips: number; seconds: number }; projectId: number; current: string }) {
+/** The chat with the director: his first message as the script's opening lines, the treatment, the run's steps, the
+ *  delivery notes, his notes and the replies, and each card the director asks with, oldest first; a note just sent
+ *  shows at once (`sending`). The page draws the pieces that act and hands them in: the start card (`start`), what a
+ *  stopped or failed run offers, what waits under the newest thing said (`after`: the cast's own OK, an ended run's
+ *  presses), a line over the chat (`banner`) and the message box (`foot`). While it runs, one progress line is pinned
+ *  above the box. */
+export function Thread({ items, sending, progress, asks, clips, projectId, start, stopped, failed, after, banner, foot }: { items: Said[]; sending: { text: string; files: number } | null; progress: Progress | null; asks: Ask[]; clips: Clip[]; projectId: number; start: (a: Ask) => ReactNode; stopped: ReactNode; failed: ReactNode; after: ReactNode; banner: ReactNode; foot: ReactNode }) {
   const scroller = useRef<HTMLDivElement>(null);
   const story = leadingTreatment(items);
   const note = openNote(items);
   const first = items.find((t) => t.kind === "message")?.id;
   const waiting = asks.some((a) => a.kind === "start" && isOpen(a)) && !progress?.made; // a start card waiting: nothing runs yet
-  const newest = `${items.length}:${items.at(-1)?.id}:${progress?.status}`;
+  const newest = `${items.length}:${items.at(-1)?.id}:${progress?.run}:${progress?.status}:${progress?.failed ? 1 : 0}:${asks.length}:${!!sending}`; // a card's own changes don't pull the chat down
   useEffect(() => {
     scroller.current?.scrollTo?.({ top: scroller.current.scrollHeight });
   }, [newest]);
@@ -259,11 +169,19 @@ export function Thread({ items, progress, asks, clips, cast, planned, projectId,
   const says = (t: Said): ReactNode => {
     if (t.kind === "ask") {
       const a = asks.find((x) => x.id === t.ask_id);
-      return a ? <Card a={a} to={current} cast={cast} planned={planned} /> : t.text ? <p>{t.text}</p> : null;
+      if (!a) return t.text ? <p>{t.text}</p> : null;
+      return a.kind === "start" && isOpen(a) ? start(a) : <Question ask={a} />;
     }
     const treat = treatmentOf(t);
     if (treat) return t.id === story ? <Treat t={treat} /> : <Folded line="Earlier treatment"><Treat t={treat} /></Folded>;
-    if (progress && t.run === progress.run) return waiting ? null : <Run r={progress} projectId={projectId} />;
+    if (progress && t.run === progress.run)
+      return waiting ? null : (
+        <>
+          <Run r={progress} projectId={projectId} />
+          {stopped}
+          {failed}
+        </>
+      );
     if (t.note) return t.id === note ? <Delivery n={t.note} /> : <Folded line={["Earlier delivery note", t.note.cut != null && `Cut ${t.note.cut}`, t.note.seconds > 0 && mmss(t.note.seconds)].filter(Boolean).join(" · ")}><Delivery n={t.note} /></Folded>;
     const why = plain(t.why ?? "", clips);
     return (
@@ -280,7 +198,14 @@ export function Thread({ items, progress, asks, clips, cast, planned, projectId,
   const groups: { id: string; at: string; his: boolean; parts: ReactNode[] }[] = [];
   for (const t of items) {
     const his = t.kind === "message";
-    const part = his ? t.id === first ? <Script text={t.text} /> : <p>{t.text}</p> : says(t);
+    const part = his ? (
+      <>
+        {t.id === first ? <Script text={t.text} /> : <p>{t.text}</p>}
+        {!!t.files?.length && <small>{plural(t.files.length, "file")} sent with it</small>}
+      </>
+    ) : (
+      says(t)
+    );
     if (part == null) continue;
     const last = groups.at(-1);
     const said = (
@@ -294,6 +219,7 @@ export function Thread({ items, progress, asks, clips, cast, planned, projectId,
   const running = progress && (progress.status === "working" || progress.status === "revising") ? progress : null;
   return (
     <section className="thread" aria-label="The director">
+      {banner}
       <div className="msgs" ref={scroller}>
         {groups.map((g) =>
           g.his ? (
@@ -309,6 +235,15 @@ export function Thread({ items, progress, asks, clips, cast, planned, projectId,
             </div>
           ),
         )}
+        {sending && (
+          <div className="msg me">
+            <div className="quote">
+              <p>{sending.text}</p>
+              <small>{[sending.files > 0 && plural(sending.files, "file"), "Sending…"].filter(Boolean).join(" · ")}</small>
+            </div>
+          </div>
+        )}
+        {after}
       </div>
       {running && (
         <div className="pinned" role="status">
@@ -323,9 +258,7 @@ export function Thread({ items, progress, asks, clips, cast, planned, projectId,
           )}
         </div>
       )}
-      <p className="tocurrent quiet small">
-        To change something, <Link to={current}>open this video on the current site</Link>.
-      </p>
+      {foot}
     </section>
   );
 }
