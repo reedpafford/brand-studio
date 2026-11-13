@@ -750,10 +750,17 @@ class PlanTreatment(BaseModel):
     logline: str = Field(description="The story in one plain sentence.")
     why_it_holds: str = Field(description="Why a viewer keeps watching, in one or two sentences.")
     ending: str = Field(description="The payoff, and the call to action, and why they land.")
-    other_openings: list[int] = Field(
-        description="Line numbers of the script's alternative openings not filmed here. Else []."
+    other_openings: list[list[int]] = Field(
+        description="Each alternative opening not filmed here, as its line numbers. Else []."
     )
-    _older = _older(other_openings=[])
+
+    @model_validator(mode="before")
+    @classmethod
+    def _grouped(cls, v):  # a plan from before openings were kept apart: one flat list
+        if isinstance(v, dict) and (was := v.get("other_openings") or []):
+            flat = all(isinstance(n, int) for n in was)
+            return {**v, "other_openings": [list(was)] if flat else was}
+        return {"other_openings": [], **v} if isinstance(v, dict) else v
 
 
 class PlanLook(BaseModel):
@@ -776,7 +783,7 @@ class PlanShot(BaseModel):
     )
     how: str = Field(description="How the line is said, in a few words; empty with no line.")
     product_sound: bool = Field(
-        description="True while a product that <assets> says makes its own sound is heard."
+        description="True while a product that makes its own sound (<assets>) is heard."
     )
     _older = _older(at=0, product_sound=False)
 

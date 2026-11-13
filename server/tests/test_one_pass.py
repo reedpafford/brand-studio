@@ -920,3 +920,17 @@ def test_a_picture_deleted_from_the_brand_is_left_out_of_a_take_never_refused(ap
         "old bag photo" not in made["input"]["prompt"]
         and f"[Image{n}]" not in made["input"]["prompt"]
     )
+
+
+def test_the_send_keeps_whether_every_opening_is_made_and_a_copy_never_inherits_it(owner, db):
+    """Hooks as versions (Reed, 13 Nov): the choice is the video's own; a version made from it
+    starts without it, or each version would make versions."""
+    from app import video_variations
+
+    assert owner.post("/freestyles", json={**BODY, "hooks": "all"}).status_code == 201
+    assert _video(db).hooks == "all" and "hooks" in video_variations.FRESH
+    assert (
+        owner.post("/freestyles", json={**BODY, "text": SCRIPT + "\nMIA: Later."}).status_code
+        == 201
+    )
+    assert _video(db).hooks is None  # left out: the first opening only, as before

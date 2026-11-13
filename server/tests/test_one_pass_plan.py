@@ -86,6 +86,15 @@ def test_a_scripts_other_openings_are_named_and_in_no_shot():
         p["treatment"]["other_openings"] = [4]
 
     assert _fixes(first_only) == []
+
+    def apart(p):  # one list an opening: the versions are made from them, one each
+        first_only(p)
+        p["treatment"]["other_openings"] = [[3]]
+
+    assert _fixes(apart) == []
+    flat = ShootingPlan.model_validate({**_plan(), "treatment": {
+        **_plan()["treatment"], "other_openings": [3, 4]}})  # fmt: skip
+    assert flat.treatment.other_openings == [[3, 4]]  # a plan saved before: one other opening
     assert _fixes(the_body) == ["line 4 is no alternative opening: it comes after the body"]
     assert ShootingPlan.model_validate(
         {
