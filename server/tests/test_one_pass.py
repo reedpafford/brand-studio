@@ -231,6 +231,11 @@ def test_a_note_after_delivery_remakes_only_the_clip_it_names(app, owner, db):
     said = owner.post(f"/projects/{pid}/director/messages",
                       json={"text": "Redo clip 3 with a wider shot."})  # fmt: skip
     assert said.status_code == 201, said.text
+    _run(app, db, ticks=6, start=False)  # its card says which clips the round makes, each priced
+    (card,) = [a for a in owner.get(f"/projects/{pid}/asks").json() if a["kind"] == "start"
+               and a["state"] != "answered"]  # fmt: skip
+    (made,) = card["money"]["making"]
+    assert (made["clip"], made["seconds"]) == ("3", 4) and made["price"]["usd"] > 0
     _run(app, db)
     out = owner.get(f"/projects/{pid}/director").json()
     assert out["status"] == "delivered", out["ended"]
