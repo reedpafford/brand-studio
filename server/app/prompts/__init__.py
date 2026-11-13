@@ -419,7 +419,9 @@ def sheet_prompt(
     picture: a large portrait, the body from the front and from behind)."""
     sections = guides.fill((HERE / "sheet.md").read_text(), style_id).split("\n## ")[1:]
     parts = {name: body.strip() for name, body in (s.split("\n", 1) for s in sections)}
-    out = [parts["seedream" if seedream and kind == "character" else kind]]
+    name = "seedream" if seedream and kind == "character" else kind
+    base = guides.style(style_id)["parent"] or style_id  # a style's own wording, when it has one
+    out = [parts.get(f"{name} {base}", parts[name])]
     if kind == "character" and from_photo:
         out.append(parts["sheet" if from_sheet else "photo"])
     if description.strip():

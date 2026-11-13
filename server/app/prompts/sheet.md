@@ -16,5 +16,11 @@ The last sheet is attached as the final image. Keep everything about it the same
 ## place
 Generate an establishing still of one place, with no people in it. {{place_look}} Eye-level wide shot, locked off, shallow depth of field on the far background. No text, letters, signs with words, logos or numbers anywhere in the image.
 
+## place ugc
+Generate an establishing still of one place, with no people in it. {{place_look}} Eye-level wide shot, locked off. No text, letters, signs with words, logos or numbers anywhere in the image.
+
 ## seedream
 A character reference sheet for a film: one fictional character shown three times on a seamless light grey studio background. On the right, a large three-quarter portrait from head to upper chest that clearly shows the face. On the left, the full body from the front; in the middle, the full body from behind. Neutral stance, arms relaxed at the sides, empty hands, a calm closed-mouth expression. The same face, hair and outfit in all three views; the two full-body views at the same scale, head to shoes visible with space around them. Soft, even, neutral studio light, low contrast, soft contact shadows, natural unretouched skin and fabric texture, photographed like a still from a modern TV drama. No text, no logos.
+
+## seedream ugc
+A character reference sheet: one fictional character shown three times on a seamless light grey studio background. On the right, a large three-quarter portrait from head to upper chest that clearly shows the face. On the left, the full body from the front; in the middle, the full body from behind. Neutral stance, arms relaxed at the sides, empty hands, a calm closed-mouth expression. The same face, hair and outfit in all three views; the two full-body views at the same scale, head to shoes visible with space around them. Soft, even, neutral studio light, low contrast, soft contact shadows, natural unretouched skin and fabric texture, an ordinary person photographed plainly, not a model shoot. No text, no logos.
