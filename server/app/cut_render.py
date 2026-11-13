@@ -372,7 +372,7 @@ def _ratio(shape: str) -> float:
 def _frame(folder: Path, shape: str | None) -> str:
     """Each piece's picture filter: scaled to the first take's size, as before; with the
     video's `shape`, first cut to that shape around its centre and scaled to the first take's
-    size cut the same way (Movie and UGC on Omni 1.2, which makes only 9:16 and 16:9: a 1:1
+    size cut the same way (a take on Omni 1.2, which makes only 9:16 and 16:9: a 1:1
     video's takes are made 9:16 and cropped here, QA on #1440)."""
     size = _probe(folder, "0.mp4", "v:0", "width,height") or "720x1280"
     w, h = (int(x) for x in size.split("x")[:2])

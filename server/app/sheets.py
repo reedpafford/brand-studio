@@ -185,6 +185,20 @@ def require_looks(shots: list[list[str]], known: dict, status: int = 422) -> Non
 
 
 SHEET_MODEL, RESOLUTION = "nano-banana-pro", "2K"  # what Make a look and Make sheet draw with
+SEEDREAM = "seedream-5.5"  # a real-looking person's sheet, from words only (routes/sheets.py)
+
+
+def seedream_drew(db, known: dict, images: list[str]) -> tuple[str, ...]:
+    """Of a clip's pictures, the characters whose sheet Seedream drew: the only real-looking
+    faces KIE's Seedance takes (model_map.unsent)."""
+    from sqlalchemy import select
+
+    from app.models.jobs import Job
+
+    sheets = {v[2][0]: i for i in images if i.startswith("char:") and (v := known.get(i)) and v[2]}
+    by = Job.input["model"].as_string() == SEEDREAM
+    made = db.scalars(select(Job.output).where(Job.kind == "image", by))
+    return tuple(sheets[f] for o in made for f in (o or {}).get("file_ids") or [] if f in sheets)
 
 
 def sheet_price(db, workspace_id: int, model: str = SHEET_MODEL) -> Decimal:

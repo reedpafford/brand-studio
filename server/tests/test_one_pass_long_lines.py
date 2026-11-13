@@ -27,9 +27,12 @@ TALK = f"INT. KITCHEN - NIGHT\nMIA: {SPEECH}\nLEO: You were not wrong."
 
 @pytest.fixture(autouse=True)
 def _one_pass_on(monkeypatch):
+    from app import guides
     from app.settings import get_settings
 
     monkeypatch.setattr(get_settings(), "one_pass", True)
+    # the Dialogue tests here are made in Movie on a model of 15 s clips, whichever its guide names
+    monkeypatch.setitem(guides.style("movie"), "video_model", "gemini-omni-1.2")
 
 
 def _said(db, pid: int) -> list[str]:
