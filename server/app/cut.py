@@ -392,11 +392,14 @@ def _one(tl: dict, e: CutEdit) -> None:
         i = _find(tl, d["piece"])
         p, pieces = tl["pieces"][i], tl["pieces"]
         if e.kind == "split":
-            if not p["start"] + MIN <= d["at"] <= p["end"] - MIN:
+            at = d["at"]  # a story cut's is kept in the take's seconds too: the same frame in
+            if tl["mode"] == "takes" and "into" in d:  # every version, wherever the piece sits
+                at = round(p["start"] + d["into"] - p["from"], 2)
+            if not p["start"] + MIN <= at <= p["end"] - MIN:
                 raise Refused(TOO_SHORT)
-            half = {**p, "id": f"{p['id'].split('.')[0]}.{e.id}", "start": d["at"],
-                    "from": round(p["from"] + d["at"] - p["start"], 2), **mark}  # fmt: skip
-            p.update(end=d["at"], whole=False, **mark)
+            half = {**p, "id": f"{p['id'].split('.')[0]}.{e.id}", "start": at,
+                    "from": round(p["from"] + at - p["start"], 2), **mark}  # fmt: skip
+            p.update(end=at, whole=False, **mark)
             pieces.insert(i + 1, half)
         elif e.kind == "swap":
             if p.get("lipsync") and d.get("voiced") != p.get("voiced"):

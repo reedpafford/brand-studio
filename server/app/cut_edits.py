@@ -186,8 +186,11 @@ def _shape(db: Session, user: User, project: Project, tl: dict, kind: str,
         at = near(float(d["at"]))
         piece = d.get("piece") or next((p["id"] for p in tl["pieces"]
                                         if p["start"] < at < p["end"]), "")  # fmt: skip
-        tl["pieces"][_find(tl, piece)]  # noqa: B018 - it's there, or Refused
-        return {"piece": piece, "at": at}, f"{label(piece)} split at {tc(at)}", at
+        p = tl["pieces"][_find(tl, piece)]  # it's there, or Refused
+        # `into`: the same point in the take's own seconds, so a story cut's split falls at the
+        # same frame in every version of the video (a body piece sits later behind a longer hook)
+        into = round(p["from"] + at - p["start"], 2)
+        return {"piece": piece, "at": at, "into": into}, f"{label(piece)} split at {tc(at)}", at
     i = _find(tl, d.get("piece") or "")
     p = tl["pieces"][i]
     if kind == "swap":

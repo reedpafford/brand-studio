@@ -360,7 +360,8 @@ class VersionOut(BaseModel):
     name: str  # what the plan calls its opening clip
     file_id: int | None  # its cut, once made
     seconds: float | None
-    out_of_date: bool
+    out_of_date: bool  # its cut is behind a take or an edit; false with no cut yet (file_id null)
+    making: bool = False  # its cut is being made now
 
 
 @router.get("/versions", response_model=list[VersionOut])
@@ -375,6 +376,10 @@ def versions(project_id: int, user: User = Depends(current_user),
     row = clip_prompts.newest(db, project)
     plan = ((row.data if row else None) or {}).get("shooting_plan") or {}
     first = cut.newest(db, project)
+    going = {1} if cut.making(db, project) else set()
+    going |= set(db.scalars(select(Job.input["opening"].as_integer()).where(
+        Job.project_id == project.id, Job.status.in_(WAITING),
+        Job.input["step"].as_string() == cut.VERSION)))  # fmt: skip
     out = []
     for k in cut.versions(db, project):
         made = first if k == 1 else cut.version_cut(db, project, k)
@@ -384,7 +389,7 @@ def versions(project_id: int, user: User = Depends(current_user),
             bool(made) and cut.version_stale(db, project, k))  # fmt: skip
         file_id, seconds = (made.file_id, made.seconds) if made else (None, None)
         out.append(VersionOut(opening=k, name=name, file_id=file_id, seconds=seconds,
-                              out_of_date=stale))  # fmt: skip
+                              out_of_date=stale, making=k in going))  # fmt: skip
     return out
 
 

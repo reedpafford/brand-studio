@@ -14077,6 +14077,11 @@ export interface components {
             seconds: number | null;
             /** Out Of Date */
             out_of_date: boolean;
+            /**
+             * Making
+             * @default false
+             */
+            making: boolean;
         };
         /** EstimateOut */
         app__routes__freestyles__EstimateOut: {

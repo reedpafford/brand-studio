@@ -937,7 +937,8 @@ def test_the_send_keeps_whether_every_opening_is_made_and_a_copy_never_inherits_
 
 
 HOOKS = ("HOOK 1\nEXT. LOT - DAY\nMIA: They almost got her.\nHOOK 2\nINT. HALL - DAY\n"
-         "LEO: Did you get the eggs?\nBODY\nINT. KITCHEN - DAY\nMIA: The market opened at nine.\n"
+         "LEO: Did you get the eggs on the way home from practice like I asked you to?\nBODY\n"
+         "INT. KITCHEN - DAY\nMIA: The market opened at nine.\n"
          "LEO: And we were ready.")  # fmt: skip
 
 
@@ -980,7 +981,20 @@ def test_every_hook_is_filmed_once_over_one_body_and_the_cut_is_the_first_versio
     assert [v["out_of_date"] for v in owner.get(f"/projects/{video.id}/cut/versions").json()] == [
         True, True]  # fmt: skip
     assert owner.post(f"/projects/{video.id}/cut").status_code == 202
+    assert [v["making"] for v in owner.get(f"/projects/{video.id}/cut/versions").json()] == [
+        True, True]  # fmt: skip  # both on their way: nothing to press meanwhile
     _run(app, db, ticks=6, start=False)
     again = owner.get(f"/projects/{video.id}/cut/versions").json()
+    assert not any(v["making"] for v in again)
     assert [v["out_of_date"] for v in again] == [False, False]
     assert again[1]["file_id"] != seen[1]["file_id"]
+    # a split of the body's piece falls at the same frame of its take in both versions
+    one = cut.timeline(db, video)[0]["pieces"][-1]
+    at = round(one["start"] + 2.0, 2)
+    cut_it = owner.post(f"/projects/{video.id}/cut/edits", json={"kind": "split", "at": at})
+    assert cut_it.status_code == 201, cut_it.text
+    halves = [[p for p in cut.timeline(db, video, k)[0]["pieces"] if p["clip_id"] == "c3"]
+              for k in (1, 2)]  # fmt: skip
+    assert [len(h) for h in halves] == [2, 2]  # split in both, not skipped in the second
+    assert [h[1]["from"] for h in halves] == [2.0, 2.0]  # two seconds into the take, in each
+    assert halves[0][1]["start"] != halves[1][1]["start"]  # though it sits elsewhere in the cut
