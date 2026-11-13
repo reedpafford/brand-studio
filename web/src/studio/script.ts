@@ -33,6 +33,11 @@ export const roles = (text: string) => [...new Set(parse(text).flatMap((p) => (p
 /** A role as the Cast menu shows it: "Stroller Mom". */
 export const roleName = (role: string) => role.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 
+/** How many openings the script has, as it writes them: a line of its own ("Hook 1", "HOOK 2 (the long one)") with
+ *  the opening under it, or the opening on the line ("Hook 2: If your pool has a gate…"). */
+const opens = (p: Line) => p.kind === "hook" || (p.kind === "note" && /^hook\b/i.test(p.line.trim()));
+export const hookCount = (text: string) => parse(text).filter(opens).length;
+
 /** "1 clip", "3 clips". */
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 /** A length in words: "45 s", "6 min 38 s". */
@@ -51,6 +56,7 @@ export function readOut(text: string): string {
   const seconds = named.reduce((n, p) => n + Math.max(3, words(p) / 2.5 + 1.5), 0) + loose / 2.5 + read.filter((p) => p.beat).length * 4;
   const voices = new Set(named.map((p) => p.by)).size + (loose ? 1 : 0);
   const lines = said.length + (hooks.length ? 1 : 0);
+  const openings = read.filter(opens).length;
   const spoken = lines ? `${plural(voices, "voice")} · ${plural(lines, "spoken line")}` : "Nothing is spoken";
-  return `${hooks.length > 1 ? `${hooks.length} hooks · ` : ""}${spoken} · about ${duration(Math.max(5, Math.round(seconds / 5) * 5))}. Your words are never changed.`;
+  return `${openings > 1 ? `${openings} hooks · ` : ""}${spoken} · about ${duration(Math.max(5, Math.round(seconds / 5) * 5))}. Your words are never changed.`;
 }
