@@ -100,7 +100,7 @@ def test_each_line_gets_room_at_the_styles_pace_and_the_clips_keep_to_the_length
     from app.prompts import check
     from app.prompts.schemas import Breakdown
 
-    assert (guides.pace("movie", "dialogue"), guides.pause("movie", "dialogue")) == ((2, 3), 0.6)
+    assert (guides.pace("movie", "dialogue"), guides.pause("movie", "dialogue")) == ((3, 4), None)
     assert guides.pace("house", "dialogue") == (3.5, 4.8) and not guides.pause("house", "dialogue")
     bd = copy.deepcopy(BREAKDOWN)
     bd["scenes"][0]["shots"][0].update(line="Oh honey, congratulations! When are you due?",

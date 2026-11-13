@@ -2,15 +2,15 @@ name: Movie
 order: 12
 on: yes
 image_model: auto
-video_model: gemini-omni-1.2
+video_model: seedance-2.5-kie
 blurb: Photoreal short TV drama: real people in real places, close shallow-focus singles, light from the scene, location sound and no score.
 card: Photoreal TV drama
 broll: Real-life inserts
 formats: dialogue
-formats_why: its people say the script's lines on camera in Omni's own voices, and a narration or a presenter would add a voice track of ours
+formats_why: its people say the script's lines on camera in the video model's own voices, and a narration or a presenter would add a voice track of ours
 
-<!-- New style, 7 Nov 2026, from the Movie spec (.context/team/specs/movie/spec.md, study-movie, 3 Nov) and its three studies of the videos in Reed's "Movie" Drive folder (movie-a32869, movie-0eab01, movie-35aa3b; 378–551 s each, deep-watch kit). Reed on the folder: "For Movie style ads (the new one in the folder), these are literally short dramas, these will likely work best with Omni." Reed, 7 Nov: "Movie, up to 30 s: make it work on the site". -->
-<!-- Decisions applied (Reed's, and MAIN's defaults for the spec's open questions): one id, `movie` (a style; it runs in the Dialogue format, whose story engine carries a scripted drama, and this guide's pacing and sound win over that format's house-shorts habits); made on Gemini Omni 1.2 (#1394: "Omni is more for the realistic stuff"), every clip, with Omni's own voices from the quoted lines (Omni takes no audio); no score, music is added in post (Reed, 7 Nov, #1435); the script's words are final and its ending is its own last words, nothing added; captions, time cards and end cards are the editor's overlays (rule 32), never in a clip; the mechanism insert is kept; before and after is an after look of the same person. Starts on (MAIN, 7 Nov: "make it work on the site"). The evidence is in the spec and the studies; none of it is sent to the model. -->
+<!-- New style, 7 Nov 2026, from the Movie spec (.context/team/specs/movie/spec.md, study-movie, 3 Nov) and its three studies of the videos in Reed's "Movie" Drive folder (movie-a32869, movie-0eab01, movie-35aa3b; 378–551 s each, deep-watch kit). Reed on the folder: "For Movie style ads (the new one in the folder), these are literally short dramas". Reed, 7 Nov: "Movie, up to 30 s: make it work on the site". -->
+<!-- Decisions applied (Reed's, and MAIN's defaults for the spec's open questions): one id, `movie` (a style; it runs in the Dialogue format, whose story engine carries a scripted drama, and this guide's pacing and sound win over that format's house-shorts habits); made on Seedance 2.5 through KIE (Reed, 12 Nov: Movie Ad 1's 25 clips held their people and said every line first time), every clip, with its own voices from the quoted lines; no score, music is added in post (Reed, 7 Nov, #1435); the script's words are final and its ending is its own last words, nothing added; captions, time cards and end cards are the editor's overlays (rule 32), never in a clip; the mechanism insert is kept; before and after is an after look of the same person. Starts on (MAIN, 7 Nov: "make it work on the site"). The evidence is in the spec and the studies; none of it is sent to the model. -->
 
 ## sheet_look
 A photoreal person photographed like a still from a modern TV drama, not a model shoot: natural, unretouched skin with pores, fine lines, slight shine and uneven tone; real hair with flyaways. The body and face follow the character's age and build exactly: an adult has an adult's height, build and face; a heavy character is genuinely heavy, a fit one genuinely fit. One fixed, everyday, specific outfit that says who they are (a hoodie, a satin dress, a leather vest, a work polo), identical in every view, with one detail that reads at a glance and stays through any change of build (hair colour and cut, earrings, a watch, a beard). Soft, motivated light; a neutral background.
@@ -61,27 +61,27 @@ Writing a new script in this look: a story told in scenes, each in one place, wi
 - No captions, titles, time cards or end cards in any picture: those are added in the edit. A label or a phone screen that matters is in the picture with its words stated exactly.
 
 ## Clips
-- Every clip is made on Omni 1.2, which makes 3–15 s clips with their own sound and voices. A clip holds a whole scene as timecoded shots ("Shot 1 | 0–3 s. …", "Shot 2 | 3–6 s. …"), cut on the lines and the reactions; a scene over 15 s is two. Each new clip draws the room, the light and the extras afresh, so a scene in small clips changes between them.
-- Omni cuts the picture on those marks but times its voices by its own delivery, often with a dramatic beat between sentences. So a speaking shot is sized from its line (its words at the pace below, plus a pause after each sentence; a shouted or hurried line runs faster, with no pauses), never 2 s by default and never padded past it; it holds one speaker, the listener's mouth closed, and the next speaker's close-up starts only once the line has room (or at a clip boundary).
-- The voices are Omni's own, made from the quoted lines: each spoken line in quotes, word for word, with who says it and how ("Mom (quiet, flat): …"). Each character's voice is set once, in the treatment's `voices` (or their saved voice), and every clip they speak in carries it word for word on its own line ("Mom's voice: …"), so it stays theirs from clip to clip; the how-it's-said note is only the delivery. Nobody's voice is laid in from elsewhere.
+- Every clip is made on Seedance 2.5 (through KIE), which makes 4–30 s clips with their own sound and lip-synced voices. A clip holds a whole scene as timecoded shots ("Shot 1 | 0–3 s. …", "Shot 2 | 3–8 s. …"), cut on the lines and the reactions; a scene over 30 s is two. Each new clip draws the room, the light and the extras afresh, so a scene in small clips changes between them.
+- It cuts on those marks and says each quoted line inside its shot. So a speaking shot is sized from its line (its words at the pace below; a shouted or hurried line runs faster), never 2 s by default and never padded past it; it holds one speaker, the listener's mouth closed. A clip's last shot holds for its last second.
+- The voices are the model's own, made from the quoted lines: each spoken line in quotes, word for word, with who says it and how ("Mom (quiet, flat): …"). Each character's voice is set once, in the treatment's `voices` (or their saved voice), and every clip they speak in carries it word for word on its own line ("Mom's voice: …"), so it stays theirs from clip to clip; the how-it's-said note is only the delivery. Nobody's voice is laid in from elsewhere.
 - A line that carries over an insert (the mechanism, the product, a hand) is best kept in the same clip as its speaker, with the insert as its own timecoded shot, so the voice runs on over it.
 - The sound is the place: room tone, a crowd, an engine, gravel, a door. No score and no music bed under anything (music, if any, is added in post); diegetic music only when the scene has a radio or a dance floor in it.
 - The camera: locked, or one slow push-in on the line that matters. Handheld only for a fall or a chase. No slow motion, no speed ramps, no drone shots.
-- Up to two people's sheets go into a clip as reference pictures, with the place; anyone else in it is described in words.
+- Everyone a scene shows has their sheet in its clip as a reference picture, with the place (four people and the place held in one). A sheet is drawn by Seedream from the person's words, the only real-looking face this model takes; a look made from a photo is said in words instead.
 
 ## Breakdown
 - Scenes are built in places: one place and one light a scene, hard cuts inside it. An early shot in each scene is a wide showing the place and where everyone stands; the close shots after it keep those positions.
-- Shots of 2–4 s are the common case, cut on a line or a reaction; a listener's reaction now and then; a held face or a slow push for the line that turns the scene. Hold a silence where the script leaves one (a look, a low point, a first use): the place's own sound carries it.
+- Fewer, longer shots, each one clear action, cut on a line or a reaction: a speaking shot lasts its line, a wordless one 2–3 s; a listener's reaction now and then; a held face or a slow push for the line that turns the scene. Hold a silence where the script leaves one (a look, a low point, a first use): the place's own sound carries it.
 - A time jump, when the script has one, can be a match cut on a face, a short warm flash, or a cut to the next morning; a card naming the time is the editor's.
 - Before and after: when the story changes the hero's body, the "after" is the same person in an after look (the same face, hair, colouring and signature detail; only the build and the confidence change), never a different actor.
 
 ## pacing
-Measured over the three studied films (6–9 min each; a short video keeps the shot pace and has fewer scenes rather than faster cuts):
-- 2.5–4.5 cuts per 10 s; median shot 2–3.2 s; about half the shots 2–4 s; under 1 s is rare (inserts, action).
+The pace that held on Seedance (Movie Ad 1, 12 Nov): fewer, longer shots than the three studied films cut to; a short video has fewer scenes, not faster cuts:
+- About 6–8 shots in a 25 s clip at most; under 1 s is rare (inserts, action).
 - The longest hold, 6–10 s, is saved for a reveal or the big confrontation.
 - The hook: a line or a hit in the first 1.2 s, the first cut by about 3 s, the conflict visible at once and a reaction face by 1–3 s.
-- Dialogue scenes run about 2–3 words a second over the scene, faster inside a run of lines, with pauses of about 0.6–0.7 s; wordless beats (a low point, a first use, an arrival) run on held faces and the place's sound.
-- Up to 30 s: one to three scenes, about 8–14 shots, a clip a scene, landing within about a tenth of the length the brief or script asks for. When it runs long, a wordless insert or end hold gives up its seconds before any line does.
+- Lines are spoken at about 3–4 words a second; wordless beats (a low point, a first use, an arrival) run on held faces and the place's sound.
+- Up to 30 s: one to three scenes, a clip a scene, landing within about a tenth of the length the brief or script asks for. When it runs long, a wordless insert or end hold gives up its seconds before any line does.
 
 ## camera
 - Locked off by default. Singles on a long lens with very shallow focus, a close-up hairline to chin, past something soft near the lens (a shoulder, a shelf end, a door frame). Wides from a corner along a wall, never square down an aisle, nobody mid-frame. Inserts macro, one object each.
@@ -96,7 +96,7 @@ Measured over the three studied films (6–9 min each; a short video keeps the s
 - Photoreal, TV-scale people: real skin with pores and shine, tears that look wet, hair with flyaways, no retouching.
 - Cast by type so a role reads at a glance (the worn-down hero, the fit mentor, the loud mocker, the offhand doctor), each in one outfit that stays identical in every shot.
 - Acting is naturalistic: faces carry the turns (a frozen smile, tears, shock, a quiet smirk); side reactions can be broader, but still human.
-- For a feeling the character hides, write the face, not the feeling: Omni acts out an emotion word over the face it's given. A held-composure beat is "a polite smile held still, eyes gone flat, a tight swallow, no tears", never "humiliated", which came out as tears twice. A public sting gets one onlooker reacting on the line (a snort into a napkin, a whisper behind a hand), not only a glance.
+- For a feeling the character hides, write the face, not the feeling: the video model acts out an emotion word over the face it's given. A held-composure beat is "a polite smile held still, eyes gone flat, a tight swallow, no tears", never "humiliated", which came out as tears twice. A public sting gets one onlooker reacting on the line (a snort into a napkin, a whisper behind a hand), not only a glance.
 
 ## Sound and delivery
 - Location sound under every line, well below the voice: room tone, the crowd, engines, doors, footsteps. Sound hits punctuate (a door slam, a whoosh into the 3D insert, a low boom on a key insert).
