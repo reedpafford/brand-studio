@@ -223,10 +223,17 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                     db.rollback()
                     held += 1
                 except HTTPException as no:  # too long for its model: being rewritten to fit
-                    if not str(no.detail).startswith(clip_takes.TOO_LONG_START):
-                        raise
+                    long = str(no.detail).startswith(clip_takes.TOO_LONG_START)
+                    if not long and decision.get("clip_id"):
+                        raise  # the one clip asked for: its refusal is the answer
                     db.rollback()  # its free fix is already saved (clip_takes.fits_prompt)
-                    fitting.append(row.clip_id)
+                    if long:
+                        fitting.append(row.clip_id)
+                    else:  # one clip that can't be started never holds back the others
+                        name = f"clip {row.clip_id.removeprefix('c')}"
+                        said_it = name in str(no.detail)  # some refusals name their clip
+                        blocked[row.clip_id] = (f"Refused: {no.detail}" if said_it else
+                                                f"Refused: {name}: {no.detail}")  # fmt: skip
                 else:
                     if found := asked.get(row.clip_id):  # the take in the cut says why (S6-03)
                         watch_cut.redone(db, project, row, found, job, note.note)
