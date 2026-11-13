@@ -2,7 +2,7 @@ name: Song
 order: 1
 on: yes
 engine: song
-blurb: An animated music video: the song plays over B-roll that shows each line as it's sung; the lead sings on camera only where the script asks.
+blurb: An animated music video: the song plays over B-roll that shows each line as it's sung; nobody sings on camera.
 card: A song with pictures to it
 
 <!-- Song ads (Reed, 2026-10-28): a music video where the song leads. From Reed's song-ad skill (docs/next/skills/song-ad.md, #1095; first from Starpop's song-ads, docs/research/starpop-2026-10-28, rule 20). Song is a video type, drawn in whatever look the video has (Song in any look, #1031): this file holds only its still and clip guides, added after the look's own; the song flow (lyrics, takes, sung or B-roll shots timed to the track) is its own step. -->
@@ -10,8 +10,7 @@ card: A song with pictures to it
 <!-- Reed's skill file (was prompts/skills/song-ad.md), its chat front matter: name: song-style-ad; description: "Activate when the user wants their product sung — a song ad, music-video ad, musical ad, or jingle: an original song carries the story over animated visuals, the lead lip-syncing on camera in chosen shots." -->
 
 ## Stills
-- Each B-roll still shows the lyric at that moment, literally, so the story reads with the sound off; the lead sings only in a Sung shot. One clear subject and one action per frame.
-- A sung shot's place (a stage, a rooftop) stays the same every time the lead sings there, so its stills share one framing and light.
+- Each B-roll still shows the lyric at that moment, literally, so the story reads with the sound off; nobody sings on camera. One clear subject and one action per frame.
 
 ## Clips
 - One move per shot, cut when the line's picture changes, not on the beat: a push in on the hook, a whip pan between places, a slow orbit on the last chorus.
@@ -23,7 +22,7 @@ Measured on Reed's 7 reference song ads, all drawn in one animated-feature look 
 - One picture per sung line: a median of 4–8.5 words per shot (7 of 7). Median shot 2.4–3.5 s in the pet songs, 1.3–2.1 s in the storytime songs; 3–6 cuts per 10 s.
 - The picture changes when the line's subject changes: many cuts fall inside a sung word (22 of 30 in one, 207 of 325 in another), and almost none on the first word of a phrase after a pause.
 - Arrangement: a sparse opening without bass for the first 9–24 s (voice with keys or plucks and light percussion), then the full band; the slowest, longest-held pictures (3–8 s: the hug, the turn, the mechanism) sit where the band thins out.
-- Sung on camera: the strongest example is a closing address, the lead singing to the lens for the last ~40 s, lip-synced syllable by syllable, in a seated medium shot, centred, eye level, soft window light, cut with B-roll and a walk-and-talk in the same outfit (pixsong-1a). Elsewhere a side character mouths a sung line for 0.5–2 s (pixsong-1). Animal leads never mouth the words: their faces act the lyric, at most a held howl.
+- Sung on camera: some references do it (a closing address to the lens, pixsong-1a; a side character mouthing a line, pixsong-1). Ours never do (Reed, 10 Nov): no lips move to the song; faces act the lyric, and at most the lead turns to the viewer for the call to action.
 - Structure seen. Pet songs: the grossest or saddest symptom → the owner misses it → a mentor (an old dog, a vet) → the inside view → what didn't work → the fix → weeks → the bond → proof → the end card with pet and product. Storytime songs: a headline hook → the betrayal or humiliation → backstory → the low point → a mentor (sister, mother, friend) brings the fix at about the halfway mark → mechanism and ingredients → the visible change → payoff → (in one) a sung close to camera.
 
 ## How to make song-style ads
@@ -33,14 +32,14 @@ It wins when the song is a _real song people would actually hear out_ (not a jin
 
 The format's identity (always true): the song is the spine — it sets the pacing, the mood, and the emotional arc, and the visuals ride on top of it.
 
-It is sung over B-roll by default: lip-sync shots only where the script puts the lead on camera (often the closing address), and the lead rarely sings continuously.
+It is sung over B-roll throughout: the pictures show each line as it is sung, and nobody sings on camera.
 
 The pacing is audio-first by construction — the generated song's real timestamps are the clock everything else is timed to.
 
 It adds only what is specific to the song format: the genre map, the lyric and style-prompt craft, and the song-as-pacing-spine mechanic.
 
 ## The gate, filled by this format
-- Fixed: deliverable = an animated music-video ad · speech = sung over B-roll by default (lip-sync shots only where the script puts the lead on camera) · pacing = audio-first (the song).
+- Fixed: deliverable = an animated music-video ad · speech = sung over B-roll throughout (nobody sings on camera) · pacing = audio-first (the song).
 
 - Open questions (infer each): which product (Stage 1) · genre + duration — inferred from the audience, stated, validated (Stage 1) · the animated lead — one consistent recurring character across shots, and what it is (Stage 2) · where the lead sings — dedicated singing shots, singing through the B-roll, or a mix, marked per shot in the storyboard (Stage 2).
 
@@ -125,7 +124,7 @@ Lyrics:
 
 Style: [genre], [vocal], [tempo], [mood], [production]   ← under 25 words
 
-Visual concept: [2–3 sentences — what's on screen, tied to specific lyric moments; which lines are lip-sync-on-stage vs B-roll.]
+Visual concept: [2–3 sentences — what's on screen, tied to specific lyric moments.]
 ```
 
 ---
@@ -139,7 +138,7 @@ Goal: the canonical references and storyboard mapped onto the generated song's r
 
 3. Decide where the lead sings — dedicated singing shots (on a stage, in one place) alternating with B-roll; singing while acting through the B-roll shots; or a mix. The lead usually does not sing continuously.
 
-4. Storyboard against the song — one row per shot tied to a time range of the song, the sung shots marked SUNG in Script / Audio, every other shot B-roll that visualizes the lyric at that moment. Vary the framing across B-roll shots.
+4. Storyboard against the song — one row per shot tied to a time range of the song, every shot B-roll that visualizes the lyric at that moment. Vary the framing across B-roll shots.
 
 ---
 
@@ -150,7 +149,7 @@ The song adds two facts to that plan:
 
 - The song is sliced with no gaps: batch boundaries on natural musical beats, never mid-word; the head before the first word may be trimmed, nothing else; every instrumental stretch rides at the end of the batch whose lyric leads into it, and the outro ends the last batch.
 
-- The shots marked SUNG lip-sync from their slice; the rest is silent picture under the song, so one batch can carry both.
+- Every shot is silent picture under the song.
 
 Assemble the clips over the full song; captions are a separate finishing layer, never burned into the generated footage.
 
@@ -163,7 +162,7 @@ Assemble the clips over the full song; captions are a separate finishing layer, 
 
 - R3 — The lead is a recurring character. One identity and one locked canonical reference, re-attached and identified by name in every shot it appears in; never chain off a previous shot's output.
 
-- R4 — Sung shots are marked in the storyboard and lip-sync from the song slice; everything else is silent picture under the song. Slices cut on natural musical beats, never mid-word.
+- R4 — Every shot is silent picture under the song. Slices cut on natural musical beats, never mid-word.
 
 - R5 — Producible animated visuals. Animated objects, a stylized lead — no live-action cinematic crane shots.
 
@@ -180,6 +179,6 @@ Angle = "something real, finally" (clean tallow vs. labels full of lies).
 
 - Elements (settled first): the lead character (a reference sheet), the HolyCow jar (canonical product reference), a recurring neon stage.
 
-- Shots mapped onto the song: [0:00–0:06] lip-sync — the lead belts the opening line on the neon stage · [0:06–0:14] B-roll — hands bin the old products, open the jar · [0:14–0:20] B-roll — clean-vs-bad ingredient cards · [0:20–0:28] B-roll — a golden-hour pasture with a friendly cow · [0:28–0:34] B-roll — four scent jars rotate into a wheel · [0:34–0:40] lip-sync — back on stage, glowing, sings the chorus · [0:40–0:42] B-roll — the hero jar lands on a pedestal, CTA lockup.
+- Shots mapped onto the song: [0:00–0:06] B-roll — the lead strides onto the neon stage, the jar held high · [0:06–0:14] B-roll — hands bin the old products, open the jar · [0:14–0:20] B-roll — clean-vs-bad ingredient cards · [0:20–0:28] B-roll — a golden-hour pasture with a friendly cow · [0:28–0:34] B-roll — four scent jars rotate into a wheel · [0:34–0:40] B-roll — back on stage, glowing, arms wide as the chorus lands · [0:40–0:42] B-roll — the hero jar lands on a pedestal, CTA lockup.
 
-- Why it works: two lip-sync shots (hook + final chorus) bookend five silent B-roll shots; every B-roll shot visualizes the lyric at that exact moment; one locked lead and one locked jar across all seven shots.
+- Why it works: the stage opens and closes it (hook + final chorus) around five other shots; every shot visualizes the lyric at that exact moment; one locked lead and one locked jar across all seven shots.
