@@ -424,6 +424,10 @@ class FootageDescription(BaseModel):
     )
 
 
+class FoldedNote(BaseModel):
+    description: str = Field(description="The description with the note folded in.")
+
+
 class LookFit(BaseModel):
     fits: bool = Field(
         description="False only for a clear mismatch a viewer would notice at a glance: the "
