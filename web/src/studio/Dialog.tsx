@@ -5,8 +5,9 @@ import { useOverlay } from "../components/Overlay";
 /** The studio's one dialog, only where something needs typing or a yes. Enter confirms, Escape or a click outside
  *  cancels, Tab stays inside, and focus goes back to what opened it (the app's own overlay rules). Focus starts on the
  *  first thing marked `data-autofocus` (a field), else on the confirm button. Without `confirm` it is a bare box with
- *  no title or buttons (Search or jump), and Enter still confirms. */
-export function Dialog({ title, confirm, onConfirm, onClose, children }: { title: string; confirm?: string; onConfirm: () => void; onClose: () => void; children: ReactNode }) {
+ *  no title or buttons (Search or jump), and Enter still confirms. `busy`: its request is in flight, or it can't be
+ *  confirmed now, so the confirm button is off. */
+export function Dialog({ title, confirm, busy, onConfirm, onClose, children }: { title: string; confirm?: string; busy?: boolean; onConfirm: () => void; onClose: () => void; children: ReactNode }) {
   const panel = useOverlay(onClose);
   return createPortal(
     <div ref={panel} className="studio scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -17,7 +18,7 @@ export function Dialog({ title, confirm, onConfirm, onClose, children }: { title
         className={confirm ? "dlg" : "cmd"}
         onSubmit={(e) => {
           e.preventDefault();
-          onConfirm();
+          if (!busy) onConfirm();
         }}
       >
         {confirm && <h3>{title}</h3>}
@@ -27,7 +28,7 @@ export function Dialog({ title, confirm, onConfirm, onClose, children }: { title
             <button type="button" className="btn ghost" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn go" data-autofocus>
+            <button type="submit" className="btn go" disabled={busy} data-autofocus>
               {confirm}
             </button>
           </div>
