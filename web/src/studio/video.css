@@ -1,0 +1,255 @@
+/* One video in the new look (Video.tsx; the redesign, stage 2): the chat on the left, the film on the right, a divider
+   between them. Every rule sits under .studio, beside studio.css. Type: 10 and 11 (the timeline), 12 (meta),
+   13 (secondary), 15/24 (the chat). */
+.studio {
+  .dot.ok { background: var(--ok); }
+  .dot.idle { background: var(--ink-3); }
+  .small { font-size: 13px; line-height: 20px; }
+
+  /* The header: where it is, the title, the look and format, the status, the money. */
+  .crumb { color: var(--ink-3); transition: color var(--fast); }
+  .crumb:hover { color: var(--ink); }
+  .slash, .lookt { color: var(--ink-3); }
+  .lookt { font-size: 13px; white-space: nowrap; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; min-width: 0; height: 22px; padding: 0 8px; border-radius: var(--r-xs); background: var(--raised-2); color: var(--ink-2); font-size: 12px; font-weight: 500; }
+  .spend { font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+  .spend b { color: var(--ink); font-weight: 600; }
+  button.spend { border-radius: var(--r-xs); padding: 4px 6px; margin: 0 -6px; transition: background var(--fast); }
+  button.spend:hover, button.spend[aria-expanded="true"] { background: var(--raised); }
+  &.popv .money { min-width: 238px; padding: 0 10px 6px; }
+  &.popv .money div { display: flex; gap: 16px; padding: 4px 0; font-size: 13px; color: var(--ink-2); }
+  &.popv .money dd { margin-left: auto; color: var(--ink); font-weight: 500; }
+  &.popv .money .sum { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
+  &.popv .money .sum dt, &.popv .money .sum dd { color: var(--ink); font-weight: 600; }
+  &.popv .money .q dd { color: var(--ink-2); font-weight: 400; }
+
+  /* The two sides. The chat is 56% until the divider is moved (--thread); it keeps 320 px and the film the rest. */
+  .stage-wrap { display: grid; grid-template-columns: max(320px, min(var(--thread, clamp(400px, 56%, 880px)), calc(100% - 449px))) 9px minmax(0, 1fr); flex: 1; min-height: 0; animation: studio-enter var(--base) var(--out) both; }
+  .split { position: relative; cursor: col-resize; touch-action: none; outline: 0; }
+  .split i { position: absolute; inset: 0 4px; background: var(--line); transition: background var(--fast), inset var(--fast); }
+  .split:hover i, .split:focus-visible i, [data-resizing] .split i { inset: 0 3px; background: var(--accent); }
+  [data-resizing] { cursor: col-resize; user-select: none; }
+  [data-resizing] video { pointer-events: none; }
+
+  /* The chat: a 660 px reading column, his messages as bubbles on the right, the director in plain words. */
+  .thread { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .msgs { flex: 1; display: flex; flex-direction: column; gap: 32px; padding: 32px var(--gut) 16px; overflow-y: auto; font-size: 15px; line-height: 24px; }
+  .msgs > *, .pinned > * { width: 100%; max-width: 660px; margin-inline: auto; }
+  .msgs > .msg.me { align-self: flex-end; width: auto; max-width: min(520px, 86%); margin-inline: auto max(0px, calc((100% - 660px) / 2)); }
+  .msg > div + div { margin-top: 14px; }
+  .msg p + p { margin-top: 10px; }
+  .msg b { font-weight: 600; }
+  .msg p > svg { display: inline; margin-right: 8px; vertical-align: -2px; color: var(--accent); }
+  .who { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 13px; line-height: 18px; font-weight: 600; }
+  .who time { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+  .quote { padding: 12px 16px; border-radius: var(--r-l); background: var(--raised-2); overflow-wrap: anywhere; }
+  .quote p + p { margin-top: 6px; }
+  .quote .nm { color: var(--ink-2); }
+  .quote .ctx { color: var(--ink-3); }
+  .quote button { display: block; margin-top: 4px; font: 400 12px/20px var(--ui); color: var(--ink-3); }
+  .quote button:hover { color: var(--ink); }
+  .treat dt, h4.own, .ask h4 { font: 400 12px/18px var(--ui); color: var(--ink-3); }
+  .treat dt { margin-top: 16px; }
+  .treat dt:first-child { margin-top: 0; }
+  .treat dd { margin-top: 2px; }
+  .fold summary { display: flex; align-items: center; gap: 6px; width: fit-content; font-size: 13px; color: var(--ink-3); cursor: pointer; list-style: none; }
+  .fold summary::-webkit-details-marker { display: none; }
+  .fold summary:hover { color: var(--ink); }
+  .fold summary svg { transition: transform var(--base) var(--out); }
+  .fold[open] summary { margin-bottom: 8px; }
+  .fold[open] summary svg { transform: rotate(90deg); }
+  .think { max-height: 220px; padding-left: 12px; border-left: 1px solid var(--line-2); overflow-y: auto; font-size: 13px; line-height: 20px; color: var(--ink-2); white-space: pre-line; }
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .steps li { display: flex; align-items: flex-start; gap: 10px; color: var(--ink-2); }
+  .steps li.now, .steps li.wait, .steps li.bad { color: var(--ink); }
+  .steps li > i { display: grid; place-items: center; width: 18px; height: 18px; margin-top: 3px; border-radius: 50%; flex: none; }
+  .steps .done > i { color: var(--ok); }
+  .steps .now > i { color: var(--accent); }
+  .steps .wait > i { color: var(--wait); }
+  .steps .bad > i { color: var(--bad); }
+  .steps .todo > i { border: 1px dashed var(--line-2); }
+  .steps small { display: block; font-size: 13px; line-height: 18px; color: var(--ink-3); }
+  .steps + p { margin-top: 14px; }
+  h4.own { margin: 20px 0 6px; }
+  h4.own:first-child { margin-top: 0; }
+  ul.own { display: grid; gap: 8px; font-size: 14px; line-height: 22px; color: var(--ink-2); }
+  ul.own + .steps { margin-top: 14px; }
+  ul.own b { font-weight: 500; color: var(--ink); }
+  ul.own li { position: relative; padding-left: 14px; }
+  ul.own li::before { content: ""; position: absolute; left: 0; top: 9px; width: 5px; height: 5px; border-radius: 50%; background: var(--ok); }
+  ul.own.open li::before { background: var(--wait); }
+  .folded { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 13px; line-height: 20px; }
+  .folded b { font-weight: 500; }
+  .folded small { font-size: 12px; color: var(--ink-3); }
+
+  /* A card the director asks with, to read: answering is on the current site. */
+  .ask { padding: 18px 20px 20px; border-radius: var(--r-l); background: var(--raised); }
+  .ask-h { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; line-height: 18px; color: var(--ink-3); }
+  .ask h3 { font: 600 17px/24px var(--ui); letter-spacing: -0.01em; }
+  .ask .why { max-width: 56ch; margin-top: 4px; font-size: 14px; line-height: 22px; color: var(--ink-2); }
+  .ask h4 { margin: 16px 0 6px; }
+  .ask .btn { margin-top: 16px; font-size: 13px; }
+  .picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 14px; }
+  .picks li { padding: 12px 14px; border-radius: var(--r-m); background: var(--raised-2); }
+  .picks small { display: block; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+  .picks b { display: block; margin: 2px 0; font-size: 14px; line-height: 20px; }
+  .picks span { display: block; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .names { display: flex; flex-wrap: wrap; gap: 6px; }
+  .names li { padding: 0 12px; border-radius: var(--r-full); background: var(--raised-2); font-size: 13px; line-height: 28px; font-weight: 500; }
+  .cast-s { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 14px 10px; margin-top: 14px; }
+  .cast-s img, .cast-s .im { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: var(--r-s); background: var(--raised-2); object-fit: cover; object-position: 50% 20%; }
+  .cast-s b { display: block; margin-top: 6px; font-size: 13px; line-height: 18px; font-weight: 500; }
+  .cast-s small { display: block; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+  .chg { margin-top: 14px; font-size: 13px; line-height: 20px; }
+  .chg li { display: flex; align-items: baseline; gap: 12px; padding: 6px 0; }
+  .chg li + li { border-top: 1px solid var(--line); }
+  .chg small { flex: 1; font-size: 12px; color: var(--ink-3); }
+  .chg em { font-style: normal; color: var(--ink-2); }
+
+  /* Under the chat: the progress line while it runs, then the way to the current site (no message box yet). */
+  .pinned { padding: 12px var(--gut) 14px; }
+  .st-row { display: flex; align-items: baseline; gap: 12px; font-size: 13px; }
+  .st-row b { font-weight: 600; }
+  .st-row span { margin-left: auto; color: var(--ink-2); }
+  .meter { height: 3px; margin-top: 8px; border-radius: 2px; background: var(--raised-2); overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--accent); transition: width 600ms var(--out); }
+  .tocurrent { width: min(660px, 100% - 2 * var(--gut)); margin: 4px auto 24px; }
+
+  /* The film: three views, and the timeline under all of them. */
+  .stage { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: clip; }
+  .stage-top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 12px var(--gut); flex: none; }
+  .finish { font-size: 12px; line-height: 18px; color: var(--ink-3); white-space: nowrap; }
+  .finish b { font-weight: 500; color: var(--ink-2); }
+  .stage-mid { flex: 1; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 16px; min-height: 0; padding: 0 var(--gut) 20px; }
+  .player { display: grid; justify-items: center; align-items: start; min-height: 0; container-type: size; }
+  .frame { position: relative; height: min(100cqh, calc(100cqw / (var(--ar)))); aspect-ratio: var(--ar); border-radius: var(--r-l); background: #000; box-shadow: 0 0 0 1px var(--line); overflow: hidden; }
+  .frame video { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+  .hold { display: grid; align-content: center; justify-items: center; gap: 6px; height: 100%; padding: 24px; background: var(--raised); color: var(--ink-3); text-align: center; }
+  .hold b { margin-top: 6px; font-weight: 600; color: var(--ink); }
+  .hold p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; max-width: 28ch; overflow: hidden; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .hold.bad svg { color: var(--bad); }
+  .hold.bare { height: auto; padding: 96px 24px; background: none; }
+  .cap { width: 100%; max-width: 620px; min-height: 72px; margin: 0 auto; }
+  .cap .row { display: flex; align-items: center; flex-wrap: wrap; gap: 0 8px; min-height: var(--ctl); }
+  .cap .row b { font-weight: 600; white-space: nowrap; }
+  .cap p:not(.row) { font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .cap p.said { color: var(--ink); }
+  .meta { font-size: 12px; line-height: 18px; color: var(--ink-3); }
+  .said i { margin-right: 8px; font-size: 12px; font-style: normal; color: var(--ink-3); }
+  .mk { display: inline-block; padding: 0 6px; border-radius: var(--r-xs); font-size: 12px; line-height: 18px; font-weight: 500; white-space: nowrap; }
+  .mk.bad { background: rgb(242 112 122 / 0.12); color: var(--bad); }
+
+  /* Plan: the clips by scene; the picked row opens to its shot. */
+  .planview, .castview { flex: 1; min-height: 0; padding: 0 var(--gut) var(--gut); overflow-y: auto; }
+  .castview { display: flex; flex-direction: column; padding-bottom: 0; }
+  .planview section + section { margin-top: 24px; }
+  .planview h3, .castview h3 { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; font: 600 14px/20px var(--ui); }
+  .planview h3 { padding-left: 8px; }
+  .planview h3 span { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+  .planview ol { --ind: 88px; }
+  .planview ol.nothumb { --ind: 40px; }
+  .planview li { border-radius: var(--r-m); }
+  .planview li.open { background: var(--raised); }
+  .planview li > button { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 8px; border-radius: var(--r-m); transition: background var(--fast); }
+  .planview li:not(.open) > button:hover { background: var(--raised); }
+  .planview .n { width: 20px; font-size: 12px; line-height: 20px; color: var(--ink-3); text-align: right; flex: none; }
+  .th { display: grid; place-items: center; width: 36px; height: 64px; border-radius: var(--r-s); color: var(--ink-2); overflow: hidden; flex: none; }
+  .th img { width: 100%; height: 100%; object-fit: cover; }
+  .th.todo { border: 1px dashed var(--line-2); }
+  .th.making { background: var(--raised-2); }
+  .what { flex: 1; min-width: 0; }
+  .what b { display: block; font-weight: 500; }
+  .what .mk { margin-left: 8px; vertical-align: 1px; }
+  .what .said { display: block; color: var(--ink-2); }
+  .what .said.silent { font-size: 13px; color: var(--ink-3); }
+  .len { font-size: 12px; line-height: 20px; color: var(--ink-3); white-space: nowrap; flex: none; }
+  .more { padding: 0 12px 12px var(--ind); }
+  .more p { max-width: 60ch; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .more p + p { margin-top: 6px; }
+
+  /* Cast: people, then places and the product, as tiles; the picked one's tray stays in view. */
+  .castview h3 { margin: 4px 0 10px; }
+  .castview .tiles + h3 { margin-top: 24px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); align-items: start; gap: 16px 12px; margin: -4px -4px 20px; padding: 4px; }
+  .tiles.wide { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
+  .tile .im { display: block; aspect-ratio: 3 / 4; border-radius: var(--r-m); background: var(--raised); overflow: hidden; }
+  .tile:is(.place, .product) .im { aspect-ratio: 4 / 3; }
+  .tile img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; transition: filter var(--fast); }
+  .tile.product img { object-fit: contain; object-position: 50% 50%; }
+  .tile:hover img { filter: brightness(1.1); }
+  .tile b { display: block; margin-top: 8px; font-size: 13px; line-height: 18px; font-weight: 500; }
+  .tile small { display: block; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+  .tile[aria-pressed="true"] .im { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
+  .tray { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 72px; margin-top: auto; padding: 12px 0 16px; border-top: 1px solid var(--line); background: var(--panel); flex: none; }
+  .tray > div { flex: 1; min-width: 180px; }
+  .tray b { display: block; font-weight: 600; }
+  .tray span { display: block; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .tray .advice { color: var(--wait); }
+  .tray .btn { font-size: 13px; }
+
+  /* The timeline: each piece as wide as it is long; a time card is a short dark piece with its words. */
+  .strip { padding: 12px var(--gut) 16px; border-top: 1px solid var(--line); flex: none; }
+  .strip-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .time { font-size: 13px; color: var(--ink-2); }
+  .track { display: flex; gap: 3px; }
+  .tc { position: relative; display: grid; place-items: center; flex: var(--s) 1 0; min-width: 0; height: 56px; border-radius: var(--r-s); background: var(--raised); color: var(--ink-2); }
+  .tc img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; object-position: 50% 28%; transition: filter var(--fast); }
+  .tc:hover img { filter: brightness(1.14); }
+  .tc:active { filter: brightness(0.9); }
+  .tc .n { position: absolute; left: 4px; top: 4px; padding: 0 4px; border-radius: 4px; background: rgb(0 0 0 / 0.55); font: 500 11px/14px var(--ui); color: var(--ink); }
+  .tc:is(.todo, .left) { border: 1px dashed var(--line-2); background: none; }
+  .tc.todo:hover { border-color: var(--ink-3); }
+  .tc:is(.todo, .making, .left):not(:has(img)) .n { background: none; color: var(--ink-3); }
+  .tc.making { background: var(--raised-2); }
+  .tc.left { flex: 0 0 28px; color: var(--bad); }
+  .tc.card { flex: 0 0 64px; padding: 0 6px; background: #000; box-shadow: inset 0 0 0 1px var(--line-2); }
+  .tc .words { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; font: 500 10px/12px var(--ui); letter-spacing: 0.06em; text-align: center; text-transform: uppercase; overflow-wrap: anywhere; }
+  .tc[aria-pressed="true"] { z-index: 1; box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
+  .playhead { position: absolute; top: -4px; bottom: -4px; z-index: 2; width: 2px; margin-left: -1px; border-radius: 1px; background: #fff; pointer-events: none; }
+  .playhead::before { content: ""; position: absolute; left: -3px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+  .ruler { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; line-height: 14px; color: var(--ink-3); }
+  /* A long video: thinner gaps, a number only on the picked or pointed piece, a time card on its side. */
+  .track.dense { gap: 2px; }
+  .track.dense .tc { border-radius: 5px; }
+  .track.dense .tc:not([aria-pressed="true"], :hover) .n { display: none; }
+  .track.dense .tc:is(.card, .left) { flex-basis: 18px; }
+  .track.dense .tc.card { padding: 4px 0; }
+  .track.dense .words { display: block; height: 100%; writing-mode: vertical-rl; font-size: 9px; white-space: nowrap; }
+}
+
+@media (max-width: 1180px) {
+  .studio .lookt { display: none; }
+}
+
+/* A phone: the film, then the chat (the chat first while a card waits for him); the views are tabs; the timeline
+   wraps onto more rows at nine pixels a second, so nothing scrolls sideways. */
+@media (max-width: 900px) {
+  .studio {
+    .vhead { flex-wrap: wrap; row-gap: 0; padding: 6px var(--gut); }
+    .vhead :is(.crumb, .slash, .grow) { display: none; }
+    .vhead h1 { flex: 0 1 auto; }
+    .vhead .spend { order: 9; flex: 1 0 100%; margin: 0 0 6px; padding: 0; text-align: left; white-space: normal; }
+    .stage-wrap { display: flex; flex-direction: column-reverse; }
+    .stage-wrap[data-first="chat"] { flex-direction: column; }
+    .split { display: none; }
+    .thread { border-top: 1px solid var(--line); }
+    .stage-wrap[data-first="chat"] .thread { border-top: 0; border-bottom: 1px solid var(--line); }
+    .msgs { overflow: visible; }
+    .fold summary, .quote button { min-height: 40px; }
+    .stage { overflow: visible; }
+    .stage-top .seg { flex: 1; }
+    .stage-top .seg button { flex: 1; text-align: center; }
+    .stage-mid:not([hidden]) { display: block; padding-bottom: 12px; }
+    .player { container-type: normal; padding-bottom: 16px; }
+    .frame { width: min(100%, calc(52vh * (var(--ar)))); height: auto; }
+    .planview, .castview { overflow: visible; }
+    .castview { padding-bottom: 8px; }
+    .tiles.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tray { position: static; }
+    .track { flex-wrap: wrap; row-gap: 6px; }
+    .tc, .track.dense .tc, .track.dense .tc.left { flex: 0 0 max(36px, calc(var(--s) * 9px)); }
+    .tc.card, .track.dense .tc.card { flex-basis: 64px; padding: 0 6px; }
+    .track.dense .words { display: -webkit-box; height: auto; writing-mode: horizontal-tb; font-size: 10px; white-space: normal; }
+    .track.dense .tc:not([aria-pressed="true"], :hover) .n { display: block; }
+  }
+}
