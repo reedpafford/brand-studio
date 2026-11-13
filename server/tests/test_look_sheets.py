@@ -100,3 +100,36 @@ def test_a_looks_first_sheet_is_listed_as_drawing_until_it_is_back(app, db, owne
     _work(app, db)
     assert owner.get(f"/library/character/{mia}").json()["look_sheets"][LOOK]["status"] == (
         "needs_approval")  # fmt: skip
+
+
+def test_a_real_looking_person_in_words_is_seedreams_and_one_from_a_photo_stays(
+    app, db, owner, editor
+):
+    """Reed, 12 Nov: Seedance takes a real-looking face only on a sheet Seedream drew from
+    words. So a Movie or UGC sheet of someone described is Seedream's, from the words alone
+    (never their House drawing), wide; from an uploaded photo it is Nano Banana's as before,
+    and so is every House sheet."""
+    from tests.conftest import upload
+
+    project, mia = _video(app, owner, editor, db, look="movie")
+    url = f"/library/character/{mia}/sheet"
+
+    def drawn(job_id: int) -> tuple:
+        job = db.get(Job, job_id)
+        return job.input["model"], bool(job.input["files"]), job.input["input"]["aspect_ratio"]
+
+    db.get(LibraryItem, mia).notes = "A woman in her 40s in a long oatmeal cardigan."
+    db.commit()
+    assert drawn(owner.post(url, json={"look_id": "ugc"}).json()["id"]) == (
+        "seedream-5.5", False, "16:9")  # fmt: skip
+    made = editor.post(f"/projects/{project.id}/assets/looks/{mia}/copy")  # this video's own
+    assert made.status_code == 200, made.text
+    db.refresh(project)
+    copy = db.get(LibraryItem, project.look_copies[str(mia)])
+    (job,) = db.query(Job).filter(Job.input["library_item_id"].as_integer() == copy.id)
+    assert drawn(job.id) == ("seedream-5.5", False, "16:9")
+    assert drawn(owner.post(url, json={}).json()["id"])[0] == "nano-banana-pro"  # House
+    db.get(LibraryItem, mia).source_photo_file_id = upload(editor)
+    db.commit()
+    assert drawn(owner.post(url, json={"look_id": "movie"}).json()["id"]) == (
+        "nano-banana-pro", True, "9:16")  # fmt: skip

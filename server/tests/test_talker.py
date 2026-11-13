@@ -173,7 +173,9 @@ def test_photoreal_seedance_b_roll_describes_people_instead_of_attaching_them():
     assert model_map.unsent("house", "seedance-2.0", people) == ()  # a drawn look sends them
     assert model_map.unsent("ugc", "p-video", people) == ()
     assert model_map.unsent("movie", "seedance-2.5", people) == ("char:", "frame:")
-    assert model_map.unsent("movie", "seedance-2.5-kie", people) == ()  # it takes Seedream's sheets
+    kie, sheets = "seedance-2.5-kie", ["char:1", "char:2", "place:3"]  # it takes Seedream's sheets
+    assert model_map.unsent("movie", kie, people, sheets, ("char:1",)) == ("char:2", "frame:")
+    assert model_map.unsent("house", kie, people, sheets) == ()
 
 
 def test_a_minimax_reading_keeps_the_words_and_its_pauses_survive_the_trim(tmp_path):

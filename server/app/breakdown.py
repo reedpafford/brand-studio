@@ -23,7 +23,7 @@ from app.prompts import check
 from app.prompts.schemas import Breakdown, SongBreakdown
 
 # A song's sung shots need lip-sync (Seedance 2.5), whatever the style. Every other kind follows
-# its style (dialogue, narrated; a Movie style on Omni comes later).
+# its style's own model (dialogue, narrated).
 LIP_SYNC_KINDS = ("song",)
 # A breakdown's answer room, its thinking included: the model's most. It repeats every line
 # with each shot's details, about 230 tokens a shot (294: 19 shots, 14.8k characters), so a
