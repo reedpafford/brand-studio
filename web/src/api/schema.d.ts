@@ -4315,16 +4315,39 @@ export interface paths {
         };
         /**
          * Read
-         * @description The cut that plays, the one being made, and the timeline with its edits.
+         * @description The cut that plays, the one being made, and the timeline with its edits. `opening`: a
+         *     further version's (a video whose script has several openings; `/versions` lists them).
          */
         get: operations["read_projects__project_id__cut_get"];
         put?: never;
         /**
          * Make
          * @description Make the cut (free): the next Cut, on the worker; the one before plays until it's
-         *     ready. A director tool calls this same route.
+         *     ready. A director tool calls this same route. A video with several openings: every version
+         *     whose cut is out of date is made too, or with `opening` only that one.
          */
         post: operations["make_projects__project_id__cut_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/cut/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Versions
+         * @description The video's versions: one for each opening of its script, over the same body (hooks as
+         *     versions, Reed 13 Nov). A video with one opening is its one version.
+         */
+        get: operations["versions_projects__project_id__cut_versions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8686,6 +8709,11 @@ export interface components {
             can_manage: boolean;
             /** From Script */
             from_script: boolean;
+            /**
+             * Versions
+             * @default 1
+             */
+            versions: number;
         };
         /** IdeasOut */
         IdeasOut: {
@@ -14036,6 +14064,19 @@ export interface components {
             reference_videos: number;
             /** Reference Audios */
             reference_audios: number;
+        };
+        /** VersionOut */
+        app__routes__cut__VersionOut: {
+            /** Opening */
+            opening: number;
+            /** Name */
+            name: string;
+            /** File Id */
+            file_id: number | null;
+            /** Seconds */
+            seconds: number | null;
+            /** Out Of Date */
+            out_of_date: boolean;
         };
         /** EstimateOut */
         app__routes__freestyles__EstimateOut: {
@@ -22905,7 +22946,9 @@ export interface operations {
     };
     read_projects__project_id__cut_get: {
         parameters: {
-            query?: never;
+            query?: {
+                opening?: number;
+            };
             header?: never;
             path: {
                 project_id: number;
@@ -22936,7 +22979,9 @@ export interface operations {
     };
     make_projects__project_id__cut_post: {
         parameters: {
-            query?: never;
+            query?: {
+                opening?: number | null;
+            };
             header?: never;
             path: {
                 project_id: number;
@@ -22952,6 +22997,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    versions_projects__project_id__cut_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__routes__cut__VersionOut"][];
                 };
             };
             /** @description Validation Error */

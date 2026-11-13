@@ -964,3 +964,23 @@ def test_every_hook_is_filmed_once_over_one_body_and_the_cut_is_the_first_versio
         len(made.take_ids) == 2 and not owner.get(f"/projects/{video.id}/cut").json()["out_of_date"]
     )
     assert owner.get(f"/projects/{video.id}/director").json()["status"] == "delivered"
+    assert "It has 2 versions, one for each opening" in _jobs(db, "director")[-1].output["made"]
+    # each version is a cut of the one video: its own opening over the same body
+    seen = owner.get(f"/projects/{video.id}/cut/versions").json()
+    assert [(v["opening"], v["name"], v["out_of_date"]) for v in seen] == [
+        (1, "Clip 1", False), (2, "Clip 2", False)]  # fmt: skip
+    assert seen[0]["file_id"] == made.file_id and seen[1]["file_id"] not in (None, made.file_id)
+    two = owner.get(f"/projects/{video.id}/cut?opening=2").json()
+    assert [p["clip_id"] for p in two["timeline"]["pieces"]] == ["c2", "c3"]
+    assert two["file_id"] == seen[1]["file_id"] and not two["out_of_date"]
+    # a new take of the BODY's clip puts every version out of date; one press re-cuts both
+    body = db.query(ProjectClip).filter_by(clip_id="c3").one()
+    assert owner.post(f"/projects/{video.id}/clips/{body.id}/generate", json={}).status_code == 201
+    _run(app, db, ticks=4, start=False)
+    assert [v["out_of_date"] for v in owner.get(f"/projects/{video.id}/cut/versions").json()] == [
+        True, True]  # fmt: skip
+    assert owner.post(f"/projects/{video.id}/cut").status_code == 202
+    _run(app, db, ticks=6, start=False)
+    again = owner.get(f"/projects/{video.id}/cut/versions").json()
+    assert [v["out_of_date"] for v in again] == [False, False]
+    assert again[1]["file_id"] != seen[1]["file_id"]

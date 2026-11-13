@@ -147,6 +147,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.clip_prompts import save_clip_prompts
     from app.clip_takes import save_take
     from app.cut import saved as save_cut
+    from app.cut import saved_version
     from app.enhance import save_suggestions
     from app.host import saved as save_host
     from app.item_checks import save as save_check
@@ -196,6 +197,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "item_check": save_check,
         "take_words": save_words,
         "cut_make": save_cut,
+        "cut_version": saved_version,
         "take_watch": save_take_watch,
         "cut_listen": heard_cut,
         "watch_cut": save_watch_cut,

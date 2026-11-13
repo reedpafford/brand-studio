@@ -86,6 +86,21 @@ class FinalVideo(Entity, Base):
     seconds: Mapped[float | None]  # its length, kept when it's made (Media shows it)
 
 
+class VersionCut(Entity, Base):
+    """The cut of one more version of a video whose script has several openings (hooks as
+    versions, Reed 13 Nov): opening 2, 3, … in front of the same body. The first version's is
+    the video's own cut (FinalVideo), so everything that reads "the video's cut" is as it was.
+    The newest row of an opening is the one that plays."""
+
+    __tablename__ = "version_cuts"
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    opening: Mapped[int]
+    file_id: Mapped[int] = mapped_column(ForeignKey("files.id"))
+    take_ids: Mapped[list[int]] = mapped_column(JSON)
+    edit_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    seconds: Mapped[float | None]
+
+
 class CutEdit(Entity, Base):
     """One edit to the cut (app/cut.py): a trim, a re-time to the words, a split, a B-roll swap,
     the presenter's side, size or hiding over a span, or the music. Edits replay in order over

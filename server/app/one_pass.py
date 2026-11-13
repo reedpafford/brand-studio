@@ -1112,6 +1112,12 @@ def delivery_words(db: Session, project: Project, run: dict, why: str = "") -> d
                 f"video again. The other clips are as they were.")  # fmt: skip
     else:
         made = why  # nothing was made: the move's own words say why
+    from app import cut
+
+    if (n := len(cut.versions(db, project))) > 1:  # hooks as versions (Reed, 13 Nov)
+        made += (f" It has {n} versions, one for each opening of the script over the same "
+                 "body: a change to the body is in all of them, a change to an opening in its "
+                 "own. I watched the first; the others share its body.")  # fmt: skip
     again = [c for c, n in (run.get("redos") or {}).items() if n]
     if again:
         made += (f" Clip{'s' * (len(again) > 1)} {', '.join(c.removeprefix('c') for c in again)} "
