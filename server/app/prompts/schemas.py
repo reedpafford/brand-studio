@@ -775,7 +775,10 @@ class PlanShot(BaseModel):
         description="The number of the script line spoken in this shot, or null. Never its words."
     )
     how: str = Field(description="How the line is said, in a few words; empty with no line.")
-    _older = _older(at=0)
+    product_sound: bool = Field(
+        description="True while a product that <assets> says makes its own sound is heard."
+    )
+    _older = _older(at=0, product_sound=False)
 
 
 class PlanClip(BaseModel):
