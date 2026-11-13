@@ -10995,6 +10995,21 @@ export interface components {
             free_fix_used: boolean;
             /** Left Out */
             left_out?: string | null;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Card
+             * @default
+             */
+            card: string;
+            /**
+             * Card Before
+             * @default false
+             */
+            card_before: boolean;
             /** Take Warning */
             take_warning?: string | null;
             /** Retrying */

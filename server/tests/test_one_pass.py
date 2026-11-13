@@ -859,6 +859,10 @@ def test_a_time_jump_is_a_card_in_the_cut_before_its_clip_or_over_its_opening(
     assert all(c["start"] >= card["end"] for c in made["captions"][2:])  # the words moved with it
     shown = owner.get(f"/projects/{video.id}/cut").json()["timeline"]["pieces"][1]
     assert shown["card"] == "Two days later" and shown["file_id"] is None
+    listed = owner.get(f"/projects/{video.id}/clips").json()  # and on the clip, with its name
+    assert [(c["card"], c["card_before"]) for c in listed] == [
+        ("", False), ("Two days later", True), ("That night", False)]  # fmt: skip
+    assert all(c["name"] for c in listed)  # what the plan calls each clip
     assert owner.post(f"/projects/{video.id}/cut").status_code in (200, 201, 202)
     _run(app, db, ticks=6, start=False)
     cuts = db.query(FinalVideo).order_by(FinalVideo.number).all()
