@@ -39,12 +39,15 @@ export function useProjectVideo(projectId: number) {
   return useQuery(videoQuery(projectId));
 }
 
-/** The cut (GET …/cut): the one that plays and the one being made, polled while it's made. */
-export function useCut(projectId: number) {
+/** The cut (GET …/cut): the one that plays and the one being made, polled while it's made. `opening`: a further
+ *  version's cut (2, 3, …) of a video whose script has several openings, kept apart from the cut itself; for the first
+ *  it reads nothing, as the first version's cut is the cut itself. */
+export function useCut(projectId: number, opening?: number) {
   const queryClient = useQueryClient();
   const cut = useQuery({
-    queryKey: ["project-cut", projectId],
-    queryFn: () => polled(api.GET("/projects/{project_id}/cut", { params: { path: { project_id: projectId } } }), null),
+    queryKey: opening == null ? ["project-cut", projectId] : ["project-cut", projectId, opening],
+    enabled: opening == null || opening > 1,
+    queryFn: () => polled(api.GET("/projects/{project_id}/cut", { params: { path: { project_id: projectId }, query: opening == null ? undefined : { opening } } }), null),
     // while it's made, while the director edits it, or while a sound effect is made
     refetchInterval: (q) => {
       const c = q.state.data;
@@ -52,8 +55,17 @@ export function useCut(projectId: number) {
     },
   });
   // A new cut number: the stitched video is read again (not when the page first reads it: it has just read it).
-  useOnChange(cut.isPending ? undefined : (cut.data?.number ?? null), () => void queryClient.invalidateQueries({ queryKey: ["project-video", projectId] }));
+  useOnChange(cut.isPending || opening != null ? undefined : (cut.data?.number ?? null), () => void queryClient.invalidateQueries({ queryKey: ["project-video", projectId] }));
   return cut;
+}
+
+/** The video's versions (GET …/cut/versions): one for each opening of its script over the same body, each with its
+ *  cut's file once made and whether it is out of date. A video with one opening is its one version. */
+export function useCutVersions(projectId: number) {
+  return useQuery({
+    queryKey: ["cut-versions", projectId],
+    queryFn: () => polled(api.GET("/projects/{project_id}/cut/versions", { params: { path: { project_id: projectId } } }), []),
+  });
 }
 
 /** Make the cut (free): the next Cut is made on the server while the one before plays. */

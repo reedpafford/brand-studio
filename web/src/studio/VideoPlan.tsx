@@ -2,12 +2,14 @@ import { Fragment } from "react";
 import { FileText, LoaderCircle } from "lucide-react";
 import { fileUrl } from "../api/upload";
 import { duration, plural } from "./script";
-import { linesOf, shotOf, type PlanScene } from "./videoData";
+import { byOpening, linesOf, openingsIn, shotOf, type PlanScene } from "./videoData";
 
 /** The Plan view: the clips grouped by scene as the server gives them. Each row is its number, its first frame once
  *  made, its name in the plan (else what it shows), who speaks and the line (or "Picture only"), and its length; the
  *  picked row opens to the shot. A time card is a row of its own, before the clip it leads into or over it.
- *  `clip` is the one picked (on the timeline too); `thumbs`: something has been filmed, so rows carry a frame. */
+ *  `clip` is the one picked (on the timeline too); `thumbs`: something has been filmed, so rows carry a frame.
+ *  A video with several versions lists each opening's clips first ("Hook 1", "Hook 2", …), then the body's scenes,
+ *  which say they are in every version. */
 export function Plan({ scenes, clip, onPick, thumbs }: { scenes: PlanScene[]; clip: string | null; onPick: (clip: string) => void; thumbs: boolean }) {
   if (!scenes.length)
     return (
@@ -17,12 +19,15 @@ export function Plan({ scenes, clip, onPick, thumbs }: { scenes: PlanScene[]; cl
         <p>The hook, the story and every clip, before anything is filmed.</p>
       </div>
     );
-  return scenes.map((s, n) => (
-    <section key={s.id} aria-label={s.name || `Scene ${n + 1}`}>
+  const versions = openingsIn(scenes.flatMap((s) => s.clips)).length;
+  const hooks = versions > 1 ? versions : 0; // an ordinary video: its scenes as they are
+  return (hooks ? byOpening(scenes) : scenes).map((s, n) => (
+    <section key={s.id} aria-label={s.name || `Scene ${n + 1 - hooks}`}>
       <h3>
-        {s.name || `Scene ${n + 1}`}
+        {s.name || `Scene ${n + 1 - hooks}`}
         <span>
           {plural(s.clips.length, "clip")} · {duration(Math.round(s.clips.reduce((sum, c) => sum + c.seconds, 0)))}
+          {n >= hooks && hooks > 0 && ` · body, in all ${hooks} versions`}
         </span>
       </h3>
       <ol className={thumbs ? undefined : "nothumb"}>

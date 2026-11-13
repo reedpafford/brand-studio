@@ -388,6 +388,7 @@
     .stage { overflow: visible; }
     .stage-top .seg { flex: 1; }
     .stage-top .seg button { flex: 1; text-align: center; }
+    .stage-top .seg + .seg { flex-basis: 100%; } /* the versions switch: a row of its own, as wide as the views' */
     .stage-mid:not([hidden]) { display: block; padding-bottom: 12px; }
     .player { container-type: normal; padding-bottom: 16px; }
     .frame { width: min(100%, calc(52vh * (var(--ar)))); height: auto; }

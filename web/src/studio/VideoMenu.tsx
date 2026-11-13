@@ -125,9 +125,10 @@ export function ArchiveAsk({ asking }: { asking: ReturnType<typeof useVideoActio
 }
 
 /** A video's "…" menu: what it cost (opens "So far"), rename, move to a folder, make variations and download every
- *  clip once it is delivered, download the cut, and archive, which asks first and can be undone from its toast. Each
- *  is the current site's own request. `onCost`: only the owner's dollars open; `may`: what this video allows now. */
-export function VideoMenu({ target, brandId, fsId, folder, film, may, onCost, video }: { target: VideoTarget; brandId: number; fsId: number | null; folder: number | null; film: number | null; may: { change: boolean; variations: boolean; zip: boolean; archive: boolean }; onCost?: () => void; video: ReturnType<typeof useVideoActions> }) {
+ *  clip once it is delivered, download the cut (`films`: one for each version of a video with several), and archive,
+ *  which asks first and can be undone from its toast. Each is the current site's own request. `onCost`: only the
+ *  owner's dollars open; `may`: what this video allows now. */
+export function VideoMenu({ target, brandId, fsId, folder, films, may, onCost, video }: { target: VideoTarget; brandId: number; fsId: number | null; folder: number | null; films: { label: string; file: number; name: string }[]; may: { change: boolean; variations: boolean; zip: boolean; archive: boolean }; onCost?: () => void; video: ReturnType<typeof useVideoActions> }) {
   const { id, name: title } = target;
   const [open, setOpen] = useState<"" | "rename" | "variations">("");
   const [moving, setMoving] = useState(false);
@@ -168,11 +169,11 @@ export function VideoMenu({ target, brandId, fsId, folder, film, may, onCost, vi
                   <Copy {...ICON} /> Make variations…
                 </button>
               )}
-              {film != null && (
-                <a role="menuitem" href={fileUrl(film)} download={mp4(title)} onClick={close}>
-                  <Download {...ICON} /> Download MP4
+              {films.map((f) => (
+                <a key={f.file} role="menuitem" href={fileUrl(f.file)} download={f.name} onClick={close}>
+                  <Download {...ICON} /> {f.label}
                 </a>
-              )}
+              ))}
               {may.zip && (
                 <a role="menuitem" href={`/api/projects/${id}/clips.zip`} download={mp4(title).replace(/\.mp4$/, "-clips.zip")} onClick={close}>
                   <Download {...ICON} /> Download every clip (.zip)

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { owner } from "../test/people";
 import { renderApp } from "../test/render";
 import { fakeServer } from "../test/server";
-import { LEFT_OUT, archived, beingMade, broke, castChanged, castQuestion, delivered, edited, needsService, optionsQuestion, planUpdating, planWaiting, question, round2, stopped, twoQuestions, voiceQuestion, type Routes } from "../test/studioVideo";
+import { LEFT_OUT, archived, beingMade, broke, castChanged, castQuestion, delivered, edited, needsService, optionsQuestion, planUpdating, planWaiting, question, round2, stopped, threeHooks, twoQuestions, voiceQuestion, type Routes } from "../test/studioVideo";
 import { setViewport } from "../test/viewport";
 
 // One video in the new look (/s/b/1/videos/366): what it reads and shows. The fixtures are one video in each of its
@@ -49,13 +49,14 @@ test.each([
   ["who plays someone", castQuestion],
   ["two questions", twoQuestions],
   ["archived", archived],
+  ["three versions over one body", threeHooks()],
 ])("%s: opening the page only reads, through every view and the money", async (_state, routes) => {
   const calls = await open(routes);
   await chat().findByRole("button", { name: "Show all 9 lines" });
   for (const name of ["Cut", "Plan", "Cast"]) await view(name);
   await userEvent.click(page().getByRole("button", { name: /^\$/ }));
   expect(await within(screen.getByRole("dialog", { name: "So far" })).findByText("Total")).toBeInTheDocument();
-  for (const read of ["", "/director", "/director/progress", "/idea", "/asks", "/clips", "/breakdown", "/cut", "/cast", "/assets"]) expect(calls.map((c) => c.key)).toContain(`GET /projects/366${read}`);
+  for (const read of ["", "/director", "/director/progress", "/idea", "/asks", "/clips", "/breakdown", "/cut", "/cut/versions", "/cast", "/assets"]) expect(calls.map((c) => c.key)).toContain(`GET /projects/366${read}`);
   expect(calls.filter((c) => !c.key.startsWith("GET "))).toEqual([]);
 });
 

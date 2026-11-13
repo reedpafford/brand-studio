@@ -6,8 +6,9 @@ import { owner } from "./people";
  *  look's video page (studio/Video.tsx) can show: the plan waiting for the press, the plan being updated for a note,
  *  being made, stopped, needing him (a provider account empty, a step that failed twice), delivered (a time card on the
  *  timeline, a clip left out of the cut, a flagged take, edits waiting for the next cut), a round after a note, the
- *  cast waiting for its own OK, each kind of question, archived, and one made by the earlier director. Each is a whole
- *  fake server: pass it to `fakeServer`. The shapes are the schema's own. */
+ *  cast waiting for its own OK, each kind of question, archived, one made by the earlier director, and one whose script
+ *  had three openings (three versions over one body). Each is a whole fake server: pass it to `fakeServer`. The shapes
+ *  are the schema's own. */
 type S = components["schemas"];
 export type Routes = Record<string, [number, unknown]>;
 
@@ -99,7 +100,7 @@ const cut = (o: Partial<S["TimelineOut"]> = {}, file: number | null = null) => c
 
 /** The whole fake server for one state of the video. */
 function video(o: { status: object; spent: number; moves?: object[]; thread?: object[]; progress: S["ProgressOut"]; asks: S["AskOut"][]; clips: S["ProjectClipOut"][]; cut: S["CutOut"]; expected?: number; sent?: string; director?: Partial<S["DirectorOut"]>; cast?: Partial<S["CastOut"]>; project?: object }): Routes {
-  const idea = { id: 366, title: "Three men at Target", folder_id: null, status: o.status, still_file_id: null, look: "movie", style: "Movie", seconds: 60, made_by: null, created_at: "2026-11-13T09:14:00", updated_at: "2026-11-13T09:14:00", cost: null, can_manage: true, from_script: false };
+  const idea = { id: 366, title: "Three men at Target", folder_id: null, status: o.status, still_file_id: null, look: "movie", style: "Movie", seconds: 60, made_by: null, created_at: "2026-11-13T09:14:00", updated_at: "2026-11-13T09:14:00", cost: null, can_manage: true, from_script: false, versions: 1 };
   const moves = [said("message", "09:14", { id: "m1", text: SCRIPT }), said("move", "09:17", { id: "t1", text: "Here’s how I’ll make it.", treatment: TREATMENT }), said("move", "09:19", { id: "t2", text: "Making the clips." }), ...(o.moves ?? [])];
   return {
     "GET /auth/me": [200, owner],
@@ -117,6 +118,7 @@ function video(o: { status: object; spent: number; moves?: object[]; thread?: ob
     "GET /projects/366/clips": [200, o.clips],
     "GET /projects/366/breakdown": [200, { id: 1, script_version: 1, source: "director", breakdown, problems: [], kept: [], stale: false, changed_shots: [], fixes: [], fixed: [], unknown_names: {}, older_plan: false, director_run: true }],
     "GET /projects/366/cut": [200, o.cut],
+    "GET /projects/366/cut/versions": [200, [{ opening: 1, name: "", file_id: o.cut.file_id, seconds: o.cut.file_id && o.cut.timeline.length, out_of_date: false }]],
     "GET /projects/366/cast": [200, { state: "approved", approved_by: "Reed", approved_at: "2026-11-13T09:20:00", asked: false, can_approve: true, items: CAST_ITEMS, waiting: [], not_ready: [], paused_clips: [], update: { stills: [], clips: [], credits: 0 }, previews: { credits: 0, usd: 0, budget_credits: 0, budget_usd: 0 }, ...o.cast }],
     "GET /projects/366/assets": [200, ASSETS],
     "GET /usage/videos/366": [200, { project_id: 366, brand_id: 1, brand: "Palace Guard", title: "Three men at Target", spend_usd: o.spent, spend_estimated: false, providers: [], kinds: [{ name: "Claude’s thinking", usd: 0.61, estimated: false }, { name: "Looks", usd: 0.3, estimated: false }, { name: "Takes", usd: Math.max(0, o.spent - 0.91), estimated: false }], last_at: "2026-11-13T09:33:00", unreported: false, runs: [] }],
@@ -138,13 +140,15 @@ export const beingMade = video({
   progress: progress(["done", "done", "done", "done", "making", ...todo.slice(5)], { minutes_left: 4, steps: [READ, PLAN, CAST, step("takes", "now", "Making takes: 4 of 9", "Clip 5 · scene 2 · 7 s · about 1 min"), step("cut", "todo", "Watch and listen to the whole cut, then deliver")] }),
 });
 
+const DELIVERED = { status: "delivered", title: "Delivered in 14 min", tone: "done", ended_at: "2026-11-13T09:33:00", spent_usd: 4.61, actual_usd: 4.61, cost: "$4.61 on this run" } as const;
+const stepsDone = (clips: number) => [READ, PLAN, CAST, step("takes", "done", `Takes: ${clips} made`), step("cut", "done", "Watch and listen to the whole cut, then deliver")];
 /** Delivered: eight clips in the cut, clip 2 left out of it, and a time card before clip 5. */
 export const delivered = video({
   status: status("delivered", "Delivered"), spent: 4.61, sent: "delivered", director: { status: "delivered" },
   moves: [said("move", "09:33", { id: "t3", text: "Here’s the cut." })],
   thread: [said("ask", "09:19", { id: "a7", ask_id: 7 }), said("move", "09:33", { id: "t3", note: NOTE })],
   asks: [STARTED], clips: CLIPS.map((_, n) => clip(n + 1, n !== 1, n === 1 ? LEFT_OUT : null)), cut: cut({ pieces: PIECES, length: 58.6 }, 90),
-  progress: progress(["done", "todo", ...Array<"done">(7).fill("done")], { status: "delivered", title: "Delivered in 14 min", sub: "8 clips", tone: "done", ended_at: "2026-11-13T09:33:00", spent_usd: 4.61, actual_usd: 4.61, cost: "$4.61 on this run", steps: [READ, PLAN, CAST, step("takes", "done", "Takes: 8 made"), step("cut", "done", "Watch and listen to the whole cut, then deliver")] }),
+  progress: progress(["done", "todo", ...Array<"done">(7).fill("done")], { ...DELIVERED, sub: "8 clips", steps: stepsDone(8) }),
 });
 
 /** The director stopped on a question only he can answer: who plays the woman with the stroller. */
@@ -208,6 +212,38 @@ export const optionsQuestion = asked([{ ...QUESTION, state: "ready", can: ["opti
 export const castQuestion = asked([{ ...QUESTION, generate: { credits: 1, usd: 0.1 } }]);
 /** Two questions at once. */
 export const twoQuestions = asked([QUESTION, VOICE]);
+
+// ── Hooks as versions: the script had three openings. Clips 1, 2 and 3 are each an opening's own (the plan lists the
+// openings first, in order), clips 4 to 9 are the body, in every version. ──
+/** Rows in clip order (GET …/clips, a card's `making`), each marked with its opening: 1, 2, 3, then 0 for the body. */
+const marked = <T extends object>(rows: T[]) => rows.map((r, n) => ({ ...r, opening: n < 3 ? n + 1 : 0 }));
+/** One version's cut: its opening's clip, then the body with its time card. */
+function versionCut(opening: number, file: number | null) {
+  let at = CLIPS[opening - 1][0];
+  const pieces = [piece(`c${opening}`, opening, 0, at)];
+  for (const n of [4, 5, 6, 7, 8, 9]) {
+    if (n === 5) pieces.push(piece("c5.card", 5, at, (at += 2.6), CARD));
+    pieces.push(piece(`c${n}`, n, at, (at += CLIPS[n - 1][0])));
+  }
+  return { ...cut({ pieces, length: at }, 90), file_id: file }; // the cut's number and history are the first version's
+}
+const VERSIONS_NOTE = { ...NOTE, made: "Nine clips, every line as written. It has 3 versions, one for each opening of the script over the same body: a change to the body is in all of them, a change to an opening in its own. I watched the first; the others share its body.", open: [], clips: 9 };
+/** Delivered with three versions, each with its own cut: `files` are the cuts of Hook 1, 2 and 3 (null: not cut yet),
+ *  `behind` the versions whose cut is out of date. */
+export const threeHooks = (files: (number | null)[] = [90, 92, 93], behind: number[] = []) =>
+  over(delivered, {
+    "/clips": marked(CLIPS.map((_, n) => clip(n + 1, true))),
+    "/director/progress": progress(Array<"done">(9).fill("done"), { ...DELIVERED, sub: "9 clips", steps: stepsDone(9) }),
+    "/director": runOf(delivered, { thread: [AFTER[0], { ...AFTER[1], note: VERSIONS_NOTE }] }),
+    "/cut": versionCut(1, files[0]),
+    "/cut?opening=2": versionCut(2, files[1]),
+    "/cut?opening=3": versionCut(3, files[2]),
+    "/cut/versions": [1, 2, 3].map((opening) => ({ opening, name: NAMES[opening - 1], file_id: files[opening - 1], seconds: files[opening - 1] && versionCut(opening, 1).timeline.length, out_of_date: behind.includes(opening) })),
+  });
+/** The same video before anything is filmed: the start card lists every clip, each marked with its opening. */
+export const threeHooksPlan = over(planWaiting, { "/clips": marked(CLIPS.map((_, n) => clip(n + 1, false))), "/asks": [{ ...START, money: { ...START.money!, making: marked(START.money!.making) } }] });
+/** And after a note that changes one opening's clip and one of the body: the round's card says which versions each is in. */
+export const threeHooksRound = over(threeHooks(), { "/asks": [STARTED, { ...ROUND, money: { ...ROUND.money!, making: [{ ...ROUND.money!.making[0], clip: "2", seconds: 4, opening: 2 }, ROUND.money!.making[1]] } }], "/idea": headOf(delivered, status("needs_you", "Needs you", "Start it")), "/director": read<S["DirectorOut"]>(round2, "/director") }, "waiting");
 
 /** Archived after delivery; and the same video as the earlier, step-by-step director would have made it. */
 export const archived = over(delivered, { "": { ...read<object>(delivered, ""), archived_at: "2026-11-13T10:00:00" }, "/idea": headOf(delivered, status("archived", "Archived")) });

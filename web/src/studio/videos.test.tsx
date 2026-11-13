@@ -89,6 +89,12 @@ test("the brand's videos are poster cards under Being made, Today, Yesterday and
   expect(rail().getByRole("link", { name: "Videos", current: "page" })).toHaveAttribute("href", "/s/b/1/videos");
 });
 
+test("a video with several versions says how many on its card, as the list gives it", async () => {
+  await open("", { [list("all")]: [200, page([{ ...dad, versions: 3 }, { ...boot, versions: 1 }])] });
+  expect(await card(/A dad on the border/)).toHaveTextContent("UGC · 3 versions · $7.20 · 1 min ago");
+  expect(await card(/The boot by the cart/)).not.toHaveTextContent("version");
+});
+
 test("Being made and Delivered narrow the cards, and Look regroups them by look and is remembered", async () => {
   await open();
   await card(/A dad on the border/);
