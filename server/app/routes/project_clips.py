@@ -195,6 +195,11 @@ class ProjectClipOut(BaseModel):
     change: dict | None  # the last Change it note, as on a frame (app/change.py)
     free_fix_used: bool = False  # Fix this clip's prompt's free rewrite used for this prompt
     left_out: str | None = None  # the director couldn't make it: why; the cut is without it
+    # from the director's plan (one-pass), "" when it has none: what the team would call the
+    # clip, and its time card (`card_before`: on black before it, else over its opening)
+    name: str = ""
+    card: str = ""
+    card_before: bool = False
     take_warning: str | None = None  # said before the next take: its last two were refused
     retrying: Literal["refused", "busy"] | None = None  # P3: why its take is being tried again
     retried: Literal["refused", "busy"] | None = None  # P3: its newest take was the retry
@@ -231,8 +236,11 @@ _stale = clip_prompts.is_stale
 def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> ProjectClipOut:
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
                 "take_stale", "approved", "retrying", "retried", "auto_fix",
-                "look_fix", "versions", "sound", "model", "spent", "stills")  # fmt: skip
+                "look_fix", "versions", "sound", "model", "spent", "stills",
+                "name", "card", "card_before")  # fmt: skip
     project = db.get(Project, row.project_id)
+    plan = (db.get(BreakdownVersion, row.breakdown_id).data or {}).get(one_pass.PLAN) or {}
+    told = next((c for c in plan.get("clips") or [] if c.get("id") == row.clip_id), {})
     asked = row.change or {}
     if asked.get("status") == "changing":
         rewrite = db.get(Job, asked.get("job_id") or 0)
@@ -244,6 +252,9 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
     checks = item_checks.latest(db, "take", [t.id for t in takes])
     words = item_checks.latest(db, "words", [t.id for t in takes])
     return ProjectClipOut(
+        name=told.get("name") or "",
+        card=(told.get("card") or "").strip(),
+        card_before=bool(told.get("card_before")),
         inserts=inserts,
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
         takes=[
