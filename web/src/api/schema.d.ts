@@ -8353,8 +8353,6 @@ export interface components {
             cast_ids?: number[] | null;
             /** Cast */
             cast?: components["schemas"]["CastPair"][] | null;
-            /** Hooks */
-            hooks?: ("all" | "first") | null;
             /** Broll Look */
             broll_look?: string | null;
             /** Attachments */

@@ -4,7 +4,7 @@ import { useState } from "react";
  *  why it holds, the beats with what each is for, and the ending. It rides on its thread move as `treatment`, with its
  *  style and format named and each beat's time (S3-02); until the server sends that field nothing shows. */
 export type Beat = { id?: string; name?: string; lines?: number[]; purpose: string; picture: string; start?: number; end?: number };
-export type Treatment = { hook: string; logline: string; why_it_holds: string; beats: Beat[]; ending?: string; style?: string; format?: string; other_openings?: number[] | number[][] };
+export type Treatment = { hook: string; logline: string; why_it_holds: string; beats: Beat[]; ending?: string; style?: string; format?: string };
 
 /** A move's treatment, when the server sends one (#1192's ThreadItem.treatment). */
 export function treatmentOf(item: object): Treatment | null {

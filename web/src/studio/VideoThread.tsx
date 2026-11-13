@@ -42,23 +42,11 @@ function Script({ text }: { text: string }) {
   );
 }
 
-/** A script written with several openings ("Hook 1", "Hook 2"…) is filmed with its first; the plan sets the others
- *  aside in `other_openings`: one list of script lines per other opening (an early plan holds one flat list, for one). */
-function openings(t: Treatment) {
-  const aside = t.other_openings ?? [];
-  if (!aside.length) return null;
-  const n = 1 + (typeof aside[0] === "number" ? 1 : aside.length);
-  return `Filmed with the first of ${n} openings. The other ${n === 2 ? "one is" : `${n - 1} are`} not in this video.`;
-}
-
 /** The director's treatment: the hook, the story in one line, and why it holds. */
 const Treat = ({ t }: { t: Treatment }) => (
   <dl className="treat">
     <dt>Hook</dt>
-    <dd>
-      {t.hook}
-      {openings(t) && <small>{openings(t)}</small>}
-    </dd>
+    <dd>{t.hook}</dd>
     <dt>Story</dt>
     <dd>{t.logline}</dd>
     <dt>Why it holds</dt>

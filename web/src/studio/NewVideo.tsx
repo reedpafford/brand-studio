@@ -18,7 +18,7 @@ import { useBrands } from "../shell/useBrands";
 import { useToast } from "../toast";
 import { Choice, Popover, type ButtonProps } from "./Popover";
 import { ScriptBox } from "./ScriptBox";
-import { hookCount, readOut, roleName, roles as rolesIn } from "./script";
+import { readOut, roleName, roles as rolesIn } from "./script";
 
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
 const SMALL = { ...ICON, size: 14 } as const;
@@ -26,7 +26,7 @@ const MOST_FILES = 6;
 const SHAPE: Record<Shape, { name: string; where: string }> = { "9:16": { name: "Tall", where: "Reels, TikTok, Shorts" }, "1:1": { name: "Square", where: "Feed" }, "16:9": { name: "Wide", where: "YouTube" } };
 const READS = "new-video-reads";
 
-type Picked = { type?: string; look?: string; shape?: Shape; folder?: number | null; product?: number | null; cast?: Record<string, number | null>; hooks?: "all" | "first" };
+type Picked = { type?: string; look?: string; shape?: Shape; folder?: number | null; product?: number | null; cast?: Record<string, number | null> };
 
 /** A format that can be picked on this site: on in its guide, and not waiting on something ("coming next"). */
 const usable = (f: Format) => f.on && !f.off;
@@ -67,8 +67,8 @@ function Monitor({ look, preview }: { look?: Look; preview: boolean }) {
 /** New video in the new look (the redesign, stage 1): the script on the left, in a box that reads the paste; the look,
  *  the price and Make it on the right. It posts the same send as the current screen, with the cast as roles
  *  (`cast: [{role, item_id}]`, nobody saved unless given a role), the script always word for word (`idea: false`), and
- *  no product unless one is picked. A script with two or more openings also says which to film (`hooks`): all of
- *  them, as versions of one video over one body, unless he picks the first only. The video then opens on its page
+ *  no product unless one is picked. A script with several openings is filmed with every one of them, each a version
+ *  of the one video over the same body: the script decides, nothing is chosen here. The video then opens on its page
  *  here (Video.tsx). */
 export function NewVideo() {
   const brandId = Number(useParams().brandId);
@@ -103,9 +103,7 @@ export function NewVideo() {
     return who ? [{ role, who }] : [];
   });
   const size = scriptSize(text);
-  const openings = hookCount(text);
-  const hooks = openings > 1 ? (picked.hooks ?? "all") : null; // an ordinary script says nothing about hooks
-  const send: Send = { type: format?.id ?? "", look: look?.id ?? "", shape: picked.shape ?? "9:16", brand_id: brandId, text: text.trim(), folder_id: folder?.id ?? null, cast: cast.map((c) => ({ role: c.role, item_id: c.who.id })), attachments: files.ids, mode, product_ids: product ? [product.id] : [], idea: false, ...(hooks && { hooks }) };
+  const send: Send = { type: format?.id ?? "", look: look?.id ?? "", shape: picked.shape ?? "9:16", brand_id: brandId, text: text.trim(), folder_id: folder?.id ?? null, cast: cast.map((c) => ({ role: c.role, item_id: c.who.id })), attachments: files.ids, mode, product_ids: product ? [product.id] : [], idea: false };
   const priced = !!send.text && !size.over && !!look && !!format;
   const ready = priced && !files.busy;
   const price = useEstimate(priced ? send : null, true);
@@ -146,7 +144,7 @@ export function NewVideo() {
   const words = pressWords(owner, price);
   const about = !send.text ? "No script yet" : !priced ? "No price yet" : words.most ? `${words.most.charAt(0).toUpperCase()}${words.most.slice(1)}` : "Working out the price…";
   // The price is always for the whole script, every opening: with the first only, that is said, never a made-up figure.
-  const under = price.failed ?? (words.held ? "The owner approves before anything is made." : hooks === "first" && price.est ? "This is for every hook. With the first only it will be less; the plan gives the real price." : `${price.est && !price.est.expected ? "The most it can charge." : "An estimate."} What it really spends shows on the video as it goes.`);
+  const under = price.failed ?? (words.held ? "The owner approves before anything is made." : `${price.est && !price.est.expected ? "The most it can charge." : "An estimate."} What it really spends shows on the video as it goes.`);
   const productName = product?.name ?? (products.length ? "The director decides" : "None yet");
   const castName = cast[0] ? `${cast[0].who.name} as ${roleName(cast[0].role)}${cast.length > 1 ? ` +${cast.length - 1}` : ""}` : "New for this video";
 
@@ -276,21 +274,6 @@ export function NewVideo() {
                       )
                     }
                   </Popover>
-                  {hooks && (
-                    <Popover label="Hooks" button={pill("Hooks", hooks === "all" ? `All ${openings}` : "First only")}>
-                      {(close) => (
-                        <>
-                          <h6>Which hooks to film</h6>
-                          <Choice checked={hooks === "all"} note={`One video with ${openings} versions: each hook over the same body`} onPick={() => (pick({ hooks: "all" }), close())}>
-                            All {openings} hooks
-                          </Choice>
-                          <Choice checked={hooks === "first"} note="The other hooks are left out of this video" onPick={() => (pick({ hooks: "first" }), close())}>
-                            First only
-                          </Choice>
-                        </>
-                      )}
-                    </Popover>
-                  )}
                   <Popover label="Shape" button={pill("Shape", send.shape, { lead: shape(send.shape), bare: true })}>
                     {(close) =>
                       SHAPES.map((s) => (
@@ -367,7 +350,7 @@ export function NewVideo() {
                   </>
                 ) : (
                   <>
-                    {words.label} {ready && words.most && hooks !== "first" && <small>{words.most}</small>}
+                    {words.label} {ready && words.most && <small>{words.most}</small>}
                   </>
                 )}
               </button>
