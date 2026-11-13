@@ -2,7 +2,9 @@
 clips made straight from it, a free listen of each take, one watch of the cut. Every other
 video keeps the step-by-step director."""
 
+import io
 import re
+import wave
 from decimal import Decimal
 
 import pytest
@@ -661,3 +663,58 @@ def test_words_a_take_adds_to_the_script_are_silenced_free_before_the_cut(app, o
     assert muted and all(said.startswith("Muted a stretch") for said in muted), _turns(db)
     assert all((t.made_with or {}).get("mutes") for t in db.query(ClipTake))
     assert db.query(ClipTake).count() == 3  # nothing was made again for it
+
+
+def test_each_speakers_voice_is_kept_from_one_clip_and_sent_with_their_others(
+        app, owner, db, monkeypatch):  # fmt: skip
+    """Movie Ad 1 (Reed, 13 Nov): the voices held once later clips were sent a few seconds of
+    each person from an earlier one. The clip with each speaker's longest line is made first,
+    their voice is cut from its take once it's listened to, and the rest are made with it."""
+    from app import guides, voice_carry
+    from app.models.files import StoredFile
+    from app.models.library import LibraryItem
+
+    monkeypatch.setitem(guides.style("movie"), "video_model", "seedance-2.5-kie")
+    cuts, wav = [], io.BytesIO()
+    with wave.open(wav, "wb") as w:  # the stand-in takes have no sound of their own to cut
+        w.setparams((1, 2, 44100, 0, "NONE", ""))
+        w.writeframes(bytes(88200))
+    monkeypatch.setattr(voice_carry, "_cut", lambda v, a, b: cuts.append((a, b)) or wav.getvalue())
+    _delivered(app, owner, db, look="movie")
+    made = [j.output for j in _jobs(db, "director") if j.output["tool"] == "make_take"]
+    assert [m.get("first") for m in made] == [["c1", "c2"], None]  # Mia's and Leo's longest lines
+    assert made[0]["why"] == one_pass.VOICES_FIRST
+    first, second, last = (j.input for j in _jobs(db, "clip_take"))
+    assert "reference_audios" not in first["files"] and "[Audio" not in first["input"]["prompt"]
+    assert "reference_audios" not in second["files"]
+    mia, leo = (db.query(LibraryItem).filter_by(name=n).one() for n in ("Mia", "Leo"))
+    assert db.get(StoredFile, mia.voice_file_id).filename == "Mia voice.wav"
+    assert cuts == [(0.4, 2.12), (1.98, 4.0)] and leo.voice_file_id  # each line as it was heard
+    assert last["files"]["reference_audios"] == [mia.voice_file_id]  # only Mia speaks in clip 3
+    assert last["input"]["prompt"].splitlines()[-1] == (
+        "[Audio1] is a recording of Mia's voice: match its tone and accent for Mia only. It is "
+        "a sample of the voice; the words said are this clip's quoted lines.")  # fmt: skip
+
+
+def test_a_voice_that_cannot_be_cut_never_stops_the_run(app, owner, db, monkeypatch, tmp_path):
+    """The stand-in takes have no sound to cut: every clip is still made and delivered. A real
+    take's piece comes out as a WAV, and a line barely heard gives no sample."""
+    import subprocess
+
+    from app import guides, voice_carry
+    from app.models.library import LibraryItem
+
+    monkeypatch.setitem(guides.style("movie"), "video_model", "seedance-2.5-kie")
+    _delivered(app, owner, db, look="movie")
+    assert len(_jobs(db, "clip_take")) == 3
+    assert not db.query(LibraryItem).filter(LibraryItem.voice_file_id.is_not(None)).count()
+    video = tmp_path / "take.mp4"
+    made = ["-f", "lavfi", "-i", "color=s=64x64:d=3", "-f", "lavfi", "-i", "sine=d=3", "-shortest"]
+    subprocess.run(["ffmpeg", "-v", "error", *made, str(video)], check=True)  # noqa: S603, S607
+    wav = voice_carry._cut(video.read_bytes(), 0.5, 2.0)
+    assert wav[:4] == b"RIFF" and 1.4 < (len(wav) - 44) / 88200 < 1.6  # mono, 44.1 kHz, 16 bit
+    line = {"text": "We were not ready for that.", "start": 2.0, "end": 5.0}
+    heard = [{"word": w, "start": 2.1 + n / 2, "end": 2.5 + n / 2}
+             for n, w in enumerate(["We", "were", "not", "ready."])]  # fmt: skip
+    assert voice_carry._span(line, heard) == (2.0, 4.15)
+    assert voice_carry._span(line, heard[:2]) is None

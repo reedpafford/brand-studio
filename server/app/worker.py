@@ -25,7 +25,17 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app import cast_gate, director, hidden, live, locked_line, music, screen_figures, thinking
+from app import (
+    cast_gate,
+    director,
+    hidden,
+    live,
+    locked_line,
+    music,
+    screen_figures,
+    thinking,
+    voice_carry,
+)
 from app.clip_takes import still_wanted
 from app.credits import FREE_LANES, KIE_DRY, USD_PER_CREDIT, usd_to_credits
 from app.db import make_sessionmaker, utcnow
@@ -351,6 +361,7 @@ def _then(db: Session, job: Job, storage: Storage | None) -> None:
     if not job.project_id:
         return
     try:
+        voice_carry.after(db, job, storage or _storage())  # before the turn that uses it
         director.after(db, job, storage or _storage())
         locked_line.after(db, job, storage or _storage())  # S3-14: a choice's take is in
         db.commit()
