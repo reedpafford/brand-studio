@@ -107,8 +107,10 @@ def today() -> datetime:
 
 def rows(db: Session, user: User, delivered: bool = False) -> list[ProductionRow]:
     """The videos being made; `delivered`: the ones done today instead (no flags: done)."""
-    when = (and_(Project.finished_at >= today(), Project.archived_at.is_(None)) if delivered
-            else Project.finished_at.is_(None))  # fmt: skip  # an archived one isn't delivered
+    when = and_(
+        Project.finished_at >= today() if delivered else Project.finished_at.is_(None),
+        Project.archived_at.is_(None),
+    )  # an archived one is neither delivered nor being made
     found = db.execute(
         select(Project, ScriptDraft.slot, Script.id, Script.title, Brand.id, Brand.name)
         .join(ScriptDraft, ScriptDraft.id == Project.script_draft_id)
