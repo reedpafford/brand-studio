@@ -244,6 +244,16 @@ def test_a_note_after_delivery_remakes_only_the_clip_it_names(app, owner, db):
     assert all(m["answered"] for m in out["thread"] if m["kind"] == "message")
 
 
+def test_a_double_tap_on_new_video_makes_one_video(app, owner, db):
+    """A one-pass run's opening turn is born succeeded, so the same send again inside ten
+    seconds found nothing waiting and made a second video ("Make without asking" ran both)."""
+    first, again = (owner.post("/freestyles", json={**BODY, "mode": "auto"}).json() for _ in "ab")
+    assert first["id"] == again["id"] and db.query(Project).count() == 1
+    assert len(_jobs(db, "one_pass")) == 1  # one plan asked for, not two
+    other = owner.post("/freestyles", json={**BODY, "text": SCRIPT + "\nMIA: One more."}).json()
+    assert other["id"] != first["id"]  # other words are another video
+
+
 def test_the_start_card_shows_what_one_run_can_charge_and_the_run_stays_inside_it(app, owner, db):
     fs = owner.post("/freestyles", json={**BODY, "mode": "ask"})
     _run(app, db, ticks=6, start=False)  # its plan and its looks, then its start card
