@@ -82,8 +82,11 @@ function Trim({ piece, take, busy, onTrim }: { piece: Piece; take: number; busy:
  *  flagged is remade with the director's own note, as the current site does) and "Edit clip", which opens the small
  *  editor in place: its takes, each to watch and to use (the cut is then made again, free), trim, sound effects, and
  *  "Tell the director…", which starts a note about this clip. A clip left out of the cut says why and offers the note:
- *  the server refuses to send a refused prompt again as it is. A time card is its words. */
-export function Caption({ projectId, cell, planned, of, clip, head, cut, edits, peek, onPeek, onTell }: { projectId: number; cell: Cell; planned: Planned | undefined; of: number; clip: Clip | undefined; head: Head; cut: Cut | null; edits: ReturnType<typeof useCutEdits>; peek: number | null; onPeek: (file: number | null) => void; onTell: (about: string) => void }) {
+ *  the server refuses to send a refused prompt again as it is. A time card is its words.
+ *  In a video with several versions, `hook` is the opening this clip belongs to (0: the body, in every version) and
+ *  `cut` the cut itself, which every edit acts on. An opening's own clip in a further version (`fixed`) can be made
+ *  again or noted, but not trimmed or switched to another take: the server has no edit for it yet. */
+export function Caption({ projectId, cell, planned, of, clip, head, cut, hook, fixed, edits, peek, onPeek, onTell }: { projectId: number; cell: Cell; planned: Planned | undefined; of: number; clip: Clip | undefined; head: Head; cut: Cut | null; hook: number; fixed: boolean; edits: ReturnType<typeof useCutEdits>; peek: number | null; onPeek: (file: number | null) => void; onTell: (about: string) => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   const act = useClipActions(projectId, clip?.id ?? 0, () => cut?.file_id != null);
   const sound = useAddSound(projectId);
@@ -95,7 +98,8 @@ export function Caption({ projectId, cell, planned, of, clip, head, cut, edits, 
   const lock = useLock(busy); // a take and sound effects are paid: one request a press, however fast it is pressed
   const making = cell.state === "making" || planned?.state === "making";
   const open = editing === cell.key && !!clip?.takes.length && !card;
-  const piece = cut?.can_edit ? cut.timeline.pieces.find((p) => p.id === cell.key && p.take_id != null) : undefined;
+  const locked = fixed && hook > 0;
+  const piece = cut?.can_edit && !locked ? cut.timeline.pieces.find((p) => p.id === cell.key && p.take_id != null) : undefined;
   const lines = planned ? linesOf(planned) : [];
   const price = clip ? upTo(head, clip.take_credits) : "";
   const another = clip && (
@@ -116,7 +120,7 @@ export function Caption({ projectId, cell, planned, of, clip, head, cut, edits, 
     <div className={open ? "cap open" : "cap"} role="group" aria-label="The picked clip">
       <p className="row">
         <b>{card ? "Time card" : planned?.name || `Clip ${number}`}</b>
-        <span className="meta">{[card ? `before clip ${number}` : `${planned?.name ? `Clip ${number}` : ""} of ${of}`.trim(), seconds(cell.seconds), cell.start == null && cell.state !== "left" && STATE[cell.state]].filter(Boolean).join(" · ")}</span>
+        <span className="meta">{[card ? `before clip ${number}` : `${planned?.name ? `Clip ${number}` : ""} of ${of}`.trim(), hook > 0 && `Hook ${hook}`, seconds(cell.seconds), cell.start == null && cell.state !== "left" && STATE[cell.state]].filter(Boolean).join(" · ")}</span>
         {cell.state === "left" && <span className="mk bad">Left out</span>}
         <span className="acts">
           {open ? (
@@ -156,7 +160,7 @@ export function Caption({ projectId, cell, planned, of, clip, head, cut, edits, 
                         <small>{used ? (cut?.file_id != null ? "In the cut" : "In use") : "Not used"}</small>
                       </span>
                     </button>
-                    {shown && !used && (
+                    {shown && !used && !locked && (
                       <button type="button" className="btn soft" disabled={busy} onClick={once(() => (act.pickTake(t), onPeek(null)))}>
                         Use this take
                       </button>
@@ -167,6 +171,7 @@ export function Caption({ projectId, cell, planned, of, clip, head, cut, edits, 
               {another}
             </div>
           </div>
+          {locked && <p className="quiet small">Hook {hook}’s own clip can be made again or changed with a note, but not trimmed or switched to another take yet.</p>}
           {piece && <Trim piece={piece} take={clip.seconds} busy={edits.busy} onTrim={(edge, t) => edits.edit.mutate({ kind: "trim", piece: piece.id, [edge]: t, snap: true })} />}
           <div className="ed-f">
             {picked && (clip.sound?.state === "none" || clip.sound?.state === "removed") && (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Download, WifiOff } from "lucide-react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
@@ -12,7 +12,7 @@ import { said } from "../folders/ideas";
 import { useFreestyle, useFreestyleActions, type Freestyle } from "../freestyle/useFreestyle";
 import { useApproveCast, useCast } from "../projects/CastOk";
 import { useVideoActions } from "../projects/ReleaseVideo";
-import { useCut, useMakeCut, useProjectClips } from "../projects/useProgress";
+import { useCut, useCutVersions, useMakeCut, useProjectClips } from "../projects/useProgress";
 import { Money, money } from "../usage/parts";
 import { useVideoSpend } from "../usage/VideoSpend";
 import { useOnChange } from "../useOnChange";
@@ -41,7 +41,7 @@ import { Stage } from "./VideoStage";
 import { CastCard, PressButton, StartCard } from "./VideoStart";
 import { Thread } from "./VideoThread";
 import { duration } from "./script";
-import { cellsOf, once, planOf, type Press } from "./videoData";
+import { cellsOf, once, openingsIn, planOf, versionFile, type Press } from "./videoData";
 import "./video.css";
 
 type Project = components["schemas"]["ProjectOut"];
@@ -91,7 +91,8 @@ function SoFar({ id, toGo }: { id: number; toGo: number | null }) {
 /** /s/b/:brandId/videos/:projectId: one video in the new look (the redesign, stage 3). The chat with the director on
  *  the left, the film on the right, a divider between them, and every press the owner needs to run it: approve and
  *  film, answer a question, send a note, stop and carry on, another take, the clip's editor, the cut. Each press sends
- *  what the current site's page sends for it, through the same hook, once. */
+ *  what the current site's page sends for it, through the same hook, once. A script with several openings is one
+ *  video with a version for each, the same body after each hook: a switch by the views picks the one on screen. */
 export function Video() {
   const { brandId, projectId } = useParams();
   const id = Number(projectId);
@@ -136,7 +137,16 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
   const asks = asksRead.data ?? [];
   const clips = useProjectClips(id).data ?? [];
   const breakdown = useBreakdownOf(id).data?.breakdown;
-  const cut = useCut(id).data ?? null;
+  const first = useCut(id).data ?? null; // the cut itself: the first version's, and the one every edit acts on
+  // The versions: the server's list, else the openings the clips are marked with. The one on screen is kept in the
+  // address (?v=2), so a reload keeps it; a further version's cut is its own read.
+  const [params, setParams] = useSearchParams();
+  const versions = useCutVersions(id).data ?? [];
+  const hooks = versions.length > 1 ? versions.map((x) => x.opening) : openingsIn(clips);
+  const many = hooks.length > 1;
+  const v = many && hooks.includes(Number(params.get("v"))) ? Number(params.get("v")) : 1;
+  const further = useCut(id, v).data ?? null;
+  const cut = v > 1 ? further : first;
   const gateRead = useCast(id).data;
   const cast = gateRead?.items ?? [];
   const assets = useAssets(id).data ?? [];
@@ -152,7 +162,8 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
   const ended = ["stopped", "failed", "declined", "withdrawn", "ended", "none"].includes(state) && !moneyOpen && !progress?.stopped && !progress?.failed;
   const noted = !running && (run?.unread ?? 0) > 0 && run?.status !== "none";
   const blocked = run?.start_blocked || null;
-  const film = cut?.file_id ?? null;
+  const film = cut?.file_id ?? null; // the version on screen
+  const made = first?.file_id != null; // the video has a cut
   const target = { id, name: h.title, creditsUsed: p.credits_used, released: p.released };
 
   // The presses, each the current site's own hook. One press, one request: each is off while its request is in flight.
@@ -186,8 +197,18 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
   }, [unread]); // eslint-disable-line react-hooks/exhaustive-deps
   useOnChange(asksRead.isPending ? undefined : asks.map((a) => `${a.id}:${a.state}`).join(","), () => void queryClient.invalidateQueries({ queryKey: ["director", id] }));
 
+  // An edit, a pick or a new cut answers with the cut itself: the versions and a further version's cut are read again.
+  const stamp = first && [first.number, first.changes, first.out_of_date, first.making?.number, ...first.edits.map((e) => `${e.id}${e.undone ? "u" : ""}`)].join();
+  useOnChange((many && stamp) || undefined, () => void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[1] === id && (q.queryKey[0] === "cut-versions" || (q.queryKey[0] === "project-cut" && q.queryKey.length > 2)) }));
+
   const plan = planOf(breakdown, clips, progress);
   const planned = plan.flatMap((s) => s.clips);
+  const here = many ? planned.filter((c) => !c.opening || c.opening === v) : planned; // this version's clips: its hook's and the body's
+  // The versions whose cut is behind their clips (`behind`) or isn't made yet (`uncut`). While the director works, or
+  // a round waits for his OK, the cuts are the director's to make.
+  const his = many && made && !running && !start ? versions : [];
+  const behind = his.filter((x) => x.out_of_date).map((x) => x.opening);
+  const uncut = his.filter((x) => x.file_id == null).map((x) => x.opening);
   const round = 1 + items.filter((t) => t.note).length; // each delivery ends a round; a note after it starts the next
   const going = ["working", "waiting", "needs_you"].includes(h.status.kind); // else an estimate is for the next run
   const toGo = going && progress?.expected_usd != null && progress.actual_usd != null ? Math.max(0, progress.expected_usd - progress.actual_usd) : null;
@@ -202,8 +223,8 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
         ? { label: wrong ? "Approve anyway" : "Approve cast and places", busy: approve.isPending, onPress: () => approve.mutate({ seen: Object.fromEntries(gate.items.map((i) => [i.ref, i.sig])), anyway: wrong }) }
         : null;
   // A finished video whose cast changed afterwards: the OK stays on its card in the chat, and the header keeps Download.
-  const quiet = !!gate && !gate.asked && film != null && !running;
-  const startCard = (a: Ask) => <StartCard ask={a} round={round} press={main} error={answer.isError ? answer.error.message : null} cast={cast} plan={planned} finish={cut && <Finish cut={cut} edits={edits} />} onChange={() => toBox()} />;
+  const quiet = !!gate && !gate.asked && made && !running;
+  const startCard = (a: Ask) => <StartCard ask={a} round={round} press={main} error={answer.isError ? answer.error.message : null} cast={cast} plan={planned} finish={first && <Finish cut={first} edits={edits} />} onChange={() => toBox()} />;
 
   // A run that isn't going: his Stop, a run that needs him, or one that ended.
   const pressing = carry.isPending || planAgain.isPending;
@@ -222,7 +243,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
   const spent = (
     <>
       <b>{spentAsHeader(h, p.credits_used)}</b>
-      {going && h.expected?.usd != null ? ` so far · this run about ${money(h.expected.usd)}` : h.status.kind !== "delivered" ? " so far" : film != null ? ` · ${duration(Math.floor(cut!.timeline.length))}` : ""}
+      {going && h.expected?.usd != null ? ` so far · this run about ${money(h.expected.usd)}` : h.status.kind !== "delivered" ? " so far" : film != null ? ` · ${duration(Math.floor(cut!.timeline.length))}${many ? ` · ${hooks.length} versions` : ""}` : ""}
     </>
   );
   return (
@@ -263,13 +284,13 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
         ) : (
           !running &&
           film != null && (
-            <a className="btn go" href={fileUrl(film)} download={mp4(h.title)}>
+            <a className="btn go" href={fileUrl(film)} download={versionFile(h.title, v)}>
               <Download size={14} strokeWidth={1.75} aria-hidden />
               Download
             </a>
           )
         )}
-        <VideoMenu target={target} brandId={brandId} fsId={fs?.id ?? null} folder={h.folder?.id ?? p.folder_id ?? null} film={film} video={video} onCost={h.spent.usd != null ? () => document.getElementById(SOFAR)?.click() : undefined} may={{ change: !archived, variations: !archived && !running && h.status.kind === "delivered", zip: clips.some((c) => c.picked_take_id != null), archive: !archived && (!running || film != null) }} />
+        <VideoMenu target={target} brandId={brandId} fsId={fs?.id ?? null} folder={h.folder?.id ?? p.folder_id ?? null} films={many ? versions.flatMap((x) => (x.file_id != null ? [{ label: `Download hook ${x.opening} (MP4)`, file: x.file_id, name: versionFile(h.title, x.opening) }] : [])) : film != null ? [{ label: "Download MP4", file: film, name: mp4(h.title) }] : []} video={video} onCost={h.spent.usd != null ? () => document.getElementById(SOFAR)?.click() : undefined} may={{ change: !archived, variations: !archived && !running && h.status.kind === "delivered", zip: clips.some((c) => c.picked_take_id != null), archive: !archived && (!running || made) }} />
       </header>
       <Split
         first={asks.some(isOpen) || (gate && !quiet) ? "chat" : "film"}
@@ -335,7 +356,7 @@ function Desk({ id, brandId, p, h, fs, run }: { id: number; brandId: number; p: 
             }
           />
         }
-        film={<Stage projectId={id} plan={plan} cells={cellsOf(planned, cut?.timeline.pieces ?? [])} cut={cut} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} />} onTell={toBox} />}
+        film={<Stage projectId={id} plan={plan} cells={cellsOf(here, cut?.timeline.pieces ?? [])} cut={cut} first={first} versions={many ? { on: v, list: hooks.map((k) => ({ opening: k, name: versions.find((x) => x.opening === k)?.name ?? "" })), behind, uncut, show: (k) => setParams((was) => (k > 1 ? was.set("v", String(k)) : was.delete("v"), was), { replace: true }) } : undefined} rows={clips} head={h} aspect={p.aspect_ratio} edits={edits} make={makeCut} cast={<Cast cast={cast} assets={assets} />} onTell={toBox} />}
       />
     </>
   );

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { parse, readOut, roleName, roles } from "./script";
+import { hookCount, parse, readOut, roleName, roles } from "./script";
 
 // Made-up scripts in the formats Reed writes them in (the Palace Guard scripts doc).
 const DIALOGUE = [
@@ -32,6 +32,8 @@ const HOOKS = [
   "https://example.com/the-latch",
   "Nobody had looked at the latch since the autumn.",
 ].join("\n");
+// Each opening under a heading of its own, several lines long.
+const HEADED = ["Hook 1", "[A gate swings in the wind.]", "MARA: They nearly took her.", "", "HOOK 2 (the long one)", "BEN: I saw the van.", "BEN: It was white.", "", "Body", "MARA: She is okay."].join("\n");
 const SONG = ["Mood 1: Slow country", "", "Script/lyrics:", "", "She left the gate on the latch that day.", "", "CHORUS (plays twice)", "Check it, check it twice."].join("\n");
 
 const kinds = (text: string) => parse(text).map((p) => p.kind ?? "");
@@ -51,6 +53,14 @@ test("hooks are spoken wherever they sit; Why, Inspo, Plate, links and headings 
 
 test("Script/lyrics: marks where the words start, and a heading in capitals is a note", () => {
   expect(kinds(SONG)).toEqual(["note", "", "note", "", "said", "", "note", "said"]);
+});
+
+test("the openings are counted as the script writes them: a heading line with the opening under it, or the opening on the line", () => {
+  expect(hookCount(HEADED)).toBe(2);
+  expect(hookCount(HOOKS)).toBe(2);
+  expect(hookCount(DIALOGUE)).toBe(0);
+  expect(hookCount("Hook them early, the coach said.")).toBe(0); // a spoken sentence, not an opening
+  expect(readOut(HEADED)).toMatch(/^2 hooks · /);
 });
 
 test("the roles are the named speakers, each once, as written; shown with capitals on each word", () => {
