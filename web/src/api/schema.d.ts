@@ -7796,6 +7796,11 @@ export interface components {
              * @default false
              */
             smart: boolean;
+            /**
+             * Step
+             * @default 1
+             */
+            step: number;
         };
         /** EarlierOut */
         EarlierOut: {

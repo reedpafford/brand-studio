@@ -429,3 +429,26 @@ def test_with_a_google_key_pictures_go_to_google_and_cost_googles_price(app, own
     assert provider_for("nano-banana-2.1", "replicate") == "google"
     assert get_model("nano-banana-pro").usd_per_unit("2K") == Decimal("0.14")
     assert get_model("nano-banana-pro", listed=True).usd_per_unit("2K") == Decimal("0.1542")
+
+
+def test_omni_1_1_straight_from_google_makes_four_to_ten_seconds_at_its_own_price(monkeypatch):
+    """Reed, 12 Nov: "omni 1.1 does have limits, its in increments of 2 from 4 to 10". That is
+    Google's own 1.1; Replicate's takes no length and comes back 10 s."""
+    from app.catalogue import provider_for
+
+    old = get_model("gemini-omni-1.1")
+    assert (old.fixed_seconds, old.duration, provider_for(old.id, "replicate")) == (
+        10,
+        None,
+        "replicate",
+    )
+    monkeypatch.setattr(get_settings(), "google_direct", "yes")
+    old = get_model("gemini-omni-1.1")
+    assert (old.fixed_seconds, old.duration.min, old.duration.max) == (0, 4, 10)
+    assert provider_for(old.id, "replicate") == "google" and old.price.usd == {
+        "720p": Decimal("0.102")
+    }
+    sent = body(old.via.provider_model, {"prompt": "She says the line.", "duration": 4,
+                                         "resolution": "720p", "aspect_ratio": "9:16"})  # fmt: skip
+    assert sent["model"] == "gemini-omni-1.1-flash" and sent["response_format"]["duration"] == "4s"
+    assert old.duration.step == 2  # 4, 6, 8 or 10
