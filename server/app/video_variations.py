@@ -42,7 +42,7 @@ NOTE = (
 FRESH = ("created_at", "name", "finished_at", "archived_at", "released_draft_id",
          "created_by_id", "director_chat", "forecast_credits", "forecast_basis", "score",
          "score_note", "hidden", "plan_history", "storyboard_history", "settings_log",
-         "cast_redraw", "cast_ok")  # what a new video starts without  # fmt: skip
+         "cast_redraw", "cast_ok", "hooks")  # what a new video starts without  # fmt: skip
 
 
 def refusal(db: Session, project: Project) -> str:

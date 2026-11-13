@@ -423,7 +423,8 @@ def checked(job_input: dict, output: dict) -> tuple[dict, list[str]]:
     used = [s.line for c in plan.clips if c.id not in shows for s in c.shots
             if s.line and not track]  # fmt: skip
     # the script's other openings (several "Hook N" before one body): told, and in no shot
-    aside = {n for n in plan.treatment.other_openings if n in said and n not in used}
+    aside = {n for group in plan.treatment.other_openings for n in group
+             if n in said and n not in used}  # fmt: skip
     want, fixes = sorted(n for n in said if n not in aside), []
     if late := sorted(n for n in aside if n > max(used, default=0)):
         fixes.append(f"{check._lines(late)} no alternative opening: it comes after the body")
