@@ -959,7 +959,11 @@ def _sweep(db: Session) -> None:
         Job.input["result"].as_string().is_not(None), Job.input["ended"].as_string().is_(None),
     ).distinct()  # fmt: skip
     for project_id in db.scalars(acted).all():
-        wake(db, db.get(Project, project_id))
+        try:
+            wake(db, db.get(Project, project_id))
+        except Exception:  # one video's fault never holds up every other video's next turn
+            db.rollback()
+            log.exception("video %s: its run couldn't be woken", project_id)
     failed = select(Job).where(step == STEP, Job.status == JobStatus.failed,
                                Job.input["ended"].as_string().is_(None))  # fmt: skip
     for job in db.scalars(failed).all():  # failed before its finish (a bad answer): it ends
@@ -1073,7 +1077,25 @@ def _before_ok(db: Session, project: Project, run: dict, tool: str | None) -> bo
     return tool in PRE_OK or tool in PLANNING and _planning(run)
 
 
+BROKE = ("It stopped: a step hit an error on our side. Nothing more is being made. Carry on to "
+         "try again.")  # fmt: skip
+
+
 def _act(db: Session, job: Job, storage) -> None:
+    """The turn acted on. A step that breaks ends the run saying so: its turn was left
+    succeeded with no result, which nothing wakes, so the video showed "working" for good."""
+    try:
+        _acted(db, job, storage)
+    except Exception:
+        db.rollback()
+        log.exception("turn %s: its step broke", job.id)
+        turn = db.get(Job, job.id)
+        if turn is not None and "ended" not in turn.input and "result" not in turn.input:
+            _end(turn, BROKE, result="Stopped.")
+        db.commit()
+
+
+def _acted(db: Session, job: Job, storage) -> None:
     project = db.get(Project, job.project_id)
     if one_pass.on(project):  # its turns are the server's own steps, with their own rules
         return one_pass.act(db, job, storage)
