@@ -334,8 +334,8 @@ def stitch(videos: list[bytes]) -> bytes | None:
     """Join MP4 clips in order by copying their streams (no credits), only when every clip has
     the same video and audio format, its audio track included (ffmpeg's concat copy takes the
     streams from the first file and still succeeds, so a silent first take or mixed sizes and
-    sample rates lose or drift the sound). None when they differ, or the copy fails: then they
-    are joined by re-encoding (`joined`)."""
+    sample rates lose or drift the sound). None when they differ, the copy fails, or it comes
+    out longer or shorter than its takes: then they are joined by re-encoding (`joined`)."""
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         names = []
@@ -349,7 +349,10 @@ def stitch(videos: list[bytes]) -> bytes | None:
         copy = ["ffmpeg", "-v", "error", "-y", "-f", "concat", "-i", "list.txt", "-c", "copy"]
         done = subprocess.run([*copy, "out.mp4"], cwd=folder, capture_output=True,  # noqa: S603
                               timeout=_limit())  # fmt: skip
-        return (folder / "out.mp4").read_bytes() if done.returncode == 0 else None
+        takes = sum(_length(folder, f) for f in names)
+        if done.returncode or abs(_length(folder, "out.mp4") - takes) > max(0.5, takes / 50):
+            return None  # a copy that isn't as long as its takes is never the cut (video 406)
+        return (folder / "out.mp4").read_bytes()
 
 
 def cut_away(over: list[tuple[bytes, float, float]], data: bytes) -> bytes:
