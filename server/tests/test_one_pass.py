@@ -684,6 +684,8 @@ def test_each_speakers_voice_is_kept_from_one_clip_and_sent_with_their_others(
     made = [j.output for j in _jobs(db, "director") if j.output["tool"] == "make_take"]
     assert [m.get("first") for m in made] == [["c1", "c2"], None]  # Mia's and Leo's longest lines
     assert made[0]["why"] == one_pass.VOICES_FIRST
+    asked = [j for j in _jobs(db, "director") if j.output["tool"] == "ask_cast_ok"]
+    assert not asked  # a kept voice is no change to the cast: its OK isn't asked again (406)
     first, second, last = (j.input for j in _jobs(db, "clip_take"))
     assert "reference_audios" not in first["files"] and "[Audio" not in first["input"]["prompt"]
     assert "reference_audios" not in second["files"]
