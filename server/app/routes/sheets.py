@@ -25,7 +25,7 @@ from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.library import Kind, LibraryItem
 from app.models.projects import Project
-from app.prompts.schemas import LookFit
+from app.prompts.schemas import FoldedNote, LookFit
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.library import ItemOut, _out, _save_version, get_item, look_writer, sheet_status
@@ -204,9 +204,40 @@ def queue_sheet(
         hold=check + after, prepaid=fit_redo,
     )  # fmt: skip
     if noted and own_look(item) and not fit_redo and not look:  # the note is its words now,
+        fold_note(db, user, item, body.change.strip(), noted, project)
         item.notes = noted  # so later redraws and its check know it (268: still just "Bruno")
         db.commit()
     return job
+
+
+def fold_note(db: Session, user: User, item: LibraryItem, note: str, noted: str, project) -> None:
+    """A redo note becomes part of the description, not a line added to its end for good (they
+    piled up and contradicted each other in every picture and clip that reads them): one
+    cheap Claude call rewrites the description with the note in it (prompts/fold_note.md).
+    Until it answers, and if it can't be asked, the description is the old one plus the note."""
+    asked = f"<description>{item.notes.strip()}</description>\n<note>{note}</note>"
+    data = {
+        "step": "fold_note",
+        "library_item_id": item.id,
+        "noted": noted,
+        "prompt": asked,
+        "system": [prompts.system("fold_note")],
+        "effort": "low",
+        "max_tokens": 1500,
+    }
+    try:
+        with db.begin_nested():
+            enqueue(db, user, "check-claude", data, project=project, provider="claude")
+    except HTTPException:
+        log.info("look %s: its note couldn't be folded in; kept at the end", item.id)
+
+
+def save_folded(db: Session, job: Job) -> None:
+    """The description with the note folded in, unless it was changed again meanwhile."""
+    item = db.get(LibraryItem, job.input["library_item_id"])
+    told = FoldedNote.model_validate(job.output).description.strip()
+    if item and told and item.notes == job.input["noted"] and len(told) <= len(item.notes) + 20:
+        item.notes = told
 
 
 def text_to(read: dict, fit: LookFit) -> dict:

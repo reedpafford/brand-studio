@@ -1069,6 +1069,10 @@ class FakeWriter:
     def _look_fit(self, prompt):  # every look fits
         return {"fits": True, "seen": _tag(prompt, "character"), "problem": ""}
 
+    def _fold_note(self, prompt):  # the note in the description's place of the same words
+        was, note = _tag(prompt, "description"), _tag(prompt, "note")
+        return {"description": f"{was.rstrip('. ')}, {note[:1].lower()}{note[1:]}".strip(", ")}
+
     def _change(self, prompt):  # the note, added as one more line
         return {"prompt": f"{_tag(prompt, 'prompt')}\n{_tag(prompt, 'note')}".strip()}
 

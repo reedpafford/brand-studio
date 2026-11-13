@@ -160,7 +160,7 @@ def save_step_result(db: Session, job: Job) -> None:
     from app.reel_read import follow_on, save_watch
     from app.routes.improve import save_improved
     from app.routes.script_import import save_prepared
-    from app.routes.sheets import save_fit, save_sheet
+    from app.routes.sheets import save_fit, save_folded, save_sheet
     from app.script_cast_read import save_cast_slots
     from app.script_variations import save_variations
     from app.script_write import save_written
@@ -191,6 +191,7 @@ def save_step_result(db: Session, job: Job) -> None:
         "change": save_changed,
         "sheet": save_sheet,
         "look_fit": save_fit,
+        "fold_note": save_folded,
         "frame": save_still,
         "item_check": save_check,
         "take_words": save_words,

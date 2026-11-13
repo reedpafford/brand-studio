@@ -194,6 +194,7 @@ STEPS = {
     "improve": "Improve a prompt",
     "sheet": "A look",
     "look_fit": "Checking a look",
+    "fold_note": "Tidying a look's description",
     "item_check": "Checking a still or take",
 }
 LETTERS = "ABC"

@@ -138,3 +138,34 @@ def test_a_sheet_is_never_refused_for_the_week(owner, editor):
     made = editor.post(f"{url}/sheet", json={})
     assert made.status_code in (200, 201), made.text
     assert editor.get(url).json()["sheet_status"] != "none"
+
+
+def test_a_redo_note_is_folded_into_the_description_not_piled_on_its_end(app, db, editor):
+    """13 Nov audit: on a look made for one video, each redo note was added to the end of its
+    description for good ("brown hair ... Red hair, not brown ... no, darker"), in every picture
+    and clip that reads it. One cheap call rewrites the description with the note in it."""
+    from app.models.library import LibraryItem
+    from app.routes.sheets import save_folded
+
+    new = {"name": "Mia", "notes": "A teen trader with brown hair."}
+    mia = editor.post("/library/character", json=new).json()
+    url = f"/library/character/{mia['id']}"
+    editor.post(f"{url}/sheet", json={})
+    _work(app, db)
+    item = db.get(LibraryItem, mia["id"])
+    item.owner_script_id, item.sheet_look = 1, "house"  # a look made for one script's video
+    db.commit()
+    assert editor.post(f"{url}/sheet", json={"change": "Red hair, not brown."}).status_code == 201
+    db.refresh(item)
+    piled = "A teen trader with brown hair. Red hair, not brown."
+    assert item.notes == piled  # until the call answers: as before
+    fold = db.query(Job).filter(Job.input["step"].as_string() == "fold_note").one()
+    assert (fold.kind, float(fold.credits)) == ("check-claude", 0.2)
+    assert fold.input["prompt"] == ("<description>A teen trader with brown hair.</description>\n"
+                                    "<note>Red hair, not brown.</note>")  # fmt: skip
+    fold.output = {"description": "A teen trader with red hair."}
+    save_folded(db, fold)
+    assert item.notes == "A teen trader with red hair."  # one description, the note in it
+    item.notes = "Someone changed it since."  # then an older answer never overwrites it
+    save_folded(db, fold)
+    assert item.notes == "Someone changed it since."
