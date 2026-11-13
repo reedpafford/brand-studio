@@ -1,0 +1,64 @@
+/* Spend in the new look (Spend.tsx; the redesign, stage 6). Every rule sits under .studio .spendpage, beside studio.css.
+   Type: 12 (table heads), 13 (labels), 14 (rows), 56 (the one large figure). The page is capped at 1052 px. */
+.studio .spendpage {
+  max-width: 1052px; margin: 0 auto;
+
+  section + section { margin-top: 40px; }
+  h2 { font: 600 14px/20px var(--ui); margin-bottom: 12px; }
+  h2:has(+ .why) { margin-bottom: 2px; }
+  .why { max-width: 68ch; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  section > .why { margin-bottom: 12px; }
+  .quiet.why { margin-top: 40px; color: var(--ink-3); }
+  .hold .btn { margin-top: 14px; }
+  .showmore { margin-top: 16px; }
+
+  /* The filters, and when the figures were read. */
+  .filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+  .filters .btn .sq { width: 10px; height: 10px; border-radius: 3px; }
+  .filters .btn.soft svg { color: var(--ink-3); }
+  .asof { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+
+  /* The large figure, and where it went. */
+  .top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: start; }
+  .lab { display: block; font-size: 13px; line-height: 20px; color: var(--ink-2); }
+  .hero b { display: block; margin: 2px 0 4px; font: 600 56px/64px var(--ui); letter-spacing: -0.03em; }
+  .lab.live { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .lab + .bars { margin-top: 8px; }
+
+  /* Rows of dollars against the largest: a brand (a press) or a service. */
+  .bars { display: grid; gap: 2px; }
+  .bb { display: flex; align-items: center; gap: 16px; width: calc(100% + 24px); height: 40px; margin: 0 -12px; padding: 0 12px; border-radius: var(--r-s); transition: background var(--fast); }
+  button.bb:hover { background: var(--raised); }
+  .bb .nm { display: flex; align-items: center; gap: 10px; flex: 0 0 150px; min-width: 0; font-weight: 500; }
+  .bb .sq { width: 10px; height: 10px; border-radius: 3px; }
+  .bbar { flex: 1; height: 8px; border-radius: 4px; background: var(--raised-2); overflow: hidden; }
+  .bbar i { display: block; height: 100%; min-width: 2px; border-radius: 4px; background: #7376f0; }
+  .bb .n { flex: 0 0 72px; font-size: 13px; color: var(--ink-2); text-align: right; white-space: nowrap; }
+  .bb .n:empty { display: none; }
+  .bb b { flex: 0 0 76px; font-weight: 600; text-align: right; white-space: nowrap; }
+
+  /* The videos. */
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  thead .cbrand { width: 22%; }
+  thead .cwhen { width: 16%; }
+  thead .r { width: 120px; }
+  thead th { padding: 8px 12px; border-bottom: 1px solid var(--line); font: 400 12px/16px var(--ui); color: var(--ink-3); text-align: left; white-space: nowrap; }
+  tbody :is(th, td) { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; font-weight: 400; }
+  tr > :first-child { padding-left: 0; }
+  tr > :last-child { padding-right: 0; }
+  tr > .r { text-align: right; white-space: nowrap; }
+  td.q { color: var(--ink-2); white-space: nowrap; }
+  tbody th a { font-weight: 500; }
+  tbody th a:hover { text-decoration: underline; text-underline-offset: 3px; }
+}
+
+@media (max-width: 900px) {
+  .studio .spendpage {
+    .top { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .hero b { font-size: 44px; line-height: 52px; }
+    .filters .grow { display: none; }
+    .bb { height: 44px; }
+    .bb .nm { flex: 1 1 0; }
+    .bbar, .bb .n, .hp { display: none; }
+  }
+}
