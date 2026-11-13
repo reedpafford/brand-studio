@@ -85,7 +85,7 @@ def test_a_paid_take_that_comes_back_without_a_file_is_a_failure(db, monkeypatch
     tried = []
     monkeypatch.setattr("app.clip_takes.retry", lambda db, job: tried.append(job.id))
     monkeypatch.setattr(steps, "explain", lambda db, job: None)
-    job = Job(workspace_id=1, created_by_id=1, kind="video", provider="fake",
+    job = Job(workspace_id=1, created_by_id=1, kind="video", provider="fake", project_id=1,
               input={"step": "clip_take"}, status=JobStatus.queued, credits=Decimal(3))  # fmt: skip
     db.add(job)
     db.commit()

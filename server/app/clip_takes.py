@@ -651,8 +651,8 @@ def retry(db: Session, job: Job) -> None:
         return  # an invalid request is refused the same way again: never retried as it is
     if job.input.get(BY_DIRECTOR):
         video = db.get(Project, job.project_id)
-        if director.ended(db, video) and not director.active(db, video):
-            return  # the director's take, and its run was stopped or ended while it was out
+        if director.ended(db, video) == director.STOPPED and not director.active(db, video):
+            return  # the director's take, and its run was stopped while it was out
     if _lookalike(job):
         return _again_without(db, job)
     if job.auto:  # one automatic retry, but for a look-alike's steps
