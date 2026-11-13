@@ -25,13 +25,36 @@ const readOpen = (brandId: number): number[] => {
 
 type Said = { message: string; undo?: () => void; id: number } | null;
 
+/** An idea dropped on a folder, or on Unsorted, is filed there, and Undo files it back where it was. `say`: where the
+ *  words and the Undo show. */
+export function useDropIdea(say: (message: string, undo?: () => void) => void) {
+  const refresh = useRefreshIdeas();
+  return async (e: DragEvent, to: Branch) => {
+    e.preventDefault();
+    const raw = e.dataTransfer.getData(IDEA);
+    if (!raw) return;
+    const { id, title } = JSON.parse(raw) as { id: number; title: string };
+    try {
+      const { data } = await must(api.POST("/folders/file", { body: { kind: "video", ids: [id], folder_id: to.id ?? null } }));
+      const was = data!.was[0]?.folder_id ?? null;
+      if (was === (to.id ?? null)) return;
+      await refresh();
+      say(`Moved “${title}” to ${to.name}.`, async () => {
+        await must(api.POST("/folders/file", { body: { kind: "video", ids: [id], folder_id: was } }));
+        await refresh();
+      });
+    } catch (err) {
+      say((err as Error).message); // no Undo: nothing moved
+    }
+  };
+}
+
 /** The rail's Projects (v6 S0-01): a header that folds it away, with New folder; New video; the brand's recent videos; then
  *  the folder tree: folders inside folders with their counts, the open folder's newest ideas with their status dots, and
  *  Unsorted. Drag an idea onto a folder to move it; right-click or ⋯ for New video here, New folder inside, Rename (in
  *  place), Move to… and Delete folder…; Undo shows at the foot of the rail. */
 export function FolderTree({ brandId }: { brandId: number }) {
   const tree = useTree(brandId).data;
-  const refresh = useRefreshIdeas();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [params] = useSearchParams();
@@ -63,25 +86,8 @@ export function FolderTree({ brandId }: { brandId: number }) {
   }, [said]);
 
   const [drop, setDrop] = useState<number | "none" | null>(null);
-  const moveIdea = async (e: DragEvent, to: Branch) => {
-    e.preventDefault();
-    setDrop(null);
-    const raw = e.dataTransfer.getData(IDEA);
-    if (!raw) return;
-    const { id, title } = JSON.parse(raw) as { id: number; title: string };
-    try {
-      const { data } = await must(api.POST("/folders/file", { body: { kind: "video", ids: [id], folder_id: to.id ?? null } }));
-      const was = data!.was[0]?.folder_id ?? null;
-      if (was === (to.id ?? null)) return;
-      await refresh();
-      say(`Moved “${title}” to ${to.name}.`, async () => {
-        await must(api.POST("/folders/file", { body: { kind: "video", ids: [id], folder_id: was } }));
-        await refresh();
-      });
-    } catch (err) {
-      say((err as Error).message); // no Undo: nothing moved
-    }
-  };
+  const fileIdea = useDropIdea(say);
+  const moveIdea = (e: DragEvent, to: Branch) => (setDrop(null), fileIdea(e, to));
   const dropTarget = (b: Branch) => ({
     onDragOver: (e: DragEvent) => {
       if (!e.dataTransfer.types.includes(IDEA)) return;

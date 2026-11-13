@@ -19,14 +19,15 @@ const STOPS = "Anything still being made stops and isn't brought back.";
 export const ARCHIVES = `It leaves the lists. Its clips and downloads are kept, and you can restore it. ${STOPS}`;
 
 /** Release a started version (back to Ready to make) or archive a video, each after a confirm and with Undo. Render `dialog` on the page, or
- *  draw the confirm from `asking` (what is asked, and its yes and no). */
-export function useVideoActions(onGone?: (kind: "release" | "archive") => void) {
+ *  draw the confirm from `asking` (what is asked, and its yes and no). `reread`: what else to read again after each (a
+ *  list of videos it is pressed from). */
+export function useVideoActions(onGone?: (kind: "release" | "archive") => void, reread?: () => unknown) {
   const [ask, setAsk] = useState<{ kind: "release" | "archive"; target: VideoTarget } | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const toast = useToast();
-  const refresh = () => Promise.all(["projects", "production", "scripts", "project"].map((k) => queryClient.invalidateQueries({ queryKey: [k] })));
+  const refresh = () => Promise.all([...["projects", "production", "scripts", "project"].map((k) => queryClient.invalidateQueries({ queryKey: [k] })), reread?.()]);
   const close = () => (setAsk(null), setProblem(null));
 
   const undo = (t: VideoTarget) => async () => {
