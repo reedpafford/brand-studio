@@ -106,9 +106,14 @@ def test_the_tabs_read_what_the_plan_made(app, owner, db):
         assert sum(c["prompt"].count(f'"{line}"') for c in clips) == 1, line
 
 
-def test_on_omni_a_third_person_is_in_words_and_two_sheets_are_sent(app, owner, db):
-    script = "INT. BAR - NIGHT\nMIA: You came.\nLEO: I said I would.\nSAM: Nobody asked me."
-    _delivered(app, owner, db, look="movie", text=script)
+BAR = "INT. BAR - NIGHT\nMIA: You came.\nLEO: I said I would.\nSAM: Nobody asked me."
+
+
+def test_on_omni_a_third_person_is_in_words_and_two_sheets_are_sent(app, owner, db, monkeypatch):
+    from app import guides
+
+    monkeypatch.setitem(guides.style("movie"), "video_model", "gemini-omni-1.2")
+    _delivered(app, owner, db, look="movie", text=BAR)
     take = _jobs(db, "clip_take")[0]
     assert take.input["model"] == "gemini-omni-1.2"
     row = db.query(ProjectClip).one()
@@ -119,6 +124,45 @@ def test_on_omni_a_third_person_is_in_words_and_two_sheets_are_sent(app, owner, 
     assert "Sam" in take.input["input"]["prompt"] and '"Nobody asked me."' in take.input[
         "input"]["prompt"]  # fmt: skip
     assert "The third image is the place" in take.input["input"]["prompt"]  # in words
+
+
+def test_on_kies_seedance_everyone_is_sent_on_a_sheet_seedream_drew(app, owner, db, monkeypatch):
+    """Reed, 12 Nov: Seedance takes a real-looking face only on a sheet Seedream drew from
+    words. So a real-looking video's people are drawn by it (wide, with a large portrait) and
+    its place by Nano Banana, every person's sheet reaches the clip, and one whose sheet
+    Seedream didn't draw (from a photo, or an older one) is said in words instead."""
+    from app import guides
+    from app.clip_takes import take_input
+    from app.models.library import LibraryItem
+
+    monkeypatch.setitem(guides.style("movie"), "video_model", "seedance-2.5-kie")
+    pid = _delivered(app, owner, db, look="movie", text=BAR)
+    sheets = {db.get(LibraryItem, j.input["library_item_id"]).name: j for j in _jobs(db, "sheet")}
+    drawn = {who: (j.input["model"], j.input["input"]["aspect_ratio"]) for who, j in sheets.items()}
+    assert drawn == {"INT. BAR - NIGHT": ("nano-banana-pro", "16:9"),
+                     **dict.fromkeys(("Mia", "Leo", "Sam"), ("seedream-5.5", "16:9"))}  # fmt: skip
+    take = _jobs(db, "clip_take")[0]
+    said = take.input["input"]["prompt"].splitlines()
+    assert take.input["model"] == "seedance-2.5-kie"
+    assert len(take.input["files"]["reference_images"]) == 4 and take.input["unsent"] == ["frame:"]
+    assert said[0] == "Scene context: A plain test scene."
+    assert said[1:5] == [
+        *(f"[Image{n}] is {who}: their face, hair and outfit."
+          for n, who in enumerate(("Mia", "Leo", "Sam"), 1)),
+        "[Image4] is the place, INT. BAR - NIGHT: use it for the place, its light and colour, "
+        "not for framing."]  # fmt: skip
+    assert said[5] == ("Shot 1, 0-2 s: Medium shot. Mia says line 2 to the room. Only in frame: "
+                       'Mia. Mia says, plainly: "You came."')  # fmt: skip
+    assert said[-2].startswith("Look: Photoreal TV-drama footage") and len(said) == 10
+    assert said[-1].startswith("Sound: Room tone. Voices: Mia, a plain test voice")
+    assert said[-1].endswith("No music, no subtitles.")
+    sheets["Sam"].input = {**sheets["Sam"].input, "model": "nano-banana-pro"}
+    db.commit()
+    again = take_input(db, db.get(Project, pid), db.query(ProjectClip).one(), check=False)
+    sam = f"char:{sheets['Sam'].input['library_item_id']}"
+    assert len(again["files"]["reference_images"]) == 3 and again["unsent"] == [sam, "frame:"]
+    assert "[Image2] is Leo: their face, hair and outfit. Sam (" in again["input"]["prompt"]
+    assert "[Image3] is the place, INT. BAR - NIGHT: use it" in again["input"]["prompt"]
 
 
 def test_a_skipped_line_is_asked_for_again_inside_the_same_job(app, owner, db, monkeypatch):

@@ -281,6 +281,7 @@ def uncapped(user: User | None) -> bool:
 
 
 GOOGLE_FREE = "only be charged for tokens successfully generated"  # Google's words on a failed take
+KIE_DRY = "KIE 402"  # KIE's account is out of credits: it starts no task
 
 
 def never_billed(job: Job) -> bool:
@@ -291,7 +292,9 @@ def never_billed(job: Job) -> bool:
     charge you": replicate.com/docs/topics/billing; Reed, 11 Nov: a narration its voice
     refused as too long showed as "$0.99 spent" beside "Nothing was charged"), and a take
     Google stopped with its own "You will only be charged for tokens successfully generated"
-    (12 Nov: 38 takes out of quota, RESOURCE_EXHAUSTED, each counted at its price). Any other
+    (12 Nov: 38 takes out of quota, RESOURCE_EXHAUSTED, each counted at its price), and one KIE
+    turned away before any task began (13 Nov: nine clips at "402: Credits insufficient", each
+    counted at its price; KIE: "rejected requests will not enter the queue"). Any other
     failure that was sent still counts: it may have been billed."""
     from app.clip_takes import why_failed
 
@@ -299,6 +302,7 @@ def never_billed(job: Job) -> bool:
         job.provider.startswith("replicate")
         or why_failed(job) in ("refused", "invalid")
         or (job.provider == "google" and GOOGLE_FREE in (job.error_detail or ""))
+        or KIE_DRY in (job.error_detail or "")
     )
 
 

@@ -1,8 +1,9 @@
 """House-style sheets for characters and places (Reed, 2026-10-23). Nano Banana draws one from
 the item's notes, or from its source photo, with the Director's `prompts.sheet_prompt`. An
 editor approves it; only an approved sheet is ever used in a video (`app/sheets.py`), and the
-source photo never is. Seedream (`SEEDREAM`) draws a real-looking person's from the notes
-alone: the only sheet of a real-looking face KIE's Seedance takes (app/providers/kie.py)."""
+source photo never is. Seedream (`SEEDREAM`) draws a real-looking person's (Movie, UGC) from
+the notes alone: the only sheet of a real-looking face KIE's Seedance takes
+(app/providers/kie.py)."""
 
 import logging
 import re
@@ -14,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import looks, prompts
+from app import looks, model_map, prompts
 from app.auth import current_user
 from app.catalogue import get_model
 from app.credits import estimate
@@ -29,13 +30,12 @@ from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
 from app.routes.library import ItemOut, _out, _save_version, get_item, look_writer, sheet_status
 from app.schemas import longest
-from app.sheets import RESOLUTION, SHEET_MODEL, check_price, is_checked, worst
+from app.sheets import RESOLUTION, SEEDREAM, SHEET_MODEL, check_price, is_checked, worst
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/library/{kind}/{item_id}/sheet", tags=["library"],
                    dependencies=[Depends(look_writer)])  # fmt: skip
 ASPECT = {Kind.character: "9:16", Kind.place: "16:9"}  # a tall turnaround / a wide view
-SEEDREAM = "seedream-5.5"  # from words only, never a photo or the last sheet; its sheet is wide
 WORDS_ONLY = "Seedream draws from words only. Describe it first (the notes)."
 
 
@@ -153,10 +153,8 @@ def queue_sheet(
     look = None if body.look_id in (None, looks.DEFAULT) else body.look_id  # the owner's
     # In another look, the approved House sheet is the person when there's no photo (ST2)
     house = item.sheet_file_id if look and item.sheet_approved else None
-    words = body.model_id == SEEDREAM  # no photo and no last sheet: a redo starts from its words
-    photo = None if words else item.source_photo_file_id or house
-    from_photo = bool(photo)
-    from_sheet = from_photo and (
+    photo = item.source_photo_file_id or house
+    from_sheet = bool(photo) and (
         photo == house
         or db.scalar(
             select(LibraryItem.id)
@@ -166,6 +164,15 @@ def queue_sheet(
         is not None
     )
     style = look or (item.sheet_look if own_look(item) else looks.DEFAULT)
+    # Seedream's: a real-looking person (Movie, UGC) with words and no uploaded photo, or any
+    # sheet asked of it. From the words alone, wide: no photo, no drawing of them in another
+    # style and no last sheet, so a redo starts from its words
+    words = body.model_id == SEEDREAM or (
+        kind == Kind.character and looks.base(style) in model_map.PHOTOREAL
+        and bool(item.notes.strip()) and (not photo or from_sheet))  # fmt: skip
+    if words:
+        photo, from_sheet = None, False
+    from_photo = bool(photo)
     last = ((item.look_sheets or {}).get(look) or {}).get("file_id") if look else item.sheet_file_id
     redo = bool(body.change.strip()) and last is not None
     anew = redo and (words or fresh(item, body.change, fit_redo))
@@ -178,8 +185,9 @@ def queue_sheet(
         change=body.change if redo and not anew else "", role=role_for(db, item), style_id=style,
         from_sheet=from_sheet, seedream=words,
     )  # fmt: skip
-    job = image_job_input(get_model(body.model_id), prompt, "16:9" if words else ASPECT[kind],
-                          objects=refs, resolution=RESOLUTION)  # fmt: skip
+    job = image_job_input(get_model(SEEDREAM if words else body.model_id), prompt,
+                          "16:9" if words else ASPECT[kind], objects=refs,
+                          resolution=RESOLUTION)  # fmt: skip
     project = db.get(Project, item.owner_project_id) if item.owner_project_id else None
     sheet = estimate(db, item.workspace_id, "image", Decimal(1), job)
     check = check_price(db, item.workspace_id) if is_checked(item) and not look else Decimal(0)

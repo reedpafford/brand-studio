@@ -23,7 +23,7 @@ from app.models.jobs import WAITING, Job, JobStatus
 from app.models.library import LibraryItem
 from app.models.projects import Project
 from app.references import LONG_SIDE
-from app.sheets import require_cast_sheets, require_looks, require_sheet
+from app.sheets import require_cast_sheets, require_looks, require_sheet, seedream_drew
 
 log = logging.getLogger(__name__)
 RESOLUTION = "480p"  # clips are planned at 480p; a model without it uses its own lowest
@@ -49,7 +49,9 @@ def take_input(db: Session, project: Project, clip: ProjectClip, note: str = "",
     require_looks(would_show(db, project, breakdown, shots), known)
     model = model_map.of_clip(project, clip)  # its own (the director's), else the video's
     images = [r["id"] for r in clip.references if r["kind"] == "image"]  # never a logo as a chart
-    unsent = model_map.left_out(looks.drawn(project), model.id, _shots(breakdown, shots), images)
+    drawn = seedream_drew(db, known, images) if model.provider == "kie" else ()
+    unsent = model_map.left_out(looks.drawn(project), model.id, _shots(breakdown, shots), images,
+                                drawn)  # fmt: skip
     drop = tuple(dict.fromkeys(drop + unsent))  # photoreal Seedance: described, not attached
     if real_refused(db, clip):  # a sheet of this clip's taken for a real person: never sent again
         drop = tuple(dict.fromkeys(drop + LOOKALIKE))

@@ -703,8 +703,8 @@ def make_look_copy(
 def _copy(db: Session, user: User, project: Project, item: LibraryItem, auto=False) -> None:
     """A Cast & places character's look for this video, drawn in the video's look from its
     approved sheet (who they are: face, build, outfit and signature items), else its photo.
-    A photoreal style (Movie, UGC) draws from the photo when there is one: a sheet is a
-    drawing."""
+    A photoreal style (Movie, UGC) draws from the photo when there is one, else from the
+    character's words (Seedream, `queue_sheet`): a sheet is a drawing."""
     real = looks.base(project.look) in model_map.PHOTOREAL and item.source_photo_file_id
     house = item.sheet_file_id if item.sheet_approved and not real else None
     new = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character, name=item.name,
