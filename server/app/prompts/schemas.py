@@ -817,7 +817,11 @@ class PlanClip(BaseModel):
         description="With `card`: true puts it on black before the clip; false, over its "
         "first seconds."
     )
-    _older = _older(kind="", footage="", footage_at=0, card="", card_before=False)
+    opening: int = Field(
+        description="With <hooks>all: which of the script's openings this clip is (1, 2, …); "
+        "0 for a clip of the body, or with no <hooks>."
+    )
+    _older = _older(kind="", footage="", footage_at=0, card="", card_before=False, opening=0)
 
 
 class ShootingPlan(BaseModel):

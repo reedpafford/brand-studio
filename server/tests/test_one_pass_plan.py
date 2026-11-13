@@ -35,7 +35,9 @@ def test_the_schema_is_registered_and_strict_friendly():
     assert str(schema).count("anyOf") == 1  # one nullable field (a shot's line): no other union
     for part in [schema, *schema["$defs"].values()]:  # every field required, none defaulted
         assert set(part["required"]) == set(part["properties"])
-    assert len(str(schema)) < 6000
+    # a tripwire, not a limit of the service: the director's own schema (about 20,000) is the
+    # one that grew past Anthropic's grammar; raised from 6,000 for a clip's `opening`
+    assert len(str(schema)) < 6500
 
 
 def test_only_a_speakers_line_is_spoken_and_its_notes_are_never_words():
@@ -70,6 +72,14 @@ def test_every_spoken_line_is_in_one_shot_once_and_in_order():
     assert _fixes(swapped) == ["the lines are out of order: every line stays where the "
                                "script has it"]  # fmt: skip
     assert _fixes(an_action)[1].startswith("line 2 is not a spoken line of the script")
+
+
+def test_with_every_hook_wanted_each_openings_clips_come_first_then_the_body():
+    def body_first(p):
+        p["clips"] = [{**p["clips"][0], "id": "c1", "opening": 0},
+                      {**p["clips"][0], "id": "c2", "opening": 1, "shots": []}]  # fmt: skip
+
+    assert _fixes(body_first)[0].startswith("each opening's clips come first, in order")
 
 
 def test_a_scripts_other_openings_are_named_and_in_no_shot():

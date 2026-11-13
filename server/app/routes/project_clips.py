@@ -34,7 +34,7 @@ from app import (
 )
 from app.advice import Said, SaidText
 from app.auth import current_user
-from app.cut import in_cut
+from app.cut import cut_rows, in_cut, openings
 from app.db import get_db
 from app.item_checks import CheckOut
 from app.models.accounts import User
@@ -200,6 +200,7 @@ class ProjectClipOut(BaseModel):
     name: str = ""
     card: str = ""
     card_before: bool = False
+    opening: int = 0  # 0: in every version (the body); 1, 2, …: that opening's own clip
     take_warning: str | None = None  # said before the next take: its last two were refused
     retrying: Literal["refused", "busy"] | None = None  # P3: why its take is being tried again
     retried: Literal["refused", "busy"] | None = None  # P3: its newest take was the retry
@@ -237,7 +238,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
     computed = ("stale", "takes", "take_credits", "inserts", "take_warning", "change",
                 "take_stale", "approved", "retrying", "retried", "auto_fix",
                 "look_fix", "versions", "sound", "model", "spent", "stills",
-                "name", "card", "card_before")  # fmt: skip
+                "name", "card", "card_before", "opening")  # fmt: skip
     project = db.get(Project, row.project_id)
     plan = (db.get(BreakdownVersion, row.breakdown_id).data or {}).get(one_pass.PLAN) or {}
     told = next((c for c in plan.get("clips") or [] if c.get("id") == row.clip_id), {})
@@ -255,6 +256,7 @@ def _out(db: Session, row: ProjectClip, newest: BreakdownVersion | None) -> Proj
         name=told.get("name") or "",
         card=(told.get("card") or "").strip(),
         card_before=bool(told.get("card_before")),
+        opening=int(told.get("opening") or 0),
         inserts=inserts,
         **{f: getattr(row, f) for f in ProjectClipOut.model_fields if f not in computed},
         takes=[
@@ -1001,14 +1003,15 @@ def out_of_date(db: Session, projects: list[Project]) -> set[int]:
         moved = bd is None or bool(script.get(p.id) and bd.script_version != script[p.id])
         # Every clip's take, as cut.ready asks (a person's cut has no Approve, M2); a cut compares
         # its takes below, but a video finished by its zip has only each clip's approval to go on.
-        video = videos.get(p.id)
+        video, of = videos.get(p.id), openings(bd.data if bd else None)
+        rows = [c for c in rows if in_cut(c, of)]  # the first version's: the cut that plays
         if any(not c.picked_take_id or (video is None and not c.approved) or moved
                or c.breakdown_id != bd.id or clip_prompts.take_stale(c)
                or looks.take_other(db, p, c) or video_settings.take_stale(db, p, c)
-               for c in rows if in_cut(c)):  # fmt: skip
+               for c in rows):  # fmt: skip
             old.add(p.id)
         elif video and (
-            video.take_ids != [c.picked_take_id for c in rows if in_cut(c)]
+            video.take_ids != [c.picked_take_id for c in rows]
             or (video.edit_ids or []) != edits.get(p.id, [])
             or (video.cut_ins or []) != _cut_ins(db, p, rows)
         ):
@@ -1028,7 +1031,7 @@ def _edits(db: Session, ids: list[int]) -> dict[int, list[int]]:
 
 
 def _video_out(db: Session, video: FinalVideo) -> VideoOut:
-    clips = [c for c in _clips(db, video.project_id) if in_cut(c)]
+    clips = cut_rows(db, db.get(Project, video.project_id))
     current = [c.picked_take_id for c in clips]
     cuts = _cut_ins(db, db.get(Project, video.project_id), clips)
     old = video.take_ids != current or (video.cut_ins or []) != cuts

@@ -9726,6 +9726,11 @@ export interface components {
             /** Seconds */
             seconds: number;
             price: components["schemas"]["AskPrice"];
+            /**
+             * Opening
+             * @default 0
+             */
+            opening: number;
         };
         /** MadeOption */
         MadeOption: {
@@ -11012,6 +11017,11 @@ export interface components {
              * @default false
              */
             card_before: boolean;
+            /**
+             * Opening
+             * @default 0
+             */
+            opening: number;
             /** Take Warning */
             take_warning?: string | null;
             /** Retrying */

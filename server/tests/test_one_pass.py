@@ -934,3 +934,33 @@ def test_the_send_keeps_whether_every_opening_is_made_and_a_copy_never_inherits_
         == 201
     )
     assert _video(db).hooks is None  # left out: the first opening only, as before
+
+
+HOOKS = ("HOOK 1\nEXT. LOT - DAY\nMIA: They almost got her.\nHOOK 2\nINT. HALL - DAY\n"
+         "LEO: Did you get the eggs?\nBODY\nINT. KITCHEN - DAY\nMIA: The market opened at nine.\n"
+         "LEO: And we were ready.")  # fmt: skip
+
+
+def test_every_hook_is_filmed_once_over_one_body_and_the_cut_is_the_first_version(app, owner, db):
+    """Reed, 13 Nov: "the hooks just swap onto the same bodies". With hooks "all" the one plan
+    films every opening (each its own clips, marked 1, 2, …) and the body once (0); every clip
+    gets its take; the cut that plays is the first opening and the body."""
+    from app import cut
+
+    assert (
+        owner.post("/freestyles", json={**BODY, "text": HOOKS, "hooks": "all"}).status_code == 201
+    )
+    _run(app, db)
+    video = _video(db)
+    (plan,) = _jobs(db, "one_pass")
+    assert plan.input["prompt"].endswith("<hooks>all</hooks>")
+    listed = owner.get(f"/projects/{video.id}/clips").json()
+    assert [(c["clip_id"], c["opening"]) for c in listed] == [("c1", 1), ("c2", 2), ("c3", 0)]
+    assert all(c["picked_take_id"] for c in listed)  # every opening is filmed, the body once
+    tl, _ = cut.timeline(db, video)
+    assert [p["clip_id"] for p in tl["pieces"]] == ["c1", "c3"]  # version 1: its hook + the body
+    made = db.query(FinalVideo).one()
+    assert (
+        len(made.take_ids) == 2 and not owner.get(f"/projects/{video.id}/cut").json()["out_of_date"]
+    )
+    assert owner.get(f"/projects/{video.id}/director").json()["status"] == "delivered"

@@ -86,6 +86,7 @@ class MadeClip(BaseModel):
     clip: str  # "2"
     seconds: int
     price: AskPrice  # one take of it
+    opening: int = 0  # 0: in every version (the body); 1, 2, …: that opening's own clip
 
 
 class MoneyCard(BaseModel):
@@ -296,12 +297,16 @@ def _money(db: Session, user: User, ask: Ask, project: Project, card: AskOut) ->
                         "checks, my usual time and a watch of the cut. Nothing stops it at a "
                         "limit here; what it really spends shows as it goes.")  # fmt: skip
         if one_pass.on(project):  # what its own price covers, and its track made before it
-            from app import cut
+            from app import clip_prompts, cut
             from app.clip_takes import take_credits
 
+            plan = clip_prompts.newest(db, project)
+            of = cut.openings(plan.data if plan else None)
             money.making = [MadeClip(clip=c.clip_id.removeprefix("c"), seconds=c.seconds,
-                                     price=_price(user, take_credits(db, project, c)))
-                            for c in cut.cut_rows(db, project) if not c.picked_take_id]  # fmt: skip
+                                     price=_price(user, take_credits(db, project, c)),
+                                     opening=of.get(c.clip_id, 0))
+                            for c in cut.rows(db, project)
+                            if not c.picked_take_id and not c.left_out]  # fmt: skip
             what, sound = one_pass.card_words(db, project, bool(money.expected))
             track = "song" if plans.song(db, project) else "narration"
             card.why = what + (f" Its {track} is already made and timed, for "
