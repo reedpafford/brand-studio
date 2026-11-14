@@ -1,4 +1,8 @@
 # Agent team
+**How it actually runs now (8 Nov 2026):** one lead chat (sanaa workspace) holds state, merges as Reed and runs paid tests, and spawns builder, QA, critic and runner subagents per task. A babysitter chat (georgetown) sweeps PRs hourly and reports to Reed only. Reed critiques each style in its own desk chat and asks general questions in short Ask chats; decisions from those go into files the lead reads, never only into a chat. How desks work: ops/DESKS.md (`/desk <style>` starts one). The roles below are the long-term design; most are played by the lead's subagents today.
+
+**Reed's site (since 9 Nov 2026)** is the old test site: https://thisisatestingenv.online, branch `next`, compose project `brand-studio-next`. It is production: real providers, real money, Reed's real work. Agents never experiment on it: never switch it to stand-ins (`NEXT_FAKE_PROVIDERS` stays `false`; the deploy refuses otherwise), never reset it or remove its volumes, and never run a paid call there without Reed's OK (logged in ops/SPEND.md). Every merge to `next` deploys straight to it, so merges happen only in Reed's windows, bundled, until a stand-in-only preview exists for agents to test on. The old production site (`main`, https://srv2091584.hstgr.cloud) is stopped and kept as a snapshot (deploy/README.md); don't touch it.
+
 Each agent is its own Claude Code session on this repo. Work is tracked as GitHub issues (labels: `agent:<name>`). Reed talks to the Producer, and directly to the Writer for scripts.
 
 | Agent | Model | Job | Runs |
@@ -8,7 +12,7 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 | Builder-Server | Opus 5.5 | Backend, data, jobs, model calls; PRs with tests | on demand |
 | Builder-Screens | Sonnet 5.5 | Front end screens; PRs with tests | on demand |
 | QA | Sonnet 5.5 | Playwright click-through tests; reviews every PR; red blocks merge | every PR |
-| Explorer | Opus 5.5 | Maps tezu.ai, then our test/live sites nightly; files issues with screenshots | nightly (later) |
+| Explorer | Opus 5.5 | Maps tezu.ai, then Reed's site (read-only) and the preview nightly; files issues with screenshots | nightly (later) |
 | Release | Sonnet 5.5 | Only merger/deployer; staging then live; rollback; backups; security pass | every PR (later) |
 | Steward | Sonnet 5.5 | Size budgets, no dead code/duplicate tests; can block bloat | every PR + weekly (later) |
 | Designer | Opus 5.5 | Screen designs before build; screenshot review at phone/desktop | on demand (later) |
@@ -20,7 +24,7 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 ## Flow
 Producer opens issue → (Designer sketches screens) → Builder opens PR from `agent/<name>/<topic>` → QA (+ Steward, Designer) review → merge → Scribe logs → Explorer checks live.
 - **Before every push, check the PR is still open.** A push to a merged PR never ships; put it in a new PR from the base branch instead.
-- **Branch every PR from its base (`main` or `next`), never from another open PR.** Squash merges break stacked PRs.
+- **Branch every PR from `next`, the only branch, never from another open PR.** Squash merges break stacked PRs. (`main` was folded into `next` on 13 Nov 2026: the spend log and these notes are PRs into `next` too, and a notes-only merge deploys nothing.)
 - **After QA passes a head, don't push to it** unless the Producer asks; a new head needs a new pass.
 
 ## Size budgets (Steward enforces)
@@ -34,36 +38,11 @@ Producer opens issue → (Designer sketches screens) → Builder opens PR from `
 - **After any compaction, and before every new task:** re-read ops/HANDOFF.md and the Current rules at the top of ops/DECISIONS.md before acting. Newer decisions override older ones; if unclear, ask the Producer.
 - **QA-Live sessions** are listed in the table below while they run, and removed when they finish.
 
-## Sessions (current)
-| Agent | Session |
-|---|---|
-| Builder-Server-5 (replaced Builder-Server-3 and -4 on 2026-10-27, context hygiene; montage trading screens) | session_01FRDAYJJv6AhprHx2GkXuCr |
-| Builder-Server-7 (Next: study → song directions wiring, then brand setup BR1) | session_01FRDAYFH6rssaRstCKXKqHk |
-| Builder-Server-8 (Next 1b: creative plan, automatic fixes, advisory check) | session_01FRDAYEp2gLv1FV5wFBnwnd |
-| Builder-Screens-4 (live screens, UX audit fixes) | session_01FRDAYHTQXtVgwKpPjzi8Yt |
-| Next-Layout (Next: layout and wording) | session_01FRDAYFBXFobYo8VFRkdXJF |
-| UX-Auditor (docs/next/ux-audit.md, wireframes) | session_01FRDAYJ8rMAHbCsr2LY6pBC |
-| Song-Producer (Reed's hand-made song and narrated ads) | session_01FRDAYHNoiSK3NwTtj4n7cE |
-| Writer (Reed talks to it directly) | session_01FRDAYF8xUEnyc2USaQdPNF |
-| Researcher (Starpop, Phases 1–2, done) | session_01FRDAYGsMfXmbBgso61qMqh |
-| Next-Lead (branch `next`, ops/NEXT.md) | session_01FRDAYGxkc3gPaKGXtreXsy |
-| Next-Server | session_01FRDAYHAqt6VpjWXU1MbtNR |
-| Next-Screens | session_01FRDAYFB7SvzZ39XgExCxPt |
-| Flow-QA | session_01FRDAYFWiQrAfCDjT614hkp |
-| Builder-Screens | session_01YVSDg6CB1ysUhPvZfDfqx9 |
-| Builder-Screens-3 (editor video flow; replaced Builder-Screens-2 on 2026-10-26) | session_01RY7gQZ2FyTVwVAYrbX5MXu |
-| QA (server, prompts) | session_01Jj3pwffX4avJkR9J5MmiiE |
-| QA-2 (web) | session_0151NB9uZupi8GLzzTbeAtEv |
-| Designer | session_01USbuJ9znkRnKbNV4cnJUNW |
-| Director | session_01HeFuWAEdxcgfha4QYoAC3Z |
-| Steward | session_01FRDAYFCGf1CkVUYdddfvi7 |
-| QA-Live 6 (live checks, while it runs) | session_01FRDAYFjPARnHGEy8SXNuo8 |
-| Scribe-2 | session_01FRDAYHZyBA1pmnXw7MYEdi |
-| Release | session_01BGZgB9afnDnbYURA7D11gk |
-| Status Desk | session_01GYxBJctxeeNdzejMuRiCW6 |
+## Sessions
+The per-role session table (Oct 2026) is retired: those sessions have ended. Its last version is in git history (before 8 Nov 2026). Live agents are listed in the lead's `MAIN-HANDOFF.md`.
 
 ## QA review checklist (every PR)
-- Tests: lint, typecheck and unit tests pass; the browser tests pass on the free stand-ins (`BS_FAKE_PROVIDERS`).
+- Tests: lint, typecheck and unit tests pass; the browser tests pass on the free stand-ins (`BS_FAKE_PROVIDERS`), and on the preview for screens and flows once it exists (never by experimenting on Reed's site).
 - Nothing paid runs outside a test the Producer approved; every paid call is logged in ops/SPEND.md.
 - Editors never see dollars, and an editor past the weekly allowance is declined with the reason (never "Ask Reed").
 - Phones (390): no sideways scroll, every control at least 44px.

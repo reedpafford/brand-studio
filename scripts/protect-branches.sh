@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Sets branch protection on main and next. Safe to re-run (it replaces the rules each time).
+# Sets branch protection on next, the only branch. Safe to re-run (it replaces the rules each time).
 # Needs `gh` logged in as Reed (repo admin). Reed himself is NOT enforced, so he can still merge in an emergency.
 set -euo pipefail
 REPO=${REPO:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}
 # Check names = job names in .github/workflows (server and web both call theirs lint-test).
 CHECKS='["guides-guard","lint-test","browser-tests"]'
-BRANCHES=(main next)
+BRANCHES=(next)
 
 cat <<MSG
 About to set protection on $REPO for: ${BRANCHES[*]}
