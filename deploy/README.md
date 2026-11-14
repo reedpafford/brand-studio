@@ -1,11 +1,83 @@
 # Getting Brand Studio live (phone-friendly guide)
 
+## Old production site (retired 9 Nov 2026)
+
+Reed's site is now the former test site: **https://thisisatestingenv.online** (also
+`https://srv2091584.hstgr.cloud:8443`), branch `next`, folder `~/brand-studio-next`, Compose
+project `brand-studio-next`. It deploys from `next` (`deploy/next/README.md`).
+
+The old production site (https://srv2091584.hstgr.cloud, branch `main`, folder `~/brand-studio`,
+Compose project `brand-studio`) is **stopped and kept as a snapshot. Nothing of it was moved or
+deleted.** Every deploy from `main` now runs `deploy/remote-deploy.sh`, which only keeps it
+stopped: it never rebuilds, resets or restarts it.
+
+**Its web server keeps running.** The old site's Caddy container holds ports 80, 443 and 8443 for
+the whole server and is also the front door of Reed's site. Never stop it (or run
+`docker compose down` in `~/brand-studio/deploy`) until a separate front door replaces it.
+
+**What the snapshot is** (all on the server):
+- The old volumes `brand-studio_db` (database) and `brand-studio_files` (uploads), untouched.
+- `~/old-production-snapshot/`: `old-production-db.sql.gz` (a fresh database dump made just
+  before it stopped), `old-production.env` (its settings, including the database password),
+  `code-commit.txt` (the code it ran), `images.txt`, `volumes.txt`, `nightly-backups.txt`, and
+  `DONE` (when it was made).
+- Its images, also tagged `brand-studio-server:old-production` and `brand-studio-web:old-production`.
+- The folder `~/brand-studio` (its code and `deploy/.env`), never changed again. Don't delete it:
+  Reed's site's deploy reads the server's address from `~/brand-studio/deploy/.env`.
+- Its nightly backups in `~/brand-studio/deploy/backups/` (database plus files), kept for good:
+  the nightly job was removed, so nothing prunes them.
+
+**Never run** `docker system prune`, `docker container prune`, `docker volume prune`, or
+`docker compose -p brand-studio down -v`: each destroys part of the snapshot.
+
+### Bringing the old site back
+Do these in Hostinger → VPS → **Web console**. First revert the "retire the old site" change on
+`main` (or the next push to `main` stops it again); that revert also redeploys it (option B's
+last line).
+
+**A. Its containers are still there (the normal case), about 1 minute:**
+```
+cd ~/brand-studio/deploy
+docker compose -p brand-studio start db && sleep 10
+docker compose -p brand-studio start api worker claude-worker reel-worker
+curl -fsS https://srv2091584.hstgr.cloud/api/health
+```
+
+**B. Its containers were removed but the volumes are still there, about 2 minutes:**
+```
+docker tag brand-studio-server:old-production brand-studio-server
+docker tag brand-studio-web:old-production brand-studio-web
+cd ~/brand-studio/deploy && git log -1 --format=%h   # should match ~/old-production-snapshot/code-commit.txt
+cp ~/old-production-snapshot/old-production.env .env   # only if .env was lost
+docker compose up -d --no-build   # reattaches the untouched brand-studio_db and brand-studio_files
+```
+Or revert the retire change on `main`: the old deploy rebuilds and starts it on the same volumes
+(about 15 minutes). Either way Reed's site may blink for a few seconds while the web server restarts.
+
+**C. The old database volume is lost:** the database from the snapshot dump; the files from the
+newest nightly backup (the only copy of the old uploads besides their volume):
+```
+cd ~/brand-studio/deploy
+docker compose up -d --no-build db && sleep 10
+gunzip -c ~/old-production-snapshot/old-production-db.sql.gz | docker compose exec -T db psql -q -U brand -d brand
+# only if the files volume is lost too (replace the date):
+docker compose run --rm --no-deps -T api tar -xzf - -C /data < backups/files-2026-11-08.tar.gz
+docker compose up -d --no-build
+```
+
+A Hostinger server snapshot (VPS → **Snapshots & backups**) also exists from 9 Nov, but restoring
+it rolls Reed's site back too: for disasters only.
+
+---
+
+## How the old site was set up (Parts 1–9, kept for reference)
+
 Everything runs in Docker on one Hostinger VPS: the database, the app, the background worker,
 and Caddy, which serves the website and gets the HTTPS certificate by itself.
 
-**GitHub does the deploying.** After this one-time setup, every change merged into `main` goes
-live by itself: GitHub runs all the checks, logs in to the VPS, updates the code, restarts the
-app and checks the site answers. You never have to log in to the server for updates.
+**GitHub did the deploying.** Until 9 Nov, every change merged into `main` went live by itself:
+GitHub ran all the checks, logged in to the VPS, updated the code, restarted the app and checked
+the site answered. Since then a deploy from `main` only keeps the old site stopped (above).
 
 **Before you start**
 - About 30 minutes, a phone (or computer) and a web browser. Use the browser (Safari or Chrome),
@@ -236,30 +308,23 @@ them by itself yet: pick them per sheet and per clip.
 
 ## Reference
 
-**What each deploy does** (`deploy/remote-deploy.sh`, run on the server by
-`.github/workflows/deploy.yml`): installs git and Docker if missing, downloads the latest code,
-writes `deploy/.env` from the secrets (the database password is made on the server once and
-never leaves it), runs `docker compose up -d --build`, waits for `https://<address>/api/health`,
-refreshes the launch brands' screens, and keeps the nightly backup switched on.
+**What each deploy from `main` does since 9 Nov** (`deploy/remote-deploy.sh`, run on the server
+by `.github/workflows/deploy.yml`): the first time, makes the snapshot above; every time, stops
+the old site's database, API and workers (never its web server), removes its nightly backup job,
+saves a copy of Reed's site's database to `~/brand-studio-next/deploy/backups/`, and checks
+https://thisisatestingenv.online answers. Safe to run again. Until 9 Nov it installed git and
+Docker, downloaded the latest code, wrote `deploy/.env`, rebuilt and restarted the old site, and
+kept its nightly backup on (git history has that version).
 
-**Backups.** Every night at 3:30 (server time) the database and all uploaded files are saved to
-`~/brand-studio/deploy/backups/` for 14 days. They don't survive losing the server: now and then
-copy that folder elsewhere. **Restore** (Web console, replace the date):
-```
-cd ~/brand-studio/deploy
-docker compose down
-docker volume rm brand-studio_db brand-studio_files
-docker compose up -d db && sleep 10
-gunzip -c backups/db-2026-10-23.sql.gz | docker compose exec -T db psql -q -U brand -d brand
-docker compose run --rm --no-deps -T api tar -xzf - -C /data < backups/files-2026-10-23.tar.gz
-docker compose up -d
-```
+**Backups.** Until 9 Nov the old site's database and uploads were saved every night to
+`~/brand-studio/deploy/backups/`; those files are kept (see the snapshot above). Reed's site's
+backups: `deploy/next/README.md`.
 
-**Handy commands** (Web console, from `~/brand-studio/deploy`): `docker compose ps` (what's
-running), `docker compose logs --tail 50 api worker claude-worker reel-worker caddy` (recent messages),
-`docker compose restart`. Deploy by hand: `git pull && docker compose up -d --build`, then, if
-`assets/brands/*/screens/screens.json` changed, `docker compose exec -T api python -m app.seed refresh`.
-Never delete `deploy/.env` on the server: it holds the database password.
+**Handy commands** (Web console, from `~/brand-studio/deploy`): `docker compose ps -a` (what's
+running and what's stopped), `docker compose logs --tail 50 caddy` (the front door's recent
+messages). Never `docker compose restart`, `up` or `down` here unless you're bringing the old site
+back. Never delete `deploy/.env` on the server: it holds the old database password and the
+server's address.
 
 **Optional hardening, later:** a non-root `deploy` user with a key limited to running the deploy,
 instead of `root`. Not needed to go live.
