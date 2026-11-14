@@ -24,7 +24,7 @@ Each agent is its own Claude Code session on this repo. Work is tracked as GitHu
 ## Flow
 Producer opens issue → (Designer sketches screens) → Builder opens PR from `agent/<name>/<topic>` → QA (+ Steward, Designer) review → merge → Scribe logs → Explorer checks live.
 - **Before every push, check the PR is still open.** A push to a merged PR never ships; put it in a new PR from the base branch instead.
-- **Branch every PR from its base (`main` or `next`), never from another open PR.** Squash merges break stacked PRs.
+- **Branch every PR from `next`, the only branch, never from another open PR.** Squash merges break stacked PRs. (`main` was folded into `next` on 13 Nov 2026: the spend log and these notes are PRs into `next` too, and a notes-only merge deploys nothing.)
 - **After QA passes a head, don't push to it** unless the Producer asks; a new head needs a new pass.
 
 ## Size budgets (Steward enforces)

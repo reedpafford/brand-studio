@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs ON the VPS, piped in over SSH by .github/workflows/deploy.yml (every push to main). Safe to
+# Runs ON the VPS, piped in over SSH by .github/workflows/deploy.yml (run by hand). Safe to
 # run again. Since 9 Nov the old production site is retired (Reed): this keeps a snapshot of it and
 # keeps it stopped. Its web server (caddy) keeps running: it is also the front door of Reed's site
 # (thisisatestingenv.online and port 8443). Nothing of the old site is moved, rebuilt or deleted:

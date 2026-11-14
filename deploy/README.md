@@ -8,8 +8,9 @@ project `brand-studio-next`. It deploys from `next` (`deploy/next/README.md`).
 
 The old production site (https://srv2091584.hstgr.cloud, branch `main`, folder `~/brand-studio`,
 Compose project `brand-studio`) is **stopped and kept as a snapshot. Nothing of it was moved or
-deleted.** Every deploy from `main` now runs `deploy/remote-deploy.sh`, which only keeps it
-stopped: it never rebuilds, resets or restarts it.
+deleted.** `deploy/remote-deploy.sh` only keeps it stopped: it never rebuilds, resets or restarts
+it. It ran on every deploy from `main` until 13 Nov, when `main` was folded into `next`; now it
+runs only by hand (Actions, "deploy", Run workflow).
 
 **Its web server keeps running.** The old site's Caddy container holds ports 80, 443 and 8443 for
 the whole server and is also the front door of Reed's site. Never stop it (or run
@@ -31,9 +32,9 @@ the whole server and is also the front door of Reed's site. Never stop it (or ru
 `docker compose -p brand-studio down -v`: each destroys part of the snapshot.
 
 ### Bringing the old site back
-Do these in Hostinger → VPS → **Web console**. First revert the "retire the old site" change on
-`main` (or the next push to `main` stops it again); that revert also redeploys it (option B's
-last line).
+Do these in Hostinger → VPS → **Web console**. Nothing stops it again by itself: since 13 Nov
+the script that keeps it stopped runs only when someone runs the "deploy" workflow by hand, so
+don't run that workflow while the old site is wanted.
 
 **A. Its containers are still there (the normal case), about 1 minute:**
 ```
@@ -51,8 +52,9 @@ cd ~/brand-studio/deploy && git log -1 --format=%h   # should match ~/old-produc
 cp ~/old-production-snapshot/old-production.env .env   # only if .env was lost
 docker compose up -d --no-build   # reattaches the untouched brand-studio_db and brand-studio_files
 ```
-Or revert the retire change on `main`: the old deploy rebuilds and starts it on the same volumes
-(about 15 minutes). Either way Reed's site may blink for a few seconds while the web server restarts.
+The old way of rebuilding it from `main` is gone with that branch (its last commit is kept as the
+tag `main-final-2026-11-13`; the old site's own code commit is in the snapshot). Reed's site may
+blink for a few seconds while the web server restarts.
 
 **C. The old database volume is lost:** the database from the snapshot dump; the files from the
 newest nightly backup (the only copy of the old uploads besides their volume):
@@ -77,7 +79,8 @@ and Caddy, which serves the website and gets the HTTPS certificate by itself.
 
 **GitHub did the deploying.** Until 9 Nov, every change merged into `main` went live by itself:
 GitHub ran all the checks, logged in to the VPS, updated the code, restarted the app and checked
-the site answered. Since then a deploy from `main` only keeps the old site stopped (above).
+the site answered. From 9 Nov a deploy from `main` only kept the old site stopped (above), and
+since 13 Nov there is no `main`: Reed's site deploys from `next`, the only branch.
 
 **Before you start**
 - About 30 minutes, a phone (or computer) and a web browser. Use the browser (Safari or Chrome),
@@ -308,7 +311,7 @@ them by itself yet: pick them per sheet and per clip.
 
 ## Reference
 
-**What each deploy from `main` does since 9 Nov** (`deploy/remote-deploy.sh`, run on the server
+**What the "deploy" workflow does since 9 Nov, now only when run by hand** (`deploy/remote-deploy.sh`, run on the server
 by `.github/workflows/deploy.yml`): the first time, makes the snapshot above; every time, stops
 the old site's database, API and workers (never its web server), removes its nightly backup job,
 saves a copy of Reed's site's database to `~/brand-studio-next/deploy/backups/`, and checks
