@@ -146,7 +146,8 @@ class ItemOut(ItemIn):
     created_by_id: int | None = None  # who made it ("Uploaded by Reed, 28 Oct")
     archived_at: UtcTime | None = None
     pictures: list[PictureOut] = []  # a product's pictures in this brand (products only)
-    sheet_file_id: int | None  # the house-style sheet; only an approved one is used in videos
+    sheet_file_id: int | None  # its main sheet; only an approved one is used in videos
+    sheet_look: str | None = None  # the style that sheet is in (null: none asked yet)
     sheet_status: Literal["none", "drawing", "waiting_for_owner", "needs_approval", "approved"]
     voice_file_name: str | None = None  # a character's voice sample, as it was uploaded
     owner_project_id: int | None = None  # "This video only"
@@ -280,6 +281,7 @@ def _out(item: LibraryItem) -> ItemOut:
         kind=item.kind,
         version=item.version,
         sheet_status=sheet_status(item),
+        sheet_look=item.sheet_look or ("house" if item.sheet_file_id else None),
         owner_project_id=item.owner_project_id,
         owner_script_id=item.owner_script_id,
         voice_file_name=_voice_name(item),
@@ -492,10 +494,12 @@ def create_item(
     if project_id and script_id:
         raise HTTPException(422, "A look belongs to one video or one script, not both.")
     item = LibraryItem(workspace_id=user.workspace_id, kind=kind, created_by_id=user.id)
-    if project_id:
-        item.owner_project_id = get_project(db, user, project_id).id
+    if project_id:  # its own look is drawn in its style, as the ones the site makes for it are
+        project = get_project(db, user, project_id)
+        item.owner_project_id, item.sheet_look = project.id, project.look or "house"
     if script_id:
-        item.owner_script_id = lib.editable(user, lib.get_script(db, user, script_id)).id
+        script = lib.editable(user, lib.get_script(db, user, script_id))
+        item.owner_script_id, item.sheet_look = script.id, script.look or "house"
     _apply(db, user, item, values)
     db.add(item)
     db.commit()

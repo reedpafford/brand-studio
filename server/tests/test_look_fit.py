@@ -4,6 +4,7 @@ redone once by itself, then shown with advice. Claude is mocked: no paid calls."
 
 import math
 
+from app import guides
 from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.library import LibraryItem
@@ -12,6 +13,7 @@ from tests.conftest import upload
 from tests.test_enhance import FakeClaude, _run
 
 TEACHER = "Mid-40s woman, a primary-school teacher; curly hair, green cardigan"
+HOUSE = {"look_id": "house"}  # a Cast & places sheet names its style (Reed, 15 Nov)
 CHILD = {"fits": False, "seen": "girl of about 10", "problem": "draw an adult woman in her 40s"}
 
 
@@ -40,7 +42,7 @@ def _waiting(db, item, step):
 def test_a_look_that_reads_wrong_is_redone_once_then_advised(app, db, editor):
     item = _look(editor, db, image_file_ids=[upload(editor)])
     url = f"/library/character/{item.id}"
-    sheet = db.get(Job, editor.post(f"{url}/sheet", json={}).json()["id"])
+    sheet = db.get(Job, editor.post(f"{url}/sheet", json=HOUSE).json()["id"])
     _landed(db, item, sheet)
     (check,) = _waiting(db, item, "look_fit")
     assert (check.input["effort"], check.input["redo"], check.input["fit_images_to"]) == (
@@ -73,11 +75,12 @@ def test_a_look_that_reads_wrong_is_redone_once_then_advised(app, db, editor):
 def test_a_look_that_fits_says_nothing_and_a_persons_change_is_never_redone(app, db, editor):
     item = _look(editor, db, image_file_ids=[upload(editor)])
     url = f"/library/character/{item.id}"
-    _landed(db, item, db.get(Job, editor.post(f"{url}/sheet", json={}).json()["id"]))
+    _landed(db, item, db.get(Job, editor.post(f"{url}/sheet", json=HOUSE).json()["id"]))
     _run(app, db, FakeClaude({"fits": True, "seen": "woman in her 40s", "problem": ""}))
     db.expire_all()
     assert editor.get(url).json()["look_fit"] is None
-    changed = db.get(Job, editor.post(f"{url}/sheet", json={"change": "Shorter hair"}).json()["id"])
+    shorter = {**HOUSE, "change": "Shorter hair"}
+    changed = db.get(Job, editor.post(f"{url}/sheet", json=shorter).json()["id"])
     _landed(db, item, changed)
     (check,) = _waiting(db, item, "look_fit")
     assert check.input["redo"] is False  # the person asked for this change: advice only
@@ -87,7 +90,7 @@ def test_a_sheet_from_a_photo_is_never_checked(db, editor):
     photo = upload(editor)
     item = _look(editor, db, source_photo_file_id=photo, image_file_ids=[photo])
     _landed(db, item, db.get(Job, editor.post(f"/library/character/{item.id}/sheet",
-                                              json={}).json()["id"]))  # fmt: skip
+                                              json=HOUSE).json()["id"]))  # fmt: skip
     assert not _waiting(db, item, "look_fit")
 
 
@@ -105,7 +108,7 @@ def test_a_look_shows_its_whole_price_and_is_never_refused_for_the_week(owner, d
     )
     limits = owner.get("/credits/limits").json()
     owner.put("/credits/limits", json={**limits, "weekly_quick_clip_credits": 0})
-    assert editor.post(f"{url}/sheet", json={}).status_code in (200, 201)
+    assert editor.post(f"{url}/sheet", json=HOUSE).status_code in (200, 201)
 
 
 def test_the_check_and_redo_spend_what_the_press_held(owner, app, db, editor):
@@ -115,7 +118,7 @@ def test_the_check_and_redo_spend_what_the_press_held(owner, app, db, editor):
     item = _look(editor, db, image_file_ids=[upload(editor)])
     url = f"/library/character/{item.id}"
     whole = look_price(db, item.workspace_id)
-    sheet = db.get(Job, editor.post(f"{url}/sheet", json={}).json()["id"])
+    sheet = db.get(Job, editor.post(f"{url}/sheet", json=HOUSE).json()["id"])
     _landed(db, item, sheet)
     _run(app, db, FakeClaude(CHILD))  # the check fails: the redo is held, so it goes ahead
     db.expire_all()
@@ -212,7 +215,7 @@ def test_a_directors_look_its_check_redo_and_their_check_are_its_runs(app, db, e
     for director in (True, False):
         item = _look(editor, db, image_file_ids=[upload(editor)])
         sheet = db.get(
-            Job, editor.post(f"/library/character/{item.id}/sheet", json={}).json()["id"]
+            Job, editor.post(f"/library/character/{item.id}/sheet", json=HOUSE).json()["id"]
         )
         if director:  # as its make_looks tool starts it (DIRECTOR_TOOL)
             sheet.input = {**sheet.input, "by_director": True}
@@ -258,7 +261,12 @@ def test_a_seedream_sheet_is_wide_from_its_words_alone_and_redone_by_seedream(ap
 
     drawn = _look(editor, db, image_file_ids=[upload(editor)])  # no photo: its look is checked
     first = editor.post(f"/library/character/{drawn.id}/sheet", json=seedream).json()["id"]
+    db.refresh(drawn)  # no style was named: Seedream's sheet of a person is kept as Movie's
+    assert drawn.sheet_look == "movie"
     _landed(db, drawn, db.get(Job, first))
+    (check,) = _waiting(db, drawn, "look_fit")  # read as the style it's in, not as House
+    assert guides.tokens("movie")["fit_look"].strip() in check.input["system"][0]
+    assert guides.tokens("house")["fit_look"].strip() not in check.input["system"][0]
     _run(app, db, FakeClaude(CHILD))
     db.expire_all()
     (redo,) = _waiting(db, drawn, "sheet")

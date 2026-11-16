@@ -5,22 +5,25 @@ import { Button, Panel, Skeleton, pressLabel } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useBrandCharacters, type Slot } from "./useCast";
 import { refreshJobs } from "../jobs/refresh";
+import { StylePick, useStyle } from "../library/StylePick";
 
 type Character = NonNullable<ReturnType<typeof useBrandCharacters>["data"]>[number];
 const MODEL = "nano-banana-pro";
 const RESOLUTION = "2K";
 
-/** Lock a role to one of this brand's characters. A character without an approved sheet gets its sheet made right here. */
+/** Lock a role to one of this brand's characters. A character without an approved sheet gets its sheet made right here,
+ *  in the style picked here when it has none yet (never House by assumption: Reed, 15 Nov). */
 export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: Slot; brandId: number; locking: boolean; onLock: (itemId: number) => void; onClose: () => void }) {
   const chars = useBrandCharacters(brandId);
   const queryClient = useQueryClient();
+  const [style, setStyle] = useStyle(brandId);
   const models = useQuery({ queryKey: ["models"], queryFn: async () => (await api.GET("/models")).data ?? [] });
   const price = models.data?.find((m) => m.id === MODEL)?.credits_per_unit?.[RESOLUTION];
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["library", "character"] });
   const path = (c: Character) => ({ kind: "character" as const, item_id: c.id });
   const make = useMutation({
     mutationFn: async (c: Character) => {
-      const { data, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: path(c) }, body: { model_id: MODEL, change: "" } });
+      const { data, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: path(c) }, body: { model_id: MODEL, change: "", ...(c.sheet_look ? {} : { look_id: style }) } });
       if (!data) throw new Error(errorText(error));
     },
     onSuccess: () => Promise.all([refresh(), refreshJobs(queryClient)]),
@@ -41,6 +44,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
     <Panel wide title={`Lock ${slot.role} to a look`} onClose={onClose}>
       <div className="space-y-3">
         <p className="text-sm text-muted">Pick one with an approved sheet, or make its sheet here.</p>
+        {chars.data?.some((c) => c.sheet_status === "none" && !c.sheet_look) && <StylePick value={style} onPick={setStyle} className="h-control rounded-md border border-border-strong bg-surface px-2 text-sm lg:h-9" />}
         {chars.isPending && <Skeleton className="h-32" />}
         <ul className="grid grid-cols-3 gap-3">
           {(chars.data ?? []).map((c) => {
@@ -64,7 +68,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
                 {status === "none" && (
                   <>
                     <Line>No sheet yet</Line>
-                    <Button variant="secondary" dense className="w-full" aria-label={price === undefined ? "Make sheet" : `Make sheet · ${pressLabel(price, "estimate")}`} busy={make.isPending && make.variables?.id === c.id} disabled={make.isPending || price === undefined} onClick={() => make.mutate(c)}>
+                    <Button variant="secondary" dense className="w-full" aria-label={price === undefined ? "Make sheet" : `Make sheet · ${pressLabel(price, "estimate")}`} busy={make.isPending && make.variables?.id === c.id} disabled={make.isPending || price === undefined || (!c.sheet_look && !style)} onClick={() => make.mutate(c)}>
                       Make sheet
                     </Button>
                     {price !== undefined && <p className="text-center text-xs text-muted">{pressLabel(price, "estimate")}</p>}

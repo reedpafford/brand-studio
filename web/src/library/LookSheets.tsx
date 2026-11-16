@@ -5,18 +5,20 @@ import type { components } from "../api/schema";
 import { fileUrl } from "../api/upload";
 import { useMe } from "../auth/useMe";
 import { Badge, Button } from "../components";
-import { useLooks } from "../scripts/Looks";
+import { lookName, useLooks } from "../scripts/Looks";
 import { useToast } from "../toast";
 import { card, errorText as errorClass } from "../ui";
 import { useSheetPrice } from "./sheets";
 
 type Item = components["schemas"]["ItemOut"];
 
-/** A character's sheet in each look besides House (flows ST2; Next-Server's #930). Only the owner adds one; a video in a
- *  look without one makes its own copy at Assets instead. */
+/** A character's sheet in each look besides the one their main sheet is in (flows ST2; Next-Server's #930). Only the
+ *  owner adds one; a video in a look without one makes its own copy at Assets instead. */
 export function LookSheets({ item }: { item: Item }) {
   const owner = useMe().data?.role === "owner";
-  const looks = (useLooks().data ?? []).filter((l) => l.id !== "house");
+  const every = useLooks().data ?? [];
+  const main = item.sheet_look ?? "house"; // the style the sheet above is in
+  const looks = every.filter((l) => l.id !== main);
   const queryClient = useQueryClient();
   const toast = useToast();
   const { model, price } = useSheetPrice();
@@ -66,7 +68,7 @@ export function LookSheets({ item }: { item: Item }) {
     <section aria-label="Sheets in other styles" className={`${card} space-y-3`}>
       <div>
         <h2 className="font-medium">Sheets in other styles</h2>
-        <p className="text-sm text-muted">The House sheet is above. A video in a style with no sheet here makes its own look for that video.</p>
+        <p className="text-sm text-muted">The {lookName(every, main)} sheet is above. A video in a style with no sheet here makes its own look for that video.</p>
       </div>
       {refused && <p role="alert" className={errorClass}>{refused}</p>}
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">

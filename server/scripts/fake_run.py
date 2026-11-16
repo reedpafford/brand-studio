@@ -55,7 +55,7 @@ def drain(app, providers) -> None:
 def library(c, work, kind: str, text: str) -> int:
     label = text.split(" ", 1)[1]  # "char:1 Bruno, the pitbull" -> "Bruno, the pitbull"
     item = ok(c.post(f"/library/{kind}", json={"name": label[:60], "notes": label}), kind)
-    ok(c.post(f"/library/{kind}/{item['id']}/sheet", json={}), "sheet")
+    ok(c.post(f"/library/{kind}/{item['id']}/sheet", json={"look_id": "house"}), "sheet")
     work()
     ok(c.post(f"/library/{kind}/{item['id']}/sheet/approve"), "approve sheet")
     return item["id"]

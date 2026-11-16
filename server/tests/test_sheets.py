@@ -15,6 +15,8 @@ from tests.test_clips import fomo  # noqa: F401 - fixture
 from tests.test_replicate import BASE
 from tests.test_storyboard import FakeNanoBanana
 
+HOUSE = {"look_id": "house"}  # a Cast & places sheet names its style (Reed, 15 Nov)
+
 
 def _work(app, db, fake=None):
     fake = fake or FakeNanoBanana()
@@ -34,12 +36,12 @@ def test_sheet_from_notes_then_approve(app, db, editor):
     ).json()
     url = f"/library/character/{mia['id']}"
     assert mia["sheet_status"] == "none"
-    job = editor.post(f"{url}/sheet", json={})
+    job = editor.post(f"{url}/sheet", json=HOUSE)
     assert job.status_code == 201, job.text
     assert job.json()["credits"] == 1.5  # Nano Banana Pro, 0.1542 USD / 0.1028
     assert (job.json()["step"], job.json()["library_item_id"]) == ("sheet", mia["id"])
     assert editor.get(url).json()["sheet_status"] == "drawing"
-    assert editor.post(f"{url}/sheet", json={}).status_code == 409  # one at a time
+    assert editor.post(f"{url}/sheet", json=HOUSE).status_code == 409  # one at a time
     (sent,) = _work(app, db)
     assert "green hoodie" in sent["prompt"] and "Mia" not in sent["prompt"]  # no names drawn
     assert sent["aspect_ratio"] == "9:16" and sent["allow_fallback_model"] is False
@@ -64,12 +66,12 @@ def test_sheet_from_a_photo_and_redo(app, db, editor):
         "/library/character", json={"name": "Mia", "source_photo_file_id": photo}
     ).json()
     url = f"/library/character/{mia['id']}"
-    body = {"model_id": "nano-banana-2.1"}
+    body = {**HOUSE, "model_id": "nano-banana-2.1"}
     assert editor.post(f"{url}/sheet", json=body).json()["credits"] == 0.33
     (first,) = _work(app, db)
     assert len(first["image_input"]) == 1  # the photo, to draw the likeness from
     sheet = editor.get(url).json()["sheet_file_id"]
-    editor.post(f"{url}/sheet", json={"change": "Bigger eyes."})
+    editor.post(f"{url}/sheet", json={**HOUSE, "change": "Bigger eyes."})
     (redo,) = _work(app, db)
     assert len(redo["image_input"]) == 2 and "Bigger eyes." in redo["prompt"]  # photo, sheet
     item = editor.get(url).json()
@@ -90,7 +92,7 @@ def test_videos_use_only_the_approved_sheet_never_the_photo(app, db, editor, fom
     r = editor.post("/clips", json=clip)
     assert (r.status_code, r.json()["detail"]) == (422, "Approve Maya's sheet first.")
 
-    editor.post(f"{url}/sheet", json={})
+    editor.post(f"{url}/sheet", json=HOUSE)
     _work(app, db)
     r = editor.post("/clips", json=clip)
     assert r.json()["detail"] == "Approve Maya's sheet first."  # drawn, not approved yet
@@ -116,16 +118,16 @@ def maya_sheet(db, item_id):
 
 def test_sheet_rules(app, editor, outsider):
     cafe = editor.post("/library/place", json={"name": "Cafe", "notes": "cosy corner"}).json()
-    job = editor.post(f"/library/place/{cafe['id']}/sheet", json={})
+    job = editor.post(f"/library/place/{cafe['id']}/sheet", json=HOUSE)
     assert job.status_code == 201
     bag = editor.post("/library/prop", json={"name": "Bag", "notes": "a bag"}).json()
-    assert editor.post(f"/library/prop/{bag['id']}/sheet", json={}).status_code == 422
+    assert editor.post(f"/library/prop/{bag['id']}/sheet", json=HOUSE).status_code == 422
     blank = editor.post("/library/character", json={"name": "Nobody"}).json()
-    assert editor.post(f"/library/character/{blank['id']}/sheet", json={}).status_code == 422
-    assert_hidden(outsider, [("POST", f"/library/place/{cafe['id']}/sheet", {})])
+    assert editor.post(f"/library/character/{blank['id']}/sheet", json=HOUSE).status_code == 422
+    assert_hidden(outsider, [("POST", f"/library/place/{cafe['id']}/sheet", HOUSE)])
     app.state.settings.generation_enabled = False
     try:
-        assert editor.post(f"/library/place/{cafe['id']}/sheet", json={}).status_code == 503
+        assert editor.post(f"/library/place/{cafe['id']}/sheet", json=HOUSE).status_code == 503
     finally:
         app.state.settings.generation_enabled = True
 
@@ -135,7 +137,7 @@ def test_a_sheet_is_never_refused_for_the_week(owner, editor):
     owner.put("/credits/limits", json={"weekly_quick_clip_credits": 1})
     mia = editor.post("/library/character", json={"name": "Mia", "notes": "teen trader"}).json()
     url = f"/library/character/{mia['id']}"
-    made = editor.post(f"{url}/sheet", json={})
+    made = editor.post(f"{url}/sheet", json=HOUSE)
     assert made.status_code in (200, 201), made.text
     assert editor.get(url).json()["sheet_status"] != "none"
 
@@ -150,7 +152,7 @@ def test_a_redo_note_is_folded_into_the_description_not_piled_on_its_end(app, db
     new = {"name": "Mia", "notes": "A teen trader with brown hair."}
     mia = editor.post("/library/character", json=new).json()
     url = f"/library/character/{mia['id']}"
-    editor.post(f"{url}/sheet", json={})
+    editor.post(f"{url}/sheet", json=HOUSE)
     _work(app, db)
     item = db.get(LibraryItem, mia["id"])
     item.owner_script_id, item.sheet_look = 1, "house"  # a look made for one script's video

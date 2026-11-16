@@ -56,7 +56,7 @@ test("at 390, a character page's Make the sheet, Archive, More, voice, place and
   const brandId = await emptyBrand(page, `Touch Cast ${test.info().retry}`);
   const made = await page.request.post("/api/library/character", { data: { name: "Pip", notes: "", brand_ids: [brandId], image_file_ids: [], outfits: [], presenter: false } });
   await page.goto(`/b/${brandId}/library/characters/${(await made.json()).id}`);
-  for (const press of [page.getByRole("button", { name: /^Make the sheet/ }), page.getByRole("button", { name: "Archive" }), page.getByRole("button", { name: "More" }), page.getByRole("button", { name: "Pick a voice" }), page.getByRole("button", { name: /^None/ })]) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  for (const press of [page.getByRole("combobox", { name: "Style" }), page.getByRole("button", { name: /^Make the sheet/ }), page.getByRole("button", { name: "Archive" }), page.getByRole("button", { name: "More" }), page.getByRole("button", { name: "Pick a voice" }), page.getByRole("button", { name: /^None/ })]) expect((await press.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await page.getByRole("button", { name: "More" }).click();
   const save = page.getByRole("button", { name: "Save changes" });
   await save.scrollIntoViewIfNeeded();

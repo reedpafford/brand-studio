@@ -9045,6 +9045,8 @@ export interface components {
             pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
+            /** Sheet Look */
+            sheet_look?: string | null;
             /**
              * Sheet Status
              * @enum {string}
@@ -10762,6 +10764,8 @@ export interface components {
             pictures: components["schemas"]["PictureOut"][];
             /** Sheet File Id */
             sheet_file_id: number | null;
+            /** Sheet Look */
+            sheet_look?: string | null;
             /**
              * Sheet Status
              * @enum {string}
@@ -16758,7 +16762,7 @@ export interface operations {
     approve_library__kind___item_id__sheet_approve_post: {
         parameters: {
             query?: {
-                look_id?: string;
+                look_id?: string | null;
             };
             header?: never;
             path: {
@@ -16792,7 +16796,7 @@ export interface operations {
     unapprove_library__kind___item_id__sheet_approve_delete: {
         parameters: {
             query?: {
-                look_id?: string;
+                look_id?: string | null;
             };
             header?: never;
             path: {

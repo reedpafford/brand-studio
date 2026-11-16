@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { Button } from "../components";
 import { errorText as errorClass } from "../ui";
 import { useCreateItem } from "./itemActions";
+import { StylePick, useStyle } from "./StylePick";
 import { KINDS, slugOf, upTo, useNewPrice, type Kind } from "./kinds";
 
 const field = "h-control lg:h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-base text-text placeholder:text-muted lg:text-sm";
@@ -35,6 +36,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
   const product = kind === "prop";
   // A retry after a later step failed goes on from there, and once it's made its words can't change here (QA).
   const { create, locked } = useCreateItem(brandId, kind, (id) => (product ? onClose() : setMade(id)));
+  const [look, setLook] = useStyle(brandId);
   // The new sheet as it's drawn: its page opens once it's in (or waits for the owner's OK).
   const item = useQuery({
     enabled: made !== null,
@@ -46,11 +48,11 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
   useEffect(() => {
     if (made !== null && item.data && item.data.sheet_status !== "drawing") navigate(`/b/${brandId}/library/${slugOf(kind)}/${made}`);
   }, [made, item.data, brandId, kind, navigate]);
+  const ready = !!name.trim() && (product || ((!!photo || !!words.trim()) && !!look));
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim() && (product || photo || words.trim())) create.mutate({ name, words, photo, more, type });
+    if (ready) create.mutate({ name, words, photo, more, type, look });
   };
-  const ready = !!name.trim() && (product || !!photo || !!words.trim());
   return (
     <form onSubmit={submit} className="flex w-full max-w-[620px] flex-col gap-3" aria-label={`New ${one}`}>
       <h2 className="text-lg font-semibold">New {one}</h2>
@@ -82,6 +84,12 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
             <span className="mb-1 block font-medium">{product ? "What must read right" : "Description"}</span>
             <input className={field} disabled={locked} value={words} onChange={(e) => setWords(e.target.value)} placeholder={product ? (type === "app" ? "Always the real UI; numbers can be made up" : "The label must read right: the brand, the claim, the flavour") : kind === "place" ? "“A small kitchen at night, one warm lamp”" : "“Woman, late 30s, glasses, cardigan, tired but kind”"} />
           </label>
+          {!product && (
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Style its sheet is drawn in</span>
+              <StylePick value={look} onPick={setLook} className={field} />
+            </label>
+          )}
           {product && (
             <div role="radiogroup" aria-label="It's" className="inline-flex gap-0.5 self-start rounded-md bg-surface-2 p-0.5">
               {(["physical", "app"] as const).map((t) => (
@@ -98,7 +106,7 @@ export function NewItem({ brandId, kind, photo: picked, onClose }: { brandId: nu
           )}
           {create.isError && <p role="alert" className={errorClass}>{create.error.message}</p>}
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit" disabled={!ready} busy={create.isPending} reason={!ready ? (product ? "Name it first" : "Name it, then describe it or add a photo") : null}>
+            <Button type="submit" disabled={!ready} busy={create.isPending} reason={!ready ? (product ? "Name it first" : "Name it, describe it or add a photo, and pick its style") : null}>
               {product ? "Save product" : "Make it"}
               {!product && cost && <>{" "}<span className="opacity-80">· {cost}</span></>}
             </Button>

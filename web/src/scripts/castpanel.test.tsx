@@ -59,15 +59,18 @@ test("with roles there is Find roles again, after a confirm", async () => {
   await vi.waitFor(() => expect(calls.some((c) => c.key === "POST /scripts/7/cast/read")).toBe(true));
 });
 
-test("in Lock to a look, a character without a sheet gets Make sheet at its price right there", async () => {
+test("in Lock to a look, a character without a sheet gets Make sheet at its price right there, in the style picked", async () => {
   setViewport(1440);
-  const calls = fakeServer(base({ "GET /scripts/7/cast": [200, [slot]], "POST /library/character/5/sheet": [201, { id: 92, kind: "image", status: "queued" }] }));
+  const looks = [{ id: "movie", name: "Movie", blurb: "", on: true, own_sample: false, lanes: [] }];
+  const calls = fakeServer(base({ "GET /scripts/7/cast": [200, [slot]], "GET /looks": [200, looks], "POST /library/character/5/sheet": [201, { id: 92, kind: "image", status: "queued" }] }));
   open();
   await userEvent.click(await screen.findByRole("button", { name: "Lock Mia to a look" }));
   const panel = await screen.findByRole("dialog", { name: "Lock Mia to a look" });
   expect(within(panel).getByText("No sheet yet")).toBeInTheDocument();
+  expect(within(panel).getByRole("button", { name: "Make sheet · up to 3 credits" })).toBeDisabled(); // no style yet: none is assumed
+  await userEvent.selectOptions(await within(panel).findByRole("combobox", { name: "Style" }), await within(panel).findByRole("option", { name: "Movie" }));
   await userEvent.click(within(panel).getByRole("button", { name: "Make sheet · up to 3 credits" }));
-  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ change: "" }));
+  await vi.waitFor(() => expect(calls.find((c) => c.key === "POST /library/character/5/sheet")?.body).toMatchObject({ change: "", look_id: "movie" }));
 });
 
 test("a sheet that needs approval is approved in the panel, and approving locks the role to it", async () => {

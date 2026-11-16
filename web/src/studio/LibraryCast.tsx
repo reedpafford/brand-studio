@@ -6,6 +6,7 @@ import { fileUrl } from "../api/upload";
 import { useJobs } from "../clip/History";
 import { textSize } from "../components";
 import { itemWords, useApproveSheet, useArchive, useCreateItem, useDrawSheet, useItem, usePickVoice, useSaveItem } from "../library/itemActions";
+import { StylePick, useStyle } from "../library/StylePick";
 import { STATUS, USED } from "../library/ItemPage";
 import { cover, day, upTo, useItems, useNewPrice, type Item } from "../library/kinds";
 import { SHEET_NOTE, lookFitNote } from "../library/sheets";
@@ -93,7 +94,9 @@ function Person({ brandId, brand, listed }: { brandId: number; brand: string; li
   }, [item.sheet_status]); // eslint-disable-line react-hooks/exhaustive-deps
   const [asking, setAsking] = useState<"edit" | "look" | "remove" | null>(null);
   const [note, setNote] = useState("");
-  const draw = useDrawSheet("character", item.id, () => setAsking(null));
+  const [look, setLook] = useStyle(brandId);
+  const unstyled = item.sheet_status === "none" && !item.sheet_look; // no sheet and no style asked yet: it's picked here
+  const draw = useDrawSheet("character", item.id, () => setAsking(null), unstyled ? look : undefined);
   const approve = useApproveSheet("character", item);
   const archive = useArchive("character", item, () => setAsking(null));
   const lock = useLock(draw.isPending); // a sheet is paid: one request a press, however fast it is pressed (./useLock)
@@ -155,8 +158,9 @@ function Person({ brandId, brand, listed }: { brandId: number; brand: string; li
             Approve
           </button>
         )}
+        {unstyled && <StylePick value={look} onPick={setLook} className="btn soft" />}
         {item.sheet_status === "none" ? (
-          <button type="button" className="btn soft" disabled={draw.isPending} onClick={() => lock((done) => draw.mutate("", { onSettled: done }))}>
+          <button type="button" className="btn soft" disabled={draw.isPending || (unstyled && !look)} onClick={() => lock((done) => draw.mutate("", { onSettled: done }))}>
             <RefreshCw {...ICON} size={14} />
             {last?.status === "failed" ? "Draw again" : "Draw the sheet"} {drawCost && <small>{drawCost}</small>}
           </button>
@@ -295,9 +299,10 @@ function NewPerson({ brandId, onMade, onClose }: { brandId: number; onMade: (id:
   const cost = upTo(price?.credits, price?.usd);
   const { create, locked } = useCreateItem(brandId, "character", (id) => (onMade(id), onClose()));
   const lock = useLock(create.isPending);
-  const ready = !!name.trim() && (!!photo || !!words.trim());
+  const [look, setLook] = useStyle(brandId);
+  const ready = !!name.trim() && (!!photo || !!words.trim()) && !!look;
   return (
-    <Dialog title="New person" confirm={cost ? `Draw their sheet · ${cost}` : "Draw their sheet"} busy={!ready || create.isPending} onClose={onClose} onConfirm={() => lock((done) => create.mutate({ name, words, photo, more: [], type: "physical" }, { onSettled: done }))}>
+    <Dialog title="New person" confirm={cost ? `Draw their sheet · ${cost}` : "Draw their sheet"} busy={!ready || create.isPending} onClose={onClose} onConfirm={() => lock((done) => create.mutate({ name, words, photo, more: [], type: "physical", look }, { onSettled: done }))}>
       <label className="dlab">
         Name
         <input data-autofocus value={name} maxLength={120} disabled={locked} onChange={(e) => setName(e.target.value)} />
@@ -307,6 +312,10 @@ function NewPerson({ brandId, onMade, onClose }: { brandId: number; onMade: (id:
         <input value={words} disabled={locked} placeholder="A mom in her forties, tired, warm" onChange={(e) => setWords(e.target.value)} />
       </label>
       <FileRow label="Or upload a photo" note="Their sheet is drawn from it. The photo itself is never used in a video." accept="image/*" file={photo?.name ?? ""} disabled={locked} onPick={([f]) => setPhoto(f)} />
+      <label className="dlab">
+        Style their sheet is drawn in
+        <StylePick value={look} onPick={setLook} />
+      </label>
       <p className="hint">Their sheet is drawn, then waits for your OK.</p>
       {create.isError && (
         <p className="dsub bad" role="alert">

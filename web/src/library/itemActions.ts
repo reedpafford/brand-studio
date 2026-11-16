@@ -78,13 +78,14 @@ export function useArchive(kind: Kind, item: Item, onGone: () => void) {
   });
 }
 
-/** Draw the item's sheet (paid): from its words when `change` is "", else the last sheet with that change. */
-export function useDrawSheet(kind: Kind, itemId: number, onAsked: () => void) {
+/** Draw the item's sheet (paid): from its words when `change` is "", else the last sheet with that change. `look`: the
+ *  style of a first sheet (./StylePick); a sheet it has already is drawn again in its own. */
+export function useDrawSheet(kind: Kind, itemId: number, onAsked: () => void, look?: string) {
   const refresh = useRefresh(kind);
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (change: string) => {
-      const { data, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind, item_id: itemId } }, body: { model_id: SHEET_MODEL, change } });
+      const { data, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind, item_id: itemId } }, body: { model_id: SHEET_MODEL, change, ...(look ? { look_id: look } : {}) } });
       if (!data) throw new Error(errorText(error));
     },
     onSuccess: () => {
@@ -184,7 +185,7 @@ export function useCreateItem(brandId: number, kind: Kind, onMade: (id: number) 
   const done = useRef<{ item: Item | null; pictures: number }>({ item: null, pictures: 0 });
   const [locked, setLocked] = useState(false);
   const create = useMutation({
-    mutationFn: async ({ name, words, photo, more, type }: { name: string; words: string; photo: File | null; more: File[]; type: "app" | "physical" }) => {
+    mutationFn: async ({ name, words, photo, more, type, look }: { name: string; words: string; photo: File | null; more: File[]; type: "app" | "physical"; look?: string }) => {
       let data = done.current.item;
       if (!data) {
         const source = photo && !product ? (await uploadFile(photo)).id : null;
@@ -204,7 +205,7 @@ export function useCreateItem(brandId: number, kind: Kind, onMade: (id: number) 
         }
         return data.id;
       }
-      const sheet = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind, item_id: data.id } }, body: { model_id: SHEET_MODEL, change: "" } });
+      const sheet = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: { kind, item_id: data.id } }, body: { model_id: SHEET_MODEL, change: "", ...(look ? { look_id: look } : {}) } });
       if (!sheet.data) throw new Error(errorText(sheet.error));
       return data.id;
     },

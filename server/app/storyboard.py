@@ -29,6 +29,8 @@ from app.prompts import check
 from app.prompts.schemas import Breakdown, Frame, StoryboardFrames
 from app.sheets import (
     NO_LOOK,
+    copy_ids,
+    main_look,
     require_cast_sheets,
     require_looks,
     require_sheet,
@@ -130,13 +132,12 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
     )
     from app.video_variations import own_ids
 
-    own = own_ids(db, project)  # a variation's are its source's
+    own, copies = own_ids(db, project), copy_ids(project)  # a variation's are its source's
     for item in [*cast_looks(db, project), *items]:
         mine = item.owner_project_id in own  # a place made for this video only
-        if (
-            item.kind != Kind.character
-            and not mine
-            and not any(b.id == project.brand_id for b in item.brands)
+        if item.kind != Kind.character and (  # a copy is its place's picture, never a place
+            item.id in copies
+            or (not mine and not any(b.id == project.brand_id for b in item.brands))
         ):
             continue
         key = f"{PREFIX[item.kind]}:{item.id}"
@@ -160,12 +161,12 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
         # A locked role uses the sheet it was locked with, even if its look has a newer sheet
         # waiting for approval (Reed's live test: "Mogging BF" read as not approved).
-        locked = (  # in House; another look reads the look's own sheet (ST2)
+        held = db.get(LibraryItem, slot.library_item_id or 0) if item_id else None
+        locked = (  # in the look that sheet is in; another reads the look's own sheet (ST2)
             [slot.sheet_file_id]
-            if item_id
-            and slot.library_item_id
+            if held is not None
             and slot.sheet_file_id
-            and (project.look or "house") == "house"
+            and (project.look or "house") == main_look(held)
             else None
         )
         if f"char:{item_id}" in out:  # the look's own line: its notes win (Reed: used as is)

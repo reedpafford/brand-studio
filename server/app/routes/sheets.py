@@ -28,9 +28,25 @@ from app.models.projects import Project
 from app.prompts.schemas import FoldedNote, LookFit
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.library import ItemOut, _out, _save_version, get_item, look_writer, sheet_status
+from app.routes.library import (
+    ItemOut,
+    _out,
+    _save_version,
+    _waiting_sheets,
+    get_item,
+    look_writer,
+    sheet_status,
+)
 from app.schemas import longest
-from app.sheets import RESOLUTION, SEEDREAM, SHEET_MODEL, check_price, is_checked, worst
+from app.sheets import (
+    RESOLUTION,
+    SEEDREAM,
+    SHEET_MODEL,
+    check_price,
+    is_checked,
+    main_look,
+    worst,
+)
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/library/{kind}/{item_id}/sheet", tags=["library"],
@@ -42,23 +58,54 @@ WORDS_ONLY = "Seedream draws from words only. Describe it first (the notes)."
 class SheetIn(BaseModel):
     model_id: Literal["nano-banana-pro", "nano-banana-2.1", "seedream-5.5"] = SHEET_MODEL
     change: Annotated[str, longest(500)] = ""  # Redo: "What should change?" (optional)
-    look_id: str | None = None  # ST2: the owner's "{look} sheet" on a Cast & places item
+    # The style it's drawn in (`_asked`). Left out: the style its main sheet is in, a redo
+    look_id: str | None = None
 
 
 OWNER_LOOKS = "Only the owner adds a sheet in another style to Cast & places."
+NO_STYLE = "Pick the style to draw it in first: it has no picture yet."  # an API call: `look_id`
+REAL_ONLY = "Seedream draws real-looking people only: ask it for Movie or UGC."
 OWN_LOOK = "This look is this video's own: it's drawn in the video's style already."
 
 
 def _look(user: User, item: LibraryItem, look_id: str | None) -> str | None:
-    """None for House; else the look whose sheet this is (owner only, Cast & places only)."""
-    if look_id in (None, looks.DEFAULT):
+    """None for its main sheet: no look named, the one its main sheet is in (`main_look`) or,
+    with none drawn yet, the first one asked. Else the look whose extra sheet this is (owner
+    only, Cast & places only): also one it has, or is being drawn, in that look with no main
+    sheet (asked as an extra before the main sheet's look was kept)."""
+    mine = own_look(item)
+    extra = look_id in (item.look_sheets or {}) or any(
+        j.input.get("sheet_look_id") == look_id for j in _waiting_sheets(item))  # fmt: skip
+    main = main_look(item) if mine or item.sheet_file_id else None if extra else look_id
+    if look_id in (None, main) or (mine and look_id == looks.DEFAULT):
         return None
     looks.get(look_id)
     if not user.is_owner:
         raise HTTPException(403, OWNER_LOOKS)
-    if own_look(item):
+    if mine:
         raise HTTPException(409, OWN_LOOK)
     return look_id
+
+
+def _asked(user: User, item: LibraryItem, body: SheetIn) -> tuple[str, str | None]:
+    """The style a sheet is asked in, and which sheet it is (`_look`). Reed, 15 Nov: "based on
+    the style prompted", never House because nothing was said. A video's or script's own look
+    is drawn in its own style. A Cast & places item's is the style named, else the one its
+    main sheet is in or was first asked in (a redo); with neither, it's refused. Seedream's
+    sheet of a person is a real-looking one whatever is said, so it is Movie's unless UGC is
+    its style, and never filed as a drawn style's."""
+    mine = own_look(item)
+    kept = item.sheet_look or (looks.DEFAULT if mine or item.sheet_file_id else "")
+    style = kept if mine else body.look_id or kept
+    real = body.model_id == SEEDREAM and item.kind == Kind.character
+    if real and looks.base(style or looks.DEFAULT) not in model_map.PHOTOREAL:
+        if mine or body.look_id:
+            raise HTTPException(422, REAL_ONLY)
+        style = "movie"
+    if not style:
+        raise HTTPException(422, NO_STYLE)
+    looks.get(style)
+    return style, _look(user, item, body.look_id if mine else style)
 
 
 def _item(db: Session, user: User, kind: Kind, item_id: int) -> LibraryItem:
@@ -78,8 +125,10 @@ def make_sheet(
     """Queue a sheet (a paid image job). It is drawn from the source photo when there is one
     (attached as image 1), else from the notes; a redo also attaches the last sheet."""
     item = _item(db, user, kind, item_id)
-    look = _look(user, item, body.look_id)
-    house = look and item.sheet_approved  # another look starts from the House sheet (ST2)
+    if body.look_id and not own_look(item):
+        looks.pick(db, user, body.look_id)  # a style this person may pick (off for editors)
+    _, look = _asked(user, item, body)
+    house = look and item.sheet_approved  # another look starts from its main sheet (ST2)
     if not item.notes.strip() and body.model_id == SEEDREAM:
         raise HTTPException(422, WORDS_ONLY)
     if not item.notes.strip() and not item.source_photo_file_id and not house:
@@ -150,8 +199,8 @@ def queue_sheet(
     checked but never redone again. `director`: the redo of a director's look is its run's
     too (counted inside the run's price, as its first sheet and check are)."""
     kind = item.kind
-    look = None if body.look_id in (None, looks.DEFAULT) else body.look_id  # the owner's
-    # In another look, the approved House sheet is the person when there's no photo (ST2)
+    style, look = _asked(user, item, body)
+    # In another look, its approved main sheet is the person when there's no photo (ST2)
     house = item.sheet_file_id if look and item.sheet_approved else None
     photo = item.source_photo_file_id or house
     from_sheet = bool(photo) and (
@@ -163,7 +212,6 @@ def queue_sheet(
         )
         is not None
     )
-    style = look or (item.sheet_look if own_look(item) else looks.DEFAULT)
     # Seedream's: a real-looking person (Movie, UGC) with words and no uploaded photo, or any
     # sheet asked of it. From the words alone, wide: no photo, no drawing of them in another
     # style and no last sheet, so a redo starts from its words
@@ -202,6 +250,8 @@ def queue_sheet(
     keeps = bool(noted) and own_look(item) and not fit_redo and not look
     if keeps:  # asked first, so the sheet is still the newest thing being made for the look
         fold_note(db, user, item, body.change.strip(), noted, project)
+    if not (look or item.sheet_file_id or own_look(item)):
+        item.sheet_look = style  # its first sheet: the style it's in is kept with it
     job = enqueue(  # a video's own look is paid from that video's budget (gaps #19)
         db, user, "image", data, project=project, provider="replicate",
         hold=check + after, prepaid=fit_redo,
@@ -334,7 +384,7 @@ def check_fit(
         "step": "look_fit",
         "library_item_id": item.id,
         "redo": redo,  # one automatic redo; never after a person's own change
-        "system": [prompts.system("look_fit")],
+        "system": [prompts.system("look_fit", main_look(item))],  # its style's
         "prompt": prompts.look_fit_input(
             item.notes, slot.role if slot else "", slot.description if slot else None
         ),  # fmt: skip
@@ -399,7 +449,7 @@ def save_fit(db: Session, job: Job) -> None:
 def approve(
     kind: Kind,
     item_id: int,
-    look_id: str = "house",
+    look_id: str | None = None,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -418,7 +468,7 @@ def approve(
 def unapprove(
     kind: Kind,
     item_id: int,
-    look_id: str = "house",
+    look_id: str | None = None,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -445,7 +495,7 @@ NOT_A_SHEET = "That isn't one of this style's approved sheets."
 
 class SheetVersionOut(BaseModel):
     file_id: int
-    look_id: str  # "house", or the look of an owner's sheet in another look (ST2)
+    look_id: str  # the look its main sheet is in, or an owner's sheet's in another (ST2)
     made_at: str | None  # when the sheet was drawn (null: its file was purged)
     preferred: bool  # the one storyboards and clips use now
 
@@ -469,15 +519,16 @@ def _sheets(db: Session, item: LibraryItem) -> list[SheetVersionOut]:
     olds = db.scalars(select(LibraryItemVersion).where(LibraryItemVersion.item_id == item.id)
                       .order_by(LibraryItemVersion.version.desc()))  # fmt: skip
     found: dict[tuple[str, int], None] = {}
+    main = main_look(item)
     for snap in [_snapshot_of(item), *(v.snapshot for v in olds)]:
         if snap.get("sheet_approved") and snap.get("sheet_file_id"):
-            found.setdefault((looks.DEFAULT, snap["sheet_file_id"]))
+            found.setdefault((main, snap["sheet_file_id"]))
         for look, sheet in (snap.get("look_sheets") or {}).items():
             if sheet.get("approved") and sheet.get("file_id"):
                 found.setdefault((look, sheet["file_id"]))
     now = {(k, v.get("file_id")) for k, v in (item.look_sheets or {}).items() if v.get("approved")}
     if item.sheet_approved:
-        now.add((looks.DEFAULT, item.sheet_file_id))
+        now.add((main, item.sheet_file_id))
     made = {f.id: f.created_at for f in db.scalars(
         select(StoredFile).where(StoredFile.id.in_([f for _, f in found])))}  # fmt: skip
     out = [SheetVersionOut(file_id=f, look_id=look, preferred=(look, f) in now,

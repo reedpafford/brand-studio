@@ -105,7 +105,9 @@ def _run(db: Session, user: User, project: Project, decision: dict, storage,
                 from app.routes.sheets import SheetIn, queue_sheet  # a look that didn't draw:
 
                 for item in again:  # drawn again, once (QA on #1482), before anything new
-                    queue_sheet(db, user, item, SheetIn(), auto=True)
+                    mine = item.owner_project_id or item.owner_script_id  # in its own style
+                    style = None if mine else project.look or "house"  # else in this video's
+                    queue_sheet(db, user, item, SheetIn(look_id=style), auto=True)
                 return f"Drawing again what didn't draw: {', '.join(i.name for i in again)}."
             from app import told_look
 

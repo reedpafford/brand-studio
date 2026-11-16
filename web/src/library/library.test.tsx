@@ -84,8 +84,10 @@ test("S8-07: New character takes a name and a description, makes the character i
   const form = screen.getByRole("form", { name: "New character" });
   await userEvent.type(within(form).getByLabelText("Name"), "Kim");
   await userEvent.type(within(form).getByLabelText("Description"), "Woman, late 30s, glasses");
+  expect(within(form).getByRole("button", { name: "Make it · up to $0.08" })).toBeDisabled(); // no style is assumed
+  await userEvent.selectOptions(within(form).getByRole("combobox", { name: "Style" }), "pixar");
   await userEvent.click(within(form).getByRole("button", { name: "Make it · up to $0.08" }));
-  await vi.waitFor(() => expect(posted(calls, "POST /library/character/12/sheet")).toMatchObject({ change: "" }));
+  await vi.waitFor(() => expect(posted(calls, "POST /library/character/12/sheet")).toMatchObject({ change: "", look_id: "pixar" }));
   expect(posted(calls, "POST /library/character")).toMatchObject({ name: "Kim", notes: "Woman, late 30s, glasses", brand_ids: [1], presenter: false });
   expect(await screen.findByText(/Drawing a front, side and back sheet from your description · up to \$0.08 · about 30 s/)).toBeInTheDocument();
 });
@@ -336,6 +338,7 @@ test("a New character whose sheet is refused can be tried again without making a
   const form = await screen.findByRole("form", { name: "New character" });
   await userEvent.type(within(form).getByLabelText("Name"), "Kim");
   await userEvent.type(within(form).getByLabelText("Description"), "Woman, 30s");
+  await userEvent.selectOptions(within(form).getByRole("combobox", { name: "Style" }), "pixar");
   await userEvent.click(within(form).getByRole("button", { name: /^Make it/ }));
   expect(await within(form).findByText("Generation is paused.")).toBeInTheDocument();
   routes["POST /library/character/12/sheet"] = [201, { id: 90 }];

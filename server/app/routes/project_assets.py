@@ -48,10 +48,12 @@ from app.sheets import (
     look_copy,
     look_price,
     look_usual,
+    main_look,
     own,
     press_price,
     sheet_for,
     sheet_price,
+    usable_files,
 )
 
 router = APIRouter(
@@ -181,12 +183,13 @@ def _drawn_elsewhere(project: Project, item: LibraryItem) -> bool:
     """A role's own look drawn in another look than the video's (Flow-QA on #967): no picture
     here (sheet_for), so the role needs a look made in this one."""
     return item.kind == Kind.character and own(item) and (
-        (item.sheet_look or "house") != (project.look or "house"))  # fmt: skip
+        main_look(item) != (project.look or "house"))  # fmt: skip
 
 
 def _other_look(project: Project, item: LibraryItem) -> bool:
-    """A Cast & places character in a video in another look than House (ST2)."""
-    return (project.look or "house") != "house" and item.kind == Kind.character and not own(item)
+    """A Cast & places character in a video in another look than their sheet's (ST2)."""
+    theirs = main_look(item)
+    return (project.look or "house") != theirs and item.kind == Kind.character and not own(item)
 
 
 def _text(row: AssetOut, slot, item, project: Project, user: User) -> None:
@@ -704,13 +707,17 @@ def _copy(db: Session, user: User, project: Project, item: LibraryItem, auto=Fal
     """A Cast & places character's look for this video, drawn in the video's look from its
     approved sheet (who they are: face, build, outfit and signature items), else its photo.
     A photoreal style (Movie, UGC) draws from the photo when there is one, else from the
-    character's words (Seedream, `queue_sheet`): a sheet is a drawing."""
+    character's words (Seedream, `queue_sheet`): a sheet is a drawing. A place's (the brand's,
+    or this video's own from before its style changed) is drawn from its words and its photo,
+    never from its picture in the other style."""
     real = looks.base(project.look) in model_map.PHOTOREAL and item.source_photo_file_id
-    house = item.sheet_file_id if item.sheet_approved and not real else None
-    new = LibraryItem(workspace_id=project.workspace_id, kind=Kind.character, name=item.name,
-                      notes=item.notes, short_description=item.short_description or "",
+    person = item.kind == Kind.character
+    house = item.sheet_file_id if person and item.sheet_approved and not real else None
+    new = LibraryItem(workspace_id=project.workspace_id, kind=item.kind, name=item.name,
+                      notes=item.notes if person else item.notes or item.name,
+                      short_description=item.short_description or "",
                       source_photo_file_id=house or item.source_photo_file_id,
-                      owner_project_id=project.id, sheet_look=project.look)  # fmt: skip
+                      owner_project_id=project.id, sheet_look=project.look or "house")  # fmt: skip
     db.add(new)
     db.flush()
     project.look_copies = {**(project.look_copies or {}), str(item.id): new.id}
@@ -724,7 +731,7 @@ def missing_copies(db: Session, project: Project) -> list[LibraryItem]:
     stops a video in another style. Made once in each look, never again by itself (Not now
     keeps it out); a copy made in another look before a style switch counts as none."""
     bd = _newest(db, project)
-    if bd is None or (project.look or "house") == "house":
+    if bd is None:
         return []
     shown = list(dict.fromkeys(c for s in bd.data["scenes"] for x in s["shots"]
                                for c in x["character_ids"]))  # fmt: skip
@@ -809,13 +816,26 @@ def _undrawn(db: Session, project: Project, slot) -> LibraryItem | None:
 
 
 def missing_places(db: Session, project: Project) -> list[LibraryItem]:
-    """The places made for this video that its newest shots show with no look drawn or being
-    drawn: the director's make_looks draws them (from the uploaded photo, if one was given)."""
+    """The places this video shows with no look in its style drawn or being drawn: one made for
+    it that its newest shots show with none yet (drawn from the uploaded photo, if one was
+    given), and one whose picture is in another style (a brand place's House picture in a
+    Movie video, or drawn before the video's style changed), which gets this video's own copy
+    in its style (`_copy`). The director's make_looks draws them."""
+    from app import cast_gate
+
     bd = _newest(db, project)
-    refs = {s.get("place_id") for sc in (bd.data["scenes"] if bd else []) for s in sc["shots"]}
-    items = [db.get(LibraryItem, int(r.split(":")[1])) for r in sorted(r for r in refs if r)]
-    return [i for i in items if i is not None and i.owner_project_id == project.id
-            and not i.archived and not i.sheet_file_id and not _waiting_sheets(i)]  # fmt: skip
+    at = {s.get("place_id") for sc in (bd.data["scenes"] if bd else []) for s in sc["shots"]}
+    refs = {r for r in at if r} | {r for rs in cast_gate._attached(db, project, bd).values()
+                                   for r in rs if r.startswith("place:")}  # fmt: skip
+    out = []
+    for ref in sorted(refs):
+        i = db.get(LibraryItem, int(ref.split(":")[1]))
+        if i is None or i.archived or _waiting_sheets(i):
+            continue
+        new = ref in at and i.owner_project_id == project.id and not i.sheet_file_id
+        if new or usable_files(i) and not sheet_for(db, project, i) and not _copied(db, project, i):
+            out.append(i)
+    return out
 
 
 def _missing_out(db: Session, user: User, project: Project) -> MissingLooksOut:
@@ -923,7 +943,10 @@ def make_missing(db: Session, user: User, project: Project, told=("", ""),
         _copy(db, user, project, item, auto=True)
         made += 1
     for place in missing_places(db, project):  # a place made for this video
-        queue_sheet(db, user, place, SheetIn(), auto=True)
+        if place.sheet_file_id:  # its picture is in another style: this video's copy, in its
+            _copy(db, user, project, place, auto=True)
+        else:
+            queue_sheet(db, user, place, SheetIn(), auto=True)
         made += 1
     return made, left
 

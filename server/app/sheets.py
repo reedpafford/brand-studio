@@ -22,29 +22,43 @@ def own(item: LibraryItem) -> bool:
     return bool(item.owner_project_id or item.owner_script_id)
 
 
+def main_look(item: LibraryItem) -> str:
+    """The look its main sheet is in: House for one drawn before that was kept."""
+    return item.sheet_look or "house"
+
+
+def copy_ids(project) -> set[int]:
+    """This video's own copies of characters and places (never listed as its own places)."""
+    return {v for v in (project.look_copies or {}).values() if v}
+
+
 def look_copy(db, project, item: LibraryItem) -> LibraryItem | None:
-    """This video's own copy of a library character, made in some look (ST2)."""
+    """This video's own copy of a character or place, made in some look (ST2)."""
     copy = db.get(LibraryItem, (project.look_copies or {}).get(str(item.id)) or 0)
     return copy if copy is not None and not copy.archived else None
 
 
 def sheet_for(db, project, item: LibraryItem) -> list[int]:
-    """The picture a video uses for an item, in the video's look (flows ST2). House: the
-    approved House sheet, as always. Another look: the owner's approved sheet in that look,
-    else this video's own copy drawn in it (look_copies), else none, so the editor is offered
-    "Make a {look} look for this video". A video's own looks are drawn for it (sheet_look),
-    so one drawn in another look has none here; places and props keep their House pictures.
-    ST1 counts the roles left with none."""
+    """The picture a video uses for a character or place, always one in the video's look (flows
+    ST2; places too: Reed, 15 Nov, "movie with movie, etc for all styles"). The owner's
+    approved sheet in that look, else this video's own copy drawn in it (look_copies), else
+    its main sheet when that is in the video's look (`main_look`): in that order, so a video
+    keeps the picture it already uses when its main sheet's look is put right (n55). Else
+    none, so one is made for this video ("Make a {look} look for this video",
+    `missing_places`). A role's own look drawn in another look has none here; props keep
+    their pictures. ST1 counts the roles left with none."""
     look = project.look or "house"
-    if item.kind == Kind.character and own(item) and (item.sheet_look or "house") != look:
-        return []  # a role's own look drawn in another look: none yet (Flow-QA on #967)
-    if look == "house" or item.kind != Kind.character or own(item):
+    if item.kind not in SHEET_KINDS:
         return usable_files(item)
+    if item.kind == Kind.character and own(item):  # none in another look (Flow-QA on #967)
+        return usable_files(item) if main_look(item) == look else []
     sheet = (item.look_sheets or {}).get(look) or {}
     if sheet.get("approved") and sheet.get("file_id"):
         return [sheet["file_id"]]
     copy = look_copy(db, project, item)
-    return usable_files(copy) if copy and copy.sheet_look == look else []
+    if copy and copy.sheet_look == look and (files := usable_files(copy)):
+        return files
+    return usable_files(item) if main_look(item) == look else []
 
 
 def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
@@ -52,8 +66,8 @@ def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
     a new look" (flows ST1) and their price in VS1's to_finish. `owner` is a video or an
     unpublished script. A Cast & places character needs one when it has no approved sheet in
     that look (on a video, not this video's own copy in it either); a role's own look (made
-    for this video or script) when it was drawn in another look. House needs none for a
-    Cast & places character: its House sheet is the one it always used."""
+    for this video or script) when it was drawn in another look. The look a Cast & places
+    character's own sheet is in needs none."""
     from sqlalchemy import select
 
     from app import cast_roles
@@ -73,10 +87,10 @@ def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
         if item is None or item.archived or item.kind != Kind.character:
             continue
         if own(item):  # unless the role has its own look in that one already (n12)
-            missing = (item.sheet_look or "house") != look and not (
+            missing = main_look(item) != look and not (
                 isinstance(owner, Project) and cast_roles.own_look_in(db, owner, slot, look)
             )
-        elif look == "house":
+        elif look == main_look(item):
             missing = False
         else:
             sheet = (item.look_sheets or {}).get(look) or {}

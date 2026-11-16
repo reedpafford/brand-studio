@@ -155,7 +155,7 @@ Code notes for Next-Server (not tables):
 | Where | Change | Notes |
 |---|---|---|
 | `library_items.look_sheets` | JSON {} : `{look_id: {"file_id", "approved"}}`, the owner's sheets of a Cast & places character or place in other looks | n10. House stays in `sheet_file_id`/`sheet_approved`, so nothing existing moves. Making one is a new version of the item (Undo and versions as today). |
-| `library_items.sheet_look` | String(40) "house": the look a video's own look was drawn in | n10. After the video's look changes, an own look in another look reads as out of date (ST1 counts it as "needs a new look"). |
+| `library_items.sheet_look` | String(40): the look its main sheet (`sheet_file_id`) is in: the style a Cast & places item's first sheet was asked in ("" until one is asked; never House by assumption), the video's for a video's own look | n10; kept for Cast & places items too since n55 (Reed, 15 Nov), which marks the main sheets Seedream drew before it as Movie's and leaves the rest House. A video uses a sheet as it is only in that look; in another it uses the owner's sheet in that look or its own copy (`sheets.sheet_for`). |
 | `projects.look_copies` | JSON {} : `{"<library item id>": <this video's own copy>}`, from "Make a {look} look for this video" | n10. For locked roles' library characters, never saved to Cast & places (rule 12). Not `slot_looks`, which is for unlocked roles. The rule is `sheets.sheet_for(db, project, item)`. |
 
 ## 4. Video settings (VS1)
