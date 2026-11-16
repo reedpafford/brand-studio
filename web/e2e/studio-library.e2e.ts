@@ -19,6 +19,7 @@ test("at 1440, a person is drawn by the stand-in, opened and renamed, and a prod
   const box = page.getByRole("dialog", { name: "New person" });
   await box.getByLabel("Name").fill("Mia");
   await box.getByLabel("Who they are, in a line").fill("A mom in her forties, tired, warm");
+  await box.getByRole("combobox", { name: "Style" }).selectOption("house"); // picked, never assumed (Reed, 15 Nov)
   await box.getByRole("button", { name: /^Draw their sheet · up to \$\d+\.\d\d$/ }).click();
   const panel = page.getByRole("region", { name: "Mia", exact: true });
   await expect(panel.getByRole("status")).toHaveText("Needs your OK", { timeout: 60_000 }); // the stand-in drew it

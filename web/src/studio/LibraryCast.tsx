@@ -158,7 +158,7 @@ function Person({ brandId, brand, listed }: { brandId: number; brand: string; li
             Approve
           </button>
         )}
-        {unstyled && <StylePick value={look} onPick={setLook} />}
+        {unstyled && <StylePick value={look} onPick={setLook} className="btn soft" />}
         {item.sheet_status === "none" ? (
           <button type="button" className="btn soft" disabled={draw.isPending || (unstyled && !look)} onClick={() => lock((done) => draw.mutate("", { onSettled: done }))}>
             <RefreshCw {...ICON} size={14} />

@@ -33,6 +33,8 @@ test("an empty brand's Make one draws a new character's sheet, its page opens, a
   const form = page.getByRole("form", { name: "New character" });
   await form.getByLabel("Name").fill("Max");
   await form.getByLabel("Description").fill("Man, 40s, gym coach, grey hoodie");
+  await expect(form.getByRole("button", { name: /^Make it · up to \$/ })).toBeDisabled(); // no style is assumed (Reed, 15 Nov)
+  await form.getByRole("combobox", { name: "Style" }).selectOption("house");
   await form.getByRole("button", { name: /^Make it · up to \$/ }).click();
   await expect(page.getByRole("heading", { name: "Max", level: 1 })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Needs your OK")).toBeVisible({ timeout: 30_000 });
@@ -45,6 +47,7 @@ test("a character from a photo, and search narrows the list by name (S8-01)", as
   const form = page.getByRole("form", { name: "New character" });
   await form.getByLabel("Name").fill("Rex");
   await form.getByText("Upload a photo").locator("input").setInputFiles(image("rex.png"));
+  await form.getByRole("combobox", { name: "Style" }).selectOption("house");
   await form.getByRole("button", { name: /^Make it/ }).click();
   await expect(page.getByRole("heading", { name: "Rex", level: 1 })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("link", { name: "Back to characters" }).click();
