@@ -397,6 +397,11 @@ def test_a_take_uploads_each_file_untouched_and_names_its_pictures_kies_way():
         "reference_audio_urls": ["https://tempfile.redpandaai.test/u2.png"],
         "omni_reference_task_type": "auto",
     }
+    kie, seen = _media()  # Seedance 2.5 Flash: its own model, the same input, no draft mode
+    kie.submit("video", {"model": "seedance-2.5-flash-kie", "input": job["input"]})
+    flash = json.loads(seen[-1].content)
+    assert flash["model"] == "bytedance/seedance-2-5-flash"
+    assert flash["input"] == {k: v for k, v in sent["input"].items() if k != "draft"}
     kie, seen = _media()  # words alone, then a start frame: no task type (KIE refuses it there)
     kie.submit("video", {"model": KIE_TAKE, "input": TAKE})
     kie.submit("video", {"model": KIE_TAKE, "input": {**TAKE, "image": _data(SHEET)}})
