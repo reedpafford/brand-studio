@@ -1,0 +1,323 @@
+{
+  "source_ref": "95ed6ac0fd6d65bcc7646b4f4f7f77f55ae8ea71",
+  "source_path": "ops/DECISIONS.md",
+  "source_sha256": "a38897254ee35a219b519c1692e3650b02090bd1cc23b905a11a926461390a2b",
+  "status": "inventory only; semantic equivalence requires review of proposed rewrite and newer approvals",
+  "rules": [
+    {
+      "rule": 1,
+      "source_first_line": 6,
+      "source_last_line": 8,
+      "sha256": "e40afec226490bc30298a6a86223fbe48b3b711b90fd8b0f53e4228c694cfb65",
+      "source_summary": "1. A newer decision overrides an older one on the same topic; if it's unclear, ask Reed.",
+      "proposed_destination": "ops/RULES.md rule 1 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 2,
+      "source_first_line": 9,
+      "source_last_line": 9,
+      "sha256": "988cd0c21f910f8dc511cf7e55ae767b011bdbc8f58f2986195d6b6c7075996c",
+      "source_summary": "2. 1 credit = $0.1028 = 1 second of 480p video. Videos stay at 480p by default; other models are priced in credits at their real Replicate cost (Reed, 2026-10-2",
+      "proposed_destination": "ops/RULES.md rule 2 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 3,
+      "source_first_line": 10,
+      "source_last_line": 10,
+      "sha256": "47ca245c89569c8a09f0b1f36f67ed8bd6434cd09a2dceda79e2cfbfb24e1b9c",
+      "source_summary": "3. The per-video cap is $75 (729 credits). The project budget is twice the 480p estimate; going over needs Reed.",
+      "proposed_destination": "ops/RULES.md rule 3 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 4,
+      "source_first_line": 11,
+      "source_last_line": 11,
+      "sha256": "40cbf0a5aeee0ac221fc04f4fc8168a110356211b467a1249f297705899f2943",
+      "source_summary": "4. Editors see credits and % of budget, never dollars. Editors may see Reed's name (Reed, 2026-10-28). Past an allowance they're declined with the reason, never",
+      "proposed_destination": "ops/RULES.md rule 4 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 5,
+      "source_first_line": 12,
+      "source_last_line": 12,
+      "sha256": "e129bfc91fd42f81abc1e9e86395efc6be2deb9f11b0b5f7b983f2390020cac2",
+      "source_summary": "5. Editor allowances: Quick clips 150 credits a week; own scripts about 145 credits ($15) a week. *Changing (Reed, 2026-10-30), being built:* one allowance of $",
+      "proposed_destination": "ops/RULES.md rule 5 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 6,
+      "source_first_line": 13,
+      "source_last_line": 15,
+      "sha256": "b1c2d86fb4074063bc37700b55365a10c9e2d611e2a1baa2203f6f47d4f1e655",
+      "source_summary": "6. No paid call (Replicate, Claude) without Reed's approval. Test spend is capped at $15 a week; every paid call is logged in ops/SPEND.md.",
+      "proposed_destination": "ops/RULES.md rule 6 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 7,
+      "source_first_line": 16,
+      "source_last_line": 16,
+      "sha256": "9454f7989fff1d344532dfc58b001f098c99f25da344f81d3b871713aa238656",
+      "source_summary": "7. Every named or speaking role in the script (locked or not) is a role at Assets. Unlocked roles get a per-video look made automatically, which the editor appr",
+      "proposed_destination": "ops/RULES.md rule 7 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 8,
+      "source_first_line": 17,
+      "source_last_line": 17,
+      "sha256": "48c97fdcbf5ba058f70833399d5d9f7e964e6039505205dd39c2c28587779aa0",
+      "source_summary": "8. Nothing reaches Storyboard or Clips without an approved sheet for every character in it, with a one-click way to Assets.",
+      "proposed_destination": "ops/RULES.md rule 8 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 9,
+      "source_first_line": 18,
+      "source_last_line": 18,
+      "sha256": "6c2d19382a92dd8abde9e918baf34681b8a5335650a1c6037df2ade6b311579b",
+      "source_summary": "9. One person is never two roles: the cast read merges duplicates, \"Merge into\u2026\" has Undo, and \"These may be the same person\" is flagged (with \"They're differen",
+      "proposed_destination": "ops/RULES.md rule 9 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 10,
+      "source_first_line": 19,
+      "source_last_line": 19,
+      "sha256": "46625162095be16734908f3d1a71931892f09e634634789750fa7f62b3375423",
+      "source_summary": "10. The character sheets are the authority on faces: attached in code (never by the AI), the main character's sheet first, the sheets set each face and, unless ",
+      "proposed_destination": "ops/RULES.md rule 10 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 11,
+      "source_first_line": 20,
+      "source_last_line": 20,
+      "sha256": "e36a1b29fa0a6d186eea671c2febbfc9075a92e5f66ebe8fbc12d6a7439980f5",
+      "source_summary": "11. No automatic face checks, on stills or on takes. If a face drifts, the editor uses \"Change this\" or \"Make another take\". *Changing (Reed, 2026-10-29):* once",
+      "proposed_destination": "ops/RULES.md rule 11 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 12,
+      "source_first_line": 21,
+      "source_last_line": 23,
+      "sha256": "f1b4689b3f063bc7de3d5724bf351d35efef41424503a8aeb20ed7975fa3ba75",
+      "source_summary": "12. Only characters made in Cast & places go into the library. Looks made for a video or script stay with it and can't be saved to Cast & places (no \"Save to Ca",
+      "proposed_destination": "ops/RULES.md rule 12 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 13,
+      "source_first_line": 24,
+      "source_last_line": 24,
+      "sha256": "e44556ed042e040f0b2fa1b101ba5b7d8a0e635fb5c4598aeffa932d2661ce14",
+      "source_summary": "13. App screens are on a phone in the character's hand, in the scene, never a flat full-frame screenshot. \"Use the real image\" cut-ins are off unless an editor ",
+      "proposed_destination": "ops/RULES.md rule 13 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 14,
+      "source_first_line": 25,
+      "source_last_line": 25,
+      "sha256": "61b158857a6f3302baef552dffc15fa878a72da5cb3d346f7a2c5cc1f0c22b25",
+      "source_summary": "14. On an app screen only the fomo logo or the word \"fomo\" must be right. Numbers, coins and charts can be anything; nothing blocks or is redone for numbers. Mo",
+      "proposed_destination": "ops/RULES.md rule 14 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 15,
+      "source_first_line": 26,
+      "source_last_line": 26,
+      "sha256": "60f248086a6c5662ec21e74341685bdd5ef284f68479ad898c98aafc48b8bd19",
+      "source_summary": "15. A fomo-mention or CTA moment accepts any of the brand's home-type screens; that check is Advice.",
+      "proposed_destination": "ops/RULES.md rule 15 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 16,
+      "source_first_line": 27,
+      "source_last_line": 29,
+      "sha256": "92df94820cf5c1c750712c3475dd4518695edfa3aaf4b05b275a472d7fa9615e",
+      "source_summary": "16. A product's real bag appears exactly: brand name, main claim and flavour label right; small print may garble.",
+      "proposed_destination": "ops/RULES.md rule 16 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 17,
+      "source_first_line": 30,
+      "source_last_line": 32,
+      "sha256": "d3d64058a663b40460e8283c217c02dd55cc292715b48fa2e97b1799efc76022",
+      "source_summary": "17. The hero is in every shot. A montage only when the story or reference has one, never a formula (Reed, 1 Nov: \"montages are forced\"); when there is one, its ",
+      "proposed_destination": "ops/RULES.md rule 17 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 18,
+      "source_first_line": 33,
+      "source_last_line": 35,
+      "sha256": "d0ef8003bce7848ac71f715b51cead3b883161c66ae84480b2c1ba2a9c53e737",
+      "source_summary": "18. Live-action parts of a reference are replaced, by default with the brand CTA. When the end line is the CTA, the CTA shot shows the character holding the pho",
+      "proposed_destination": "ops/RULES.md rule 18 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 19,
+      "source_first_line": 36,
+      "source_last_line": 36,
+      "sha256": "71023a190d9ef8366a3ab0d9ee4968f041a975e5777c692bdd3e08d151fe6ccc",
+      "source_summary": "19. The script's words never change in Enhance, breakdown, clips or notes. An adapted reference keeps its dialogue word for word, except for the brand swap.",
+      "proposed_destination": "ops/RULES.md rule 19 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 20,
+      "source_first_line": 37,
+      "source_last_line": 39,
+      "sha256": "72742ff52282c05c14c9df1d5ced6da997a0382dd2e471a3d906d81d16d03508",
+      "source_summary": "20. Prompting follows the providers' official docs (docs/prompting). For styles, the guidance studied from Starpop (docs/research/starpop-2026-10-28) may be use",
+      "proposed_destination": "ops/RULES.md rule 20 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 21,
+      "source_first_line": 40,
+      "source_last_line": 40,
+      "sha256": "48ec7289ab52f4d003ad8aff5b22ec8c162c35809d64514563a22af17a7dc7f5",
+      "source_summary": "21. Clip prompts are reviewable before takes are paid for. \"Approve all\" (ready items only, skipped ones listed with the reason, Undo) is on every per-item appr",
+      "proposed_destination": "ops/RULES.md rule 21 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 22,
+      "source_first_line": 41,
+      "source_last_line": 41,
+      "sha256": "55494ad5528f59c6fd37cd1e3cd51c375f87eb029a9e817afd2820f25ad90dec",
+      "source_summary": "22. No problem blocks without a one-click fix on the same screen (a free repair, Advice, or a button). Editing the raw prompt is never the only way out; Clips n",
+      "proposed_destination": "ops/RULES.md rule 22 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 23,
+      "source_first_line": 42,
+      "source_last_line": 42,
+      "sha256": "fe5e50bb2cca55a307f82a5ad54d310453d3c1cb165afa7d52a6b07d46c2eddc",
+      "source_summary": "23. People never see raw ids; messages name the character.",
+      "proposed_destination": "ops/RULES.md rule 23 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 24,
+      "source_first_line": 43,
+      "source_last_line": 45,
+      "sha256": "4e92ab7d6fbb26bf610d282919c8c965c7dde2e49f26cc74d02ffb1bca54f0f9",
+      "source_summary": "24. A plain-English \"Change this\u2026\" is the main way to edit stills and clips, with the price shown first.",
+      "proposed_destination": "ops/RULES.md rule 24 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 25,
+      "source_first_line": 46,
+      "source_last_line": 46,
+      "sha256": "fbc61e2db8094b90154725f38dfb695cd0536ae2391c3ca0f0e266a5b87b8e21",
+      "source_summary": "25. Stabilization first: no new features until the stabilization pass is done.",
+      "proposed_destination": "ops/RULES.md rule 25 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 26,
+      "source_first_line": 47,
+      "source_last_line": 47,
+      "sha256": "c7703d284c9e7190aa111fa9356618238691e4b3a8c2d7cfb24a085d2ef898f3",
+      "source_summary": "26. Code stays lean: no redundant or duplicate code, and delete what a change replaces. About 36,000 lines of app code (server/app plus web/src, without tests o",
+      "proposed_destination": "ops/RULES.md rule 26 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 27,
+      "source_first_line": 48,
+      "source_last_line": 48,
+      "sha256": "2f0a68516978bb87fdea64b0eec6f45a6bf9e110e6c704f9ec5789e3e2ed7ac9",
+      "source_summary": "27. A QA account is kept for live testing; its sign-in lives in the environment, never in chat or code.",
+      "proposed_destination": "ops/RULES.md rule 27 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 28,
+      "source_first_line": 49,
+      "source_last_line": 49,
+      "sha256": "bd43153b76fceccf362f910f640a8b5a45b337158e778373be21f76ab1397885",
+      "source_summary": "28. Only the Producer merges, and no agent touches the live server.",
+      "proposed_destination": "ops/RULES.md rule 28 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 29,
+      "source_first_line": 50,
+      "source_last_line": 50,
+      "sha256": "30edc1b1282a7066ef7bc9e196f425bbf3942bb2a243fda36050eeb181430c76",
+      "source_summary": "29. A clip holds one scene or one continuous action, as long as the scene needs; it never crosses a place or time change. Longer clips can drift, so past about ",
+      "proposed_destination": "ops/RULES.md rule 29 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 30,
+      "source_first_line": 51,
+      "source_last_line": 51,
+      "sha256": "f65b3dbe758b2b21701686939e14d34bc3634c2165a5cebbf5293ec5f15ca57e",
+      "source_summary": "30. Real brand names (cars, sneakers and the like) are fine in scripts and prompts; Seedance doesn't refuse them (Reed).",
+      "proposed_destination": "ops/RULES.md rule 30 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 31,
+      "source_first_line": 52,
+      "source_last_line": 52,
+      "sha256": "0a7fe63fdb7c03ef2050455e2f501910688d2095ba9960f38ea9bfcee0d4c15c",
+      "source_summary": "31. A published script's lines, cast and breakdown are final; only Reed (the owner) may still edit its title, about and notes (Reed, 2026-10-28), and its role w",
+      "proposed_destination": "ops/RULES.md rule 31 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 32,
+      "source_first_line": 53,
+      "source_last_line": 55,
+      "sha256": "5723db81b27263133643559094d54fa06fce6a60fd3742af67a2bcbd2cbe453e",
+      "source_summary": "32. Text in the footage (Reed, 1 Nov: \"I want 3d numbers and numbers/text that is important to the videos in. When i say no text, i mean no captions.\"): \"no tex",
+      "proposed_destination": "ops/RULES.md rule 32 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 33,
+      "source_first_line": 56,
+      "source_last_line": 67,
+      "sha256": "f2cdf38547cedff4eb57e25b4e835c000c939d17f1f4c9f74ada385fc627cfa4",
+      "source_summary": "33. The app follows the v5 wireframes (canvas in UX-Auditor's session; Reed, 2026-11-02: \"yes they are good\"), the build spec for every screen, built in small s",
+      "proposed_destination": "ops/RULES.md rule 33 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 34,
+      "source_first_line": 68,
+      "source_last_line": 69,
+      "sha256": "989ef3922b4a1b2248b9a4f7aef65062ab2d946cda9203b01c0b021e1126ac1a",
+      "source_summary": "34. Prices the director runs to (Reed, 2026-11-02: \"as long as short (under 60s) shorts aren't costing like $20 I think A is fine\", choosing the true bound over",
+      "proposed_destination": "ops/RULES.md rule 34 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    },
+    {
+      "rule": 35,
+      "source_first_line": 70,
+      "source_last_line": 71,
+      "sha256": "4deec956acc68c4510f8eb4c30def5461b4a49ca09fe82c55efb065d356494e4",
+      "source_summary": "35. How the director works (Reed, 2026-11-02: \"the point was the flow we have used in the chats where it understands WHY and what makes these shorts engaging an",
+      "proposed_destination": "ops/RULES.md rule 35 + full archived entry",
+      "semantic_review": "pending; no rule rewritten"
+    }
+  ]
+}
