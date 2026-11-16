@@ -9,6 +9,6 @@ The live V6 lead's state is outside the repo, in the sanaa workspace: `.context/
 ## Hard rules
 - Keys never go in code, commits, logs or chat. Server-side only.
 - No paid call (Replicate, Claude API) outside tests the Producer approved. Log every paid call in `ops/SPEND.md`.
-- Only the Release agent merges or deploys (until it exists, the Producer does).
+- Only the Release agent merges or deploys (until it exists, the Producer does). One exception (Reed, 16 Nov 2026): a PR that only adds rows to `ops/SPEND.md` is merged by the agent that opened it, as soon as its checks pass, without asking.
 - Keep it small: see the budgets in `ops/AGENTS.md`. Prefer deleting code to adding it.
 - Plain language in anything Reed reads.
