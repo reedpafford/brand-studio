@@ -23,23 +23,25 @@ def own(item: LibraryItem) -> bool:
 
 
 def look_copy(db, project, item: LibraryItem) -> LibraryItem | None:
-    """This video's own copy of a library character, made in some look (ST2)."""
+    """This video's own copy of a character or place, made in some look (ST2)."""
     copy = db.get(LibraryItem, (project.look_copies or {}).get(str(item.id)) or 0)
     return copy if copy is not None and not copy.archived else None
 
 
 def sheet_for(db, project, item: LibraryItem) -> list[int]:
-    """The picture a video uses for an item, in the video's look (flows ST2). House: the
-    approved House sheet, as always. Another look: the owner's approved sheet in that look,
-    else this video's own copy drawn in it (look_copies), else none, so the editor is offered
-    "Make a {look} look for this video". A video's own looks are drawn for it (sheet_look),
-    so one drawn in another look has none here; places and props keep their House pictures.
-    ST1 counts the roles left with none."""
+    """The picture a video uses for a character or place, always one in the video's look (flows
+    ST2; places too: Reed, 15 Nov, "movie with movie, etc for all styles"). Its own sheet when
+    that is in the video's look: a Cast & places item's is House, a video's own look is drawn
+    for it (sheet_look). Else the owner's approved sheet in that look, else this video's own
+    copy drawn in it (look_copies), else none, so one is made for this video ("Make a {look}
+    look for this video", `missing_places`). A role's own look drawn in another look has none
+    here; props keep their pictures. ST1 counts the roles left with none."""
     look = project.look or "house"
-    if item.kind == Kind.character and own(item) and (item.sheet_look or "house") != look:
-        return []  # a role's own look drawn in another look: none yet (Flow-QA on #967)
-    if look == "house" or item.kind != Kind.character or own(item):
+    theirs = (item.sheet_look or "house") if own(item) else "house"  # its own sheet's look
+    if item.kind not in SHEET_KINDS or theirs == look:
         return usable_files(item)
+    if item.kind == Kind.character and own(item):
+        return []  # a role's own look drawn in another look: none yet (Flow-QA on #967)
     sheet = (item.look_sheets or {}).get(look) or {}
     if sheet.get("approved") and sheet.get("file_id"):
         return [sheet["file_id"]]

@@ -81,7 +81,7 @@ def test_past_the_week_only_a_quick_clip_waits_for_the_owner(owner, editor, db):
         (f"{s}/drafts/0/enhance", {}),
         (f"{s}/drafts/0/breakdown", {}),
         ("/clips/improve", {"brand_id": fomo, "prompt": "A dog eats.", "duration": 5}),
-        (f"/library/character/{look}/sheet", {}),
+        (f"/library/character/{look}/sheet", {"look_id": "house"}),
     ]}  # fmt: skip
     for url, r in answers.items():
         assert "this week" not in r.text, (url, r.text)

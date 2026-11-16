@@ -25,10 +25,11 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.routes.clips import generation_on
 from app.routes.library import LookFitOut, _waiting_sheets, pick_item
-from app.routes.project_assets import _newest, _resave
+from app.routes.project_assets import _copy, _newest, _resave
 from app.routes.projects import get_project, video_writer
 from app.routes.sheets import SheetIn, queue_sheet
 from app.schemas import LongText, Name
+from app.sheets import sheet_for
 
 router = APIRouter(
     prefix="/projects/{project_id}/cast", tags=["assets"], dependencies=[Depends(video_writer)]
@@ -374,6 +375,8 @@ def make_place_look(
         db.flush()
         queue_sheet(db, user, own, SheetIn())  # commits; a refusal adds nothing
         repoint(db, user, project, dict.fromkeys(at, f"place:{own.id}"))
+    elif item.sheet_file_id and not sheet_for(db, project, item):  # drawn in another style,
+        _copy(db, user, project, item)  # before the video's changed: its copy in this one
     elif item.sheet_file_id or _waiting_sheets(item):
         raise HTTPException(409, f"{item.name} has a look already. Use Change this… on it.")
     else:

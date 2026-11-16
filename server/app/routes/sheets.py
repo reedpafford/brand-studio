@@ -42,10 +42,14 @@ WORDS_ONLY = "Seedream draws from words only. Describe it first (the notes)."
 class SheetIn(BaseModel):
     model_id: Literal["nano-banana-pro", "nano-banana-2.1", "seedream-5.5"] = SHEET_MODEL
     change: Annotated[str, longest(500)] = ""  # Redo: "What should change?" (optional)
-    look_id: str | None = None  # ST2: the owner's "{look} sheet" on a Cast & places item
+    # The style a Cast & places sheet is drawn in, always said ("house" for House; another is
+    # the owner's "{look} sheet", ST2). A video's or script's own look leaves it out
+    look_id: str | None = None
 
 
 OWNER_LOOKS = "Only the owner adds a sheet in another style to Cast & places."
+NO_STYLE = ("Say which style to draw it in: add \"look_id\" (\"movie\", \"house\", any style's "
+            "id). Cast & places has no video to take the style from.")  # fmt: skip
 OWN_LOOK = "This look is this video's own: it's drawn in the video's style already."
 
 
@@ -78,6 +82,12 @@ def make_sheet(
     """Queue a sheet (a paid image job). It is drawn from the source photo when there is one
     (attached as image 1), else from the notes; a redo also attaches the last sheet."""
     item = _item(db, user, kind, item_id)
+    # Reed, 15 Nov ("movie with movie, etc for all styles"): never House because nothing was
+    # said. A video's or script's own look has its style; Seedream's sheet of a person is
+    # real-looking in every style (its words carry none)
+    real = body.model_id == SEEDREAM and kind == Kind.character
+    if body.look_id is None and not (own_look(item) or real):
+        raise HTTPException(422, NO_STYLE)
     look = _look(user, item, body.look_id)
     house = look and item.sheet_approved  # another look starts from the House sheet (ST2)
     if not item.notes.strip() and body.model_id == SEEDREAM:

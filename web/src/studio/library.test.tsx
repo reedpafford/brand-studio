@@ -12,7 +12,7 @@ import { setViewport } from "../test/viewport";
 type Tab = "product" | "cast" | "footage" | "voices";
 const OK: [number, unknown] = [200, {}];
 const GONE: [number, unknown] = [204, null];
-const SHEET = { model_id: "nano-banana-pro" };
+const SHEET = { model_id: "nano-banana-pro", look_id: "house" };
 async function open(tab: Tab, routes: Routes, extra: Routes = {}) {
   const calls = fakeServer({ ...routes, ...extra });
   renderApp(`/s/b/1/library${tab === "product" ? "" : `?tab=${tab}`}`);

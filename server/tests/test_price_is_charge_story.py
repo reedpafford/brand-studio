@@ -155,12 +155,13 @@ def test_the_cast_and_looks_presses_charge_their_shown_price(app, db, owner, edi
                                                  "image_file_ids": [upload(owner)]})  # fmt: skip
     item = f"/library/character/{mia.json()['id']}"
     shown = owner.get(item).json()
-    _, charged = _press(app, db, providers, lambda: owner.post(f"{item}/sheet", json={}))
+    house = {"look_id": "house"}  # a Cast & places sheet names its style
+    _, charged = _press(app, db, providers, lambda: owner.post(f"{item}/sheet", json=house))
     seen.append(("cast", "Make sheet (up to)", float(shown["sheet_credits"]), float(charged), True))
     seen.append(("cast", "Make sheet (usually)", float(shown["sheet_usual_credits"]),
                  float(charged), False))  # fmt: skip
     shown = owner.get(item).json()
-    change = {"change": "Softer light"}
+    change = {**house, "change": "Softer light"}
     _, charged = _press(app, db, providers, lambda: owner.post(f"{item}/sheet", json=change))
     seen.append(("cast", "Change this… (sheet)", float(shown["change_credits"]), float(charged),
                  False))  # fmt: skip

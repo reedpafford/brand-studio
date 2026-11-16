@@ -492,10 +492,12 @@ def create_item(
     if project_id and script_id:
         raise HTTPException(422, "A look belongs to one video or one script, not both.")
     item = LibraryItem(workspace_id=user.workspace_id, kind=kind, created_by_id=user.id)
-    if project_id:
-        item.owner_project_id = get_project(db, user, project_id).id
+    if project_id:  # its own look is drawn in its style, as the ones the site makes for it are
+        project = get_project(db, user, project_id)
+        item.owner_project_id, item.sheet_look = project.id, project.look or "house"
     if script_id:
-        item.owner_script_id = lib.editable(user, lib.get_script(db, user, script_id)).id
+        script = lib.editable(user, lib.get_script(db, user, script_id))
+        item.owner_script_id, item.sheet_look = script.id, script.look or "house"
     _apply(db, user, item, values)
     db.add(item)
     db.commit()
