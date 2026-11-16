@@ -113,7 +113,7 @@ The whole of RP5 written this way, with every round of notes, is `tools/movie_ad
 - Sound follows the picture: a sound is loud when its cause is on screen, drops under speech, and stops when its cause stops.
 - A jump in time is shown, with a card in a quiet, well-set type.
 - Captions are small, the script's exact words, with the word being spoken picked out.
-- Look at the frames where each thing lands before delivering. Build the finish so it can be made again from the same clips for free.
+- A fix is judged inside the whole video, never on its own, so the cut does not feel patched: after any remake, splice, cut-out or pickup, look at the scene it sits in from the clip before to the clip after (clothes, place, light, where people stand, how loud, how fast), then go through the whole cut once before delivering. Build the finish so it can be made again from the same clips for free.
 
 ## 12. Put the lessons where they last
 
