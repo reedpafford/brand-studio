@@ -439,14 +439,18 @@ def test_n55_says_which_style_each_main_sheet_made_before_is_in(tmp_path):
         _row(conn, "library_items", id=2, kind="character", sheet_file_id=11, sheet_look="house")
         _row(conn, "library_items", id=3, kind="place", sheet_look="house")  # no sheet yet
         _row(conn, "library_items", id=4, kind="place", sheet_look="ugc", owner_project_id=7)
+        _row(conn, "library_items", id=5, kind="place", sheet_file_id=13, sheet_look="house")
         banana = {"model": "nano-banana-pro", "step": "sheet", "library_item_id": 2}
-        jobs = [({**seedream, "library_item_id": 1}, 10),
-                ({**seedream, "library_item_id": 2, "sheet_look_id": "ugc"}, 12),  # not its main
-                (banana, 11)]  # fmt: skip
+        jobs = [
+            ({**seedream, "library_item_id": 1}, 10),
+            ({**seedream, "library_item_id": 2, "sheet_look_id": "ugc"}, 12),  # not its main
+            (banana, 11),
+            ({**seedream, "library_item_id": 5}, 13),
+        ]  # a place: drawn with House words
         for n, (said, file_id) in enumerate(jobs, 1):
             _row(conn, "jobs", id=n, input=said, output={"file_ids": [file_id]})
     command.upgrade(cfg, "n55")
     with engine.connect() as conn:
         looks = conn.execute(text("SELECT sheet_look FROM library_items ORDER BY id"))
-        assert looks.scalars().all() == ["movie", "house", "", "ugc"]
+        assert looks.scalars().all() == ["movie", "house", "", "ugc", "house"]
     command.downgrade(cfg, "n54")

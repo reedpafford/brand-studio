@@ -48,6 +48,7 @@ from app.sheets import (
     look_copy,
     look_price,
     look_usual,
+    main_look,
     own,
     press_price,
     sheet_for,
@@ -182,12 +183,12 @@ def _drawn_elsewhere(project: Project, item: LibraryItem) -> bool:
     """A role's own look drawn in another look than the video's (Flow-QA on #967): no picture
     here (sheet_for), so the role needs a look made in this one."""
     return item.kind == Kind.character and own(item) and (
-        (item.sheet_look or "house") != (project.look or "house"))  # fmt: skip
+        main_look(item) != (project.look or "house"))  # fmt: skip
 
 
 def _other_look(project: Project, item: LibraryItem) -> bool:
     """A Cast & places character in a video in another look than their sheet's (ST2)."""
-    theirs = item.sheet_look or "house"
+    theirs = main_look(item)
     return (project.look or "house") != theirs and item.kind == Kind.character and not own(item)
 
 

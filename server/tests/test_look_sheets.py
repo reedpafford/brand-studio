@@ -288,3 +288,72 @@ def test_a_video_uses_a_place_only_in_its_own_style(app, db, owner, editor):
     db.refresh(project)
     again = db.get(LibraryItem, project.look_copies[str(den.id)])
     assert made.status_code == 200 and again.sheet_look == "claymation" and "Den" not in missing()
+    twice = editor.post(f"/projects/{pid}/cast/places/{den.id}/make-look")  # a second press
+    db.refresh(project)
+    assert twice.status_code == 409 and project.look_copies[str(den.id)] == again.id  # one copy
+    # a copy is its place's picture, never a second place of that name in the plan's lists
+    from app.breakdown import _places
+
+    assert f"place:{again.id}" not in storyboard.assets(db, project)
+    assert f"place:{again.id} " not in _places(db, project) and f"place:{den.id} " in _places(
+        db, project)  # fmt: skip
+
+
+def test_a_sheet_in_a_look_with_no_main_sheet_stays_that_looks_own(app, db, owner, editor):
+    """The by-hand Movie ads' places (RP10, RP11) were asked in Movie as an extra sheet before
+    a main sheet's style was kept, so they have a Movie sheet and no main one. Approve and a
+    redo in that look still act on that sheet: the note is kept, and no main sheet is made."""
+    app.state.settings.fake_providers = True
+    lot = owner.post("/library/place", json={"name": "Lot", "notes": "A car park."}).json()["id"]
+    item, url = db.get(LibraryItem, lot), f"/library/place/{lot}/sheet"
+    item.look_sheets = {"movie": {"file_id": upload(owner), "approved": False}}
+    db.commit()
+    assert owner.post(f"{url}/approve?look_id=movie").status_code == 200
+    db.refresh(item)
+    assert item.look_sheets["movie"]["approved"] and not item.sheet_approved
+    again = owner.post(url, json={"look_id": "movie", "change": "At night."})
+    job = db.get(Job, again.json()["id"])
+    assert job.input["sheet_look_id"] == "movie" and "At night." in job.input["input"]["prompt"]
+    db.refresh(item)
+    assert (item.sheet_look, item.sheet_file_id) == ("", None)
+
+
+def test_a_video_keeps_the_picture_it_uses_when_its_main_sheets_style_is_put_right(
+    app, db, owner, editor
+):
+    """n55 marks a by-hand person's main sheet Movie. A Movie video that already used the
+    owner's Movie sheet of them, or its own copy, keeps that picture: the main sheet is the
+    one used only when there is neither."""
+    from app.sheets import sheet_for
+
+    project, _ = _video(app, owner, editor, db, look="movie")
+    dana = owner.post("/library/character", json={"name": "Dana", "notes": "A woman."}).json()
+    item = db.get(LibraryItem, dana["id"])
+    main, extra, copied = (upload(owner) for _ in range(3))
+    item.sheet_file_id, item.sheet_approved, item.sheet_look = main, True, "movie"
+    db.commit()
+    assert sheet_for(db, project, item) == [main]
+    copy = LibraryItem(workspace_id=item.workspace_id, kind="character", name="Dana", notes="",
+                       owner_project_id=project.id, sheet_look="movie", sheet_file_id=copied,
+                       sheet_approved=True)  # fmt: skip
+    db.add(copy)
+    db.flush()
+    project.look_copies = {str(item.id): copy.id}
+    db.commit()
+    assert sheet_for(db, project, item) == [copied]
+    item.look_sheets = {"movie": {"file_id": extra, "approved": True}}
+    db.commit()
+    assert sheet_for(db, project, item) == [extra]
+
+
+def test_an_editor_draws_only_in_a_style_that_is_on_for_editors(app, db, owner, editor):
+    """The Style list's pick goes through the same switch as every other look pick."""
+    from app import looks
+
+    app.state.settings.fake_providers = True
+    assert owner.patch("/looks/movie", json={"on": False}).status_code == 200
+    den = owner.post("/library/place", json={"name": "Den", "notes": "A small den."}).json()["id"]
+    off = editor.post(f"/library/place/{den}/sheet", json={"look_id": "movie"})
+    assert (off.status_code, off.json()["detail"]) == (409, looks.OFF.format("Movie"))
+    assert db.query(Job).count() == 0
+    assert owner.post(f"/library/place/{den}/sheet", json={"look_id": "movie"}).status_code == 201

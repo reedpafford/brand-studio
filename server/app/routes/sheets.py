@@ -28,9 +28,25 @@ from app.models.projects import Project
 from app.prompts.schemas import FoldedNote, LookFit
 from app.routes.clips import generation_on
 from app.routes.jobs import JobOut, enqueue
-from app.routes.library import ItemOut, _out, _save_version, get_item, look_writer, sheet_status
+from app.routes.library import (
+    ItemOut,
+    _out,
+    _save_version,
+    _waiting_sheets,
+    get_item,
+    look_writer,
+    sheet_status,
+)
 from app.schemas import longest
-from app.sheets import RESOLUTION, SEEDREAM, SHEET_MODEL, check_price, is_checked, worst
+from app.sheets import (
+    RESOLUTION,
+    SEEDREAM,
+    SHEET_MODEL,
+    check_price,
+    is_checked,
+    main_look,
+    worst,
+)
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/library/{kind}/{item_id}/sheet", tags=["library"],
@@ -47,18 +63,20 @@ class SheetIn(BaseModel):
 
 
 OWNER_LOOKS = "Only the owner adds a sheet in another style to Cast & places."
-NO_STYLE = ("Pick the style to draw it in first (\"look_id\": \"movie\", \"house\", any "
-            "style's id). It has none yet, and none is assumed.")  # fmt: skip
+NO_STYLE = "Pick the style to draw it in first: it has no picture yet."  # an API call: `look_id`
 REAL_ONLY = "Seedream draws real-looking people only: ask it for Movie or UGC."
 OWN_LOOK = "This look is this video's own: it's drawn in the video's style already."
 
 
 def _look(user: User, item: LibraryItem, look_id: str | None) -> str | None:
-    """None for its main sheet: no look named, the one its main sheet is in (`sheet_look`;
-    House for one drawn before that was kept) or, with none drawn yet, the first one asked.
-    Else the look whose extra sheet this is (owner only, Cast & places only)."""
+    """None for its main sheet: no look named, the one its main sheet is in (`main_look`) or,
+    with none drawn yet, the first one asked. Else the look whose extra sheet this is (owner
+    only, Cast & places only): also one it has, or is being drawn, in that look with no main
+    sheet (asked as an extra before the main sheet's look was kept)."""
     mine = own_look(item)
-    main = (item.sheet_look or looks.DEFAULT) if mine or item.sheet_file_id else look_id
+    extra = look_id in (item.look_sheets or {}) or any(
+        j.input.get("sheet_look_id") == look_id for j in _waiting_sheets(item))  # fmt: skip
+    main = main_look(item) if mine or item.sheet_file_id else None if extra else look_id
     if look_id in (None, main) or (mine and look_id == looks.DEFAULT):
         return None
     looks.get(look_id)
@@ -107,6 +125,8 @@ def make_sheet(
     """Queue a sheet (a paid image job). It is drawn from the source photo when there is one
     (attached as image 1), else from the notes; a redo also attaches the last sheet."""
     item = _item(db, user, kind, item_id)
+    if body.look_id and not own_look(item):
+        looks.pick(db, user, body.look_id)  # a style this person may pick (off for editors)
     _, look = _asked(user, item, body)
     house = look and item.sheet_approved  # another look starts from its main sheet (ST2)
     if not item.notes.strip() and body.model_id == SEEDREAM:
@@ -364,7 +384,7 @@ def check_fit(
         "step": "look_fit",
         "library_item_id": item.id,
         "redo": redo,  # one automatic redo; never after a person's own change
-        "system": [prompts.system("look_fit", item.sheet_look or looks.DEFAULT)],  # its style's
+        "system": [prompts.system("look_fit", main_look(item))],  # its style's
         "prompt": prompts.look_fit_input(
             item.notes, slot.role if slot else "", slot.description if slot else None
         ),  # fmt: skip
@@ -499,7 +519,7 @@ def _sheets(db: Session, item: LibraryItem) -> list[SheetVersionOut]:
     olds = db.scalars(select(LibraryItemVersion).where(LibraryItemVersion.item_id == item.id)
                       .order_by(LibraryItemVersion.version.desc()))  # fmt: skip
     found: dict[tuple[str, int], None] = {}
-    main = item.sheet_look or looks.DEFAULT
+    main = main_look(item)
     for snap in [_snapshot_of(item), *(v.snapshot for v in olds)]:
         if snap.get("sheet_approved") and snap.get("sheet_file_id"):
             found.setdefault((main, snap["sheet_file_id"]))

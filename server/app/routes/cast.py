@@ -25,11 +25,11 @@ from app.models.projects import Project
 from app.models.storyboards import StoryboardFrame
 from app.routes.clips import generation_on
 from app.routes.library import LookFitOut, _waiting_sheets, pick_item
-from app.routes.project_assets import _copy, _newest, _resave
+from app.routes.project_assets import _copied, _copy, _newest, _resave
 from app.routes.projects import get_project, video_writer
 from app.routes.sheets import SheetIn, queue_sheet
 from app.schemas import LongText, Name
-from app.sheets import sheet_for
+from app.sheets import copy_ids, look_copy, sheet_for
 
 router = APIRouter(
     prefix="/projects/{project_id}/cast", tags=["assets"], dependencies=[Depends(video_writer)]
@@ -279,7 +279,8 @@ def _unplaced(db: Session, project: Project, name: str, shots: list) -> LibraryI
                                                 LibraryItem.kind == Kind.place,
                                                 LibraryItem.archived.is_(False))
                       .order_by(LibraryItem.id.desc()))  # fmt: skip
-    return next((i for i in rows if same(i.name, name) and f"place:{i.id}" not in at), None)
+    return next((i for i in rows if same(i.name, name) and f"place:{i.id}" not in at
+                 and i.id not in copy_ids(project)), None)  # fmt: skip
 
 
 def add_place(db: Session, user: User, project: Project, body: PlaceIn) -> LibraryItem:
@@ -375,8 +376,13 @@ def make_place_look(
         db.flush()
         queue_sheet(db, user, own, SheetIn())  # commits; a refusal adds nothing
         repoint(db, user, project, dict.fromkeys(at, f"place:{own.id}"))
-    elif item.sheet_file_id and not sheet_for(db, project, item):  # drawn in another style,
-        _copy(db, user, project, item)  # before the video's changed: its copy in this one
+    elif (
+        item.sheet_file_id
+        and item.sheet_approved
+        and not sheet_for(db, project, item)
+        and not _copied(db, project, item)
+    ):  # drawn in another style, before the video's
+        _copy(db, user, project, item)  # changed: its copy in this one, made once
     elif item.sheet_file_id or _waiting_sheets(item):
         raise HTTPException(409, f"{item.name} has a look already. Use Change this… on it.")
     else:
@@ -475,6 +481,9 @@ def change_look(db: Session, user: User, project: Project, name: str, note: str)
     if found is None or not note:
         return f"Refused: there's no {name} in this video." if not found else (
             "Refused: say what to change.")  # fmt: skip
+    copy = look_copy(db, project, item) if item is not None else None
+    if copy is not None and copy.sheet_look == (project.look or "house"):
+        item = copy  # this video's copy in its style is the picture it uses
     if item is not None and _waiting_sheets(item):
         return f"Refused: {found['name']} is still being drawn."
     if item is not None and item.owner_project_id == project.id:

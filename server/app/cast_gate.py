@@ -494,7 +494,7 @@ def redrawable(db: Session, project: Project, items: list[dict]) -> list[Library
     after a stop and Carry on (Reed, 11 Nov, video 379: looks that failed while the picture
     service was down were never tried again, and the run stopped at every Carry on)."""
     from app import director
-    from app.sheets import look_copy, own
+    from app.sheets import look_copy, main_look, own
 
     rows = director.all_turns(db, project.id)
     ended = max((n for n, t in enumerate(rows) if t.input.get("ended")), default=-1)
@@ -505,11 +505,12 @@ def redrawable(db: Session, project: Project, items: list[dict]) -> list[Library
         copy = look_copy(db, project, item) if item else None
         if copy is not None and copy.sheet_look == look:
             item = copy  # this video's own copy in its style is the one drawn again
-        # never the brand's own sheet for a video in another style than it's in (Reed, 15 Nov)
+        # never the brand's own sheet for a video in another style than it's in (Reed, 15 Nov);
+        # one with no sheet yet is in none, so its first is drawn in this video's
         if (
             i["readiness"] != "needs_look"
             or item is None
-            or not (own(item) or item.sheet_look == look)
+            or not (own(item) or (main_look(item) if item.sheet_file_id else look) == look)
         ):
             continue
         failed = db.scalars(select(Job.created_at).where(  # or cancelled by a Stop
