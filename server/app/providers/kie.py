@@ -26,7 +26,8 @@ THIS CODE YET. What it relies on, and the page that says so (under https://docs.
   "seedream/5-5-text-to-image", "input": {prompt (5 to 5,000 characters), aspect_ratio, size
   "1K" | "1.5K" | "2K", output_format, background, nsfw_checker}} answers {"taskId"}; its
   example result is on tempfile.aiquickdraw.com.
-- /market/bytedance/seedance-2-5: the model is `bytedance/seedance-2-5`; `input` is prompt
+- /market/bytedance/seedance-2-5 (and -flash: the same inputs, no `draft`): the model is
+  `bytedance/seedance-2-5`; `input` is prompt
   (20,480 characters at most), reference_image_urls (30: jpeg, png or webp, each side 300 to
   6,000 px, under 30 MB), reference_video_urls and reference_audio_urls (10 each, 30 s of each
   in all), or first_frame_url and last_frame_url, never with references;
@@ -232,7 +233,8 @@ class KieMedia(Kie):
         if not model or model.provider != self.name:
             raise RuntimeError(f"{input.get('model')!r} isn't made through KIE.")
         given = input["input"]
-        sent = picture(given) if model.kind == "image" else take(given, self._upload)
+        flash = model.provider_model.endswith("-flash")  # Seedance 2.5 Flash: no draft mode
+        sent = picture(given) if model.kind == "image" else take(given, self._upload, not flash)
         body = {"model": model.provider_model, "input": sent}
         return self._call("POST", "/jobs/createTask", json=body)["taskId"]
 
@@ -299,15 +301,15 @@ def picture(given: dict) -> dict:
             "background": "opaque", "nsfw_checker": True}  # fmt: skip
 
 
-def take(given: dict, upload) -> dict:
+def take(given: dict, upload, drafts: bool = True) -> dict:
     """A take's input as KIE's Seedance takes it; what it says is unchanged but for its
     picture tags ([Image1] to @Image1). Each file goes as its address on KIE's file store
     (`upload`): references, or a start and end frame."""
     sent = {"prompt": TAG.sub(r"@\1\2", given["prompt"]),
             **{k: given[k] for k in ("generate_audio", "resolution", "aspect_ratio", "duration")
                if k in given},
-            "output_format": "mp4", "web_search": False, "draft": False,
-            "nsfw_checker": True}  # fmt: skip
+            "output_format": "mp4", "web_search": False, "nsfw_checker": True,
+            **({"draft": False} if drafts else {})}  # fmt: skip
     for ours, theirs in URLS.items():
         if files := given.get(ours):
             sent[theirs] = upload(files) if isinstance(files, str) else [upload(f) for f in files]
