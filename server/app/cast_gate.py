@@ -505,8 +505,12 @@ def redrawable(db: Session, project: Project, items: list[dict]) -> list[Library
         copy = look_copy(db, project, item) if item else None
         if copy is not None and copy.sheet_look == look:
             item = copy  # this video's own copy in its style is the one drawn again
-        # never the brand's own (House) sheet for a video in another style (Reed, 15 Nov)
-        if i["readiness"] != "needs_look" or item is None or (look != "house" and not own(item)):
+        # never the brand's own sheet for a video in another style than it's in (Reed, 15 Nov)
+        if (
+            i["readiness"] != "needs_look"
+            or item is None
+            or not (own(item) or item.sheet_look == look)
+        ):
             continue
         failed = db.scalars(select(Job.created_at).where(  # or cancelled by a Stop
             Job.workspace_id == project.workspace_id,

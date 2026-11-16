@@ -12,7 +12,7 @@ import { setViewport } from "../test/viewport";
 type Tab = "product" | "cast" | "footage" | "voices";
 const OK: [number, unknown] = [200, {}];
 const GONE: [number, unknown] = [204, null];
-const SHEET = { model_id: "nano-banana-pro", look_id: "house" };
+const SHEET = { model_id: "nano-banana-pro" };
 async function open(tab: Tab, routes: Routes, extra: Routes = {}) {
   const calls = fakeServer({ ...routes, ...extra });
   renderApp(`/s/b/1/library${tab === "product" ? "" : `?tab=${tab}`}`);
@@ -230,8 +230,8 @@ test("Cast: everyone saved by name; the picked one's sheet, who they are, their 
 });
 
 test.each<[string, (box: ReturnType<typeof within>) => Promise<void>, unknown[][]]>([
-  ["a name and a line", (box) => userEvent.type(box.getByRole("textbox", { name: "Who they are, in a line" }), " A mom in her forties "), [["POST /library/character", { name: "Mia", notes: "A mom in her forties", brand_ids: [1], image_file_ids: [], outfits: [], source_photo_file_id: null, presenter: false, product_type: null }], ["POST /library/character/200/sheet", { ...SHEET, change: "" }]]],
-  ["a name and a photo", (box) => userEvent.upload(box.getByLabelText("Or upload a photo"), file("mia.jpg", "image/jpeg")), [["POST /files"], ["POST /library/character", { name: "Mia", notes: "", brand_ids: [1], image_file_ids: [], outfits: [], source_photo_file_id: 80, presenter: false, product_type: null }], ["POST /library/character/200/sheet", { ...SHEET, change: "" }]]],
+  ["a name and a line", (box) => userEvent.type(box.getByRole("textbox", { name: "Who they are, in a line" }), " A mom in her forties "), [["POST /library/character", { name: "Mia", notes: "A mom in her forties", brand_ids: [1], image_file_ids: [], outfits: [], source_photo_file_id: null, presenter: false, product_type: null }], ["POST /library/character/200/sheet", { ...SHEET, change: "", look_id: "dr-pickle" }]]],
+  ["a name and a photo", (box) => userEvent.upload(box.getByLabelText("Or upload a photo"), file("mia.jpg", "image/jpeg")), [["POST /files"], ["POST /library/character", { name: "Mia", notes: "", brand_ids: [1], image_file_ids: [], outfits: [], source_photo_file_id: 80, presenter: false, product_type: null }], ["POST /library/character/200/sheet", { ...SHEET, change: "", look_id: "dr-pickle" }]]],
 ])("New person from %s saves them in this brand and draws their sheet, exactly as the current site's New character does", async (_from, fill, expected) => {
   const calls = await open("cast", empty, { "POST /files": [201, { id: 80 }], "POST /library/character": [201, { ...officer, id: 200, name: "Mia" }], "POST /library/character/200/sheet": [201, { id: 900 }] });
   await userEvent.click(await page().findByRole("button", { name: "New person" }));
@@ -240,6 +240,8 @@ test.each<[string, (box: ReturnType<typeof within>) => Promise<void>, unknown[][
   await userEvent.type(box.getByRole("textbox", { name: "Name" }), "Mia ");
   expect(draw).toBeDisabled(); // a name alone draws nothing
   await fill(box);
+  expect(draw).toBeDisabled(); // nor without a style: none is assumed (Reed, 15 Nov)
+  await userEvent.selectOptions(box.getByRole("combobox", { name: "Style" }), "dr-pickle");
   await userEvent.click(draw);
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(sent(calls)).toEqual(expected);
@@ -267,11 +269,15 @@ test("Change look… draws the sheet again with the note; the look check's own w
   await userEvent.type(box.getByRole("textbox", { name: "What should change?" }), ", grey in her hair ");
   await userEvent.click(box.getByRole("button", { name: "Change it · up to $0.08" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  await userEvent.click((await person("The officer")).getByRole("button", { name: "Draw the sheet up to $0.17" }));
+  const officer = await person("The officer"); // no sheet and no style yet: it's picked first, then remembered
+  expect(officer.getByRole("button", { name: "Draw the sheet up to $0.17" })).toBeDisabled();
+  await userEvent.selectOptions(officer.getByRole("combobox", { name: "Style" }), "dr-pickle");
+  await userEvent.click(officer.getByRole("button", { name: "Draw the sheet up to $0.17" }));
+  expect(localStorage.getItem("bs.style.1")).toBe("dr-pickle");
   await waitFor(() =>
     expect(sent(calls)).toEqual([
       ["POST /library/character/180/sheet", { ...SHEET, change: "Dana is in her late forties, grey in her hair" }],
-      ["POST /library/character/181/sheet", { ...SHEET, change: "" }],
+      ["POST /library/character/181/sheet", { ...SHEET, change: "", look_id: "dr-pickle" }],
     ]),
   );
 });
@@ -434,6 +440,7 @@ test.each<[string, Tab, () => Promise<HTMLElement>, string[]]>([
     return dialog("New voice").getByRole("button", { name: /^Clone · up to/ });
   }, ["POST /files", "POST /brands/1/voices/clone"]],
 ])("%s, pressed twice before the page has drawn it as in flight, is one request", async (_press, tab, find, expected) => {
+  localStorage.setItem("bs.style.1", "house"); // the style picked for this brand last time
   const calls = await open(tab, full, PAID);
   const press = await find();
   fireEvent.click(press);
@@ -465,6 +472,7 @@ test.each<[string, Tab, string, () => Promise<HTMLElement>]>([
 
 test("a press the server refuses says why in the server's words, and nothing is sent again", async () => {
   const why = "This would pass this week's limit. Nothing was charged.";
+  localStorage.setItem("bs.style.1", "house");
   const calls = await open("cast", full, { "POST /library/character/181/sheet": [402, { detail: why }] });
   const panel = await person("The officer");
   await userEvent.click(panel.getByRole("button", { name: /^Draw the sheet/ }));

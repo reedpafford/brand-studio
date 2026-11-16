@@ -9,6 +9,7 @@ import { errorText as errorClass } from "../ui";
 import { useRail } from "../useMedia";
 import { Picture } from "./Cards";
 import { useAddPicture, useApproveSheet, useArchive, useDrawSheet, useItem, usePickVoice } from "./itemActions";
+import { StylePick, useStyle } from "./StylePick";
 import { ItemMore } from "./ItemMore";
 import { LibraryFrame } from "./LibraryFrame";
 import { SHEET_NOTE, lookFitNote } from "./sheets";
@@ -75,7 +76,9 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
   const [shown, setShown] = useState<number | null>(null); // an old version picked to look at
   const big = shown ?? cover(item);
   const archive = useArchive(kind, item, () => navigate(`/b/${brandId}/library/${slug}`));
-  const draw = useDrawSheet(kind, item.id, () => setChanging(null));
+  const [look, setLook] = useStyle(brandId);
+  const unstyled = !product && item.sheet_status === "none" && !item.sheet_look; // no sheet and no style asked yet: it's picked here
+  const draw = useDrawSheet(kind, item.id, () => setChanging(null), unstyled ? look : undefined);
   const approve = useApproveSheet(kind, item);
   const restore = useMutation({
     mutationFn: (version: number) => must(api.POST("/library/{kind}/{item_id}/versions/{version}/restore", { params: { path: { ...path, version } } })),
@@ -158,8 +161,9 @@ function Page({ item, slug, brandId }: { item: Item; slug: KindSlug; brandId: nu
               {!product && item.sheet_status === "needs_approval" && (
                 <Button icon={Check} busy={approve.isPending} onClick={() => approve.mutate()}>Approve</Button>
               )}
+              {unstyled && !busy && <StylePick value={look} onPick={setLook} className="h-control rounded-md border border-border-strong bg-surface px-2 text-sm lg:h-9" />}
               {!product && !busy && (
-                <Button variant="secondary" icon={Pencil} onClick={() => (item.sheet_status === "none" ? draw.mutate("") : setChanging(""))} busy={draw.isPending && changing === null}>
+                <Button variant="secondary" icon={Pencil} disabled={unstyled && !look} reason={unstyled && !look ? "Pick its style first" : null} onClick={() => (item.sheet_status === "none" ? draw.mutate("") : setChanging(""))} busy={draw.isPending && changing === null}>
                   {item.sheet_status === "none" ? "Make the sheet" : "Change this…"}
                   {(item.sheet_status === "none" ? makeCost : changeCost) && <>{" "}<span className="opacity-80">· {item.sheet_status === "none" ? makeCost : changeCost}</span></>}
                 </Button>

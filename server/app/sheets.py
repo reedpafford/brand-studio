@@ -31,13 +31,14 @@ def look_copy(db, project, item: LibraryItem) -> LibraryItem | None:
 def sheet_for(db, project, item: LibraryItem) -> list[int]:
     """The picture a video uses for a character or place, always one in the video's look (flows
     ST2; places too: Reed, 15 Nov, "movie with movie, etc for all styles"). Its own sheet when
-    that is in the video's look: a Cast & places item's is House, a video's own look is drawn
-    for it (sheet_look). Else the owner's approved sheet in that look, else this video's own
-    copy drawn in it (look_copies), else none, so one is made for this video ("Make a {look}
-    look for this video", `missing_places`). A role's own look drawn in another look has none
-    here; props keep their pictures. ST1 counts the roles left with none."""
+    that is in the video's look (`sheet_look`: the style a Cast & places item's was asked in,
+    a video's own look drawn for it). Else the owner's approved sheet in that look, else this
+    video's own copy drawn in it (look_copies), else none, so one is made for this video
+    ("Make a {look} look for this video", `missing_places`). A role's own look drawn in
+    another look has none here; props keep their pictures. ST1 counts the roles left with
+    none."""
     look = project.look or "house"
-    theirs = (item.sheet_look or "house") if own(item) else "house"  # its own sheet's look
+    theirs = item.sheet_look or "house"  # the look its own sheet is in
     if item.kind not in SHEET_KINDS or theirs == look:
         return usable_files(item)
     if item.kind == Kind.character and own(item):
@@ -54,8 +55,8 @@ def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
     a new look" (flows ST1) and their price in VS1's to_finish. `owner` is a video or an
     unpublished script. A Cast & places character needs one when it has no approved sheet in
     that look (on a video, not this video's own copy in it either); a role's own look (made
-    for this video or script) when it was drawn in another look. House needs none for a
-    Cast & places character: its House sheet is the one it always used."""
+    for this video or script) when it was drawn in another look. The look a Cast & places
+    character's own sheet is in needs none."""
     from sqlalchemy import select
 
     from app import cast_roles
@@ -78,7 +79,7 @@ def roles_needing_look(db, owner, look: str | None = None) -> list[str]:
             missing = (item.sheet_look or "house") != look and not (
                 isinstance(owner, Project) and cast_roles.own_look_in(db, owner, slot, look)
             )
-        elif look == "house":
+        elif look == (item.sheet_look or "house"):
             missing = False
         else:
             sheet = (item.look_sheets or {}).get(look) or {}

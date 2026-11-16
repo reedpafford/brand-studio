@@ -20,7 +20,7 @@ export function LockPanel({ slot, brandId, locking, onLock, onClose }: { slot: S
   const path = (c: Character) => ({ kind: "character" as const, item_id: c.id });
   const make = useMutation({
     mutationFn: async (c: Character) => {
-      const { data, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: path(c) }, body: { model_id: MODEL, change: "", look_id: "house" } });
+      const { data, error } = await api.POST("/library/{kind}/{item_id}/sheet", { params: { path: path(c) }, body: { model_id: MODEL, change: "" } });
       if (!data) throw new Error(errorText(error));
     },
     onSuccess: () => Promise.all([refresh(), refreshJobs(queryClient)]),

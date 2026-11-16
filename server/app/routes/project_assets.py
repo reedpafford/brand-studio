@@ -186,8 +186,9 @@ def _drawn_elsewhere(project: Project, item: LibraryItem) -> bool:
 
 
 def _other_look(project: Project, item: LibraryItem) -> bool:
-    """A Cast & places character in a video in another look than House (ST2)."""
-    return (project.look or "house") != "house" and item.kind == Kind.character and not own(item)
+    """A Cast & places character in a video in another look than their sheet's (ST2)."""
+    theirs = item.sheet_look or "house"
+    return (project.look or "house") != theirs and item.kind == Kind.character and not own(item)
 
 
 def _text(row: AssetOut, slot, item, project: Project, user: User) -> None:
@@ -729,7 +730,7 @@ def missing_copies(db: Session, project: Project) -> list[LibraryItem]:
     stops a video in another style. Made once in each look, never again by itself (Not now
     keeps it out); a copy made in another look before a style switch counts as none."""
     bd = _newest(db, project)
-    if bd is None or (project.look or "house") == "house":
+    if bd is None:
         return []
     shown = list(dict.fromkeys(c for s in bd.data["scenes"] for x in s["shots"]
                                for c in x["character_ids"]))  # fmt: skip

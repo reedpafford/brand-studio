@@ -160,12 +160,12 @@ def assets(db: Session, project: Project) -> dict[str, tuple[str, list[int]]]:
         item_id = pick(db, project, slot)  # a deleted look: the role has none yet
         # A locked role uses the sheet it was locked with, even if its look has a newer sheet
         # waiting for approval (Reed's live test: "Mogging BF" read as not approved).
-        locked = (  # in House; another look reads the look's own sheet (ST2)
+        held = db.get(LibraryItem, slot.library_item_id or 0) if item_id else None
+        locked = (  # in the look that sheet is in; another reads the look's own sheet (ST2)
             [slot.sheet_file_id]
-            if item_id
-            and slot.library_item_id
+            if held is not None
             and slot.sheet_file_id
-            and (project.look or "house") == "house"
+            and (project.look or "house") == (held.sheet_look or "house")
             else None
         )
         if f"char:{item_id}" in out:  # the look's own line: its notes win (Reed: used as is)

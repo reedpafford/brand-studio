@@ -422,3 +422,31 @@ def test_n43_moves_omni_1_1_clips_takes_and_videos_to_1_2(tmp_path):
     assert [json.loads(c)["id"] for c in clips] == ["gemini-omni-1.2", "seedance-1-lite"]
     assert json.loads(clips[0])["why"] == "x"
     assert json.loads(made) == {"model": "gemini-omni-1.2", "k": 1}
+
+
+def test_n55_says_which_style_each_main_sheet_made_before_is_in(tmp_path):
+    """Reed, 15 Nov: a main sheet Seedream drew (the by-hand Movie ads' real-looking people) is
+    Movie's; a Cast & places item with no sheet yet has no style until one is asked; every
+    other main sheet stays House, and a video's own look keeps its own."""
+    url = f"sqlite:///{tmp_path}/m.db"
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "n54")
+    engine = create_engine(url)
+    seedream = {"model": "seedream-5.5", "step": "sheet"}
+    with engine.begin() as conn:
+        _row(conn, "library_items", id=1, kind="character", sheet_file_id=10, sheet_look="house")
+        _row(conn, "library_items", id=2, kind="character", sheet_file_id=11, sheet_look="house")
+        _row(conn, "library_items", id=3, kind="place", sheet_look="house")  # no sheet yet
+        _row(conn, "library_items", id=4, kind="place", sheet_look="ugc", owner_project_id=7)
+        banana = {"model": "nano-banana-pro", "step": "sheet", "library_item_id": 2}
+        jobs = [({**seedream, "library_item_id": 1}, 10),
+                ({**seedream, "library_item_id": 2, "sheet_look_id": "ugc"}, 12),  # not its main
+                (banana, 11)]  # fmt: skip
+        for n, (said, file_id) in enumerate(jobs, 1):
+            _row(conn, "jobs", id=n, input=said, output={"file_ids": [file_id]})
+    command.upgrade(cfg, "n55")
+    with engine.connect() as conn:
+        looks = conn.execute(text("SELECT sheet_look FROM library_items ORDER BY id"))
+        assert looks.scalars().all() == ["movie", "house", "", "ugc"]
+    command.downgrade(cfg, "n54")

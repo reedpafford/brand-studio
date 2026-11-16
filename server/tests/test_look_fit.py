@@ -4,6 +4,7 @@ redone once by itself, then shown with advice. Claude is mocked: no paid calls."
 
 import math
 
+from app import guides
 from app.models.accounts import User
 from app.models.jobs import Job
 from app.models.library import LibraryItem
@@ -260,7 +261,12 @@ def test_a_seedream_sheet_is_wide_from_its_words_alone_and_redone_by_seedream(ap
 
     drawn = _look(editor, db, image_file_ids=[upload(editor)])  # no photo: its look is checked
     first = editor.post(f"/library/character/{drawn.id}/sheet", json=seedream).json()["id"]
+    db.refresh(drawn)  # no style was named: Seedream's sheet of a person is kept as Movie's
+    assert drawn.sheet_look == "movie"
     _landed(db, drawn, db.get(Job, first))
+    (check,) = _waiting(db, drawn, "look_fit")  # read as the style it's in, not as House
+    assert guides.tokens("movie")["fit_look"].strip() in check.input["system"][0]
+    assert guides.tokens("house")["fit_look"].strip() not in check.input["system"][0]
     _run(app, db, FakeClaude(CHILD))
     db.expire_all()
     (redo,) = _waiting(db, drawn, "sheet")

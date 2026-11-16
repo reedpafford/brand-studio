@@ -144,31 +144,80 @@ def _words(db, asked) -> str:
     return db.get(Job, asked.json()["id"]).input["input"]["prompt"]
 
 
-def test_a_cast_and_places_sheet_names_its_style_and_a_videos_own_takes_the_videos(
-    app, db, owner, editor
-):
+def test_a_cast_and_places_sheet_is_drawn_in_the_style_asked_and_keeps_it(app, db, owner, editor):
     """Reed, 15 Nov: ten place pictures asked with no style, for a Movie ad made by hand, came
-    back in the animated House look. Cast & places has no video to take a style from, so the
-    request names it and nothing is drawn until it does; a look made for a video through the
-    library is drawn in that video's style."""
+    back in the animated House look. "It should be based on the style prompted": the first
+    sheet is drawn in the style asked and keeps it (a redo is in it again), House comes only
+    when asked, and with no style at all nothing is drawn. A look made for a video through
+    the library is drawn in that video's style."""
     from app.routes.sheets import NO_STYLE
 
     project, _ = _video(app, owner, editor, db, look="movie")
     movie, house = (guides.tokens(s)["place_look"].strip() for s in ("movie", "house"))
     said = {"name": "Mall", "notes": "A real photograph of a big, crowded, festive mall."}
-    url = f"/library/place/{owner.post('/library/place', json=said).json()['id']}/sheet"
+    mall = f"/library/place/{owner.post('/library/place', json=said).json()['id']}"
     for model in ("nano-banana-2.1", "seedream-5.5"):  # a place has style words on both
-        unsaid = owner.post(url, json={"model_id": model})
+        unsaid = owner.post(f"{mall}/sheet", json={"model_id": model})
         assert (unsaid.status_code, unsaid.json()["detail"]) == (422, NO_STYLE)
     assert db.query(Job).count() == 0  # nothing drawn, nothing charged
-    drawn = _words(db, owner.post(url, json={"look_id": "movie"}))
+    assert owner.get(mall).json()["sheet_look"] is None  # no style until one is asked
+    drawn = _words(db, owner.post(f"{mall}/sheet", json={"look_id": "movie"}))
     assert movie in drawn and house not in drawn
-    assert house in _words(db, owner.post(url, json={"look_id": "house"}))  # House when asked
+    _work(app, db)
+    item = owner.get(mall).json()  # its main sheet, kept as Movie's
+    assert (item["sheet_look"], item["sheet_status"], item["look_sheets"]) == (
+        "movie", "needs_approval", {})  # fmt: skip
+    assert owner.post(f"{mall}/sheet/approve").json()["sheet_status"] == "approved"
+    again = _words(db, owner.post(f"{mall}/sheet", json={"change": "At night."}))
+    assert movie in again and house not in again  # a redo names nothing: its own style
+    _work(app, db)
+    extra = owner.post(f"{mall}/sheet", json={"look_id": "house"})  # House only when asked
+    assert house in _words(db, extra)
+    assert db.get(Job, extra.json()["id"]).input["sheet_look_id"] == "house"  # beside its main
 
     own = owner.post("/library/place", json={**said, "owner_project_id": project.id}).json()["id"]
     assert db.get(LibraryItem, own).sheet_look == "movie"
     drawn = _words(db, owner.post(f"/library/place/{own}/sheet", json={}))
     assert movie in drawn and house not in drawn
+
+
+def test_a_real_looking_sheet_is_used_as_it_is_only_in_its_own_style(app, db, owner, editor):
+    """Reed, 15 Nov: "it should only get/expect animation when the style is animated". A
+    person whose main sheet Seedream drew with no style named (the by-hand Movie recipe) is
+    kept as Movie's. A Movie video uses that sheet as it is. A House video is never handed it
+    as if it were a House sheet: it draws its own copy, the person turned into House from
+    that sheet. Naming a drawn style to Seedream is refused."""
+    from app.routes.sheets import REAL_ONLY
+    from app.sheets import sheet_for
+
+    project, _ = _video(app, owner, editor, db, look="movie")
+    said = {"name": "Dana", "notes": "A woman in her 40s in a long oatmeal cardigan."}
+    dana = owner.post("/library/character", json=said).json()["id"]
+    url, seedream = f"/library/character/{dana}/sheet", {"model_id": "seedream-5.5"}
+    no = owner.post(url, json={**seedream, "look_id": "house"})
+    assert (no.status_code, no.json()["detail"]) == (422, REAL_ONLY)
+    assert owner.post(url, json=seedream).status_code == 201
+    item = db.get(LibraryItem, dana)
+    assert item.sheet_look == "movie"
+    for job in db.query(Job):  # as if it were drawn and approved
+        job.status = JobStatus.succeeded
+    item.sheet_file_id, item.sheet_approved = real, _ = upload(owner), True
+    db.commit()
+    assert sheet_for(db, project, item) == [real]  # Movie with Movie
+
+    project.look = "house"
+    db.commit()
+    assert sheet_for(db, project, item) == []  # never as a House sheet
+    made = editor.post(f"/projects/{project.id}/assets/looks/{dana}/copy")
+    assert made.status_code == 200, made.text
+    db.refresh(project)
+    copy = db.get(LibraryItem, project.look_copies[str(dana)])
+    (job,) = [j for j in db.query(Job) if j.input.get("library_item_id") == copy.id]
+    words = job.input["input"]["prompt"]
+    assert job.input["model"] == "nano-banana-pro"
+    assert real in [f for files in job.input["files"].values() for f in files]
+    assert guides.tokens("house")["sheet_look"].strip() in words
+    assert "drawn in another style. Keep who they are, translated into this style" in words
 
 
 def test_a_video_uses_a_place_only_in_its_own_style(app, db, owner, editor):
