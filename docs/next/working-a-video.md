@@ -104,7 +104,7 @@ The whole of RP5 written this way, with every round of notes, is `tools/movie_ad
 
 - Quote his notes in his words and number them. Each note is answered.
 - For each note find the cause in your own direction first: the reading of the script, then the references, then the prompt, then the model, then the edit. Do not blame a guide line for a beat that was directed badly.
-- Change only the clips the notes touch. Say which clips, why each, and the price; wait for his yes.
+- Change only the clips the notes touch, and film each of them again whole, as RP5 did: a pickup spliced into a clip, a clip shown in pieces or one take's picture over another's sound joins footage made separately, and the cut feels patched (RP10). Rewrite the clip beside it too when the join between them is part of the note. A splice is a last resort, named to him with the price of the re-film. Say which clips, why each, and the price; wait for his yes.
 - A round replaces what it corrects. Keep the round before as a backup, never as a second set of instructions still in force.
 - RP5 took three rounds. Round one fixed what the scenes meant (the men must watch her; dread by cutting back to them). Round two fixed how big the acting was. Round three fixed the hooks and one action. Expect the same order: meaning, then size, then detail.
 
@@ -113,7 +113,7 @@ The whole of RP5 written this way, with every round of notes, is `tools/movie_ad
 - Sound follows the picture: a sound is loud when its cause is on screen, drops under speech, and stops when its cause stops.
 - A jump in time is shown, with a card in a quiet, well-set type.
 - Captions are small, the script's exact words, with the word being spoken picked out.
-- A fix is judged inside the whole video, never on its own, so the cut does not feel patched: after any remake, splice, cut-out or pickup, look at the scene it sits in from the clip before to the clip after (clothes, place, light, where people stand, how loud, how fast), then go through the whole cut once before delivering. Build the finish so it can be made again from the same clips for free.
+- Look at each remade clip together with the clip before and the clip after it before delivering (clothes, place, light, where people stand, how loud, how fast). Build the finish so it can be made again from the same clips for free.
 
 ## 12. Put the lessons where they last
 
