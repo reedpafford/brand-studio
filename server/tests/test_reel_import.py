@@ -215,7 +215,8 @@ def test_the_deployed_workers_cover_every_provider():
     compose = (REPO_ROOT / "deploy/docker-compose.yml").read_text()
     lists = re.findall(r"BS_WORKER_PROVIDERS: '(\[.*?\])'", compose)
     covered = {name for found in lists for name in json.loads(found)}
-    every = Settings(heygen_api_key="set")  # HeyGen joins only once its key is set
+    # HeyGen and ElevenLabs join only once their keys are set
+    every = Settings(heygen_api_key="set", ELEVENLABS_API_KEY="set")
     assert covered == set(get_providers(every))
 
 

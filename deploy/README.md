@@ -307,6 +307,14 @@ songs' `NEXT_KIE_BUDGET_USD`. What they make is downloaded only from KIE's file 
 deploy doesn't write it, and the songs' `NEXT_KIE_DELIVERY_HOSTS` is separate). No style uses
 them by itself yet: pick them per sheet and per clip.
 
+**A designed voice for each speaker (Reed, 17 Nov).** On a video whose model hears a voice sample
+(Seedance 2.5 through KIE), each speaker with no sample gets a voice ElevenLabs designs from the
+plan's words for it, before any take (`server/app/voice_carry.py`). It uses ElevenLabs' own API,
+so it needs the `ELEVENLABS_API_KEY` secret, which the deploy writes into `deploy/.env` while
+the stand-ins are off, like `HEYGEN_API_KEY`. About $0.10 a voice (an estimate: ElevenLabs
+reports no price for a design), counted against `NEXT_REAL_BUDGET_USD` like any paid job. With
+no key nothing is sent, and a speaker's sample is cut from their first take, as before.
+
 ---
 
 ## Reference

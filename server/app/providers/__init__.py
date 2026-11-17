@@ -89,6 +89,7 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
             "heygen": FakeMedia(),  # a grey talker the length of its voice
             "google": FakeMedia(),  # Omni 1.2's takes while its Google road is open: no key needed
             "kie": FakeMedia(),  # KIE's Seedream pictures and Seedance takes, the same
+            "elevenlabs": FakeMedia(),  # a speaker's designed voice: a stand-in sound
             # The test site's one real service, once Reed switches it on (2026-10-29: real
             # Suno through KIE, test site only, with a test budget); all else stays free.
             "suno": _kie(settings, FakeSuno()) if kie_on(settings) else FakeSuno(),
@@ -115,6 +116,12 @@ def get_providers(settings, storage=None) -> dict[str, Provider]:
                  "google": _google(settings), "kie": _kie_media(settings)}  # fmt: skip
     if settings.heygen_api_key.get_secret_value():  # the UGC talker: once its key is set
         providers["heygen"] = _heygen(settings)  # (and "heygen" is in a worker's lane)
+    if settings.elevenlabs_api_key.get_secret_value():  # designed voices: once its key is set
+        from app.providers.elevenlabs import ElevenLabsProvider
+
+        providers["elevenlabs"] = ElevenLabsProvider(
+            settings.elevenlabs_base_url, settings.elevenlabs_api_key.get_secret_value()
+        )
     if kie_on(settings):  # Suno through KIE: only once Reed switches it on
         providers["suno"] = _kie(settings)
     return providers

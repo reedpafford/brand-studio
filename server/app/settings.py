@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     heygen_base_url: str = "https://api.heygen.com"
     heygen_api_key: SecretStr = Field(SecretStr(""), validation_alias="HEYGEN_API_KEY")
     heygen_delivery_hosts: list[str] = ["heygen.ai"]
+    # ElevenLabs' own API (app/providers/elevenlabs.py): a designed voice for each speaker of
+    # a video whose model hears a sample. Key from ELEVENLABS_API_KEY only (never in code or
+    # logs); with none, a speaker's sample is cut from a take as before (app/voice_carry.py).
+    elevenlabs_base_url: str = "https://api.elevenlabs.io"
+    elevenlabs_api_key: SecretStr = Field(SecretStr(""), validation_alias="ELEVENLABS_API_KEY")
     # Google's Gemini API (app/providers/google.py): Omni 1.2 goes straight to Google, at
     # Google's price, while BS_GOOGLE_API_KEY is set (Reed, 10 Nov: "we go omni through google
     # directly"); unset, it's Replicate again. The key is the worker's only, never in code or
