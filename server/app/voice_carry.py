@@ -1,10 +1,14 @@
 """A person's voice carried from clip to clip, on a video model that hears a sample (Seedance
 through KIE; Movie Ad 1, Reed, 13 Nov 2026: the voices held once each later clip was sent a few
-seconds of the person speaking in an earlier one). `first`: the clips made before the rest, one
-for each speaker with no sample yet. `after`: once such a take's free listen is in, a few
-seconds of each of those speakers is cut from it and kept on their character (their voice
-sample: heard and replaced on the character, and theirs in the next video too). `send`: a
-take's speakers' samples, attached and named. Nothing here stops a take: no sample, no line."""
+seconds of the person speaking in an earlier one). `design`: before any take, each speaker
+with no sample gets a voice ElevenLabs designs from the plan's words for it (Reed, 17 Nov,
+after his by-hand test: "the voice and elevenlabs touch was amazing ... I trust the directors
+choice on voice"); with no ElevenLabs key, or a design that fails, the rest is as before.
+`first`: the clips made before the rest, one for each speaker with no sample yet. `after`:
+once such a take's free listen is in, a few seconds of each of those speakers is cut from it
+and kept on their character (their voice sample: heard and replaced on the character, and
+theirs in the next video too). `send`: a take's speakers' samples, attached and named. Nothing
+here stops a take: no sample, no line."""
 
 import logging
 import re
@@ -14,12 +18,14 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from app.models.files import StoredFile
 from app.models.jobs import Job
 from app.models.library import LibraryItem
 from app.models.projects import Project
 
 log = logging.getLogger(__name__)
 SHORTEST, LONGEST, MOST = 1.5, 5.0, 5  # seconds of one sample; samples a take (KIE: 30 s in all)
+STEP, MODEL = "voice_design", "elevenlabs-voice-design"  # a speaker's designed voice (`design`)
 # True of a remake of the clip the sample was cut from too, whose lines are the sample's words
 LINE = ("[Audio{n}] is a recording of {who}'s voice: match its tone and accent for {who} only. "
         "It is a sample of the voice; the words said are this clip's quoted lines.")  # fmt: skip
@@ -48,6 +54,36 @@ def person(db: Session, project: Project, speaker: str | None) -> LibraryItem | 
     if slot is not None:
         return db.get(LibraryItem, pick(db, project, slot) or 0)
     return next((i for i in cast_looks(db, project) if same(name, i.name)), None)
+
+
+def undesigned(db: Session, project: Project, data: dict) -> dict[int, str]:
+    """The speakers with no sample yet and the plan's words for their voice, by character:
+    those a voice can be designed for, when ElevenLabs is reachable from here."""
+    from app.settings import get_settings
+
+    settings = get_settings()  # the stand-ins have one; for real, only with its key
+    if not (settings.fake_providers or settings.elevenlabs_api_key.get_secret_value()):
+        return {}
+    out: dict[int, str] = {}
+    for voice in (data.get("shooting_plan") or {}).get("voices") or []:
+        who = person(db, project, voice.get("who"))
+        if who is not None and not who.voice_file_id and (voice.get("sounds") or "").strip():
+            out.setdefault(who.id, f"{voice['sounds'].strip()}. Real and natural, not a narrator.")
+    return out
+
+
+def design(db: Session, user, project: Project, data: dict) -> str:
+    """Queue one design for each speaker with no sample (paid from the video's budget, a few
+    cents each). The run waits for them as it waits for any job of the video's."""
+    from app.routes.jobs import enqueue
+
+    asked = undesigned(db, project, data)
+    for item_id, words in asked.items():
+        enqueue(db, user, "voice", {"model": MODEL, "step": STEP, "library_item_id": item_id,
+                                    "input": {"voice_description": words}},
+                project=project, provider="elevenlabs")  # fmt: skip
+    names = ", ".join(db.get(LibraryItem, i).name for i in asked)
+    return f"Designing a voice for {names}." if asked else "Every speaker has a voice already."
 
 
 def first(db: Session, project: Project, data: dict) -> list[str]:
@@ -103,6 +139,14 @@ def after(db: Session, job: Job, storage) -> None:
     from app.host import _store
 
     project = db.get(Project, job.project_id or 0)
+    if project and job.input.get("step") == STEP:  # a designed voice is in: theirs from now on
+        who = db.get(LibraryItem, job.input.get("library_item_id") or 0)
+        made = db.get(StoredFile, ((job.output or {}).get("file_ids") or [0])[0])
+        if who is not None and made is not None and not who.voice_file_id:
+            sound = _cut(storage.get(made.key), 0, LONGEST)  # its first seconds: KIE's 30 s
+            who.voice_file_id = _store(db, storage, project, sound, f"{who.name} voice.wav",
+                                       "audio/wav").id  # fmt: skip
+        return
     lines = job.input.get("lines") or []
     if job.kind != take_words.KIND or not project or not lines or job.input.get("silent"):
         return

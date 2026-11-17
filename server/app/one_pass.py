@@ -92,6 +92,8 @@ LONG = ("The prompt is too long for {model} ({n:,} of {most:,} characters). Shor
 # of the previous"; video 383 came out as "3 separate clips, not one chained camera")
 ONE_CAMERA = ("One continuous camera: the clips are made one at a time, each opening on the last "
               "frame of the one before.")  # fmt: skip
+DESIGN_VOICES = ("Each speaker gets a voice of their own, designed from the plan's words for it: "
+                 "a few seconds of it go with every clip they speak in.")  # fmt: skip
 VOICES_FIRST = ("Each speaker's longest line is filmed first: a few seconds of their voice "
                 "from it goes with their other clips, so they sound the same in all.")  # fmt: skip
 SEAM = ("<camera>\nThis video is one continuous camera: each clip after the first is made "
@@ -819,6 +821,9 @@ def state(db: Session, project: Project, run: dict, seen: dict) -> dict:
                             for j in reversed(mine) if j.status == JobStatus.failed), ""),
         "ok": bool(run.get("ok", True)), "hold": bool(run.get("hold")),
         "chained": chained(project),
+        # the speakers a voice is designed for, once a run, before any take (voice_carry.design)
+        "voices_to_design": bool(row and not run.get("designed") and voice_carry.hears(
+            breakdown.video_model(project)) and voice_carry.undesigned(db, project, row.data)),
         # the clips whose takes give each speaker a voice sample: made once a run, before the rest
         "voices_first": voice_carry.first(db, project, row.data) if row and not run.get(
             "voiced") and voice_carry.hears(breakdown.video_model(project)) else [],
@@ -889,6 +894,8 @@ def move(s: dict) -> dict:
         last = s["clips"][k - 1] if k else None  # its frame, unless it's a talker's or real
         after = last["clip_id"] if last and not (last["talker"] or last["footage"]) else None
         return _go("make_take", ONE_CAMERA, only=made[0]["clip_id"], after=after)
+    if made and s["voices_to_design"]:
+        return _go("design_voices", DESIGN_VOICES)
     voiced = [c["clip_id"] for c in made if c["clip_id"] in s["voices_first"]]
     if voiced and len(voiced) < len(made):
         return _go("make_take", VOICES_FIRST, first=voiced)
@@ -961,7 +968,7 @@ def act(db: Session, job: Job, storage) -> None:
     """A one-pass run's turn, acted on: its own steps (the plan, a wait, a stop, the delivery)
     here, a site action through the director's own tools (each its button's function, with
     its price, holds and refusals). A step refused twice running stops the run, saying why."""
-    from app import delivery, director, director_tools
+    from app import delivery, director, director_tools, voice_carry
 
     project = db.get(Project, job.project_id)
     move_, run = dict(job.output or {}), dict(job.input[RUN])
@@ -984,6 +991,9 @@ def act(db: Session, job: Job, storage) -> None:
     db.commit()  # the turn is kept whatever its step does
     if tool == "shoot_plan":
         result = queue(db, user, project, run)
+    elif tool == "design_voices":  # once a run: a failed design leaves the sample to a take
+        run["designed"] = True
+        result = voice_carry.design(db, user, project, clip_prompts.newest(db, project).data)
     else:
         if tool == "make_take":  # each clip as its looks are now, free: never a paid rewrite
             from app import footage_shot

@@ -196,6 +196,7 @@ STEPS = {
     "look_fit": "Checking a look",
     "fold_note": "Tidying a look's description",
     "item_check": "Checking a still or take",
+    "voice_design": "A designed voice",
 }
 LETTERS = "ABC"
 

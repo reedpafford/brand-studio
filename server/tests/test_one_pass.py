@@ -785,6 +785,38 @@ def test_each_speakers_voice_is_kept_from_one_clip_and_sent_with_their_others(
     assert voice_carry.first(db, _video(db), {**data, "clips": data["clips"][1:]}) == ["c3"]
 
 
+def test_each_speaker_gets_a_designed_voice_before_any_take(app, owner, db, monkeypatch):
+    """Reed, 17 Nov, after his by-hand test ("the voice and elevenlabs touch was amazing ... I
+    trust the directors choice on voice"): where ElevenLabs has its key, each speaker with no
+    sample gets a voice designed from the plan's words for it, once, before any take; every
+    clip is then made at once with it, and no clip is made first for a sample."""
+    from pydantic import SecretStr
+
+    from app import guides, voice_carry
+    from app.models.library import LibraryItem
+    from app.settings import get_settings
+
+    monkeypatch.setitem(guides.style("movie"), "video_model", "seedance-2.5-kie")
+    monkeypatch.setattr(get_settings(), "elevenlabs_api_key", SecretStr("a-key"))
+    monkeypatch.setattr(voice_carry, "_cut", lambda sound, a, b: sound)  # a stand-in sound
+    _delivered(app, owner, db, look="movie")
+    moves = [j.output for j in _jobs(db, "director")]
+    assert [m["why"] for m in moves if m["tool"] == "design_voices"] == [one_pass.DESIGN_VOICES]
+    assert not any(m.get("first") for m in moves)  # no clip made first for a sample
+    designs = [j for j in db.query(Job) if j.input.get("step") == voice_carry.STEP]
+    assert [(j.provider, j.input["model"]) for j in designs] == [
+        ("elevenlabs", voice_carry.MODEL)] * 2  # fmt: skip
+    assert designs[0].input["input"]["voice_description"] == (
+        "a plain test voice, mid pitch, even pace. Real and natural, not a narrator.")  # fmt: skip
+    mia, leo = (db.query(LibraryItem).filter_by(name=n).one() for n in ("Mia", "Leo"))
+    assert mia.voice_file_id and leo.voice_file_id
+    takes = [j.input for j in _jobs(db, "clip_take")]
+    assert len(takes) == 3
+    for take in takes:
+        assert take["files"]["reference_audios"]
+        assert "[Audio1] is a recording of" in take["input"]["prompt"]
+
+
 def test_a_voice_that_cannot_be_cut_never_stops_the_run(app, owner, db, monkeypatch, tmp_path):
     """The stand-in takes have no sound to cut: every clip is still made and delivered. A real
     take's piece comes out as a WAV, and a line barely heard gives no sample."""

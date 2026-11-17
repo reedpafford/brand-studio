@@ -162,6 +162,17 @@
    "price_source": "Replicate model page 2026-10-29: $0.10 per thousand input characters"
   },
   {
+   "id": "elevenlabs-voice-design",
+   "name": "ElevenLabs voice design",
+   "kind": "voice",
+   "provider": "elevenlabs",
+   "provider_model": "text-to-voice/design",
+   "provider_version": "",
+   "default": false,
+   "price": {"unit": "call", "usd": {"any": 0.10}},
+   "price_source": "An estimate (17 Nov 2026): ElevenLabs' own API reports no price for a design; three short previews are a few hundred characters of speech, cents on its plans (elevenlabs.io/pricing). One call designs one speaker's voice (app/voice_carry.py)."
+  },
+  {
    "id": "minimax-speech-2.8-hd",
    "name": "MiniMax Speech 2.8 HD",
    "kind": "speech",

@@ -23,7 +23,8 @@ services:
       # look samples on Replicate when Reed switches them on (the only worker with its key)
       # ("google": Omni 1.2 straight from Google while BS_GOOGLE_API_KEY is set)
       # ("kie": Seedream sheets and Seedance takes of real-looking people, on the songs' KIE key)
-      BS_WORKER_PROVIDERS: '["fake", "replicate", "suno", "replicate-samples", "heygen", "google", "kie"]'
+      # ("elevenlabs": each speaker's designed voice, while ELEVENLABS_API_KEY is set)
+      BS_WORKER_PROVIDERS: '["fake", "replicate", "suno", "replicate-samples", "heygen", "google", "kie", "elevenlabs"]'
       KIE_API_KEY: ${KIE_API_KEY:-}
   claude-worker:
     image: brand-studio-next-server
