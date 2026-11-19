@@ -26,9 +26,11 @@ from app.models.projects import Project
 log = logging.getLogger(__name__)
 SHORTEST, LONGEST, MOST = 1.5, 5.0, 5  # seconds of one sample; samples a take (KIE: 30 s in all)
 STEP, MODEL = "voice_design", "elevenlabs-voice-design"  # a speaker's designed voice (`design`)
-# True of a remake of the clip the sample was cut from too, whose lines are the sample's words
-LINE = ("[Audio{n}] is a recording of {who}'s voice: match its tone and accent for {who} only. "
-        "It is a sample of the voice; the words said are this clip's quoted lines.")  # fmt: skip
+# Seedance's own wording for a recording's role, placed with the pictures' lines; the voice is
+# then not described in words as well (RP14, 18 Nov: treble across clips spread 31 dB, then 8)
+LINE = "[Audio{n}] is used for {who}'s voice: its timbre, accent and speaking rate."
+KEEP = "Keep {who}'s voice the same from the first word to the last: the voice of [Audio{n}]."
+VOICES = re.compile(r" Voices: (.+)\.(?= No music, no subtitles\.$)")
 OFF = re.compile(r"\s*\(.*?\)")  # a speaker's "(V.O.)": never part of their name
 
 
@@ -165,9 +167,25 @@ def after(db: Session, job: Job, storage) -> None:
             log.exception("job %s: %s's voice sample couldn't be cut", job.id, who.name)
 
 
+def _bound(prompt: str, who: str, n: int) -> str:
+    """The prompt with `who`'s recording bound: its line after the last picture's (else the
+    scene's, else first), their worded voice gone from the Sound line, and the voice held."""
+    lines = prompt.split("\n")
+    at = max((i for i, x in enumerate(lines) if x.startswith(("[Image", "[Audio"))),
+             default=0 if lines[0].startswith("Scene context:") else -1)  # fmt: skip
+    for i, x in enumerate(lines):
+        if x.startswith("Sound:") and (m := VOICES.search(x)):
+            mine = f"{who.casefold()}, "
+            rest = "; ".join(v for v in m[1].split("; ") if not v.casefold().startswith(mine))
+            lines[i] = x[: m.start()] + (f" Voices: {rest}." if rest else "") + x[m.end() :]
+    lines.insert(at + 1, LINE.format(n=n, who=who))
+    return "\n".join([*lines, KEEP.format(n=n, who=who)])
+
+
 def send(db: Session, project: Project, shots: list[dict], take: dict, files: dict) -> None:
-    """The take's speakers' samples: each attached after any audio it has, and named in a
-    line at the prompt's end. A take that opens on its own start frame is sent that alone."""
+    """The take's speakers' samples: each attached after any audio it has, named in a line
+    with the pictures' lines, and its voice's words taken off the Sound line. A take that
+    opens on its own start frame is sent that alone."""
     if files.get("image"):
         return
     audios = files.setdefault("reference_audios", [])
@@ -176,6 +194,6 @@ def send(db: Session, project: Project, shots: list[dict], take: dict, files: di
         who = person(db, project, name)
         if who and who.voice_file_id and who.voice_file_id not in audios and len(audios) < MOST:
             audios.append(who.voice_file_id)
-            take["prompt"] += "\n" + LINE.format(n=len(audios), who=name)
+            take["prompt"] = _bound(take["prompt"], name, len(audios))
     if not audios:
         del files["reference_audios"]
