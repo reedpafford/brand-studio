@@ -24,6 +24,8 @@ Replicate's description of the `prompt` input: Seedance 2.5 "works best with det
 - **Upload characters in the order they first appear.** Mismatched characters is a known failure, and this is the official fix ([Guide § FAQ: Incorrect character-to-reference mapping][g]).
 - To make a reference image the opening frame, write it in the text: "Image 1 is the first frame." In reference mode this does not lock the aspect ratio, and the result will be close to the image but not exact ([Guide § First and last frames][g]).
 - Audio references need at least one image or video with them ([schema][rep-api]).
+- **A voice from a recording.** Give the recording one role, with the other asset roles at the top of the prompt, as that character's voice: the skill's own template is `@Audio1 is used for <character>'s <voice quality, dialogue, ambient sound, or music>`, and its worked example reads "@Audio1 is used for the Inspector's voice timbre and dialogue" ([Skill § Assign Asset Roles and Subject Mappings; § Generation with Reference Assets][skill]). "By default, the audio provides only voice quality, accent, speaking rate, and emotion"; the words spoken come from the prompt's own text ([Skill § Assign Asset Roles][skill]).
+- Once a recording carries the voice, do not describe that voice again in words, and do not describe again a view that a first-frame picture already shows: "repetitive rewriting may conflict with the asset itself" ([Skill § Assign Asset Roles][skill]; the same rule as "just point to it" above).
 
 ## 3. Dialogue and audio
 - Put spoken words in double quotes: `The man stopped and said: "Remember this moment."` The model makes matching lip movement and voice ([Replicate][rep]; [schema][rep-api] `generate_audio`). The skill uses `{}` for dialogue ([Skill § Sound, Dialogue, and Text][skill]). We call through Replicate, so we follow Replicate's quotes.
@@ -84,6 +86,24 @@ From the official FAQ ([Guide § FAQ][g]).
 - **Negative visual lists.** Describe what you want instead. Negatives are only supported for subtitles and audio ([Guide § Basic prompting techniques][g]).
 - **Names written on reference pictures as the only mapping** (see §2).
 - **Re-describing a reference** that is already accurate ([Guide][g]).
+
+## 9. Measured on our own videos (not from the official sources)
+What a finished video of ours showed, with the numbers. Each entry says what was changed and what was not isolated.
+
+**A voice recording, RP14 (Palace Guard talking head, 2026-11-18; Seedance 2.5 through KIE, 480p; one man, 21 clips).**
+- First pass: the recording's line was the last line of the prompt ("[Audio1] is a recording of the man's voice: match its tone and accent..."), the Sound line also described his voice in words, and the Sound line said "muffled campus sounds outside". Reed: "the voice gets weird and muffled". Measured on the voiced sound of each clip: treble above 4 kHz ran from -24 dB to -55 dB of the clip's level (a 31 dB spread; three clips had almost none), and median pitch from 109 to 137 Hz.
+- Second pass, all three replaced at once: the recording's role moved up with the picture roles ("[Audio1] is used for the man's voice: its timbre, accent and speaking rate."), the worded description of his voice removed, "muffled" removed ("His voice clear and close from the first word to the last; quiet campus sounds outside the closed windows."), and one closing line added ("Keep the man's voice the same from his first word to his last: the voice of [Audio1]."). The recording itself was changed too: 10 s of a clip Reed liked, in place of a designed voice reading other words. Result over 20 clips: treble from -26.6 to -34.6 dB (an 8 dB spread, none muffled), pitch 113 to 136 Hz. Reed: "those are good".
+- Not isolated: which of the four changes did most. Pitch still moves with how a line is delivered.
+- So: bind the recording at the top as the character's voice, do not describe the voice in words as well, and keep words about sound quality ("muffled", "distant", "echoing") out of the Sound line unless the voice itself should sound that way: the model applied "muffled" to him, not to the campus.
+
+**A first-frame picture for someone who stays in one spot, RP14.**
+- With the frame attached and the view also described in the shot ("a close view from just above the steering wheel..."), two clips left the frame's view: one went face-on, one drew the steering wheel the words named. With the frame only pointed to ("[Image1] is the first frame: begin on it, and keep its framing, camera angle, distance, light and background for the whole clip", and the shot saying "the close view of the first frame, held for the whole clip"), 18 of 18 clips held it.
+- Keep the frame the first picture: a product sent as the brand's saved product is attached before plain files and pushes the frame to second place; sent as a plain file it can follow the frame.
+
+**Smaller things, RP14 (one case each).**
+- A pronunciation note for a hard word made it worse. "anti-misfire" came out as "anti-missure" three times with notes such as "said clearly in three parts: anti, miss, fire", and once the note's own syllables were spoken aloud. With no note it came out right on the next take.
+- "She walks away from the camera" drew her facing the lens and walking backwards. "Seen from behind, her back and her backpack toward the camera: she walks forward, away from the camera" fixed it.
+- A designed voice (ElevenLabs) whose sample text was written by the design model read in the wrong register for the character. Giving the sample its own plain words in the character's register fixed it.
 
 [g]: https://docs.byteplus.com/en/docs/modelark/seedance-2-5-prompt-guide
 [skill]: https://arkdocs-en.tos-ap-southeast-1.volces.com/skills/artifacts/video-generation/sd25-pe/0.1.1/sd25-pe-0.1.1.zip
