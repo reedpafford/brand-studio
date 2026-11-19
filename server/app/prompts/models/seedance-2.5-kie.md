@@ -3,4 +3,4 @@ Planning for this model:
 - One clip holds a whole scene with its cuts and says the quoted lines itself, lip-synced. Fewer, longer shots work best: six to eight in a 25 s clip at most, one action each, back to back with no gaps.
 - A hurried or shouted line runs at up to four words a second. A shot is never padded past its line.
 - It holds each person from their own sheet: everyone a scene shows can be in its clip (four people and the place held in one), so a scene is never split to fit people.
-- It hears a voice sample: a speaker's later clips are sent a few seconds of them from an earlier one, so a voice carries. Still give each speaker few, exact voice words.
+- It hears a voice sample: a speaker's later clips are sent a few seconds of them from an earlier one, so a voice carries. Still give each speaker few, exact voice words: their voice is designed from them, and they are left out of a clip that carries the sample. Keep words for how a sound is heard (muffled, distant, echoing) off the room's sound unless the voice itself should sound that way: the model puts them on the voice.
