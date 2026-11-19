@@ -4,8 +4,6 @@ Reed, 13 Nov 2026, after Movie Ad 1 (RP5): "what we just made, and the flow of h
 
 This is that workflow, for any style or format. It is how an agent works a video with Reed from a script to a finished cut. It is not a style guide: what a style looks like stays in its guide. Where this file and a style guide differ on how the pictures look, the guide wins; on how the work is done, this file wins.
 
-RP5 itself is kept as the worked example in `tools/movie_ad/` (the breakdown of every clip as it was sent, the filming, the checking and the finish). Its day-by-day record is `.context/MOVIE-HANDOFF.md` in the skopje workspace.
-
 ## The order of work
 
 | # | Step | What Reed sees | Gate |
@@ -70,8 +68,6 @@ This is the thinking that turned RP5's script into clips. It is the same for any
 6. **One look line and one sound line for the clip.** The look is the style's own words, short. The sound names what is heard and each voice in a few words; music is added in the edit.
 7. **Lay it out the way that model's maker shows.** For RP5's model that was: the scene in a paragraph, a line for each picture saying what to take from it, the timed shots, the look, the sound. Another model gets its own layout from its own guide; the six steps above do not change.
 8. **Price it from the seconds, then cut.** If the total is high, the plan has too many seconds, not too little budget.
-
-The whole of RP5 written this way, with every round of notes, is `tools/movie_ad/plan.py`.
 
 ## 6. References
 
