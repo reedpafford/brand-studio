@@ -72,3 +72,10 @@ The test: one fomo scene, 10 s, 480p, same seed and references (`server/evals/se
 - **Row 25:** still open.
 
 **Cost tracking.** Replicate returned **no usage metrics** for `bytedance/seedance-2.5` (no `video_output_duration_seconds`). The adapter already falls back to the requested duration × the catalogue price and marks the cost `estimated` (`app/providers/replicate.py` `_usage`). So every Seedance 2.5 cost is an estimate until the Treasurer checks it against Replicate's bill.
+
+## Measured on RP14 (2026-11-18): row 12, the voice recording
+Row 12's change (bind the voice with the references) was tested on a real video; the numbers are in [seedance-2.5.md §9](seedance-2.5.md#9-measured-on-our-own-videos-not-from-the-official-sources). What it means for our flow, for the site chat to make on Reed's word:
+- **The site** (`server/app/voice_carry.py`, `LINE`): the recording's line is added at the end of the prompt and reads "is a recording of {who}'s voice: match its tone and accent". Move it up with the References and word it as the guide does: `[Audio{n}] is used for {who}'s voice: its timbre, accent and speaking rate.`
+- **The director's notes** (`server/app/prompts/models/seedance-2.5-kie.md`: "Still give each speaker few, exact voice words"): when a recording goes with the clip, the voice is not described in words as well.
+- **By-hand ads** (`.context/baselines/*/film.py` and `plan.py` in the skopje workspace): the same two changes.
+- Everywhere: no word about sound quality ("muffled", "distant") in the Sound line unless the voice should sound that way.
