@@ -70,3 +70,16 @@ def test_a_quick_clip_on_avatar_6_is_one_still_and_one_voice_priced_by_the_voice
     assert job.input["files"] == {"image": [still], "audio": [voice]}
     assert job.input["input"]["motion_prompt"] == "She talks to the lens, easy nods."
     assert job.input["input"]["resolution"] == "1080p" and job.input["input"]["duration"] == 13
+
+
+def test_a_still_is_one_upright_picture_from_words_drawn_by_seedream(
+        owner, editor, fomo, db):  # noqa: F811  # fmt: skip
+    words = "A man of fifty sits at a podcast microphone, a phone photo."
+    ask = {"brand_id": fomo["brand"], "prompt": words}
+    assert editor.post("/clips/still", json=ask).status_code == 403  # Seedream is the owner's
+    made = owner.post("/clips/still", json=ask)
+    assert made.status_code == 201, made.text
+    job = db.get(Job, made.json()["id"])
+    assert job.kind == "image" and job.provider == "kie" and job.input["step"] == "still"
+    assert job.input["model"] == "seedream-5.5" and job.input["input"]["prompt"] == words
+    assert job.input["input"]["aspect_ratio"] == "9:16"
