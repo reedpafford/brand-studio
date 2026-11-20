@@ -8,7 +8,13 @@ Credentials: HEYGEN_API_KEY, sent only to the API in the x-api-key header, never
 hosts, never logged; with none, nothing is sent (NoKey). HeyGen doesn't report a price: the
 cost is the video's `duration` at the measured rate (batch-b and th-20s: $0.037-0.039 a second
 at 720p), marked as an estimate; credits and quotes use the catalogue's rounded-up $0.05. A 429
-(rate limit or concurrency) never started: tried again later."""
+(rate limit or concurrency) never started: tried again later.
+
+Avatar 6 and Avatar 6 Turbo (developers.heygen.com/docs/models/avatar-6, read 20 Nov 2026) take a
+raw still only on the Model API: both files uploaded as assets, POST /v3/models/avatars {model,
+reference_images, audio, resolution, motion_prompt}, checked at GET /v3/models/videos/{id}. The
+clip runs the length of the audio and takes the still's shape; its cost is its `duration` at
+the published rate (RATES). NO REAL TAKE HAS BEEN MADE WITH THIS PATH YET."""
 
 import base64
 import re
@@ -23,6 +29,8 @@ DATA = re.compile(r"data:([\w/+.-]+);base64,(.*)", re.S)
 SENT = ("aspect_ratio", "resolution", "expressiveness", "motion_prompt", "title")
 WAITING = ("pending", "processing", "waiting")
 MEASURED = Decimal("0.039")  # dollars a second at 720p, from the wallet (batch-b, th-20s)
+RATES = {"heygen-avatar-6-turbo": Decimal("0.05"), "heygen-avatar-6": Decimal("0.10")}  # 1080p
+MODELS = "models:"  # a Model API video's reference: checked on its own path
 
 
 class HeyGenProvider:
@@ -63,9 +71,23 @@ class HeyGenProvider:
         """`input` is the job's: {"model", "input": {image, audio (data URLs), SENT...}}."""
         given = input["input"]
         sound_type, sound = _data(given["audio"])
-        asset = self._call("POST", "/v3/assets",
-                           files={"file": ("voice.mp3", sound, sound_type)})  # fmt: skip
+        name = "voice.wav" if "wav" in sound_type else "voice.mp3"
+        asset = self._call("POST", "/v3/assets", files={"file": (name, sound, sound_type)})
         picture_type, picture = _data(given["image"])
+        if input.get("model") in RATES:  # Avatar 6: a raw still goes to the Model API alone
+            still = self._call(
+                "POST",
+                "/v3/assets",
+                files={"file": (f"still.{picture_type.split('/')[-1]}", picture, picture_type)},
+            )
+            ref = lambda a: {"type": "asset_id", "asset_id": a.get("asset_id") or a["id"]}  # noqa: E731
+            body = {
+                "model": input["model"],
+                "reference_images": [ref(still)],
+                "audio": ref(asset),
+                **{k: given[k] for k in ("resolution", "motion_prompt") if given.get(k)},
+            }
+            return MODELS + self._call("POST", "/v3/models/avatars", json=body)["video_id"]
         body = {"type": "image", "audio_asset_id": asset.get("asset_id") or asset["id"],
                 "image": {"type": "base64", "media_type": picture_type,
                           "data": base64.b64encode(picture).decode()},
@@ -73,7 +95,9 @@ class HeyGenProvider:
         return self._call("POST", "/v3/videos", json=body)["video_id"]
 
     def poll(self, ref: str) -> Result:
-        video = self._call("GET", f"/v3/videos/{ref}")
+        new = ref.startswith(MODELS)
+        video = self._call("GET", f"/v3/models/videos/{ref.removeprefix(MODELS)}" if new
+                           else f"/v3/videos/{ref}")  # fmt: skip
         status = video.get("status")
         if status in WAITING:
             return Result("running")
@@ -81,7 +105,8 @@ class HeyGenProvider:
             said = f"{video.get('failure_code') or status}: {video.get('failure_message') or ''}"
             return Result("failed", error=said.strip(": "))
         seconds = Decimal(str(video.get("duration") or 0))
-        usage = [UsageItem(seconds, "second", seconds * MEASURED)]
+        rate = RATES.get(video.get("model"), RATES["heygen-avatar-6"]) if new else MEASURED
+        usage = [UsageItem(seconds, "second", seconds * rate)]
         return Result("succeeded", output={}, files=[video["video_url"]], usage=usage)
 
     def _allowed(self, url: str) -> bool:
