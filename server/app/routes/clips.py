@@ -22,6 +22,7 @@ from app.auth import current_user
 from app.catalogue import CatalogueModel, get_model
 from app.credits import estimate, over_allowance, someone_elses_quick_clip
 from app.db import get_db, utcnow
+from app.images import image_job_input
 from app.models.accounts import User
 from app.models.brands import Brand, BrandScreen
 from app.models.files import StoredFile
@@ -343,6 +344,28 @@ def create_clip(
         units=body.duration,
         provider="replicate",
     )
+
+
+class StillIn(BaseModel):
+    brand_id: int
+    prompt: Prompt
+    aspect_ratio: str = "9:16"
+    resolution: str = "2K"
+
+
+@router.post("/still", response_model=JobOut, status_code=201,
+             dependencies=[Depends(generation_on)])  # fmt: skip
+def create_still(body: StillIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """One picture from words alone, drawn by Seedream 5.5 as it is written (Reed, 20 Nov: a
+    talking head's still, "have seedream make the still, then put it in heygen"). The owner's:
+    Seedream is in no picker."""
+    get_brand(db, user, body.brand_id)
+    if not user.is_owner:
+        raise HTTPException(403, "Only the owner draws a still from words.")
+    job = image_job_input(get_model("seedream-5.5"), body.prompt, body.aspect_ratio,
+                          resolution=body.resolution)  # fmt: skip
+    return enqueue(db, user, "image", {**job, "brand_id": body.brand_id, "step": "still"},
+                   provider="replicate")  # fmt: skip
 
 
 @router.get("/{job_id}/request", response_model=ClipIn)

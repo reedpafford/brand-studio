@@ -5348,6 +5348,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clips/still": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Still
+         * @description One picture from words alone, drawn by Seedream 5.5 as it is written (Reed, 20 Nov: a
+         *     talking head's still, "have seedream make the still, then put it in heygen"). The owner's:
+         *     Seedream is in no picker.
+         */
+        post: operations["create_still_clips_still_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clips/{job_id}/request": {
         parameters: {
             query?: never;
@@ -12688,6 +12710,23 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /** StillIn */
+        StillIn: {
+            /** Brand Id */
+            brand_id: number;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Aspect Ratio
+             * @default 9:16
+             */
+            aspect_ratio: string;
+            /**
+             * Resolution
+             * @default 2K
+             */
+            resolution: string;
         };
         /** StoryChoice */
         StoryChoice: {
@@ -24764,6 +24803,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ClipIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_still_clips_still_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StillIn"];
             };
         };
         responses: {
