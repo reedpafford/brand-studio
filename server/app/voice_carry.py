@@ -28,7 +28,9 @@ SHORTEST, LONGEST, MOST = 1.5, 5.0, 5  # seconds of one sample; samples a take (
 STEP, MODEL = "voice_design", "elevenlabs-voice-design"  # a speaker's designed voice (`design`)
 # Seedance's own wording for a recording's role, placed with the pictures' lines; the voice is
 # then not described in words as well (RP14, 18 Nov: treble across clips spread 31 dB, then 8)
-LINE = "[Audio{n}] is used for {who}'s voice: its timbre, accent and speaking rate."
+# The second sentence: without it 3 of RP19's 26 clips spoke the sample's own words first (20 Nov)
+LINE = ("[Audio{n}] is used for {who}'s voice: its timbre, accent and speaking rate. "
+        "It is a sample of the voice only: none of its own words are said.")  # fmt: skip
 KEEP = "Keep {who}'s voice the same from the first word to the last: the voice of [Audio{n}]."
 VOICES = re.compile(r" Voices: (.+)\.(?= No music, no subtitles\.$)")
 OFF = re.compile(r"\s*\(.*?\)")  # a speaker's "(V.O.)": never part of their name

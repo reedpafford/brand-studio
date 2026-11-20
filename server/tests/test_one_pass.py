@@ -778,7 +778,8 @@ def test_each_speakers_voice_is_kept_from_one_clip_and_sent_with_their_others(
     assert cuts == [(0.4, 2.12), (1.98, 4.0)] and leo.voice_file_id  # each line as it was heard
     assert last["files"]["reference_audios"] == [mia.voice_file_id]  # only Mia speaks in clip 3
     said = last["input"]["prompt"].splitlines()  # the recording's line sits with the pictures'
-    role = "[Audio1] is used for Mia's voice: its timbre, accent and speaking rate."
+    role = ("[Audio1] is used for Mia's voice: its timbre, accent and speaking rate. "
+            "It is a sample of the voice only: none of its own words are said.")  # fmt: skip
     shot = next(i for i, x in enumerate(said) if x.startswith("Shot 1"))
     assert role in said and said.index(role) < shot
     assert said[-1] == voice_carry.KEEP.format(who="Mia", n=1)
