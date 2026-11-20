@@ -6,6 +6,7 @@ picture ("[Image1] is Aiden.") and '@Name' becomes its [ImageN]; the editor's wo
 written. Files are passed by id; the worker sends them (images scaled to the video's size)
 when the job starts."""
 
+import math
 import re
 from datetime import timedelta
 from decimal import Decimal
@@ -163,6 +164,12 @@ def _plan(db: Session, user: User, body: ClipIn, storage: Storage) -> _Plan:
     if files["reference_audios"] and not (files["reference_images"] or files["reference_videos"]):
         raise HTTPException(422, "Audio references need at least one image or video with them.")
     _check_media_length(db, storage, model, files)
+    if model.provider == "heygen":  # a talker: one still, one voice; as long as the voice
+        if not (len(files["reference_images"]) == 1 and len(files["reference_audios"]) == 1):
+            raise HTTPException(422, f"{model.name} takes one still and one voice recording.")
+        voice = db.get(StoredFile, files["reference_audios"][0])
+        seconds = media_seconds(storage.get(voice.key), voice.content_type)
+        body.duration = max(1, math.ceil(seconds))  # what it is priced and charged at
     if body.last_frame_file_id and not body.first_frame_file_id:
         raise HTTPException(422, "An end frame needs a start frame too.")
     if body.first_frame_file_id:
@@ -258,6 +265,12 @@ def _job_input(
     model: CatalogueModel, body: ClipIn, files: dict, prompt: str, exact: list[int]
 ) -> dict:
     resolution = body.resolution or model.take_resolution
+    if model.provider == "heygen":  # the still, the voice and the motion words, as they are
+        return {"model": model.id, "brand_id": body.brand_id, "fit_images_to": 1920,
+                "input": {"resolution": resolution, "motion_prompt": body.prompt,
+                          "duration": body.duration},
+                "files": {"image": files["reference_images"], "audio": files["reference_audios"]},
+                "request": body.model_dump()}  # fmt: skip
     take, sent = p_video.fit(
         model.id,
         {
